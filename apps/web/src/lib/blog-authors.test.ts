@@ -58,6 +58,12 @@ describe('OgaBassey blog author profile helpers', () => {
     expect(hasBlogAuthorPage('Bolakale', 'another-store')).toBe(false);
   });
 
+  it('does not resolve inherited Object keys as author profiles', () => {
+    expect(getBlogAuthorBySlug('constructor', 'ogabassey')).toBeNull();
+    expect(hasBlogAuthorPage('constructor', 'ogabassey')).toBe(false);
+    expect(getBlogAuthorSameAs('constructor', 'ogabassey')).toEqual([]);
+  });
+
   it('lists the known author slugs for OgaBassey static author routes', () => {
     expect(getBlogAuthorSlugs()).toEqual(['bassey-john', 'bolakale']);
   });

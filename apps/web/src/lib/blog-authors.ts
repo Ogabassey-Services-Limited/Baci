@@ -39,6 +39,12 @@ const BLOG_AUTHOR_PROFILES: Record<string, BlogAuthorProfile> = {
   },
 };
 
+function getBlogAuthorProfile(slug: string): BlogAuthorProfile | undefined {
+  return Object.hasOwn(BLOG_AUTHOR_PROFILES, slug)
+    ? BLOG_AUTHOR_PROFILES[slug]
+    : undefined;
+}
+
 const OGABASSEY_AUTHOR_TENANT_IDENTIFIERS = new Set([
   'ogabassey',
   'ogabassey.com',
@@ -62,7 +68,7 @@ export function getBlogAuthorSameAs(
     return [];
   }
 
-  const profile = BLOG_AUTHOR_PROFILES[generateSlug(authorName)];
+  const profile = getBlogAuthorProfile(generateSlug(authorName));
   return profile ? [...profile.sameAs] : [];
 }
 
@@ -78,7 +84,7 @@ export function getBlogAuthorBySlug(
     return null;
   }
 
-  const profile = BLOG_AUTHOR_PROFILES[slug.toLowerCase()];
+  const profile = getBlogAuthorProfile(slug.toLowerCase());
   return profile ? { name: profile.name, sameAs: [...profile.sameAs] } : null;
 }
 
@@ -90,7 +96,7 @@ export function hasBlogAuthorPage(
   if (!authorName || !canUseOgabasseyAuthorProfiles(tenantIdentifier)) {
     return false;
   }
-  return generateSlug(authorName) in BLOG_AUTHOR_PROFILES;
+  return Boolean(getBlogAuthorProfile(generateSlug(authorName)));
 }
 
 /** All known author-page slugs (for `generateStaticParams`). */

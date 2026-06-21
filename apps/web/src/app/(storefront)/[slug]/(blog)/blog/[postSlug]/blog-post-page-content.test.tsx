@@ -19,6 +19,7 @@ const {
   mockNextImage,
   mockBlogPostHeader,
   mockBlogPostBody,
+  mockHasBlogAuthorPage,
 } = vi.hoisted(() => ({
   mockBlogPostBodyFallback: vi.fn((_props: unknown) => null as ReactNode),
   mockDraftMode: vi.fn(),
@@ -38,6 +39,9 @@ const {
     <h1>{title}</h1>
   )),
   mockBlogPostBody: vi.fn((_props?: unknown) => null),
+  mockHasBlogAuthorPage: vi.fn(
+    (_authorName?: unknown, _tenant?: unknown) => true
+  ),
 }));
 
 vi.mock('lucide-react', () => ({
@@ -120,7 +124,15 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateBlogPostSchema: (data: unknown) => mockGenerateBlogPostSchema(data),
   generateBreadcrumbSchema: () => ({}),
-  generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
+  generateSlug: (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, ''),
 }));
 
 vi.mock('@/lib/blog-organization-schema', () => ({
@@ -132,7 +144,7 @@ vi.mock('@/lib/blog-organization-schema', () => ({
 
 vi.mock('@/lib/blog-authors', () => ({
   getBlogAuthorSameAs: () => ['https://www.linkedin.com/in/michael-bolakale'],
-  hasBlogAuthorPage: () => true,
+  hasBlogAuthorPage: (...args: unknown[]) => mockHasBlogAuthorPage(...args),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -164,7 +176,7 @@ vi.mock('./BlogPostHeader', () => ({
     title: string;
     locale?: string;
     author_bio: string | null;
-    author_name: string;
+    author_name: string | null;
     author_title: string | null;
     category: string | null;
     published_at: string | null;
@@ -237,9 +249,11 @@ describe('BlogPostPageContent', () => {
     mockBlogPostBodyFallback.mockReset();
     mockNextImage.mockReset();
     mockGenerateBlogPostSchema.mockReset();
+    mockHasBlogAuthorPage.mockReset();
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
     mockGenerateBlogPostSchema.mockReturnValue({});
+    mockHasBlogAuthorPage.mockReturnValue(true);
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
       new Headers({
@@ -618,6 +632,69 @@ describe('BlogPostPageContent', () => {
           id: 'https://ogabassey.com#author-bolakale',
           url: 'https://ogabassey.com/blog/author/bolakale',
         }),
+      })
+    );
+  });
+
+  it('falls back to the store URL and omits byline href when no author hub exists', async () => {
+    mockHasBlogAuthorPage.mockReturnValue(false);
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        author: expect.objectContaining({
+          id: undefined,
+          url: 'https://ogabassey.com',
+        }),
+      })
+    );
+    expect(mockBlogPostHeader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorHref: undefined,
+      })
+    );
+  });
+
+  it('renders blog posts without an author name without trying to build an author slug', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        author_name: null,
+      },
+    });
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockHasBlogAuthorPage).not.toHaveBeenCalled();
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        author: expect.objectContaining({
+          name: 'Ogabassey',
+          id: undefined,
+          url: 'https://ogabassey.com',
+        }),
+      })
+    );
+    expect(mockBlogPostHeader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorHref: undefined,
+        author_name: null,
       })
     );
   });

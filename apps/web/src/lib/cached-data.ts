@@ -31,6 +31,7 @@ import {
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 import { selectSemanticRelatedBlogPosts } from '@/lib/semantic-related-blog-posts';
+import { generateSlug } from '@/lib/seo-utils';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
@@ -49,6 +50,7 @@ import {
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
 const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
+const BLOG_AUTHOR_POST_FETCH_LIMIT = 120;
 
 /**
  * Stock quantity shown to storefront when a variant using
@@ -2798,7 +2800,7 @@ export async function getCachedBlogListing(
 
 /**
  * Cached published posts + denormalized identity for a single blog author,
- * keyed by exact `author_name`. Powers the `/blog/author/<slug>` pages. The
+ * matched by generated author slug. Powers the `/blog/author/<slug>` pages. The
  * author's title/bio/headshot are read from the most recent post (they are
  * denormalized identically across an author's posts); `sameAs` is supplied
  * separately from the in-code author registry.
@@ -2809,7 +2811,11 @@ export async function getCachedBlogAuthor(
   options?: { page?: number }
 ) {
   'use cache';
-  const page = options?.page || 1;
+  const requestedPage = options?.page ?? 1;
+  const page =
+    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const authorSlug = generateSlug(authorName);
+  if (!authorSlug) return null;
   cacheLife('merchant');
   cacheTag(
     'blog-posts',
@@ -2836,7 +2842,7 @@ export async function getCachedBlogAuthor(
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
-    .eq('author_name', authorName)
+    .not('author_name', 'is', null)
     .not('published_at', 'is', null)
     .not('title', 'is', null)
     .not('slug', 'is', null)
@@ -2845,9 +2851,9 @@ export async function getCachedBlogAuthor(
     .order('published_at', { ascending: false });
 
   query = applyPublicBlogSqlFilters(query);
-  query = query.range(offset, offset + limit - 1);
+  query = query.limit(BLOG_AUTHOR_POST_FETCH_LIMIT);
 
-  const { data: posts, count, error: postsError } = await query;
+  const { data: posts, error: postsError } = await query;
   if (postsError) {
     console.error('Failed to load blog author posts', {
       merchantId: merchant.id,
@@ -2857,9 +2863,13 @@ export async function getCachedBlogAuthor(
     throw postsError;
   }
 
-  const publicPosts = filterPublicBlogPosts(posts || []);
-  const identity = publicPosts[0];
+  const matchingPosts = filterPublicBlogPosts(posts || []).filter(
+    (post) => generateSlug(post.author_name ?? '') === authorSlug
+  );
+  const identity = matchingPosts[0];
   if (!identity) return null;
+
+  const publicPosts = matchingPosts.slice(offset, offset + limit);
 
   return {
     merchant: {
@@ -2870,15 +2880,15 @@ export async function getCachedBlogAuthor(
       custom_domain: merchant.custom_domain,
     },
     author: {
-      name: identity.author_name,
+      name: authorName,
       title: identity.author_title ?? null,
       bio: identity.author_bio ?? null,
       imageUrl: identity.author_image_url ?? null,
     },
     posts: publicPosts,
-    totalPosts: count ?? publicPosts.length,
+    totalPosts: matchingPosts.length,
     currentPage: page,
-    totalPages: Math.max(1, Math.ceil((count ?? publicPosts.length) / limit)),
+    totalPages: Math.max(1, Math.ceil(matchingPosts.length / limit)),
   };
 }
 

@@ -83,17 +83,19 @@ async function renderBlogPostContent({
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
-  const authorSlug = generateSlug(post.author_name);
+  const authorName = post.author_name?.trim() || merchant.business_name;
   const hasAuthorHub = Boolean(
     post.author_name && hasBlogAuthorPage(post.author_name, merchant.slug)
   );
-  const authorHref = hasAuthorHub
+  const authorSlug =
+    hasAuthorHub && post.author_name ? generateSlug(post.author_name) : null;
+  const authorHref = authorSlug
     ? `${basePath}/blog/author/${authorSlug}`
     : undefined;
-  const authorUrl = hasAuthorHub
+  const authorUrl = authorSlug
     ? `${baseUrl}/blog/author/${authorSlug}`
     : baseUrl;
-  const authorId = hasAuthorHub ? `${baseUrl}#author-${authorSlug}` : undefined;
+  const authorId = authorSlug ? `${baseUrl}#author-${authorSlug}` : undefined;
   const blogImageUrls = getBlogStructuredDataImageUrls(post);
   const blogImages = getBlogStructuredDataImages(post);
   const faqSchema = generateFaqPageSchema(extractBlogFaqItems(content));
@@ -110,12 +112,14 @@ async function renderBlogPostContent({
     datePublished: post.published_at,
     dateModified: post.updated_at,
     author: {
-      name: post.author_name,
+      name: authorName,
       id: authorId,
       url: authorUrl,
       jobTitle: post.author_title,
       description: post.author_bio,
-      sameAs: getBlogAuthorSameAs(post.author_name, merchant.slug),
+      sameAs: post.author_name
+        ? getBlogAuthorSameAs(post.author_name, merchant.slug)
+        : [],
       image: post.author_image_url ?? undefined,
     },
     publisher: {
