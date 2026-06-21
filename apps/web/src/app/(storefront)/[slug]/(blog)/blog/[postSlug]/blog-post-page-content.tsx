@@ -193,6 +193,8 @@ async function renderBlogPostContent({
                 alt={post.featured_image_alt || post.title}
                 fill
                 className="object-cover"
+                loading="eager"
+                fetchPriority="high"
                 preload
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
                 quality={75}

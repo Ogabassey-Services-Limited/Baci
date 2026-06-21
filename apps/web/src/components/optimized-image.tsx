@@ -14,7 +14,7 @@ import {
  *
  * Features:
  * - Blur placeholder during load (smooth UX)
- * - Fetch priority hints for LCP optimization
+ * - Next 16 preload and fetch priority hints for LCP optimization
  * - Automatic fallback for broken images
  * - Responsive sizing helpers
  * - Works with all merchant storefronts dynamically
@@ -36,8 +36,8 @@ interface OptimizedImageProps
    */
   fetchPriority?: FetchPriority;
   /**
-   * Whether this image is the Largest Contentful Paint candidate
-   * If true, will automatically set priority="high" and eagerly load
+   * Whether this image is the Largest Contentful Paint candidate.
+   * If true, maps to Next 16's `preload` prop and fetch priority hints.
    */
   isLCP?: boolean;
   /**
@@ -66,6 +66,7 @@ export function OptimizedImage({
   fetchPriority = 'auto',
   isLCP = false,
   priority,
+  preload,
   loading,
   category,
   layout,
@@ -81,10 +82,11 @@ export function OptimizedImage({
   const [imgSrc, setImgSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
 
-  // If marked as LCP image, override to high priority and eager loading
-  const finalPriority = isLCP ? true : priority;
-  const finalLoading = finalPriority ? undefined : isLCP ? 'eager' : loading;
-  const finalFetchPriority = isLCP ? 'high' : fetchPriority;
+  // Next 16 deprecates `priority`; keep the wrapper API backward compatible
+  // but pass `preload` to next/image so callers do not emit deprecated props.
+  const shouldPreload = Boolean(isLCP || preload || priority);
+  const finalLoading = shouldPreload ? undefined : loading;
+  const finalFetchPriority = shouldPreload ? 'high' : fetchPriority;
 
   // Generate blur placeholder
   const blur = disableBlur
@@ -115,7 +117,7 @@ export function OptimizedImage({
       src={validSrc}
       alt={alt}
       sizes={finalSizes}
-      priority={finalPriority}
+      preload={shouldPreload || undefined}
       loading={finalLoading}
       placeholder={blur ? 'blur' : 'empty'}
       blurDataURL={blur}

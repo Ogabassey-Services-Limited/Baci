@@ -18,17 +18,22 @@ interface OgabasseyBlogProps extends TemplateBlogPageProps {
   searchQuery?: string; // Optional search query for filtering
 }
 
+const OGABASSEY_BLOG_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+  year: 'numeric',
+});
+
 // Format date helper
 function formatDate(dateString: string): string {
-  try {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
     return dateString;
   }
+
+  return OGABASSEY_BLOG_DATE_FORMATTER.format(date);
 }
 
 export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
@@ -139,9 +144,12 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
                   Read Article <ArrowRight size={20} />
                 </span>
                 <span className="text-white/40">•</span>
-                <span className="text-white/80 text-sm">
+                <time
+                  className="text-white/80 text-sm"
+                  dateTime={featuredPost.published_at}
+                >
                   {formatDate(featuredPost.published_at)}
-                </span>
+                </time>
               </div>
             </div>
           </Link>
@@ -227,7 +235,10 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
                   <div className="p-6 flex flex-col flex-1">
                     <div className="flex items-center gap-4 text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider">
                       <span className="flex items-center gap-1">
-                        <Calendar size={12} className="text-red-500" /> {formatDate(post.published_at)}
+                        <Calendar size={12} className="text-red-500" />
+                        <time dateTime={post.published_at}>
+                          {formatDate(post.published_at)}
+                        </time>
                       </span>
                       <span className="size-1 rounded-full bg-gray-300"></span>
                       <span>{post.reading_time_minutes || 3} MIN READ</span>
