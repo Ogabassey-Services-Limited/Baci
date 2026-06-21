@@ -790,20 +790,14 @@ describe('BlogContentRenderer', () => {
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
-    it('serves legacy trusted inline backfill images as <picture>', () => {
+    it('leaves legacy inline images without generated sibling markers as plain images', () => {
       const src =
         'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
       const { container } = render(
         <BlogContentRenderer json={makeImageDoc(src)} />
       );
 
-      const picture = container.querySelector('picture');
-      expect(picture).toBeTruthy();
-      expect(
-        picture
-          ?.querySelector('source[type="image/avif"]')
-          ?.getAttribute('srcset')
-      ).toBe(`${src}.avif`);
+      expect(container.querySelector('picture')).toBeNull();
       expect(container.querySelector('img')?.getAttribute('src')).toBe(src);
     });
 
@@ -828,6 +822,27 @@ describe('BlogContentRenderer', () => {
       expect(images[0]).toHaveAttribute('fetchpriority', 'high');
       expect(images[0]).toHaveAttribute('loading', 'eager');
       expect(images[1]).toHaveAttribute('src', secondSrc);
+      expect(images[1]).not.toHaveAttribute('fetchpriority');
+      expect(images[1]).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('prioritizes only the first occurrence when an inline image URL repeats', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={doc(
+            { type: 'image', attrs: { src, alt: 'First occurrence' } },
+            paragraph(textNode('Middle copy')),
+            { type: 'image', attrs: { src, alt: 'Repeated occurrence' } }
+          )}
+        />
+      );
+
+      const images = Array.from(container.querySelectorAll('picture img'));
+      expect(images).toHaveLength(2);
+      expect(images[0]).toHaveAttribute('fetchpriority', 'high');
+      expect(images[0]).toHaveAttribute('loading', 'eager');
       expect(images[1]).not.toHaveAttribute('fetchpriority');
       expect(images[1]).toHaveAttribute('loading', 'lazy');
     });

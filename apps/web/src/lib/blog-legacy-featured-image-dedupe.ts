@@ -84,5 +84,9 @@ export function removeDuplicateLegacyFeaturedImage(
       ? paragraphRange
       : removalRange;
 
+  if (html.slice(0, finalRange.start).trim() !== '') {
+    return html;
+  }
+
   return `${html.slice(0, finalRange.start)}${html.slice(finalRange.end)}`;
 }

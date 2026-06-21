@@ -44,8 +44,9 @@ interface NodeRendererProps {
   baseUrl?: string;
   merchantSlug?: string;
   node: TipTapNode;
+  nodePath: string;
   index: number;
-  priorityInlineImageSrc?: string | null;
+  priorityInlineImage?: PriorityInlineImage | null;
 }
 
 interface BlogContentRendererProps {
@@ -55,6 +56,11 @@ interface BlogContentRendererProps {
   json: any;
   merchantSlug?: string;
   priorityInlineImageSrc?: string | null;
+}
+
+interface PriorityInlineImage {
+  src: string;
+  nodePath: string;
 }
 
 const TextRenderer = ({
@@ -162,8 +168,9 @@ const NodeRenderer = ({
   baseUrl,
   merchantSlug,
   node,
+  nodePath,
   index: _index,
-  priorityInlineImageSrc,
+  priorityInlineImage,
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer
@@ -173,8 +180,9 @@ const NodeRenderer = ({
       baseUrl={baseUrl}
       merchantSlug={merchantSlug}
       node={child}
+      nodePath={`${nodePath}.${i}`}
       index={i}
-      priorityInlineImageSrc={priorityInlineImageSrc}
+      priorityInlineImage={priorityInlineImage}
     />
   ));
 
@@ -265,7 +273,9 @@ const NodeRenderer = ({
         ? buildInlineImageSiblings(imageSrc)
         : null;
       const isPriorityInlineImage =
-        !!inlineSiblings && imageSrc === priorityInlineImageSrc;
+        !!inlineSiblings &&
+        imageSrc === priorityInlineImage?.src &&
+        nodePath === priorityInlineImage.nodePath;
       const imageContainer = (
         <div
           className={cn(
@@ -418,17 +428,29 @@ function parseBlogDoc(json: unknown): ParsedBlogDoc {
   return { kind: 'fallback' };
 }
 
-function findFirstTrustedInlineImageSrc(node: TipTapNode): string | null {
+function findFirstTrustedInlineImage(
+  node: TipTapNode,
+  nodePath: string,
+  targetSrc?: string
+): PriorityInlineImage | null {
   if (node.type === 'image') {
     const rawSrc = node.attrs?.src;
     const src = typeof rawSrc === 'string' ? sanitizeUrl(rawSrc) : '';
-    if (src?.startsWith('http') && isTrustedCdnInlineImage(src)) {
-      return src;
+    if (
+      src?.startsWith('http') &&
+      isTrustedCdnInlineImage(src) &&
+      (targetSrc === undefined || src === targetSrc)
+    ) {
+      return { src, nodePath };
     }
   }
 
-  for (const child of node.content ?? []) {
-    const found = findFirstTrustedInlineImageSrc(child);
+  for (const [index, child] of (node.content ?? []).entries()) {
+    const found = findFirstTrustedInlineImage(
+      child,
+      `${nodePath}.${index}`,
+      targetSrc
+    );
     if (found) {
       return found;
     }
@@ -452,10 +474,10 @@ export const BlogContentRenderer = ({
     return <SafeHtml html={typeof json === 'string' ? json : ''} />;
   }
 
-  const resolvedPriorityInlineImageSrc =
-    priorityInlineImageSrc === undefined
-      ? findFirstTrustedInlineImageSrc(parsed.doc)
-      : priorityInlineImageSrc;
+  const priorityInlineImage =
+    priorityInlineImageSrc === null
+      ? null
+      : findFirstTrustedInlineImage(parsed.doc, '0', priorityInlineImageSrc);
 
   return (
     <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
@@ -464,8 +486,9 @@ export const BlogContentRenderer = ({
         baseUrl={baseUrl}
         merchantSlug={merchantSlug}
         node={parsed.doc}
+        nodePath="0"
         index={0}
-        priorityInlineImageSrc={resolvedPriorityInlineImageSrc}
+        priorityInlineImage={priorityInlineImage}
       />
     </div>
   );

@@ -25,4 +25,10 @@ describe('removeDuplicateLegacyFeaturedImage', () => {
 
     expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(html);
   });
+
+  it('keeps a duplicate featured image when text appears before it', () => {
+    const html = `<p>Intro copy before the reused hero.</p><p><img src="${FEATURED}" alt="Hero" /></p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(html);
+  });
 });

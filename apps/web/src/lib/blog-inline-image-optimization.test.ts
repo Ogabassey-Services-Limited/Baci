@@ -28,10 +28,10 @@ describe('isTrustedCdnInlineImage', () => {
     ).toBe(true);
   });
 
-  it('accepts legacy trusted inline images from the backfill corpus', () => {
+  it('rejects legacy inline images without generated sibling markers', () => {
     expect(
       isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-12.png`)
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('rejects external, non-inline, sibling, and empty URLs', () => {
