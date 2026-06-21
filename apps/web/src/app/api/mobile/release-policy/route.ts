@@ -16,12 +16,37 @@ function readEnabledFlag() {
 
 function readPlatformEnv(
   platform: MobileReleasePolicyPlatform,
-  key: 'LATEST_VERSION' | 'MIN_VERSION' | 'STORE_URL'
+  key:
+    | 'LATEST_VERSION'
+    | 'MIN_VERSION'
+    | 'STORE_URL'
+    | 'LATEST_BUILD'
+    | 'MIN_BUILD'
 ) {
   return (
     process.env[`MOBILE_STOREFRONT_${platform.toUpperCase()}_${key}`]?.trim() ||
     null
   );
+}
+
+/**
+ * Parse a native build number (Android `versionCode`, iOS `CFBundleVersion`)
+ * into a non-negative integer, or `null` when absent/malformed.
+ *
+ * Build numbers are the reliable update signal: CI auto-increments them on every
+ * release (Android `versionCode = run_number + base`, iOS `CFBundleVersion =
+ * run_number`), whereas the marketing version can stay constant across builds
+ * (Android ships a fixed `2.0.0`). Gating on the build number is therefore the
+ * only check that works uniformly across both platforms.
+ */
+function parseBuildNumber(value: string | null) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  // Guard the empty/whitespace case explicitly: `Number('')` is 0, which would
+  // otherwise pass the integer/non-negative checks and read as build 0.
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function parseVersion(version: string | null) {
@@ -96,21 +121,38 @@ export function GET(request: NextRequest) {
     return disabledResponse();
   }
 
-  const { nativeVersion, platform } = parsedQuery.data;
+  const { buildNumber, nativeVersion, platform } = parsedQuery.data;
   const minNativeVersion = readPlatformEnv(platform, 'MIN_VERSION');
   const latestNativeVersion = readPlatformEnv(platform, 'LATEST_VERSION');
+  const minNativeBuild = parseBuildNumber(
+    readPlatformEnv(platform, 'MIN_BUILD')
+  );
+  const latestNativeBuild = parseBuildNumber(
+    readPlatformEnv(platform, 'LATEST_BUILD')
+  );
+  const installedBuild = parseBuildNumber(buildNumber);
   const storeUrl = readPlatformEnv(platform, 'STORE_URL');
   const message =
     process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() ||
     'A newer version of Ogabassey is available.';
 
+  // Required/recommended is the OR of two independent signals: the marketing
+  // version (useful where it increments, e.g. iOS) and the build number (the
+  // only signal that moves on every Android release). Either crossing its
+  // threshold triggers the prompt.
   const nativeUpdateRequired =
-    minNativeVersion !== null &&
-    compareVersions(nativeVersion, minNativeVersion) < 0;
+    (minNativeVersion !== null &&
+      compareVersions(nativeVersion, minNativeVersion) < 0) ||
+    (installedBuild !== null &&
+      minNativeBuild !== null &&
+      installedBuild < minNativeBuild);
   const nativeUpdateRecommended =
     nativeUpdateRequired ||
     (latestNativeVersion !== null &&
-      compareVersions(nativeVersion, latestNativeVersion) < 0);
+      compareVersions(nativeVersion, latestNativeVersion) < 0) ||
+    (installedBuild !== null &&
+      latestNativeBuild !== null &&
+      installedBuild < latestNativeBuild);
 
   return NextResponse.json(
     {
