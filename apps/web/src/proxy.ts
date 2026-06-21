@@ -65,6 +65,8 @@ const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
+const ANALYTICS_CONVERSION_API_PATH = '/api/analytics/conversion';
+const LEGACY_ANALYTICS_CONVERSION_PATH = '/analytics/conversion';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
@@ -951,7 +953,10 @@ function getRouteType(
     return 'auth';
   }
 
-  if (pathname.startsWith('/api')) {
+  if (
+    pathname.startsWith('/api') ||
+    pathname === LEGACY_ANALYTICS_CONVERSION_PATH
+  ) {
     return 'api';
   }
 
@@ -1454,10 +1459,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const isLegacyAnalyticsConversion =
+    pathname === LEGACY_ANALYTICS_CONVERSION_PATH;
   const isLegacyKlumpWebhook = isLegacyKlumpWooCommerceWebhookPath(pathname);
   const apiSecurityPathname = isLegacyKlumpWebhook
     ? KLUMP_WEBHOOK_API_PATH
-    : pathname;
+    : isLegacyAnalyticsConversion
+      ? ANALYTICS_CONVERSION_API_PATH
+      : pathname;
 
   const noTrailingSlashPathname = isLegacyKlumpWebhook
     ? null
@@ -2857,7 +2866,7 @@ function applySecurityHeaders(
   }
 
   // No cache for authenticated routes
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
+  if (pathname.startsWith('/dashboard') || routeType === 'api') {
     response.headers.set(
       'Cache-Control',
       'no-cache, must-revalidate, max-age=0'

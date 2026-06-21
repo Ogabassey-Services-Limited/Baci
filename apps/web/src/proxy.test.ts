@@ -1028,6 +1028,70 @@ describe('Middleware Proxy', () => {
     expect(getCustomDomainForSlug).not.toHaveBeenCalled();
   });
 
+  it('applies API rate limiting and cache policy to the legacy analytics conversion alias', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/analytics/conversion`, {
+      body: '{}',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: `https://${ROOT_DOMAIN}`,
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toBe(403);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'no-cache, must-revalidate, max-age=0'
+    );
+    expect(res.headers.get('x-pathname')).toBe('/analytics/conversion');
+  });
+
+  it('applies API payload size protection to the legacy analytics conversion alias', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/analytics/conversion`, {
+      body: '{}',
+      headers: {
+        'Content-Length': String(2 * 1024 * 1024 + 1),
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(413);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Payload too large',
+      maxSize: '2MB',
+    });
+  });
+
+  it('applies API Origin protection to the legacy analytics conversion alias', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/analytics/conversion`, {
+      body: '{}',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://attacker.example',
+      },
+      method: 'POST',
+    });
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('attacker.example');
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Cross-origin request blocked',
+    });
+  });
+
   it.each([
     '/wc-api/klp_wc_payment_webhook',
     '/wc-api/klp_wc_payment_webhook/',
