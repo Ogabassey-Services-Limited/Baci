@@ -1,0 +1,294 @@
+import { jest } from '@jest/globals';
+import { render, screen } from '@testing-library/react-native';
+import type { Block } from '@/types/blocks';
+import type { Product } from '@/types/product';
+import { HomeFeedList } from './HomeFeedList';
+import { useHomeProductFeed } from './use-home-product-feed';
+
+const mockScrollToOffset = jest.fn();
+
+type MockHomeFeedListItem =
+  | { kind: 'product'; product: Product }
+  | { kind: 'product-list-end'; id: string };
+
+jest.mock('@shopify/flash-list', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  const FlashList = React.forwardRef(
+    (props: Record<string, unknown>, ref: React.Ref<unknown>) => {
+      React.useImperativeHandle(ref, () => ({
+        scrollToOffset: mockScrollToOffset,
+      }));
+      const {
+        data = [],
+        renderItem,
+        ListHeaderComponent,
+        ListFooterComponent,
+        ListEmptyComponent,
+        ...rest
+      } = props as {
+        data?: MockHomeFeedListItem[];
+        renderItem?: (info: {
+          item: MockHomeFeedListItem;
+          index: number;
+          target: 'Cell';
+        }) => React.ReactNode;
+        ListHeaderComponent?: React.ReactNode;
+        ListFooterComponent?: React.ReactNode;
+        ListEmptyComponent?: React.ReactNode;
+      };
+      return React.createElement(
+        View,
+        { testID: 'home-feed-list', ...rest },
+        ListHeaderComponent,
+        data.length === 0
+          ? ListEmptyComponent
+          : data.map((item, index) =>
+              React.createElement(
+                React.Fragment,
+                {
+                  key: item.kind === 'product' ? item.product.id : item.id,
+                },
+                renderItem?.({ item, index, target: 'Cell' })
+              )
+            ),
+        ListFooterComponent
+      );
+    }
+  );
+  return { __esModule: true, FlashList };
+});
+
+jest.mock('./use-home-product-feed', () => ({
+  useHomeProductFeed: jest.fn(),
+}));
+
+jest.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({ colors: { text: '#000000' } }),
+}));
+
+jest.mock('@/components/storefront/BlockRenderer', () => {
+  const { View, Text } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return {
+    BlockRenderer: ({ blocks }: { blocks: Block[] }) => (
+      <View testID="block-renderer">
+        <Text>{blocks.length}</Text>
+      </View>
+    ),
+  };
+});
+
+jest.mock('@/components/storefront/FilterBar', () => {
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return { FilterBar: () => <View testID="filter-bar" /> };
+});
+
+jest.mock('@/components/storefront/ProductCard', () => {
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return {
+    ProductCard: ({ product }: { product: Product }) => (
+      <View testID="product-card" accessibilityLabel={product.id} />
+    ),
+  };
+});
+
+jest.mock('@/components/storefront/HomeServiceCards', () => {
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return { HomeServiceCards: () => <View testID="home-service-cards" /> };
+});
+
+jest.mock('@/components/ui/Skeleton', () => {
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return { ProductGridSkeleton: () => <View testID="grid-skeleton" /> };
+});
+
+const mockUseHomeProductFeed = useHomeProductFeed as jest.MockedFunction<
+  typeof useHomeProductFeed
+>;
+
+function product(id: string): Product {
+  return {
+    id,
+    name: `Product ${id}`,
+    slug: `product-${id}`,
+    price: 1000,
+    image: `https://cdn.example.com/${id}.jpg`,
+    images: [`https://cdn.example.com/${id}.jpg`],
+  };
+}
+
+function feed(
+  overrides: Partial<ReturnType<typeof useHomeProductFeed>> = {}
+): ReturnType<typeof useHomeProductFeed> {
+  return {
+    feedProducts: [product('p1'), product('p2')],
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    isRetrying: false,
+    hasMore: true,
+    loadMore: jest.fn(),
+    isLoadingMore: false,
+    currentVariant: 'grid',
+    filterBarProps: {} as ReturnType<
+      typeof useHomeProductFeed
+    >['filterBarProps'],
+    handleRetry: jest.fn(),
+    shouldShowInitialLoading: false,
+    shouldShowFatalError: false,
+    feedResetKey: 'reset-1',
+    ...overrides,
+  };
+}
+
+const GRID_BLOCKS = [
+  { type: 'CategoryRail', props: { id: 'rail' } },
+  { type: 'ProductGrid', props: { id: 'grid', title: 'Shop the collection' } },
+] as unknown as Block[];
+
+function renderList(props: Partial<Parameters<typeof HomeFeedList>[0]> = {}) {
+  return render(
+    <HomeFeedList
+      blocks={GRID_BLOCKS}
+      primaryProductGridIndex={1}
+      selectedCategoryId={null}
+      onCategorySelect={jest.fn()}
+      onScroll={
+        jest.fn() as unknown as Parameters<typeof HomeFeedList>[0]['onScroll']
+      }
+      isSearchOpen={false}
+      refreshing={false}
+      onRefresh={jest.fn()}
+      primaryColor="#ff0000"
+      resolvedHeaderHeight={120}
+      contentBottomPadding={24}
+      {...props}
+    />
+  );
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockUseHomeProductFeed.mockReturnValue(feed());
+});
+
+describe('HomeFeedList', () => {
+  it('renders the FilterBar, section title, and a cell per product when a grid exists', () => {
+    renderList();
+
+    expect(screen.getByTestId('filter-bar')).toBeTruthy();
+    expect(screen.getByText('Shop the collection')).toBeTruthy();
+    expect(screen.getAllByTestId('product-card')).toHaveLength(2);
+  });
+
+  it('renders products for a single-column (list) variant', () => {
+    mockUseHomeProductFeed.mockReturnValue(feed({ currentVariant: 'list' }));
+    renderList();
+
+    expect(screen.getAllByTestId('product-card')).toHaveLength(2);
+  });
+
+  it('fires loadMore on onEndReached', () => {
+    const loadMore = jest.fn();
+    mockUseHomeProductFeed.mockReturnValue(feed({ loadMore }));
+    renderList();
+
+    screen.getByTestId('home-feed-list').props.onEndReached();
+
+    expect(loadMore).toHaveBeenCalled();
+  });
+
+  it('does not fire loadMore on onEndReached while the search overlay is open', () => {
+    const loadMore = jest.fn();
+    mockUseHomeProductFeed.mockReturnValue(feed({ loadMore }));
+    renderList({ isSearchOpen: true });
+
+    screen.getByTestId('home-feed-list').props.onEndReached();
+
+    expect(loadMore).not.toHaveBeenCalled();
+  });
+
+  it('builds a RefreshControl with the header offset and theme color', () => {
+    const onRefresh = jest.fn();
+    renderList({ onRefresh });
+
+    const { refreshControl } = screen.getByTestId('home-feed-list').props;
+    expect(refreshControl.props.onRefresh).toBe(onRefresh);
+    expect(refreshControl.props.progressViewOffset).toBe(120);
+    expect(refreshControl.props.tintColor).toBe('#ff0000');
+  });
+
+  it('renders the load-more progressbar with an accessible label', () => {
+    mockUseHomeProductFeed.mockReturnValue(feed({ isLoadingMore: true }));
+    renderList();
+
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+  });
+
+  it('renders the error+retry empty state on a fatal error', () => {
+    mockUseHomeProductFeed.mockReturnValue(
+      feed({ feedProducts: [], shouldShowFatalError: true })
+    );
+    renderList();
+
+    expect(screen.getByTestId('home-feed-error')).toBeTruthy();
+  });
+
+  it('omits cached product cells and grid-only UI when there is no primary grid', () => {
+    mockUseHomeProductFeed.mockReturnValue(
+      feed({ feedProducts: [product('stale')] })
+    );
+    renderList({
+      blocks: [{ type: 'CategoryRail', props: { id: 'rail' } }] as Block[],
+      primaryProductGridIndex: -1,
+    });
+
+    expect(screen.queryByTestId('filter-bar')).toBeNull();
+    expect(screen.queryByTestId('product-card')).toBeNull();
+    expect(screen.queryByTestId('home-feed-product-end-sentinel')).toBeNull();
+    expect(screen.queryByTestId('home-feed-empty')).toBeNull();
+    expect(screen.queryByTestId('home-feed-error')).toBeNull();
+  });
+
+  it('scrolls to top when the feed reset key changes', () => {
+    const { rerender } = renderList();
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+
+    mockUseHomeProductFeed.mockReturnValue(feed({ feedResetKey: 'reset-2' }));
+    rerender(
+      <HomeFeedList
+        blocks={GRID_BLOCKS}
+        primaryProductGridIndex={1}
+        selectedCategoryId={null}
+        onCategorySelect={jest.fn()}
+        onScroll={
+          jest.fn() as unknown as Parameters<typeof HomeFeedList>[0]['onScroll']
+        }
+        isSearchOpen={false}
+        refreshing={false}
+        onRefresh={jest.fn()}
+        primaryColor="#ff0000"
+        resolvedHeaderHeight={120}
+        contentBottomPadding={24}
+      />
+    );
+
+    expect(mockScrollToOffset).toHaveBeenCalledWith({
+      offset: 0,
+      animated: false,
+    });
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+  });
+});

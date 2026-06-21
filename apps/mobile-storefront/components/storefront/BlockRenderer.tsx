@@ -24,8 +24,6 @@ interface BlockRendererProps {
   selectedCategoryId: string | null;
   onCategorySelect: (id: string | null) => void;
   blockWrapperStyle?: StyleProp<ViewStyle>;
-  getProductGridLoadMoreSignal?: (block: Block, index: number) => number;
-  productGridLoadMoreSignal?: number;
   renderAfterBlock?: (block: Block, index: number) => React.ReactNode;
 }
 
@@ -34,8 +32,6 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   selectedCategoryId,
   onCategorySelect,
   blockWrapperStyle,
-  getProductGridLoadMoreSignal,
-  productGridLoadMoreSignal = 0,
   renderAfterBlock,
 }) => {
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
@@ -101,10 +97,6 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
               return (
                 <ProductGrid
                   block={block as ProductGridBlock}
-                  loadMoreSignal={
-                    getProductGridLoadMoreSignal?.(block, index) ??
-                    productGridLoadMoreSignal
-                  }
                   selectedCategoryId={selectedCategoryId}
                   variant={template.cardVariant}
                 />

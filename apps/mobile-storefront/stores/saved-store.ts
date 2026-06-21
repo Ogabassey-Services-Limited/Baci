@@ -192,3 +192,22 @@ export const useSavedStore = create<SavedState>()(
     }
   )
 );
+
+let cachedSavedItems: SavedItem[] | null = null;
+let cachedSavedIds = new Set<string>();
+
+/**
+ * Memoized set of saved product ids, rebuilt only when `items` changes. Lets
+ * each product card do an O(1) `.has(id)` membership check (returning a boolean
+ * primitive) instead of an O(items) `.some()` scan per card — without changing
+ * re-render scoping (the selector still returns a primitive).
+ */
+export function selectSavedProductIds(state: SavedState): ReadonlySet<string> {
+  if (state.items !== cachedSavedItems) {
+    cachedSavedItems = state.items;
+    cachedSavedIds = new Set(
+      state.items.map((item) => String(item.product_id))
+    );
+  }
+  return cachedSavedIds;
+}

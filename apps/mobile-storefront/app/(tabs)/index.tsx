@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard } from 'react-native';
@@ -13,12 +14,11 @@ import { getHomeProductGridSummary } from '@/components/home/home-product-grid-s
 import { useHomePermissionPrompt } from '@/components/home/useHomePermissionPrompt';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import {
-  getHomeContentBottomPadding,
-  HOME_LOAD_MORE_THRESHOLD_PX,
-} from '@/constants/layout';
+import { getHomeContentBottomPadding } from '@/constants/layout';
 import { usePageConfig } from '@/hooks';
+import { CONSTANT_MERCHANT_ID } from '@/hooks/product-utils';
 import { useDeferredFocusRender } from '@/hooks/use-deferred-focus-render';
+import { useMerchant } from '@/hooks/use-merchant';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { CONFIG } from '@/lib/config';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
@@ -44,7 +44,10 @@ export default function HomeScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
   );
-  const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
+
+  const queryClient = useQueryClient();
+  const { data: merchant } = useMerchant();
+  const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
   const { handlePermissionDeny, handlePermissionGrant, showPermissionModal } =
     useHomePermissionPrompt();
@@ -66,8 +69,6 @@ export default function HomeScreen() {
   const previousOffsetY = useSharedValue(0);
   const isScrolledShared = useSharedValue(false);
   const searchVisibleShared = useSharedValue(false);
-  const lastLoadMoreContentHeight = useSharedValue(0);
-  const hasExitedLoadMoreZone = useSharedValue(true);
 
   // 2026 Best Practice: Network state monitoring for offline UX
   // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
@@ -89,12 +90,23 @@ export default function HomeScreen() {
     setSearchQuery('');
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    lastLoadMoreContentHeight.set(0);
-    hasExitedLoadMoreZone.set(true);
-    previousOffsetY.set(0);
-    return Promise.resolve(refetch()).finally(() => setRefreshing(false));
+    try {
+      // Refresh both the page layout AND the product feed (page-1 reset) plus
+      // category freshness. The partial key resets all active filter variants.
+      await Promise.all([
+        refetch(),
+        queryClient.resetQueries({ queryKey: ['products', merchantId] }),
+        queryClient.invalidateQueries({ queryKey: ['categories', merchantId] }),
+      ]);
+    } catch (error) {
+      recordCrashBreadcrumb('home:refresh-failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleHeaderLayout = ({
@@ -112,11 +124,8 @@ export default function HomeScreen() {
     setIsScrolled(nextScrolled);
   };
 
-  const triggerLoadMoreJS = () => {
-    setProductGridLoadMoreSignal((current) => current + 1);
-  };
-
-  // C++ UI Thread scroll handler executing strictly in worklet thread context
+  // C++ UI-thread header-fold handler (worklet). Infinite scroll now lives in
+  // HomeFeedList's onEndReached, so this no longer computes load-more zones.
   const handleListScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
       'worklet';
@@ -144,24 +153,6 @@ export default function HomeScreen() {
         // scroll tolerance/hysteresis
         headerVisibility.set(withTiming(1, { duration: 180 }));
       }
-
-      // Infinite scroll load more detection at screen boundaries
-      const distance =
-        event.contentSize.height -
-        (event.contentOffset.y + event.layoutMeasurement.height);
-      const isInLoadMoreZone = distance <= HOME_LOAD_MORE_THRESHOLD_PX;
-      if (!isInLoadMoreZone) {
-        hasExitedLoadMoreZone.set(true);
-      } else if (
-        (currentOffsetY > prevOffsetY &&
-          (hasExitedLoadMoreZone.get() ||
-            event.contentSize.height > lastLoadMoreContentHeight.get() + 1)) ||
-        event.contentSize.height < lastLoadMoreContentHeight.get() - 1
-      ) {
-        hasExitedLoadMoreZone.set(false);
-        lastLoadMoreContentHeight.set(event.contentSize.height);
-        runOnJS(triggerLoadMoreJS)();
-      }
     },
   });
 
@@ -181,24 +172,9 @@ export default function HomeScreen() {
     template.headerStyle === 'elite',
     isConfigLoading && !pageConfig
   );
-  const {
-    primaryProductGridIndex,
-    productGridBlockCount,
-    productGridDatasetKey,
-  } = getHomeProductGridSummary(blocks, selectedCategoryId);
+  const { primaryProductGridIndex, productGridBlockCount } =
+    getHomeProductGridSummary(blocks);
   const hasPageConfig = Boolean(pageConfig);
-
-  useEffect(() => {
-    void productGridDatasetKey;
-    lastLoadMoreContentHeight.set(0);
-    hasExitedLoadMoreZone.set(true);
-    previousOffsetY.set(0);
-  }, [
-    hasExitedLoadMoreZone,
-    lastLoadMoreContentHeight,
-    previousOffsetY,
-    productGridDatasetKey,
-  ]);
 
   useEffect(() => {
     recordCrashBreadcrumb('home:mounted', {
@@ -275,7 +251,6 @@ export default function HomeScreen() {
       onSearchSubmit={handleSearchSubmit}
       primaryColor={colors.primary}
       primaryProductGridIndex={primaryProductGridIndex}
-      productGridLoadMoreSignal={productGridLoadMoreSignal}
       refreshing={refreshing}
       resolvedHeaderHeight={resolvedHeaderHeight}
       searchQuery={searchQuery}

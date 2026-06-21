@@ -23,18 +23,20 @@ import {
 } from './product-grid.helpers';
 import { useProductGridCategories } from './use-product-grid-categories';
 import { useProductGridFilters } from './use-product-grid-filters';
-import { useProductGridPagination } from './use-product-grid-pagination';
 
 interface ProductGridProps {
   block: ProductGridBlock;
-  loadMoreSignal?: number;
   selectedCategoryId: string | null;
   variant: 'grid' | 'editorial' | 'list';
 }
 
+/**
+ * Renders a **bounded** (non-paginating) product grid for non-primary/curated
+ * home blocks. The primary, infinitely-scrolled home grid is virtualized by
+ * `HomeFeedList` instead; this container is capped at `displayLimit`.
+ */
 export default function ProductGrid({
   block,
-  loadMoreSignal = 0,
   selectedCategoryId,
   variant,
 }: ProductGridProps) {
@@ -79,12 +81,12 @@ export default function ProductGrid({
 
   const {
     products,
-    hasMore,
     isFetchedAfterMount,
     isLoading,
     isLoadingMore,
     isFetching,
     isError,
+    hasMore,
     loadMore,
     refetch,
   } = useProducts({
@@ -129,6 +131,11 @@ export default function ProductGrid({
     products,
     selectedCategorySlug,
   });
+  const uniqueFilteredProducts = dedupeById(filteredProducts);
+  const isClientCategoryFilterActive =
+    normalizedCategories.length === 0 &&
+    selectedCategorySlug !== ALL_PRODUCT_FILTER_CATEGORY_SLUG &&
+    selectedCategorySlug.length > 0;
   const shouldLoadBrandOptions =
     brandOptionsRequested || selectedBrand !== 'All';
   const { brands = [], isLoading: isBrandsLoading } = useProductBrands({
@@ -139,17 +146,6 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const paginationResetKey = JSON.stringify({
-    category: normalizedCategoryId ?? null,
-    displayLimit,
-    maxPrice,
-    minPrice,
-    minRating,
-    selectedBrand,
-    selectedCategorySlug,
-    selectedCondition,
-  });
-
   useEffect(() => {
     if (
       shouldLoadBrandOptions &&
@@ -173,17 +169,29 @@ export default function ProductGrid({
     );
   };
 
-  const orderedProducts = filteredProducts;
-  const { visibleProducts } = useProductGridPagination({
+  useEffect(() => {
+    if (
+      isClientCategoryFilterActive &&
+      uniqueFilteredProducts.length < displayLimit &&
+      hasMore &&
+      !isFetching &&
+      !isLoadingMore
+    ) {
+      loadMore();
+    }
+  }, [
     displayLimit,
     hasMore,
+    isClientCategoryFilterActive,
+    isFetching,
     isLoadingMore,
     loadMore,
-    loadMoreSignal,
-    orderedProducts,
-    paginationResetKey,
-  });
-  const uniqueVisibleProducts = dedupeById(visibleProducts);
+    uniqueFilteredProducts.length,
+  ]);
+
+  // Bounded: cap a curated/secondary grid at displayLimit, but backfill
+  // client-filtered pages first when category IDs are unavailable.
+  const uniqueVisibleProducts = uniqueFilteredProducts.slice(0, displayLimit);
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const { isRetrying, shouldShowFatalError, shouldShowInitialLoading } =
     resolveProductGridRenderFlags({

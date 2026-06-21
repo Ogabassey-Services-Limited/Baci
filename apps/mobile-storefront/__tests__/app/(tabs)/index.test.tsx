@@ -1,29 +1,31 @@
 import { describe, expect, it } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { getHomeContentBottomPadding } from '@/constants/layout';
 import {
   createTemplateConfig,
   HomeScreen,
   mockGetTemplateConfig,
+  mockHomeFeedList,
+  mockInvalidateQueries,
+  mockResetQueries,
   setupHomeScreenTestState,
 } from '../../../test-support/(tabs)/index.test-utils';
+
+function lastFeedProps() {
+  return mockHomeFeedList.mock.calls.at(-1)?.[0];
+}
 
 describe('HomeScreen', () => {
   setupHomeScreenTestState();
 
-  it('renders home content inside a scroll view with bottom clearance for overlays', () => {
+  it('renders the virtualized home feed with bottom clearance for overlays', () => {
     render(<HomeScreen />);
 
-    expect(screen.getByTestId('home-scroll-view')).toBeTruthy();
+    expect(screen.getByTestId('home-feed-list')).toBeTruthy();
     expect(screen.getAllByTestId('block-renderer')).toHaveLength(3);
-    expect(
-      StyleSheet.flatten(
-        screen.getByTestId('home-scroll-view').props.contentContainerStyle
-      )
-    ).toMatchObject({
-      paddingBottom: getHomeContentBottomPadding(34, true),
-    });
+    expect(lastFeedProps()?.contentBottomPadding).toBe(
+      getHomeContentBottomPadding(34, true)
+    );
   });
 
   it('uses tab-bar clearance only when the chat widget is disabled', () => {
@@ -36,26 +38,17 @@ describe('HomeScreen', () => {
 
     render(<HomeScreen />);
 
-    expect(
-      StyleSheet.flatten(
-        screen.getByTestId('home-scroll-view').props.contentContainerStyle
-      )
-    ).toMatchObject({
-      paddingBottom: getHomeContentBottomPadding(34, false),
-    });
+    expect(lastFeedProps()?.contentBottomPadding).toBe(
+      getHomeContentBottomPadding(34, false)
+    );
   });
 
-  it('passes scroll state to the header while keeping spacer height stable', () => {
+  it('passes scroll state to the header when the feed scrolls', () => {
     render(<HomeScreen />);
 
     expect(screen.getByTestId('mock-header')).toHaveTextContent('Header false');
-    expect(
-      StyleSheet.flatten(screen.getByTestId('home-header-spacer').props.style)
-    ).toMatchObject({
-      height: 150,
-    });
 
-    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+    fireEvent.scroll(screen.getByTestId('home-feed-list'), {
       nativeEvent: {
         contentOffset: { x: 0, y: 12 },
         contentSize: { width: 375, height: 1000 },
@@ -64,10 +57,22 @@ describe('HomeScreen', () => {
     });
 
     expect(screen.getByTestId('mock-header')).toHaveTextContent('Header true');
-    expect(
-      StyleSheet.flatten(screen.getByTestId('home-header-spacer').props.style)
-    ).toMatchObject({
-      height: 150,
+  });
+
+  it('resets the products query and invalidates categories on pull-to-refresh', async () => {
+    render(<HomeScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('home-feed-refresh'));
+      await Promise.resolve();
+    });
+
+    // Partial prefix keys match useProducts' ['products', merchantId, options].
+    expect(mockResetQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['categories', 'merchant-1'],
     });
   });
 });

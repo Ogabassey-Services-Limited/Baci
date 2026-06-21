@@ -12,7 +12,6 @@ export const CONTENT_OVERLAY_GAP = 16;
  */
 export const CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET =
   TAB_BAR_BASE_HEIGHT + CONTENT_OVERLAY_GAP;
-export const HOME_LOAD_MORE_THRESHOLD_PX = 240;
 
 /**
  * Height of the elite-template black backdrop on the home screen. Sized

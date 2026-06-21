@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeEach, jest } from '@jest/globals';
 import type { Href } from 'expo-router';
-import type React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { MobileTemplateConfig } from '@/lib/templates';
 
 export function createTemplateConfig(
@@ -26,8 +25,11 @@ export const mockGetTemplateConfig = jest.fn(
   (_businessType?: string, _manualTemplateId?: string) => createTemplateConfig()
 );
 export const mockRouterPush = jest.fn<(href: Href) => void>();
+export const mockResetQueries = jest.fn();
+export const mockInvalidateQueries = jest.fn();
 const MockText = Text;
 const MockView = View;
+const MockScrollView = ScrollView;
 const idleGlobal = globalThis as unknown as {
   cancelIdleCallback?: (handle: number) => void;
   requestIdleCallback?: (
@@ -39,19 +41,12 @@ const originalCancelIdleCallback = idleGlobal.cancelIdleCallback;
 const originalRequestIdleCallback = idleGlobal.requestIdleCallback;
 type MockBlock = { props?: { id?: string }; type: string };
 
-type MockBlockRendererProps = {
+type MockHomeFeedListProps = {
   blocks: MockBlock[];
-  getProductGridLoadMoreSignal?: (block: MockBlock, index: number) => number;
-  productGridLoadMoreSignal?: number;
-  renderAfterBlock?: (block: MockBlock, index: number) => React.ReactNode;
+  contentBottomPadding?: number;
+  onScroll?: (event: unknown) => void;
+  onRefresh?: () => void;
 };
-
-type MockProductGridCall = [
-  MockBlockRendererProps & {
-    blocks: [MockBlock];
-    productGridLoadMoreSignal: number;
-  },
-];
 
 const mockHeader = jest.fn(
   ({
@@ -70,34 +65,23 @@ const mockHeader = jest.fn(
   )
 );
 
-function getBlockLoadMoreSignal(
-  props: MockBlockRendererProps,
-  block: MockBlock,
-  index: number
-) {
-  if (block.type !== 'ProductGrid') return 0;
-  return (
-    props.getProductGridLoadMoreSignal?.(block, index) ??
-    props.productGridLoadMoreSignal ??
-    0
-  );
-}
-
-export const mockBlockRenderer = jest.fn((props: MockBlockRendererProps) => (
-  <>
+// HomeScreen now renders the virtualized feed through HomeFeedList; the feed
+// internals are covered by HomeFeedList/use-home-product-feed tests, so here we
+// stub it and surface the blocks + scroll handler for wiring assertions.
+export const mockHomeFeedList = jest.fn((props: MockHomeFeedListProps) => (
+  <MockScrollView testID="home-feed-list" onScroll={props.onScroll}>
     {props.blocks.map((block, index) => (
       <MockView
         key={block.props?.id ?? `${block.type}-${index}`}
         testID="block-renderer"
       >
         <MockText>{block.type}</MockText>
-        <MockText>
-          {String(getBlockLoadMoreSignal(props, block, index))}
-        </MockText>
-        {props.renderAfterBlock?.(block, index)}
       </MockView>
     ))}
-  </>
+    <Pressable testID="home-feed-refresh" onPress={props.onRefresh}>
+      <MockText>Refresh</MockText>
+    </Pressable>
+  </MockScrollView>
 ));
 
 jest.mock('expo-image', () => ({
@@ -130,8 +114,8 @@ jest.mock('@/components/OfflineNotice', () => ({
   OfflineNotice: () => <MockText>Offline notice</MockText>,
 }));
 
-jest.mock('@/components/storefront/BlockRenderer', () => ({
-  BlockRenderer: (props: MockBlockRendererProps) => mockBlockRenderer(props),
+jest.mock('@/components/home/HomeFeedList', () => ({
+  HomeFeedList: (props: MockHomeFeedListProps) => mockHomeFeedList(props),
 }));
 
 jest.mock('@/components/storefront/Header', () => ({
@@ -159,9 +143,24 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));
 
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    resetQueries: mockResetQueries,
+    invalidateQueries: mockInvalidateQueries,
+  }),
+}));
+
 jest.mock('@/hooks', () => ({
   __esModule: true,
   usePageConfig: (...args: [string?]) => mockUsePageConfig(...args),
+}));
+
+jest.mock('@/hooks/product-utils', () => ({
+  CONSTANT_MERCHANT_ID: 'merchant-fallback',
+}));
+
+jest.mock('@/hooks/use-merchant', () => ({
+  useMerchant: () => ({ data: { id: 'merchant-1' } }),
 }));
 
 jest.mock('@/hooks/use-network-state', () => ({
@@ -183,45 +182,11 @@ jest.mock('@/lib/config', () => ({
   },
 }));
 
-jest.mock('@/lib/scroll-header-visibility', () => ({
-  resolveScrollHeaderVisibility: ({
-    currentOffsetY,
-    isVisible,
-  }: {
-    currentOffsetY: number;
-    isVisible: boolean;
-  }) => ({
-    isVisible,
-    previousOffsetY: currentOffsetY,
-  }),
-}));
-
 jest.mock('@/lib/templates', () => ({
   __esModule: true,
   getTemplateConfig: (businessType?: string, manualTemplateId?: string) =>
     mockGetTemplateConfig(businessType, manualTemplateId),
 }));
-
-export function getProductGridCalls() {
-  return mockBlockRenderer.mock.calls.flatMap(([props]) =>
-    props.blocks.flatMap((block, index): MockProductGridCall[] => {
-      if (block.type !== 'ProductGrid') return [];
-      return [
-        [
-          {
-            ...props,
-            blocks: [block],
-            productGridLoadMoreSignal: getBlockLoadMoreSignal(
-              props,
-              block,
-              index
-            ),
-          },
-        ],
-      ];
-    })
-  );
-}
 
 export function setupHomeScreenTestState() {
   beforeEach(() => {
