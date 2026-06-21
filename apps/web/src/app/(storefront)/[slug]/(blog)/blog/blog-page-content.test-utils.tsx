@@ -64,7 +64,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
+  headers: async () => mockHeaders(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -136,7 +136,8 @@ vi.mock('./blog-listing-pagination', () => ({
     search?: string;
     totalPages: number;
   }) => (
-    <div
+    <nav
+      aria-label="Blog pagination"
       data-testid="blog-pagination"
       data-store-base-path={props.storeBasePath}
       data-category={props.category}

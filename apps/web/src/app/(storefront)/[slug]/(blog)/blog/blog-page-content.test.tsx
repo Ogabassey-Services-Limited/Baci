@@ -175,10 +175,9 @@ describe('BlogPageContent', () => {
       })
     );
 
-    expect(screen.getByTestId('blog-pagination')).toHaveAttribute(
-      'data-store-base-path',
-      ''
-    );
+    expect(
+      screen.getByRole('navigation', { name: 'Blog pagination' })
+    ).toHaveAttribute('data-store-base-path', '');
     expect(mockDefaultBlogUi).toHaveBeenCalledWith(
       expect.objectContaining({
         basePath: '',

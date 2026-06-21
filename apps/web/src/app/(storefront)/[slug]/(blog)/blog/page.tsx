@@ -38,8 +38,10 @@ export async function generateMetadata({
   params,
   searchParams,
 }: BlogPageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const { category, page, search } = await searchParams;
+  const [{ slug }, { category, page, search }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const currentPage = parseBlogMetadataPage(page);
   const data = await getCachedBlogListing(slug, {
     category,
