@@ -128,4 +128,102 @@ describe('GET /api/mobile/release-policy', () => {
       nativeUpdateRequired: false,
     });
   });
+
+  it('requires a native update when installed build is below the platform minimum build', async () => {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_MIN_BUILD', '646');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+    vi.stubEnv(
+      'MOBILE_STOREFRONT_ANDROID_STORE_URL',
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store'
+    );
+
+    const response = await callGet({
+      app: 'storefront',
+      platform: 'android',
+      runtimeVersion: '2.0.0',
+      // Android marketing version is a constant 2.0.0 across releases, so the
+      // build number is the only signal that distinguishes an old install.
+      nativeVersion: '2.0.0',
+      buildNumber: '600',
+      channel: 'production',
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      enabled: true,
+      nativeUpdateRecommended: true,
+      nativeUpdateRequired: true,
+      storeUrl:
+        'https://play.google.com/store/apps/details?id=com.ogabassey.store',
+    });
+  });
+
+  it('recommends but does not require a native update when installed build is below latest build only', async () => {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+
+    const response = await callGet({
+      app: 'storefront',
+      platform: 'android',
+      runtimeVersion: '2.0.0',
+      nativeVersion: '2.0.0',
+      buildNumber: '600',
+      channel: 'production',
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      enabled: true,
+      nativeUpdateRecommended: true,
+      nativeUpdateRequired: false,
+    });
+  });
+
+  it('does not prompt when installed build is at or above the latest build', async () => {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_MIN_BUILD', '600');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+
+    const response = await callGet({
+      app: 'storefront',
+      platform: 'android',
+      runtimeVersion: '2.0.0',
+      nativeVersion: '2.0.0',
+      buildNumber: '646',
+      channel: 'production',
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      enabled: true,
+      nativeUpdateRecommended: false,
+      nativeUpdateRequired: false,
+    });
+  });
+
+  it('ignores build gating when the installed build number is non-numeric', async () => {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+
+    const response = await callGet({
+      app: 'storefront',
+      platform: 'android',
+      runtimeVersion: '2.0.0',
+      nativeVersion: '2.0.0',
+      buildNumber: 'not-a-number',
+      channel: 'production',
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      enabled: true,
+      nativeUpdateRecommended: false,
+      nativeUpdateRequired: false,
+    });
+  });
 });
