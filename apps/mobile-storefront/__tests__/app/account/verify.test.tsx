@@ -17,12 +17,14 @@ const mockStackScreen = jest.fn<(props: { options?: unknown }) => null>(
 );
 const mockGetPendingAuthLoginResumeState =
   jest.fn<() => Promise<PendingAuthLoginResumeState | null>>();
+const mockUseLocalSearchParams = jest.fn<() => Record<string, string>>();
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: unknown }) => mockRedirect({ href }),
   Stack: {
     Screen: (props: { options?: unknown }) => mockStackScreen(props),
   },
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
 }));
 
 jest.mock('@/components/auth/login-resume-state', () => ({
@@ -33,6 +35,7 @@ describe('AccountVerifyRoute', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetPendingAuthLoginResumeState.mockResolvedValue(null);
+    mockUseLocalSearchParams.mockReturnValue({});
   });
 
   it('routes branded OTP email links to the native OTP login screen', async () => {
@@ -55,6 +58,11 @@ describe('AccountVerifyRoute', () => {
   });
 
   it('preserves pending protected-flow returnTo when opening the OTP login screen', async () => {
+    mockUseLocalSearchParams.mockReturnValueOnce({
+      returnTo: '/cart',
+      token_hash: 'supabase-token-hash',
+      type: 'email',
+    });
     mockGetPendingAuthLoginResumeState.mockResolvedValueOnce({
       email: 'shopper@example.com',
       returnTo: '/checkout',
@@ -65,15 +73,41 @@ describe('AccountVerifyRoute', () => {
 
     const expectedHref = {
       pathname: '/auth/login',
-      params: { mode: 'otp', returnTo: '/checkout' },
+      params: {
+        mode: 'otp',
+        returnTo: '/checkout',
+        token_hash: 'supabase-token-hash',
+        type: 'email',
+      },
     };
 
     await waitFor(() => {
       expect(mockRedirect).toHaveBeenCalledWith({ href: expectedHref });
     });
-    expect(
-      screen.getByText(`Redirect:${JSON.stringify(expectedHref)}`)
-    ).toBeOnTheScreen();
+    expect(screen.getByText(/^Redirect:/)).toBeOnTheScreen();
+  });
+
+  it('preserves Supabase verification query params when opening the OTP login screen', async () => {
+    mockUseLocalSearchParams.mockReturnValueOnce({
+      token_hash: '12345',
+      type: 'email',
+    });
+
+    render(<AccountVerifyRoute />);
+
+    const expectedHref = {
+      pathname: '/auth/login',
+      params: {
+        mode: 'otp',
+        token_hash: '12345',
+        type: 'email',
+      },
+    };
+
+    await waitFor(() => {
+      expect(mockRedirect).toHaveBeenCalledWith({ href: expectedHref });
+    });
+    expect(screen.getByText(/^Redirect:/)).toBeOnTheScreen();
   });
 
   it('falls back to the OTP login screen when pending resume state cannot be read', async () => {
