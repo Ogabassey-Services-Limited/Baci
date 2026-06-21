@@ -191,6 +191,9 @@ function validateXcodeProject(projectSource) {
   if (!projectSource.includes('refusing to continue without Facebook SDK plist injection')) {
     failures.push('missing Release fail-closed guard for Facebook SDK plist injection');
   }
+  if (!projectSource.includes('Release builds require STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN')) {
+    failures.push('missing Release fail-closed guard for absent Facebook SDK credentials');
+  }
   if (projectSource.includes('CFBundleURLTypes:2:CFBundleURLSchemes:0')) {
     failures.push('Facebook URL scheme injection must not depend on a hardcoded CFBundleURLTypes array index');
   }

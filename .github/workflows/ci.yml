@@ -82,6 +82,7 @@ jobs:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
               - 'apps/mobile-storefront/app/**'
+              - 'apps/mobile-storefront/app.config.ts'
               - 'apps/mobile-storefront/components/**'
               - 'apps/mobile-storefront/config/**'
               - 'apps/mobile-storefront/constants/**'
