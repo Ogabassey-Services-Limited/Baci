@@ -111,6 +111,12 @@ export function OgabasseyPdpCriticalVariantSelectors({
     return null;
   }
 
+  const explicitSelectedAttributes = Object.fromEntries(
+    Object.entries(selectedAttributes).filter(([key]) =>
+      explicitSelectedAxes.includes(key)
+    )
+  );
+
   return (
     <div data-ogabassey-pdp-commerce-variant-picker>
       {variantCount > 1 ? (
@@ -123,6 +129,13 @@ export function OgabasseyPdpCriticalVariantSelectors({
           {renderableVariantAxes.map((axis) => {
             const label = formatVariantAxisLabel(axis);
             const options = getVariantAxisOptions(variants, axis);
+            const availableOptions = new Set(
+              getAvailableOptionsForAxis(
+                axis,
+                variants,
+                explicitSelectedAttributes
+              )
+            );
 
             return (
               <div data-ogabassey-pdp-commerce-variant-axis key={axis}>
@@ -136,15 +149,7 @@ export function OgabasseyPdpCriticalVariantSelectors({
                 <div data-ogabassey-pdp-commerce-variant-options>
                   {options.map((value) => {
                     const isSelected = selectedAttributes[axis] === value;
-                    const isAvailable = getAvailableOptionsForAxis(
-                      axis,
-                      variants,
-                      Object.fromEntries(
-                        Object.entries(selectedAttributes).filter(([key]) =>
-                          explicitSelectedAxes.includes(key)
-                        )
-                      )
-                    ).includes(value);
+                    const isAvailable = availableOptions.has(value);
 
                     return (
                       <button
