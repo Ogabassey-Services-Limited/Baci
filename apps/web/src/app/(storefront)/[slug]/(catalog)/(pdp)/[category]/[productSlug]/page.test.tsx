@@ -831,6 +831,7 @@ describe('[category]/[productSlug] page metadata', () => {
     });
 
     expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockHeaders).not.toHaveBeenCalled();
     expect(mockGetRequestScopedMerchant).toHaveBeenCalled();
   });
 
@@ -1571,6 +1572,7 @@ describe('[category]/[productSlug] page render', () => {
     }
 
     expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockHeaders).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,
