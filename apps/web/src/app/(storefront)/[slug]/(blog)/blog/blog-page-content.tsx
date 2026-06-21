@@ -166,7 +166,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             baseUrl,
             category,
             page: currentPage,
-            search,
+            search: effectiveSearchQuery,
           }),
           numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
