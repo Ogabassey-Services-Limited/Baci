@@ -10,3 +10,7 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+## 2025-05-19 — Replace Hardcoded `#FFFFFF` with `colors.textOnPrimary` in Help Screen
+**Learning:** Hardcoded `#FFFFFF` values should not be assumed to be `colors.text` since they may have specialized semantic meanings. The `colors.textOnPrimary` token should be used for text superimposed on the primary theme color.
+**Action:** When replacing a white text color on a primary colored background, verify if the `textOnPrimary` token exists in the theme (such as `apps/mobile-admin/constants/theme.ts`) and use it rather than hallucinating or guessing.
+**Source:** `apps/mobile-admin/constants/theme.ts`

@@ -90,8 +90,15 @@ export default function HelpCenterScreen() {
             style={[styles.searchCard, { backgroundColor: colors.primary }]}
             onPress={handleOpenHelp}
           >
-            <Ionicons name="search" size={24} color="#FFFFFF" />
-            <Text style={styles.searchText}>Search help articles…</Text>
+            <Ionicons name="search" size={24} color={colors.textOnPrimary} />
+            <Text
+              style={[
+                styles.searchText,
+                { color: colors.textOnPrimary, opacity: 0.8 },
+              ]}
+            >
+              Search help articles…
+            </Text>
           </Pressable>
 
           {/* Topics */}
@@ -164,7 +171,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   searchText: {
-    color: 'rgba(255,255,255,0.8)',
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
