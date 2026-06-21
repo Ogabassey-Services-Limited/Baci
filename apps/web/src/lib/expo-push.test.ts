@@ -735,4 +735,30 @@ describe('notifyStorefrontUpdateAvailable', () => {
     expect(result).toMatchObject({ platform: 'ios', eligible: 0, sent: 0 });
     expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
   });
+
+  it('chunks the throttle stamp so the .in() filter stays within URL limits', async () => {
+    const tokens = Array.from({ length: 150 }, (_, i) => ({
+      id: `id${i}`,
+      token: `ExponentPushToken[t${i}]`,
+    }));
+    const chain = createChainableMock(tokens);
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(chain),
+    } as never);
+    mockSendPushNotificationsAsync.mockResolvedValueOnce(
+      tokens.map((_, i) => ({ status: 'ok', id: `ticket-${i}` }))
+    );
+
+    await notifyStorefrontUpdateAvailable({
+      platform: 'android',
+      latestBuild: 646,
+    });
+
+    // 150 stamped ids → 2 chunks (100 + 50); no chunk exceeds the 100 cap, so
+    // the PATCH .in() URL can never grow unbounded.
+    const idStampCalls = chain.in.mock.calls.filter((call) => call[0] === 'id');
+    expect(idStampCalls).toHaveLength(2);
+    expect(idStampCalls[0][1]).toHaveLength(100);
+    expect(idStampCalls[1][1]).toHaveLength(50);
+  });
 });

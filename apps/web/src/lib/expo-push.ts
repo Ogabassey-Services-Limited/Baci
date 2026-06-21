@@ -10,7 +10,23 @@ import Expo, {
   type ExpoPushTicket,
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
+
+/**
+ * Max ids per Supabase `.in()` filter. Those values are encoded in the request
+ * URL, so a large list (the update-nudge can match thousands of tokens) would
+ * blow past gateway URL-length limits (~8KB) and 414. Chunk to stay well under.
+ */
+const SUPABASE_IN_FILTER_CHUNK_SIZE = 100;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
 
 // Module-scope cache: locale + minimumFractionDigits are static; currency varies.
 const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
@@ -561,11 +577,16 @@ async function processTickets(
     }
   }
 
-  if (tokensToDeactivate.length > 0) {
+  // Chunk the id list: .in() values ride in the request URL, so a large batch
+  // (the update-nudge can surface thousands of dead tokens) would 414.
+  for (const tokenChunk of chunkArray(
+    tokensToDeactivate,
+    SUPABASE_IN_FILTER_CHUNK_SIZE
+  )) {
     const { error: deactivateError } = await supabase
       .from('push_tokens')
       .update({ is_active: false })
-      .in('token', tokensToDeactivate);
+      .in('token', tokenChunk);
     if (deactivateError) {
       console.error(
         'Failed to deactivate invalid push tokens:',
@@ -1098,17 +1119,19 @@ export async function notifyStorefrontUpdateAvailable(
     };
   }
 
-  // Throttle: stamp only the devices that actually received the nudge.
-  if (okTokenIds.length > 0) {
+  // Throttle: stamp only the devices that actually received the nudge. Chunk the
+  // id list so the PATCH .in() filter never exceeds gateway URL-length limits —
+  // a single run can match up to `limit` (5k) tokens.
+  for (const idChunk of chunkArray(okTokenIds, SUPABASE_IN_FILTER_CHUNK_SIZE)) {
     const { error: stampError } = await supabase
       .from('push_tokens')
       .update({ last_update_push_at: nowIso })
-      .in('id', okTokenIds);
+      .in('id', idChunk);
     if (stampError) {
-      console.error(
-        'Failed to stamp last_update_push_at for nudged tokens:',
-        stampError
-      );
+      logger.error({
+        message: 'Failed to stamp last_update_push_at for nudged tokens',
+        error: stampError,
+      });
     }
   }
 
