@@ -102,6 +102,9 @@ describe('SearchAutocomplete', () => {
     // double-offset bug).
     expect(iconClass).toContain('absolute');
     expect(iconClass).toContain('-translate-y-1/2');
+    // text-muted-foreground is the no-core idle colour fallback (the core-CSS
+    // colour/tint are unlayered so they still win on storefront routes).
+    expect(iconClass).toContain('text-muted-foreground');
 
     // Left padding is likewise dual-sourced: the core-CSS `__field input` rule
     // and the `pl-11` fallback utility.

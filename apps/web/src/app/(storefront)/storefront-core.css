@@ -310,16 +310,10 @@
      into a double offset. z-index sits above the input's focus-visible z-10 so
      the glass is never covered. */
   .ogabassey-navbar-search__icon {
-    /* Concrete final fallbacks (#111827): the `--ogabassey-*` vars are scoped to
-       `.ogabassey-storefront-shell`, so on the generic StorefrontHeader path
-       (e.g. GadgetUniverseTemplate, rendered outside that shell) neither
-       `--store-foreground` nor `--ogabassey-surface-text` may be defined, which
-       would make the color invalid and drop the icon to its inherited colour. */
-    color: color-mix(
-      in srgb,
-      var(--store-foreground, var(--ogabassey-surface-text, #111827)) 38%,
-      transparent
-    );
+    /* Idle colour + focus tint are UNLAYERED further down so they outrank the
+       component's `text-muted-foreground` no-core fallback (a utilities-layer
+       class that would otherwise beat @layer components). Only geometry is
+       layered here. */
     height: 1.25rem;
     left: 1rem;
     pointer-events: none;
@@ -331,24 +325,13 @@
     z-index: 20;
   }
 
-  /* Tint the glass with the merchant brand colour while the search is focused.
-     Keyed on the navbar wrapper (covers the non-hydrated fallback form) and on
-     the SearchAutocomplete root (.ogabassey-navbar-search__field) so the tint
-     also applies on non-navbar surfaces such as the generic storefront header.
-     The `#d62027` final fallback (matching the `--ogabassey-brand` definition)
-     keeps the tint working on the generic header path, where `--store-primary`
-     may be unset and `--ogabassey-brand` is out of scope (defined only on
-     `.ogabassey-storefront-shell`) — otherwise the chain is invalid and no tint
-     applies. */
-  .ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon,
-  .ogabassey-navbar-search__field:focus-within .ogabassey-navbar-search__icon {
-    color: var(--store-primary, var(--ogabassey-brand, #d62027));
-  }
-
-  /* NOTE: the autocomplete input's left/right padding lives UNLAYERED further
-     down (next to the navbar input geometry) — not here — because the shared
-     shadcn Input's `px-3` sits in Tailwind's utilities layer, which outranks
-     `@layer components` regardless of specificity. See that block for details. */
+  /* NOTE: two sets of rules for these elements live UNLAYERED further down
+     (next to the navbar input geometry) rather than here, because each competes
+     with a Tailwind utility that sits in the utilities layer and outranks
+     `@layer components` regardless of specificity: (a) the icon idle colour +
+     focus tint vs the `text-muted-foreground` no-core fallback, and (b) the
+     autocomplete input's left/right padding vs the shared shadcn Input's `px-3`.
+     See that block for details. */
 
   /* Hide the native WebKit search ✕ — the component renders its own clear
      button — route-independently, for the same `source(none)` reason. */
@@ -791,6 +774,27 @@
 .ogabassey-navbar-search .ogabassey-navbar-search__input--has-value,
 .ogabassey-navbar-search__field .ogabassey-navbar-search__input--has-value {
   padding-right: 2.5rem;
+}
+
+/* Icon idle colour + focus tint — UNLAYERED so they outrank the component's
+   `text-muted-foreground` no-core fallback (a utilities-layer class that would
+   otherwise suppress the brand tint and the merchant-themed idle colour). On
+   storefront routes (core CSS loaded) these win; on the platform template-preview
+   (no core CSS) the utility provides the idle muted colour and the tint simply
+   does not apply. The `#111827` / `#d62027` final fallbacks cover the generic
+   StorefrontHeader path, where the `--ogabassey-*` vars are out of scope (defined
+   only on `.ogabassey-storefront-shell`) and `--store-*` may be unset. */
+.ogabassey-navbar-search__icon {
+  color: color-mix(
+    in srgb,
+    var(--store-foreground, var(--ogabassey-surface-text, #111827)) 38%,
+    transparent
+  );
+}
+
+.ogabassey-navbar-search:focus-within .ogabassey-navbar-search__icon,
+.ogabassey-navbar-search__field:focus-within .ogabassey-navbar-search__icon {
+  color: var(--store-primary, var(--ogabassey-brand, #d62027));
 }
 
 /*

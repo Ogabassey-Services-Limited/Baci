@@ -245,10 +245,13 @@ export function SearchAutocomplete({
             CSS `translate` property, the SAME one core CSS uses, so when both
             apply (e.g. the home route, which @sources this file) they collapse to
             one declaration instead of stacking into a double offset. The
-            focus-within brand tint remains core-CSS-only and degrades gracefully
-            to the inherited colour where core CSS is absent. */}
+            idle colour is `text-muted-foreground` (the no-core fallback); the
+            core-CSS rules are UNLAYERED so the merchant-themed idle colour and
+            the focus tint override it on storefront routes. Where core CSS is
+            absent (the preview) the icon stays muted and the focus tint simply
+            does not apply. */}
         <Search
-          className="ogabassey-navbar-search__icon pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 size-5 z-20"
+          className="ogabassey-navbar-search__icon pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 size-5 z-20 text-muted-foreground"
           aria-hidden="true"
         />
         <Input
