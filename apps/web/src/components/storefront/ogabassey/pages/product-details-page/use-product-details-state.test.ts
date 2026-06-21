@@ -341,7 +341,7 @@ describe('useProductDetailsState', () => {
     );
   });
 
-  it('does not seed metadata-only axes into variant selection', () => {
+  it('normalizes single metadata-only axes into variant selection', () => {
     const { result } = renderHook(() =>
       useProductDetailsState({
         ...baseProduct,
@@ -364,7 +364,7 @@ describe('useProductDetailsState', () => {
       } as Product)
     );
 
-    expect(result.current.selectedAttributes).toEqual({});
+    expect(result.current.selectedAttributes).toEqual({ storage: '128GB' });
     expect(result.current.canPurchase).toBe(true);
 
     let wasAdded = false;
@@ -375,9 +375,9 @@ describe('useProductDetailsState', () => {
     expect(wasAdded).toBe(true);
     expect(result.current.isSelectionModalOpen).toBe(false);
     expect(mockAddToCart).toHaveBeenCalledWith(
-      expect.not.objectContaining({ storage: '128GB' }),
+      expect.objectContaining({ storage: '128GB' }),
       1,
-      expect.not.objectContaining({ storage: '128GB' })
+      expect.objectContaining({ storage: '128GB' })
     );
   });
 

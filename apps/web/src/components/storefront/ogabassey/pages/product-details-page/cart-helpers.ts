@@ -94,6 +94,21 @@ function getVariantBackedAxisOptions(
   return Array.from(options);
 }
 
+function getMetadataAxisOptions(
+  axis: string,
+  productData: NormalizedProductDetails
+) {
+  if (axis === 'storage' && productData.storage.length > 0) {
+    return productData.storage;
+  }
+
+  if (axis === 'platform' && productData.platforms.length > 0) {
+    return productData.platforms;
+  }
+
+  return [];
+}
+
 export function getAxisOptions(
   axis: string,
   productData: NormalizedProductDetails
@@ -106,19 +121,13 @@ export function getAxisOptions(
     return variantBackedOptions;
   }
 
+  const metadataOptions = getMetadataAxisOptions(axis, productData);
+
   if (productData.variants?.length) {
-    return [];
+    return metadataOptions.length === 1 ? metadataOptions : [];
   }
 
-  if (axis === 'storage' && productData.storage.length > 0) {
-    return productData.storage;
-  }
-
-  if (axis === 'platform' && productData.platforms.length > 0) {
-    return productData.platforms;
-  }
-
-  return [];
+  return metadataOptions;
 }
 
 export function getSingleOptionAxisSelections(
@@ -135,6 +144,24 @@ export function getSingleOptionAxisSelections(
   }
 
   return selections;
+}
+
+export function applySingleOptionAxisSelectionsToVariants(
+  variants: NormalizedProductDetails['variants'],
+  singleOptionAxisSelections: Record<string, string>
+) {
+  const selectionEntries = Object.entries(singleOptionAxisSelections);
+  if (!variants?.length || selectionEntries.length === 0) {
+    return variants;
+  }
+
+  return variants.map((variant) => ({
+    ...variant,
+    attributes: {
+      ...singleOptionAxisSelections,
+      ...(variant.attributes || {}),
+    },
+  }));
 }
 
 export function formatAxisLabel(axis: string) {

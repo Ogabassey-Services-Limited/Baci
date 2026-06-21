@@ -1,32 +1,98 @@
 import { describe, expect, it } from 'vitest';
-import { getAxisOptions } from './cart-helpers';
+import {
+  applySingleOptionAxisSelectionsToVariants,
+  getAxisOptions,
+} from './cart-helpers';
 import type { NormalizedProductDetails } from './product-normalization';
 
-function productWithVariants(
-  variants: NormalizedProductDetails['variants']
+function productFixture(
+  overrides: Partial<NormalizedProductDetails>
 ): NormalizedProductDetails {
   return {
     platforms: [],
     storage: [],
-    variants,
+    ...overrides,
   } as unknown as NormalizedProductDetails;
 }
 
 describe('cart helpers', () => {
   it('reads variant-backed options from legacy-cased attribute keys', () => {
-    const product = productWithVariants([
+    const product = productFixture({
+      variants: [
+        {
+          attributes: { Storage: '128GB' },
+          id: 'variant-128',
+          stock_quantity: 2,
+        },
+        {
+          attributes: { Storage: '256GB' },
+          id: 'variant-256',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(getAxisOptions('storage', product)).toEqual(['128GB', '256GB']);
+  });
+
+  it('falls back to one metadata option when variant rows lack the axis', () => {
+    const product = productFixture({
+      storage: ['128GB'],
+      variants: [
+        {
+          attributes: {},
+          id: 'variant-128',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(getAxisOptions('storage', product)).toEqual(['128GB']);
+  });
+
+  it('does not expose multi-option metadata fallbacks without variant-backed values', () => {
+    const product = productFixture({
+      storage: ['128GB', '256GB'],
+      variants: [
+        {
+          attributes: {},
+          id: 'variant-empty',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(getAxisOptions('storage', product)).toEqual([]);
+  });
+
+  it('normalizes missing single-option axes into variant rows for resolution', () => {
+    expect(
+      applySingleOptionAxisSelectionsToVariants(
+        [
+          {
+            attributes: {},
+            id: 'variant-empty',
+            stock_quantity: 2,
+          },
+          {
+            attributes: { storage: '256GB' },
+            id: 'variant-explicit',
+            stock_quantity: 2,
+          },
+        ],
+        { storage: '128GB' }
+      )
+    ).toEqual([
       {
-        attributes: { Storage: '128GB' },
-        id: 'variant-128',
+        attributes: { storage: '128GB' },
+        id: 'variant-empty',
         stock_quantity: 2,
       },
       {
-        attributes: { Storage: '256GB' },
-        id: 'variant-256',
+        attributes: { storage: '256GB' },
+        id: 'variant-explicit',
         stock_quantity: 2,
       },
     ]);
-
-    expect(getAxisOptions('storage', product)).toEqual(['128GB', '256GB']);
   });
 });

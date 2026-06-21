@@ -357,6 +357,27 @@ describe('critical commerce selection helpers', () => {
     ).toEqual(['ram', 'storage']);
   });
 
+  it('ignores non-string variant axis values before requiring selections', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { Camera: 48 as never, storage: '128GB' },
+          id: 'variant-128',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { Camera: 50 as never, storage: '256GB' },
+          id: 'variant-256',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual(['storage']);
+  });
+
   it('handles empty, single-valued, and multi-axis option sets', () => {
     expect(getVariantAxesWithMultipleOptions([])).toEqual([]);
     expect(

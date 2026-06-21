@@ -138,9 +138,9 @@ export function normalizeCriticalVariantProduct(
 export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
   const axisValues: Record<string, Set<string>> = {};
 
-  const addAxisValue = (rawAxis: string, value: string | null | undefined) => {
+  const addAxisValue = (rawAxis: string, value: unknown) => {
     const axis = canonicalizeVariantAxis(rawAxis);
-    const trimmedValue = value?.trim();
+    const trimmedValue = typeof value === 'string' ? value.trim() : '';
 
     if (!axis || !trimmedValue) {
       return;

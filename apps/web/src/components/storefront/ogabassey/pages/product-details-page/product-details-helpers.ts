@@ -5,6 +5,7 @@ export {
   normalizeConditionType,
 } from './product-condition';
 export {
+  applySingleOptionAxisSelectionsToVariants,
   buildCartItemId,
   buildCartProduct,
   formatAxisLabel,

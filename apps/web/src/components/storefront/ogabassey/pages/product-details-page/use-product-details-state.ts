@@ -19,6 +19,7 @@ import { useV2Saved } from '../../providers/v2-saved-context';
 import type { Product } from '../../types';
 import { createProductCartHandlers } from './product-cart-handlers';
 import {
+  applySingleOptionAxisSelectionsToVariants,
   buildCartItemId,
   buildCartProduct,
   type ConditionType,
@@ -100,16 +101,25 @@ export function useProductDetailsState(serverProduct: Product) {
   const productData = normalizeProductDetails(serverProduct);
   const relatedProductsProduct = toRelatedProductsProduct(serverProduct);
   const effectiveAxes = getEffectiveAxes(serverProduct, productData);
-  const defaultVariantSelection = resolveDefaultVariantSelection({
+  const singleOptionAxisSelections = getSingleOptionAxisSelections(
+    productData,
+    effectiveAxes
+  );
+  const variantResolutionVariants = applySingleOptionAxisSelectionsToVariants(
+    productData.variants,
+    singleOptionAxisSelections
+  );
+  const variantResolutionProduct = {
     price: relatedProductsProduct.price,
     condition: productData.condition,
     manage_stock: productData.manage_stock,
-    variants: productData.variants,
+    variants: variantResolutionVariants,
+  };
+  const defaultVariantSelection = resolveDefaultVariantSelection({
+    ...variantResolutionProduct,
   });
   const usesVariantConditions = hasVariantConditionAxis({
-    price: relatedProductsProduct.price,
-    condition: productData.condition,
-    variants: productData.variants,
+    ...variantResolutionProduct,
   });
   const availableConditions = usesVariantConditions
     ? getValidAvailableConditions(
@@ -131,12 +141,9 @@ export function useProductDetailsState(serverProduct: Product) {
   const routeSelectionResolution = usesVariantRouteSelection
     ? resolveVariantSelectionParamResolution(
         {
+          ...variantResolutionProduct,
           attributeAxes: effectiveAxes,
-          condition: productData.condition,
-          manage_stock: productData.manage_stock,
-          price: relatedProductsProduct.price,
           variant_attributes: serverProduct.variant_attributes,
-          variants: productData.variants,
         },
         searchParams
       )
@@ -187,22 +194,13 @@ export function useProductDetailsState(serverProduct: Product) {
   // on mount instead of on every render.
   const resolveInitialSeed = () =>
     resolveVariantDisplaySelection(
-      {
-        price: relatedProductsProduct.price,
-        condition: productData.condition,
-        manage_stock: productData.manage_stock,
-        variants: productData.variants,
-      },
+      variantResolutionProduct,
       {
         attributes: routeSelectionAttributes,
         condition: routeCondition,
         variantId: routeVariantId,
       }
     ) ?? defaultVariantSelection;
-  const singleOptionAxisSelections = getSingleOptionAxisSelections(
-    productData,
-    effectiveAxes
-  );
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     () => {
       const seed = resolveInitialSeed();
@@ -255,24 +253,14 @@ export function useProductDetailsState(serverProduct: Product) {
     ...(selectedColorName ? { color: selectedColorName } : {}),
   };
   const currentVariantDisplaySelection = resolveVariantDisplaySelection(
-    {
-      price: relatedProductsProduct.price,
-      condition: productData.condition,
-      manage_stock: productData.manage_stock,
-      variants: productData.variants,
-    },
+    variantResolutionProduct,
     {
       condition: selectedCondition,
       attributes: variantSelectionAttributes,
     }
   );
   const currentVariantSelection = resolveVariantSelection(
-    {
-      price: relatedProductsProduct.price,
-      condition: productData.condition,
-      manage_stock: productData.manage_stock,
-      variants: productData.variants,
-    },
+    variantResolutionProduct,
     {
       condition: selectedCondition,
       attributes: variantSelectionAttributes,
@@ -296,12 +284,7 @@ export function useProductDetailsState(serverProduct: Product) {
       buyActionHandled.current = true;
       const selectedVariantSelection =
         resolveVariantDisplaySelection(
-          {
-            price: relatedProductsProduct.price,
-            condition: productData.condition,
-            manage_stock: productData.manage_stock,
-            variants: productData.variants,
-          },
+          variantResolutionProduct,
           {
             attributes: routeSelectionAttributes,
             condition: routeCondition,
@@ -377,12 +360,7 @@ export function useProductDetailsState(serverProduct: Product) {
 
     const seedSelection =
       resolveVariantDisplaySelection(
-        {
-          price: relatedProductsProduct.price,
-          condition: productData.condition,
-          manage_stock: productData.manage_stock,
-          variants: productData.variants,
-        },
+        variantResolutionProduct,
         {
           attributes: routeSelectionAttributes,
           condition: routeCondition,

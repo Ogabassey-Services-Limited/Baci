@@ -435,20 +435,17 @@ function getInitialCriticalVariantSelection(
 
 function getDefaultCriticalVariantSelection(product: Product) {
   const productColor = normalizeRouteSelectionValue(product.color);
-  const productCondition = normalizeProductCondition(product.condition);
   const defaultVariantId = normalizeRouteSelectionValue(
     product.default_variant_id
   );
   const defaultVariant = defaultVariantId
     ? product.variants?.find((variant) => variant.id === defaultVariantId)
     : undefined;
-  const attributes = productColor
-    ? { color: productColor }
-    : defaultVariant?.attributes;
-  const condition =
-    (productColor ? productCondition : defaultVariant?.condition) ||
-    productCondition;
-  const variantId = productColor ? undefined : defaultVariant?.id;
+  const attributes =
+    defaultVariant?.attributes ??
+    (productColor ? { color: productColor } : undefined);
+  const condition = defaultVariant?.condition;
+  const variantId = defaultVariant?.id;
 
   if (!attributes && !condition && !variantId) {
     return undefined;
@@ -643,6 +640,9 @@ function getInitialRouteVariant(
   const defaultVariantId = normalizeRouteSelectionValue(
     cachedProduct.default_variant_id
   );
+  const defaultVariant = defaultVariantId
+    ? variants.find((variant) => variant.id === defaultVariantId)
+    : null;
   const sameProductColorVariants = productColor
     ? variants.filter(
         (variant) =>
@@ -657,9 +657,9 @@ function getInitialRouteVariant(
   );
 
   return (
+    defaultVariant ||
     productColorAndConditionVariant ||
     sameProductColorVariants[0] ||
-    variants.find((variant) => variant.id === defaultVariantId) ||
     null
   );
 }

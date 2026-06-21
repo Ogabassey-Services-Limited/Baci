@@ -2907,10 +2907,129 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green' },
-          condition: 'open_box',
         },
       })
     );
+  });
+
+  it('prefers the configured default variant over product color metadata', async () => {
+    const jadeImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
+    const blackImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-onyx-black.avif';
+    const variants = [
+      {
+        attributes: { color: 'Jade Green', storage: '128GB' },
+        condition: 'open_box',
+        id: 'variant-open-jade-128',
+        primary_image: jadeImage,
+        stock_quantity: 3,
+      },
+      {
+        attributes: { color: 'Onyx Black', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-black-128',
+        primary_image: blackImage,
+        stock_quantity: 4,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        color: 'Jade Green',
+        condition: 'open_box',
+        default_variant_id: 'variant-used-black-128',
+        has_variants: true,
+        images: [jadeImage],
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      color: 'Jade Green',
+      condition: 'open_box',
+      default_variant_id: 'variant-used-black-128',
+      has_variants: true,
+      images: [jadeImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: blackImage,
+    });
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          attributes: { color: 'Onyx Black', storage: '128GB' },
+          condition: 'used',
+          variantId: 'variant-used-black-128',
+        },
+      })
+    );
+  });
+
+  it('does not force stale product condition into the default critical selection', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/used-laptop.avif';
+    const variants = [
+      {
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-128',
+        primary_image: productImage,
+        stock_quantity: 3,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        condition: 'new',
+        has_variants: true,
+        images: [productImage],
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      condition: 'new',
+      has_variants: true,
+      images: [productImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    const providerProps = mockOgabasseyPdpCriticalCommerceProvider.mock.calls
+      .at(-1)
+      ?.at(0) as { initialVariantSelection?: unknown };
+
+    expect(providerProps.initialVariantSelection).toBeUndefined();
   });
 
   it('preserves has_variants from the cached product hint when variant hydration is empty', async () => {
