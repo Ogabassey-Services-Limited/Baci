@@ -67,10 +67,9 @@ function mapHomeProductImages(product: StorefrontHomeProduct): ProductImage[] {
   });
 }
 
-function mapHomeProductCategory(
-  product: StorefrontHomeProduct
-): Product['categories'] {
-  const categoryRelation = product.product_categories?.[0]?.categories;
+function getFirstHomeProductCategory(
+  categoryRelation: unknown
+): Record<string, unknown> | null {
   const category = Array.isArray(categoryRelation)
     ? categoryRelation[0]
     : categoryRelation;
@@ -79,13 +78,28 @@ function mapHomeProductCategory(
     return null;
   }
 
-  const candidate = category as Record<string, unknown>;
+  return category as Record<string, unknown>;
+}
+
+function mapHomeProductCategory(
+  product: StorefrontHomeProduct
+): Product['categories'] {
+  const category =
+    getFirstHomeProductCategory(
+      (product as StorefrontHomeProduct & { categories?: unknown }).categories
+    ) ??
+    getFirstHomeProductCategory(product.product_categories?.[0]?.categories);
+
+  if (!category) {
+    return null;
+  }
+
   return {
-    id: typeof candidate.id === 'string' ? candidate.id : undefined,
-    name: typeof candidate.name === 'string' ? candidate.name : undefined,
-    slug: typeof candidate.slug === 'string' ? candidate.slug : undefined,
+    id: typeof category.id === 'string' ? category.id : undefined,
+    name: typeof category.name === 'string' ? category.name : undefined,
+    slug: typeof category.slug === 'string' ? category.slug : undefined,
     parent_id:
-      typeof candidate.parent_id === 'string' ? candidate.parent_id : undefined,
+      typeof category.parent_id === 'string' ? category.parent_id : undefined,
   };
 }
 

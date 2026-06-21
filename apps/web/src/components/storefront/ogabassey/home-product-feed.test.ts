@@ -160,6 +160,81 @@ describe('createOgabasseyHomeProductFeed', () => {
     );
   });
 
+  it('prioritizes smartphone products before applying the homepage feed limit', () => {
+    const products = Array.from(
+      { length: OGABASSEY_HOME_PRODUCT_FEED_LIMIT + 2 },
+      (_, index) =>
+        createStorefrontProduct({
+          id: `accessory-${index + 1}`,
+          name: `Accessory ${index + 1}`,
+          slug: `accessory-${index + 1}`,
+          category: 'Accessories',
+        })
+    );
+    products.push(
+      createStorefrontProduct({
+        id: 'iphone-priority',
+        name: 'iPhone Priority',
+        slug: 'iphone-priority',
+        category: 'Smartphones',
+      })
+    );
+
+    const result = createOgabasseyHomeProductFeed(products);
+
+    expect(result).toHaveLength(OGABASSEY_HOME_PRODUCT_FEED_LIMIT);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: 'iphone-priority',
+        category: 'Smartphones',
+      })
+    );
+    expect(result.some((product) => product.id === 'accessory-1')).toBe(true);
+    expect(
+      result.some((product) => product.id === `accessory-${products.length - 1}`)
+    ).toBe(false);
+  });
+
+  it('prioritizes relation-backed smartphone categories before applying the homepage feed limit', () => {
+    const products = Array.from(
+      { length: OGABASSEY_HOME_PRODUCT_FEED_LIMIT + 2 },
+      (_, index) =>
+        createStorefrontProduct({
+          id: `accessory-${index + 1}`,
+          name: `Accessory ${index + 1}`,
+          slug: `accessory-${index + 1}`,
+          category: 'Accessories',
+        })
+    );
+    products.push(
+      createStorefrontProduct({
+        id: 'iphone-relation-priority',
+        name: 'iPhone Relation Priority',
+        slug: 'iphone-relation-priority',
+        category: undefined,
+        category_slug: undefined,
+        categories: {
+          id: 'cat-phone',
+          name: 'Smartphones',
+          slug: 'smartphones',
+        },
+      })
+    );
+
+    const result = createOgabasseyHomeProductFeed(products);
+
+    expect(result).toHaveLength(OGABASSEY_HOME_PRODUCT_FEED_LIMIT);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: 'iphone-relation-priority',
+        category: 'Smartphones',
+      })
+    );
+    expect(
+      result.some((product) => product.id === `accessory-${products.length - 1}`)
+    ).toBe(false);
+  });
+
   it('returns an empty array when no homepage products are available', () => {
     expect(createOgabasseyHomeProductFeed([])).toEqual([]);
   });
