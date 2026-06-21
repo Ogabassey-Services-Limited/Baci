@@ -186,5 +186,3 @@ Thank you for shopping with ${data.merchantName}!
 Powered by Baci - AI E-commerce Platform
   `.trim();
 }
-
-// --- Order Cancellation Email ---

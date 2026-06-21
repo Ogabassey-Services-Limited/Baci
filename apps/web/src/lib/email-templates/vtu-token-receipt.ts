@@ -1,4 +1,4 @@
-import { escapeHtmlAttribute } from '@/lib/sanitize';
+import { escapeHtmlAttribute, escapeHtmlText } from '@/lib/sanitize';
 import type { MerchantRegistrationInfo } from './shared';
 import {
   buildEscapedRegistrationLine,
@@ -235,7 +235,7 @@ export function generateVtuTokenReceiptEmail(
                     <tr>
                       <td style="padding: 16px 0 12px 0; color: #0f172a; font-weight: 700; font-size: 15px;">Total Amount</td>
                       <td style="padding: 16px 0 12px 0; color: ${accentColor}; font-weight: 800; font-size: 18px; text-align: right;">
-                        ${escapeHtmlAttribute(formatEmailMoney(data.amount, data.currency))}
+                        ${escapeHtmlText(formatEmailMoney(data.amount, data.currency))}
                       </td>
                     </tr>
                   </tbody>
@@ -268,7 +268,3 @@ export function generateVtuTokenReceiptEmail(
 </html>
   `.trim();
 }
-
-/**
- * Generate plain text version of VTU Token receipt email
- */

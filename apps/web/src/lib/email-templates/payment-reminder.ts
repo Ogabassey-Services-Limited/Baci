@@ -214,5 +214,3 @@ Thank you for shopping with ${data.merchantName}!
 Powered by Baci — AI E-commerce Platform
   `.trim();
 }
-
-// --- Payment Receipt Email (Partial or Full) ---
