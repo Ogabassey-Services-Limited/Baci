@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
+import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
 
 export interface BlogPostBodyProps {
   basePath: string;
@@ -21,6 +22,7 @@ export interface BlogPostBodyProps {
     slug: string;
     tags?: string[] | null;
     title: string;
+    featured_image_url?: string | null;
   };
   relatedProducts?: Array<{
     category_slug?: string | null;
@@ -96,11 +98,17 @@ export async function BlogPostBody({
       {/* Post Content */}
       <div className="mb-8">
         {isJson ? (
-          <BlogContentRenderer json={content} />
+          <BlogContentRenderer
+            json={content}
+            priorityInlineImageSrc={post.featured_image_url ? null : undefined}
+          />
         ) : (
           <SafeHtml
-            html={legacyHtml}
-            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600! [&_img:first-of-type]:hidden"
+            html={removeDuplicateLegacyFeaturedImage(
+              legacyHtml,
+              post.featured_image_url
+            )}
+            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600!"
           />
         )}
       </div>

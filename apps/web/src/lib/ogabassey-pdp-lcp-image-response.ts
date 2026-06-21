@@ -41,7 +41,8 @@ export async function buildOgabasseyPdpLcpImageResponse({
   try {
     cachedProduct = await getCachedProductLcpHint(
       OGABASSEY_MERCHANT_ID,
-      parsed.data.productSlug
+      parsed.data.productSlug,
+      { includeVariants: false }
     );
   } catch (error) {
     console.warn(

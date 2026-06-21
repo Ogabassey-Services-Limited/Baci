@@ -119,6 +119,65 @@ describe('product schemas', () => {
     expect(result.imageLarge).toBeNull();
   });
 
+  it('defaults omitted create variant stock while preserving omitted update variant stock', () => {
+    const created = createProductSchema.parse({
+      ...validCreateInput,
+      has_variants: true,
+      variants: [{ attributes: { size: 'M' } }],
+    });
+    const updated = updateProductSchema.parse({
+      has_variants: true,
+      variants: [{ sku: 'SKU-M' }],
+    });
+
+    expect(created.variants?.[0]?.stock_quantity).toBe(0);
+    expect(updated.variants?.[0]).not.toHaveProperty('stock_quantity');
+  });
+
+  it('lets update payloads carry partial sku_matrix variant rows', () => {
+    const updated = updateProductSchema.parse({
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+          sku: 'SKU-M',
+        },
+      ],
+    });
+
+    expect(updated.variants?.[0]).toEqual({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      sku: 'SKU-M',
+    });
+  });
+
+  it('rejects new sku_matrix update variant rows without conditions', () => {
+    const result = updateProductSchema.safeParse({
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          price_override: 800,
+          stock_quantity: 1,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message:
+              'sku_matrix products require every variant to include a condition.',
+            path: ['variants'],
+          }),
+        ])
+      );
+    }
+  });
+
   it('rejects update payloads with invalid field types', () => {
     expect(() =>
       updateProductSchema.parse({

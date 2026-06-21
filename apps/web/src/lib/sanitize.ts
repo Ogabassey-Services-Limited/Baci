@@ -137,6 +137,10 @@ export function sanitizeHtml(
       // Links and media
       'a',
       'img',
+      // Responsive images: blog inline images are served as a <picture> with
+      // pre-optimized AVIF/WebP <source> siblings (trusted CDN only).
+      'picture',
+      'source',
       // Tables (for blog and rich content)
       'table',
       'thead',
@@ -158,7 +162,8 @@ export function sanitizeHtml(
         'rowspan',
       ],
       a: ['href', 'target', 'rel'],
-      img: ['src', 'alt', 'width', 'height'],
+      img: ['src', 'alt', 'width', 'height', 'loading', 'decoding'],
+      source: ['srcset', 'type', 'media', 'sizes'],
     },
     // Security configurations
     // Ensure all external links have rel="noopener noreferrer"

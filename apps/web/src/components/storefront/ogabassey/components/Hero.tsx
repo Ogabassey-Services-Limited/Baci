@@ -5,6 +5,7 @@ import { getImageProps } from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { joinRouteBasePath } from '@/lib/routes';
+import { GadgetPattern } from './GadgetPattern';
 import { DESKTOP_IPHONE_SLIDES } from './hero-data';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import { HeroMobileCarousel } from './hero-mobile-carousel';
@@ -127,10 +128,11 @@ export const Hero: React.FC<HeroProps> = ({ basePath = '' }) => {
 
       <div
         id="hero-bg-extension"
-        className="absolute top-0 left-0 right-0 h-14 bg-[#0F0F0F] z-0 md:hidden"
+        className="absolute top-0 left-0 right-0 h-28 overflow-hidden bg-[var(--ogabassey-shell-background)] z-0 md:hidden"
+        data-ogabassey-mobile-hero-bg-extension="true"
         aria-hidden="true"
       >
-        <div className="absolute inset-0 bg-linear-to-b from-white/10 via-white/5 to-transparent" />
+        <GadgetPattern opacity={0.1} />
       </div>
 
       <section className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 pt-4 md:pt-6 flex flex-col">

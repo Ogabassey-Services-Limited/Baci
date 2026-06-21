@@ -673,6 +673,37 @@ describe('POST /api/payments/webhook', () => {
       expect(response.status).toBe(400);
       expect(data).toEqual({ error: 'Invalid reference' });
     });
+
+    it('acknowledges a signed Paystack success webhook with an invalid reference without retrying', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: '',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'Paystack webhook accepted for review' });
+      expect(verifyTransaction).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gateway: 'paystack',
+          message: 'Paystack webhook has invalid reference',
+        })
+      );
+    });
   });
 
   describe('Payment Verification', () => {
@@ -702,6 +733,131 @@ describe('POST /api/payments/webhook', () => {
 
       expect(response.status).toBe(400);
       expect(data).toEqual({ error: 'Payment verification failed' });
+    });
+
+    it('asks Paystack to retry when verification fails transiently', async () => {
+      const body = {
+        event: 'charge.success',
+        data: { reference: 'REF123' },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: false,
+        error: 'Network error',
+        code: 'NETWORK_ERROR',
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(data).toEqual({
+        error: 'Paystack verification temporarily unavailable',
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gateway: 'paystack',
+          message: 'Paystack webhook verification failed transiently',
+          reference: 'REF123',
+        })
+      );
+    });
+
+    it('acknowledges non-retryable Paystack verification failures after logging for review', async () => {
+      const body = {
+        event: 'charge.success',
+        data: { reference: 'REF123' },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: false,
+        error: 'Transaction reference not found',
+        code: 'HTTP_404',
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'Paystack webhook accepted for review' });
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gateway: 'paystack',
+          message:
+            'Paystack webhook verification failed with non-retryable result',
+          reference: 'REF123',
+        })
+      );
+    });
+
+    it('acknowledges a Paystack charge.success event when verification returns a non-success status', async () => {
+      const body = {
+        event: 'charge.success',
+        data: { reference: 'REF123' },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'failed',
+          amount: 100000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'card',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: {
+            id: 1,
+            email: 'test@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'Paystack webhook accepted for review' });
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gateway: 'paystack',
+          message: 'Paystack webhook verification returned non-success status',
+          reference: 'REF123',
+          status: 'failed',
+        })
+      );
     });
 
     it('returns 400 when payment status is not success', async () => {

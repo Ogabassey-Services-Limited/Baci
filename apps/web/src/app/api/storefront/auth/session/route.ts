@@ -1,10 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import {
-  type CachedMerchant,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
+import { resolveStorefrontAuthMerchant } from '../resolve-storefront-auth-merchant';
 
 /**
  * Customer Auth Session
@@ -103,8 +100,10 @@ export async function GET(request: Request) {
       });
     }
 
-    const merchant: CachedMerchant | null =
-      await getMerchantByIdentifier(merchantSlug);
+    const merchant = await resolveStorefrontAuthMerchant(
+      supabase,
+      merchantSlug
+    );
 
     if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });

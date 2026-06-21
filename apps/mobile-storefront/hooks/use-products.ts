@@ -16,6 +16,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import {
   CONSTANT_MERCHANT_ID,
   fetchAvailableBrands,
@@ -54,6 +55,20 @@ export function useProducts(options: UseProductsOptions = {}) {
     enabled: !!merchantId && options.enabled !== false,
   });
 
+  const pendingLoadMoreRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasNextPage) {
+      pendingLoadMoreRef.current = false;
+      return;
+    }
+
+    if (pendingLoadMoreRef.current && !isFetching && !isFetchingNextPage) {
+      pendingLoadMoreRef.current = false;
+      void fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetching, isFetchingNextPage]);
+
   const products = dedupeById(
     data?.pages.flatMap((page) => page.products) || []
   );
@@ -70,9 +85,22 @@ export function useProducts(options: UseProductsOptions = {}) {
     hasMore: hasNextPage || false,
     refetch,
     loadMore: () => {
-      if (hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
+      if (!hasNextPage) {
+        pendingLoadMoreRef.current = false;
+        return;
       }
+
+      if (isFetchingNextPage) return;
+
+      // TanStack Query allows only one active InfiniteQuery fetch by default;
+      // queue bottom-reached requests that arrive during background refetches
+      // so FlashList's one-shot end signal is not lost.
+      if (isFetching) {
+        pendingLoadMoreRef.current = true;
+        return;
+      }
+
+      void fetchNextPage();
     },
     isLoadingMore: isFetchingNextPage,
   };

@@ -122,6 +122,36 @@ function detectGateway(headers: Headers): PaymentGateway {
   return 'korapay';
 }
 
+const PAYSTACK_WEBHOOK_REVIEW_MESSAGE = 'Paystack webhook accepted for review';
+
+function isRetryablePaystackVerificationFailure(code: string | undefined) {
+  if (!code) {
+    return true;
+  }
+
+  if (code === 'NETWORK_ERROR' || code === 'CONFIG_ERROR') {
+    return true;
+  }
+
+  const statusMatch = /^HTTP_(\d+)$/.exec(code);
+  if (!statusMatch) {
+    return false;
+  }
+
+  const status = Number(statusMatch[1]);
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function acknowledgePaystackWebhookForReview(
+  details: { message: string } & Record<string, unknown>
+) {
+  logger.warn({
+    ...details,
+    gateway: 'paystack',
+  });
+  return NextResponse.json({ message: PAYSTACK_WEBHOOK_REVIEW_MESSAGE });
+}
+
 function getVerifiedAmount(
   gateway: PaymentGateway,
   gatewayResponse: Record<string, unknown>
@@ -523,6 +553,13 @@ export async function POST(request: NextRequest) {
     const referenceResult = referenceSchema.safeParse(reference);
 
     if (!referenceResult.success) {
+      if (gateway === 'paystack') {
+        return acknowledgePaystackWebhookForReview({
+          message: 'Paystack webhook has invalid reference',
+          event: body.event,
+        });
+      }
+
       return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
     const safeReference = referenceResult.data;
@@ -538,7 +575,27 @@ export async function POST(request: NextRequest) {
     if (gateway === 'paystack') {
       const result = await verifyPaystackPayment(safeReference);
       if (!result.success) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
+        if (isRetryablePaystackVerificationFailure(result.code)) {
+          logger.warn({
+            message: 'Paystack webhook verification failed transiently',
+            gateway,
+            reference,
+            code: result.code,
+            error: sanitizeForLog(result.error),
+          });
+          return NextResponse.json(
+            { error: 'Paystack verification temporarily unavailable' },
+            { status: 503 }
+          );
+        }
+
+        return acknowledgePaystackWebhookForReview({
+          message:
+            'Paystack webhook verification failed with non-retryable result',
+          reference,
+          code: result.code,
+          error: sanitizeForLog(result.error),
+        });
       }
       paymentStatus = result.data.status;
       gatewayResponse = result.data as unknown as Record<string, unknown>;
@@ -552,6 +609,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (paymentStatus !== 'success') {
+      if (gateway === 'paystack') {
+        return acknowledgePaystackWebhookForReview({
+          message: 'Paystack webhook verification returned non-success status',
+          reference,
+          status: paymentStatus,
+        });
+      }
+
       logger.warn({
         message: 'Payment verification failed',
         reference,

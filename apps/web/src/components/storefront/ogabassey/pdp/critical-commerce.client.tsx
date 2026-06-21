@@ -2,56 +2,84 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { useState } from 'react';
-import { useCart } from '@/hooks/cart';
 import type { Product as CartProduct } from '@/lib/products';
+import {
+  formatCriticalPrice,
+  type InitialCriticalVariantSelection,
+} from './critical-commerce-selection';
+import {
+  OgabasseyPdpCriticalCommerceProvider,
+  useOgabasseyPdpCriticalCommerce,
+} from './critical-commerce-state.client';
+import { OgabasseyPdpCriticalVariantSelectors } from './critical-variant-selectors.client';
+
+export { OgabasseyPdpCriticalCommerceProvider } from './critical-commerce-state.client';
 
 interface OgabasseyPdpCriticalCommerceClientProps {
   cartHref: Route;
   cartProduct: CartProduct;
+  initialVariantSelection?: InitialCriticalVariantSelection;
   productName: string;
+  variantAxes?: string[];
   variantCount: number;
 }
 
-export function OgabasseyPdpCriticalCommerceClient({
-  cartHref,
-  cartProduct,
-  productName,
-  variantCount,
-}: OgabasseyPdpCriticalCommerceClientProps) {
-  const maxQuantity = cartProduct.manage_stock
-    ? Math.max(
-        0,
-        typeof cartProduct.stock === 'number' ? cartProduct.stock : 0
-      )
-    : null;
-  const [quantity, setQuantity] = useState(maxQuantity === 0 ? 0 : 1);
-  const { addToCart, setIsCartOpen } = useCart();
-  const isAtMaxQuantity = maxQuantity !== null && quantity >= maxQuantity;
-  const canAddToCart =
-    quantity >= 1 &&
-    (maxQuantity === null || (maxQuantity > 0 && quantity <= maxQuantity));
+interface OgabasseyPdpCriticalCommerceControlsProps {
+  cartHref: Route;
+  productName: string;
+}
 
-  function handleAddToCart() {
-    if (!canAddToCart) {
-      return;
-    }
-
-    const options = cartProduct.condition
-      ? { condition: cartProduct.condition }
-      : undefined;
-
-    addToCart(cartProduct, quantity, options);
-    setIsCartOpen(true);
-  }
+export function OgabasseyPdpCriticalCommerceSummary() {
+  const {
+    explicitSelectedAxes,
+    handleAttributeSelection,
+    productForCart,
+    renderableVariantAxes,
+    selectedAttributes,
+    variantCount,
+    variants,
+  } = useOgabasseyPdpCriticalCommerce();
 
   return (
-    <div data-ogabassey-pdp-commerce-controls>
-      {variantCount > 1 ? (
-        <p data-ogabassey-pdp-commerce-selection-hint>
-          Choose options below before checkout.
-        </p>
-      ) : null}
+    <>
+      <div data-ogabassey-pdp-price>
+        <span data-ogabassey-pdp-price-live>
+          {formatCriticalPrice(productForCart.price)}
+        </span>
+      </div>
+      <div data-ogabassey-pdp-summary-variant-slot>
+        <OgabasseyPdpCriticalVariantSelectors
+          explicitSelectedAxes={explicitSelectedAxes}
+          onAttributeSelection={handleAttributeSelection}
+          renderableVariantAxes={renderableVariantAxes}
+          selectedAttributes={selectedAttributes}
+          variantCount={variantCount}
+          variants={variants}
+        />
+      </div>
+    </>
+  );
+}
+
+export function OgabasseyPdpCriticalCommerceControls({
+  cartHref,
+  productName,
+}: OgabasseyPdpCriticalCommerceControlsProps) {
+  const {
+    canAddToCart,
+    handleAddToCart,
+    isAtMaxQuantity,
+    maxQuantity,
+    quantity,
+    setQuantity,
+  } = useOgabasseyPdpCriticalCommerce();
+
+  return (
+    <div
+      data-ogabassey-pdp-commerce-controls
+      aria-label="Purchase controls"
+      role="group"
+    >
       <div
         data-ogabassey-pdp-commerce-quantity
         aria-label="Quantity"
@@ -95,5 +123,29 @@ export function OgabasseyPdpCriticalCommerceClient({
         View cart
       </Link>
     </div>
+  );
+}
+
+export function OgabasseyPdpCriticalCommerceClient({
+  cartHref,
+  cartProduct,
+  initialVariantSelection,
+  productName,
+  variantAxes = [],
+  variantCount,
+}: OgabasseyPdpCriticalCommerceClientProps) {
+  return (
+    <OgabasseyPdpCriticalCommerceProvider
+      cartProduct={cartProduct}
+      initialVariantSelection={initialVariantSelection}
+      variantAxes={variantAxes}
+      variantCount={variantCount}
+    >
+      <OgabasseyPdpCriticalCommerceSummary />
+      <OgabasseyPdpCriticalCommerceControls
+        cartHref={cartHref}
+        productName={productName}
+      />
+    </OgabasseyPdpCriticalCommerceProvider>
   );
 }

@@ -53,8 +53,32 @@ const cartProduct: CartProduct = {
   stock: 4,
 };
 
+const variantCartProduct: CartProduct = {
+  ...cartProduct,
+  has_variants: true,
+  price: 237_674.42,
+  variants: [
+    {
+      attributes: { ram: '4GB', storage: '128GB' },
+      id: 'variant-128-4',
+      merchant_id: 'merchant-1',
+      price_override: 237_674.42,
+      product_id: 'product-1',
+      stock_quantity: 10,
+    },
+    {
+      attributes: { ram: '8GB', storage: '256GB' },
+      id: 'variant-256-8',
+      merchant_id: 'merchant-1',
+      price_override: 278_418.6,
+      product_id: 'product-1',
+      stock_quantity: 8,
+    },
+  ],
+};
+
 describe('OgabasseyPdpCriticalCommerceClient', () => {
-  it('adds the selected quantity to the existing cart store', () => {
+  it('adds simple products with the selected quantity', () => {
     render(
       <OgabasseyPdpCriticalCommerceClient
         cartHref="/cart"
@@ -73,7 +97,7 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
     expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
   });
 
-  it('renders a variant hint and disables decrement at the default quantity', () => {
+  it('omits the variant hint without renderable selectors and disables decrement at the default quantity', () => {
     render(
       <OgabasseyPdpCriticalCommerceClient
         cartHref="/cart"
@@ -84,11 +108,54 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
     );
 
     expect(
-      screen.getByText('Choose options below before checkout.')
-    ).toBeInTheDocument();
+      screen.queryByText('Choose options below before checkout.')
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /decrease quantity/i })
     ).toBeDisabled();
+  });
+
+  it('adds the selected variant identity, attributes, price, and stock to cart', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceClient
+        cartHref="/cart"
+        cartProduct={variantCartProduct}
+        productName={variantCartProduct.name}
+        variantAxes={['storage', 'ram']}
+        variantCount={2}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /select 128gb storage/i })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    );
+
+    expect(screen.getByRole('button', { name: /add to cart/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /select 8gb ram/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        price: 278_418.6,
+        stock: 8,
+      }),
+      1,
+      expect.objectContaining({
+        condition: 'used',
+        storage: '256GB',
+        variantAttributes: {
+          ram: '8GB',
+          storage: '256GB',
+        },
+        variantId: 'variant-256-8',
+      })
+    );
+    expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
   });
 
   it('omits cart condition options when the cart product has no condition', () => {
@@ -190,5 +257,24 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
       condition: 'used',
     });
     expect(cartMocks.setIsCartOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('keeps add to cart disabled until all required variant axes are selected', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceClient
+        cartHref="/cart"
+        cartProduct={variantCartProduct}
+        productName={variantCartProduct.name}
+        variantAxes={['storage', 'ram']}
+        variantCount={2}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    );
+
+    expect(screen.getByRole('button', { name: /add to cart/i })).toBeDisabled();
+    expect(cartMocks.addToCart).not.toHaveBeenCalled();
   });
 });

@@ -756,6 +756,9 @@ importers:
       jest-expo:
         specifier: ~56.0.5
         version: 56.0.5(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(expo@56.0.12)(jest@29.7.0(@types/node@24.13.2))(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      plist:
+        specifier: ^3.1.1
+        version: 3.1.1
       react-test-renderer:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)

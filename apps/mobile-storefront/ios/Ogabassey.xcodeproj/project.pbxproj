@@ -146,6 +146,7 @@
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
+				7E9F7C8B9AA44E3CA66C9D11 /* [Baci] Configure Facebook SDK plist */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				AB357DCF6D6445DAB16AC949 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
@@ -293,6 +294,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Ogabassey/expo-configure-project.sh\"\n";
+		};
+		7E9F7C8B9AA44E3CA66C9D11 /* [Baci] Configure Facebook SDK plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Ogabassey/Info.plist",
+			);
+			name = "[Baci] Configure Facebook SDK plist";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Keep Facebook SDK plist values environment-backed without committing local credentials.\nset -e\n\nif [ -f \"$SRCROOT/.xcode.env\" ]; then\n  . \"$SRCROOT/.xcode.env\"\nfi\nif [ -f \"$SRCROOT/.xcode.env.local\" ]; then\n  . \"$SRCROOT/.xcode.env.local\"\nfi\n\ntrim() {\n  printf \"%s\" \"$1\" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'\n}\n\nAPP_ID=\"$(trim \"${STOREFRONT_FACEBOOK_APP_ID:-}\")\"\nCLIENT_TOKEN=\"$(trim \"${STOREFRONT_FACEBOOK_CLIENT_TOKEN:-}\")\"\n\nif [ -n \"$APP_ID\" ] && [ -z \"$CLIENT_TOKEN\" ]; then\n  echo \"error: STOREFRONT_FACEBOOK_CLIENT_TOKEN is missing but STOREFRONT_FACEBOOK_APP_ID is configured.\" >&2\n  exit 1\nfi\nif [ -z \"$APP_ID\" ] && [ -n \"$CLIENT_TOKEN\" ]; then\n  echo \"error: STOREFRONT_FACEBOOK_APP_ID is missing but STOREFRONT_FACEBOOK_CLIENT_TOKEN is configured.\" >&2\n  exit 1\nfi\n\nif [ -n \"$APP_ID\" ] && [ -n \"$CLIENT_TOKEN\" ]; then\n  FACEBOOK_APP_ID=\"$APP_ID\"\n  FACEBOOK_CLIENT_TOKEN=\"$CLIENT_TOKEN\"\n  FACEBOOK_SCHEME=\"fb${APP_ID}\"\nelse\n  if [ \"$CONFIGURATION\" = \"Release\" ]; then\n    echo \"error: Release builds require STOREFRONT_FACEBOOK_APP_ID and STOREFRONT_FACEBOOK_CLIENT_TOKEN before Facebook SDK plist injection.\" >&2\n    exit 1\n  fi\n  echo \"warning: Facebook App ID and Client Token are not configured. Facebook SDK features will not function correctly.\"\n  FACEBOOK_APP_ID=\"facebook_app_id_placeholder\"\n  FACEBOOK_CLIENT_TOKEN=\"facebook_client_token_placeholder\"\n  FACEBOOK_SCHEME=\"fb_placeholder\"\nfi\n\nPLIST_PATH=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nPLIST_BUDDY=/usr/libexec/PlistBuddy\n\nif [ ! -f \"$PLIST_PATH\" ]; then\n  if [ \"$CONFIGURATION\" = \"Release\" ]; then\n    echo \"error: Info.plist build output not found at $PLIST_PATH; refusing to continue without Facebook SDK plist injection.\" >&2\n    exit 1\n  fi\n  echo \"warning: Info.plist build output not found at $PLIST_PATH; skipping Facebook SDK plist injection in $CONFIGURATION.\"\n  exit 0\nfi\n\nset_plist_value() {\n  KEY=\"$1\"\n  TYPE=\"$2\"\n  VALUE=\"$3\"\n  \"$PLIST_BUDDY\" -c \"Set :$KEY $VALUE\" \"$PLIST_PATH\" 2>/dev/null || \"$PLIST_BUDDY\" -c \"Add :$KEY $TYPE $VALUE\" \"$PLIST_PATH\"\n}\n\nset_plist_value FacebookAppID string \"$FACEBOOK_APP_ID\"\nset_plist_value FacebookClientToken string \"$FACEBOOK_CLIENT_TOKEN\"\nset_plist_value FacebookDisplayName string Ogabassey\nset_plist_value FacebookAutoInitEnabled bool false\nset_plist_value FacebookAutoLogAppEventsEnabled bool false\nset_plist_value FacebookAdvertiserIDCollectionEnabled bool false\nif ! command -v python3 >/dev/null 2>&1; then\n  echo \"error: python3 is required for Facebook URL scheme plist injection.\" >&2\n  exit 1\nfi\n\nexport PLIST_PATH FACEBOOK_SCHEME\npython3 <<'PY'\nimport os\nimport plistlib\nimport sys\n\nplist_path = os.environ[\"PLIST_PATH\"]\nfacebook_scheme = os.environ[\"FACEBOOK_SCHEME\"]\n\ntry:\n    with open(plist_path, \"rb\") as plist_file:\n        plist = plistlib.load(plist_file)\nexcept Exception as exc:  # noqa: BLE001\n    print(f\"error: Failed to read Info.plist for Facebook URL scheme injection: {exc}\", file=sys.stderr)\n    raise SystemExit(1) from exc\n\nurl_types = plist.setdefault(\"CFBundleURLTypes\", [])\nif not isinstance(url_types, list):\n    print(\"error: CFBundleURLTypes exists but is not an array in Info.plist.\", file=sys.stderr)\n    raise SystemExit(1)\n\nfacebook_entry = None\nfor entry in url_types:\n    if not isinstance(entry, dict):\n        continue\n    schemes = entry.get(\"CFBundleURLSchemes\")\n    if isinstance(schemes, list) and any(isinstance(scheme, str) and scheme.startswith(\"fb\") for scheme in schemes):\n        facebook_entry = entry\n        break\n\nif facebook_entry is None:\n    facebook_entry = {\"CFBundleURLSchemes\": []}\n    url_types.append(facebook_entry)\n\nfacebook_entry[\"CFBundleURLSchemes\"] = [facebook_scheme]\n\ntry:\n    with open(plist_path, \"wb\") as plist_file:\n        plistlib.dump(plist, plist_file, sort_keys=False)\nexcept Exception as exc:  # noqa: BLE001\n    print(f\"error: Failed to write Facebook URL scheme into Info.plist: {exc}\", file=sys.stderr)\n    raise SystemExit(1) from exc\nPY\n";
+			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;

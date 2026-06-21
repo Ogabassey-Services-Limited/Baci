@@ -90,7 +90,8 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
     expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
       OGABASSEY_MERCHANT_ID,
-      'dell-alienware-m18-r3-rtx-5080'
+      'dell-alienware-m18-r3-rtx-5080',
+      { includeVariants: false }
     );
     expect(mockImageLoader).toHaveBeenCalledWith({
       preferOgabasseyTransform: true,
@@ -123,7 +124,8 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
     expect(response.status).toBe(500);
     expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
       OGABASSEY_MERCHANT_ID,
-      'dell-alienware-m18-r3-rtx-5080'
+      'dell-alienware-m18-r3-rtx-5080',
+      { includeVariants: false }
     );
     expect(mockImageLoader).not.toHaveBeenCalled();
   });

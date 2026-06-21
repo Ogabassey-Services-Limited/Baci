@@ -70,12 +70,12 @@ export function HeroMobileCarousel({
                 <div
                   className={`${
                     usesContainedMedia ? 'w-[46%] pr-2' : 'max-w-[55%]'
-                  } ${slide.textColor}`}
+                  } ${slide.textColor} translate-y-1`}
                   data-ogabassey-mobile-hero-copy={
                     usesContainedMedia ? 'true' : undefined
                   }
                 >
-                  <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-xs font-sans">
+                  <h2 className="mt-1.5 mb-1 text-[1.375rem] font-extrabold leading-tight drop-shadow-xs font-sans">
                     {slide.title}
                   </h2>
                   <p className="text-[11px] font-medium leading-relaxed opacity-90">

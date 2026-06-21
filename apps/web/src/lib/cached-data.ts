@@ -1438,6 +1438,7 @@ export interface CachedProductLcpHint {
     | null;
   condition?: string | null;
   compare_at_price?: number | string | null;
+  has_variants?: boolean | null;
   id: string;
   images?: Array<
     | string
@@ -1449,6 +1450,7 @@ export interface CachedProductLcpHint {
   keywords?: string[] | null;
   manage_stock?: boolean | null;
   max_variant_price?: number | string | null;
+  merchant_id?: string | null;
   meta_description?: string | null;
   meta_title?: string | null;
   min_variant_price?: number | string | null;
@@ -1468,26 +1470,35 @@ export interface CachedProductLcpHint {
         }>
       | null;
   }> | null;
+  product_variants?: PublicStorefrontProductVariant[] | null;
   sale_price?: number | null;
   schema_markup?: unknown;
   slug?: string | null;
+  stock?: number | null;
   stock_quantity?: number | null;
   updated_at?: string | null;
 }
 
+interface CachedProductLcpHintOptions {
+  includeVariants?: boolean;
+}
+
 /**
  * Cached product route and image hint by slug.
- * Avoids the full product projection and variant RPC on the LCP preload path.
+ * Avoids the full product projection; callers that only need an image can skip
+ * storefront variant hydration.
  */
 export async function getCachedProductLcpHint(
   merchantId: string,
-  productSlug: string
+  productSlug: string,
+  options: CachedProductLcpHintOptions = {}
 ): Promise<CachedProductLcpHint | null> {
   'use cache: remote';
   cacheLife('products');
   cacheTag(
     'product',
     'product-lcp-hint',
+    `products-${merchantId}`,
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
@@ -1501,11 +1512,13 @@ export async function getCachedProductLcpHint(
     .from('products')
     .select(`
         id,
+        merchant_id,
         brand,
         name,
         slug,
         price,
         compare_at_price,
+        has_variants,
         min_variant_price,
         max_variant_price,
         condition,
@@ -1518,6 +1531,7 @@ export async function getCachedProductLcpHint(
         canonical_url,
         schema_markup,
         images,
+        stock,
         updated_at,
         categories:category_id (
           id,
@@ -1551,7 +1565,28 @@ export async function getCachedProductLcpHint(
     return null;
   }
 
-  return data ? withLegacyPriceFields(data as CachedProductLcpHint) : null;
+  if (!data) {
+    return null;
+  }
+
+  const product = withLegacyPriceFields(data as CachedProductLcpHint);
+
+  if (options.includeVariants === false) {
+    return product;
+  }
+
+  const variantsByProductId = await getPublicProductVariantsByProductIds([
+    product.id,
+  ]);
+  const rawProduct = {
+    ...product,
+    product_variants: variantsByProductId[product.id] || [],
+  };
+  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
+    rawProduct,
+  ]);
+
+  return hydrated[0] || rawProduct;
 }
 
 /**
@@ -2760,18 +2795,32 @@ export async function getCachedBlogListing(
 }
 
 /**
- * Cached storefront homepage products.
- * Uses 'products' cacheLife profile and the standard products-${merchantId} tag
- * so revalidateProducts() automatically busts this cache.
+ * Ordering strategy for the storefront home product grid.
+ * - 'price': highest price first (default for all storefronts).
+ * - 'recent': most recently updated first (opt-in, e.g. OgaBassey).
  */
-export async function getCachedStorefrontHomeProducts(merchantId: string) {
+export type StorefrontHomeProductSort = 'price' | 'recent';
+
+/**
+ * Cached storefront homepage products.
+ * Uses the products cacheLife profile plus shared and sort-specific product
+ * tags so revalidateProducts() can bust every home-product ordering.
+ */
+export async function getCachedStorefrontHomeProducts(
+  merchantId: string,
+  sort: StorefrontHomeProductSort = 'price'
+) {
   'use cache: remote';
   cacheLife('products');
-  cacheTag('products', `products-${merchantId}`);
+  cacheTag(
+    'products',
+    `products-${merchantId}`,
+    `products-home-${merchantId}-${sort}`
+  );
   const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
 
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
+  const baseQuery = supabase
     .from('products')
     .select(
       `
@@ -2782,9 +2831,22 @@ export async function getCachedStorefrontHomeProducts(merchantId: string) {
     `
     )
     .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .order('price', { ascending: false })
-    .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
+    .eq('status', 'active');
+
+  // 'recent' surfaces the most recently updated devices first. `updated_at` is
+  // trigger-maintained on every row update, with price as a stable tiebreaker.
+  // 'price' (the default for all other storefronts) keeps the original
+  // highest-price-first ordering.
+  const orderedQuery =
+    sort === 'recent'
+      ? baseQuery
+          .order('updated_at', { ascending: false })
+          .order('price', { ascending: false })
+      : baseQuery.order('price', { ascending: false });
+
+  const { data, error } = await orderedQuery.limit(
+    STOREFRONT_HOME_PRODUCT_LIMIT
+  );
 
   if (error) {
     console.error('Failed to load storefront home products', {

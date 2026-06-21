@@ -1,5 +1,5 @@
-import { getHomeProductGridSummary } from './home-product-grid-summary';
 import type { Block } from '@/types/blocks';
+import { getHomeProductGridSummary } from './home-product-grid-summary';
 
 function productGrid(id: string): Block {
   return {
@@ -22,35 +22,27 @@ function categoryRail(id: string): Block {
 }
 
 describe('getHomeProductGridSummary', () => {
-  it('summarizes product grid blocks with category state for reset keys', () => {
+  it('locates the primary product grid and counts grid blocks', () => {
     const blocks = [
       categoryRail('categories'),
       productGrid('featured'),
       productGrid('recent'),
     ];
 
-    const summary = getHomeProductGridSummary(blocks, 'phones');
+    const summary = getHomeProductGridSummary(blocks);
 
     expect(summary).toEqual({
       primaryProductGridIndex: 1,
       productGridBlockCount: 2,
-      productGridDatasetKey: JSON.stringify({
-        selectedCategoryId: 'phones',
-        productGridBlockIds: ['featured', 'recent'],
-      }),
     });
   });
 
   it('returns an empty-grid summary when no product grid exists', () => {
-    const summary = getHomeProductGridSummary([categoryRail('categories')], null);
+    const summary = getHomeProductGridSummary([categoryRail('categories')]);
 
     expect(summary).toEqual({
       primaryProductGridIndex: -1,
       productGridBlockCount: 0,
-      productGridDatasetKey: JSON.stringify({
-        selectedCategoryId: null,
-        productGridBlockIds: [],
-      }),
     });
   });
 });

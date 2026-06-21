@@ -34,6 +34,7 @@ vi.mock('@/hooks/useTheme', () => ({
       text: '#f8fafc',
       textMuted: '#94a3b8',
       textSecondary: '#cbd5e1',
+      textOnPrimary: '#FFFFFF',
       warning: '#f59e0b',
     },
     shadows: {

@@ -66,6 +66,11 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       width: 750,
     });
 
+    expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+      expect.any(String),
+      'dell-alienware-m18-r3-rtx-5080',
+      { includeVariants: false }
+    );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(mockImageLoader).toHaveBeenCalledWith({
       preferOgabasseyTransform: true,

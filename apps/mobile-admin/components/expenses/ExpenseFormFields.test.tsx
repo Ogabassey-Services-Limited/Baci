@@ -18,6 +18,15 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({
+    currency: 'USD',
+    format: (amount: number) => `$${amount.toFixed(2)}`,
+    formatCompact: (amount: number) => `$${amount}`,
+    symbol: '$',
+  }),
+}));
+
 vi.mock('@/components/ui/SafeImage', () => ({
   default: ({ source }: { source?: { uri?: string } }) => (
     <img alt="Receipt preview" data-src={source?.uri} />
@@ -97,6 +106,7 @@ describe('ExpenseFormFields', () => {
 
     const amountInput = screen.getByLabelText('Expense amount');
 
+    expect(screen.getByText('$')).toBeInTheDocument();
     expect(amountInput).toBeInTheDocument();
     expect((amountInput as HTMLInputElement).value.replace(/\D/g, '')).toBe(
       '12500'

@@ -6,7 +6,7 @@ type TrackingTransparencyPermission = {
 
 type TrackingTransparencyModule = {
   getTrackingPermissionsAsync?: () => Promise<TrackingTransparencyPermission>;
-  requestTrackingPermissionsAsync: () => Promise<TrackingTransparencyPermission>;
+  requestTrackingPermissionsAsync?: () => Promise<TrackingTransparencyPermission>;
 };
 
 let trackingTransparencyModulePromise: Promise<TrackingTransparencyModule> | null =
@@ -23,6 +23,14 @@ function loadTrackingTransparency() {
   return trackingTransparencyModulePromise;
 }
 
+async function tryLoadTrackingTransparency(): Promise<TrackingTransparencyModule | null> {
+  try {
+    return await loadTrackingTransparency();
+  } catch {
+    return null;
+  }
+}
+
 export function canRequestTrackingTransparency(): boolean {
   return Platform.OS === 'ios';
 }
@@ -32,13 +40,17 @@ export async function getTrackingPermissionStatus(): Promise<TrackingTransparenc
     return { status: 'granted' };
   }
 
-  const trackingTransparency = await loadTrackingTransparency();
+  const trackingTransparency = await tryLoadTrackingTransparency();
 
-  if (!trackingTransparency.getTrackingPermissionsAsync) {
+  if (!trackingTransparency?.getTrackingPermissionsAsync) {
     return { status: 'undetermined' };
   }
 
-  return trackingTransparency.getTrackingPermissionsAsync();
+  try {
+    return await trackingTransparency.getTrackingPermissionsAsync();
+  } catch {
+    return { status: 'undetermined' };
+  }
 }
 
 export async function requestTrackingPermissionStatus(): Promise<TrackingTransparencyPermission> {
@@ -46,6 +58,15 @@ export async function requestTrackingPermissionStatus(): Promise<TrackingTranspa
     return { status: 'granted' };
   }
 
-  const trackingTransparency = await loadTrackingTransparency();
-  return trackingTransparency.requestTrackingPermissionsAsync();
+  const trackingTransparency = await tryLoadTrackingTransparency();
+
+  if (!trackingTransparency?.requestTrackingPermissionsAsync) {
+    return { status: 'denied' };
+  }
+
+  try {
+    return await trackingTransparency.requestTrackingPermissionsAsync();
+  } catch {
+    return { status: 'denied' };
+  }
 }

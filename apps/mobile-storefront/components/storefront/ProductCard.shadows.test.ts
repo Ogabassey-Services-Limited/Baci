@@ -22,22 +22,23 @@ describe('getProductCardShadowStyles', () => {
     });
   });
 
-  it('preserves the native shadow contract', () => {
-    expect(getProductCardShadowStyles('native', '#000000', '#111827')).toEqual({
-      gridContainer: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-      },
-      floatingCartBtn: {
-        shadowColor: '#111827',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-      },
+  it('keeps the iOS soft shadow but minimizes Android elevation', () => {
+    const native = getProductCardShadowStyles('native', '#000000', '#111827');
+
+    // iOS soft-shadow props preserved (cached, cheap during scroll)...
+    expect(native.gridContainer).toMatchObject({
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
     });
+    expect(native.floatingCartBtn).toMatchObject({
+      shadowColor: '#111827',
+      shadowOpacity: 0.1,
+    });
+
+    // ...while Android elevation (re-derived per composite) is minimized.
+    expect(native.gridContainer.elevation).toBe(0);
+    expect(native.floatingCartBtn.elevation).toBe(1);
   });
 });

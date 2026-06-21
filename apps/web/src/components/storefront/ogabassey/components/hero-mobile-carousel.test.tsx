@@ -64,8 +64,12 @@ const HERO_CTA_EXPECTED_DECLARATIONS = [
 /**
  * Asserts that a serialized style string contains the expected declarations.
  * A missing style is treated as an empty string, so it still fails normally.
+ * Matching remains sensitive to CSS whitespace and semicolon formatting.
  */
-function expectStyleDeclarations(style: string | null, declarations: string[]) {
+function expectStyleDeclarations(
+  style: string | null,
+  declarations: string[]
+) {
   const serializedStyle = style ?? '';
   for (const declaration of declarations) {
     expect(serializedStyle).toContain(declaration);
@@ -91,6 +95,9 @@ describe('HeroMobileCarousel', () => {
     ).toBeInTheDocument();
     // The Google sample video + hero ad slides were removed.
     expect(container.querySelector('video')).toBeNull();
+    expect(
+      screen.queryByTestId('ad-HEADER_LEADERBOARD')
+    ).not.toBeInTheDocument();
     // A single static slide has no rotating-carousel controls.
     expect(
       screen.queryByRole('group', { name: /hero carousel slide controls/i })
@@ -144,7 +151,8 @@ describe('HeroMobileCarousel', () => {
       '[data-ogabassey-mobile-hero-media="true"]'
     );
 
-    expect(copyColumn).toHaveClass('w-[46%]', 'pr-2');
+    expect(copyColumn).toHaveClass('w-[46%]', 'pr-2', 'translate-y-1');
+    expect(firstSlideHeading).toHaveClass('mt-1.5', 'mb-1', 'text-[1.375rem]');
     expect(mediaRail).toHaveClass('right-4', 'w-[43%]');
   });
 });
