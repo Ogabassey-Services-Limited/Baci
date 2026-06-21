@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { Product as CartProduct, ProductVariant } from '@/lib/products';
 import { canonicalizeVariantAxis } from '@/components/storefront/ogabassey/variant-attributes';
 
@@ -119,11 +120,19 @@ export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
       return;
     }
 
+    const normalizedValue =
+      axis === 'condition'
+        ? normalizeCanonicalProductCondition(trimmedValue)
+        : trimmedValue;
+    if (!normalizedValue) {
+      return;
+    }
+
     if (!axisValues[axis]) {
       axisValues[axis] = new Set<string>();
     }
 
-    axisValues[axis].add(trimmedValue);
+    axisValues[axis].add(normalizedValue);
   };
 
   for (const variant of variants) {

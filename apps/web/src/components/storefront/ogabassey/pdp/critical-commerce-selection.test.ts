@@ -244,6 +244,50 @@ describe('critical commerce selection helpers', () => {
     ).toEqual(['condition', 'color']);
   });
 
+  it('normalizes condition aliases before requiring condition selection', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { storage: '128GB' },
+          condition: 'uk_used' as unknown as ProductVariant['condition'],
+          id: 'variant-uk-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { storage: '128GB' },
+          condition: 'used',
+          id: 'variant-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
+
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { storage: '128GB' },
+          condition: 'refurbished' as unknown as ProductVariant['condition'],
+          id: 'variant-refurbished',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { storage: '128GB' },
+          condition: 'open_box',
+          id: 'variant-open-box',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
+  });
+
   it('canonicalizes legacy-cased SKU axes before requiring selections', () => {
     expect(
       getVariantAxesWithMultipleOptions([
