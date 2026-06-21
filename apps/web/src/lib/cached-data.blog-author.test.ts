@@ -85,7 +85,13 @@ function buildMerchantRow() {
   };
 }
 
-function setupBlogAuthorFetch({ posts = [] }: { posts?: unknown[] } = {}) {
+function setupBlogAuthorFetch({
+  posts = [],
+  postsError = null,
+}: {
+  posts?: unknown[];
+  postsError?: unknown;
+} = {}) {
   const merchantBuilder = createQueryBuilder({
     singleResult: { data: buildMerchantRow(), error: null },
   });
@@ -96,7 +102,11 @@ function setupBlogAuthorFetch({ posts = [] }: { posts?: unknown[] } = {}) {
     singleResult: { data: { blog_enabled: true }, error: null },
   });
   const postsBuilder = createQueryBuilder({
-    queryResult: { data: posts, count: posts.length, error: null },
+    queryResult: {
+      data: postsError ? null : posts,
+      count: postsError ? null : posts.length,
+      error: postsError,
+    },
   });
 
   const serviceFrom = vi.fn((table: string) => {
@@ -203,5 +213,14 @@ describe('getCachedBlogAuthor', () => {
     expect(result.totalPosts).toBe(2);
     expect(result.currentPage).toBe(1);
     expect(result.totalPages).toBe(1);
+  });
+
+  it('throws when the author posts query fails', async () => {
+    const queryError = new Error('author posts query failed');
+    setupBlogAuthorFetch({ postsError: queryError });
+
+    await expect(
+      getCachedBlogAuthor('ogabassey', 'Bassey John', { page: 1 })
+    ).rejects.toThrow('author posts query failed');
   });
 });

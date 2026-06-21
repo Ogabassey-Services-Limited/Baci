@@ -2818,9 +2818,7 @@ export async function getCachedBlogAuthor(
   cacheLife('merchant');
   cacheTag(
     'blog-posts',
-    `blog-author-${identifier.toLowerCase()}-${authorName
-      .toLowerCase()
-      .replace(/\s+/g, '-')}-${page}`
+    `blog-author-${identifier.toLowerCase()}-${authorSlug}-${page}`
   );
 
   const limit = BLOG_LISTING_PAGE_SIZE;

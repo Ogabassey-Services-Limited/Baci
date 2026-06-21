@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -106,16 +107,15 @@ describe('blog author page metadata', () => {
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
-  it('delegates rendering to the author page content component', async () => {
-    await BlogAuthorPage({
+  it('renders the author page content for a known author route', async () => {
+    const ui = await BlogAuthorPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
       }),
     });
+    render(ui);
 
-    expect(mockBlogAuthorPageContent).toHaveBeenCalledWith({
-      params: expect.any(Promise),
-    });
+    expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 });

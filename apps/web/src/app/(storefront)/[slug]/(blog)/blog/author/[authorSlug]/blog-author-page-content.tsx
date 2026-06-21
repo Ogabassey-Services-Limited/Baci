@@ -213,6 +213,7 @@ export async function BlogAuthorPageContent({
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
+                      timeZone: 'UTC',
                     })}
                   </time>
                 </Link>

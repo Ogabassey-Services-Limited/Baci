@@ -2370,8 +2370,14 @@ export function generateBlogPostSchema(
   const authorId = data.author.id
     ? sanitizeSchemaEntityId(data.author.id)
     : data.author.url
-      ? `${data.author.url}#author-${generateSlug(data.author.name)}`
+      ? sanitizeSchemaEntityId(
+          `${data.author.url}#author-${generateSlug(data.author.name)}`
+        )
       : '';
+  const publisherId = data.publisher.id
+    ? sanitizeSchemaEntityId(data.publisher.id)
+    : '';
+  const blogId = data.blogId ? sanitizeSchemaEntityId(data.blogId) : '';
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -2400,7 +2406,7 @@ export function generateBlogPostSchema(
     },
     publisher: {
       '@type': 'Organization',
-      ...(data.publisher.id && { '@id': escapeHtml(data.publisher.id) }),
+      ...(publisherId && { '@id': escapeHtml(publisherId) }),
       name: escapeHtml(data.publisher.name),
       url: escapeHtml(data.publisher.url),
       logo: {
@@ -2415,10 +2421,10 @@ export function generateBlogPostSchema(
       '@type': 'WebPage',
       '@id': escapeHtml(data.url),
     },
-    ...(data.blogId && {
+    ...(blogId && {
       isPartOf: {
         '@type': 'Blog',
-        '@id': escapeHtml(data.blogId),
+        '@id': escapeHtml(blogId),
       },
     }),
   };
