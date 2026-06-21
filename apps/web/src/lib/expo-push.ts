@@ -943,3 +943,173 @@ export async function notifyPriceDrop(
     'promotions'
   );
 }
+
+// =============================================================================
+// STOREFRONT APP-UPDATE NUDGE
+// =============================================================================
+
+const DEFAULT_UPDATE_NUDGE_THROTTLE_DAYS = 7;
+
+export interface StorefrontUpdateNudgeParams {
+  platform: 'android' | 'ios';
+  /** Latest published native build (Android versionCode / iOS CFBundleVersion). */
+  latestBuild: number;
+  storeUrl?: string | null;
+  title?: string;
+  body?: string;
+  /** Don't re-nudge a device pinged within this many days. */
+  throttleDays?: number;
+  /** Cap recipients per run; the daily cadence + throttle drains any backlog. */
+  limit?: number;
+  /** Injectable clock for tests. */
+  now?: Date;
+}
+
+const DEFAULT_UPDATE_NUDGE_LIMIT = 5000;
+
+export interface StorefrontUpdateNudgeResult extends NotificationSendResult {
+  platform: 'android' | 'ios';
+  eligible: number;
+}
+
+/**
+ * Push a "new version available" notification to active storefront installs on
+ * an older build than `latestBuild`. Tokens with an unknown build_number (NULL —
+ * registered by an app version predating build tracking) are treated as
+ * outdated so existing installs are still reached, self-correcting once the
+ * device re-registers with its real build. Each device is throttled to one
+ * nudge per `throttleDays`. The payload type `mobile_update_available` is
+ * handled client-side: tapping opens the in-app update prompt (which links to
+ * the store), so users already on the latest build simply see no prompt.
+ */
+export async function notifyStorefrontUpdateAvailable(
+  params: StorefrontUpdateNudgeParams
+): Promise<StorefrontUpdateNudgeResult> {
+  const {
+    platform,
+    latestBuild,
+    storeUrl = null,
+    throttleDays = DEFAULT_UPDATE_NUDGE_THROTTLE_DAYS,
+    limit = DEFAULT_UPDATE_NUDGE_LIMIT,
+    now = new Date(),
+    title = 'Update available',
+    body = 'A new version of Ogabassey is ready — tap to update.',
+  } = params;
+
+  const supabase = createAdminClient();
+  const nowIso = now.toISOString();
+  const cutoffIso = new Date(
+    now.getTime() - throttleDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const data: Record<string, unknown> = {
+    type: 'mobile_update_available',
+    platform,
+    storeUrl,
+  };
+
+  const recordSkip = async (
+    result: StorefrontUpdateNudgeResult
+  ): Promise<StorefrontUpdateNudgeResult> => {
+    await recordPushAttempt(supabase, {
+      appType: 'storefront',
+      channel: 'general',
+      notificationType: 'mobile_update_available',
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
+  };
+
+  // Active storefront tokens for this platform, on an older (or unknown) build,
+  // not nudged within the throttle window. Two .or() groups are AND-combined.
+  const { data: tokens, error } = await supabase
+    .from('push_tokens')
+    .select('id, token')
+    .eq('app_type', 'storefront')
+    .eq('platform', platform)
+    .eq('is_active', true)
+    .or(`build_number.is.null,build_number.lt.${latestBuild}`)
+    .or(`last_update_push_at.is.null,last_update_push_at.lt.${cutoffIso}`)
+    .limit(limit);
+
+  if (error) {
+    return recordSkip({
+      sent: 0,
+      failed: 0,
+      errors: [error.message],
+      platform,
+      eligible: 0,
+    });
+  }
+
+  if (!tokens || tokens.length === 0) {
+    return recordSkip({
+      sent: 0,
+      failed: 0,
+      errors: [],
+      platform,
+      eligible: 0,
+    });
+  }
+
+  const messages: ExpoPushMessage[] = tokens.map((t) => ({
+    to: t.token,
+    title,
+    body,
+    data,
+    sound: 'default' as const,
+    channelId: 'general',
+    priority: 'default',
+  }));
+
+  let sendResult: NotificationSendResult;
+  let okTokenIds: string[] = [];
+  try {
+    const tickets = await sendPushNotifications(messages);
+    okTokenIds = tokens
+      .filter((_, i) => tickets[i]?.status === 'ok')
+      .map((t) => t.id);
+    sendResult = await processTickets(tickets, tokens, supabase, {
+      appType: 'storefront',
+      channel: 'general',
+      notificationType: 'mobile_update_available',
+    });
+  } catch (err) {
+    sendResult = {
+      sent: 0,
+      failed: tokens.length,
+      errors: [err instanceof Error ? err.message : 'Unknown push send error'],
+    };
+  }
+
+  // Throttle: stamp only the devices that actually received the nudge.
+  if (okTokenIds.length > 0) {
+    const { error: stampError } = await supabase
+      .from('push_tokens')
+      .update({ last_update_push_at: nowIso })
+      .in('id', okTokenIds);
+    if (stampError) {
+      console.error(
+        'Failed to stamp last_update_push_at for nudged tokens:',
+        stampError
+      );
+    }
+  }
+
+  await recordPushAttempt(supabase, {
+    appType: 'storefront',
+    channel: 'general',
+    notificationType: 'mobile_update_available',
+    title,
+    body,
+    payload: data,
+    tokenCount: tokens.length,
+    result: sendResult,
+  });
+
+  return { ...sendResult, platform, eligible: tokens.length };
+}

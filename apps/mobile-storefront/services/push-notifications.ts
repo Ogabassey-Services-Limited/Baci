@@ -1,4 +1,5 @@
 import { getStorefrontNotificationNavigationTarget } from '@baci/shared/lib';
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import type {
   NotificationResponse,
@@ -10,6 +11,19 @@ import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 const log = createLogger('PushNotifications');
+
+/**
+ * Parse the installed native build number (Android `versionCode`, iOS
+ * `CFBundleVersion`) into a non-negative integer for update-nudge targeting,
+ * or `null` when unavailable/malformed.
+ */
+export function resolveNativeBuildNumber(
+  value: string | null = Application.nativeBuildVersion
+): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
 
 let Device: typeof import('expo-device') | null = null;
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -152,6 +166,7 @@ export async function savePushTokenToServer(
       p_platform: Platform.OS,
       p_device_name: Device?.modelName || 'Unknown',
       p_app_type: 'storefront',
+      p_build_number: resolveNativeBuildNumber(),
     });
 
     if (error) {

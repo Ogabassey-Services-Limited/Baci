@@ -35,6 +35,8 @@ function createChainableMock(
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.in = vi.fn().mockReturnValue(chain);
+  chain.or = vi.fn().mockReturnValue(chain);
+  chain.limit = vi.fn().mockReturnValue(chain);
   chain.update = vi.fn().mockReturnValue(chain);
   chain.insert = vi.fn().mockReturnValue(chain);
   // Supabase query builder returns thenables — Object.defineProperty avoids biome noThenProperty
@@ -71,6 +73,7 @@ let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
 let notifyNewReview: typeof import('./expo-push').notifyNewReview;
+let notifyStorefrontUpdateAvailable: typeof import('./expo-push').notifyStorefrontUpdateAvailable;
 beforeEach(async () => {
   vi.clearAllMocks();
 
@@ -84,6 +87,7 @@ beforeEach(async () => {
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
   notifyNewReview = mod.notifyNewReview;
+  notifyStorefrontUpdateAvailable = mod.notifyStorefrontUpdateAvailable;
 });
 
 afterEach(() => {
@@ -641,5 +645,89 @@ describe('notifyNewReview', () => {
     expect(sentMessages[0].body).toContain('Jane');
     expect(sentMessages[0].body).toContain('5');
     expect(sentMessages[0].body).toContain('Blue Shirt');
+  });
+});
+
+describe('notifyStorefrontUpdateAvailable', () => {
+  it('pushes mobile_update_available to eligible tokens and stamps the throttle', async () => {
+    const selectChain = createChainableMock([
+      { id: 'id1', token: 'ExponentPushToken[a]' },
+      { id: 'id2', token: 'ExponentPushToken[b]' },
+    ]);
+    const ticketInsertChain = createChainableMock();
+    const stampChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain) // select eligible tokens
+        .mockReturnValueOnce(ticketInsertChain) // processTickets ticket insert
+        .mockReturnValueOnce(stampChain) // stamp last_update_push_at
+        .mockReturnValueOnce(attemptInsertChain), // record attempt
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 't1' },
+      { status: 'ok', id: 't2' },
+    ]);
+
+    const result = await notifyStorefrontUpdateAvailable({
+      platform: 'android',
+      latestBuild: 646,
+      storeUrl:
+        'https://play.google.com/store/apps/details?id=com.ogabassey.store',
+      now: new Date('2026-06-21T00:00:00.000Z'),
+    });
+
+    expect(result).toMatchObject({
+      platform: 'android',
+      eligible: 2,
+      sent: 2,
+      failed: 0,
+    });
+
+    // Filters to active storefront tokens for the platform, below latest build.
+    expect(selectChain.eq).toHaveBeenCalledWith('app_type', 'storefront');
+    expect(selectChain.eq).toHaveBeenCalledWith('platform', 'android');
+    expect(selectChain.eq).toHaveBeenCalledWith('is_active', true);
+    expect(selectChain.or).toHaveBeenCalledWith(
+      'build_number.is.null,build_number.lt.646'
+    );
+
+    // Sends the payload the app's tap handler routes to the update prompt.
+    const sent = mockChunkPushNotifications.mock
+      .calls[0][0] as ExpoPushMessage[];
+    expect(sent[0].data).toMatchObject({
+      type: 'mobile_update_available',
+      platform: 'android',
+    });
+    expect(sent[0].title).toBe('Update available');
+
+    // Throttle-stamps only the devices that actually received the nudge.
+    expect(stampChain.update).toHaveBeenCalledWith({
+      last_update_push_at: '2026-06-21T00:00:00.000Z',
+    });
+    expect(stampChain.in).toHaveBeenCalledWith('id', ['id1', 'id2']);
+  });
+
+  it('sends nothing and reports zero eligible when no tokens match', async () => {
+    const selectChain = createChainableMock([]);
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain)
+        .mockReturnValueOnce(attemptInsertChain),
+    } as never);
+
+    const result = await notifyStorefrontUpdateAvailable({
+      platform: 'ios',
+      latestBuild: 390,
+    });
+
+    expect(result).toMatchObject({ platform: 'ios', eligible: 0, sent: 0 });
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
   });
 });
