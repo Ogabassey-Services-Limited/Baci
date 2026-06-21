@@ -592,6 +592,21 @@ describe('Middleware Proxy', () => {
     expect(config.matcher).toContain('/baci-relay/:path*');
   });
 
+  it('does not force no-cache on default PostHog relay static assets', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/baci-relay/static/recorder.js`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('Cache-Control')).not.toBe(
+      'no-cache, must-revalidate, max-age=0'
+    );
+  });
+
   it('does not match every static chunk for custom relay assets', () => {
     const legacyCatchAllMatcher = '/((?:.+/)?(?:static|array)/.*)';
     const customRelayStaticMatcher = config.matcher.find((matcher) =>
@@ -642,6 +657,9 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('x-middleware-request-cookie')).toBeNull();
       expect(res.headers.get('x-middleware-request-authorization')).toBeNull();
       expect(res.headers.get('x-middleware-request-referer')).toBeNull();
+      expect(res.headers.get('Cache-Control')).not.toBe(
+        'no-cache, must-revalidate, max-age=0'
+      );
     } finally {
       if (originalRelayPath === undefined) {
         delete process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH;
@@ -1074,6 +1092,32 @@ describe('Middleware Proxy', () => {
     expect(checkRateLimit).toHaveBeenCalledTimes(1);
     expect(getSlugForCustomDomain).toHaveBeenCalledTimes(1);
     expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/analytics/conversion?event=purchase'
+    );
+    expect(res.headers.get('x-pathname')).toBe('/api/analytics/conversion');
+  });
+
+  it('rewrites trailing-slash legacy analytics conversion POSTs without redirecting the body', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/analytics/conversion/?event=purchase',
+      {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://ogabassey.com',
+        },
+        method: 'POST',
+      }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toBe(307);
+    expect(res.status).not.toBe(308);
+    expect(res.headers.get('location')).toBeNull();
     expect(res.headers.get('x-middleware-rewrite')).toBe(
       'https://ogabassey.com/api/analytics/conversion?event=purchase'
     );

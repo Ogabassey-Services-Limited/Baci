@@ -756,6 +756,15 @@ function isLegacyKlumpWooCommerceWebhookPath(pathname: string): boolean {
   );
 }
 
+function isLegacyAnalyticsConversionPath(pathname: string): boolean {
+  const normalizedPathname =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return normalizedPathname.toLowerCase() === LEGACY_ANALYTICS_CONVERSION_PATH;
+}
+
 function getNoTrailingSlashRedirectPath(pathname: string): string | null {
   if (pathname === '/' || !pathname.endsWith('/')) {
     return null;
@@ -1457,7 +1466,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const isLegacyAnalyticsConversionPost =
-    pathname === LEGACY_ANALYTICS_CONVERSION_PATH && request.method === 'POST';
+    isLegacyAnalyticsConversionPath(pathname) && request.method === 'POST';
   const isLegacyKlumpWebhook = isLegacyKlumpWooCommerceWebhookPath(pathname);
   const apiSecurityPathname = isLegacyKlumpWebhook
     ? KLUMP_WEBHOOK_API_PATH
@@ -1465,9 +1474,10 @@ export async function proxy(request: NextRequest) {
       ? ANALYTICS_CONVERSION_API_PATH
       : pathname;
 
-  const noTrailingSlashPathname = isLegacyKlumpWebhook
-    ? null
-    : getNoTrailingSlashRedirectPath(pathname);
+  const noTrailingSlashPathname =
+    isLegacyKlumpWebhook || isLegacyAnalyticsConversionPost
+      ? null
+      : getNoTrailingSlashRedirectPath(pathname);
   if (noTrailingSlashPathname) {
     return NextResponse.redirect(
       new URL(noTrailingSlashPathname + request.nextUrl.search, request.url),
@@ -2882,7 +2892,7 @@ function applySecurityHeaders(
   }
 
   // No cache for authenticated routes
-  if (pathname.startsWith('/dashboard') || routeType === 'api') {
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
     response.headers.set(
       'Cache-Control',
       'no-cache, must-revalidate, max-age=0'
