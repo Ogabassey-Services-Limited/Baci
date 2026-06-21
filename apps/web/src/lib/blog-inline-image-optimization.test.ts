@@ -28,12 +28,13 @@ describe('isTrustedCdnInlineImage', () => {
     ).toBe(true);
   });
 
-  it('rejects external, legacy, non-inline, sibling, and empty URLs', () => {
-    // Plain legacy inline URLs may not have generated siblings, so keep them as
-    // normal <img> sources instead of emitting possibly-missing AVIF/WebP URLs.
+  it('accepts legacy trusted inline images from the backfill corpus', () => {
     expect(
       isTrustedCdnInlineImage(`${CDN}/core-assets/blog/x/inline-12.png`)
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it('rejects external, non-inline, sibling, and empty URLs', () => {
     // The generated siblings themselves must not re-match.
     expect(isTrustedCdnInlineImage(`${INLINE}.avif`)).toBe(false);
     expect(isTrustedCdnInlineImage(`${INLINE}.webp`)).toBe(false);
@@ -65,7 +66,7 @@ describe('isTrustedCdnInlineImage', () => {
       ).toBe(true);
     } finally {
       if (prev === undefined) {
-        process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = undefined;
+        delete process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
       } else {
         process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = prev;
       }

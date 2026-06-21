@@ -7,20 +7,17 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
  * Cloudflare can cache each format under its own URL (content negotiation on a
  * single URL is cache-unsafe behind Cloudflare).
  *
- * ONLY trusted CDN inline images whose current hashed filename proves the
- * publisher generated siblings are rewritten — never external URLs, never plain
- * legacy `inline-<n>` URLs, and never featured-image variants (which are
- * already optimized .webp). Browsers choose a `<source>` by `srcset`/`type`
- * before fetching; the `<img>` fallback is only for clients without a usable
- * source, so emitting unproven sibling URLs can render a broken image.
+ * Trusted CDN inline images from both the current hashed publisher and the
+ * legacy `inline-<n>` backfill corpus have generated AVIF/WebP siblings. Never
+ * rewrite external URLs or featured-image variants (already optimized .webp).
+ * Browsers choose a `<source>` by `srcset`/`type` before fetching; the `<img>`
+ * fallback stays the original PNG/JPEG for older clients.
  */
-// Current Codex inline uploads are named `inline-<n>-<hash>.<ext>`, where the
-// publisher generates `.avif`/`.webp` siblings in the same write path. Plain
-// legacy `inline-<n>.<ext>` URLs may only have partial one-time backfills, so
-// leave them as normal <img> tags. Anchor on the extension so sibling URLs
+// Accept current `inline-<n>-<hash>.<ext>` and legacy backfilled
+// `inline-<n>.<ext>` URLs. Anchor on the extension so generated siblings
 // (…png.avif) and non-inline images (featured variants) are excluded.
 const INLINE_IMAGE_PATH_PATTERN =
-  /\/inline-\d+-[a-z0-9]{8,}\.(?:png|jpe?g)(?:[?#]|$)/i;
+  /\/inline-\d+(?:-[a-z0-9]{8,})?\.(?:png|jpe?g)(?:[?#]|$)/i;
 
 function getTrustedCdnOrigin(): string {
   // Match the origin the rest of the blog media helpers use

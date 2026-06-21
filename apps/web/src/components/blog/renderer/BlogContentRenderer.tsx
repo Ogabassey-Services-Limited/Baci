@@ -54,6 +54,7 @@ interface BlogContentRendererProps {
   // biome-ignore lint/suspicious/noExplicitAny: TipTap library returns any type
   json: any;
   merchantSlug?: string;
+  priorityInlineImageSrc?: string | null;
 }
 
 const TextRenderer = ({
@@ -441,6 +442,7 @@ export const BlogContentRenderer = ({
   basePath,
   baseUrl,
   merchantSlug,
+  priorityInlineImageSrc,
 }: BlogContentRendererProps) => {
   if (!json) return null;
 
@@ -450,6 +452,11 @@ export const BlogContentRenderer = ({
     return <SafeHtml html={typeof json === 'string' ? json : ''} />;
   }
 
+  const resolvedPriorityInlineImageSrc =
+    priorityInlineImageSrc === undefined
+      ? findFirstTrustedInlineImageSrc(parsed.doc)
+      : priorityInlineImageSrc;
+
   return (
     <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
       <NodeRenderer
@@ -458,7 +465,7 @@ export const BlogContentRenderer = ({
         merchantSlug={merchantSlug}
         node={parsed.doc}
         index={0}
-        priorityInlineImageSrc={findFirstTrustedInlineImageSrc(parsed.doc)}
+        priorityInlineImageSrc={resolvedPriorityInlineImageSrc}
       />
     </div>
   );

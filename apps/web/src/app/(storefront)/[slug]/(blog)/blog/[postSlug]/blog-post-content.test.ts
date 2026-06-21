@@ -499,10 +499,15 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(wrapTrustedCdnInlineImagesInPicture(featured)).toBe(featured);
   });
 
-  it('leaves trusted legacy inline images untouched when siblings are not proven', () => {
-    const legacy = `<img src="${LEGACY_INLINE}" alt="Speaker" />`;
+  it('wraps trusted legacy inline backfill images with generated siblings', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${LEGACY_INLINE}" alt="Speaker" />`
+    );
 
-    expect(wrapTrustedCdnInlineImagesInPicture(legacy)).toBe(legacy);
+    expect(out).toContain('<picture>');
+    expect(out).toContain(`srcset="${LEGACY_INLINE}.avif" type="image/avif"`);
+    expect(out).toContain(`srcset="${LEGACY_INLINE}.webp" type="image/webp"`);
+    expect(out).toContain(`<img src="${LEGACY_INLINE}" alt="Speaker" />`);
   });
 
   it('wraps an inline image even when alt text contains a literal ">"', () => {

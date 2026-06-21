@@ -790,14 +790,20 @@ describe('BlogContentRenderer', () => {
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
-    it('renders legacy trusted inline images without unproven sibling sources', () => {
+    it('serves legacy trusted inline backfill images as <picture>', () => {
       const src =
         'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1.png';
       const { container } = render(
         <BlogContentRenderer json={makeImageDoc(src)} />
       );
 
-      expect(container.querySelector('picture')).toBeNull();
+      const picture = container.querySelector('picture');
+      expect(picture).toBeTruthy();
+      expect(
+        picture
+          ?.querySelector('source[type="image/avif"]')
+          ?.getAttribute('srcset')
+      ).toBe(`${src}.avif`);
       expect(container.querySelector('img')?.getAttribute('src')).toBe(src);
     });
 
@@ -824,6 +830,22 @@ describe('BlogContentRenderer', () => {
       expect(images[1]).toHaveAttribute('src', secondSrc);
       expect(images[1]).not.toHaveAttribute('fetchpriority');
       expect(images[1]).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('leaves inline images lazy when another page image is already prioritized', () => {
+      const src =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const { container } = render(
+        <BlogContentRenderer
+          json={makeImageDoc(src)}
+          priorityInlineImageSrc={null}
+        />
+      );
+
+      const img = container.querySelector('picture img');
+      expect(img).toHaveAttribute('src', src);
+      expect(img).not.toHaveAttribute('fetchpriority');
+      expect(img).toHaveAttribute('loading', 'lazy');
     });
 
     it('renders non-CDN images without a <picture> wrapper', () => {
