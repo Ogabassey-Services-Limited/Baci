@@ -74,13 +74,13 @@ export function compactVariantOptions(
 }
 
 export function normalizeCriticalVariantAttributes(
-  attributes: Record<string, string> | null | undefined
+  attributes: Record<string, unknown> | null | undefined
 ) {
   const normalized: Record<string, string> = {};
 
   for (const [rawAxis, value] of Object.entries(attributes || {})) {
     const axis = canonicalizeVariantAxis(rawAxis);
-    const trimmedValue = value.trim();
+    const trimmedValue = typeof value === 'string' ? value.trim() : '';
 
     if (!axis || !trimmedValue) {
       continue;

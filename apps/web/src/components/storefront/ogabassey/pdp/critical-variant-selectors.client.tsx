@@ -53,7 +53,7 @@ function getVariantAxisOptions(
 
     for (const [key, value] of Object.entries(variant.attributes || {})) {
       const attributeAxis = canonicalizeVariantAxis(key);
-      const trimmedValue = value.trim();
+      const trimmedValue = typeof value === 'string' ? value.trim() : '';
 
       if (attributeAxis && trimmedValue) {
         normalizedAttributes[attributeAxis] = trimmedValue;

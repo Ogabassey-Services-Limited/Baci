@@ -106,12 +106,6 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const initialExplicitSelectedAxes = Object.keys(
     normalizedInitialSelectionAttributes
   );
-  if (
-    explicitVariantCondition &&
-    !initialExplicitSelectedAxes.includes('condition')
-  ) {
-    initialExplicitSelectedAxes.push('condition');
-  }
   const defaultVariantSelection = selectionCartProduct.has_variants
     ? resolveDefaultVariantSelection(selectionCartProduct, {
         condition: explicitVariantCondition,

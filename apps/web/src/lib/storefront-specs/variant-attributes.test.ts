@@ -129,6 +129,25 @@ describe('storefront variant attribute helpers', () => {
     expect(getAvailableOptionsForAxis('storage', null, {})).toEqual([]);
   });
 
+  it('ignores malformed variant attribute values when filtering availability', () => {
+    expect(
+      getAvailableOptionsForAxis(
+        'storage',
+        [
+          {
+            attributes: { RAM: null, Storage: 128 },
+            condition: 'new',
+          },
+          {
+            attributes: { RAM: '8GB', Storage: '256GB' },
+            condition: 'new',
+          },
+        ],
+        {}
+      )
+    ).toEqual(['256GB']);
+  });
+
   it('returns renderable axes by priority while filtering non-renderable axes', () => {
     expect(
       getRenderableVariantAxes(

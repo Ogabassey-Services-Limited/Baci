@@ -6,7 +6,7 @@ interface VariantAttributeDefinition {
 }
 
 interface VariantAttributeCarrier {
-  attributes?: Record<string, string> | null;
+  attributes?: Record<string, unknown> | null;
   condition?: string | null;
 }
 
@@ -46,7 +46,11 @@ function pushUniqueOption(
   }
 }
 
-function normalizeVariantAxisOption(axis: string, value: string) {
+function normalizeVariantAxisOption(axis: string, value: unknown) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
   const trimmedValue = value.trim();
 
   if (axis === 'condition') {
@@ -122,7 +126,7 @@ export function getVariantAttributeOptions(
 }
 
 function normalizeVariantAttributeRecord(
-  attributes: Record<string, string> | null | undefined
+  attributes: Record<string, unknown> | null | undefined
 ) {
   const normalized: Record<string, string> = {};
 

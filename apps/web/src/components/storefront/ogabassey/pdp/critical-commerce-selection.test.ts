@@ -140,8 +140,10 @@ describe('critical commerce selection helpers', () => {
     expect(
       normalizeCriticalVariantAttributes({
         ' ': 'Ignored',
+        Battery: null,
         'SIM Type': ' eSIM Only ',
         Color: ' ',
+        Camera: 48,
         RAM: '8GB  ',
         Storage: ' 256GB',
       })

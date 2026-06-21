@@ -306,6 +306,37 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     ).toBeInTheDocument();
   });
 
+  it('ignores malformed variant attribute values while rendering options', () => {
+    render(
+      <OgabasseyPdpCriticalVariantSelectors
+        onAttributeSelection={vi.fn()}
+        renderableVariantAxes={['storage']}
+        selectedAttributes={{}}
+        variantCount={2}
+        variants={[
+          {
+            attributes: { storage: null as never },
+            id: 'variant-malformed',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+          {
+            attributes: { storage: '256GB' },
+            id: 'variant-256',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    ).toBeInTheDocument();
+  });
+
   it('renders nothing when there are no variant options', () => {
     const { container } = render(
       <OgabasseyPdpCriticalVariantSelectors
