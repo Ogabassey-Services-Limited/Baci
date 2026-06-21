@@ -1,6 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import z from 'zod';
+import {
+  type CachedMerchant,
+  getMerchantByIdentifier,
+} from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
 import { resolveTrustedStorefrontRedirectUrl } from '../oauth-redirect';
 
@@ -33,33 +37,14 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Verify merchant exists and is published
-    // Support both slug (e.g., 'ogabassey') and custom domain (e.g., 'ogabassey.com')
-    let merchant = null;
-    let merchantError = null;
+    // Resolve the merchant by slug or custom domain via the shared cached
+    // helper. It sources custom_domain from public.domains (the `merchants`
+    // table has no such column), so it works for both 'ogabassey' and
+    // 'ogabassey.com'.
+    const merchant: CachedMerchant | null =
+      await getMerchantByIdentifier(merchantSlug);
 
-    // First, try by slug (standard lookup)
-    const slugResult = await supabase
-      .from('merchants')
-      .select('id, slug, business_name, is_published, custom_domain')
-      .eq('slug', merchantSlug)
-      .single();
-
-    if (slugResult.data) {
-      merchant = slugResult.data;
-    } else {
-      // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
-      const domainResult = await supabase
-        .from('merchants')
-        .select('id, slug, business_name, is_published, custom_domain')
-        .eq('custom_domain', merchantSlug.toLowerCase())
-        .single();
-
-      merchant = domainResult.data;
-      merchantError = domainResult.error;
-    }
-
-    if (merchantError || !merchant) {
+    if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
