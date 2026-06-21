@@ -246,14 +246,18 @@ describe('HomeFeedList', () => {
     expect(screen.getByTestId('home-feed-error')).toBeTruthy();
   });
 
-  it('omits the FilterBar and any empty message when there is no primary grid', () => {
-    mockUseHomeProductFeed.mockReturnValue(feed({ feedProducts: [] }));
+  it('omits cached product cells and grid-only UI when there is no primary grid', () => {
+    mockUseHomeProductFeed.mockReturnValue(
+      feed({ feedProducts: [product('stale')] })
+    );
     renderList({
       blocks: [{ type: 'CategoryRail', props: { id: 'rail' } }] as Block[],
       primaryProductGridIndex: -1,
     });
 
     expect(screen.queryByTestId('filter-bar')).toBeNull();
+    expect(screen.queryByTestId('product-card')).toBeNull();
+    expect(screen.queryByTestId('home-feed-product-end-sentinel')).toBeNull();
     expect(screen.queryByTestId('home-feed-empty')).toBeNull();
     expect(screen.queryByTestId('home-feed-error')).toBeNull();
   });

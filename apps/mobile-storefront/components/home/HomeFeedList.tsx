@@ -176,11 +176,12 @@ export function HomeFeedList({
     handleProductDataEndReached();
   };
 
-  const feedItems: HomeFeedListItem[] = feedProducts.map((product) => ({
+  const visibleFeedProducts = hasPrimaryGrid ? feedProducts : [];
+  const feedItems: HomeFeedListItem[] = visibleFeedProducts.map((product) => ({
     kind: 'product',
     product,
   }));
-  if (hasPrimaryGrid && feedProducts.length > 0 && hasMore) {
+  if (visibleFeedProducts.length > 0 && hasMore) {
     feedItems.push({
       kind: 'product-list-end',
       id: `home-feed-product-list-end-${feedResetKey}`,
