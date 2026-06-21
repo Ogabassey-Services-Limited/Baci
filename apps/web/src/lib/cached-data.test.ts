@@ -593,6 +593,11 @@ describe('getCachedStorefrontHomeProducts', () => {
     expect(harness.mockNot).toHaveBeenCalledWith(
       'category',
       'ilike',
+      '%earphone%'
+    );
+    expect(harness.mockNot).toHaveBeenCalledWith(
+      'category',
+      'ilike',
       '%microphone%'
     );
     expect(harness.mockNot).toHaveBeenCalledWith(

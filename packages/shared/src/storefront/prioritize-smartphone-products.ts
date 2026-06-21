@@ -11,6 +11,7 @@ interface ProductWithCategoryName {
 
 const SMARTPHONE_ACCESSORY_CATEGORY_TERMS = [
   'headphone',
+  'earphone',
   'microphone',
   'case',
   'charger',

@@ -21,10 +21,15 @@ describe('prioritizeSmartphoneProducts', () => {
   it('does not treat headphone categories as smartphones', () => {
     const sorted = prioritizeSmartphoneProducts([
       { id: 'audio-1', category: 'Headphones' },
+      { id: 'audio-2', category: 'Earphones' },
       { id: 'phone-1', category: 'Phones' },
     ]);
 
-    expect(sorted.map((product) => product.id)).toEqual(['phone-1', 'audio-1']);
+    expect(sorted.map((product) => product.id)).toEqual([
+      'phone-1',
+      'audio-1',
+      'audio-2',
+    ]);
   });
 
   it('does not treat phone accessory categories as handset categories', () => {

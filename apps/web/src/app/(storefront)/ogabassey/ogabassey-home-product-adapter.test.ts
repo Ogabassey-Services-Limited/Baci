@@ -79,4 +79,27 @@ describe('mapHomeProductsToTemplateProducts', () => {
       })
     );
   });
+
+  it('falls back to the direct category_id relation when join-table categories are absent', () => {
+    const [product] = mapHomeProductsToTemplateProducts([
+      createHomeProduct({
+        category: null,
+        product_categories: [],
+        categories: {
+          id: 'cat-smartphones',
+          name: 'Smartphones',
+          slug: 'smartphones',
+          parent_id: 'cat-devices',
+        },
+      } as Partial<HomeProduct> & { categories: Record<string, string> }),
+    ]);
+
+    expect(product.category_slug).toBe('smartphones');
+    expect(product.categories).toEqual({
+      id: 'cat-smartphones',
+      name: 'Smartphones',
+      slug: 'smartphones',
+      parent_id: 'cat-devices',
+    });
+  });
 });

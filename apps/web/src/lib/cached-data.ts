@@ -2886,6 +2886,7 @@ export async function getCachedStorefrontHomeProducts(
   const handsetCategoryKeywords = ['smartphone', 'mobile', 'phone'];
   const excludedHandsetCategoryTerms = [
     'headphone',
+    'earphone',
     'microphone',
     'case',
     'charger',
