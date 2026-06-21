@@ -10,6 +10,7 @@ import {
   extractBlogFaqItems,
   generateFaqPageSchema,
 } from '@/lib/blog-faq-schema';
+import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
 import {
@@ -71,6 +72,7 @@ async function renderBlogPostContent({
   const { merchant, post, relatedPosts, relatedProducts } = data;
   const content = post.content || '';
   const baseUrl = buildStoreUrl(merchant);
+  const organizationSchema = buildBlogOrganizationSchema(merchant, baseUrl);
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
@@ -158,6 +160,9 @@ async function renderBlogPostContent({
           </Button>
         </div>
       )}
+      <script type="application/ld+json">
+        {safeJsonLdStringify(organizationSchema)}
+      </script>
       <script type="application/ld+json">
         {safeJsonLdStringify(blogSchema)}
       </script>

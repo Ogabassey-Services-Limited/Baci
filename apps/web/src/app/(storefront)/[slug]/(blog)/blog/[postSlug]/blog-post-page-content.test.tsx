@@ -122,6 +122,10 @@ vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: () => ({}),
 }));
 
+vi.mock('@/lib/blog-organization-schema', () => ({
+  buildBlogOrganizationSchema: () => ({ '@type': 'OnlineStore' }),
+}));
+
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { slug: string; custom_domain?: string }) =>
     merchant.custom_domain
