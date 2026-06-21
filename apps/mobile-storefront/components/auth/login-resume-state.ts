@@ -94,8 +94,15 @@ function parseValidAuthLoginResumeState(
       parsed.step !== 'otp' ||
       typeof parsed.email !== 'string' ||
       !EmailSchema.safeParse(parsed.email).success ||
-      typeof parsed.savedAt !== 'number' ||
-      Date.now() - parsed.savedAt > AUTH_LOGIN_RESUME_TTL_MS
+      typeof parsed.savedAt !== 'number'
+    ) {
+      return null;
+    }
+
+    const now = Date.now();
+    if (
+      parsed.savedAt > now ||
+      now - parsed.savedAt > AUTH_LOGIN_RESUME_TTL_MS
     ) {
       return null;
     }

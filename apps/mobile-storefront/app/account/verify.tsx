@@ -1,5 +1,5 @@
 import { type Href, Redirect, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getPendingAuthLoginResumeState } from '@/components/auth/login-resume-state';
 
 type AccountVerifySearchParams = Record<string, string | string[]>;
@@ -19,17 +19,14 @@ function buildOtpLoginRoute(
 }
 
 export default function AccountVerifyRoute() {
-  const [otpLoginRoute, setOtpLoginRoute] = useState<Href | null>(null);
   const searchParams = useLocalSearchParams<AccountVerifySearchParams>();
-  const initialSearchParamsRef = useRef<AccountVerifySearchParams | null>(null);
-
-  if (initialSearchParamsRef.current === null) {
-    initialSearchParamsRef.current = searchParams;
-  }
+  const [initialSearchParams] = useState<AccountVerifySearchParams>(
+    () => searchParams
+  );
+  const [otpLoginRoute, setOtpLoginRoute] = useState<Href | null>(null);
 
   useEffect(() => {
     let isActive = true;
-    const initialSearchParams = initialSearchParamsRef.current ?? {};
 
     getPendingAuthLoginResumeState()
       .then((resumeState) => {
@@ -51,7 +48,7 @@ export default function AccountVerifyRoute() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [initialSearchParams]);
 
   return (
     <>

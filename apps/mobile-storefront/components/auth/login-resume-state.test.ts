@@ -180,6 +180,16 @@ describe('login resume state', () => {
 
     mockGetItemAsync.mockResolvedValueOnce(
       JSON.stringify({
+        email: 'shopper@example.com',
+        returnTo: '/checkout',
+        savedAt: 1_000_001,
+        step: 'otp',
+      })
+    );
+    await expect(getAuthLoginResumeState('/checkout')).resolves.toBeNull();
+
+    mockGetItemAsync.mockResolvedValueOnce(
+      JSON.stringify({
         email: 'not-an-email',
         returnTo: '/checkout',
         savedAt: 1_000_000,
