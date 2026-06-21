@@ -1028,25 +1028,80 @@ describe('Middleware Proxy', () => {
     expect(getCustomDomainForSlug).not.toHaveBeenCalled();
   });
 
-  it('applies API rate limiting and cache policy to the legacy analytics conversion alias', async () => {
-    const req = new NextRequest(`https://${ROOT_DOMAIN}/analytics/conversion`, {
-      body: '{}',
-      headers: {
-        'Content-Type': 'application/json',
-        Origin: `https://${ROOT_DOMAIN}`,
-      },
-      method: 'POST',
-    });
+  it('rewrites the legacy analytics conversion alias to the canonical API handler on the root domain', async () => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/analytics/conversion?event=purchase`,
+      {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: `https://${ROOT_DOMAIN}`,
+        },
+        method: 'POST',
+      }
+    );
     req.headers.set('host', ROOT_DOMAIN);
 
     const res = await proxy(req);
 
     expect(checkRateLimit).toHaveBeenCalledTimes(1);
     expect(res.status).not.toBe(403);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://${ROOT_DOMAIN}/api/analytics/conversion?event=purchase`
+    );
     expect(res.headers.get('Cache-Control')).toBe(
       'no-cache, must-revalidate, max-age=0'
     );
-    expect(res.headers.get('x-pathname')).toBe('/analytics/conversion');
+    expect(res.headers.get('x-pathname')).toBe('/api/analytics/conversion');
+  });
+
+  it('rewrites the legacy analytics conversion alias before custom-domain storefront routing', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/analytics/conversion?event=purchase',
+      {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://ogabassey.com',
+        },
+        method: 'POST',
+      }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(getSlugForCustomDomain).toHaveBeenCalledTimes(1);
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/analytics/conversion?event=purchase'
+    );
+    expect(res.headers.get('x-pathname')).toBe('/api/analytics/conversion');
+  });
+
+  it('rewrites the legacy analytics conversion alias before subdomain storefront routing', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/analytics/conversion?event=purchase`,
+      {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: `https://ogabassey.${ROOT_DOMAIN}`,
+        },
+        method: 'POST',
+      }
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(getCustomDomainForSlug).not.toHaveBeenCalled();
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.${ROOT_DOMAIN}/api/analytics/conversion?event=purchase`
+    );
+    expect(res.headers.get('x-pathname')).toBe('/api/analytics/conversion');
   });
 
   it('applies API payload size protection to the legacy analytics conversion alias', async () => {

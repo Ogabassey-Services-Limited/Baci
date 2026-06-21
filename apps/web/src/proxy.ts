@@ -1631,6 +1631,25 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  if (isLegacyAnalyticsConversion) {
+    const conversionUrl = new URL(
+      ANALYTICS_CONVERSION_API_PATH + request.nextUrl.search,
+      request.url
+    );
+
+    const response = NextResponse.rewrite(conversionUrl);
+    return applySecurityHeaders(
+      response,
+      ANALYTICS_CONVERSION_API_PATH,
+      userAgent,
+      'api',
+      isLocalhost(hostname),
+      undefined,
+      request,
+      hostname
+    );
+  }
+
   // ==== BLOG MIGRATION REDIRECTS ====
   // 301 redirect old blog subdomain to new blog location
   // blog.ogabassey.com/* -> ogabassey.com/blog/*
