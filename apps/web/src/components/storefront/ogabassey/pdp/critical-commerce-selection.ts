@@ -48,7 +48,8 @@ export function buildVariantCartProduct(
     return cartProduct;
   }
 
-  const variantImage = selection.variant.images?.[0];
+  const variantImage =
+    selection.variant.primary_image || selection.variant.images?.[0];
 
   return {
     ...cartProduct,

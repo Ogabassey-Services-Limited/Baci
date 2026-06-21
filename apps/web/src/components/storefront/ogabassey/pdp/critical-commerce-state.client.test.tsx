@@ -61,6 +61,7 @@ function CriticalCommerceStateProbe() {
     <>
       <p>{commerce.productForCart.price}</p>
       <p>{commerce.canAddToCart ? 'ready' : 'blocked'}</p>
+      <p>axes:{commerce.renderableVariantAxes.join(',')}</p>
       <button
         onClick={() => commerce.handleAttributeSelection('storage', '256GB')}
         type="button"
@@ -173,6 +174,83 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
         variantId: 'variant-128',
       })
     );
+  });
+
+  it('does not scope the default SKU to a stale parent condition', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+          ],
+        }}
+        variantAxes={['storage']}
+        variantCount={1}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition: 'used',
+        price: 237_674.42,
+      }),
+      1,
+      expect.objectContaining({
+        condition: 'used',
+        variantId: 'variant-used-128',
+      })
+    );
+  });
+
+  it('keeps required color-only axes hidden until explicitly selected', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: { color: 'Black' },
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+            {
+              attributes: { color: 'Blue' },
+              id: 'variant-blue',
+              merchant_id: 'merchant-1',
+              price_override: 278_418.6,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 6,
+            },
+          ],
+        }}
+        variantAxes={[]}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
   });
 
   it('blocks checkout when a visible change prunes an explicit hidden SKU axis', () => {

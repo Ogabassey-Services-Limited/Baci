@@ -77,23 +77,27 @@ export function OgabasseyPdpCriticalCommerceProvider({
 }: OgabasseyPdpCriticalCommerceProviderProps) {
   const selectionCartProduct = normalizeCriticalVariantProduct(cartProduct);
   const variants = selectionCartProduct.variants || [];
-  const renderableVariantAxes = getRenderableCriticalVariantAxes(
+  const firstViewportVariantAxes = getRenderableCriticalVariantAxes(
     variantAxes,
     variants
   );
+  const requiredVariantAxes = getVariantAxesWithMultipleOptions(variants);
+  const renderableVariantAxes = firstViewportVariantAxes;
+  const hiddenRequiredVariantAxes = requiredVariantAxes.filter(
+    (axis) => !renderableVariantAxes.includes(axis)
+  );
   const normalizedInitialVariantAttributes =
     normalizeCriticalVariantAttributes(initialVariantSelection?.attributes);
-  const initialVariantCondition =
-    initialVariantSelection?.condition ?? selectionCartProduct.condition;
+  const explicitVariantCondition = initialVariantSelection?.condition;
   const defaultVariantSelection = selectionCartProduct.has_variants
     ? resolveDefaultVariantSelection(selectionCartProduct, {
-        condition: initialVariantCondition,
+        condition: explicitVariantCondition,
       })
     : null;
   const initialDisplayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
         attributes: normalizedInitialVariantAttributes,
-        condition: initialVariantCondition,
+        condition: explicitVariantCondition,
         variantId: initialVariantSelection?.variantId,
       }) ?? defaultVariantSelection)
     : null;
@@ -115,20 +119,17 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const purchasableVariantSelection = selectionCartProduct.has_variants
     ? resolveVariantSelection(selectionCartProduct, {
         attributes: selectedAttributes,
-        condition: initialVariantCondition,
+        condition: explicitVariantCondition,
         variantId: selectedVariantId,
       })
     : null;
   const displayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
         attributes: selectedAttributes,
-        condition: initialVariantCondition,
+        condition: explicitVariantCondition,
         variantId: selectedVariantId,
       }) ?? defaultVariantSelection)
     : null;
-  const hiddenRequiredVariantAxes = getVariantAxesWithMultipleOptions(
-    variants
-  ).filter((axis) => !renderableVariantAxes.includes(axis));
   const requiresVariantSelection =
     renderableVariantAxes.length > 0 || hiddenRequiredVariantAxes.length > 0;
   const effectivePurchasableVariantSelection =

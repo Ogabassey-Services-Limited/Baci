@@ -84,6 +84,27 @@ describe('critical commerce selection helpers', () => {
     });
   });
 
+  it('uses the selected variant primary image before image arrays', () => {
+    expect(
+      buildVariantCartProduct(cartProduct, {
+        attributes: { color: 'Green' },
+        price: 278_418.6,
+        variant: {
+          attributes: { color: 'Green' },
+          id: 'variant-green',
+          images: ['https://cdn.ogabassey.com/variant-gallery.avif'],
+          merchant_id: 'merchant-1',
+          primary_image: 'https://cdn.ogabassey.com/variant-primary.avif',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      })
+    ).toMatchObject({
+      image: 'https://cdn.ogabassey.com/variant-primary.avif',
+      imageLarge: 'https://cdn.ogabassey.com/variant-primary.avif',
+    });
+  });
+
   it('falls back to base stock when a variant stock quantity is undefined', () => {
     expect(
       buildVariantCartProduct(cartProduct, {

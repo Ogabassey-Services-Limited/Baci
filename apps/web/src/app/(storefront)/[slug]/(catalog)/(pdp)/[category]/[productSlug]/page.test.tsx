@@ -1644,7 +1644,7 @@ describe('[category]/[productSlug] page render', () => {
       slug: OGABASSEY_DOMAIN,
       template_id: OGABASSEY_TEMPLATE_ID,
     });
-    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+    mockGetCachedProductLcpHint.mockResolvedValue(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
         images: [productImage],
@@ -2255,7 +2255,8 @@ describe('[category]/[productSlug] page render', () => {
 
     expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
       baseMerchant.id,
-      'hp-laptop-14-ep0063nia'
+      'hp-laptop-14-ep0063nia',
+      { includeVariants: true }
     );
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: earlyProductImage,
@@ -2307,15 +2308,21 @@ describe('[category]/[productSlug] page render', () => {
 
       return Promise.resolve(ogabasseyMerchant);
     });
-    mockGetCachedProductLcpHint.mockImplementation((merchantId) => {
-      routeEvents.push(`lcp-hint:${merchantId}`);
-      return Promise.resolve(
-        toLegacyCachedProduct({
-          ...categorizedDetailedProduct,
-          images: [earlyProductImage],
-        })
-      );
-    });
+    mockGetCachedProductLcpHint.mockImplementation(
+      (merchantId, _productSlug, options) => {
+        routeEvents.push(
+          `lcp-hint:${merchantId}:${
+            options?.includeVariants === false ? 'image' : 'variants'
+          }`
+        );
+        return Promise.resolve(
+          toLegacyCachedProduct({
+            ...categorizedDetailedProduct,
+            images: [earlyProductImage],
+          })
+        );
+      }
+    );
     mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
       routeEvents.push('product-hints');
       return null;
@@ -2333,11 +2340,12 @@ describe('[category]/[productSlug] page render', () => {
     await waitFor(() => {
       expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
         OGABASSEY_MERCHANT_ID,
-        'hp-laptop-14-ep0063nia'
+        'hp-laptop-14-ep0063nia',
+        { includeVariants: false }
       );
     });
     expect(routeEvents).toEqual([
-      `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
       'merchant-start',
       'product-hints',
     ]);
@@ -2352,9 +2360,10 @@ describe('[category]/[productSlug] page render', () => {
       src: earlyProductImage,
     });
     expect(routeEvents).toEqual([
-      `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
       'merchant-start',
       'product-hints',
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
     ]);
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
 
@@ -2386,12 +2395,18 @@ describe('[category]/[productSlug] page render', () => {
       }
       return Promise.resolve(ogabasseyMerchant);
     });
-    mockGetCachedProductLcpHint.mockImplementation((merchantId) => {
-      routeEvents.push(`lcp-hint:${merchantId}`);
-      return new Promise((resolve) => {
-        resolveHint = resolve;
-      });
-    });
+    mockGetCachedProductLcpHint.mockImplementation(
+      (merchantId, _productSlug, options) => {
+        routeEvents.push(
+          `lcp-hint:${merchantId}:${
+            options?.includeVariants === false ? 'image' : 'variants'
+          }`
+        );
+        return new Promise((resolve) => {
+          resolveHint = resolve;
+        });
+      }
+    );
     mockOgabasseyPdpProductResourceHints.mockImplementationOnce(() => {
       routeEvents.push('product-hints');
       return null;
@@ -2408,8 +2423,9 @@ describe('[category]/[productSlug] page render', () => {
 
     await waitFor(() => {
       expect(routeEvents).toEqual([
-        `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+        `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
         'merchant-start',
+        `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       ]);
     });
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
@@ -2427,8 +2443,9 @@ describe('[category]/[productSlug] page render', () => {
     });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledTimes(1);
     expect(routeEvents).toEqual([
-      `lcp-hint:${OGABASSEY_MERCHANT_ID}`,
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:image`,
       'merchant-start',
+      `lcp-hint:${OGABASSEY_MERCHANT_ID}:variants`,
       'product-hints',
     ]);
 
@@ -2437,7 +2454,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
-  it('propagates speculative OgaBassey LCP hint failures after merchant validation', async () => {
+  it('continues with variant route data when the image-only prewarm fails', async () => {
     let resolveMerchant:
       | ((
           value: typeof baseMerchant & {
@@ -2464,7 +2481,9 @@ describe('[category]/[productSlug] page render', () => {
           resolveMerchant = resolve;
         })
     );
-    mockGetCachedProductLcpHint.mockRejectedValueOnce(transientError);
+    mockGetCachedProductLcpHint
+      .mockRejectedValueOnce(transientError)
+      .mockResolvedValueOnce(toLegacyCachedProduct(categorizedDetailedProduct));
 
     const pagePromise = CategoryProductPage({
       params: Promise.resolve({
@@ -2478,19 +2497,26 @@ describe('[category]/[productSlug] page render', () => {
     await waitFor(() => {
       expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
         OGABASSEY_MERCHANT_ID,
-        'hp-laptop-14-ep0063nia'
+        'hp-laptop-14-ep0063nia',
+        { includeVariants: false }
       );
     });
 
     resolveMerchant?.(ogabasseyMerchant);
 
-    await expect(pagePromise).rejects.toThrow('temporary product cache outage');
-    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
+    expect(mockGetCachedProductLcpHint).toHaveBeenCalledWith(
+      OGABASSEY_MERCHANT_ID,
+      'hp-laptop-14-ep0063nia',
+      { includeVariants: true }
+    );
     expect(warnSpy).toHaveBeenCalledWith(
       'Unable to prewarm OgaBassey PDP LCP hint:',
       'hp-laptop-14-ep0063nia',
       transientError
     );
+    render(await resolveRsc(resolvedPage));
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
 
     warnSpy.mockRestore();
   });

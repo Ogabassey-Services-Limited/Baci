@@ -823,11 +823,13 @@ async function getProductRouteControl(
   const isKnownOgaBasseyCustomDomain =
     storeSlug.trim().toLowerCase() === OGABASSEY_DOMAIN.toLowerCase();
   let preloadedProductResourceKey: string | null = null;
-  const knownOgaBasseyLcpHintPromise = knownOgaBasseyMerchantId
-    ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug)
+  const knownOgaBasseyImageLcpHintPromise = knownOgaBasseyMerchantId
+    ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug, {
+        includeVariants: false,
+      })
     : null;
-  if (knownOgaBasseyLcpHintPromise) {
-    void knownOgaBasseyLcpHintPromise.catch((error) => {
+  if (knownOgaBasseyImageLcpHintPromise) {
+    void knownOgaBasseyImageLcpHintPromise.catch((error) => {
       console.warn(
         'Unable to prewarm OgaBassey PDP LCP hint:',
         sanitizeLookupLogValue(productSlug),
@@ -838,9 +840,9 @@ async function getProductRouteControl(
 
   const merchantPromise = getRequestScopedMerchant(storeSlug);
 
-  if (knownOgaBasseyLcpHintPromise && isKnownOgaBasseyCustomDomain) {
+  if (knownOgaBasseyImageLcpHintPromise && isKnownOgaBasseyCustomDomain) {
     const earlyPreloadResult = await Promise.race([
-      knownOgaBasseyLcpHintPromise
+      knownOgaBasseyImageLcpHintPromise
         .then((cachedProduct) => ({
           cachedProduct,
           kind: 'lcp-hint' as const,
@@ -886,16 +888,16 @@ async function getProductRouteControl(
     return null;
   }
 
-  let cachedProduct =
-    knownOgaBasseyMerchantId === merchant.id && knownOgaBasseyLcpHintPromise
-      ? await knownOgaBasseyLcpHintPromise
-      : await getCachedProductLcpHint(merchant.id, productSlug);
+  let cachedProduct = await getCachedProductLcpHint(merchant.id, productSlug, {
+    includeVariants: true,
+  });
   let needsValuesRedirect = false;
 
   if (!cachedProduct && productSlug !== productSlug.toLowerCase()) {
     cachedProduct = await getCachedProductLcpHint(
       merchant.id,
-      productSlug.toLowerCase()
+      productSlug.toLowerCase(),
+      { includeVariants: true }
     );
   }
 

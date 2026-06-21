@@ -161,12 +161,58 @@ describe('cached-data product query projections', () => {
         p_product_ids: ['product-123'],
       }
     );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'product',
+      'product-lcp-hint',
+      'products-merchant-123',
+      getProductScopedCacheTag('product', 'merchant-123', 'iphone-16')
+    );
     expect(result?.product_variants).toEqual([
       expect.objectContaining({
         attributes: { storage: '128GB' },
         id: 'variant-1',
       }),
     ]);
+  });
+
+  it('getCachedProductLcpHint hydrates serialized public variant stock', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          attributes: { storage: '128GB' },
+          id: 'variant-1',
+          product_id: 'product-123',
+          stock_quantity: 0,
+        },
+      ],
+      error: null,
+    });
+    vi.mocked(
+      getPublicSerializedVariantSummariesByProductId
+    ).mockResolvedValueOnce([
+      {
+        inventoryTrackingPolicy: 'serialized_then_unlimited',
+        productId: 'product-123',
+        publicAvailableUnits: 0,
+        variantId: 'variant-1',
+      },
+    ] satisfies PublicSerializedVariantSummary[]);
+
+    const result = await getCachedProductLcpHint('merchant-123', 'iphone-16');
+
+    expect(result?.product_variants).toEqual([
+      expect.objectContaining({
+        id: 'variant-1',
+        inventory_tracking_policy: 'serialized_then_unlimited',
+        stock_quantity: 9999,
+      }),
+    ]);
+    expect(getPublicSerializedVariantSummariesByProductId).toHaveBeenCalledWith(
+      expect.objectContaining({ from: expect.any(Function) }),
+      'merchant-123',
+      ['product-123']
+    );
   });
 
   it('getCachedProductLcpHint can skip public variant hydration for image-only callers', async () => {

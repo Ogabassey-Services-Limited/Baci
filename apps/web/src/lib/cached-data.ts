@@ -1498,6 +1498,7 @@ export async function getCachedProductLcpHint(
   cacheTag(
     'product',
     'product-lcp-hint',
+    `products-${merchantId}`,
     getProductScopedCacheTag('product', merchantId, productSlug)
   );
 
@@ -1577,11 +1578,15 @@ export async function getCachedProductLcpHint(
   const variantsByProductId = await getPublicProductVariantsByProductIds([
     product.id,
   ]);
-
-  return {
+  const rawProduct = {
     ...product,
     product_variants: variantsByProductId[product.id] || [],
   };
+  const hydrated = await hydrateAndSanitizeProducts(supabase, merchantId, [
+    rawProduct,
+  ]);
+
+  return hydrated[0] || rawProduct;
 }
 
 /**
