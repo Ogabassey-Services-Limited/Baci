@@ -85,10 +85,10 @@ function mapHomeProductCategory(
   product: StorefrontHomeProduct
 ): Product['categories'] {
   const category =
-    getFirstHomeProductCategory(product.product_categories?.[0]?.categories) ??
     getFirstHomeProductCategory(
       (product as StorefrontHomeProduct & { categories?: unknown }).categories
-    );
+    ) ??
+    getFirstHomeProductCategory(product.product_categories?.[0]?.categories);
 
   if (!category) {
     return null;

@@ -158,24 +158,24 @@ export async function StorefrontContent({
     merchant.template_id,
     merchant.business_type
   );
-  const ogabasseyHomeTemplatePromise =
-    templateId === OGABASSEY_TEMPLATE_ID
-      ? loadOgabasseyHomeTemplateModules().catch((error) => {
-          reportTemplateRenderFailure({
-            error,
-            merchantId: merchant.id,
-            templateId,
-          });
-          console.error('Failed to load OgaBassey storefront template:', {
-            merchantId: merchant.id,
-            templateId,
-            error,
-          });
-          return null;
-        })
-      : null;
+  const isOgabasseyTemplate = templateId === OGABASSEY_TEMPLATE_ID;
+  const ogabasseyHomeTemplatePromise = isOgabasseyTemplate
+    ? loadOgabasseyHomeTemplateModules().catch((error) => {
+        reportTemplateRenderFailure({
+          error,
+          merchantId: merchant.id,
+          templateId,
+        });
+        console.error('Failed to load OgaBassey storefront template:', {
+          merchantId: merchant.id,
+          templateId,
+          error,
+        });
+        return null;
+      })
+    : null;
   const genericComponentsPromise =
-    templateId && templateId !== OGABASSEY_TEMPLATE_ID
+    templateId && !isOgabasseyTemplate
       ? loadGenericTemplateComponents(templateId).catch((error) => {
           reportTemplateRenderFailure({
             error,
@@ -191,9 +191,13 @@ export async function StorefrontContent({
         })
       : null;
 
+  const productsPromise = isOgabasseyTemplate
+    ? getCachedStorefrontHomeProducts(merchant.id, 'recent')
+    : getCachedStorefrontHomeProducts(merchant.id);
+
   // Parallel data fetching — both use remote cache
   const [products, categories] = await Promise.all([
-    getCachedStorefrontHomeProducts(merchant.id),
+    productsPromise,
     getCachedNavigationCategories(merchant.id),
   ]);
 
@@ -211,10 +215,9 @@ export async function StorefrontContent({
     product_categories: undefined,
   })) as unknown as Product[];
   const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
-  const schemaProducts =
-    templateId === OGABASSEY_TEMPLATE_ID
-      ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)
-      : merchantProducts;
+  const schemaProducts = isOgabasseyTemplate
+    ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)
+    : merchantProducts;
   const homeCollectionSchema =
     schemaProducts.length > 0
       ? generateCollectionPageSchema({
@@ -334,7 +337,7 @@ export async function StorefrontContent({
   );
 
   if (templateId) {
-    if (templateId === OGABASSEY_TEMPLATE_ID) {
+    if (isOgabasseyTemplate) {
       // Only data work happens inside try/catch: errors thrown while React
       // renders the JSX would never be caught here anyway, so the JSX is
       // constructed outside the try block.

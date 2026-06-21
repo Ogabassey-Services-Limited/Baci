@@ -224,6 +224,10 @@ describe('StorefrontContent', () => {
     render(result as React.ReactElement);
 
     expect(getTemplate).not.toHaveBeenCalled();
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockMerchant.id,
+      'recent'
+    );
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ id: 'ogabassey-product-1' }),
@@ -253,6 +257,10 @@ describe('StorefrontContent', () => {
     const result = await StorefrontContent({ merchant: mockMerchant });
     render(result as React.ReactElement);
 
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockMerchant.id,
+      'recent'
+    );
     expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
       'test-store::1'
     );
