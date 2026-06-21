@@ -5,22 +5,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
-import type { AD_CONFIG } from '../config/ads';
-import {
-  FLASH_SALE_PROMO_IMAGE,
-  NEW_ARRIVALS_PROMO_IMAGE,
-} from '@/components/storefront/ogabassey/components/hero-data';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
+import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
+import type { AD_CONFIG } from '../config/ads';
 
 interface BaseBannerSlide {
   id: number;
   title?: string;
   subtitle?: string;
   link?: string;
-  bgColor?: string;
-  textColor?: string;
 }
 
 interface ImageBannerSlide extends BaseBannerSlide {
@@ -28,22 +22,25 @@ interface ImageBannerSlide extends BaseBannerSlide {
   imageUrl: string;
 }
 
+interface PromoBannerSlide extends BaseBannerSlide {
+  type: 'promo';
+}
+
 interface AdBannerSlide extends BaseBannerSlide {
   type: 'ad';
   adPlacement: keyof typeof AD_CONFIG;
 }
 
-type BannerSlide = ImageBannerSlide | AdBannerSlide;
+type BannerSlide = ImageBannerSlide | PromoBannerSlide | AdBannerSlide;
 
+// Promotional slides are CSS-only + theme-driven (no baked image), so they
+// adapt to each merchant's brand and cost nothing on the network.
 const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 1,
-    type: 'image',
-    imageUrl: FLASH_SALE_PROMO_IMAGE,
+    type: 'promo',
     title: 'Flash Sale',
     subtitle: 'Up to 50% Off Selected Items',
-    bgColor: 'bg-red-600',
-    textColor: 'text-white',
   },
   {
     id: 2,
@@ -52,12 +49,9 @@ const BANNER_SLIDES: BannerSlide[] = [
   },
   {
     id: 3,
-    type: 'image',
-    imageUrl: NEW_ARRIVALS_PROMO_IMAGE,
+    type: 'promo',
     title: 'New Arrivals',
     subtitle: 'Check out the latest tech',
-    bgColor: 'bg-black',
-    textColor: 'text-white',
   },
 ];
 
@@ -72,6 +66,15 @@ export interface BannerCarouselProps {
 export function resolveBannerHref(basePath: string, path: string) {
   return joinRouteBasePath(basePath, path);
 }
+
+const PROMO_TEXT_PANEL =
+  'absolute inset-0 flex flex-col justify-center px-8 md:px-16';
+const PROMO_TITLE =
+  'text-2xl md:text-4xl font-bold text-store-on-primary mb-2 leading-tight line-clamp-1';
+const PROMO_SUBTITLE =
+  'text-sm md:text-lg text-store-on-primary opacity-90 max-w-md line-clamp-2';
+const PROMO_CTA =
+  'mt-4 px-6 py-2 bg-store-on-primary text-store-primary text-xs md:text-sm font-bold rounded-full w-fit hover:opacity-90 transition-opacity shadow-lg active:scale-95 inline-block';
 
 export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   basePath = '',
@@ -93,8 +96,6 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         imageUrl: categoryImage,
         title: title || 'Shop Now',
         subtitle: description || 'Explore our best collection',
-        bgColor: 'bg-black', // Default for category headers
-        textColor: 'text-white',
       };
       return [customSlide, ...BANNER_SLIDES];
     }
@@ -162,7 +163,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
   return (
     <div
-      className={`relative w-full overflow-hidden rounded-xl shadow-sm border border-gray-100 bg-white ${className}`}
+      className={`relative w-full overflow-hidden rounded-xl shadow-sm border border-store-border bg-store-background ${className}`}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -171,77 +172,81 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         className="flex h-full transition-transform duration-700 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {slides.map((slide, idx) => (
-          <div
-            key={slide.id}
-            className="w-full h-full shrink-0 relative"
-            aria-hidden={idx !== currentSlide}
-            // `inert` removes the entire subtree from the accessibility tree,
-            // tab order, and click/pointer events while the slide is hidden.
-            // React 19 forwards this attribute to the DOM as a boolean.
-            inert={idx !== currentSlide}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`Slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
-          >
-            {slide.type === 'image' ? (
-              <div className="w-full h-full relative overflow-hidden group">
-                <Image
-                  src={slide.imageUrl || ''}
-                  alt={slide.title || 'Banner'}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
-                  className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                  priority={Boolean(categoryImage) && idx === 0}
-                  loading={
-                    categoryImage && idx === 0 ? undefined : 'lazy'
-                  }
-                  fetchPriority={
-                    categoryImage && idx === 0 ? 'high' : 'low'
-                  }
-                />
-                <div
-                  className={`absolute inset-0 bg-linear-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
-                >
-                  <h3
-                    className={`text-2xl md:text-4xl font-bold ${slide.textColor} mb-2 leading-tight line-clamp-1`}
-                  >
-                    {slide.title}
-                  </h3>
-                  <p
-                    className={`text-sm md:text-lg ${slide.textColor} opacity-90 max-w-md line-clamp-2`}
-                  >
-                    {slide.subtitle}
-                  </p>
-                  {slide.link && (
-                    <Link
-                      href={asRoute(getHref(slide.link))}
-                      className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
-                    >
-                      Shop Now
-                    </Link>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
-                <span className="absolute top-2 right-2 text-[10px] text-gray-400 border border-gray-200 px-1 rounded">
-                  Sponsored
-                </span>
-                <div className="transform scale-90 md:scale-100 w-full flex justify-center">
-                  {/* We ensure the ad unit doesn't overflow */}
-                  <AdUnit
-                    placementKey={slide.adPlacement}
-                    className="my-0"
-                    isActive={idx === currentSlide}
-                    bootDelayMs={SPONSORED_SLIDE_AD_BOOT_DELAY_MS}
-                    refreshKey={adRefreshTrigger}
+        {slides.map((slide, idx) => {
+          const isCategoryHero = Boolean(categoryImage) && idx === 0;
+          return (
+            <div
+              key={slide.id}
+              className="w-full h-full shrink-0 relative"
+              aria-hidden={idx !== currentSlide}
+              // `inert` removes the entire subtree from the accessibility tree,
+              // tab order, and click/pointer events while the slide is hidden.
+              // React 19 forwards this attribute to the DOM as a boolean.
+              inert={idx !== currentSlide}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`Slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
+            >
+              {slide.type === 'image' ? (
+                <div className="w-full h-full relative overflow-hidden group">
+                  <Image
+                    src={slide.imageUrl || ''}
+                    alt={slide.title || 'Featured collection'}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
+                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                    loading={isCategoryHero ? 'eager' : 'lazy'}
+                    fetchPriority={isCategoryHero ? 'high' : 'low'}
                   />
+                  <div className="absolute inset-0 bg-linear-to-r from-store-primary/85 to-transparent flex flex-col justify-center px-8 md:px-16">
+                    <h3 className={PROMO_TITLE}>{slide.title}</h3>
+                    <p className={PROMO_SUBTITLE}>{slide.subtitle}</p>
+                    {slide.link ? (
+                      <Link
+                        href={asRoute(getHref(slide.link))}
+                        className={PROMO_CTA}
+                      >
+                        Shop Now
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              ) : slide.type === 'promo' ? (
+                <div className="w-full h-full relative overflow-hidden bg-linear-to-r from-store-primary to-store-accent">
+                  <div className={PROMO_TEXT_PANEL}>
+                    <h3 className={PROMO_TITLE}>{slide.title}</h3>
+                    <p className={PROMO_SUBTITLE}>{slide.subtitle}</p>
+                    {slide.link ? (
+                      <Link
+                        href={asRoute(getHref(slide.link))}
+                        className={PROMO_CTA}
+                      >
+                        Shop Now
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
+                  {/* Neutral, non-brand chrome for the sponsored slot (allowed
+                      exception to the themed-color rule). */}
+                  <span className="absolute top-2 right-2 text-[10px] text-gray-400 border border-gray-200 px-1 rounded">
+                    Sponsored
+                  </span>
+                  <div className="transform scale-90 md:scale-100 w-full flex justify-center">
+                    <AdUnit
+                      placementKey={slide.adPlacement}
+                      className="my-0"
+                      isActive={idx === currentSlide}
+                      bootDelayMs={SPONSORED_SLIDE_AD_BOOT_DELAY_MS}
+                      refreshKey={adRefreshTrigger}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
@@ -259,10 +264,11 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
               className="group flex h-11 min-w-11 items-center justify-center rounded-full"
             >
               <span
-                className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${isCurrentSlide
-                  ? 'w-6'
-                  : 'w-1.5 group-hover:bg-store-on-primary/70'
-                  } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
+                className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                  isCurrentSlide
+                    ? 'w-6'
+                    : 'w-1.5 group-hover:bg-store-on-primary/70'
+                } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
                 style={{
                   backgroundColor: isCurrentSlide
                     ? isActiveAdSlide

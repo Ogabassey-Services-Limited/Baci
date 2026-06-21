@@ -3,21 +3,20 @@ import type React from 'react';
 import { Suspense } from 'react';
 import { normalizeRouteBasePath } from '@/lib/routes';
 import type { Product } from '../types';
+import { buildLaunchSlides } from '../components/build-launch-slides';
 import { DeferredAdUnit } from '../components/deferred-ad-unit';
-import { DeferredBannerCarousel } from '../components/deferred-banner-carousel';
 import { HomeProductGrid } from '../components/HomeProductGrid';
 import { Hero } from '../components/Hero';
-import {
-  BANNER_CAROUSEL_MOUNT_DELAY_MS,
-  DEFERRED_SHELL_MOUNT_DELAY_MS,
-  HOMEPAGE_STRIP_AD_BOOT_DELAY_MS,
-} from '../config/ads';
+import { LaunchCarousel } from '../components/LaunchCarousel';
+import { HOMEPAGE_STRIP_AD_BOOT_DELAY_MS } from '../config/ads';
 
 // Define the expected props
 interface HomePageProps {
   basePath?: string;
   storeSlug?: string;
   products?: Product[];
+  /** Newly-released / pinned launch devices, newest-first, pre-selected upstream. */
+  launchProducts?: Product[];
   categories?: { name: string; slug: string }[];
   renderHero?: boolean;
 }
@@ -26,11 +25,13 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
   basePath,
   storeSlug,
   products,
+  launchProducts,
   renderHero = true,
 }) => {
   const routeBasePath = normalizeRouteBasePath(
     basePath ?? (storeSlug ? `/${storeSlug}` : '')
   );
+  const launchSlides = buildLaunchSlides(launchProducts ?? [], routeBasePath);
 
   return (
     <>
@@ -46,20 +47,13 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
         />
       </div>
 
-      {/* Horizontal Carousel Banner - Desktop Only */}
-      <div className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 content-auto [contain-intrinsic-size:1400px_220px]">
-        <DeferredBannerCarousel
-          basePath={routeBasePath}
-          className="h-40 md:h-52"
-          fallback={
-            <div
-              aria-hidden="true"
-              className="h-40 md:h-52 rounded-3xl bg-gray-100/80 border border-gray-100 content-auto [contain-intrinsic-size:1400px_220px]"
-            />
-          }
-          timeoutMs={BANNER_CAROUSEL_MOUNT_DELAY_MS}
-        />
-      </div>
+      {/* Newly released devices — responsive (mobile + desktop), server-rendered
+          so the product deep-links are crawlable; only the images lazy-load. */}
+      {launchSlides.length > 0 ? (
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 content-auto [contain-intrinsic-size:1400px_260px]">
+          <LaunchCarousel slides={launchSlides} />
+        </div>
+      ) : null}
 
       {/* Suspense boundary keeps the featured-products section non-blocking */}
       <Suspense>

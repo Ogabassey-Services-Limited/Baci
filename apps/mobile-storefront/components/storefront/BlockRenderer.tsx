@@ -9,6 +9,7 @@ import type {
   ProductGridBlock,
 } from '@/types/blocks';
 import { Hero, type HeroSlide } from './Hero';
+import { JustLaunchedCarousel } from './JustLaunchedCarousel';
 import ProductGrid from './ProductGrid';
 import { UtilityPanel } from './UtilityPanel';
 
@@ -81,6 +82,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 />
               );
             }
+            case 'JustLaunched':
+              return <JustLaunchedCarousel />;
             case 'CategoryRail':
               return (
                 <UtilityPanel

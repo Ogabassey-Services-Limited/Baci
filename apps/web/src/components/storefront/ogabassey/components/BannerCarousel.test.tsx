@@ -63,37 +63,30 @@ describe('BannerCarousel', () => {
     );
   });
 
-  it('does not request removed CDN banner assets or preload below-fold banners', () => {
+  it('renders the promo banners as CSS-only slides with no baked images', () => {
     const { container } = render(<BannerCarousel />);
     const images = Array.from(container.querySelectorAll('img'));
 
-    expect(images.map((image) => image.getAttribute('src'))).toEqual(
-      expect.not.arrayContaining([
-        'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
-        'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
-      ])
-    );
-
-    for (const image of images) {
-      expect(image).toHaveAttribute('data-priority', 'false');
-    }
+    // Promo slides are now theme-driven CSS, so the homepage banner ships no
+    // banner image at all (nothing to preload below the fold).
+    expect(images).toHaveLength(0);
+    expect(screen.getByText('Flash Sale')).toBeInTheDocument();
+    expect(screen.getByText('New Arrivals')).toBeInTheDocument();
   });
 
-  it('prioritizes only the custom category image when one is provided', () => {
+  it('eagerly loads only the custom category image with high fetch priority', () => {
     const { container } = render(
       <BannerCarousel categoryImage="/category-banner.avif" />
     );
     const images = Array.from(container.querySelectorAll('img'));
 
-    expect(images.length).toBeGreaterThan(0);
+    // Only the category hero is a real image; promo slides remain CSS-only.
+    expect(images).toHaveLength(1);
     expect(images[0]).toHaveAttribute('src', '/category-banner.avif');
-    expect(images[0]).toHaveAttribute('data-priority', 'true');
+    expect(images[0]).toHaveAttribute('loading', 'eager');
     expect(images[0]).toHaveAttribute('fetchpriority', 'high');
-
-    for (const image of images.slice(1)) {
-      expect(image).toHaveAttribute('data-priority', 'false');
-      expect(image).toHaveAttribute('fetchpriority', 'low');
-    }
+    // The deprecated `priority` prop is gone.
+    expect(images[0]).not.toHaveAttribute('priority');
   });
 
   it('labels banner slide controls as non-submit buttons', () => {

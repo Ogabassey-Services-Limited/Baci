@@ -1,0 +1,126 @@
+import { cacheTag } from 'next/cache';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildCachedDataTestHarness,
+  type CachedDataTestHarness,
+  resetMockCreateClient,
+} from '@/lib/cached-data.test-utils';
+import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
+
+vi.mock('@/env', () => ({
+  getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
+  getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
+  getSupabaseServiceRoleKey: vi.fn(() => 'test-service-role-key'),
+}));
+
+vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('react', () => ({ cache: vi.fn((fn) => fn) }));
+vi.mock('@/lib/public-serialized-variant-summary', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/public-serialized-variant-summary')
+  >('@/lib/public-serialized-variant-summary');
+
+  return {
+    ...actual,
+    getPublicSerializedVariantSummariesByProductId: vi.fn(() =>
+      Promise.resolve([])
+    ),
+  };
+});
+vi.mock('@supabase/supabase-js', async () => {
+  const { getMockCreateClient } = await import('@/lib/cached-data.test-utils');
+  return {
+    createClient: (...args: unknown[]) => {
+      const createClient = getMockCreateClient();
+      if (!createClient) {
+        return { from: () => ({ select: () => ({}) }), auth: {} };
+      }
+      return createClient(...args);
+    },
+  };
+});
+
+let harness: CachedDataTestHarness;
+
+beforeEach(() => {
+  harness = buildCachedDataTestHarness();
+});
+
+afterEach(() => {
+  resetMockCreateClient();
+  vi.restoreAllMocks();
+});
+
+describe('getCachedStorefrontProductsBySlugs', () => {
+  const slugs = ['samsung-galaxy-a27-5g', 'itel-power-80-128gb-4gb'];
+
+  it('builds a merchant-scoped, active, slug-filtered query with an explicit select', async () => {
+    harness.mockListResult.data = [
+      { id: 'p1', slug: 'samsung-galaxy-a27-5g' },
+      { id: 'p2', slug: 'itel-power-80-128gb-4gb' },
+    ];
+
+    await getCachedStorefrontProductsBySlugs('merchant-123', slugs);
+
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+    expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
+    expect(harness.mockIn).toHaveBeenCalledWith('slug', slugs);
+
+    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).not.toContain('*');
+    expect(selectArg).toContain('id');
+    expect(selectArg).toContain('name');
+    expect(selectArg).toContain('slug');
+    expect(selectArg).toContain('images');
+    expect(selectArg).toContain('price');
+    expect(selectArg).toContain('product_categories(categories(name, slug))');
+  });
+
+  it('returns the hydrated rows for the requested slugs', async () => {
+    harness.mockListResult.data = [
+      { id: 'p1', slug: 'samsung-galaxy-a27-5g' },
+      { id: 'p2', slug: 'itel-power-80-128gb-4gb' },
+    ];
+
+    await expect(
+      getCachedStorefrontProductsBySlugs('merchant-123', slugs)
+    ).resolves.toEqual([
+      expect.objectContaining({ id: 'p1', slug: 'samsung-galaxy-a27-5g' }),
+      expect.objectContaining({ id: 'p2', slug: 'itel-power-80-128gb-4gb' }),
+    ]);
+  });
+
+  it('tags the cache so revalidateProducts() busts it', async () => {
+    harness.mockListResult.data = [];
+
+    await getCachedStorefrontProductsBySlugs('merchant-123', slugs);
+
+    expect(cacheTag).toHaveBeenCalledWith(
+      'products',
+      'products-merchant-123',
+      'products-by-slugs-merchant-123'
+    );
+  });
+
+  it('throws on query error (so a broken .in()/select fails loudly)', async () => {
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = { message: 'db error', code: '42P01' };
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await expect(
+      getCachedStorefrontProductsBySlugs('merchant-123', slugs)
+    ).rejects.toEqual(expect.objectContaining({ message: 'db error' }));
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('short-circuits to [] for an empty slug list without querying', async () => {
+    await expect(
+      getCachedStorefrontProductsBySlugs('merchant-123', [])
+    ).resolves.toEqual([]);
+
+    expect(harness.mockFrom).not.toHaveBeenCalled();
+    expect(harness.mockIn).not.toHaveBeenCalled();
+  });
+});
