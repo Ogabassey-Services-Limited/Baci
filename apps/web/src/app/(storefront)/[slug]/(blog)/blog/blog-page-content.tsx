@@ -19,6 +19,7 @@ import {
 } from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { BlogListingPagination } from './blog-listing-pagination';
+import { buildBlogListingRouteHref } from './blog-listing-route';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -30,25 +31,6 @@ export interface BlogPageProps {
 function parseBlogListingPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-}
-
-export function buildBlogListingRouteHref({
-  basePath,
-  category,
-  page,
-  search,
-}: {
-  basePath: string;
-  category?: string;
-  page: number;
-  search?: string;
-}): string {
-  const params = new URLSearchParams();
-  if (category) params.set('category', category);
-  if (search) params.set('search', search);
-  if (page > 1) params.set('page', String(page));
-  const queryString = params.toString();
-  return `${basePath}/blog${queryString ? `?${queryString}` : ''}`;
 }
 
 function buildBlogListingSchemaUrl({
@@ -67,6 +49,23 @@ function buildBlogListingSchemaUrl({
   if (search) url.searchParams.set('search', search);
   if (page > 1) url.searchParams.set('page', String(page));
   return url.toString();
+}
+
+function buildAbsoluteBlogListingRouteHref({
+  baseUrl,
+  category,
+  page,
+  search,
+}: {
+  baseUrl: string;
+  category?: string;
+  page: number;
+  search?: string;
+}): string {
+  return new URL(
+    buildBlogListingRouteHref({ storeBasePath: '', category, page, search }),
+    baseUrl
+  ).toString();
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
@@ -100,7 +99,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     redirect(
       asRoute(
         buildBlogListingRouteHref({
-          basePath,
+          storeBasePath: basePath,
           category,
           page: totalPages,
           search: effectiveSearchQuery,
@@ -108,6 +107,30 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       )
     );
   }
+  const previousPageUrl =
+    currentPage > 1
+      ? buildAbsoluteBlogListingRouteHref({
+          baseUrl,
+          category,
+          page: currentPage - 1,
+          search: effectiveSearchQuery,
+        })
+      : undefined;
+  const nextPageUrl =
+    currentPage < totalPages
+      ? buildAbsoluteBlogListingRouteHref({
+          baseUrl,
+          category,
+          page: currentPage + 1,
+          search: effectiveSearchQuery,
+        })
+      : undefined;
+  const paginationHeadLinks = (
+    <>
+      {previousPageUrl ? <link href={previousPageUrl} rel="prev" /> : null}
+      {nextPageUrl ? <link href={nextPageUrl} rel="next" /> : null}
+    </>
+  );
   const guideCollections = buildBlogClusterCollections({
     storeUrl: baseUrl,
     posts: posts.map((post) => ({
@@ -233,6 +256,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       if (templateBlogUi) {
         return (
           <>
+            {paginationHeadLinks}
             <TemplateBlogRenderer
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
@@ -264,6 +288,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   }
   return (
     <>
+      {paginationHeadLinks}
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}

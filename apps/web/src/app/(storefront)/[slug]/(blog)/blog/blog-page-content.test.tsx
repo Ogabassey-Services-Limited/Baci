@@ -4,6 +4,7 @@ import {
   buildListingResult,
   clusterCollections,
   type MockDefaultBlogUiProps,
+  merchant,
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
@@ -114,6 +115,34 @@ describe('BlogPageContent', () => {
 
     expect(mockRedirect).toHaveBeenCalledWith(
       '/ogabassey/blog?category=Guides&page=5'
+    );
+  });
+
+  it('renders real prev/next head links for paginated listings', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          custom_domain: 'example.com',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'example.com' }),
+        searchParams: Promise.resolve({ page: '2', category: 'Guides' }),
+      })
+    );
+
+    expect(document.head.querySelector('link[rel="prev"]')).toHaveAttribute(
+      'href',
+      'https://example.com/blog?category=Guides'
+    );
+    expect(document.head.querySelector('link[rel="next"]')).toHaveAttribute(
+      'href',
+      'https://example.com/blog?category=Guides&page=3'
     );
   });
 

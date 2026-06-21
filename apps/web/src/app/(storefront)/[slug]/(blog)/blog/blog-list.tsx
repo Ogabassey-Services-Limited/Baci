@@ -53,8 +53,9 @@ export function BlogList({
 }: BlogListProps) {
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
   const [page, setPage] = useState(initialPage);
+  const shouldAutoLoadMore = initialPage <= 1;
   const [hasMore, setHasMore] = useState(
-    initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts
+    shouldAutoLoadMore && initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts
   );
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -79,7 +80,9 @@ export function BlogList({
     setPrevInitialPage(initialPage);
     setPosts(initialPosts);
     setPage(initialPage);
-    setHasMore(initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts);
+    setHasMore(
+      initialPage <= 1 && initialPage * BLOG_LISTING_PAGE_SIZE < totalPosts
+    );
   }
 
   const loadMore = () => {

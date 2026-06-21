@@ -97,9 +97,31 @@ describe('BlogList', () => {
     ).toBeInTheDocument();
   });
 
-  it('continues infinite loading from the selected server-rendered page', () => {
+  it('continues infinite loading from the first server-rendered page', () => {
     mockFetchMorePosts.mockResolvedValueOnce([]);
 
+    render(
+      <BlogList
+        initialPosts={[blogPost]}
+        merchantId="merchant-1"
+        totalPosts={48}
+        basePath="/ogabassey"
+      />
+    );
+
+    act(() => {
+      intersectionCallback?.([{ isIntersecting: true }]);
+    });
+
+    expect(mockFetchMorePosts).toHaveBeenCalledWith(
+      'merchant-1',
+      2,
+      undefined,
+      undefined
+    );
+  });
+
+  it('does not auto-fetch when rendering a paginated crawl page', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
@@ -114,11 +136,6 @@ describe('BlogList', () => {
       intersectionCallback?.([{ isIntersecting: true }]);
     });
 
-    expect(mockFetchMorePosts).toHaveBeenCalledWith(
-      'merchant-1',
-      4,
-      undefined,
-      undefined
-    );
+    expect(mockFetchMorePosts).not.toHaveBeenCalled();
   });
 });

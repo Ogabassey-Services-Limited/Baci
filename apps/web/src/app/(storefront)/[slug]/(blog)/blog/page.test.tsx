@@ -75,9 +75,7 @@ describe('blog page metadata', () => {
       'https://example.com/blog?page=2'
     );
     expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
-    expect(metadata.other).toMatchObject({
-      'link-prev': 'https://example.com/blog',
-    });
+    expect(metadata.other).toBeUndefined();
     expect(mockGetCachedBlogListing).toHaveBeenCalledWith('example.com', {
       page: 2,
     });

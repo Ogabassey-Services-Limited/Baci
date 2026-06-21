@@ -6,11 +6,8 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import {
-  BlogPageContent,
-  type BlogPageProps,
-  buildBlogListingRouteHref,
-} from './blog-page-content';
+import { buildBlogListingRouteHref } from './blog-listing-route';
+import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 
 function parseBlogMetadataPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
@@ -29,7 +26,7 @@ function buildAbsoluteBlogListingUrl({
   search?: string;
 }): string {
   const relativeHref = buildBlogListingRouteHref({
-    basePath: '',
+    storeBasePath: '',
     category,
     page,
     search,
@@ -73,26 +70,6 @@ export async function generateMetadata({
       fallback: `Read expert buying guides, product comparisons, and tech updates from ${data.merchant.business_name}. Find practical recommendations tailored for shoppers in Nigeria.`,
     }
   );
-  const effectiveSearchQuery = data.searchQuery ?? search;
-  const previousUrl =
-    canonicalPage > 1
-      ? buildAbsoluteBlogListingUrl({
-          baseUrl,
-          category,
-          page: canonicalPage - 1,
-          search: effectiveSearchQuery,
-        })
-      : undefined;
-  const nextUrl =
-    canonicalPage < totalPages
-      ? buildAbsoluteBlogListingUrl({
-          baseUrl,
-          category,
-          page: canonicalPage + 1,
-          search: effectiveSearchQuery,
-        })
-      : undefined;
-
   return {
     title: `Blog | ${data.merchant.business_name}`,
     description,
@@ -119,10 +96,6 @@ export async function generateMetadata({
       types: {
         'application/rss+xml': `${baseUrl}/api/blog/feed/${slug}`,
       },
-    },
-    other: {
-      ...(previousUrl ? { 'link-prev': previousUrl } : {}),
-      ...(nextUrl ? { 'link-next': nextUrl } : {}),
     },
     robots: {
       index: true,

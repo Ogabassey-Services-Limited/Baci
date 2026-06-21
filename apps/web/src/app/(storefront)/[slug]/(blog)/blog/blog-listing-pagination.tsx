@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { asRoute } from '@/lib/routes';
+import { buildBlogListingRouteHref } from './blog-listing-route';
 
 interface BlogListingPaginationProps {
   storeBasePath: string;
@@ -7,23 +8,6 @@ interface BlogListingPaginationProps {
   totalPages: number;
   category?: string;
   search?: string;
-}
-
-/**
- * Store-base path excludes the /blog segment so links cannot double-append it.
- */
-function buildPageHref(
-  storeBasePath: string,
-  page: number,
-  category?: string,
-  search?: string
-): string {
-  const params = new URLSearchParams();
-  if (category) params.set('category', category);
-  if (search) params.set('search', search);
-  if (page > 1) params.set('page', String(page));
-  const queryString = params.toString();
-  return `${storeBasePath}/blog${queryString ? `?${queryString}` : ''}`;
 }
 
 function getPageWindow(
@@ -75,7 +59,12 @@ export function BlogListingPagination({
       {safeCurrentPage > 1 ? (
         <Link
           href={asRoute(
-            buildPageHref(storeBasePath, safeCurrentPage - 1, category, search)
+            buildBlogListingRouteHref({
+              storeBasePath,
+              page: safeCurrentPage - 1,
+              category,
+              search,
+            })
           )}
           rel="prev"
           className={LINK_CLASS}
@@ -97,7 +86,12 @@ export function BlogListingPagination({
           <Link
             key={item.key}
             href={asRoute(
-              buildPageHref(storeBasePath, item.page, category, search)
+              buildBlogListingRouteHref({
+                storeBasePath,
+                page: item.page,
+                category,
+                search,
+              })
             )}
             aria-current={item.page === safeCurrentPage ? 'page' : undefined}
             className={
@@ -112,7 +106,12 @@ export function BlogListingPagination({
       {safeCurrentPage < totalPages ? (
         <Link
           href={asRoute(
-            buildPageHref(storeBasePath, safeCurrentPage + 1, category, search)
+            buildBlogListingRouteHref({
+              storeBasePath,
+              page: safeCurrentPage + 1,
+              category,
+              search,
+            })
           )}
           rel="next"
           className={LINK_CLASS}
