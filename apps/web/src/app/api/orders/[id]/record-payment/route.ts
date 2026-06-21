@@ -662,7 +662,6 @@ export async function POST(
       // SEND PAYMENT RECEIPT EMAIL (Partial Payment)
       try {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
         const emailItems =
           order.order_items?.map((item: EmailOrderItem) => ({
@@ -688,7 +687,6 @@ export async function POST(
           totalPaidSoFar: Number(newPaid),
           balanceDue: Number(remainingBalance),
           merchantName: merchant.business_name,
-          merchantUrl,
           supportEmail: merchant.support_email,
           merchantTin: merchant.tax_identification_number ?? undefined,
           merchantRcNumber: merchant.cac_rc_number ?? undefined,
