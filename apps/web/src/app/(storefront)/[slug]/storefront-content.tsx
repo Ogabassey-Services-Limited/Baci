@@ -7,6 +7,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
@@ -191,7 +192,9 @@ export async function StorefrontContent({
         })
       : null;
 
-  const productsPromise = isOgabasseyTemplate
+  const usesOgabasseyRecentHomeSort =
+    isOgabasseyTemplate && merchant.id === OGABASSEY_MERCHANT_ID;
+  const productsPromise = usesOgabasseyRecentHomeSort
     ? getCachedStorefrontHomeProducts(merchant.id, 'recent')
     : getCachedStorefrontHomeProducts(merchant.id);
 

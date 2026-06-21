@@ -748,6 +748,77 @@ describe('getCachedStorefrontHomeProducts', () => {
     ]);
   });
 
+  it('does not promote stale relation categories when direct category_id is non-phone', async () => {
+    harness.mockListResults.push(
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'stale-accessory-1',
+            name: 'Phone Case With Old Relation',
+            category: null,
+            categories: {
+              id: 'cat-accessories',
+              name: 'Accessories',
+              slug: 'accessories',
+            },
+            product_categories: [
+              { categories: { name: 'Smartphones', slug: 'smartphones' } },
+            ],
+            price: 25000,
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'fresh-case-1',
+            name: 'Fresh Case',
+            category: 'Accessories',
+            price: 15000,
+            updated_at: '2026-01-03T00:00:00.000Z',
+          },
+          {
+            id: 'stale-accessory-1',
+            name: 'Phone Case With Old Relation',
+            category: null,
+            categories: {
+              id: 'cat-accessories',
+              name: 'Accessories',
+              slug: 'accessories',
+            },
+            product_categories: [
+              { categories: { name: 'Smartphones', slug: 'smartphones' } },
+            ],
+            price: 25000,
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      }
+    );
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const products = await getCachedStorefrontHomeProducts(
+      'merchant-1',
+      'recent'
+    );
+
+    expect(products.map((product) => product.id)).toEqual([
+      'fresh-case-1',
+      'stale-accessory-1',
+    ]);
+  });
+
   it('keeps direct category_id phone candidates ahead of the general recent window', async () => {
     harness.mockListResults.push(
       {

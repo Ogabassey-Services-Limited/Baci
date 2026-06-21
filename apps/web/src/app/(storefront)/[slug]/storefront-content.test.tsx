@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
 // Mock server-only dependencies
@@ -160,6 +161,11 @@ function createMockProductCategories(): StorefrontHomeProduct['product_categorie
 }
 
 const mockMerchant = createMockMerchant();
+const mockOgabasseyMerchant = {
+  ...mockMerchant,
+  id: OGABASSEY_MERCHANT_ID,
+  slug: 'ogabassey',
+};
 
 afterEach(() => {
   vi.resetAllMocks();
@@ -230,12 +236,12 @@ describe('StorefrontContent', () => {
       }),
     ]);
 
-    const result = await StorefrontContent({ merchant: mockMerchant });
+    const result = await StorefrontContent({ merchant: mockOgabasseyMerchant });
     render(result as React.ReactElement);
 
     expect(getTemplate).not.toHaveBeenCalled();
     expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
-      mockMerchant.id,
+      mockOgabasseyMerchant.id,
       'recent'
     );
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
@@ -248,10 +254,10 @@ describe('StorefrontContent', () => {
       ])
     );
     expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'test-store:/test-store:1'
+      'ogabassey:/ogabassey:1'
     );
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
-      expect.objectContaining({ basePath: '/test-store' })
+      expect.objectContaining({ basePath: '/ogabassey' })
     );
   });
 
@@ -268,18 +274,40 @@ describe('StorefrontContent', () => {
       createMockHomeProduct({ id: 'domain-product', name: 'Domain Product' }),
     ]);
 
+    const result = await StorefrontContent({ merchant: mockOgabasseyMerchant });
+    render(result as React.ReactElement);
+
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockOgabasseyMerchant.id,
+      'recent'
+    );
+    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
+      'ogabassey::1'
+    );
+    expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '' })
+    );
+  });
+
+  it('keeps default product ordering for non-OgaBassey merchants using the OgaBassey template', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+
     const result = await StorefrontContent({ merchant: mockMerchant });
     render(result as React.ReactElement);
 
     expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockMerchant.id
+    );
+    expect(getCachedStorefrontHomeProducts).not.toHaveBeenCalledWith(
       mockMerchant.id,
       'recent'
     );
     expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'test-store::1'
-    );
-    expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
-      expect.objectContaining({ basePath: '' })
+      'test-store:/test-store:0'
     );
   });
 

@@ -2795,9 +2795,31 @@ export async function getCachedBlogListing(
 }
 
 interface StorefrontHomeProductRecencyCandidate {
+  categories?:
+    | StorefrontHomeProductDirectCategoryRecord
+    | StorefrontHomeProductDirectCategoryRecord[]
+    | null;
   price?: number | string | null;
   updated_at?: string | null;
 }
+
+interface StorefrontHomeProductDirectCategoryRecord {
+  name?: string | null;
+  slug?: string | null;
+}
+
+const HOME_HANDSET_CATEGORY_KEYWORDS = ['smartphone', 'mobile', 'phone'];
+const HOME_HANDSET_EXCLUDED_CATEGORY_TERMS = [
+  'headphone',
+  'earphone',
+  'microphone',
+  'case',
+  'charger',
+  'cable',
+  'cover',
+  'protector',
+  'accessor',
+];
 
 function getHomeProductRecencyTime(
   product: StorefrontHomeProductRecencyCandidate
@@ -2827,6 +2849,53 @@ function compareHomeProductRecency<
   }
 
   return getHomeProductPrice(second) - getHomeProductPrice(first);
+}
+
+function getHomeProductDirectCategories(
+  product: StorefrontHomeProductRecencyCandidate
+): StorefrontHomeProductDirectCategoryRecord[] {
+  const directCategories = product.categories;
+  if (!directCategories) {
+    return [];
+  }
+
+  return (
+    Array.isArray(directCategories) ? directCategories : [directCategories]
+  ).filter(
+    (category): category is StorefrontHomeProductDirectCategoryRecord =>
+      !!category && typeof category === 'object'
+  );
+}
+
+function homeCategoryMatchesHandset(
+  category: StorefrontHomeProductDirectCategoryRecord
+): boolean {
+  const candidates = [category.name, category.slug].filter(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' && candidate.trim().length > 0
+  );
+
+  return candidates.some((candidate) => {
+    const normalized = candidate.toLowerCase().trim();
+    return (
+      HOME_HANDSET_CATEGORY_KEYWORDS.some((keyword) =>
+        normalized.includes(keyword)
+      ) &&
+      !HOME_HANDSET_EXCLUDED_CATEGORY_TERMS.some((term) =>
+        normalized.includes(term)
+      )
+    );
+  });
+}
+
+function allowsRelationBackedHomePhonePriority(
+  product: StorefrontHomeProductRecencyCandidate
+): boolean {
+  const directCategories = getHomeProductDirectCategories(product);
+  return (
+    directCategories.length === 0 ||
+    directCategories.some(homeCategoryMatchesHandset)
+  );
 }
 
 /**
@@ -2883,34 +2952,22 @@ export async function getCachedStorefrontHomeProducts(
       categories:category_id(id, name, slug, parent_id),
       product_categories!inner(categories!inner(name, slug))
     `;
-  const handsetCategoryKeywords = ['smartphone', 'mobile', 'phone'];
-  const excludedHandsetCategoryTerms = [
-    'headphone',
-    'earphone',
-    'microphone',
-    'case',
-    'charger',
-    'cable',
-    'cover',
-    'protector',
-    'accessor',
-  ];
   const buildHandsetCategoryClause = (
     column: 'name' | 'slug',
     keyword: string
   ) =>
     [
       `${column}.ilike.%${keyword}%`,
-      ...excludedHandsetCategoryTerms.map(
+      ...HOME_HANDSET_EXCLUDED_CATEGORY_TERMS.map(
         (term) => `${column}.not.ilike.%${term}%`
       ),
     ].join(',');
-  const handsetCategoryClauses = handsetCategoryKeywords
-    .flatMap((keyword) => [
+  const handsetCategoryClauses = HOME_HANDSET_CATEGORY_KEYWORDS.flatMap(
+    (keyword) => [
       `and(${buildHandsetCategoryClause('name', keyword)})`,
       `and(${buildHandsetCategoryClause('slug', keyword)})`,
-    ])
-    .join(',');
+    ]
+  ).join(',');
 
   // 'recent' surfaces the most recently updated devices first. `updated_at` is
   // trigger-maintained on every row update, with price as a stable tiebreaker.
@@ -2926,7 +2983,7 @@ export async function getCachedStorefrontHomeProducts(
       .or(
         'category.ilike.%smartphone%,category.ilike.%mobile%,category.ilike.%phone%'
       );
-    for (const excludedTerm of excludedHandsetCategoryTerms) {
+    for (const excludedTerm of HOME_HANDSET_EXCLUDED_CATEGORY_TERMS) {
       phoneCandidatesQuery = phoneCandidatesQuery.not(
         'category',
         'ilike',
@@ -3016,10 +3073,13 @@ export async function getCachedStorefrontHomeProducts(
       throw recentProductsError;
     }
 
+    const scopedRelationPhoneCandidates = (
+      relationPhoneCandidates ?? []
+    ).filter(allowsRelationBackedHomePhonePriority);
     const phonePriorityProducts = [
       ...(phoneCandidates ?? []),
       ...(directCategoryPhoneCandidates ?? []),
-      ...(relationPhoneCandidates ?? []),
+      ...scopedRelationPhoneCandidates,
     ].sort(compareHomeProductRecency);
     const seenProductIds = new Set<string>();
     const combinedProducts = [
