@@ -7,6 +7,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
@@ -124,6 +125,56 @@ type OgabasseyHomeTemplateModules = Awaited<
   ReturnType<typeof loadOgabasseyHomeTemplateModules>
 >;
 
+type StorefrontHomeCategory = NonNullable<Product['categories']>;
+
+type StorefrontHomeProductCategory =
+  | StorefrontHomeCategory
+  | StorefrontHomeCategory[]
+  | null;
+
+type StorefrontHomeProductCategoryJoin = {
+  categories?: StorefrontHomeProductCategory;
+};
+
+type StorefrontHomeProductRow = {
+  brand?: string | null;
+  category?: string | null;
+  category_id?: string | null;
+  category_slug?: string | null;
+  categories?: StorefrontHomeProductCategory;
+  compare_at_price?: number | null;
+  condition?: Product['condition'] | null;
+  description?: string | null;
+  gtin?: string | null;
+  id?: string;
+  image?: string | null;
+  imageHint?: string | null;
+  imageLarge?: string | null;
+  images?: Product['images'] | null;
+  low_stock_threshold?: number | null;
+  manage_stock?: boolean | null;
+  mpn?: string | null;
+  name?: string;
+  price?: number | string | null;
+  product_categories?: StorefrontHomeProductCategoryJoin[] | null;
+  sku?: string | null;
+  slug?: string | null;
+  status?: Product['status'] | null;
+  stock?: number | null;
+  stock_quantity?: number | null;
+  updated_at?: string | null;
+};
+
+function getFirstStorefrontHomeCategory(
+  category: StorefrontHomeProductCategory | undefined
+): StorefrontHomeCategory | null {
+  if (!category) {
+    return null;
+  }
+
+  return Array.isArray(category) ? (category[0] ?? null) : category;
+}
+
 async function renderDefaultStorefrontWrapper({
   categories,
   initialTheme,
@@ -158,24 +209,24 @@ export async function StorefrontContent({
     merchant.template_id,
     merchant.business_type
   );
-  const ogabasseyHomeTemplatePromise =
-    templateId === OGABASSEY_TEMPLATE_ID
-      ? loadOgabasseyHomeTemplateModules().catch((error) => {
-          reportTemplateRenderFailure({
-            error,
-            merchantId: merchant.id,
-            templateId,
-          });
-          console.error('Failed to load OgaBassey storefront template:', {
-            merchantId: merchant.id,
-            templateId,
-            error,
-          });
-          return null;
-        })
-      : null;
+  const isOgabasseyTemplate = templateId === OGABASSEY_TEMPLATE_ID;
+  const ogabasseyHomeTemplatePromise = isOgabasseyTemplate
+    ? loadOgabasseyHomeTemplateModules().catch((error) => {
+        reportTemplateRenderFailure({
+          error,
+          merchantId: merchant.id,
+          templateId,
+        });
+        console.error('Failed to load OgaBassey storefront template:', {
+          merchantId: merchant.id,
+          templateId,
+          error,
+        });
+        return null;
+      })
+    : null;
   const genericComponentsPromise =
-    templateId && templateId !== OGABASSEY_TEMPLATE_ID
+    templateId && !isOgabasseyTemplate
       ? loadGenericTemplateComponents(templateId).catch((error) => {
           reportTemplateRenderFailure({
             error,
@@ -191,9 +242,15 @@ export async function StorefrontContent({
         })
       : null;
 
+  const usesOgabasseyRecentHomeSort =
+    isOgabasseyTemplate && merchant.id === OGABASSEY_MERCHANT_ID;
+  const productsPromise = usesOgabasseyRecentHomeSort
+    ? getCachedStorefrontHomeProducts(merchant.id, 'recent')
+    : getCachedStorefrontHomeProducts(merchant.id);
+
   // Parallel data fetching — both use remote cache
   const [products, categories] = await Promise.all([
-    getCachedStorefrontHomeProducts(merchant.id),
+    productsPromise,
     getCachedNavigationCategories(merchant.id),
   ]);
 
@@ -203,18 +260,56 @@ export async function StorefrontContent({
       ? ''
       : `/${merchant.slug}`;
 
-  // Transform products to match expected interface
-  // biome-ignore lint/suspicious/noExplicitAny: DB result shape differs from Product interface
-  const merchantProducts: Product[] = (products || []).map((p: any) => ({
-    ...p,
-    categories: p.product_categories?.[0]?.categories || null,
-    product_categories: undefined,
-  })) as unknown as Product[];
+  // Transform products to match expected interface. Prefer the direct
+  // category_id join when present because PDP URLs canonicalize through that
+  // category; fall back to the legacy many-to-many relation for older rows.
+  const homeProductRows = (products ?? []) as StorefrontHomeProductRow[];
+  const merchantProducts: Product[] = homeProductRows.map(
+    (product): Product => {
+      const directCategory = getFirstStorefrontHomeCategory(product.categories);
+      const legacyCategory = getFirstStorefrontHomeCategory(
+        product.product_categories?.[0]?.categories
+      );
+      const category = directCategory ?? legacyCategory;
+
+      const { product_categories: _productCategories, ...productFields } =
+        product;
+
+      return {
+        ...productFields,
+        brand: product.brand ?? '',
+        categories: category,
+        category: product.category ?? undefined,
+        category_id: product.category_id ?? undefined,
+        category_slug:
+          typeof category?.slug === 'string'
+            ? category.slug
+            : (product.category_slug ?? undefined),
+        compare_at_price: product.compare_at_price ?? undefined,
+        condition: product.condition ?? undefined,
+        description: product.description ?? '',
+        gtin: product.gtin ?? '',
+        id: product.id ?? '',
+        image: product.image ?? '',
+        imageHint: product.imageHint ?? '',
+        imageLarge: product.imageLarge ?? product.image ?? '',
+        images: product.images ?? undefined,
+        low_stock_threshold: product.low_stock_threshold ?? undefined,
+        manage_stock: product.manage_stock ?? false,
+        mpn: product.mpn ?? '',
+        name: product.name ?? '',
+        price: Number(product.price ?? 0),
+        sku: product.sku ?? undefined,
+        slug: product.slug ?? undefined,
+        status: product.status ?? 'active',
+        stock: product.stock ?? product.stock_quantity ?? 0,
+      };
+    }
+  );
   const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
-  const schemaProducts =
-    templateId === OGABASSEY_TEMPLATE_ID
-      ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)
-      : merchantProducts;
+  const schemaProducts = isOgabasseyTemplate
+    ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)
+    : merchantProducts;
   const homeCollectionSchema =
     schemaProducts.length > 0
       ? generateCollectionPageSchema({
@@ -334,7 +429,7 @@ export async function StorefrontContent({
   );
 
   if (templateId) {
-    if (templateId === OGABASSEY_TEMPLATE_ID) {
+    if (isOgabasseyTemplate) {
       // Only data work happens inside try/catch: errors thrown while React
       // renders the JSX would never be caught here anyway, so the JSX is
       // constructed outside the try block.

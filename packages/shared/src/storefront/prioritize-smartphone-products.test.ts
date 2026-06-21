@@ -21,10 +21,29 @@ describe('prioritizeSmartphoneProducts', () => {
   it('does not treat headphone categories as smartphones', () => {
     const sorted = prioritizeSmartphoneProducts([
       { id: 'audio-1', category: 'Headphones' },
+      { id: 'audio-2', category: 'Earphones' },
       { id: 'phone-1', category: 'Phones' },
     ]);
 
-    expect(sorted.map((product) => product.id)).toEqual(['phone-1', 'audio-1']);
+    expect(sorted.map((product) => product.id)).toEqual([
+      'phone-1',
+      'audio-1',
+      'audio-2',
+    ]);
+  });
+
+  it('does not treat phone accessory categories as handset categories', () => {
+    const sorted = prioritizeSmartphoneProducts([
+      { id: 'case-1', category: 'Phone Cases' },
+      { id: 'charger-1', category_slug: 'mobile-phone-chargers' },
+      { id: 'phone-1', category: 'Mobile Phones' },
+    ]);
+
+    expect(sorted.map((product) => product.id)).toEqual([
+      'phone-1',
+      'case-1',
+      'charger-1',
+    ]);
   });
 
   it('handles empty array', () => {
@@ -49,5 +68,27 @@ describe('prioritizeSmartphoneProducts', () => {
     ]);
 
     expect(sorted.map((product) => product.id)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('uses relation-backed category names and slugs as phone priority candidates', () => {
+    const sorted = prioritizeSmartphoneProducts([
+      { id: 'case-1', category: 'Accessories' },
+      {
+        id: 'phone-1',
+        category: null,
+        categories: { name: 'Smartphones', slug: 'smartphones' },
+      },
+      {
+        id: 'phone-2',
+        category: undefined,
+        categories: [{ name: 'Devices', slug: 'mobile-phones' }],
+      },
+    ]);
+
+    expect(sorted.map((product) => product.id)).toEqual([
+      'phone-1',
+      'phone-2',
+      'case-1',
+    ]);
   });
 });

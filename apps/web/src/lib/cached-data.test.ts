@@ -571,14 +571,74 @@ describe('getCachedStorefrontHomeProducts', () => {
 
     await getCachedStorefrontHomeProducts('merchant-1', 'recent');
 
-    expect(harness.mockOrder).toHaveBeenCalledTimes(2);
+    expect(harness.mockOr).toHaveBeenNthCalledWith(
+      1,
+      'category.ilike.%smartphone%,category.ilike.%mobile%,category.ilike.%phone%'
+    );
+    expect(harness.mockOr).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('name.ilike.%smartphone%'),
+      { referencedTable: 'categories' }
+    );
+    expect(harness.mockOr).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('name.ilike.%smartphone%'),
+      { referencedTable: 'product_categories.categories' }
+    );
+    expect(harness.mockNot).toHaveBeenCalledWith(
+      'category',
+      'ilike',
+      '%headphone%'
+    );
+    expect(harness.mockNot).toHaveBeenCalledWith(
+      'category',
+      'ilike',
+      '%earphone%'
+    );
+    expect(harness.mockNot).toHaveBeenCalledWith(
+      'category',
+      'ilike',
+      '%microphone%'
+    );
+    expect(harness.mockNot).toHaveBeenCalledWith(
+      'category',
+      'ilike',
+      '%charger%'
+    );
+    expect(harness.mockOrder).toHaveBeenCalledTimes(8);
     expect(harness.mockOrder).toHaveBeenNthCalledWith(1, 'updated_at', {
       ascending: false,
+      nullsFirst: false,
     });
     // Price stays as a stable tiebreaker for products updated in the same tick.
     expect(harness.mockOrder).toHaveBeenNthCalledWith(2, 'price', {
       ascending: false,
     });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(3, 'updated_at', {
+      ascending: false,
+      nullsFirst: false,
+    });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(4, 'price', {
+      ascending: false,
+    });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(5, 'updated_at', {
+      ascending: false,
+      nullsFirst: false,
+    });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(6, 'price', {
+      ascending: false,
+    });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(7, 'updated_at', {
+      ascending: false,
+      nullsFirst: false,
+    });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(8, 'price', {
+      ascending: false,
+    });
+    expect(harness.mockLimit).toHaveBeenNthCalledWith(1, 24);
+    expect(harness.mockLimit).toHaveBeenNthCalledWith(2, 24);
+    expect(harness.mockLimit).toHaveBeenNthCalledWith(3, 24);
+    expect(harness.mockLimit).toHaveBeenNthCalledWith(4, 50);
     expect(cacheTag).toHaveBeenCalledWith(
       'products',
       'products-merchant-1',
@@ -586,16 +646,317 @@ describe('getCachedStorefrontHomeProducts', () => {
     );
   });
 
-  it('throws when the products query errors', async () => {
+  it('keeps phone candidates ahead of the general recent window before hydration', async () => {
+    harness.mockListResults.push(
+      {
+        data: [
+          {
+            id: 'phone-1',
+            name: 'Older iPhone',
+            category: 'Smartphones',
+            price: 800000,
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'case-1',
+            name: 'Fresh Case',
+            category: 'Accessories',
+            price: 15000,
+          },
+          {
+            id: 'phone-1',
+            name: 'Older iPhone',
+            category: 'Smartphones',
+            price: 800000,
+          },
+        ],
+        error: null,
+      }
+    );
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const products = await getCachedStorefrontHomeProducts(
+      'merchant-1',
+      'recent'
+    );
+
+    expect(products.map((product) => product.id)).toEqual([
+      'phone-1',
+      'case-1',
+    ]);
+  });
+
+  it('keeps relation-backed phone candidates ahead of the general recent window', async () => {
+    harness.mockListResults.push(
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'relation-phone-1',
+            name: 'Older Relation iPhone',
+            category: null,
+            updated_at: '2026-01-01T00:00:00.000Z',
+            product_categories: [
+              { categories: { name: 'Smartphones', slug: 'smartphones' } },
+            ],
+            price: 800000,
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'case-1',
+            name: 'Fresh Case',
+            category: 'Accessories',
+            price: 15000,
+          },
+        ],
+        error: null,
+      }
+    );
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const products = await getCachedStorefrontHomeProducts(
+      'merchant-1',
+      'recent'
+    );
+
+    expect(products.map((product) => product.id)).toEqual([
+      'relation-phone-1',
+      'case-1',
+    ]);
+  });
+
+  it('does not promote stale relation categories when direct category_id is non-phone', async () => {
+    harness.mockListResults.push(
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'stale-accessory-1',
+            name: 'Phone Case With Old Relation',
+            category: null,
+            categories: {
+              id: 'cat-accessories',
+              name: 'Accessories',
+              slug: 'accessories',
+            },
+            product_categories: [
+              { categories: { name: 'Smartphones', slug: 'smartphones' } },
+            ],
+            price: 25000,
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'fresh-case-1',
+            name: 'Fresh Case',
+            category: 'Accessories',
+            price: 15000,
+            updated_at: '2026-01-03T00:00:00.000Z',
+          },
+          {
+            id: 'stale-accessory-1',
+            name: 'Phone Case With Old Relation',
+            category: null,
+            categories: {
+              id: 'cat-accessories',
+              name: 'Accessories',
+              slug: 'accessories',
+            },
+            product_categories: [
+              { categories: { name: 'Smartphones', slug: 'smartphones' } },
+            ],
+            price: 25000,
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      }
+    );
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const products = await getCachedStorefrontHomeProducts(
+      'merchant-1',
+      'recent'
+    );
+
+    expect(products.map((product) => product.id)).toEqual([
+      'fresh-case-1',
+      'stale-accessory-1',
+    ]);
+  });
+
+  it('keeps direct category_id phone candidates ahead of the general recent window', async () => {
+    harness.mockListResults.push(
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'direct-phone-1',
+            name: 'Direct Category iPhone',
+            category: null,
+            categories: {
+              id: 'cat-phone',
+              name: 'Smartphones',
+              slug: 'smartphones',
+            },
+            price: 900000,
+            updated_at: '2026-01-02T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'case-1',
+            name: 'Fresh Case',
+            category: 'Accessories',
+            price: 15000,
+            updated_at: '2026-01-03T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      }
+    );
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const products = await getCachedStorefrontHomeProducts(
+      'merchant-1',
+      'recent'
+    );
+
+    expect(products.map((product) => product.id)).toEqual([
+      'direct-phone-1',
+      'case-1',
+    ]);
+  });
+
+  it('merge-sorts phone candidates by recency before the homepage slice', async () => {
+    harness.mockListResults.push(
+      {
+        data: [
+          {
+            id: 'legacy-phone',
+            name: 'Legacy Phone',
+            category: 'Phones',
+            price: 600000,
+            updated_at: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'direct-phone',
+            name: 'Direct Phone',
+            category: null,
+            categories: {
+              id: 'cat-phone',
+              name: 'Mobile Phones',
+              slug: 'mobile-phones',
+            },
+            price: 700000,
+            updated_at: '2026-01-03T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: 'relation-phone',
+            name: 'Relation Phone',
+            category: null,
+            product_categories: [
+              { categories: { name: 'Smartphones', slug: 'smartphones' } },
+            ],
+            price: 800000,
+            updated_at: '2026-01-02T00:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [],
+        error: null,
+      }
+    );
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const products = await getCachedStorefrontHomeProducts(
+      'merchant-1',
+      'recent'
+    );
+
+    expect(products.map((product) => product.id)).toEqual([
+      'direct-phone',
+      'relation-phone',
+      'legacy-phone',
+    ]);
+  });
+
+  it('fails fast when the first recent products query errors', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    harness.mockListResult.data = null;
-    harness.mockListResult.error = { message: 'Connection error' };
+    harness.mockListResults.push(
+      { data: null, error: { message: 'Connection error' } },
+      { data: [{ id: 'should-not-run' }], error: null }
+    );
 
     await expect(
       getCachedStorefrontHomeProducts('merchant-1', 'recent')
     ).rejects.toMatchObject({ message: 'Connection error' });
-    expect(consoleSpy).toHaveBeenCalled();
+
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to load storefront home products',
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        error: { message: 'Connection error' },
+      })
+    );
   });
 });

@@ -2794,6 +2794,110 @@ export async function getCachedBlogListing(
   };
 }
 
+interface StorefrontHomeProductRecencyCandidate {
+  categories?:
+    | StorefrontHomeProductDirectCategoryRecord
+    | StorefrontHomeProductDirectCategoryRecord[]
+    | null;
+  price?: number | string | null;
+  updated_at?: string | null;
+}
+
+interface StorefrontHomeProductDirectCategoryRecord {
+  name?: string | null;
+  slug?: string | null;
+}
+
+const HOME_HANDSET_CATEGORY_KEYWORDS = ['smartphone', 'mobile', 'phone'];
+const HOME_HANDSET_EXCLUDED_CATEGORY_TERMS = [
+  'headphone',
+  'earphone',
+  'microphone',
+  'case',
+  'charger',
+  'cable',
+  'cover',
+  'protector',
+  'accessor',
+];
+
+function getHomeProductRecencyTime(
+  product: StorefrontHomeProductRecencyCandidate
+): number {
+  if (!product.updated_at) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(product.updated_at);
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+function getHomeProductPrice(
+  product: StorefrontHomeProductRecencyCandidate
+): number {
+  const price = Number(product.price ?? 0);
+  return Number.isFinite(price) ? price : 0;
+}
+
+function compareHomeProductRecency<
+  T extends StorefrontHomeProductRecencyCandidate,
+>(first: T, second: T): number {
+  const firstUpdatedAt = getHomeProductRecencyTime(first);
+  const secondUpdatedAt = getHomeProductRecencyTime(second);
+
+  if (firstUpdatedAt !== secondUpdatedAt) {
+    if (firstUpdatedAt === Number.NEGATIVE_INFINITY) return 1;
+    if (secondUpdatedAt === Number.NEGATIVE_INFINITY) return -1;
+    return secondUpdatedAt - firstUpdatedAt;
+  }
+
+  return getHomeProductPrice(second) - getHomeProductPrice(first);
+}
+
+function getHomeProductDirectCategories(
+  product: StorefrontHomeProductRecencyCandidate
+): StorefrontHomeProductDirectCategoryRecord[] {
+  const directCategories = product.categories;
+  if (!directCategories) {
+    return [];
+  }
+
+  return (
+    Array.isArray(directCategories) ? directCategories : [directCategories]
+  ).filter(
+    (category): category is StorefrontHomeProductDirectCategoryRecord =>
+      !!category && typeof category === 'object'
+  );
+}
+
+function homeCategoryMatchesHandset(
+  category: StorefrontHomeProductDirectCategoryRecord
+): boolean {
+  const candidates = [category.name, category.slug].filter(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' && candidate.trim().length > 0
+  );
+
+  return candidates.some((candidate) => {
+    const normalized = candidate.toLowerCase().trim();
+    return (
+      HOME_HANDSET_CATEGORY_KEYWORDS.some((keyword) =>
+        normalized.includes(keyword)
+      ) &&
+      !HOME_HANDSET_EXCLUDED_CATEGORY_TERMS.some((term) =>
+        normalized.includes(term)
+      )
+    );
+  });
+}
+
+function allowsRelationBackedHomePhonePriority(
+  product: StorefrontHomeProductRecencyCandidate
+): boolean {
+  const directCategories = getHomeProductDirectCategories(product);
+  return (
+    directCategories.length === 0 ||
+    directCategories.some(homeCategoryMatchesHandset)
+  );
+}
+
 /**
  * Ordering strategy for the storefront home product grid.
  * - 'price': highest price first (default for all storefronts).
@@ -2818,35 +2922,191 @@ export async function getCachedStorefrontHomeProducts(
     `products-home-${merchantId}-${sort}`
   );
   const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
+  const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
 
   const supabase = getPublicSupabaseClient();
-  const baseQuery = supabase
-    .from('products')
-    .select(
-      `
+  const homeProductSelect = `
       id, name, slug, description, price, compare_at_price,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
       product_categories(categories(name, slug))
-    `
-    )
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active');
+    `;
+  const homeProductRecentSelect = `
+      id, name, slug, description, price, compare_at_price, updated_at,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
+      categories:category_id(id, name, slug, parent_id),
+      product_categories(categories(name, slug))
+    `;
+  const homeProductDirectCategorySelect = `
+      id, name, slug, description, price, compare_at_price, updated_at,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
+      categories:category_id!inner(id, name, slug, parent_id),
+      product_categories(categories(name, slug))
+    `;
+  const homeProductRelationCategorySelect = `
+      id, name, slug, description, price, compare_at_price, updated_at,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
+      categories:category_id(id, name, slug, parent_id),
+      product_categories!inner(categories!inner(name, slug))
+    `;
+  const buildHandsetCategoryClause = (
+    column: 'name' | 'slug',
+    keyword: string
+  ) =>
+    [
+      `${column}.ilike.%${keyword}%`,
+      ...HOME_HANDSET_EXCLUDED_CATEGORY_TERMS.map(
+        (term) => `${column}.not.ilike.%${term}%`
+      ),
+    ].join(',');
+  const handsetCategoryClauses = HOME_HANDSET_CATEGORY_KEYWORDS.flatMap(
+    (keyword) => [
+      `and(${buildHandsetCategoryClause('name', keyword)})`,
+      `and(${buildHandsetCategoryClause('slug', keyword)})`,
+    ]
+  ).join(',');
 
   // 'recent' surfaces the most recently updated devices first. `updated_at` is
   // trigger-maintained on every row update, with price as a stable tiebreaker.
+  // It fetches phone candidates separately before the general recent window so
+  // the downstream phone-first homepage slice cannot lose older smartphones to
+  // the database LIMIT.
+  if (sort === 'recent') {
+    let phoneCandidatesQuery = supabase
+      .from('products')
+      .select(homeProductRecentSelect)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(
+        'category.ilike.%smartphone%,category.ilike.%mobile%,category.ilike.%phone%'
+      );
+    for (const excludedTerm of HOME_HANDSET_EXCLUDED_CATEGORY_TERMS) {
+      phoneCandidatesQuery = phoneCandidatesQuery.not(
+        'category',
+        'ilike',
+        `%${excludedTerm}%`
+      );
+    }
+    phoneCandidatesQuery = phoneCandidatesQuery
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('price', { ascending: false })
+      .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
+
+    const directCategoryPhoneCandidatesQuery = supabase
+      .from('products')
+      .select(homeProductDirectCategorySelect)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(handsetCategoryClauses, { referencedTable: 'categories' })
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('price', { ascending: false })
+      .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
+
+    const relationPhoneCandidatesQuery = supabase
+      .from('products')
+      .select(homeProductRelationCategorySelect)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(handsetCategoryClauses, {
+        referencedTable: 'product_categories.categories',
+      })
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('price', { ascending: false })
+      .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
+
+    const recentProductsQuery = supabase
+      .from('products')
+      .select(homeProductRecentSelect)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('price', { ascending: false })
+      .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
+
+    // Keep these awaits sequential instead of Promise.all: this path is remote
+    // cached, and a cold cache miss should not spend four PostgREST/Postgres
+    // connections at once for one homepage request.
+    const { data: phoneCandidates, error: phoneCandidatesError } =
+      await phoneCandidatesQuery;
+    if (phoneCandidatesError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: phoneCandidatesError,
+      });
+      throw phoneCandidatesError;
+    }
+
+    const {
+      data: directCategoryPhoneCandidates,
+      error: directCategoryPhoneCandidatesError,
+    } = await directCategoryPhoneCandidatesQuery;
+    if (directCategoryPhoneCandidatesError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: directCategoryPhoneCandidatesError,
+      });
+      throw directCategoryPhoneCandidatesError;
+    }
+
+    const {
+      data: relationPhoneCandidates,
+      error: relationPhoneCandidatesError,
+    } = await relationPhoneCandidatesQuery;
+    if (relationPhoneCandidatesError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: relationPhoneCandidatesError,
+      });
+      throw relationPhoneCandidatesError;
+    }
+
+    const { data: recentProducts, error: recentProductsError } =
+      await recentProductsQuery;
+    if (recentProductsError) {
+      console.error('Failed to load storefront home products', {
+        merchantId,
+        error: recentProductsError,
+      });
+      throw recentProductsError;
+    }
+
+    const scopedRelationPhoneCandidates = (
+      relationPhoneCandidates ?? []
+    ).filter(allowsRelationBackedHomePhonePriority);
+    const phonePriorityProducts = [
+      ...(phoneCandidates ?? []),
+      ...(directCategoryPhoneCandidates ?? []),
+      ...scopedRelationPhoneCandidates,
+    ].sort(compareHomeProductRecency);
+    const seenProductIds = new Set<string>();
+    const combinedProducts = [
+      ...phonePriorityProducts,
+      ...(recentProducts ?? []),
+    ]
+      .filter((product) => {
+        if (!product?.id || seenProductIds.has(product.id)) {
+          return false;
+        }
+        seenProductIds.add(product.id);
+        return true;
+      })
+      .slice(0, STOREFRONT_HOME_PRODUCT_LIMIT);
+
+    return hydrateAndSanitizeProducts(supabase, merchantId, combinedProducts);
+  }
+
   // 'price' (the default for all other storefronts) keeps the original
   // highest-price-first ordering.
-  const orderedQuery =
-    sort === 'recent'
-      ? baseQuery
-          .order('updated_at', { ascending: false })
-          .order('price', { ascending: false })
-      : baseQuery.order('price', { ascending: false });
-
-  const { data, error } = await orderedQuery.limit(
-    STOREFRONT_HOME_PRODUCT_LIMIT
-  );
+  const { data, error } = await supabase
+    .from('products')
+    .select(homeProductSelect)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .order('price', { ascending: false })
+    .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
 
   if (error) {
     console.error('Failed to load storefront home products', {

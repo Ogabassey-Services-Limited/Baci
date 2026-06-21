@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
 // Mock server-only dependencies
@@ -41,9 +42,9 @@ const mockOgabasseyHomePage = vi.hoisted(() =>
       products?: unknown[];
       storeSlug?: string;
     }) => (
-      <div data-testid="ogabassey-direct-home">
+      <main aria-label="OgaBassey home">
         {storeSlug}:{basePath}:{products?.length ?? 0}
-      </div>
+      </main>
     )
   )
 );
@@ -160,6 +161,11 @@ function createMockProductCategories(): StorefrontHomeProduct['product_categorie
 }
 
 const mockMerchant = createMockMerchant();
+const mockOgabasseyMerchant = {
+  ...mockMerchant,
+  id: OGABASSEY_MERCHANT_ID,
+  slug: 'ogabassey',
+};
 
 afterEach(() => {
   vi.resetAllMocks();
@@ -217,23 +223,41 @@ describe('StorefrontContent', () => {
         id: 'ogabassey-product-1',
         name: 'OgaBassey Product 1',
         slug: 'ogabassey-product-1',
+        product_categories: [
+          { categories: [{ name: 'Stale Gadgets', slug: 'gadgets' }] },
+        ],
+        categories: {
+          id: 'cat-smartphones',
+          name: 'Smartphones',
+          slug: 'smartphones',
+        },
+      } as Partial<StorefrontHomeProduct> & {
+        categories: { id: string; name: string; slug: string };
       }),
     ]);
 
-    const result = await StorefrontContent({ merchant: mockMerchant });
+    const result = await StorefrontContent({ merchant: mockOgabasseyMerchant });
     render(result as React.ReactElement);
 
     expect(getTemplate).not.toHaveBeenCalled();
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockOgabasseyMerchant.id,
+      'recent'
+    );
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ id: 'ogabassey-product-1' }),
+        expect.objectContaining({
+          category_slug: 'smartphones',
+          categories: expect.objectContaining({ slug: 'smartphones' }),
+          id: 'ogabassey-product-1',
+        }),
       ])
     );
-    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'test-store:/test-store:1'
-    );
+    expect(
+      screen.getByRole('main', { name: 'OgaBassey home' })
+    ).toHaveTextContent('ogabassey:/ogabassey:1');
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
-      expect.objectContaining({ basePath: '/test-store' })
+      expect.objectContaining({ basePath: '/ogabassey' })
     );
   });
 
@@ -250,15 +274,41 @@ describe('StorefrontContent', () => {
       createMockHomeProduct({ id: 'domain-product', name: 'Domain Product' }),
     ]);
 
-    const result = await StorefrontContent({ merchant: mockMerchant });
+    const result = await StorefrontContent({ merchant: mockOgabasseyMerchant });
     render(result as React.ReactElement);
 
-    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
-      'test-store::1'
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockOgabasseyMerchant.id,
+      'recent'
     );
+    expect(
+      screen.getByRole('main', { name: 'OgaBassey home' })
+    ).toHaveTextContent('ogabassey::1');
     expect(mockOgabasseyHomePage).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '' })
     );
+  });
+
+  it('keeps default product ordering for non-OgaBassey merchants using the OgaBassey template', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
+      mockMerchant.id
+    );
+    expect(getCachedStorefrontHomeProducts).not.toHaveBeenCalledWith(
+      mockMerchant.id,
+      'recent'
+    );
+    expect(
+      screen.getByRole('main', { name: 'OgaBassey home' })
+    ).toHaveTextContent('test-store:/test-store:0');
   });
 
   it('falls back to StorefrontWrapper when template render throws', async () => {
@@ -409,11 +459,9 @@ describe('StorefrontContent', () => {
             id: 'full-product',
             description: 'Full description',
             price: 1200000,
-            categories: [
-              expect.objectContaining({
-                slug: 'smartphones',
-              }),
-            ],
+            categories: expect.objectContaining({
+              slug: 'smartphones',
+            }),
           }),
         ],
       }),

@@ -1,12 +1,35 @@
-interface ProductWithCategoryName {
-  category?: string | null;
+interface ProductCategoryLike {
+  name?: string | null;
+  slug?: string | null;
 }
+
+interface ProductWithCategoryName {
+  categories?: ProductCategoryLike | ProductCategoryLike[] | null;
+  category?: string | null;
+  category_slug?: string | null;
+}
+
+const SMARTPHONE_ACCESSORY_CATEGORY_TERMS = [
+  'headphone',
+  'earphone',
+  'microphone',
+  'case',
+  'charger',
+  'cable',
+  'cover',
+  'protector',
+  'accessor',
+];
 
 function isSmartphoneCategory(categoryName?: string | null): boolean {
   if (!categoryName) return false;
 
   const normalized = categoryName.toLowerCase().trim();
-  if (normalized.includes('headphone') || normalized.includes('microphone')) {
+  if (
+    SMARTPHONE_ACCESSORY_CATEGORY_TERMS.some((term) =>
+      normalized.includes(term)
+    )
+  ) {
     return false;
   }
 
@@ -17,6 +40,23 @@ function isSmartphoneCategory(categoryName?: string | null): boolean {
   );
 }
 
+function getCategoryCandidates(product: ProductWithCategoryName): string[] {
+  const candidates = [product.category, product.category_slug];
+  const categories = Array.isArray(product.categories)
+    ? product.categories
+    : [product.categories];
+
+  for (const category of categories) {
+    if (!category) continue;
+    candidates.push(category.name, category.slug);
+  }
+
+  return candidates.filter(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' && candidate.trim().length > 0
+  );
+}
+
 export function prioritizeSmartphoneProducts<T extends ProductWithCategoryName>(
   products: readonly T[]
 ): T[] {
@@ -24,7 +64,9 @@ export function prioritizeSmartphoneProducts<T extends ProductWithCategoryName>(
     .map((product, index) => ({
       product,
       index,
-      priority: isSmartphoneCategory(product.category) ? 0 : 1,
+      priority: getCategoryCandidates(product).some(isSmartphoneCategory)
+        ? 0
+        : 1,
     }))
     .sort((a, b) => a.priority - b.priority || a.index - b.index)
     .map(({ product }) => product);
