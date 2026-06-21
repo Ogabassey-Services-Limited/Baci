@@ -2,14 +2,27 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetBlogAuthorBySlug, mockGetCachedBlogAuthor, mockNotFound } =
-  vi.hoisted(() => ({
-    mockGetBlogAuthorBySlug: vi.fn(),
-    mockGetCachedBlogAuthor: vi.fn(),
-    mockNotFound: vi.fn(() => {
-      throw new Error('NEXT_NOT_FOUND');
-    }),
-  }));
+const {
+  mockGetBlogAuthorBySlug,
+  mockGetCachedBlogAuthor,
+  mockNotFound,
+  mockPermanentRedirect,
+  mockRedirect,
+  mockResolveBlogCatchAllOutcome,
+} = vi.hoisted(() => ({
+  mockGetBlogAuthorBySlug: vi.fn(),
+  mockGetCachedBlogAuthor: vi.fn(),
+  mockResolveBlogCatchAllOutcome: vi.fn(),
+  mockNotFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+  mockPermanentRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
+  }),
+  mockRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+}));
 
 vi.mock('next/image', () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -24,7 +37,19 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('next/navigation', () => ({ notFound: () => mockNotFound() }));
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
+  permanentRedirect: (url: string) => mockPermanentRedirect(url),
+  redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock(
+  '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution',
+  () => ({
+    resolveBlogCatchAllOutcome: (...args: unknown[]) =>
+      mockResolveBlogCatchAllOutcome(...args),
+  })
+);
 
 vi.mock('@/lib/blog-authors', () => ({
   getBlogAuthorBySlug: (...args: unknown[]) => mockGetBlogAuthorBySlug(...args),
@@ -101,6 +126,7 @@ describe('BlogAuthorPageContent', () => {
       ],
     });
     mockGetCachedBlogAuthor.mockResolvedValue(authorData);
+    mockResolveBlogCatchAllOutcome.mockResolvedValue({ type: 'notFound' });
   });
 
   it('renders the author profile, social links, posts, and a ProfilePage/Person graph', async () => {
@@ -173,7 +199,35 @@ describe('BlogAuthorPageContent', () => {
     );
   });
 
-  it('calls notFound for an unknown author slug before querying posts', async () => {
+  it('redirects legacy author-prefixed post URLs before falling through to 404', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValue(null);
+    mockResolveBlogCatchAllOutcome.mockResolvedValue({
+      type: 'redirect',
+      status: 308,
+      url: 'https://ogabassey.com/blog/legacy-post',
+    });
+
+    await expect(
+      BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'legacy-post',
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/legacy-post'
+    );
+
+    expect(mockResolveBlogCatchAllOutcome).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog/legacy-post'
+    );
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+  });
+
+  it('calls notFound for an unknown author slug after legacy redirect fallback misses', async () => {
     mockGetBlogAuthorBySlug.mockReturnValue(null);
 
     await expect(
@@ -184,6 +238,9 @@ describe('BlogAuthorPageContent', () => {
         }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockResolveBlogCatchAllOutcome).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 

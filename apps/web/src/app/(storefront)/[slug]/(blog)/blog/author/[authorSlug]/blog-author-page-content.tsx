@@ -1,7 +1,8 @@
 import { ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
@@ -35,6 +36,20 @@ export async function BlogAuthorPageContent({
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (!profile) {
+    const fallbackOutcome = await resolveBlogCatchAllOutcome({
+      params: Promise.resolve({
+        slug,
+        catchAll: ['author', normalizedAuthorSlug],
+      }),
+    });
+
+    if (fallbackOutcome.type === 'redirect') {
+      if (fallbackOutcome.status === 308) {
+        permanentRedirect(fallbackOutcome.url);
+      }
+      redirect(fallbackOutcome.url);
+    }
+
     notFound();
   }
 
