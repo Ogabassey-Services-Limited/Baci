@@ -87,10 +87,14 @@ function createMerchantWithFeatureSettingsLookupMock({
   featureSettings,
   featureSettingsError = null,
   merchant,
+  primaryDomain = null,
+  primaryDomainError = null,
 }: {
   featureSettings: unknown;
   featureSettingsError?: unknown;
   merchant: unknown;
+  primaryDomain?: unknown;
+  primaryDomainError?: unknown;
 }) {
   const merchantMaybeSingle = vi.fn().mockResolvedValue({
     data: merchant,
@@ -104,15 +108,33 @@ function createMerchantWithFeatureSettingsLookupMock({
   });
   const settingsEq = vi.fn(() => ({ maybeSingle: settingsMaybeSingle }));
   const settingsSelect = vi.fn(() => ({ eq: settingsEq }));
+  // The domains lookup chains .eq('merchant_id').eq('is_primary').eq('status'),
+  // so each eq must return a chainable object that also exposes maybeSingle.
+  const domainMaybeSingle = vi.fn().mockResolvedValue({
+    data: primaryDomain,
+    error: primaryDomainError,
+  });
+  const domainChain: {
+    eq: ReturnType<typeof vi.fn>;
+    maybeSingle: typeof domainMaybeSingle;
+  } = {
+    eq: vi.fn(() => domainChain),
+    maybeSingle: domainMaybeSingle,
+  };
+  const domainEq = vi.fn(() => domainChain);
+  const domainSelect = vi.fn(() => ({ eq: domainEq }));
   const from = vi.fn((table: string) => {
     if (table === 'merchants') return { select: merchantSelect };
     if (table === 'merchant_feature_settings') {
       return { select: settingsSelect };
     }
+    if (table === 'domains') return { select: domainSelect };
     throw new Error(`Unexpected table ${table}`);
   });
 
   return {
+    domainEq,
+    domainSelect,
     from,
     merchantEq,
     merchantSelect,
@@ -154,15 +176,18 @@ describe('resolveAgenticMerchantContext', () => {
     expect(mock.from).not.toHaveBeenCalled();
   });
 
-  it('uses the configured agentic merchant slug when present', async () => {
+  it('uses the configured agentic merchant slug and resolves the custom domain from public.domains', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
-    const mock = createMerchantLookupMock({
-      business_name: 'Demo Store',
-      custom_domain: 'demo.example.com',
-      id: 'merchant-2',
-      paystack_subaccount_code: null,
-      slug: 'demo-store',
+    const mock = createMerchantWithFeatureSettingsLookupMock({
+      featureSettings: null,
+      merchant: {
+        business_name: 'Demo Store',
+        id: 'merchant-2',
+        paystack_subaccount_code: null,
+        slug: 'demo-store',
+      },
+      primaryDomain: { domain: 'demo.example.com' },
     });
 
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
@@ -170,11 +195,56 @@ describe('resolveAgenticMerchantContext', () => {
     expect(context?.id).toBe('merchant-2');
     expect(context?.custom_domain).toBe('demo.example.com');
     expect(mock.from).toHaveBeenCalledWith('merchants');
-    expect(mock.select).toHaveBeenCalledWith(
+    expect(mock.from).toHaveBeenCalledWith('domains');
+    // Regression guard: the merchants select must NOT reference the phantom
+    // custom_domain column (PostgREST would reject the whole query).
+    expect(mock.merchantSelect).not.toHaveBeenCalledWith(
       expect.stringContaining('custom_domain')
     );
-    expect(mock.eq).toHaveBeenCalledWith('slug', 'demo-store');
+    expect(mock.merchantEq).toHaveBeenCalledWith('slug', 'demo-store');
     expect(getConfiguredAgenticMerchantSlug()).toBe('demo-store');
+  });
+
+  it('omits the custom domain when no primary active domain exists', async () => {
+    stubBaseEnv();
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+    const mock = createMerchantWithFeatureSettingsLookupMock({
+      featureSettings: null,
+      merchant: {
+        business_name: 'Demo Store',
+        id: 'merchant-2',
+        paystack_subaccount_code: null,
+        slug: 'demo-store',
+      },
+      primaryDomain: null,
+    });
+
+    const context = await resolveAgenticMerchantContext(mock.supabase as never);
+
+    expect(context?.id).toBe('merchant-2');
+    expect(context?.custom_domain).toBeUndefined();
+  });
+
+  it('resolves the context (custom_domain undefined) when the domains lookup errors', async () => {
+    stubBaseEnv();
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+    const mock = createMerchantWithFeatureSettingsLookupMock({
+      featureSettings: null,
+      merchant: {
+        business_name: 'Demo Store',
+        id: 'merchant-2',
+        paystack_subaccount_code: null,
+        slug: 'demo-store',
+      },
+      primaryDomain: null,
+      primaryDomainError: { message: 'domains unavailable' },
+    });
+
+    const context = await resolveAgenticMerchantContext(mock.supabase as never);
+
+    // Best-effort: a domains lookup error must not fail the whole context.
+    expect(context?.id).toBe('merchant-2');
+    expect(context?.custom_domain).toBeUndefined();
   });
 
   it('includes agentic checkout and pay-on-delivery controls in the merchant context', async () => {

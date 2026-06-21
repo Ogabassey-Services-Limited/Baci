@@ -59,14 +59,37 @@ export async function resolveAgenticMerchantContext(
     return null;
   }
 
+  // NOTE: `merchants` has no `custom_domain` column — custom domains are
+  // normalized into `public.domains`. Selecting it here would make PostgREST
+  // reject the whole query and resolve the context to null.
   const { data, error } = await supabase
     .from('merchants')
-    .select('id, slug, business_name, custom_domain, paystack_subaccount_code')
+    .select('id, slug, business_name, paystack_subaccount_code')
     .eq('slug', merchantSlug)
     .maybeSingle();
 
   if (error || !data || typeof data.id !== 'string') {
     return null;
+  }
+
+  // Source the merchant's custom domain from public.domains (primary, active),
+  // mirroring getCachedMerchant. Best-effort: a miss or error simply leaves
+  // custom_domain undefined rather than failing the whole context — but log
+  // an error so a real domains permission/connection problem isn't invisible.
+  const { data: primaryDomain, error: primaryDomainError } = await supabase
+    .from('domains')
+    .select('domain')
+    .eq('merchant_id', data.id)
+    .eq('is_primary', true)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (primaryDomainError) {
+    logger.warn({
+      error: sanitizeForLog(primaryDomainError),
+      merchantId: data.id,
+      message: 'Agentic merchant primary domain lookup failed',
+    });
   }
 
   const { data: featureSettings, error: featureSettingsError } = await supabase
@@ -98,8 +121,8 @@ export async function resolveAgenticMerchantContext(
     business_name:
       typeof data.business_name === 'string' ? data.business_name : null,
     custom_domain:
-      typeof data.custom_domain === 'string' && data.custom_domain.trim()
-        ? data.custom_domain.trim()
+      typeof primaryDomain?.domain === 'string' && primaryDomain.domain.trim()
+        ? primaryDomain.domain.trim()
         : undefined,
     id: data.id,
     pay_on_delivery_enabled:
