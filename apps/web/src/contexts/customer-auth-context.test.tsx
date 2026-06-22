@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CustomerAuthProvider,
   useCustomerAuth,
+  useOptionalCustomerAuth,
 } from '@/contexts/customer-auth-context';
 
 vi.mock('@/hooks/use-cart', () => ({
@@ -21,6 +22,12 @@ function AuthProbe() {
           : 'guest'}
     </p>
   );
+}
+
+function OptionalAuthProbe() {
+  const auth = useOptionalCustomerAuth();
+
+  return <p>{auth ? 'has-provider' : 'missing-provider'}</p>;
 }
 
 describe('CustomerAuthProvider', () => {
@@ -79,6 +86,29 @@ describe('CustomerAuthProvider', () => {
 
     expect(await screen.findByText('guest')).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('allows optional consumers to render outside the customer auth provider', () => {
+    render(<OptionalAuthProbe />);
+
+    expect(screen.getByText('missing-provider')).toBeInTheDocument();
+  });
+
+  it('allows optional consumers to read the customer auth provider when present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        authenticated: false,
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <CustomerAuthProvider merchantSlug="ogabassey">
+        <OptionalAuthProbe />
+      </CustomerAuthProvider>
+    );
+
+    expect(await screen.findByText('has-provider')).toBeInTheDocument();
   });
 
   it('clears stale customer state while hydrating a new merchant slug', async () => {

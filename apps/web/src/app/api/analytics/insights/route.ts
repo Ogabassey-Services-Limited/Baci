@@ -20,7 +20,9 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { analyticsInsightsSchema } from '@/schemas/analytics-insights';
 
-const AI_INSIGHTS_TIMEOUT_MS = 10_000;
+export const maxDuration = 30;
+
+const AI_INSIGHTS_TIMEOUT_MS = 25_000;
 const AI_INSIGHTS_RETRY_CONFIG = {
   maxRetries: 0,
   initialDelayMs: 0,

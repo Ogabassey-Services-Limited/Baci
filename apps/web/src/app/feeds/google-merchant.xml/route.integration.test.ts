@@ -4,7 +4,7 @@ import { MerchantNotFoundError } from '@/lib/feed-identifier';
 
 const mockResolveStorefrontMerchantFromRequest = vi.fn();
 const mockResolveFeedMerchant = vi.fn();
-const mockGetGoogleMerchantFeedData = vi.fn();
+const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockLoggerError = vi.fn();
 
 vi.mock('@/lib/storefront-merchant', () => ({
@@ -36,8 +36,8 @@ vi.mock('@/lib/cache-headers', () => ({
 }));
 
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
-  getGoogleMerchantFeedData: (...args: unknown[]) =>
-    mockGetGoogleMerchantFeedData(...args),
+  getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
+    mockGetCachedGoogleMerchantFeedData(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -66,7 +66,7 @@ beforeEach(() => {
     payout_currency: 'NGN',
   });
 
-  mockGetGoogleMerchantFeedData.mockResolvedValue({
+  mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
     custom_domain: 'ogabassey.com',
     slug: 'ogabassey',
     products: [
@@ -121,7 +121,7 @@ describe('GET /feeds/google-merchant.xml integration', () => {
     expect(xml).toContain('<g:availability>in_stock</g:availability>');
     expect(xml).toContain('<g:quantity>9999</g:quantity>');
     expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
-    expect(mockGetGoogleMerchantFeedData).toHaveBeenCalledWith(
+    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
     );
@@ -144,11 +144,11 @@ describe('GET /feeds/google-merchant.xml integration', () => {
     expect(response.headers.get('content-type')).toContain('application/xml');
     expect(xml).toContain('<error>');
     expect(xml).toContain('<message>Merchant not found</message>');
-    expect(mockGetGoogleMerchantFeedData).not.toHaveBeenCalled();
+    expect(mockGetCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
   });
 
   it('returns 500 when feed data loading fails', async () => {
-    mockGetGoogleMerchantFeedData.mockRejectedValue(
+    mockGetCachedGoogleMerchantFeedData.mockRejectedValue(
       new Error('feed data failed')
     );
     const { GET } = await import('./route');

@@ -83,6 +83,23 @@ const TENANT_CONTEXT_PROPERTY_KEYS = [
   'merchant_slug',
 ] as const;
 const POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS = ['token', 'api_key'] as const;
+// React 418/419 are hydration mismatch and Suspense fallback/client-render
+// switches; keep modern-browser occurrences actionable and filter only known
+// unsupported browser noise below.
+const REACT_HYDRATION_OR_SUSPENSE_ERROR_PATTERN =
+  /react\.dev\/errors\/(?:418|419)\b/;
+const SYNTHETIC_SCRIPT_ERROR_MESSAGE = 'Script error.';
+// Match the current supported browser floor used by the web app so old browser
+// compatibility failures do not hide real hydration issues in supported Chrome,
+// Firefox, Safari, or Edge versions.
+const MIN_SUPPORTED_BROWSER_MAJOR_BY_NAME: Record<string, number> = {
+  chrome: 93,
+  chromium: 93,
+  edge: 93,
+  firefox: 92,
+  safari: 15,
+  'mobile safari': 15,
+};
 
 function isValidMerchantSlug(value: string): boolean {
   return (
@@ -263,6 +280,110 @@ function restorePostHogProjectCredentialProperties(
   } as Properties;
 }
 
+function getStringValues(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [value];
+  }
+
+  if (typeof value === 'number') {
+    return [String(value)];
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => getStringValues(item));
+}
+
+function getExceptionMessages(properties: Properties): string[] {
+  const exceptionValues = getStringValues(properties.$exception_values);
+  const exceptionListMessages = Array.isArray(properties.$exception_list)
+    ? properties.$exception_list.flatMap((entry) =>
+        isRecord(entry) ? getStringValues(entry.value) : []
+      )
+    : [];
+
+  return [...exceptionValues, ...exceptionListMessages];
+}
+
+/**
+ * Detects synthetic cross-origin script exceptions. Browsers collapse those
+ * failures to "Script error.", and PostHog confirms the synthetic source with
+ * mechanism.synthetic=true; missing exception structure safely stays actionable.
+ */
+function hasSyntheticScriptError(properties: Properties): boolean {
+  if (
+    !getExceptionMessages(properties).some(
+      (message) => message === SYNTHETIC_SCRIPT_ERROR_MESSAGE
+    )
+  ) {
+    return false;
+  }
+
+  return Array.isArray(properties.$exception_list)
+    ? properties.$exception_list.some(
+        (entry) =>
+          isRecord(entry) &&
+          isRecord(entry.mechanism) &&
+          entry.mechanism.synthetic === true
+      )
+    : false;
+}
+
+function parseBrowserMajorVersion(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const match = value.match(/\d+/);
+  if (!match) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[0] ?? '', 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isBelowSupportedBrowserFloor(properties: Properties): boolean {
+  const browserName = String(properties.$browser ?? '')
+    .trim()
+    .toLowerCase();
+  const browserMajorVersion = parseBrowserMajorVersion(
+    properties.$browser_version
+  );
+
+  if (!browserName || browserMajorVersion === null) {
+    return false;
+  }
+
+  const minimumSupportedMajor =
+    MIN_SUPPORTED_BROWSER_MAJOR_BY_NAME[browserName];
+
+  return (
+    minimumSupportedMajor !== undefined &&
+    browserMajorVersion < minimumSupportedMajor
+  );
+}
+
+function shouldSuppressClientException(properties: Properties): boolean {
+  if (hasSyntheticScriptError(properties)) {
+    return true;
+  }
+
+  const messages = getExceptionMessages(properties);
+  return (
+    isBelowSupportedBrowserFloor(properties) &&
+    messages.some((message) =>
+      REACT_HYDRATION_OR_SUSPENSE_ERROR_PATTERN.test(message)
+    )
+  );
+}
+
 export function sanitizePostHogProperties(
   properties: Record<string, unknown> | undefined
 ): Properties | undefined {
@@ -290,6 +411,13 @@ export function sanitizePostHogCapture(
     sanitizePostHogProperties(capture.properties) ?? {},
     projectToken
   );
+
+  if (
+    capture.event === '$exception' &&
+    shouldSuppressClientException(properties)
+  ) {
+    return null;
+  }
 
   if (typeof globalThis.location !== 'undefined') {
     for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {

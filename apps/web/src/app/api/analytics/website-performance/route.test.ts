@@ -6,6 +6,13 @@ const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockRequestGemmaCompletion = vi.fn();
+const mockGetAiChatModel = vi.fn();
+const mockGetAiChatProvider = vi.fn();
+const mockGetLlmChatModel = vi.fn();
+const mockGetLlmServerBearer = vi.fn();
+const mockGetLlmServerUrl = vi.fn();
+const mockGetOllamaBaseUrl = vi.fn();
+const mockGetOllamaBasicAuth = vi.fn();
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -24,10 +31,43 @@ vi.mock('@/lib/gemma/gemma-completion', () => ({
     mockRequestGemmaCompletion(...args),
 }));
 
+vi.mock('@/env', () => ({
+  getAiChatModel: () => mockGetAiChatModel(),
+  getAiChatProvider: () => mockGetAiChatProvider(),
+  getLlmChatModel: () => mockGetLlmChatModel(),
+  getLlmServerBearer: () => mockGetLlmServerBearer(),
+  getLlmServerUrl: () => mockGetLlmServerUrl(),
+  getOllamaBaseUrl: () => mockGetOllamaBaseUrl(),
+  getOllamaBasicAuth: () => mockGetOllamaBasicAuth(),
+}));
+
 import { GET } from './route';
 
 function createRequest(url: string, headers?: HeadersInit) {
   return new NextRequest(url, { headers });
+}
+
+function mockSuccessfulAnalyticsAggregation() {
+  const mockSelect = vi.fn().mockReturnThis();
+  const mockEq = vi.fn().mockReturnThis();
+  const mockGte = vi.fn().mockReturnThis();
+  const mockLte = vi.fn().mockReturnThis();
+  const mockIn = vi.fn().mockResolvedValue({ data: [], error: null });
+
+  mockAuthenticateApiRequest.mockResolvedValueOnce({
+    error: null,
+    supabase: {
+      from: vi.fn(() => ({
+        select: mockSelect,
+        eq: mockEq,
+        gte: mockGte,
+        lte: mockLte,
+        in: mockIn,
+      })),
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    },
+    user: { id: 'user-1' },
+  });
 }
 
 describe('GET /api/analytics/website-performance', () => {
@@ -45,6 +85,13 @@ describe('GET /api/analytics/website-performance', () => {
     });
     mockToUserAccess.mockReturnValue({ isOwner: true, permissions: {} });
     mockHasPermission.mockReturnValue(true);
+    mockGetAiChatModel.mockReturnValue('gemma4:e4b');
+    mockGetAiChatProvider.mockReturnValue('auto');
+    mockGetLlmChatModel.mockReturnValue('gemma4:e4b');
+    mockGetLlmServerBearer.mockReturnValue('valid-llm-bearer');
+    mockGetLlmServerUrl.mockReturnValue('https://llm.example.com');
+    mockGetOllamaBaseUrl.mockReturnValue('http://127.0.0.1:11434');
+    mockGetOllamaBasicAuth.mockReturnValue('user:pass');
   });
 
   it('returns 401 when auth fails', async () => {
@@ -280,6 +327,157 @@ describe('GET /api/analytics/website-performance', () => {
     expect(body.aiInsights).toEqual({
       insights: ['Your website is performing well'],
     });
+    expect(mockRequestGemmaCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'gemma4:e4b',
+        ollamaBaseUrl: 'http://127.0.0.1:11434',
+        ollamaBasicAuth: 'user:pass',
+        provider: 'ollama',
+      })
+    );
+  });
+
+  it('uses the OpenAI-compatible Gemma relay only when explicitly configured', async () => {
+    mockGetAiChatProvider.mockReturnValueOnce('llm');
+    mockSuccessfulAnalyticsAggregation();
+    mockRequestGemmaCompletion.mockResolvedValueOnce({
+      status: 'success',
+      data: { insights: ['Relay insight'] },
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({ insights: ['Relay insight'] });
+    expect(mockRequestGemmaCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        llmServerBearer: 'valid-llm-bearer',
+        llmServerUrl: 'https://llm.example.com',
+        model: 'gemma4:e4b',
+        provider: 'llm',
+      })
+    );
+  });
+
+  it('returns deterministic fallback insights when an unsupported explicit provider is configured', async () => {
+    mockGetAiChatProvider.mockReturnValueOnce('gemini');
+    mockSuccessfulAnalyticsAggregation();
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({
+      insights: [
+        'Website performance data aggregated successfully.',
+        'No significant search or conversion trends detected in this period.',
+      ],
+    });
+    expect(mockRequestGemmaCompletion).not.toHaveBeenCalled();
+  });
+
+  it('uses the OpenAI-compatible relay when auto is configured and Ollama is unavailable', async () => {
+    mockGetOllamaBaseUrl.mockReturnValueOnce(undefined);
+    mockSuccessfulAnalyticsAggregation();
+    mockRequestGemmaCompletion.mockResolvedValueOnce({
+      status: 'success',
+      data: { insights: ['LLM fallback insight'] },
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({
+      insights: ['LLM fallback insight'],
+    });
+    expect(mockRequestGemmaCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        llmServerBearer: 'valid-llm-bearer',
+        llmServerUrl: 'https://llm.example.com',
+        provider: 'llm',
+      })
+    );
+  });
+
+  it('returns deterministic fallback insights when no Gemma provider configuration is available', async () => {
+    mockGetOllamaBaseUrl.mockReturnValueOnce(undefined);
+    mockGetLlmServerUrl.mockReturnValueOnce(undefined);
+    mockGetLlmServerBearer.mockReturnValueOnce(undefined);
+    mockSuccessfulAnalyticsAggregation();
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({
+      insights: [
+        'Website performance data aggregated successfully.',
+        'No significant search or conversion trends detected in this period.',
+      ],
+    });
+    expect(mockRequestGemmaCompletion).not.toHaveBeenCalled();
+  });
+
+  it('returns deterministic fallback insights when the explicit Ollama provider is incomplete', async () => {
+    mockGetAiChatProvider.mockReturnValueOnce('ollama');
+    mockGetOllamaBaseUrl.mockReturnValueOnce(undefined);
+    mockSuccessfulAnalyticsAggregation();
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({
+      insights: [
+        'Website performance data aggregated successfully.',
+        'No significant search or conversion trends detected in this period.',
+      ],
+    });
+    expect(mockRequestGemmaCompletion).not.toHaveBeenCalled();
+  });
+
+  it('returns deterministic fallback insights when the explicit LLM relay configuration is incomplete', async () => {
+    mockGetAiChatProvider.mockReturnValueOnce('llm');
+    mockGetLlmServerBearer.mockReturnValueOnce(undefined);
+    mockSuccessfulAnalyticsAggregation();
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({
+      insights: [
+        'Website performance data aggregated successfully.',
+        'No significant search or conversion trends detected in this period.',
+      ],
+    });
+    expect(mockRequestGemmaCompletion).not.toHaveBeenCalled();
   });
 
   it('returns fallback insights when Gemma fails', async () => {

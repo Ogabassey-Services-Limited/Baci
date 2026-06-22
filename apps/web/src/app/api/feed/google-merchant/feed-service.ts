@@ -4,7 +4,7 @@ import {
 } from '@/lib/feed-identifier';
 import { logger } from '@/lib/logger';
 import { generateGoogleMerchantFeed } from './feed-builder';
-import { getGoogleMerchantFeedData } from './feed-data';
+import { getCachedGoogleMerchantFeedData } from './feed-data';
 import { buildMerchantBaseUrl } from './route-utils';
 
 type GoogleMerchantFeedServiceSuccess = {
@@ -34,7 +34,7 @@ export async function generateGoogleMerchantFeedForIdentifier({
     const resolvedMerchant = await resolveFeedMerchant(identifier, isBySlug);
 
     const { custom_domain, slug, products, imageManifest } =
-      await getGoogleMerchantFeedData(
+      await getCachedGoogleMerchantFeedData(
         resolvedMerchant.id,
         resolvedMerchant.slug
       );

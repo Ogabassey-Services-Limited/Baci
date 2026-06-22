@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockResolveFeedMerchant = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
-const mockGetGoogleMerchantFeedData = vi.fn();
+const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockLoggerError = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
@@ -21,8 +21,8 @@ vi.mock('@/lib/feed-identifier', () => {
 });
 
 vi.mock('./feed-data', () => ({
-  getGoogleMerchantFeedData: (...args: unknown[]) =>
-    mockGetGoogleMerchantFeedData(...args),
+  getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
+    mockGetCachedGoogleMerchantFeedData(...args),
 }));
 
 vi.mock('@/lib/cache-headers', () => ({
@@ -62,7 +62,7 @@ beforeEach(() => {
     slug: 'ogabassey',
   });
 
-  mockGetGoogleMerchantFeedData.mockResolvedValue({
+  mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
     custom_domain: 'ogabassey.com',
     slug: 'ogabassey',
     products: [
@@ -151,7 +151,7 @@ describe('GET /api/feed/google-merchant', () => {
       payout_currency: 'NGN',
       gmc_variants_enabled: false,
     });
-    mockGetGoogleMerchantFeedData.mockResolvedValue({
+    mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
       custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
       imageManifest: {},
@@ -203,7 +203,7 @@ describe('GET /api/feed/google-merchant', () => {
   });
 
   it('returns 500 when feed data fetch fails', async () => {
-    mockGetGoogleMerchantFeedData.mockRejectedValue(
+    mockGetCachedGoogleMerchantFeedData.mockRejectedValue(
       new Error('Failed to fetch products')
     );
     const { GET } = await import('./route');
@@ -239,14 +239,14 @@ describe('GET /api/feed/google-merchant', () => {
 
     await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
 
-    expect(mockGetGoogleMerchantFeedData).toHaveBeenCalledWith(
+    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
     );
   });
 
   it('passes an empty product list through to the feed builder', async () => {
-    mockGetGoogleMerchantFeedData.mockResolvedValue({
+    mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
       custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
       products: [],
