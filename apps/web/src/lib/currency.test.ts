@@ -64,7 +64,7 @@ describe('Currency Utils', () => {
     });
 
     it('uses payout currency when country lookup fails', () => {
-      const config = getCurrencyConfig('GH', 'GHS');
+      const config = getCurrencyConfig('ZZ', 'GHS');
       expect(config).toEqual({
         code: 'GHS',
         symbol: 'GH₵',

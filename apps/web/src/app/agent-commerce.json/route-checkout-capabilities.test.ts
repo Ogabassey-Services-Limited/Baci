@@ -12,10 +12,10 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'service-role-key';
-process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://supabase.example.com';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'anon-key';
-process.env.NEXT_PUBLIC_ROOT_DOMAIN ??= 'usebaci.com';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://supabase.example.com';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 
 const { GET } = await import('./route');
 

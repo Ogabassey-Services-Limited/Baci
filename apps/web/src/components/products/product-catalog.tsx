@@ -337,7 +337,7 @@ export function ProductCatalog({
 
   const handlePriceChange = (productId: string, newPrice: string) => {
     const priceValue = parsePriceInput(newPrice, locale);
-    if (Number.isNaN(priceValue)) return;
+    if (Number.isNaN(priceValue) || priceValue < 0) return;
 
     setLocalProducts((current) =>
       current.map((product) =>

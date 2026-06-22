@@ -848,6 +848,38 @@ describe('product import actions', () => {
     expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
   });
 
+  it('imports unit cost headers as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Unit Cost,SKU\nNew Phone,2000,1200,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1200,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('does not import purchase metadata as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Purchase Order,Purchase Date,SKU\nNew Phone,2000,12345,2026-06-01,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
   it('uses the explicit price column instead of retailer metadata', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
@@ -867,6 +899,36 @@ describe('product import actions', () => {
     const result = await parseCSVDirectly(
       existingProducts,
       'Name,Price incl VAT,SKU\nNew Phone,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('accepts VAT-inclusive amount headers as selling prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Amount incl VAT,SKU\nNew Phone,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('keeps discounted final price headers eligible', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Discount Amount,Price After Discount,SKU\nNew Phone,250,2000,NEW-1'
     );
 
     expect(result.summary).toContain('Parsed 1 products from CSV');
@@ -904,6 +966,22 @@ describe('product import actions', () => {
       changes: [],
       summary:
         'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+  });
+
+  it('detects first-time fractional cost price updates', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Cost Price,SKU\nOld Phone,1000,0.005,OLD-1'
+    );
+
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 0.005,
+        price: 1000,
+      },
+      productId: 'product-1',
+      type: 'update',
     });
   });
 

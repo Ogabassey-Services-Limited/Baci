@@ -73,7 +73,7 @@ describe('useCurrencyWithCountry', () => {
   });
 
   it('uses payout currency when country lookup fails', () => {
-    const { result } = renderHook(() => useCurrencyWithCountry('KE', 'KES'));
+    const { result } = renderHook(() => useCurrencyWithCountry('ZZ', 'KES'));
 
     expect(result.current.formatCurrency(1000)).toContain('1,000.00');
     expect(result.current.currencyCode).toBe('KES');

@@ -77,6 +77,9 @@ vi.mock('./product-catalog-table', () => ({
         >
           Set localized price
         </button>
+        <button type="button" onClick={() => onPriceChange(product.id, '-5')}>
+          Set negative price
+        </button>
         {secondProduct ? (
           <button
             type="button"
@@ -258,6 +261,19 @@ describe('ProductCatalog', () => {
     expect(getSaveCall(0).dirtyProductSnapshots?.get('product-1')?.price).toBe(
       1234.56
     );
+  });
+
+  it('ignores negative price edits after localized parsing', async () => {
+    const user = userEvent.setup();
+
+    render(<ProductCatalog statusFilter="all" stockFilter="all" />);
+
+    await user.click(
+      screen.getByRole('button', { name: /set negative price/i })
+    );
+
+    expect(screen.getByLabelText(/current price/i)).toHaveTextContent('100');
+    expect(mocks.saveDirtyProducts).not.toHaveBeenCalled();
   });
 
   it('shows a destructive toast when a queued follow-up autosave fails', async () => {

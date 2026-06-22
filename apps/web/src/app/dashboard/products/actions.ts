@@ -382,8 +382,8 @@ export async function parseCSVDirectly(
       // Check if price changed
       const costPriceChanged =
         typeof costPrice === 'number' &&
-        ((existingProduct.cost_price == null && costPrice === 0) ||
-          Math.abs((existingProduct.cost_price ?? 0) - costPrice) > 0.01);
+        (existingProduct.cost_price == null ||
+          Math.abs(existingProduct.cost_price - costPrice) > 0.01);
       const priceChanged = Math.abs(existingProduct.price - price) > 0.01;
       if (priceChanged || costPriceChanged) {
         const reasons = [];
@@ -511,7 +511,7 @@ function isCostPriceHeader(header: string): boolean {
     ].includes(word)
   );
   const hasAmountSignal = words.some((word) =>
-    ['amount', 'cost', 'price', 'rate', 'value'].includes(word)
+    ['amount', 'cost', 'price', 'rate', 'unit', 'value'].includes(word)
   );
   const hasMonetarySignal = words.some((word) =>
     [
@@ -521,6 +521,7 @@ function isCostPriceHeader(header: string): boolean {
       'price',
       'purchase',
       'rate',
+      'unit',
       'value',
       'wholesale',
     ].includes(word)
@@ -535,12 +536,12 @@ function isCostPriceHeader(header: string): boolean {
       !isCustomerFacingPrice &&
       !isLogisticsCost &&
       (words.length === 1 || hasMonetarySignal)) ||
-    header.includes('cogs') ||
-    header.includes('buying') ||
-    header.includes('purchase') ||
-    header.includes('wholesale') ||
+    words.includes('cogs') ||
+    (words.includes('buying') && hasAmountSignal) ||
+    (words.includes('purchase') && hasAmountSignal) ||
+    (words.includes('wholesale') && hasAmountSignal) ||
     (!isLogisticsCost && hasSupplier && hasAmountSignal) ||
-    header.includes('landed')
+    (words.includes('landed') && hasAmountSignal)
   );
 }
 
@@ -560,12 +561,16 @@ function isNonPriceAmountHeader(header: string): boolean {
   const isPriceColumn = words.some((word) =>
     ['customer', 'list', 'price', 'retail', 'sale', 'selling'].includes(word)
   );
+  const isTaxInclusiveAmount =
+    isTaxOrVat &&
+    words.some((word) => ['incl', 'including', 'inclusive'].includes(word)) &&
+    words.some((word) => ['amount', 'price', 'total', 'value'].includes(word));
   return (
     words.some((word) =>
       [
         'courier',
         'delivery',
-        'discount',
+        ...(!isPriceColumn ? ['discount'] : []),
         'fee',
         'fees',
         'freight',
@@ -574,20 +579,25 @@ function isNonPriceAmountHeader(header: string): boolean {
         'shipping',
       ].includes(word)
     ) ||
-    (isTaxOrVat && !isPriceColumn)
+    (isTaxOrVat && !isPriceColumn && !isTaxInclusiveAmount)
   );
 }
 
 function isSellingPriceHeader(header: string): boolean {
   const words = header.split(/[^a-z0-9]+/).filter(Boolean);
   const hasPriceSignal = words.some((word) =>
-    ['amount', 'price', 'rate', 'value'].includes(word)
+    ['amount', 'price', 'rate', 'total', 'value'].includes(word)
   );
+  const isTaxInclusiveAmount =
+    words.some((word) => ['tax', 'vat'].includes(word)) &&
+    words.some((word) => ['incl', 'including', 'inclusive'].includes(word)) &&
+    hasPriceSignal;
   return (
     header.includes('selling price') ||
     header.includes('sale price') ||
     header.includes('list price') ||
     header.includes('customer price') ||
+    isTaxInclusiveAmount ||
     (hasPriceSignal &&
       words.some((word) =>
         ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
@@ -647,7 +657,13 @@ function normalizeLocalizedNumericString(value: string): string {
     const hasRepeatedSeparator =
       numeric.indexOf(separator) !== numeric.lastIndexOf(separator);
 
-    if (hasBothSeparators || (!hasRepeatedSeparator && digitsAfter !== 3)) {
+    const digitsBefore = numeric.slice(0, lastSeparator).replace(/\D/g, '');
+    const hasLeadingZeroInteger = digitsBefore === '0';
+
+    if (
+      hasBothSeparators ||
+      (!hasRepeatedSeparator && (digitsAfter !== 3 || hasLeadingZeroInteger))
+    ) {
       decimalSeparator = separator ?? '';
     }
   }
