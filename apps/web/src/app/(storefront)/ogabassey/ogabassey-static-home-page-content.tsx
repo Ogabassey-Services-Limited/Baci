@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
-import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {
   OGABASSEY_DESCRIPTION,
   OGABASSEY_SOCIAL_IMAGE_URL,
@@ -27,19 +26,17 @@ const ogabasseyStaticHomepageSchema = {
   },
 } as const;
 
-export function OgabasseyStaticHomePageContent({
-  heroBasePath,
-}: {
-  heroBasePath: string;
-}) {
+export function OgabasseyStaticHomePageContent() {
   return (
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
-      {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
-      <Hero basePath={heroBasePath} />
       <OgabasseyHomeStyleLoader />
+      {/* The hero is now product-driven and renders inside the dynamic home
+          content (where launch products are available). The layout's static
+          loading shell paints the baked mobile hero banner so mobile LCP is
+          still served from the first flush while this streams in. */}
       <Suspense fallback={null}>
-        <OgabasseyHomePageContent renderHero={false} />
+        <OgabasseyHomePageContent />
       </Suspense>
     </>
   );

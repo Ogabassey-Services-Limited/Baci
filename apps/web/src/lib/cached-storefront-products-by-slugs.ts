@@ -22,7 +22,7 @@ type StorefrontHomeProduct = Awaited<
  * instead of falling back to the category-less `/products/<slug>` path.
  */
 const PRODUCTS_BY_SLUG_SELECT = `
-      id, name, slug, description, price, compare_at_price,
+      id, name, slug, description, price, compare_at_price, created_at,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
       categories:category_id(id, name, slug, parent_id),

@@ -8,7 +8,6 @@ import { buildLaunchSlides } from '../components/build-launch-slides';
 import { DeferredAdUnit } from '../components/deferred-ad-unit';
 import { HomeProductGrid } from '../components/HomeProductGrid';
 import { Hero } from '../components/Hero';
-import { LaunchCarousel } from '../components/LaunchCarousel';
 import { HOMEPAGE_STRIP_AD_BOOT_DELAY_MS } from '../config/ads';
 
 // Define the expected props
@@ -43,7 +42,11 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
 
   return (
     <>
-      {renderHero && <Hero basePath={routeBasePath} />}
+      {/* Product-driven hero: the big slot + side cards surface real launch
+          devices (pinned A27 / Power 80, then newest), each deep-linking to its
+          PDP. Replaces the old hardcoded promo banner. The first hero image is
+          the eager LCP element; see Hero/hero-desktop-grid. */}
+      {renderHero && <Hero slides={launchSlides} />}
 
       {/* Ad Placement: Homepage Strip */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
@@ -54,14 +57,6 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
           timeoutMs={0}
         />
       </div>
-
-      {/* Newly released devices — responsive (mobile + desktop), server-rendered
-          so the product deep-links are crawlable; only the images lazy-load. */}
-      {launchSlides.length > 0 ? (
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 content-auto [contain-intrinsic-size:1400px_260px]">
-          <LaunchCarousel slides={launchSlides} />
-        </div>
-      ) : null}
 
       {/* Suspense boundary keeps the featured-products section non-blocking */}
       <Suspense>

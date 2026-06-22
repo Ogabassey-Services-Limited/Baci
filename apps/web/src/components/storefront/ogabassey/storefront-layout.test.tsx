@@ -2,7 +2,6 @@ import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CatalogRouteLoading from '@/app/(storefront)/[slug]/(catalog)/loading';
-import { HERO_DESKTOP_LCP_SRC } from '@/components/storefront/ogabassey/components/hero-data';
 
 const mocks = vi.hoisted(() => ({
   getOgabasseyBasePath: vi.fn(),
@@ -164,23 +163,19 @@ describe('OgabasseyStorefrontLayout', () => {
     );
   });
 
-  it('emits only the desktop external hero preload when requested', () => {
+  it('warms a crossorigin CDN preconnect instead of a static image preload when hero preload is requested', () => {
     render(
       <OgabasseyStorefrontLayout merchant={merchant} preloadHeroLcpImages>
         <div>Storefront body</div>
       </OgabasseyStorefrontLayout>
     );
 
-    expect(mocks.preload).toHaveBeenCalledWith(
-      HERO_DESKTOP_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(min-width: 768px)',
-        type: 'image/avif',
-      })
-    );
-    expect(mocks.preload).toHaveBeenCalledTimes(1);
+    // The hero LCP image is now a dynamic launch-product image, so there is no
+    // single static URL to <link rel=preload>; warm the CDN connection instead.
+    expect(mocks.preload).not.toHaveBeenCalled();
+    expect(mocks.preconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN, {
+      crossOrigin: 'anonymous',
+    });
   });
 
   it('passes domain routing mode through to the shared shell chrome', () => {

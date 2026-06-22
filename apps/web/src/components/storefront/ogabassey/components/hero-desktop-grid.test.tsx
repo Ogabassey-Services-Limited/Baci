@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -28,80 +28,115 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
-      data-priority={String(Boolean(props.priority))}
       data-unoptimized={String(Boolean(props.unoptimized))}
     />
   ),
+  getImageProps: ({
+    src,
+    sizes,
+    alt,
+    loading,
+    fetchPriority,
+    decoding,
+    width,
+    height,
+  }: Record<string, unknown>) => ({
+    props: { src, srcSet: src, sizes, alt, loading, fetchPriority, decoding, width, height },
+  }),
 }));
 
-import {
-  HERO_DESKTOP_LCP_SRC,
-  FLASH_SALE_PROMO_IMAGE,
-  HERO_DESKTOP_LCP_FALLBACK_SRC,
-  NEW_ARRIVALS_PROMO_IMAGE,
-} from './hero-data';
 import { HeroDesktopGrid } from './hero-desktop-grid';
+import type { LaunchProductSlide } from './LaunchCarousel';
+
+function makeSlide(
+  overrides: Partial<LaunchProductSlide> & Pick<LaunchProductSlide, 'id'>
+): LaunchProductSlide {
+  return {
+    kind: 'product',
+    name: `Product ${overrides.id}`,
+    priceLabel: '₦100,000',
+    href: `/ogabassey/smartphones/product-${overrides.id}`,
+    imageUrl: `https://cdn.ogabassey.com/products/product-${overrides.id}.avif`,
+    imageAlt: `Product ${overrides.id} image`,
+    ctaLabel: 'Shop now',
+    ...overrides,
+  };
+}
+
+const SLIDES: LaunchProductSlide[] = [
+  makeSlide({
+    id: '1',
+    name: 'Samsung Galaxy A27 5G',
+    priceLabel: '₦50,000',
+    href: '/ogabassey/smartphones/samsung-galaxy-a27-5g',
+    ctaLabel: 'Pre-order now',
+  }),
+  makeSlide({
+    id: '2',
+    name: 'Itel Power 80',
+    href: '/ogabassey/smartphones/itel-power-80-128gb-4gb',
+  }),
+  makeSlide({ id: '3', name: 'Itel IT2160' }),
+  makeSlide({ id: '4', name: 'Should Not Render' }),
+];
 
 describe('HeroDesktopGrid', () => {
-  it('disables prefetch on desktop hero links', () => {
-    render(<HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />);
+  it('renders the first launch product as the big hero with its price, CTA and PDP deep-link', () => {
+    render(<HeroDesktopGrid slides={SLIDES} />);
 
-    for (const link of screen.getAllByRole('link', { name: /shop now|view specs/i })) {
-      expect(link).toHaveAttribute('data-prefetch', 'false');
-    }
-  });
+    expect(
+      screen.getByRole('heading', { name: 'Samsung Galaxy A27 5G' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('₦50,000')).toBeInTheDocument();
 
-  it('allows desktop slide selection through the indicators', () => {
-    render(<HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /go to slide 2/i }));
-
-    expect(screen.getByRole('button', { name: /go to slide 2/i })).toBeInTheDocument();
-  });
-
-  it('serves the first desktop LCP image from the preloaded AVIF URL with a JPEG fallback', () => {
-    const { container } = render(
-      <HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />
-    );
-
-    const firstHeroImage = screen.getByRole('img', {
-      name: /iphone 17 pro max/i,
+    const bigLink = screen.getByRole('link', {
+      name: 'Samsung Galaxy A27 5G — Pre-order now',
     });
-    const firstHeroSource = container.querySelector(
-      'picture source[type="image/avif"]'
+    expect(bigLink).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/samsung-galaxy-a27-5g'
     );
-
-    expect(firstHeroSource).toHaveAttribute('srcset', HERO_DESKTOP_LCP_SRC);
-    expect(firstHeroImage).toHaveAttribute(
-      'src',
-      HERO_DESKTOP_LCP_FALLBACK_SRC
-    );
-    expect(firstHeroImage).toHaveAttribute('loading', 'eager');
-    expect(firstHeroImage).toHaveAttribute('fetchpriority', 'high');
-    expect(firstHeroImage).toHaveAttribute('data-unoptimized', 'true');
+    expect(bigLink).toHaveAttribute('data-prefetch', 'false');
   });
 
-  it('uses valid CDN product assets for the secondary promo panels', () => {
-    const { container } = render(
-      <HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />
+  it('serves the big hero image as a desktop-scoped eager LCP picture', () => {
+    const { container } = render(<HeroDesktopGrid slides={SLIDES} />);
+
+    const source = container.querySelector(
+      'picture source[media="(min-width: 768px)"]'
     );
-    const sources = Array.from(container.querySelectorAll('img')).map((image) =>
-      image.getAttribute('src')
+    expect(source).toHaveAttribute(
+      'srcset',
+      'https://cdn.ogabassey.com/products/product-1.avif'
     );
 
-    expect(sources).toEqual(
-      expect.not.arrayContaining([
-        'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
-        'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
-        '/website%20designs/Macbooks/macbook%20pro.avif',
-        '/website%20designs/GAMES/PS5%20SLIM%20CONSOLE%201TB.avif',
-      ])
+    const img = container.querySelector('picture img');
+    expect(img).toHaveAttribute('loading', 'eager');
+    expect(img).toHaveAttribute('fetchpriority', 'high');
+  });
+
+  it('renders exactly two side cards from the next launch products, deep-linked', () => {
+    render(<HeroDesktopGrid slides={SLIDES} />);
+
+    const powerLink = screen.getByRole('link', {
+      name: 'Itel Power 80 — Shop now',
+    });
+    expect(powerLink).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/itel-power-80-128gb-4gb'
     );
-    expect(sources).toEqual(
-      expect.arrayContaining([
-        FLASH_SALE_PROMO_IMAGE,
-        NEW_ARRIVALS_PROMO_IMAGE,
-      ])
-    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Itel IT2160' })
+    ).toBeInTheDocument();
+    // 4th slide must not render (big + 2 side cards only).
+    expect(
+      screen.queryByRole('heading', { name: 'Should Not Render' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders nothing when there are no launch products', () => {
+    const { container } = render(<HeroDesktopGrid slides={[]} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

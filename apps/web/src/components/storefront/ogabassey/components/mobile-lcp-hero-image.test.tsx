@@ -1,12 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  HERO_MOBILE_LCP_FALLBACK_SRC,
-  HERO_MOBILE_LCP_INLINE_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from './hero-data';
+import { HERO_MOBILE_LCP_FALLBACK_SRC } from './hero-data';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
+
+// MobileLcpHeroImage now takes an arbitrary product image `src` (and optional
+// inline AVIF), so these are plain test fixtures rather than the retired
+// hardcoded hero-image constants.
+const HERO_MOBILE_LCP_SRC = 'https://cdn.ogabassey.com/products/a27.avif';
+const HERO_MOBILE_LCP_INLINE_SRC =
+  'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUI=';
 
 const mockGetImageProps = vi.hoisted(() =>
   vi.fn(

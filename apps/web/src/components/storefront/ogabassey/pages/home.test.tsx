@@ -21,20 +21,18 @@ const mockDeferredAdUnit = vi.hoisted(() =>
     </div>
   ))
 );
-const mockLaunchCarousel = vi.hoisted(() =>
-  vi.fn((props: { slides?: Array<{ href?: string; ctaLabel?: string }> }) => (
-    <div>Launch carousel ({props.slides?.length ?? 0})</div>
-  ))
-);
 const mockHero = vi.hoisted(() =>
-  vi.fn((props: { basePath?: string }) => <div>Hero {props.basePath}</div>)
+  vi.fn((props: { slides?: Array<{ href?: string; ctaLabel?: string }> }) => (
+    <div>Hero ({props.slides?.length ?? 0})</div>
+  ))
 );
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
 }));
 vi.mock('../components/Hero', () => ({
-  Hero: (props: { basePath?: string }) => mockHero(props),
+  Hero: (props: { slides?: Array<{ href?: string; ctaLabel?: string }> }) =>
+    mockHero(props),
 }));
 vi.mock('../components/HomeProductGrid', () => ({
   HomeProductGrid: (props: Record<string, unknown>) =>
@@ -42,10 +40,6 @@ vi.mock('../components/HomeProductGrid', () => ({
 }));
 vi.mock('../components/deferred-ad-unit', () => ({
   DeferredAdUnit: (props: Record<string, unknown>) => mockDeferredAdUnit(props),
-}));
-vi.mock('../components/LaunchCarousel', () => ({
-  LaunchCarousel: (props: Record<string, unknown>) =>
-    mockLaunchCarousel(props as Parameters<typeof mockLaunchCarousel>[0]),
 }));
 
 import { OgabasseyHomePage } from './home';
@@ -87,14 +81,21 @@ describe('OgabasseyHomePage', () => {
     expect(screen.getByText(/^Product grid/)).toBeInTheDocument();
   });
 
-  it('derives a slug route base path for the hero', () => {
+  it('joins a slug route base path into the hero launch deep-links', () => {
     render(
-      <OgabasseyHomePage storeSlug="test-store" products={[]} categories={[]} />
+      <OgabasseyHomePage
+        storeSlug="test-store"
+        products={[]}
+        launchProducts={[launchProduct({})]}
+        categories={[]}
+      />
     );
 
-    expect(mockHero).toHaveBeenCalledWith(
-      expect.objectContaining({ basePath: '/test-store' })
-    );
+    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
+    expect(slides).toHaveLength(1);
+    expect(slides[0]?.href?.startsWith('/test-store/')).toBe(true);
+    expect(slides[0]?.href).toContain('samsung-galaxy-a27-5g');
+    expect(slides[0]?.ctaLabel).toBe('Pre-order now');
   });
 
   it('preserves an explicit empty base path for custom-domain hero links', () => {
@@ -103,13 +104,14 @@ describe('OgabasseyHomePage', () => {
         basePath=""
         storeSlug="test-store"
         products={[]}
+        launchProducts={[launchProduct({})]}
         categories={[]}
       />
     );
 
-    expect(mockHero).toHaveBeenCalledWith(
-      expect.objectContaining({ basePath: '' })
-    );
+    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
+    expect(slides[0]?.href?.startsWith('/test-store/')).toBe(false);
+    expect(slides[0]?.href).toContain('samsung-galaxy-a27-5g');
   });
 
   it('passes products to the home product grid', () => {
@@ -150,27 +152,9 @@ describe('OgabasseyHomePage', () => {
     );
   });
 
-  it('renders the launch carousel with basePath-joined product deep-links', () => {
-    render(
-      <OgabasseyHomePage
-        storeSlug="test-store"
-        products={[]}
-        launchProducts={[launchProduct({})]}
-        categories={[]}
-      />
-    );
-
-    expect(screen.getByText(/^Launch carousel/)).toBeInTheDocument();
-    const slides = mockLaunchCarousel.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides).toHaveLength(1);
-    expect(slides[0].href?.startsWith('/test-store/')).toBe(true);
-    expect(slides[0].href).toContain('samsung-galaxy-a27-5g');
-    expect(slides[0].ctaLabel).toBe('Pre-order now');
-  });
-
-  it('falls back to the product feed for the carousel when launchProducts is omitted', () => {
+  it('falls back to the product feed for the hero when launchProducts is omitted', () => {
     // The generic storefront renderer calls OgabasseyHomePage without
-    // launchProducts; the carousel must still render from the product feed.
+    // launchProducts; the hero must still surface products from the feed.
     render(
       <OgabasseyHomePage
         storeSlug="test-store"
@@ -179,16 +163,16 @@ describe('OgabasseyHomePage', () => {
       />
     );
 
-    expect(screen.getByText(/^Launch carousel/)).toBeInTheDocument();
-    const slides = mockLaunchCarousel.mock.calls.at(-1)?.[0]?.slides ?? [];
+    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
     expect(slides).toHaveLength(1);
-    expect(slides[0].href).toContain('samsung-galaxy-a27-5g');
+    expect(slides[0]?.href).toContain('samsung-galaxy-a27-5g');
   });
 
-  it('hides the launch carousel when there are no products at all', () => {
+  it('passes empty hero slides when there are no products at all', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
-    expect(screen.queryByText(/^Launch carousel/)).not.toBeInTheDocument();
+    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
+    expect(slides).toHaveLength(0);
   });
 
   it('keeps the homepage strip ad out of the no-interaction main-thread window', () => {

@@ -45,8 +45,7 @@ export const MOBILE_APPS = {
   },
   storefront: {
     name: 'Ogabassey - Easybuy Gadgets',
-    // TODO: Add App Store ID once storefront iOS app is published
-    iosAppId: '',
+    iosAppId: '6472735367',
     iosBundleId: 'com.ogabassey.app',
     androidPackage: 'com.ogabassey.store',
     androidSha256Fingerprints: [
@@ -54,7 +53,7 @@ export const MOBILE_APPS = {
     ],
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-    appStoreUrl: '',
+    appStoreUrl: 'https://apps.apple.com/app/id6472735367',
     deepLinkPaths: [
       '/product/*',
       '/products/*',

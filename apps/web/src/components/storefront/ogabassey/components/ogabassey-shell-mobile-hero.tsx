@@ -5,16 +5,14 @@ import {
   OGABASSEY_SHELL_BANNER_INLINE_SRC,
   OGABASSEY_SHELL_BANNER_INLINE_WIDTH,
 } from '@/config/ogabassey-shell-banner-inline';
-import { MOBILE_SLIDES } from './hero-data';
 
-// Full-width baked first-slide art painted in the PPR static loading shell.
-// The inline AVIF is only the background + phone art so merchant-themed copy and
-// CTA chrome stay in HTML/CSS variables. The full-bleed image remains a large,
-// first-flush LCP candidate (zero network), while the live carousel swaps in
-// once dynamic content streams. Regenerate the art with
-// scripts/generate-ogabassey-shell-banner.mjs.
-const FIRST_SLIDE = MOBILE_SLIDES[0];
-
+// Full-width baked banner art painted in the PPR static loading shell. The
+// inline AVIF is a large, first-flush LCP candidate (zero network) that holds
+// the hero box until the live product-driven hero streams in and swaps over.
+// Copy is deliberately product-agnostic ("Just launched") so the shell never
+// advertises a specific device that the live hero may not lead with. The box
+// height matches the live mobile hero (h-48) so there is no layout shift.
+// Regenerate the art with scripts/generate-ogabassey-shell-banner.mjs.
 const STORE_PRIMARY_COLOR = 'var(--store-primary)';
 const STORE_BORDER_COLOR = 'var(--store-border)';
 const STORE_ON_PRIMARY_COLOR = 'var(--store-on-primary)';
@@ -26,18 +24,10 @@ const HERO_CTA_STYLE = {
 } satisfies CSSProperties;
 
 export function OgabasseyShellMobileHero() {
-  const slide = FIRST_SLIDE;
-
-  if (!slide || slide.type !== 'image' || !slide.src) {
-    return null;
-  }
-
-  const usesContainedMedia = slide.imageFit === 'contain';
-
   return (
     <div className="mb-4" aria-hidden="true">
       <div className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 bg-gray-100">
-        <div className={`absolute inset-0 ${slide.bgClass ?? ''}`}>
+        <div className="absolute inset-0 bg-[#F5F5F7]">
           <Image
             alt=""
             aria-hidden="true"
@@ -51,16 +41,12 @@ export function OgabasseyShellMobileHero() {
             width={OGABASSEY_SHELL_BANNER_INLINE_WIDTH}
           />
           <div className="relative z-10 flex h-full items-center px-6 py-5">
-            <div
-              className={`${
-                usesContainedMedia ? 'w-[46%] pr-2' : 'max-w-[55%]'
-              } ${slide.textColor ?? ''}`}
-            >
+            <div className="w-[46%] pr-2 text-gray-900">
               <h2 className="mb-2 font-sans text-2xl font-extrabold leading-tight drop-shadow-xs">
-                {slide.title}
+                Just Launched
               </h2>
               <p className="text-[11px] font-medium leading-relaxed opacity-90">
-                {slide.subtitle}
+                The newest devices, in stock now.
               </p>
               <span
                 className="mt-3 inline-flex min-h-12 items-center justify-center rounded-full border px-5 py-2 text-xs font-bold shadow-sm"

@@ -2,7 +2,6 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -13,13 +12,7 @@ function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
   return resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
 }
 
-interface OgabasseyHomePageContentProps {
-  renderHero?: boolean;
-}
-
-export async function OgabasseyHomePageContent({
-  renderHero = true,
-}: OgabasseyHomePageContentProps = {}) {
+export async function OgabasseyHomePageContent() {
   await connection();
 
   const headersList = await headers();
@@ -42,14 +35,11 @@ export async function OgabasseyHomePageContent({
       : `/${merchant.slug}`;
 
   return (
-    <>
-      {renderHero && <Hero basePath={pathPrefix} />}
-      <Suspense fallback={null}>
-        <OgabasseyHomeDynamicContent
-          merchant={merchant}
-          pathPrefix={pathPrefix}
-        />
-      </Suspense>
-    </>
+    <Suspense fallback={null}>
+      <OgabasseyHomeDynamicContent
+        merchant={merchant}
+        pathPrefix={pathPrefix}
+      />
+    </Suspense>
   );
 }

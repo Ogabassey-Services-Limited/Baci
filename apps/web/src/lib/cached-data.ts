@@ -3072,21 +3072,21 @@ export async function getCachedStorefrontHomeProducts(
       product_categories(categories(name, slug))
     `;
   const homeProductRecentSelect = `
-      id, name, slug, description, price, compare_at_price, updated_at,
+      id, name, slug, description, price, compare_at_price, created_at, updated_at,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
       categories:category_id(id, name, slug, parent_id),
       product_categories(categories(name, slug))
     `;
   const homeProductDirectCategorySelect = `
-      id, name, slug, description, price, compare_at_price, updated_at,
+      id, name, slug, description, price, compare_at_price, created_at, updated_at,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
       categories:category_id!inner(id, name, slug, parent_id),
       product_categories(categories(name, slug))
     `;
   const homeProductRelationCategorySelect = `
-      id, name, slug, description, price, compare_at_price, updated_at,
+      id, name, slug, description, price, compare_at_price, created_at, updated_at,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
       categories:category_id(id, name, slug, parent_id),

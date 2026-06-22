@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { OGABASSEY_SHELL_BANNER_INLINE_SRC } from '@/config/ogabassey-shell-banner-inline';
 import { OgabasseyShellMobileHero } from './ogabassey-shell-mobile-hero';
 
@@ -25,13 +25,13 @@ describe('OgabasseyShellMobileHero', () => {
     expect(img?.getAttribute('height')).toBe('540');
   });
 
-  it('keeps the text and CTA themeable outside the baked image', () => {
+  it('keeps product-agnostic launch copy and a themeable CTA outside the baked image', () => {
     const { container } = render(<OgabasseyShellMobileHero />);
 
-    expect(container.textContent).toContain('iPhone 17 Pro Max');
-    expect(container.textContent).toContain(
-      'Beyond IMAGINATION with the new nebula finish.'
-    );
+    // Copy is generic so the shell never advertises a specific device that the
+    // live product-driven hero may not lead with.
+    expect(container.textContent).toContain('Just Launched');
+    expect(container.textContent).toContain('The newest devices, in stock now.');
     expect(container.textContent).toContain('Shop Now');
 
     const ctaStyle = container.querySelector('span')?.getAttribute('style');
@@ -54,40 +54,6 @@ describe('OgabasseyShellMobileHero', () => {
     expect(img?.getAttribute('alt')).toBe('');
     expect(template.content.querySelector('a')).toBeNull();
     expect(template.content.querySelector('link[rel="preload"]')).toBeNull();
-  });
-
-  it('renders no markup when the first slide is not a usable image', async () => {
-    const guardedCases = [
-      [],
-      [{ id: 1, type: 'video', src: '/promo.mp4' }],
-      [{ id: 1, type: 'image' }],
-    ];
-
-    for (const slides of guardedCases) {
-      vi.resetModules();
-      vi.doMock('./hero-data', async () => {
-        const actual = await vi.importActual<typeof import('./hero-data')>(
-          './hero-data'
-        );
-
-        return {
-          ...actual,
-          MOBILE_SLIDES: slides,
-        };
-      });
-
-      const { OgabasseyShellMobileHero: GuardedHero } = await import(
-        './ogabassey-shell-mobile-hero'
-      );
-      const { container, unmount } = render(<GuardedHero />);
-
-      expect(container).toBeEmptyDOMElement();
-      expect(container.querySelector('img')).toBeNull();
-      unmount();
-      vi.doUnmock('./hero-data');
-    }
-
-    vi.resetModules();
   });
 
   it('keeps the carousel hero geometry so the streamed banner fills it cleanly', () => {

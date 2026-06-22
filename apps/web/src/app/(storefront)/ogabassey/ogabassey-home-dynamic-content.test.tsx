@@ -70,16 +70,14 @@ vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
     basePath,
     products,
-    renderHero,
     storeSlug,
   }: {
     basePath?: string;
     products?: unknown[];
-    renderHero?: boolean;
     storeSlug?: string;
   }) => (
     <section aria-label="OgaBassey home payload">
-      {storeSlug}:{basePath}:{products?.length ?? 0}:{String(renderHero)}
+      {storeSlug}:{basePath}:{products?.length ?? 0}
     </section>
   ),
 }));
@@ -165,7 +163,7 @@ describe('OgabasseyHomeDynamicContent', () => {
     ).toHaveTextContent('G-OGABASSEY');
     expect(
       screen.getByRole('region', { name: 'OgaBassey home payload' })
-    ).toHaveTextContent('ogabassey:/ogabassey:1:false');
+    ).toHaveTextContent('ogabassey:/ogabassey:1');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
     );
@@ -299,12 +297,15 @@ describe('OgabasseyHomeDynamicContent', () => {
       windowProducts
     );
     // The targeted by-slug fetch returns the pin that is absent from the window.
+    // A real pinned product carries an image, so it survives the renderable
+    // filter and is prepended into the launch set + schema.
     vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([
       createProduct({
         id: 'a27',
         name: 'Samsung Galaxy A27 5G Preorder',
         slug: 'samsung-galaxy-a27-5g',
         category: 'Smartphones',
+        images: ['https://cdn.ogabassey.com/products/a27.avif'],
       }),
     ]);
 

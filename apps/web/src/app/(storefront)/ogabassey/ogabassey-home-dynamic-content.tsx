@@ -1,5 +1,7 @@
 import {
+  effectiveLaunchPins,
   LAUNCH_CAROUSEL_LIMIT,
+  OGABASSEY_LAUNCH_PINS_SINCE,
   OGABASSEY_PINNED_LAUNCH_SLUGS,
   selectLaunchProducts,
 } from '@baci/shared/storefront';
@@ -108,6 +110,17 @@ function buildOrganizationGraphSchema(merchant: OgabasseyMerchant) {
   };
 }
 
+/** Newest-created first. ISO timestamps compare lexically by time; missing
+ *  timestamps sort last. Used only for the launch carousel so its order is
+ *  driven by product additions, not edits. `created_at` is present on the
+ *  fetched rows at runtime (selected in the query) but not in the loose row
+ *  type, so it is read defensively. */
+function sortByNewestCreated<T>(rows: readonly T[]): T[] {
+  const createdAt = (row: T): string =>
+    String((row as { created_at?: string | null }).created_at ?? '');
+  return [...rows].sort((a, b) => createdAt(b).localeCompare(createdAt(a)));
+}
+
 export async function OgabasseyHomeDynamicContent({
   merchant,
   pathPrefix,
@@ -134,10 +147,27 @@ export async function OgabasseyHomeDynamicContent({
   const pinnedProducts = mapHomeProductsToTemplateProducts(
     pinnedProductRows || []
   );
-  // Launch carousel: pinned-first, then newest, deduped, capped.
+  // Launch carousel ranks by creation time (newest-added first) so editing a
+  // product never reshuffles it. The home product grid keeps its own
+  // recently-updated order via `merchantProducts`.
+  const carouselProducts = mapHomeProductsToTemplateProducts(
+    sortByNewestCreated(products || [])
+  );
+  // New arrivals (added after the pins were configured) lead the carousel and
+  // push the pins back; once a pin is shoved past the visible cap it drops off.
+  const launchPins = effectiveLaunchPins(
+    products || [],
+    OGABASSEY_PINNED_LAUNCH_SLUGS,
+    OGABASSEY_LAUNCH_PINS_SINCE
+  );
+  // Drop rows that can't render as a slide (no slug or image) BEFORE the cap,
+  // so unrenderable products don't consume launch slots and leave the carousel
+  // short while renderable products sit just past the limit (Codex P2).
   const launchSubset = selectLaunchProducts(
-    [...pinnedProducts, ...merchantProducts],
-    { pinned: OGABASSEY_PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
+    [...pinnedProducts, ...carouselProducts].filter(
+      (product) => Boolean(product.slug) && Boolean(product.image)
+    ),
+    { pinned: launchPins, limit: LAUNCH_CAROUSEL_LIMIT }
   );
   const launchProducts = mapStorefrontProductsToOgabasseyProducts(launchSubset);
   // Schema product list: prepend the visible launch items (deduped) so every
@@ -216,12 +246,14 @@ export async function OgabasseyHomeDynamicContent({
       <AnalyticsPixelProvider
         merchant={buildMerchantAnalyticsSettings(merchant)}
       />
+      {/* The hero is now product-driven, so it renders here in the dynamic
+          content where launch products are available (the baked mobile shell
+          banner in the layout holds mobile LCP until this streams in). */}
       <OgabasseyHomePage
         basePath={pathPrefix}
         categories={categories || []}
         launchProducts={launchProducts}
         products={createOgabasseyHomeProductFeed(merchantProducts)}
-        renderHero={false}
         storeSlug={merchant.slug}
       />
       <section

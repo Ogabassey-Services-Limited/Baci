@@ -61,10 +61,6 @@ vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
-  Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
-}));
-
 vi.mock('./ogabassey-home-dynamic-content', () => ({
   OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => (
     <div data-testid="dynamic-content">{pathPrefix}</div>
@@ -106,31 +102,15 @@ describe('OgabasseyHomePageContent', () => {
     );
   });
 
-  it('renders the hero after the publication guard and streams dynamic content separately', async () => {
+  it('streams the dynamic home content after the publication guard', async () => {
     const result = await OgabasseyHomePageContent();
 
     render(result as ReactElement);
 
-    expect(
-      screen.getByRole('region', { name: 'OgaBassey hero' })
-    ).toBeInTheDocument();
     expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
       '/ogabassey'
     );
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
-  });
-
-  it('can omit the hero when another route shell renders it before dynamic content', async () => {
-    const result = await OgabasseyHomePageContent({ renderHero: false });
-
-    render(result as ReactElement);
-
-    expect(
-      screen.queryByRole('region', { name: 'OgaBassey hero' })
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
-      '/ogabassey'
-    );
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {

@@ -1,3 +1,4 @@
+import { MOBILE_APPS } from '@/config/platform';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { asRoute } from '@/lib/routes';
 import { normalizeSocialUrl } from '@/lib/social';
@@ -8,7 +9,6 @@ import {
   hasPublishableWarrantyPolicy,
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
-  Apple,
   Facebook,
   Instagram,
   Linkedin,
@@ -24,6 +24,27 @@ import Link from 'next/link';
 import type React from 'react';
 
 import { Logo } from './Logo';
+
+type SocialPlatform =
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'twitter'
+  | 'youtube'
+  | 'linkedin'
+  | 'snapchat';
+
+// Monochrome at rest (clean on the dark footer); the brand accent appears on
+// hover so the row stays cohesive but icons are still recognizable on intent.
+const SOCIAL_HOVER_COLOR: Record<SocialPlatform, string> = {
+  instagram: 'hover:text-pink-500',
+  facebook: 'hover:text-blue-500',
+  tiktok: 'hover:text-cyan-400',
+  twitter: 'hover:text-sky-400',
+  youtube: 'hover:text-red-600',
+  linkedin: 'hover:text-blue-600',
+  snapchat: 'hover:text-yellow-400',
+};
 
 interface FooterProps {
   merchant?: MerchantData;
@@ -58,6 +79,11 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const contactAddress =
     firstNonEmptyTrimmed(merchant?.business_address) ??
     '2 Olaide Tomori St, Ikeja, Lagos';
+  // Open the storefront address in Google Maps. Derived from the address text
+  // so it stays correct for any merchant using this template.
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    contactAddress
+  )}`;
   const trustProfile = merchant
     ? buildMerchantTrustProfile(merchant, basePath || undefined)
     : null;
@@ -77,7 +103,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const renderSocialLink = (
     input: string | undefined,
     label: string,
-    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin' | 'snapchat',
+    platform: SocialPlatform,
     Icon: React.ElementType
   ) => {
     const url = normalizeSocialUrl(input, platform);
@@ -87,7 +113,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-gray-400 hover:text-white transition-colors"
+        className={`text-gray-400 ${SOCIAL_HOVER_COLOR[platform]} transition-colors`}
         aria-label={label}
       >
         <Icon size={20} />
@@ -202,7 +228,15 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
             <ul className="space-y-3 text-xs text-gray-400">
               <li className="flex items-start gap-2">
                 <MapPin className="shrink-0 text-red-600" size={16} />
-                <span>{contactAddress}</span>
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${contactAddress} in Google Maps`}
+                  className="hover:text-white transition-colors"
+                >
+                  {contactAddress}
+                </a>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="shrink-0 text-red-600" size={16} />
@@ -228,45 +262,34 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
               Download App
             </h3>
             <div className="flex gap-2 mb-6">
-              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
-                <Apple size={22} className="text-white fill-current" />
-                <div className="text-left leading-none">
-                  <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300">
-                    Download on the
-                  </div>
-                  <div className="text-[13px] font-bold text-white tracking-wide">
-                    App Store
-                  </div>
-                </div>
-              </button>
-              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
-                <svg viewBox="0 0 24 24" className="size-5">
-                  <path
-                    fill="#4285F4"
-                    d="M23.64 12.48l-2.95-3.07L16.2 13.9l4.49 4.49c.87-.93 1.35-2.22.95-3.55zM.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"
+              {MOBILE_APPS.storefront.appStoreUrl ? (
+                <a
+                  href={MOBILE_APPS.storefront.appStoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Download on the App Store"
+                  className="inline-flex transition-opacity hover:opacity-90"
+                >
+                  <img
+                    src="/badges/app-store-black.svg"
+                    alt="Download on the App Store"
+                    className="h-10 w-auto"
                   />
-                  <path
-                    fill="#34A853"
-                    d="M14.39 12.1L2.09 24.4c.39.11.83.07 1.19-.13l16.29-9.28-5.18-5.18v2.29z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M2.09-.4c-.36-.2-.8-.24-1.19-.13L14.39 11.9l5.18-5.18L3.28-.53c-.39-.2-.79-.2-1.19.13z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"
-                  />
-                </svg>
-                <div className="text-left leading-none">
-                  <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300 uppercase">
-                    Get it on
-                  </div>
-                  <div className="text-[13px] font-bold text-white tracking-wide">
-                    Google Play
-                  </div>
-                </div>
-              </button>
+                </a>
+              ) : null}
+              <a
+                href={MOBILE_APPS.storefront.playStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Get it on Google Play"
+                className="inline-flex transition-opacity hover:opacity-90"
+              >
+                <img
+                  src="/badges/google-play.svg"
+                  alt="Get it on Google Play"
+                  className="h-10 w-auto"
+                />
+              </a>
             </div>
 
             <div className="flex items-center gap-3 mt-1">
