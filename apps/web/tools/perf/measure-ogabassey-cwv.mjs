@@ -33,33 +33,35 @@ const appRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 await loadEnvFile(join(repoRoot, '.env.local'));
 await loadEnvFile(join(appRoot, '.env.local'));
-
 const auditId = new Date().toISOString().replace(/[:.]/g, '-');
+const customOutputDir = process.env.OGABASSEY_AUDIT_OUTPUT_DIR || '';
 const outputDir =
-  process.env.OGABASSEY_AUDIT_OUTPUT_DIR ||
+  customOutputDir ||
   join(repoRoot, 'output/audits', `ogabassey-cwv-${auditId}`);
+const artifactFileName = (name) =>
+  customOutputDir ? `${auditId}-${name}` : name;
 const psiApiKey =
   process.env.PAGESPEED_INSIGHTS_API_KEY || process.env.PSI_API_KEY || '';
-const debugBearApiKey =
-  process.env.DEBUGBEAR_API_KEY || process.env.DEBUGBEAR_ADMIN_API_KEY || '';
-const debugBearAdminApiKey =
-  process.env.DEBUGBEAR_ADMIN_API_KEY || process.env.DEBUGBEAR_API_KEY || '';
-const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
 const debugBearProjectId = process.env.DEBUGBEAR_PROJECT_ID?.trim() || '';
+const debugBearProjectApiKey = process.env.DEBUGBEAR_API_KEY || '';
+const debugBearAdminApiKey = process.env.DEBUGBEAR_ADMIN_API_KEY || '';
+const debugBearApiKey = debugBearProjectId
+  ? debugBearProjectApiKey || debugBearAdminApiKey
+  : debugBearAdminApiKey || debugBearProjectApiKey;
+const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
 const debugBearRegion = process.env.DEBUGBEAR_REGION || 'uk';
 const debugBearMaxPollAttempts =
   Number(process.env.DEBUGBEAR_MAX_POLL_ATTEMPTS) || 90;
 const debugBearPollIntervalMs =
   Number(process.env.DEBUGBEAR_POLL_INTERVAL_MS) || 5000;
 const shouldRunDebugBear =
-  process.env.OGABASSEY_CWV_DEBUGBEAR !== '0' &&
-  Boolean(debugBearApiKey || debugBearAdminApiKey);
+  process.env.OGABASSEY_CWV_DEBUGBEAR !== '0' && Boolean(debugBearApiKey);
 const shouldRunPsi = process.env.OGABASSEY_CWV_PSI !== '0';
+const shouldRunExternalProbes = shouldRunPsi || shouldRunDebugBear;
 const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
   .split(',')
   .map((strategy) => strategy.trim())
   .filter(Boolean);
-
 async function runPsi(target, strategy) {
   const url = buildPsiUrl({ apiKey: psiApiKey, strategy, url: target.url });
   const payload = await fetchJson(url);
@@ -73,7 +75,6 @@ async function runPsi(target, strategy) {
     }),
   };
 }
-
 function debugBear(path, init = {}, apiKey = debugBearApiKey) {
   return fetchJson(`https://www.debugbear.com/api/v1${path}`, {
     ...init,
@@ -83,7 +84,6 @@ function debugBear(path, init = {}, apiKey = debugBearApiKey) {
     },
   });
 }
-
 async function getDebugBearProjects() {
   if (!debugBearAdminApiKey) {
     throw new Error(
@@ -93,7 +93,6 @@ async function getDebugBearProjects() {
   const body = await debugBear('/projects', {}, debugBearAdminApiKey);
   return normalizeDebugBearProjects(body);
 }
-
 async function runDebugBear(target, projects) {
   const projectId =
     debugBearProjectId ||
@@ -103,7 +102,6 @@ async function runDebugBear(target, projects) {
   if (!projectId) {
     throw new Error(`No DebugBear project found for ${target.url}`);
   }
-
   const created = await debugBear(`/project/${projectId}/quickTests`, {
     body: JSON.stringify([
       { device: debugBearDevice, region: debugBearRegion, url: target.url },
@@ -159,16 +157,27 @@ async function runDebugBear(target, projects) {
 }
 
 await mkdir(outputDir, { recursive: true });
-
+async function writeArtifact(name, payload) {
+  await writeFile(
+    join(outputDir, artifactFileName(name)),
+    JSON.stringify(payload, null, 2)
+  );
+}
 const skipLatestBlogPostTarget =
   process.env.OGABASSEY_CWV_SKIP_LATEST_BLOG_POST === '1';
+const explicitBlogPostUrl = process.env.OGABASSEY_BLOG_POST_URL || '';
+const shouldResolveLatestBlogPost =
+  shouldRunExternalProbes && !skipLatestBlogPostTarget && !explicitBlogPostUrl;
 const blogPostUrl = skipLatestBlogPostTarget
   ? null
-  : await resolveLatestBlogPostUrl(
-      process.env.OGABASSEY_BLOG_URL || 'https://ogabassey.com/blog'
-    );
+  : explicitBlogPostUrl ||
+    (shouldResolveLatestBlogPost
+      ? await resolveLatestBlogPostUrl(
+          process.env.OGABASSEY_BLOG_URL || 'https://ogabassey.com/blog'
+        )
+      : null);
 const targetResolutionFailures =
-  !blogPostUrl && !skipLatestBlogPostTarget
+  shouldResolveLatestBlogPost && !blogPostUrl
     ? [
         {
           label: 'blog-post-latest',
@@ -178,9 +187,11 @@ const targetResolutionFailures =
         },
       ]
     : [];
-const pdpUrl = await resolveCanonicalUrl(
-  process.env.OGABASSEY_PDP_URL || DEFAULT_OGABASSEY_CWV_TARGETS.pdp
-);
+const requestedPdpUrl =
+  process.env.OGABASSEY_PDP_URL || DEFAULT_OGABASSEY_CWV_TARGETS.pdp;
+const pdpUrl = shouldRunExternalProbes
+  ? await resolveCanonicalUrl(requestedPdpUrl)
+  : requestedPdpUrl;
 const targets = buildOgaBasseyCwvTargets({
   blogPostUrl,
   blogUrl: process.env.OGABASSEY_BLOG_URL,
@@ -201,10 +212,8 @@ if (shouldRunPsi) {
       try {
         logProgress(`PSI ${strategy} ${target.label}`);
         const psi = await runPsi(target, strategy);
-        await writeFile(
-          join(outputDir, `${target.label}-${strategy}-psi.json`),
-          JSON.stringify(psi.payload, null, 2)
-        );
+        const artifact = `${target.label}-${strategy}-psi.json`;
+        await writeArtifact(artifact, psi.payload);
         summaries.push(psi.summary);
       } catch (error) {
         failures.push({
@@ -251,10 +260,8 @@ if (shouldRunDebugBear) {
         `DebugBear ${debugBearDevice}/${debugBearRegion} ${target.label}`
       );
       const debugBearResult = await runDebugBear(target, projects);
-      await writeFile(
-        join(outputDir, `${target.label}-debugbear.json`),
-        JSON.stringify(debugBearResult.payload, null, 2)
-      );
+      const artifact = `${target.label}-debugbear.json`;
+      await writeArtifact(artifact, debugBearResult.payload);
       if (debugBearResult.failure) {
         failures.push({
           label: target.label,
@@ -274,20 +281,13 @@ if (shouldRunDebugBear) {
   }
 }
 
-await writeFile(
-  join(outputDir, 'summary.json'),
-  JSON.stringify(
-    {
-      auditId,
-      createdAt: new Date().toISOString(),
-      failures,
-      summaries,
-      targets,
-    },
-    null,
-    2
-  )
-);
+await writeArtifact('summary.json', {
+  auditId,
+  createdAt: new Date().toISOString(),
+  failures,
+  summaries,
+  targets,
+});
 
 printCwvSummaryTable(summaries);
 if (failures.length) {
