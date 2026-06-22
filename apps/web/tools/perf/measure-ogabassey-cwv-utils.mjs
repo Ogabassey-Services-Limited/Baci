@@ -40,7 +40,6 @@ function getPageUrl(page) {
 
 function isMobilePage(page) {
   const text = [
-    page?.device,
     page?.deviceName,
     page?.formFactor,
     page?.device?.formFactor,
@@ -79,6 +78,7 @@ function getOrigin(value) {
 export function findDebugBearProjectIdForUrl(projects, targetUrl) {
   const target = normalizeUrlForMatch(targetUrl);
   const targetOrigin = getOrigin(targetUrl);
+  if (!target || !targetOrigin) return null;
 
   for (const project of projects) {
     for (const page of getProjectPages(project)) {

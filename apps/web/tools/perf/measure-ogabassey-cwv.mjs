@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   getDebugBearQuickTestId,
   getDebugBearQuickTestPollPath,
 } from './debugbear-quick-test-utils.mjs';
+import {
+  fetchJson,
+  resolveLatestBlogPostUrl,
+} from './measure-ogabassey-cwv-network-utils.mjs';
 import {
   buildPsiUrl,
   formatMetricMs,
@@ -61,47 +65,6 @@ async function loadEnvFile(path) {
     if (!key || process.env[key] !== undefined) continue;
     process.env[key] = raw.replace(/^['"]|['"]$/g, '');
   }
-}
-
-async function fetchJson(url, init = {}) {
-  const response = await fetch(url, init);
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(`${url} failed with ${response.status}: ${text}`);
-  }
-  return body;
-}
-
-async function resolveLatestBlogPostUrl(blogUrl) {
-  if (process.env.OGABASSEY_BLOG_POST_URL) {
-    return process.env.OGABASSEY_BLOG_POST_URL;
-  }
-
-  const response = await fetch(blogUrl, {
-    headers: { 'user-agent': 'Baci-CWV-measurement/1.0' },
-  });
-  if (!response.ok) return null;
-
-  const html = await response.text();
-  const matches = [...html.matchAll(/href=["']([^"']+)["']/gi)].map(
-    (match) => match[1]
-  );
-  for (const href of matches) {
-    const url = new URL(href, blogUrl);
-    if (
-      url.origin === new URL(blogUrl).origin &&
-      /^\/blog\/[^/?#]+/.test(url.pathname) &&
-      !url.pathname.includes('/page/') &&
-      !url.pathname.includes('/author/')
-    ) {
-      url.hash = '';
-      url.search = '';
-      return url.toString();
-    }
-  }
-
-  return null;
 }
 
 async function runPsi(target, strategy) {
@@ -163,6 +126,9 @@ async function runDebugBear(target, projects) {
     await new Promise((resolve) =>
       setTimeout(resolve, debugBearPollIntervalMs)
     );
+  }
+  if (!isDebugBearComplete(result)) {
+    logProgress(`DebugBear poll timed out for ${target.label}`);
   }
 
   return {
@@ -297,4 +263,4 @@ if (failures.length) {
   console.error(JSON.stringify(failures, null, 2));
 }
 console.log(`Saved CWV audit artifacts to ${outputDir}`);
-console.log(`Audit id: ${basename(auditId)}`);
+console.log(`Audit id: ${auditId}`);

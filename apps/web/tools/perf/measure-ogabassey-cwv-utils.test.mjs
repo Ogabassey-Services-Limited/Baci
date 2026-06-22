@@ -65,6 +65,20 @@ describe('findDebugBearProjectIdForUrl', () => {
       )
     ).toBe('101919');
   });
+
+  it('rejects malformed target URLs instead of matching empty origins', () => {
+    expect(
+      findDebugBearProjectIdForUrl(
+        [
+          {
+            id: 'bad',
+            pages: [{ url: null, device: { formFactor: 'mobile' } }],
+          },
+        ],
+        'https://['
+      )
+    ).toBeNull();
+  });
 });
 
 describe('buildOgaBasseyCwvTargets', () => {
