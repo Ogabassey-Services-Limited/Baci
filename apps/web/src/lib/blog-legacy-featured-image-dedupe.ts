@@ -114,7 +114,13 @@ export function removeDuplicateLegacyFeaturedImage(
   }
 
   const firstImageSrc = normalizeHtmlImageUrl(firstImage[2] ?? '');
-  if (firstImageSrc !== normalizedFeaturedUrl) {
+  const originalImageSrc = normalizeHtmlImageUrl(
+    /\bdata-original-src\s*=\s*(['"])(.*?)\1/i.exec(firstImage[0])?.[2] ?? ''
+  );
+  if (
+    firstImageSrc !== normalizedFeaturedUrl &&
+    originalImageSrc !== normalizedFeaturedUrl
+  ) {
     return html;
   }
 

@@ -498,6 +498,7 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     );
     expect(out).toContain('width="1200"');
     expect(out).toContain('height="675"');
+    expect(out).toContain(`data-original-src="${CDN}"`);
   });
 
   it('leaves external and already-optimized featured images untouched', () => {

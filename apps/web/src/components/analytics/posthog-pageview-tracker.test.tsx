@@ -16,6 +16,11 @@ vi.mock('@/lib/posthog/browser', () => ({
   capturePostHogPageview: mocks.capturePostHogPageview,
 }));
 
+async function flushPostHogEffects() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('PostHogPageviewTracker', () => {
   beforeEach(() => {
     pathname = '/';
@@ -56,9 +61,8 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', pathname);
 
     render(<PostHogPageviewTracker />);
-    await waitFor(() => {
-      expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
-    });
+    await flushPostHogEffects();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 
   it('captures after a client navigation from blog to a non-blog page', async () => {
@@ -66,9 +70,8 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', pathname);
     const { rerender } = render(<PostHogPageviewTracker />);
 
-    await waitFor(() => {
-      expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
-    });
+    await flushPostHogEffects();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
 
     pathname = '/ogabassey/laptops/macbook-pro';
     window.history.pushState(null, '', pathname);

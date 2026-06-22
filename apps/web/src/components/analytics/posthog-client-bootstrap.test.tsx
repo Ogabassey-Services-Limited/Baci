@@ -19,6 +19,11 @@ function importPostHogClientBootstrap() {
   return import('./posthog-client-bootstrap');
 }
 
+async function flushPostHogEffects() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 afterEach(() => {
   pathname = '/';
   vi.clearAllMocks();
@@ -52,9 +57,8 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-    });
+    await flushPostHogEffects();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
   });
 
   it('initializes PostHog after a client navigation from blog to a non-blog page', async () => {
@@ -66,9 +70,8 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     const { rerender } = render(<PostHogClientBootstrap />);
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-    });
+    await flushPostHogEffects();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
 
     pathname = '/ogabassey/laptops/macbook-pro';
     vi.stubGlobal('location', {

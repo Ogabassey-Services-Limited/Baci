@@ -585,6 +585,12 @@ describe('BlogContentRenderer', () => {
       const json = doc({ type: 'image', attrs: { src: null } });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Blog image node missing or invalid src attribute'
+        ),
+        expect.objectContaining({ src: null })
+      );
       consoleSpy.mockRestore();
     });
 
@@ -599,6 +605,12 @@ describe('BlogContentRenderer', () => {
       });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Blog image node missing or invalid src attribute'
+        ),
+        expect.objectContaining({ src: 'data:image/png;base64,abc' })
+      );
       consoleSpy.mockRestore();
     });
   });

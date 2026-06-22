@@ -392,7 +392,9 @@ function buildResponsiveInlineImageTag(
   siblings: ReturnType<typeof buildInlineImageSiblings>
 ): string {
   let nextTag = imgTag;
+  const originalSrc = readHtmlTagAttribute(imgTag, 'src');
   const attributes = {
+    ...(originalSrc ? { 'data-original-src': originalSrc } : {}),
     src: siblings.fallback,
     srcset: siblings.fallbackSrcSet,
     sizes: siblings.sizes,

@@ -14,6 +14,11 @@ function importInstrumentationClient() {
   return import('./instrumentation-client');
 }
 
+async function flushPostHogMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
@@ -53,9 +58,8 @@ describe('instrumentation-client', () => {
     });
 
     await importInstrumentationClient();
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-      expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
-    });
+    await flushPostHogMicrotasks();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 });

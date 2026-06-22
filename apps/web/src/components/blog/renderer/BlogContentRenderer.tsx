@@ -265,6 +265,7 @@ const NodeRenderer = ({
       if (!imageSrc?.startsWith('http')) {
         logger.warn({
           message: 'Blog image node missing or invalid src attribute',
+          src: rawSrc ?? null,
         });
         return null;
       }
