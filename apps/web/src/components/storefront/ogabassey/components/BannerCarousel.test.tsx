@@ -35,6 +35,9 @@ const mockAdUnit = vi.hoisted(() =>
 vi.mock('./AdUnit', () => ({
   AdUnit: (props: Record<string, unknown>) => mockAdUnit(props),
 }));
+vi.mock('@/hooks/use-reduced-motion', () => ({
+  useReducedMotion: () => false,
+}));
 
 import { BannerCarousel, resolveBannerHref } from './BannerCarousel';
 import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
@@ -87,6 +90,16 @@ describe('BannerCarousel', () => {
     expect(images[0]).toHaveAttribute('fetchpriority', 'high');
     // The deprecated `priority` prop is gone.
     expect(images[0]).not.toHaveAttribute('priority');
+  });
+
+  it('renders a pause/play control that toggles autoplay (WCAG 2.2.2)', () => {
+    render(<BannerCarousel />);
+
+    const pause = screen.getByRole('button', { name: 'Pause auto-rotation' });
+    fireEvent.click(pause);
+    expect(
+      screen.getByRole('button', { name: 'Play auto-rotation' })
+    ).toBeDefined();
   });
 
   it('labels banner slide controls as non-submit buttons', () => {

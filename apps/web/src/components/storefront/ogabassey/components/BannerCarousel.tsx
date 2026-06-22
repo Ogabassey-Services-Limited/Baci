@@ -4,11 +4,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
 import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
 import type { AD_CONFIG } from '../config/ads';
+import { CarouselPlayToggle } from './carousel-play-toggle';
+import { useCarouselAutoplay } from './use-carousel-autoplay';
 
 interface BaseBannerSlide {
   id: number;
@@ -86,6 +88,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   const getHref = (path: string) => resolveBannerHref(basePath, path);
 
   const [currentSlide, setCurrentSlide] = useState(0);
+  const autoplay = useCarouselAutoplay();
 
   // Dynamic slides based on props
   const slides = (() => {
@@ -101,6 +104,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
     }
     return BANNER_SLIDES;
   })();
+  // Latest slides held in a ref so the autoplay effect doesn't re-run (and reset
+  // the timer) on every render just because the `slides` array identity changes.
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
 
   // Touch handling state
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -135,18 +142,20 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   };
 
   useEffect(() => {
-    // PAUSE AUTO-ROTATION IF CURRENT SLIDE IS AN AD
-    // This allows video ads to finish playing without being cut off.
-    const activeSlide = slides[currentSlide];
-    if (activeSlide?.type === 'ad') {
+    // WCAG 2.2.2: stop on hover/focus, on the explicit toggle, and on reduced
+    // motion. Also pause on an ad slide so video ads can play through uncut.
+    if (!autoplay.isActive) {
+      return;
+    }
+    if (slidesRef.current[currentSlide]?.type === 'ad') {
       return;
     }
 
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % slidesRef.current.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [slides.length, currentSlide, slides]); // Added currentSlide/slides dependency for ad check
+  }, [currentSlide, autoplay.isActive]);
 
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
 
@@ -163,10 +172,14 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
   return (
     <div
+      aria-label={title ? `${title} promotions` : 'Promotional banner'}
+      aria-roledescription="carousel"
       className={`relative w-full overflow-hidden rounded-xl shadow-sm border border-store-border bg-store-background ${className}`}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      role="region"
+      {...autoplay.containerHandlers}
     >
       <div
         className="flex h-full transition-transform duration-700 ease-in-out"
@@ -249,7 +262,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         })}
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
         {slides.map((slide, idx) => {
           const isCurrentSlide = idx === currentSlide;
           const isActiveAdSlide = slide.type === 'ad' && isCurrentSlide;
@@ -280,6 +293,12 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
             </button>
           );
         })}
+        {autoplay.prefersReducedMotion ? null : (
+          <CarouselPlayToggle
+            isPlaying={autoplay.isPlaying}
+            onToggle={autoplay.toggle}
+          />
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
+import { CarouselPlayToggle } from './carousel-play-toggle';
+import { useCarouselAutoplay } from './use-carousel-autoplay';
 
 /** A slide backed by a real catalog product (reuses the served CDN image). */
 export interface LaunchProductSlide {
@@ -97,26 +99,22 @@ export function LaunchCarousel({
   className = 'h-52 md:h-60 lg:h-64',
 }: LaunchCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocusWithin, setIsFocusWithin] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const slideCount = slides.length;
-  // Hover and focus are tracked separately so moving the pointer out while
-  // keyboard/AT focus stays inside the carousel keeps autoplay paused.
-  const isPaused = isHovered || isFocusWithin;
+  const autoplay = useCarouselAutoplay();
 
-  // Autoplay; paused on hover/focus so it satisfies WCAG 2.2.2 (Pause, Stop,
-  // Hide) — users can stop the motion by hovering or tabbing into the carousel.
+  // WCAG 2.2.2 (Pause, Stop, Hide): autoplay stops on hover, on keyboard focus,
+  // on the explicit toggle, and when the OS prefers reduced motion.
   useEffect(() => {
-    if (slideCount <= 1 || isPaused) {
+    if (slideCount <= 1 || !autoplay.isActive) {
       return;
     }
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slideCount);
     }, AUTOPLAY_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [slideCount, isPaused]);
+  }, [slideCount, autoplay.isActive]);
 
   if (slideCount === 0) {
     return null;
@@ -153,29 +151,18 @@ export function LaunchCarousel({
     }
   };
 
-  const onBlur = (e: React.FocusEvent) => {
-    // Resume only when focus truly leaves the carousel (not when moving between
-    // its own slides/dots).
-    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-      setIsFocusWithin(false);
-    }
-  };
-
   return (
     <div
       aria-label="Just launched products"
       aria-roledescription="carousel"
       className={`relative w-full overflow-hidden rounded-xl border border-store-border bg-store-background shadow-sm ${className}`}
-      onBlur={onBlur}
-      onFocus={() => setIsFocusWithin(true)}
       onKeyDown={onKeyDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onTouchEnd={onTouchEnd}
       onTouchMove={onTouchMove}
       onTouchStart={onTouchStart}
       role="region"
       tabIndex={0}
+      {...autoplay.containerHandlers}
     >
       <div
         className="flex h-full transition-transform duration-700 ease-in-out"
@@ -216,7 +203,7 @@ export function LaunchCarousel({
       </div>
 
       {slideCount > 1 ? (
-        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
           {slides.map((slide, idx) => {
             const isCurrent = idx === currentSlide;
             return (
@@ -239,6 +226,12 @@ export function LaunchCarousel({
               </button>
             );
           })}
+          {autoplay.prefersReducedMotion ? null : (
+            <CarouselPlayToggle
+              isPlaying={autoplay.isPlaying}
+              onToggle={autoplay.toggle}
+            />
+          )}
         </div>
       ) : null}
     </div>

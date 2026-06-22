@@ -27,6 +27,11 @@ jest.mock('@/hooks/use-products', () => ({
 jest.mock('@/hooks/use-pinned-launch-products', () => ({
   usePinnedLaunchProducts: () => mockUsePinned(),
 }));
+jest.mock('@/components/ui/Skeleton', () => {
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return { Skeleton: () => <View testID="skeleton" /> };
+});
 
 import { JustLaunchedCarousel } from './JustLaunchedCarousel';
 
@@ -77,15 +82,17 @@ describe('JustLaunchedCarousel', () => {
     expect(mockPush).toHaveBeenCalledWith('/product/samsung-galaxy-a27-5g');
   });
 
-  it('renders nothing while loading', () => {
+  it('renders a loading skeleton (not a blank gap) while loading', () => {
     mockUseProducts.mockReturnValue({
       products: [],
       isLoading: true,
       isError: false,
     });
 
-    const { toJSON } = render(<JustLaunchedCarousel />);
-    expect(toJSON()).toBeNull();
+    render(<JustLaunchedCarousel />);
+
+    expect(screen.getByText('Just Launched')).toBeTruthy();
+    expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
   });
 
   it('renders nothing on error', () => {

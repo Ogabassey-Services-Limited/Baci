@@ -16,6 +16,9 @@ vi.mock('next/link', () => ({
     href: string;
   }) => <a {...props}>{children}</a>,
 }));
+vi.mock('@/hooks/use-reduced-motion', () => ({
+  useReducedMotion: () => false,
+}));
 
 import { LaunchCarousel, type LaunchSlide } from './LaunchCarousel';
 
@@ -114,6 +117,16 @@ describe('LaunchCarousel', () => {
     expect(visibleIndex()).toBe(1);
     fireEvent.keyDown(region, { key: 'ArrowLeft' });
     expect(visibleIndex()).toBe(0);
+  });
+
+  it('renders a pause/play control that toggles autoplay (WCAG 2.2.2)', () => {
+    render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
+
+    const pause = screen.getByRole('button', { name: 'Pause auto-rotation' });
+    fireEvent.click(pause);
+    expect(
+      screen.getByRole('button', { name: 'Play auto-rotation' })
+    ).toBeDefined();
   });
 
   it('shows navigation dots only when there is more than one slide', () => {
