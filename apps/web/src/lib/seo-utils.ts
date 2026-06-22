@@ -583,7 +583,7 @@ function buildMerchantReturnPolicy(
   country: string,
   trustProfile?: MerchantTrustProfile,
   fallbackDays = 7
-): MerchantReturnPolicy | undefined {
+): MerchantReturnPolicy {
   const returnPolicy = trustProfile?.returnPolicy;
 
   return {
