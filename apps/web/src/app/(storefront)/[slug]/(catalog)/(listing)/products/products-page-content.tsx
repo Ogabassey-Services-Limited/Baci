@@ -10,7 +10,6 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
-import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import {
   generateBreadcrumbSchema,
@@ -112,27 +111,30 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
         .map((category) => [category.canonicalSlug, category])
     ).values()
   );
-  const breadcrumbSchema = generateBreadcrumbSchema([
-    { name: merchant.business_name, url: baseUrl },
-    {
+  const breadcrumbSchema: JsonLdData<BreadcrumbList> = generateBreadcrumbSchema(
+    [
+      { name: merchant.business_name, url: baseUrl },
+      {
+        name: 'Products',
+        url:
+          currentPage > 1
+            ? `${baseUrl}/products?page=${currentPage}`
+            : `${baseUrl}/products`,
+      },
+    ]
+  );
+  const collectionSchema: JsonLdData<CollectionPage> =
+    generateCollectionPageSchema({
       name: 'Products',
+      description,
       url:
         currentPage > 1
           ? `${baseUrl}/products?page=${currentPage}`
           : `${baseUrl}/products`,
-    },
-  ]);
-  const collectionSchema = generateCollectionPageSchema({
-    name: 'Products',
-    description,
-    url:
-      currentPage > 1
-        ? `${baseUrl}/products?page=${currentPage}`
-        : `${baseUrl}/products`,
-    products: currentProductIndex.products as unknown as Product[],
-    merchantName: merchant.business_name,
-    currency: merchant.payout_currency || 'NGN',
-  });
+      products: currentProductIndex.products,
+      merchantName: merchant.business_name,
+      currency: merchant.payout_currency || 'NGN',
+    });
   const payoutCurrency = merchant.payout_currency || 'NGN';
   const formatProductPrice = (amount: number) =>
     formatDisplayCurrency(amount, payoutCurrency, {
@@ -153,12 +155,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <JsonLd
-        data={collectionSchema as unknown as JsonLdData<CollectionPage>}
-      />
-      <JsonLd
-        data={breadcrumbSchema as unknown as JsonLdData<BreadcrumbList>}
-      />
+      <JsonLd data={collectionSchema} />
+      <JsonLd data={breadcrumbSchema} />
 
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">

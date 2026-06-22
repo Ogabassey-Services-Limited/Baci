@@ -4,7 +4,15 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
-import type { CollectionPage, WithContext } from 'schema-dts';
+import type {
+  BreadcrumbList,
+  CollectionPage,
+  MerchantReturnPolicy,
+  OfferShippingDetails,
+  ReturnFeesEnumeration,
+  ReturnMethodEnumeration,
+  WithContext,
+} from 'schema-dts';
 import {
   type CheckoutPaymentMerchant,
   isBankTransferCheckoutAvailable,
@@ -491,7 +499,7 @@ function getVariantSchemaSize(
 
 function mapReturnMethodToSchemaUrl(
   returnMethod: MerchantTrustProfileReturnMethod | undefined
-): string | undefined {
+): ReturnMethodEnumeration | undefined {
   switch (returnMethod) {
     case 'mail':
     case 'carrier_dropoff':
@@ -505,7 +513,7 @@ function mapReturnMethodToSchemaUrl(
 
 function mapReturnFeeToSchemaUrl(
   returnFees: MerchantTrustProfileReturnFee | undefined
-): string | undefined {
+): ReturnFeesEnumeration | undefined {
   switch (returnFees) {
     case 'free':
       return 'https://schema.org/FreeReturn';
@@ -575,7 +583,7 @@ function buildMerchantReturnPolicy(
   country: string,
   trustProfile?: MerchantTrustProfile,
   fallbackDays = 7
-): Record<string, unknown> | undefined {
+): MerchantReturnPolicy | undefined {
   const returnPolicy = trustProfile?.returnPolicy;
 
   return {
@@ -596,7 +604,7 @@ function buildOfferShippingDetails(
   country: string,
   currency: string,
   trustProfile?: MerchantTrustProfile
-): Record<string, unknown> {
+): OfferShippingDetails {
   const shippingPolicy = trustProfile?.shippingPolicy;
   const handlingMin = shippingPolicy?.handlingDaysMin ?? 0;
   const handlingMax = shippingPolicy?.handlingDaysMax ?? 1;
@@ -635,7 +643,7 @@ function buildOfferShippingDetails(
 function buildMerchantReturnPolicyFromTrustProfile(
   country: string,
   trustProfile?: MerchantTrustProfile
-): Record<string, unknown> {
+): MerchantReturnPolicy {
   const returnPolicy = trustProfile?.returnPolicy;
   return {
     '@type': 'MerchantReturnPolicy',
@@ -1418,10 +1426,13 @@ export interface BreadcrumbItem {
   url: string;
 }
 
+export type BreadcrumbJsonLdSchema = WithContext<BreadcrumbList> &
+  Record<string, unknown>;
+
 export function generateBreadcrumbSchema(
   items: BreadcrumbItem[]
-): Record<string, unknown> {
-  return {
+): BreadcrumbJsonLdSchema {
+  const schema: BreadcrumbJsonLdSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: items.map((item, index) => {
@@ -1436,6 +1447,8 @@ export function generateBreadcrumbSchema(
       };
     }),
   };
+
+  return schema;
 }
 
 /**
@@ -1988,11 +2001,25 @@ export function generateMetaDescription(
 export type CollectionPageJsonLdSchema = WithContext<CollectionPage> &
   Record<string, unknown>;
 
+export type CollectionPageProduct = Parameters<typeof getProductUrl>[0] & {
+  brand?: string | null;
+  description?: string | null;
+  gtin?: string | null;
+  image?: string | null;
+  imageLarge?: string | null;
+  low_stock_threshold?: number | string | null;
+  manage_stock?: boolean | null;
+  mpn?: string | null;
+  price: number;
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+};
+
 export interface CollectionPageData {
   name: string;
   description?: string;
   url: string;
-  products: Product[];
+  products: CollectionPageProduct[];
   merchantName: string;
   currency?: string;
   country?: string;
@@ -2032,7 +2059,7 @@ export function generateCollectionPageSchema(
     data.trustProfile
   );
 
-  const schema = {
+  const schema: CollectionPageJsonLdSchema = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: escapeHtml(data.name),
@@ -2083,10 +2110,7 @@ export function generateCollectionPageSchema(
     },
   };
 
-  // Nested offer, shipping, and return-policy helpers intentionally remain
-  // dynamic records because they are shared across multiple schema builders;
-  // this generator fixes the top-level Schema.org document type for JsonLd.
-  return schema as unknown as CollectionPageJsonLdSchema;
+  return schema;
 }
 
 /**
