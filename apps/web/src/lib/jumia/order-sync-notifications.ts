@@ -84,6 +84,22 @@ export async function releaseJumiaNotificationDeliveryClaim(
   return error;
 }
 
+async function isJumiaNotificationAlreadySent(
+  supabase: SupabaseClient,
+  merchantId: string,
+  jumiaOrderId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('jumia_orders')
+    .select('jumia_order_id')
+    .eq('merchant_id', merchantId)
+    .eq('jumia_order_id', jumiaOrderId)
+    .eq('notification_sent', true)
+    .maybeSingle<{ jumia_order_id: string }>();
+
+  return Boolean(data);
+}
+
 export async function markJumiaNotificationSent(
   supabase: SupabaseClient,
   merchantId: string,
@@ -111,6 +127,16 @@ export async function markJumiaNotificationSent(
       .maybeSingle<{ jumia_order_id: string }>();
     if (!error) {
       if (data) return null;
+      if (
+        options.claimedAt &&
+        (await isJumiaNotificationAlreadySent(
+          supabase,
+          merchantId,
+          jumiaOrderId
+        ))
+      ) {
+        return null;
+      }
       return {
         message: `No Jumia order notification marker updated for ${jumiaOrderId}`,
       };

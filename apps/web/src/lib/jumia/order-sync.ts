@@ -140,6 +140,9 @@ async function syncIntegration(
             `Failed to notify merchant for Jumia order: ${failureDetails.join('; ')}`
           );
         }
+        if (notificationResult?.retryableMessage) {
+          throw new Error(notificationResult.retryableMessage);
+        }
       }
 
       result.synced += 1;

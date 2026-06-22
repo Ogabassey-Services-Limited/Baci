@@ -239,6 +239,7 @@ export function createDuplicateNotificationSyncMock({
 
   return {
     duplicateCacheQuery,
+    syncCursorQuery,
     supabase: createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],

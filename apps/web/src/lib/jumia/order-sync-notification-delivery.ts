@@ -11,6 +11,7 @@ import { notifySyncedJumiaOrder } from './order-sync-operations';
 
 type SyncedJumiaNotificationDeliveryResult = NotificationSendResult & {
   markerErrorMessage?: string;
+  retryableMessage?: string;
 };
 
 export async function deliverSyncedJumiaOrderNotification({
@@ -36,7 +37,15 @@ export async function deliverSyncedJumiaOrderNotification({
       `Failed to claim Jumia notification delivery lease: ${claim.error.message}`
     );
   }
-  if (!claim.claimed || !claim.claimedAt) return null;
+  if (!claim.claimed || !claim.claimedAt) {
+    return {
+      sent: 0,
+      failed: 0,
+      errors: [],
+      retryableMessage:
+        'Jumia order notification delivery is already leased by another sync worker',
+    };
+  }
   const claimedAt = claim.claimedAt;
 
   const rawNotificationResult = await notifySyncedJumiaOrder(
@@ -77,7 +86,13 @@ export async function deliverSyncedJumiaOrderNotification({
       order.id,
       claimedAt
     );
-    return notificationResult;
+    return {
+      ...notificationResult,
+      retryableMessage:
+        notificationResult.failed > 0 || notificationResult.errors.length > 0
+          ? undefined
+          : 'No merchant push notification delivery was accepted for the Jumia order',
+    };
   }
 
   const notificationUpdateError = await markJumiaNotificationSent(
