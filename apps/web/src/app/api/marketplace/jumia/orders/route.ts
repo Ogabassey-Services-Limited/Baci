@@ -592,11 +592,6 @@ export async function POST(request: NextRequest) {
         if (write.isNewOrder) {
           newOrdersCount++;
         }
-        existingOrdersMap.set(write.orderId, {
-          id: write.existingOrderId,
-          jumia_order_id: write.orderId,
-          notification_sent: true,
-        });
       } catch (pushError) {
         logger.error({
           message: 'Push notification failed for Jumia order',
