@@ -83,6 +83,7 @@ export function VatCard({
         accessibilityLabel="Toggle VAT Collection"
         accessibilityHint="Toggles whether to charge VAT on orders"
         accessibilityState={{ checked: vatEnabled, disabled: isPending }}
+        aria-checked={vatEnabled}
       >
         <View style={styles.toggleInfo}>
           <Text style={[styles.toggleLabel, { color: colors.text }]}>
