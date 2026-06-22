@@ -221,4 +221,23 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     await user.click(storageOption);
     expect(onSelectAttribute).toHaveBeenCalledWith('storage', '128GB');
   });
+
+  it('ignores metadata-only selections when filtering variant-backed options', () => {
+    renderSelectors({
+      effectiveAxes: ['storage'],
+      selectedAttributes: { platform: 'PS5' },
+      variants: [
+        {
+          id: 'v1',
+          attributes: { storage: '128GB' },
+          price_override: 500000,
+          stock_quantity: 9999,
+        },
+      ],
+    });
+
+    expect(
+      screen.getByRole('button', { name: /128GB/i }),
+    ).not.toBeDisabled();
+  });
 });

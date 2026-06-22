@@ -2476,6 +2476,50 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
+  it('preloads legacy Colour variant images on the full product route path', async () => {
+    const baseProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-base.avif';
+    const variantProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
+    const variants = [
+      {
+        attributes: { Colour: 'Jade Green', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-jade',
+        primary_image: variantProductImage,
+        stock_quantity: 3,
+      },
+    ];
+
+    mockGetCachedProductLcpHint.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      color: 'Jade Green',
+      condition: 'used',
+      has_variants: true,
+      images: [baseProductImage],
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: variantProductImage,
+    });
+  });
+
   it('emits one page preload when the merchant lookup wins the early LCP hint race', async () => {
     let resolveHint:
       | ((value: ReturnType<typeof toLegacyCachedProduct>) => void)
@@ -3103,6 +3147,76 @@ describe('[category]/[productSlug] page render', () => {
       color: 'Onyx Black',
       condition: 'used',
       default_variant_id: 'variant-used-black-128',
+      has_variants: true,
+      images: [blackImage],
+      manage_stock: true,
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: jadeImage,
+    });
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          attributes: { color: 'Jade Green', storage: '128GB' },
+          condition: 'used',
+          variantId: 'variant-used-jade-128',
+        },
+      })
+    );
+  });
+
+  it('falls back when the product color is not purchasable', async () => {
+    const blackImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-onyx-black.avif';
+    const jadeImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
+    const variants = [
+      {
+        attributes: { color: 'Onyx Black', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-black-128',
+        primary_image: blackImage,
+        stock_quantity: 0,
+      },
+      {
+        attributes: { color: 'Jade Green', storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-jade-128',
+        primary_image: jadeImage,
+        stock_quantity: 4,
+      },
+    ];
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        color: 'Onyx Black',
+        condition: 'used',
+        has_variants: true,
+        images: [blackImage],
+        manage_stock: true,
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      color: 'Onyx Black',
+      condition: 'used',
       has_variants: true,
       images: [blackImage],
       manage_stock: true,

@@ -136,7 +136,14 @@ export function getAvailableCriticalVariantOptions(
     explicitSelectedAttributes
   );
 
-  return options.length > 0
-    ? options
-    : getVariantAxisOptions(variants, axis, fallbackAxisOptions);
+  if (options.length > 0) {
+    return options;
+  }
+
+  const variantBackedOptions = getVariantAxisOptions(variants, axis);
+  if (variantBackedOptions.length > 0) {
+    return [];
+  }
+
+  return getVariantAxisOptions(variants, axis, fallbackAxisOptions);
 }

@@ -466,8 +466,13 @@ function getInitialCriticalVariantSelectionPrimaryImage(
     return null;
   }
 
+  const normalizedProduct = {
+    ...product,
+    variants: normalizeRouteProductVariants(product.variants || []),
+  };
+
   return getVariantPrimaryImage(
-    resolveVariantSelection(product, selection)?.variant
+    resolveVariantSelection(normalizedProduct, selection)?.variant
   );
 }
 
@@ -513,6 +518,16 @@ function getDefaultCriticalVariantSelection(product: Product) {
       attributes: { color: productColor },
       condition: productCondition,
     };
+  }
+
+  const colorSelection = resolveVariantSelection(normalizedProduct, {
+    attributes: { color: productColor },
+  });
+
+  if (!colorSelection) {
+    return toInitialCriticalVariantSelection(
+      resolveDefaultVariantSelection(normalizedProduct)
+    );
   }
 
   return {

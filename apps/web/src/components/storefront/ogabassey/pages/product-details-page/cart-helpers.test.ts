@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applySingleOptionAxisSelectionsToVariants,
   getAxisOptions,
+  getVariantBackedSelections,
   hasVariantBackedAxis,
 } from './cart-helpers';
 import type { NormalizedProductDetails } from './product-normalization';
@@ -79,6 +80,25 @@ describe('cart helpers', () => {
 
     expect(hasVariantBackedAxis('storage', product.variants)).toBe(true);
     expect(hasVariantBackedAxis('platform', product.variants)).toBe(false);
+  });
+
+  it('keeps only selected axes backed by variant rows', () => {
+    const product = productFixture({
+      variants: [
+        {
+          attributes: { storage: '128GB' },
+          id: 'variant-128',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(
+      getVariantBackedSelections(
+        { platform: 'PS5', storage: '128GB' },
+        product.variants
+      )
+    ).toEqual({ storage: '128GB' });
   });
 
   it('does not expose multi-option metadata fallbacks without variant-backed values', () => {

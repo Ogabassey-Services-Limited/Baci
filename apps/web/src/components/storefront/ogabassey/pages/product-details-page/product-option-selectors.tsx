@@ -1,7 +1,10 @@
 import type { CSSProperties } from 'react';
 import { Info, MapPin } from 'lucide-react';
 import { getAvailableOptionsForAxis } from '@/components/storefront/ogabassey/variant-attributes';
-import { hasVariantBackedAxis } from './cart-helpers';
+import {
+  getVariantBackedSelections,
+  hasVariantBackedAxis,
+} from './cart-helpers';
 import type { NormalizedProductDetails } from './product-details-helpers';
 
 interface ProductOptionSelectorsProps {
@@ -251,7 +254,10 @@ export function ProductOptionSelectors({
                       ? getAvailableOptionsForAxis(
                           axis,
                           productData.variants,
-                          selectedAttributes,
+                          getVariantBackedSelections(
+                            selectedAttributes,
+                            productData.variants,
+                          ),
                         )
                       : null;
                     return options.map((value) => {

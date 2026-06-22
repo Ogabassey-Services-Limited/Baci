@@ -24,6 +24,18 @@ const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
   style: 'currency',
 });
 
+function normalizeCriticalVariantAxis(axis: string) {
+  const normalizedAxis = canonicalizeVariantAxis(axis);
+  if (normalizedAxis === 'colour') {
+    return 'color';
+  }
+  if (normalizedAxis === 'colour_hex') {
+    return 'color_hex';
+  }
+
+  return normalizedAxis;
+}
+
 export function formatCriticalPrice(price: number) {
   return PRICE_FORMATTER.format(price);
 }
@@ -79,7 +91,7 @@ export function normalizeCriticalVariantAttributes(
   const normalized: Record<string, string> = {};
 
   for (const [rawAxis, value] of Object.entries(attributes || {})) {
-    const axis = canonicalizeVariantAxis(rawAxis);
+    const axis = normalizeCriticalVariantAxis(rawAxis);
     const trimmedValue = typeof value === 'string' ? value.trim() : '';
 
     if (!axis || !trimmedValue) {
@@ -98,7 +110,7 @@ function getSingleOptionVariantAttributes(
   const attributes: Record<string, string> = {};
 
   for (const [rawAxis, options] of Object.entries(variantAxisOptions || {})) {
-    const axis = canonicalizeVariantAxis(rawAxis);
+    const axis = normalizeCriticalVariantAxis(rawAxis);
     const option = options.length === 1 ? options[0]?.trim() : '';
 
     if (!axis || axis === 'condition' || !option) {
@@ -139,7 +151,7 @@ export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
   const axisValues: Record<string, Set<string>> = {};
 
   const addAxisValue = (rawAxis: string, value: unknown) => {
-    const axis = canonicalizeVariantAxis(rawAxis);
+    const axis = normalizeCriticalVariantAxis(rawAxis);
     const trimmedValue = typeof value === 'string' ? value.trim() : '';
 
     if (!axis || !trimmedValue) {
@@ -200,7 +212,7 @@ export function pickInitialSelectedAttributes({
     normalizedSelectionAttributes.condition = normalizedSelectionCondition;
   }
   const selectableAxes = new Set([
-    ...renderableVariantAxes.map(canonicalizeVariantAxis).filter(Boolean),
+    ...renderableVariantAxes.map(normalizeCriticalVariantAxis).filter(Boolean),
     ...Object.keys(normalizedExplicitAttributes),
   ]);
   const initialAttributes = selection

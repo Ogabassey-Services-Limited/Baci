@@ -77,14 +77,17 @@ function normalizeInput(
   input: ResolveLinkedVariantSelectionInput
 ): NormalizedSelectionInput {
   const axis = canonicalizeVariantAxis(input.axis);
+  const attributes = normalizeAttributeMap(input.attributes);
 
   return {
     ...input,
-    attributes: normalizeAttributeMap(input.attributes),
+    attributes,
     axis,
     color: normalizeSelectionValue(input.color),
     preserveConditionAttribute:
-      input.preserveConditionAttribute || axis === 'condition',
+      input.preserveConditionAttribute ||
+      axis === 'condition' ||
+      (!input.usesVariantConditions && Boolean(attributes.condition)),
     storage: normalizeSelectionValue(input.storage),
     value: input.value.trim(),
   };

@@ -104,6 +104,17 @@ export function hasVariantBackedAxis(
   return getVariantBackedAxisOptions(axis, variants).length > 0;
 }
 
+export function getVariantBackedSelections(
+  selectedAttributes: Record<string, string>,
+  variants: NormalizedProductDetails['variants']
+) {
+  return Object.fromEntries(
+    Object.entries(selectedAttributes).filter(([axis]) =>
+      hasVariantBackedAxis(axis, variants)
+    )
+  );
+}
+
 function getMetadataAxisOptions(
   axis: string,
   productData: NormalizedProductDetails

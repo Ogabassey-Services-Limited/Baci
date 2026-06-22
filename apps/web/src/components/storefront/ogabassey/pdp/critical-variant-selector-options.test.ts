@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getAvailableCriticalVariantOptions,
   getRenderableCriticalVariantAxes,
   getVariantAxisOptions,
 } from './critical-variant-selector-options';
@@ -167,5 +168,52 @@ describe('critical variant selector options', () => {
     expect(
       getVariantAxisOptions([], 'storage', { storage: ['128GB', '256GB'] })
     ).toEqual([]);
+  });
+
+  it('does not fall back to impossible options for variant-backed axes', () => {
+    expect(
+      getAvailableCriticalVariantOptions(
+        'storage',
+        [
+          {
+            attributes: {},
+            condition: 'used',
+            id: 'variant-used',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+          {
+            attributes: { storage: '256GB' },
+            condition: 'new',
+            id: 'variant-new-256',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ],
+        { condition: 'used' },
+        { storage: ['256GB'] }
+      )
+    ).toEqual([]);
+  });
+
+  it('keeps fallback options for metadata-only critical axes', () => {
+    expect(
+      getAvailableCriticalVariantOptions(
+        'platform',
+        [
+          {
+            attributes: { storage: '1TB' },
+            id: 'variant-1tb',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ],
+        {},
+        { platform: ['PS5'] }
+      )
+    ).toEqual(['PS5']);
   });
 });
