@@ -5,6 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
@@ -242,6 +243,7 @@ export async function DELETE(
       // We do not fail the request because DB deletion succeeded
     }
 
+    revalidateMerchantFeed(merchantId);
     after(() => triggerDomainEdgeConfigSync());
 
     return NextResponse.json({ success: true });

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   ensurePermission: vi.fn(),
   getUser: vi.fn(),
   revalidatePath: vi.fn(),
+  revalidateMerchantFeed: vi.fn(),
   triggerDomainEdgeConfigSync: vi.fn(),
   updateDomainQuery: {
     eq: vi.fn(),
@@ -30,6 +31,10 @@ vi.mock('next/cache', () => ({
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({})),
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateMerchantFeed: mocks.revalidateMerchantFeed,
 }));
 
 vi.mock('@/lib/edge-config-sync', () => ({
@@ -101,6 +106,7 @@ describe('setPrimaryDomain', () => {
     });
     expect(mocks.updateDomainQuery.eq).toHaveBeenCalledWith('id', 'domain-1');
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard/domains');
+    expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
     expect(mocks.triggerDomainEdgeConfigSync).toHaveBeenCalled();
   });
 });

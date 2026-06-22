@@ -41,7 +41,7 @@ vi.mock('@/env', () => ({
   getOllamaBasicAuth: () => mockGetOllamaBasicAuth(),
 }));
 
-import { GET } from './route';
+import { GET, maxDuration } from './route';
 
 function createRequest(url: string, headers?: HeadersInit) {
   return new NextRequest(url, { headers });
@@ -71,6 +71,10 @@ function mockSuccessfulAnalyticsAggregation() {
 }
 
 describe('GET /api/analytics/website-performance', () => {
+  it('allows the route to outlive the Gemma fallback timeout', () => {
+    expect(maxDuration).toBe(30);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
 

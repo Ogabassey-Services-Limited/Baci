@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
   mutations: [] as MutationRecord[],
+  revalidateMerchantFeed: vi.fn(),
   triggerDomainEdgeConfigSync: vi.fn(),
   vercelVerifyDomain: vi.fn(),
 }));
@@ -32,6 +33,11 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) =>
     mocks.checkCsrfProtection(...args),
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateMerchantFeed: (...args: unknown[]) =>
+    mocks.revalidateMerchantFeed(...args),
 }));
 
 vi.mock('@/lib/edge-config-sync', () => ({
@@ -148,6 +154,7 @@ describe('POST /api/domains/[domain]/verify', () => {
       ['id', 'domain-1'],
       ['merchant_id', 'merchant-1'],
     ]);
+    expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
   });
 
   it('scopes TXT verification-token refreshes to the authenticated merchant', async () => {

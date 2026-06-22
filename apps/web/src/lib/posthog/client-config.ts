@@ -89,16 +89,25 @@ const POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS = ['token', 'api_key'] as const;
 const REACT_HYDRATION_OR_SUSPENSE_ERROR_PATTERN =
   /react\.dev\/errors\/(?:418|419)\b/;
 const SYNTHETIC_SCRIPT_ERROR_MESSAGE = 'Script error.';
+type SupportedBrowserVersion = {
+  major: number;
+  minor: number;
+};
+
 // Match the current supported browser floor used by the web app so old browser
 // compatibility failures do not hide real hydration issues in supported Chrome,
 // Firefox, Safari, or Edge versions.
-const MIN_SUPPORTED_BROWSER_MAJOR_BY_NAME: Record<string, number> = {
-  chrome: 93,
-  chromium: 93,
-  edge: 93,
-  firefox: 92,
-  safari: 15,
-  'mobile safari': 15,
+const MIN_SUPPORTED_BROWSER_VERSION_BY_NAME: Record<
+  string,
+  SupportedBrowserVersion
+> = {
+  chrome: { major: 93, minor: 0 },
+  chromium: { major: 93, minor: 0 },
+  edge: { major: 93, minor: 0 },
+  firefox: { major: 92, minor: 0 },
+  ios: { major: 15, minor: 4 },
+  safari: { major: 15, minor: 4 },
+  'mobile safari': { major: 15, minor: 4 },
 };
 
 function isValidMerchantSlug(value: string): boolean {
@@ -331,42 +340,48 @@ function hasSyntheticScriptError(properties: Properties): boolean {
     : false;
 }
 
-function parseBrowserMajorVersion(value: unknown): number | null {
+function parseBrowserVersion(value: unknown): SupportedBrowserVersion | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.trunc(value);
+    return parseBrowserVersion(String(value));
   }
 
   if (typeof value !== 'string') {
     return null;
   }
 
-  const match = value.match(/\d+/);
+  const match = value.match(/(\d+)(?:\.(\d+))?/);
   if (!match) {
     return null;
   }
 
-  const parsed = Number.parseInt(match[0] ?? '', 10);
-  return Number.isFinite(parsed) ? parsed : null;
+  const major = Number.parseInt(match[1] ?? '', 10);
+  const minor = Number.parseInt(match[2] ?? '0', 10);
+  return Number.isFinite(major) && Number.isFinite(minor)
+    ? { major, minor }
+    : null;
 }
 
 function isBelowSupportedBrowserFloor(properties: Properties): boolean {
   const browserName = String(properties.$browser ?? '')
     .trim()
     .toLowerCase();
-  const browserMajorVersion = parseBrowserMajorVersion(
-    properties.$browser_version
-  );
+  const browserVersion = parseBrowserVersion(properties.$browser_version);
 
-  if (!browserName || browserMajorVersion === null) {
+  if (!browserName || browserVersion === null) {
     return false;
   }
 
-  const minimumSupportedMajor =
-    MIN_SUPPORTED_BROWSER_MAJOR_BY_NAME[browserName];
+  const minimumSupportedVersion =
+    MIN_SUPPORTED_BROWSER_VERSION_BY_NAME[browserName];
+
+  if (!minimumSupportedVersion) {
+    return false;
+  }
 
   return (
-    minimumSupportedMajor !== undefined &&
-    browserMajorVersion < minimumSupportedMajor
+    browserVersion.major < minimumSupportedVersion.major ||
+    (browserVersion.major === minimumSupportedVersion.major &&
+      browserVersion.minor < minimumSupportedVersion.minor)
   );
 }
 
@@ -470,6 +485,9 @@ export function buildPostHogClientConfig(
       maskTextSelector: 'body',
       blockSelector: '[data-ph-block], [data-session-replay-block]',
     },
+    // Project credential keys are intentionally absent here:
+    // restorePostHogProjectCredentialProperties rewrites token/api_key after
+    // sanitization, and blacklisting them would break PostHog ingestion.
     property_blacklist: [
       'password',
       'secret',

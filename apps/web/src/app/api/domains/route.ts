@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import { vercel } from '@/lib/vercel';
@@ -231,6 +232,7 @@ export async function POST(request: NextRequest) {
     // But mostly we prefer A-record flow.
     // However, if verification_token came from Vercel TXT, we might want to hint that.
 
+    revalidateMerchantFeed(merchantId);
     after(() => triggerDomainEdgeConfigSync());
 
     return NextResponse.json({

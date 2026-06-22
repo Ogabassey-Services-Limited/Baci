@@ -390,6 +390,22 @@ describe('PostHog client config', () => {
     ).toBeNull();
   });
 
+  it('drops React hydration noise from Safari versions below the 15.4 storefront floor', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Safari',
+          $browser_version: '15.3.1',
+          $exception_values: [
+            'Minified React error #418; visit https://react.dev/errors/418 for the full message.',
+          ],
+        },
+      })
+    ).toBeNull();
+  });
+
   it('keeps React hydration errors from unknown browsers actionable', () => {
     expect(
       sanitizePostHogCapture({
@@ -447,6 +463,27 @@ describe('PostHog client config', () => {
       properties: {
         $browser: 'Chrome',
         $browser_version: 138,
+      },
+    });
+  });
+
+  it('keeps React hydration errors from Safari 15.4 actionable', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Safari',
+          $browser_version: '15.4',
+          $exception_values: [
+            'Minified React error #418; visit https://react.dev/errors/418 for the full message.',
+          ],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $browser: 'Safari',
+        $browser_version: '15.4',
       },
     });
   });

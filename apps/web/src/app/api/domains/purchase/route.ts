@@ -6,6 +6,7 @@ import {
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { hasPermission } from '@/lib/api-auth';
+import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
@@ -295,6 +296,7 @@ export async function POST(request: NextRequest) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
         await markPaymentDomainPurchased(existingDomain.id);
+        revalidateMerchantFeed(merchantId);
         after(() => triggerDomainEdgeConfigSync());
         return NextResponse.json({
           success: true,
@@ -479,6 +481,7 @@ export async function POST(request: NextRequest) {
       // Mark payment as used for this domain purchase (prevent reuse)
       await markPaymentDomainPurchased(newDomain.id);
 
+      revalidateMerchantFeed(merchantId);
       after(() => triggerDomainEdgeConfigSync());
 
       return NextResponse.json({

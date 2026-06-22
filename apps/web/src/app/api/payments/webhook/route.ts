@@ -12,6 +12,7 @@ import {
   confirmAgenticPaystackDvaPayment,
   getPaystackDvaReceiverAccountNumber,
 } from '@/lib/agentic/paystack-dva-webhook';
+import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
   createVerifiedPaystackWebhookSignature,
@@ -1562,6 +1563,7 @@ export async function POST(request: NextRequest) {
                   });
                 } else {
                   await markTransactionDomainPurchased(existingDomain.id);
+                  revalidateMerchantFeed(transaction.merchant_id);
                   after(() => triggerDomainEdgeConfigSync());
                 }
               }
@@ -1618,6 +1620,7 @@ export async function POST(request: NextRequest) {
                 });
               } else {
                 await markTransactionDomainPurchased(insertedDomain?.id);
+                revalidateMerchantFeed(transaction.merchant_id);
                 after(() => triggerDomainEdgeConfigSync());
               }
             }
