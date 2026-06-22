@@ -115,6 +115,18 @@ function buildOgabasseyCdnTransformUrl({
 }
 
 const OGABASSEY_IMAGE_TRANSFORM_PREFIX = '/image/';
+// CDN transform option keys (and their aliases) the parser understands.
+const OGABASSEY_TRANSFORM_DIMENSION_KEYS = ['width', 'w', 'height', 'h'];
+const OGABASSEY_TRANSFORM_RESERVED_KEYS = new Set([
+  'width',
+  'w',
+  'height',
+  'h',
+  'quality',
+  'q',
+  'format',
+  'f',
+]);
 
 /**
  * Pre-baked OgaBassey CDN transform URLs that omit a width (e.g.
@@ -169,22 +181,29 @@ function buildOgabasseyPrebakedImageWidthUrl({
     }
   }
 
-  // Honor a deliberately pinned width (any non-empty value); only inject when
-  // the transform omits a width or leaves it blank.
-  if (params.get('width')) {
-    return null;
+  // Honor a deliberately sized transform: the CDN resolves dimensions as
+  // `width || w` and `height || h`, so skip injection when ANY of those is
+  // already pinned (a blank value like `width=` is treated as unset). This only
+  // fills in genuinely unsized transforms (e.g. `format=auto`).
+  for (const dimensionKey of OGABASSEY_TRANSFORM_DIMENSION_KEYS) {
+    if (params.get(dimensionKey)) {
+      return null;
+    }
   }
 
   const transformWidth = clampDimension(width);
-  // Treat a blank `quality=` like a missing key so it defaults to 75 instead of
-  // clamping to 1.
-  const pinnedQuality = params.get('quality');
+  // Resolve quality/format from canonical OR aliased keys (CDN uses
+  // `quality || q`, `format || f`); a blank value defaults rather than clamping.
+  const pinnedQuality = params.get('quality') || params.get('q');
   const transformQuality = clampQuality(
     quality ?? (pinnedQuality ? Number(pinnedQuality) : undefined)
   );
-  const format = params.get('format') || 'auto';
+  const format = params.get('format') || params.get('f') || 'auto';
+  // Drop every key we re-emit canonically (incl. aliases) so a leftover alias
+  // can't override the injected value via the CDN's `canonical || alias` rule;
+  // keep genuinely unknown params (e.g. `fit=cover`).
   const extras = Array.from(params.entries())
-    .filter(([key]) => key !== 'width' && key !== 'quality' && key !== 'format')
+    .filter(([key]) => !OGABASSEY_TRANSFORM_RESERVED_KEYS.has(key))
     .map(([key, value]) => `${key}=${value}`);
   const rebuiltTransform = [
     `width=${transformWidth}`,

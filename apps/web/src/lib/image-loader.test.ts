@@ -122,6 +122,26 @@ describe('imageLoader', () => {
     );
   });
 
+  it('leaves transforms sized via the `w=` width alias untouched', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/w=320,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 1080 })).toBe(url);
+  });
+
+  it('leaves height-constrained transforms untouched (width||w and height||h)', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/height=320,fit=cover/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 1080 })).toBe(url);
+  });
+
+  it('resolves quality/format from aliases and drops the alias keys', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/q=90,f=webp,fit=cover/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=90,format=webp,fit=cover/core-assets/blog/post.jpg'
+    );
+  });
+
   it('adds loader params to non-OgaBassey https URLs', () => {
     const url = 'https://example.com/products/iphone.avif';
     expect(imageLoader({ src: url, width: 800 })).toBe(`${url}?w=800&q=75`);
