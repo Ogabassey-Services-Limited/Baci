@@ -310,6 +310,105 @@ export function transformImageTitlesToFigureCaptions(html: string): string {
   );
 }
 
+function stripHtmlAttribute(tag: string, attributeName: string): string {
+  const openTagMatch = /^<\s*[a-z][a-z0-9-]*/i.exec(tag);
+  if (!openTagMatch) {
+    return tag;
+  }
+
+  const targetName = attributeName.toLowerCase();
+  let index = openTagMatch[0].length;
+  let nextTag = tag.slice(0, index);
+
+  while (index < tag.length) {
+    const segmentStart = index;
+
+    while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    const char = tag[index];
+    if (!char || char === '>' || (char === '/' && tag[index + 1] === '>')) {
+      nextTag += tag.slice(segmentStart);
+      break;
+    }
+
+    const nameStart = index;
+    while (index < tag.length && !/[\s=/>]/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    if (index === nameStart) {
+      nextTag += tag.slice(segmentStart);
+      break;
+    }
+
+    const name = tag.slice(nameStart, index).toLowerCase();
+
+    while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+      index += 1;
+    }
+
+    if (tag[index] === '=') {
+      index += 1;
+      while (index < tag.length && /\s/.test(tag[index] ?? '')) {
+        index += 1;
+      }
+
+      const quote = tag[index];
+      if (quote === '"' || quote === "'") {
+        index += 1;
+        while (index < tag.length && tag[index] !== quote) {
+          index += 1;
+        }
+        if (tag[index] === quote) {
+          index += 1;
+        }
+      } else {
+        while (index < tag.length && !/[\s>]/.test(tag[index] ?? '')) {
+          index += 1;
+        }
+      }
+    }
+
+    if (name !== targetName) {
+      nextTag += tag.slice(segmentStart, index);
+    }
+  }
+
+  return nextTag;
+}
+
+function setHtmlAttribute(tag: string, attributeName: string, value: string) {
+  const withoutAttribute = stripHtmlAttribute(tag, attributeName);
+  const insertion = ` ${attributeName}="${value}"`;
+  return withoutAttribute.replace(/\s*\/?>$/, (ending) => {
+    return ending.startsWith('/') ? `${insertion} />` : `${insertion}>`;
+  });
+}
+
+function buildResponsiveInlineImageTag(
+  imgTag: string,
+  siblings: ReturnType<typeof buildInlineImageSiblings>
+): string {
+  let nextTag = imgTag;
+  const attributes = {
+    src: siblings.fallback,
+    srcset: siblings.fallbackSrcSet,
+    sizes: siblings.sizes,
+    width: String(siblings.width),
+    height: String(siblings.height),
+    loading: 'lazy',
+    decoding: 'async',
+  };
+
+  for (const [attributeName, value] of Object.entries(attributes)) {
+    nextTag = setHtmlAttribute(nextTag, attributeName, value);
+  }
+
+  return nextTag;
+}
+
 function isInsidePictureTag(html: string, innerStart: number): boolean {
   const openTagPattern = /<picture(?:\s|>)/gi;
   let openStart = -1;
@@ -354,12 +453,13 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
       // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
       // so the values stay correctly escaped — re-escaping here would double-encode
       // ampersands in any query string (`&amp;` -> `&amp;amp;`).
-      const { avif, webp } = buildInlineImageSiblings(src);
+      const siblings = buildInlineImageSiblings(src);
+      const fallbackImg = buildResponsiveInlineImageTag(imgTag, siblings);
       return (
         '<picture>' +
-        `<source srcset="${avif}" type="image/avif" />` +
-        `<source srcset="${webp}" type="image/webp" />` +
-        `${imgTag}</picture>`
+        `<source srcset="${siblings.avifSrcSet}" sizes="${siblings.sizes}" type="image/avif" />` +
+        `<source srcset="${siblings.webpSrcSet}" sizes="${siblings.sizes}" type="image/webp" />` +
+        `${fallbackImg}</picture>`
       );
     }
   );

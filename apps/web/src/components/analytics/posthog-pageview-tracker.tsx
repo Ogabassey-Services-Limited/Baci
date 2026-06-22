@@ -2,17 +2,35 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { capturePostHogPageview } from '@/lib/posthog/browser';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 export function PostHogPageviewTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname) {
+    const currentPathname = pathname || globalThis.location?.pathname;
+
+    if (!currentPathname || isPublicBlogPathname(currentPathname)) {
       return;
     }
 
-    capturePostHogPageview(window.location.href);
+    let cancelled = false;
+
+    async function capturePageview() {
+      const { capturePostHogPageview } = await import('@/lib/posthog/browser');
+
+      if (cancelled) {
+        return;
+      }
+
+      capturePostHogPageview(window.location.href);
+    }
+
+    void capturePageview();
+
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   return null;

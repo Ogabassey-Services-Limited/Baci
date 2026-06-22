@@ -1,28 +1,34 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BlogList } from './blog-list';
 
-const { mockFetchMorePosts } = vi.hoisted(() => ({
-  mockFetchMorePosts: vi.fn(),
-}));
-
-let intersectionCallback:
-  | ((entries: Array<{ isIntersecting: boolean }>) => void)
-  | undefined;
-
 vi.mock('next/image', () => ({
-  default: ({ alt }: { alt: string }) => <span aria-label={alt} role="img" />,
+  default: ({
+    alt,
+    fetchPriority,
+    loading,
+    preload,
+  }: {
+    alt: string;
+    fetchPriority?: string;
+    loading?: string;
+    preload?: boolean;
+  }) => (
+    <span
+      aria-label={alt}
+      data-fetch-priority={fetchPriority}
+      data-loading={loading}
+      data-preload={preload ? 'true' : undefined}
+      role="img"
+    />
+  ),
 }));
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}));
-
-vi.mock('./actions', () => ({
-  fetchMorePosts: (...args: unknown[]) => mockFetchMorePosts(...args),
 }));
 
 const blogPost = {
@@ -41,33 +47,10 @@ const blogPost = {
 };
 
 describe('BlogList', () => {
-  beforeEach(() => {
-    mockFetchMorePosts.mockReset();
-    intersectionCallback = undefined;
-    vi.stubGlobal(
-      'IntersectionObserver',
-      class {
-        constructor(
-          callback: (entries: Array<{ isIntersecting: boolean }>) => void
-        ) {
-          intersectionCallback = callback;
-        }
-        observe = vi.fn();
-        disconnect = vi.fn();
-        unobserve = vi.fn();
-      }
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it('renders published dates with deterministic server/client text', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
-        merchantId="merchant-1"
         totalPosts={1}
         basePath="/ogabassey"
       />
@@ -84,7 +67,6 @@ describe('BlogList', () => {
     render(
       <BlogList
         initialPosts={[{ ...blogPost, published_at: 'not-a-date' }]}
-        merchantId="merchant-1"
         totalPosts={1}
         basePath="/ogabassey"
       />
@@ -97,61 +79,57 @@ describe('BlogList', () => {
     ).toBeInTheDocument();
   });
 
-  it('continues infinite loading from the first server-rendered page', () => {
-    mockFetchMorePosts.mockResolvedValueOnce([]);
-
+  it('renders the first visible card image as the listing LCP candidate', () => {
     render(
       <BlogList
-        initialPosts={[blogPost]}
-        merchantId="merchant-1"
-        totalPosts={48}
+        initialPosts={[
+          blogPost,
+          {
+            ...blogPost,
+            id: 'post-2',
+            slug: 'second-post',
+            title: 'Second post',
+          },
+        ]}
+        totalPosts={2}
         basePath="/ogabassey"
       />
     );
 
-    act(() => {
-      intersectionCallback?.([{ isIntersecting: true }]);
-    });
-
-    expect(mockFetchMorePosts).toHaveBeenCalledWith(
-      'merchant-1',
-      2,
-      undefined,
-      undefined
-    );
+    const images = screen.getAllByRole('img');
+    expect(images[0]).toHaveAttribute('data-preload', 'true');
+    expect(images[0]).toHaveAttribute('data-fetch-priority', 'high');
+    expect(images[0]).toHaveAttribute('data-loading', 'eager');
+    expect(images[1]).not.toHaveAttribute('data-preload');
+    expect(images[1]).not.toHaveAttribute('data-fetch-priority');
+    expect(images[1]).not.toHaveAttribute('data-loading', 'eager');
   });
 
-  it('does not show the infinite-scroll end marker on crawlable paginated pages', () => {
+  it('renders crawlable pagination copy instead of auto-fetching with IntersectionObserver', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
-        initialPage={3}
-        merchantId="merchant-1"
         totalPosts={48}
         basePath="/ogabassey"
       />
     );
 
+    expect(screen.getByText('Showing 1 of 48 articles')).toBeInTheDocument();
     expect(
       screen.queryByText("You've reached the end")
     ).not.toBeInTheDocument();
   });
 
-  it('does not auto-fetch when rendering a paginated crawl page', () => {
+  it('does not show pagination copy when rendering a later crawl page', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
         initialPage={3}
-        merchantId="merchant-1"
         totalPosts={48}
         basePath="/ogabassey"
       />
     );
 
-    act(() => {
-      intersectionCallback?.([{ isIntersecting: true }]);
-    });
-
-    expect(mockFetchMorePosts).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Showing /)).not.toBeInTheDocument();
   });
 });

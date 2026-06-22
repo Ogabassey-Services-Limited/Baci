@@ -1,18 +1,42 @@
 'use client';
 
-import {
-  capturePostHogPageview,
-  initializePostHogBrowser,
-} from '@/lib/posthog/browser';
+import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
 
-if (typeof window !== 'undefined') {
-  initializePostHogBrowser(postHogBrowserEnv);
-  capturePostHogPageview();
-}
-
 export function PostHogClientBootstrap() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const currentPathname = pathname || globalThis.location?.pathname;
+
+    if (!currentPathname || isPublicBlogPathname(currentPathname)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function initialize() {
+      const { initializePostHogBrowser } = await import(
+        '@/lib/posthog/browser'
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      initializePostHogBrowser(postHogBrowserEnv);
+    }
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
   return null;
 }

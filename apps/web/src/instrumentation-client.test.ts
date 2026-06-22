@@ -22,9 +22,13 @@ afterEach(() => {
 
 describe('instrumentation-client', () => {
   it('initializes browser PostHog instrumentation', async () => {
-    await importInstrumentationClient();
+    vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
 
-    expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    await importInstrumentationClient();
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
@@ -37,6 +41,19 @@ describe('instrumentation-client', () => {
     vi.stubGlobal('window', undefined);
 
     await importInstrumentationClient();
+
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+  });
+
+  it('skips PostHog on public blog pages to keep article pages light', async () => {
+    vi.stubGlobal('location', {
+      pathname: '/blog/phone-guide',
+      href: 'https://ogabassey.com/blog/phone-guide',
+    });
+
+    await importInstrumentationClient();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();

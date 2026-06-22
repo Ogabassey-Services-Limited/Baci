@@ -1,12 +1,20 @@
-import {
-  capturePostHogPageview,
-  initializePostHogBrowser,
-} from '@/lib/posthog/browser';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
 
-if (typeof window !== 'undefined') {
+async function initializePostHogInstrumentation() {
+  const { capturePostHogPageview, initializePostHogBrowser } = await import(
+    '@/lib/posthog/browser'
+  );
+
   initializePostHogBrowser(postHogBrowserEnv);
   capturePostHogPageview();
+}
+
+if (
+  typeof window !== 'undefined' &&
+  !isPublicBlogPathname(globalThis.location?.pathname)
+) {
+  void initializePostHogInstrumentation();
 }

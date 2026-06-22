@@ -1,4 +1,5 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+import imageLoader from '@/lib/image-loader';
 
 /**
  * Inline blog body images (the codex content pipeline) are uploaded as raw PNGs
@@ -42,9 +43,39 @@ export function isTrustedCdnInlineImage(
   );
 }
 
+const INLINE_IMAGE_SRCSET_WIDTHS = [384, 640, 828, 1080, 1200] as const;
+const INLINE_IMAGE_FALLBACK_WIDTH = 828;
+const INLINE_IMAGE_QUALITY = 70;
+export const BLOG_INLINE_IMAGE_SIZES =
+  '(max-width: 768px) calc(100vw - 3rem), 800px';
+export const BLOG_INLINE_IMAGE_WIDTH = 1200;
+export const BLOG_INLINE_IMAGE_HEIGHT = 675;
+
 export interface InlineImageSiblings {
   avif: string;
   webp: string;
+  fallback: string;
+  avifSrcSet: string;
+  webpSrcSet: string;
+  fallbackSrcSet: string;
+  sizes: string;
+  width: number;
+  height: number;
+}
+
+function buildResponsiveUrl(src: string, width: number): string {
+  return imageLoader({
+    src,
+    width,
+    quality: INLINE_IMAGE_QUALITY,
+    preferOgabasseyTransform: true,
+  });
+}
+
+function buildResponsiveSrcSet(src: string): string {
+  return INLINE_IMAGE_SRCSET_WIDTHS.map(
+    (width) => `${buildResponsiveUrl(src, width)} ${width}w`
+  ).join(', ');
 }
 
 /**
@@ -56,8 +87,18 @@ export function buildInlineImageSiblings(src: string): InlineImageSiblings {
   const match = src.match(/^([^?#]+)([?#].*)?$/);
   const path = match?.[1] ?? src;
   const suffix = match?.[2] ?? '';
+  const avif = `${path}.avif${suffix}`;
+  const webp = `${path}.webp${suffix}`;
+
   return {
-    avif: `${path}.avif${suffix}`,
-    webp: `${path}.webp${suffix}`,
+    avif,
+    webp,
+    fallback: buildResponsiveUrl(src, INLINE_IMAGE_FALLBACK_WIDTH),
+    avifSrcSet: buildResponsiveSrcSet(avif),
+    webpSrcSet: buildResponsiveSrcSet(webp),
+    fallbackSrcSet: buildResponsiveSrcSet(src),
+    sizes: BLOG_INLINE_IMAGE_SIZES,
+    width: BLOG_INLINE_IMAGE_WIDTH,
+    height: BLOG_INLINE_IMAGE_HEIGHT,
   };
 }

@@ -1,5 +1,3 @@
-'use client';
-
 import { toHtml } from 'hast-util-to-html';
 import { common, createLowlight } from 'lowlight';
 import Image from 'next/image';
@@ -289,10 +287,22 @@ const NodeRenderer = ({
             // compatibility fallback. next/image would needlessly re-process an
             // already-optimized CDN URL.
             <picture>
-              <source srcSet={inlineSiblings.avif} type="image/avif" />
-              <source srcSet={inlineSiblings.webp} type="image/webp" />
+              <source
+                srcSet={inlineSiblings.avifSrcSet}
+                sizes={inlineSiblings.sizes}
+                type="image/avif"
+              />
+              <source
+                srcSet={inlineSiblings.webpSrcSet}
+                sizes={inlineSiblings.sizes}
+                type="image/webp"
+              />
               <img
-                src={imageSrc}
+                src={inlineSiblings.fallback}
+                srcSet={inlineSiblings.fallbackSrcSet}
+                sizes={inlineSiblings.sizes}
+                width={inlineSiblings.width}
+                height={inlineSiblings.height}
                 alt={imageAlt}
                 className="absolute inset-0 h-full w-full object-cover"
                 decoding="async"

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BLOG_INLINE_IMAGE_HEIGHT,
+  BLOG_INLINE_IMAGE_SIZES,
+  BLOG_INLINE_IMAGE_WIDTH,
   buildInlineImageSiblings,
   isTrustedCdnInlineImage,
 } from './blog-inline-image-optimization';
@@ -75,17 +78,38 @@ describe('isTrustedCdnInlineImage', () => {
 });
 
 describe('buildInlineImageSiblings', () => {
-  it('appends .avif/.webp to the inline png URL', () => {
-    expect(buildInlineImageSiblings(INLINE)).toEqual({
+  it('appends .avif/.webp to the inline png URL and exposes responsive candidates', () => {
+    const siblings = buildInlineImageSiblings(INLINE);
+
+    expect(siblings).toMatchObject({
       avif: `${INLINE}.avif`,
       webp: `${INLINE}.webp`,
+      sizes: BLOG_INLINE_IMAGE_SIZES,
+      width: BLOG_INLINE_IMAGE_WIDTH,
+      height: BLOG_INLINE_IMAGE_HEIGHT,
     });
+    expect(siblings.fallback).toContain('width=828,quality=70,format=auto');
+    expect(siblings.avifSrcSet).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif 384w'
+    );
+    expect(siblings.webpSrcSet).toContain(
+      'width=1200,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.webp 1200w'
+    );
+    expect(siblings.fallbackSrcSet).toContain(
+      'width=640,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
+    );
   });
 
   it('inserts the suffix before any query/hash', () => {
-    expect(buildInlineImageSiblings(`${INLINE}?v=2`)).toEqual({
-      avif: `${INLINE}.avif?v=2`,
-      webp: `${INLINE}.webp?v=2`,
-    });
+    const siblings = buildInlineImageSiblings(`${INLINE}?v=2`);
+
+    expect(siblings.avif).toBe(`${INLINE}.avif?v=2`);
+    expect(siblings.webp).toBe(`${INLINE}.webp?v=2`);
+    expect(siblings.fallback).toContain(
+      'width=828,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png?v=2'
+    );
+    expect(siblings.avifSrcSet).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif?v=2 384w'
+    );
   });
 });
