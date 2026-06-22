@@ -11,7 +11,6 @@ export interface AdPlacement {
 }
 
 export const DEFERRED_SHELL_MOUNT_DELAY_MS = 1;
-export const BANNER_CAROUSEL_MOUNT_DELAY_MS = 1800;
 export const HOMEPAGE_STRIP_AD_BOOT_DELAY_MS = 12_000;
 export const SPONSORED_SLIDE_AD_BOOT_DELAY_MS = 9000;
 

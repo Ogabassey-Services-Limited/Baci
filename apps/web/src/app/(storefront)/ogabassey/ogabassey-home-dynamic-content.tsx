@@ -1,15 +1,24 @@
+import {
+  LAUNCH_CAROUSEL_LIMIT,
+  OGABASSEY_PINNED_LAUNCH_SLUGS,
+  selectLaunchProducts,
+} from '@baci/shared/storefront';
 import Link from 'next/link';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
 import { buildMerchantAnalyticsSettings } from '@/components/analytics/analytics-merchant-settings';
 import { AnalyticsPixelProvider } from '@/components/analytics/analytics-pixel-provider';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
-import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
+import {
+  createOgabasseyHomeProductFeed,
+  mapStorefrontProductsToOgabasseyProducts,
+} from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   getCachedStorefrontHomeProducts,
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
+import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -103,13 +112,40 @@ export async function OgabasseyHomeDynamicContent({
   merchant,
   pathPrefix,
 }: OgabasseyHomeDynamicContentProps) {
-  const [products, categories] = await Promise.all([
+  const [products, categories, pinnedProductRows] = await Promise.all([
     // OgaBassey surfaces the most recently updated devices first (smartphones
     // are still pinned to the front downstream via prioritizeSmartphoneProducts).
     getCachedStorefrontHomeProducts(merchant.id, 'recent'),
     getCachedNavigationCategories(merchant.id),
+    // Deterministic fetch for the launch carousel pins: the recent window is
+    // capped, so explicitly-pinned launches (e.g. the Samsung A27 preorder) can
+    // fall outside it. Fetched by slug so they always appear. This lookup is
+    // optional — a failure must only drop the pins, never take down the
+    // homepage — so it falls back to [] on error.
+    getCachedStorefrontProductsBySlugs(
+      merchant.id,
+      OGABASSEY_PINNED_LAUNCH_SLUGS
+    ).catch((error) => {
+      console.error('Failed to load pinned launch products', { error });
+      return [];
+    }),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
+  const pinnedProducts = mapHomeProductsToTemplateProducts(
+    pinnedProductRows || []
+  );
+  // Launch carousel: pinned-first, then newest, deduped, capped.
+  const launchSubset = selectLaunchProducts(
+    [...pinnedProducts, ...merchantProducts],
+    { pinned: OGABASSEY_PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
+  );
+  const launchProducts = mapStorefrontProductsToOgabasseyProducts(launchSubset);
+  // Schema product list: prepend the visible launch items (deduped) so every
+  // carousel slide is represented even when it falls outside the top-8 window.
+  const schemaProducts = selectLaunchProducts(
+    [...launchSubset, ...merchantProducts],
+    { limit: OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT }
+  );
   const baseUrl = buildStoreUrl(merchant);
   const homeDescription = generateMetaDescription(
     merchant.site_description ||
@@ -122,10 +158,7 @@ export async function OgabasseyHomeDynamicContent({
           name: `${merchant.business_name} featured products`,
           description: homeDescription,
           url: baseUrl,
-          products: merchantProducts.slice(
-            0,
-            OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT
-          ),
+          products: schemaProducts,
           merchantName: merchant.business_name,
           currency: merchant.payout_currency || 'NGN',
         })
@@ -186,6 +219,7 @@ export async function OgabasseyHomeDynamicContent({
       <OgabasseyHomePage
         basePath={pathPrefix}
         categories={categories || []}
+        launchProducts={launchProducts}
         products={createOgabasseyHomeProductFeed(merchantProducts)}
         renderHero={false}
         storeSlug={merchant.slug}
