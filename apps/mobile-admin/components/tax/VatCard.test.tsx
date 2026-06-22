@@ -15,6 +15,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <output aria-label="loading" />,
   Pressable: ({
+    'aria-checked': ariaChecked,
     accessibilityLabel,
     accessibilityHint,
     accessibilityRole,
@@ -23,6 +24,7 @@ vi.mock('react-native', () => ({
     disabled,
     onPress,
   }: {
+    'aria-checked'?: boolean;
     accessibilityLabel?: string;
     accessibilityHint?: string;
     accessibilityRole?: string;
@@ -32,7 +34,7 @@ vi.mock('react-native', () => ({
     onPress?: () => void;
   }) => (
     <button
-      aria-checked={accessibilityState?.checked}
+      aria-checked={ariaChecked}
       aria-disabled={accessibilityState?.disabled}
       aria-label={accessibilityLabel}
       disabled={disabled}
