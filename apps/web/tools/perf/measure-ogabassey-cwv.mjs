@@ -40,6 +40,7 @@ const psiApiKey =
 const debugBearApiKey =
   process.env.DEBUGBEAR_API_KEY || process.env.DEBUGBEAR_ADMIN_API_KEY || '';
 const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
+const debugBearProjectId = process.env.DEBUGBEAR_PROJECT_ID?.trim() || '';
 const debugBearRegion = process.env.DEBUGBEAR_REGION || 'uk';
 const debugBearMaxPollAttempts =
   Number(process.env.DEBUGBEAR_MAX_POLL_ATTEMPTS) || 90;
@@ -97,7 +98,8 @@ async function getDebugBearProjects() {
 }
 
 async function runDebugBear(target, projects) {
-  const projectId = findDebugBearProjectIdForUrl(projects, target.url);
+  const projectId =
+    debugBearProjectId || findDebugBearProjectIdForUrl(projects, target.url);
   if (!projectId) {
     throw new Error(`No DebugBear project found for ${target.url}`);
   }
@@ -206,22 +208,27 @@ if (shouldRunPsi) {
 
 if (shouldRunDebugBear) {
   let projects = [];
-  try {
-    logProgress('DebugBear projects');
-    projects = await getDebugBearProjects();
-    await writeFile(
-      join(outputDir, 'debugbear-projects.json'),
-      JSON.stringify(projects, null, 2)
-    );
-  } catch (error) {
-    failures.push({
-      label: 'projects',
-      message: error instanceof Error ? error.message : String(error),
-      source: 'debugbear',
-    });
+  if (!debugBearProjectId) {
+    try {
+      logProgress('DebugBear projects');
+      projects = await getDebugBearProjects();
+      await writeFile(
+        join(outputDir, 'debugbear-projects.json'),
+        JSON.stringify(projects, null, 2)
+      );
+    } catch (error) {
+      failures.push({
+        label: 'projects',
+        message: error instanceof Error ? error.message : String(error),
+        source: 'debugbear',
+      });
+    }
+  } else {
+    logProgress(`DebugBear project ${debugBearProjectId}`);
   }
 
-  for (const target of projects.length ? targets : []) {
+  const debugBearTargets = debugBearProjectId || projects.length ? targets : [];
+  for (const target of debugBearTargets) {
     try {
       logProgress(
         `DebugBear ${debugBearDevice}/${debugBearRegion} ${target.label}`
@@ -261,6 +268,7 @@ printTable(summaries);
 if (failures.length) {
   console.error('Failures:');
   console.error(JSON.stringify(failures, null, 2));
+  process.exitCode = 1;
 }
 console.log(`Saved CWV audit artifacts to ${outputDir}`);
 console.log(`Audit id: ${auditId}`);
