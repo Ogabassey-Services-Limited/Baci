@@ -464,6 +464,68 @@ describe('product import actions', () => {
     });
   });
 
+  it('parses currency-code-prefixed amounts without spaces', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,"NGN2,000",USD10,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 10,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('does not treat a standalone supplier column as a cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Supplier,Cost Price,Selling Price,SKU\nNew Phone,Acme,1500,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1500,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('uses the price column instead of a preceding tax rate column', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Tax Rate,Price,SKU\nNew Phone,7.5,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('uses the price column instead of a preceding tax amount column', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Tax Amount,Price,SKU\nNew Phone,150,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
   it('emits an update when only cost price changes for an existing product', async () => {
     const result = await parseCSVDirectly(
       [
@@ -645,6 +707,26 @@ describe('product import actions', () => {
 
     expect(result.changes).toEqual([]);
     expect(result.summary).toContain('Parsed 0 products from CSV');
+    expect(result.summary).toContain('Skipped 1 rows');
+  });
+
+  it('does not archive existing products that are present with invalid prices', async () => {
+    const result = await parseCSVDirectly(
+      [
+        ...existingProducts,
+        {
+          id: 'product-2',
+          name: 'Keep Phone',
+          price: 2000,
+          sku: 'KEEP-1',
+          stock: 3,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,SKU\nOld Phone,not-a-price,OLD-1\nKeep Phone,2000,KEEP-1'
+    );
+
+    expect(result.changes).toEqual([]);
+    expect(result.summary).toContain('Parsed 1 products from CSV');
     expect(result.summary).toContain('Skipped 1 rows');
   });
 
