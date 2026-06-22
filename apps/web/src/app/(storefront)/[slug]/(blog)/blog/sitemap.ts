@@ -6,6 +6,8 @@ import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
 import { resolveStorefrontSitemapContext } from '../../sitemap-data';
 
+export const preferredRegion = 'dub1';
+
 export const dynamic = 'force-dynamic';
 
 /**

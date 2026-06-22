@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMerchantSafe } from '@/lib/cached-data';
 
+export const preferredRegion = 'dub1';
+
 const FAVICON_CACHE_CONTROL = 'public, max-age=300, stale-while-revalidate=600';
 
 function sanitizeRootDomain(value: string | undefined) {
