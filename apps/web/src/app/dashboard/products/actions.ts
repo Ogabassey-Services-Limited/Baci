@@ -495,11 +495,12 @@ function normalizeName(name: string): string {
 function isCostPriceHeader(header: string): boolean {
   const words = header.split(/[^a-z0-9]+/).filter(Boolean);
   const hasCost = words.includes('cost');
+  const isCustomerFacingPrice = words.some((word) =>
+    ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
+  );
+
   return (
-    (hasCost &&
-      (words.includes('price') ||
-        words.includes('unit') ||
-        words.length === 1)) ||
+    (hasCost && !isCustomerFacingPrice) ||
     header.includes('cogs') ||
     header.includes('buying') ||
     header.includes('purchase') ||
@@ -533,10 +534,14 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   return genericPriceIdx;
 }
 
-// Helper: Parse price string (handles currency symbols, commas)
+// Helper: Parse price string (handles currency symbols, ISO codes, commas)
 function parsePrice(priceStr: string): number {
   const cleaned = priceStr
-    .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols and commas
+    .replace(
+      /\b(?:aed|aud|cad|cny|eur|gbp|ghs|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi,
+      ''
+    )
+    .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols, commas, and whitespace
     .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
   return Number.parseFloat(cleaned);
 }

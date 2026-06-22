@@ -41,6 +41,20 @@ const ENRICHMENT_BATCH_SIZE = 5;
 
 type EnrichmentTarget = Change & { originalIndex: number };
 
+function parseEditableCostPrice(
+  rawValue: string,
+  numericValue: number
+): number | null | undefined {
+  if (rawValue.trim() === '') {
+    return Number.isNaN(numericValue) ? null : undefined;
+  }
+
+  const value = Number.isNaN(numericValue)
+    ? Number.parseFloat(rawValue)
+    : numericValue;
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
 interface EnrichmentRunArgs {
   targets: EnrichmentTarget[];
   stopGenerationRef: RefObject<boolean>;
@@ -447,8 +461,13 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                         value={change.details.cost_price ?? ''}
                         placeholder="0.00"
                         onChange={(e) => {
-                          const rawVal = e.target.value;
-                          const val = Number.parseFloat(rawVal);
+                          const costPrice = parseEditableCostPrice(
+                            e.currentTarget.value,
+                            e.currentTarget.valueAsNumber
+                          );
+                          if (costPrice === undefined) {
+                            return;
+                          }
 
                           setLocalChanges((prev) => {
                             const next = [...prev];
@@ -456,7 +475,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                               ...next[index],
                               details: {
                                 ...next[index].details,
-                                cost_price: Number.isNaN(val) ? null : val,
+                                cost_price: costPrice,
                               },
                             };
                             return next;

@@ -138,4 +138,29 @@ describe('ReviewChanges', () => {
       ]);
     });
   });
+
+  it('rejects negative and non-finite cost price edits before applying', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '-5' } });
+    Object.defineProperty(costPriceInput, 'valueAsNumber', {
+      configurable: true,
+      value: Number.POSITIVE_INFINITY,
+    });
+    fireEvent.change(costPriceInput, { target: { value: '1e9999' } });
+    await user.click(screen.getByRole('button', { name: /import & publish/i }));
+
+    await waitFor(() => {
+      expect(mocks.applyChanges).toHaveBeenCalledWith([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            cost_price: 700,
+          }),
+          type: 'new',
+        }),
+      ]);
+    });
+  });
 });

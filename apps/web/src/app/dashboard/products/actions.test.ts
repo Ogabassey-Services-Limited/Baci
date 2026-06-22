@@ -414,6 +414,56 @@ describe('product import actions', () => {
     });
   });
 
+  it('treats cost amount headers as cost columns, not selling prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Cost Amount,Selling Price,SKU\nNew Phone,1500,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toEqual({
+      details: {
+        category: 'General',
+        cost_price: 1500,
+        image: undefined,
+        name: 'New Phone',
+        price: 2000,
+        sku: 'NEW-1',
+        stock: 0,
+      },
+      type: 'new',
+    });
+  });
+
+  it('does not use a cost amount column as the selling price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Cost Amount,SKU\nNew Phone,1500,NEW-1'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+  });
+
+  it('parses currency-code-prefixed cost prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,"NGN 2,000","USD 10",NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 10,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
   it('emits an update when only cost price changes for an existing product', async () => {
     const result = await parseCSVDirectly(
       [
@@ -571,6 +621,20 @@ describe('product import actions', () => {
         type: 'update',
       },
     ]);
+  });
+
+  it('does not re-emit cost updates when an existing zero cost is reimported', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          ...existingProducts[0],
+          cost_price: 0,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,Cost Price,SKU\nOld Phone,1000,0,OLD-1'
+    );
+
+    expect(result.changes).toEqual([]);
   });
 
   it('skips rows with invalid selling prices', async () => {
