@@ -65,6 +65,8 @@ const CACHE_UNSAFE_ENCODED_SPACE_OR_DASH_REGEX =
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
+const ANALYTICS_CONVERSION_API_PATH = '/api/analytics/conversion';
+const LEGACY_ANALYTICS_CONVERSION_PATH = '/analytics/conversion';
 const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
@@ -752,6 +754,15 @@ function isLegacyKlumpWooCommerceWebhookPath(pathname: string): boolean {
   return (
     normalizedPathname.toLowerCase() === LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH
   );
+}
+
+function isLegacyAnalyticsConversionPath(pathname: string): boolean {
+  const normalizedPathname =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return normalizedPathname.toLowerCase() === LEGACY_ANALYTICS_CONVERSION_PATH;
 }
 
 function getNoTrailingSlashRedirectPath(pathname: string): string | null {
@@ -1454,14 +1465,19 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const isLegacyAnalyticsConversionPost =
+    isLegacyAnalyticsConversionPath(pathname) && request.method === 'POST';
   const isLegacyKlumpWebhook = isLegacyKlumpWooCommerceWebhookPath(pathname);
   const apiSecurityPathname = isLegacyKlumpWebhook
     ? KLUMP_WEBHOOK_API_PATH
-    : pathname;
+    : isLegacyAnalyticsConversionPost
+      ? ANALYTICS_CONVERSION_API_PATH
+      : pathname;
 
-  const noTrailingSlashPathname = isLegacyKlumpWebhook
-    ? null
-    : getNoTrailingSlashRedirectPath(pathname);
+  const noTrailingSlashPathname =
+    isLegacyKlumpWebhook || isLegacyAnalyticsConversionPost
+      ? null
+      : getNoTrailingSlashRedirectPath(pathname);
   if (noTrailingSlashPathname) {
     return NextResponse.redirect(
       new URL(noTrailingSlashPathname + request.nextUrl.search, request.url),
@@ -1613,6 +1629,25 @@ export async function proxy(request: NextRequest) {
     return applySecurityHeaders(
       response,
       KLUMP_WEBHOOK_API_PATH,
+      userAgent,
+      'api',
+      isLocalhost(hostname),
+      undefined,
+      request,
+      hostname
+    );
+  }
+
+  if (isLegacyAnalyticsConversionPost) {
+    const conversionUrl = new URL(
+      ANALYTICS_CONVERSION_API_PATH + request.nextUrl.search,
+      request.url
+    );
+
+    const response = NextResponse.rewrite(conversionUrl);
+    return applySecurityHeaders(
+      response,
+      ANALYTICS_CONVERSION_API_PATH,
       userAgent,
       'api',
       isLocalhost(hostname),
