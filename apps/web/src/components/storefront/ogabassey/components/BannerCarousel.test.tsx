@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
@@ -35,8 +35,9 @@ const mockAdUnit = vi.hoisted(() =>
 vi.mock('./AdUnit', () => ({
   AdUnit: (props: Record<string, unknown>) => mockAdUnit(props),
 }));
+const mockReducedMotion = vi.hoisted(() => ({ value: false }));
 vi.mock('@/hooks/use-reduced-motion', () => ({
-  useReducedMotion: () => false,
+  useReducedMotion: () => mockReducedMotion.value,
 }));
 
 import { BannerCarousel, resolveBannerHref } from './BannerCarousel';
@@ -45,6 +46,10 @@ import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
 describe('BannerCarousel', () => {
   beforeEach(() => {
     mockAdUnit.mockClear();
+  });
+
+  afterEach(() => {
+    mockReducedMotion.value = false;
   });
 
   it('renders without crashing', () => {
@@ -115,6 +120,15 @@ describe('BannerCarousel', () => {
     expect(
       screen.getByRole('button', { name: 'Play auto-rotation' })
     ).toBeDefined();
+  });
+
+  it('hides the pause/play control when reduced motion is preferred', () => {
+    mockReducedMotion.value = true;
+    render(<BannerCarousel />);
+
+    expect(
+      screen.queryByRole('button', { name: /auto-rotation/i })
+    ).toBeNull();
   });
 
   it('labels banner slide controls as non-submit buttons', () => {

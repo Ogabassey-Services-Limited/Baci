@@ -90,7 +90,9 @@ export function selectLaunchProducts<T extends ProductWithSlug>(
     }
   }
 
-  return typeof limit === 'number' ? result.slice(0, limit) : result;
+  return typeof limit === 'number'
+    ? result.slice(0, Math.max(0, Math.trunc(limit)))
+    : result;
 }
 
 /** Whether a product name signals a pre-order launch. */

@@ -30,7 +30,7 @@ jest.mock('@/hooks/use-pinned-launch-products', () => ({
 jest.mock('@/components/ui/Skeleton', () => {
   const { View } =
     jest.requireActual<typeof import('react-native')>('react-native');
-  return { Skeleton: () => <View testID="skeleton" /> };
+  return { Skeleton: () => <View accessibilityRole="progressbar" accessible /> };
 });
 
 import { JustLaunchedCarousel } from './JustLaunchedCarousel';
@@ -92,7 +92,7 @@ describe('JustLaunchedCarousel', () => {
     render(<JustLaunchedCarousel />);
 
     expect(screen.getByText('Just Launched')).toBeTruthy();
-    expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
   });
 
   it('renders nothing on error', () => {

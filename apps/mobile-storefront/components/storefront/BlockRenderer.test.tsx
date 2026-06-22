@@ -83,19 +83,19 @@ describe('BlockRenderer', () => {
   it('does not reserve hero placeholder space when resolved content has no slides', () => {
     renderBlocks([emptyHeroBlock]);
 
-    expect(screen.queryByTestId('hero-skeleton')).toBeNull();
+    expect(screen.queryByText('Loading hero')).toBeNull();
   });
 
   it('renders a configured hero carousel when slides are present', () => {
     renderBlocks([configuredHeroBlock]);
 
-    expect(screen.getByTestId('hero-carousel')).toBeTruthy();
+    expect(screen.getByText('Hero carousel')).toBeTruthy();
   });
 
   it('renders the just-launched carousel for a JustLaunched block', () => {
     renderBlocks([{ type: 'JustLaunched', props: { id: 'launches' } }]);
 
-    expect(screen.getByTestId('just-launched')).toBeTruthy();
+    expect(screen.getByText('Just launched')).toBeTruthy();
   });
 
   it('renders no content for an unknown block type', () => {

@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => {
@@ -16,11 +16,16 @@ vi.mock('next/link', () => ({
     href: string;
   }) => <a {...props}>{children}</a>,
 }));
+const mockReducedMotion = vi.hoisted(() => ({ value: false }));
 vi.mock('@/hooks/use-reduced-motion', () => ({
-  useReducedMotion: () => false,
+  useReducedMotion: () => mockReducedMotion.value,
 }));
 
 import { LaunchCarousel, type LaunchSlide } from './LaunchCarousel';
+
+afterEach(() => {
+  mockReducedMotion.value = false;
+});
 
 const PRODUCT_SLIDES: LaunchSlide[] = [
   {
@@ -157,6 +162,15 @@ describe('LaunchCarousel', () => {
     expect(
       screen.getByRole('button', { name: 'Play auto-rotation' })
     ).toBeDefined();
+  });
+
+  it('hides the pause/play control when reduced motion is preferred', () => {
+    mockReducedMotion.value = true;
+    render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
+
+    expect(
+      screen.queryByRole('button', { name: /auto-rotation/i })
+    ).toBeNull();
   });
 
   it('shows navigation dots only when there is more than one slide', () => {

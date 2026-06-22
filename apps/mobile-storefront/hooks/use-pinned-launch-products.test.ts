@@ -59,4 +59,16 @@ describe('usePinnedLaunchProducts', () => {
     expect(result.current.fetchStatus).toBe('idle');
     expect(mockFetchProductsBySlugs).not.toHaveBeenCalled();
   });
+
+  it('surfaces an error state when the pinned fetch fails', async () => {
+    const boom = new Error('boom');
+    mockFetchProductsBySlugs.mockRejectedValueOnce(boom);
+
+    const { result } = renderHook(() => usePinnedLaunchProducts(['a27']), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBe(boom);
+  });
 });

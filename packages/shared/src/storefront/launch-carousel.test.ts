@@ -138,6 +138,16 @@ describe('selectLaunchProducts', () => {
     expect(result.map((i) => i.name)).toEqual(['orphan', 'a']);
   });
 
+  it('treats a negative or fractional limit as a floored, non-negative cap', () => {
+    const items: TestProduct[] = [p('a'), p('b'), p('c')];
+
+    // A negative limit must not slice from the end (slice(0, -1) would).
+    expect(selectLaunchProducts(items, { limit: -1 })).toEqual([]);
+    expect(
+      selectLaunchProducts(items, { limit: 1.9 }).map((i) => i.slug)
+    ).toEqual(['a']);
+  });
+
   it('returns everything (uncapped) when no limit is given', () => {
     const items: TestProduct[] = [p('a'), p('b'), p('c')];
 
