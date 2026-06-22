@@ -34,7 +34,7 @@ vi.mock('react-native', () => ({
     onPress?: () => void;
   }) => (
     <button
-      aria-checked={ariaChecked}
+      aria-checked={ariaChecked ?? accessibilityState?.checked}
       aria-disabled={accessibilityState?.disabled}
       aria-label={accessibilityLabel}
       disabled={disabled}
@@ -89,7 +89,9 @@ describe('VatCard', () => {
       />
     );
 
-    const toggleBtn = screen.getByRole('switch', { name: 'Toggle VAT Collection' });
+    const toggleBtn = screen.getByRole('switch', {
+      name: 'Toggle VAT Collection',
+    });
     expect(toggleBtn).toBeInTheDocument();
     expect(toggleBtn).toHaveAttribute('aria-checked', 'false');
     expect(toggleBtn).not.toBeDisabled();
@@ -110,7 +112,9 @@ describe('VatCard', () => {
       />
     );
 
-    const toggleBtn = screen.getByRole('switch', { name: 'Toggle VAT Collection' });
+    const toggleBtn = screen.getByRole('switch', {
+      name: 'Toggle VAT Collection',
+    });
     expect(toggleBtn).toBeInTheDocument();
     expect(toggleBtn).toHaveAttribute('aria-checked', 'true');
     expect(toggleBtn).not.toBeDisabled();
@@ -128,7 +132,9 @@ describe('VatCard', () => {
       />
     );
 
-    const toggleBtn = screen.getByRole('switch', { name: 'Toggle VAT Collection' });
+    const toggleBtn = screen.getByRole('switch', {
+      name: 'Toggle VAT Collection',
+    });
     expect(toggleBtn).toBeDisabled();
     expect(toggleBtn).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByLabelText('loading')).toBeInTheDocument();
