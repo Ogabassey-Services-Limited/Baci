@@ -37,7 +37,7 @@ export function JustLaunchedCarousel() {
     sortBy: 'newest',
     limit: 50,
   });
-  const { data: pinned } = usePinnedLaunchProducts(
+  const { data: pinned, isLoading: isPinnedLoading } = usePinnedLaunchProducts(
     OGABASSEY_PINNED_LAUNCH_SLUGS
   );
 
@@ -55,8 +55,9 @@ export function JustLaunchedCarousel() {
   const cardWidth = Math.round(width * 0.82);
 
   // Show a skeleton on first load (rather than a blank gap) for clearer loading
-  // feedback; error and empty states still render nothing.
-  if (isLoading) {
+  // feedback; gate on BOTH queries so pinned items can't pop in after the
+  // recent feed resolves first. Error and empty states still render nothing.
+  if (isLoading || isPinnedLoading) {
     return (
       <View style={styles.container}>
         <Text

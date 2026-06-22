@@ -53,7 +53,7 @@ const xiaomi = {
 describe('JustLaunchedCarousel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUsePinned.mockReturnValue({ data: [] });
+    mockUsePinned.mockReturnValue({ data: [], isLoading: false });
     mockUseProducts.mockReturnValue({
       products: [],
       isLoading: false,
@@ -93,6 +93,22 @@ describe('JustLaunchedCarousel', () => {
 
     expect(screen.getByText('Just Launched')).toBeTruthy();
     expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the skeleton while the pinned fetch is still loading (no pop-in)', () => {
+    // The recent feed has resolved, but the pinned-slug query has not — without
+    // gating on both, pinned slides would pop in after the skeleton dismissed.
+    mockUseProducts.mockReturnValue({
+      products: [xiaomi],
+      isLoading: false,
+      isError: false,
+    });
+    mockUsePinned.mockReturnValue({ data: undefined, isLoading: true });
+
+    render(<JustLaunchedCarousel />);
+
+    expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Xiaomi 17T')).toBeNull();
   });
 
   it('renders nothing on error', () => {

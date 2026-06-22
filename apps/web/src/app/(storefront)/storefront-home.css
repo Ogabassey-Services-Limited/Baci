@@ -40,6 +40,8 @@
 @source "../../components/storefront/ogabassey/layout";
 @source "../../components/storefront/ogabassey/components/AdUnit.tsx";
 @source "../../components/storefront/ogabassey/components/BannerCarousel.tsx";
+@source "../../components/storefront/ogabassey/components/banner-carousel-content.ts";
+@source "../../components/storefront/ogabassey/components/carousel-play-toggle.tsx";
 @source "../../components/storefront/ogabassey/components/CartSidebar.tsx";
 @source "../../components/storefront/ogabassey/components/FloatingParticles.tsx";
 @source "../../components/storefront/ogabassey/components/Footer.tsx";
