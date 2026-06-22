@@ -25,6 +25,11 @@ export function JsonLd<T extends Thing = Thing>({
 }: JsonLdProps<T> | JsonLdGraphProps): ReactElement | null {
   if (!data) return null;
   return (
-    <script type="application/ld+json">{safeJsonLdStringify(data)}</script>
+    <script
+      type="application/ld+json"
+      // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized via safeJsonLdStringify before DOM insertion
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD must be injected raw but is sanitized by safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(data) }}
+    />
   );
 }
