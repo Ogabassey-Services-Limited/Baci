@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
 import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
@@ -57,10 +57,11 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
     }
     return BANNER_SLIDES;
   })();
-  // Latest slides held in a ref so the autoplay effect doesn't re-run (and reset
-  // the timer) on every render just because the `slides` array identity changes.
-  const slidesRef = useRef(slides);
-  slidesRef.current = slides;
+  // Derive primitives from `slides` so the autoplay effect depends on stable
+  // values (not the inline array's identity, which churns every render) without
+  // mutating a ref during render — React-19/Compiler-safe.
+  const slideCount = slides.length;
+  const isCurrentSlideAd = slides[currentSlide]?.type === 'ad';
 
   // Touch handling state
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -97,18 +98,16 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   useEffect(() => {
     // WCAG 2.2.2: stop on hover/focus, on the explicit toggle, and on reduced
     // motion. Also pause on an ad slide so video ads can play through uncut.
-    if (!autoplay.isActive) {
-      return;
-    }
-    if (slidesRef.current[currentSlide]?.type === 'ad') {
+    if (!autoplay.isActive || isCurrentSlideAd) {
       return;
     }
 
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slidesRef.current.length);
+      setCurrentSlide((prev) => (prev + 1) % slideCount);
     }, 6000);
     return () => clearInterval(timer);
-  }, [currentSlide, autoplay.isActive]);
+    // currentSlide stays in deps so manual navigation resets the 6s timer.
+  }, [currentSlide, autoplay.isActive, isCurrentSlideAd, slideCount]);
 
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
 

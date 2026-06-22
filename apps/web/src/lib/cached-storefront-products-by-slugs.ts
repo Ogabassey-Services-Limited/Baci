@@ -1,17 +1,31 @@
 import { cacheLife, cacheTag } from 'next/cache';
+import type { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 import {
   getPublicSupabaseClient,
   hydrateAndSanitizeProducts,
 } from '@/lib/cached-data';
 
 /**
+ * The home feed's row shape. By-slug rows are returned as this type so callers
+ * (selection, adapter, JSON-LD) treat pinned and recent products identically.
+ */
+type StorefrontHomeProduct = Awaited<
+  ReturnType<typeof getCachedStorefrontHomeProducts>
+>[number];
+
+/**
  * Same column list as `getCachedStorefrontHomeProducts`'s base select, so rows
- * are shape-compatible with `mapHomeProductsToTemplateProducts`.
+ * are shape-compatible with `mapHomeProductsToTemplateProducts`. Includes the
+ * `categories:category_id` FK join (like the home "recent" select) so a pinned
+ * product whose category lives only on `category_id` — with no
+ * `product_categories` M2M row — still resolves a category for its PDP deep-link
+ * instead of falling back to the category-less `/products/<slug>` path.
  */
 const PRODUCTS_BY_SLUG_SELECT = `
       id, name, slug, description, price, compare_at_price,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
+      categories:category_id(id, name, slug, parent_id),
       product_categories(categories(name, slug))
     `;
 
@@ -28,7 +42,7 @@ const PRODUCTS_BY_SLUG_SELECT = `
 export async function getCachedStorefrontProductsBySlugs(
   merchantId: string,
   slugs: readonly string[]
-) {
+): Promise<StorefrontHomeProduct[]> {
   'use cache: remote';
   cacheLife('products');
   cacheTag(

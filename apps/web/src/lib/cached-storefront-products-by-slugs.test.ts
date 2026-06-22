@@ -74,6 +74,11 @@ describe('getCachedStorefrontProductsBySlugs', () => {
     expect(selectArg).toContain('images');
     expect(selectArg).toContain('price');
     expect(selectArg).toContain('product_categories(categories(name, slug))');
+    // FK category join so a pin with only category_id (no M2M row) still
+    // resolves a category for its PDP deep-link.
+    expect(selectArg).toContain(
+      'categories:category_id(id, name, slug, parent_id)'
+    );
   });
 
   it('returns the hydrated rows for the requested slugs', async () => {
