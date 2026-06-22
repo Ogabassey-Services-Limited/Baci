@@ -120,8 +120,14 @@ async function syncIntegration(
         });
         if (notificationResult?.sent && notificationResult.sent > 0) {
           result.notified += 1;
-          // The push provider accepted the notification. Keep duplicated Jumia
-          // pages in this run from rebuilding a stale cache row as unnotified.
+        }
+        if (
+          (notificationResult?.sent && notificationResult.sent > 0) ||
+          notificationResult?.alreadySent
+        ) {
+          // The push provider accepted the notification, or another worker
+          // already marked it sent. Keep duplicated Jumia pages in this run
+          // from rebuilding a stale cache row as unnotified.
           existingJumiaOrders.set(
             order.id,
             cacheEntry(order.id, true, canonicalOrder.id)

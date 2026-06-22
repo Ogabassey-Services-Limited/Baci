@@ -19,8 +19,8 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
     const response = await POST(harness.createRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.newOrders).toBe(1);
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to process orders');
     expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledTimes(1);
     expect(
       harness.mocks.mutations.some(
@@ -56,6 +56,11 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
         orderId: 'order-1',
       })
     );
+    expect(
+      harness.mocks.mutations.some(
+        (mutation) => mutation.table === 'marketplace_integrations'
+      )
+    ).toBe(false);
   });
 
   it('marks notification_sent after push delivery succeeds', async () => {
@@ -112,8 +117,8 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
     const response = await POST(harness.createRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.newOrders).toBe(1);
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to process orders');
     expect(
       harness.mocks.mutations.some(
         (mutation) => mutation.payload.notification_sent === true
@@ -135,10 +140,59 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
         orderId: 'order-1',
       })
     );
+    expect(
+      harness.mocks.mutations.some(
+        (mutation) => mutation.table === 'marketplace_integrations'
+      )
+    ).toBe(false);
   });
 
-  it('skips delivery when another sync already holds the notification claim', async () => {
+  it('fails the manual sync when another sync holds the notification claim without a sent marker', async () => {
     harness.mocks.notificationClaimRows = [];
+    harness.mocks.getAllOrders.mockResolvedValue([
+      harness.createOrder('order-1'),
+    ]);
+
+    const response = await POST(harness.createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to process orders');
+    expect(harness.mocks.notifyJumiaOrder).not.toHaveBeenCalled();
+    expect(
+      harness.mocks.mutations.some(
+        (mutation) => mutation.payload.notification_sent === true
+      )
+    ).toBe(false);
+    expect(harness.mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Jumia order notification delivery is already leased',
+        orderId: 'order-1',
+      })
+    );
+    expect(
+      harness.mocks.mutations.some(
+        (mutation) => mutation.table === 'marketplace_integrations'
+      )
+    ).toBe(false);
+  });
+
+  it('skips delivery on a claim miss only when the sent marker is already true', async () => {
+    harness.mocks.notificationClaimRows = [];
+    harness.mocks.notificationStates = [
+      {
+        id: 'cache-row-order-1',
+        jumia_order_id: 'order-1',
+        notification_sent: false,
+      },
+    ];
+    harness.mocks.notificationAlreadySentRows = [
+      {
+        id: 'cache-row-order-1',
+        jumia_order_id: 'order-1',
+        notification_sent: true,
+      },
+    ];
     harness.mocks.getAllOrders.mockResolvedValue([
       harness.createOrder('order-1'),
     ]);

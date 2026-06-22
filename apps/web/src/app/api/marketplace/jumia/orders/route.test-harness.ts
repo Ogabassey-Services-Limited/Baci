@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   inQueries: [] as Array<{ column: string; values: string[] }>,
   loggerError: vi.fn(),
+  notificationAlreadySentRows: null as ExistingJumiaOrder[] | null,
   notificationStates: null as ExistingJumiaOrder[] | null,
   mutations: [] as MutationRecord[],
   notifyJumiaOrder: vi.fn(),
@@ -128,6 +129,7 @@ function reset() {
   mocks.mutations.length = 0;
   mocks.notificationClaimError = null;
   mocks.notificationClaimRows = null;
+  mocks.notificationAlreadySentRows = null;
   mocks.notificationMarkerError = null;
   mocks.notificationStates = null;
   mocks.prefetchError = null;

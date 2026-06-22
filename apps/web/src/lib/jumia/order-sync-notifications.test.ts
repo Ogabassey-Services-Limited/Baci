@@ -219,6 +219,45 @@ describe('Jumia order sync notification markers', () => {
     );
   });
 
+  it('preserves sent notification state for duplicate pages after an already-sent claim miss', async () => {
+    const heldClaimQuery = createQuery({ data: null, error: null });
+    const alreadySentQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
+    const { duplicateCacheQuery, supabase } =
+      createDuplicateNotificationSyncMock({
+        markerQueries: [heldClaimQuery, alreadySentQuery],
+      });
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order, order]);
+    vi.mocked(getOrderItems).mockResolvedValue({
+      orderId: order.id,
+      orderNumber: order.number,
+      items: [item],
+    });
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(notifyMerchant).not.toHaveBeenCalled();
+    expect(alreadySentQuery.eq).toHaveBeenCalledWith('notification_sent', true);
+    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification_sent: true,
+        baci_order_id: 'baci-order-1',
+      }),
+      { onConflict: 'jumia_order_id' }
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        synced: 2,
+        notified: 0,
+        orderErrors: 0,
+      })
+    );
+  });
+
   it('parks the sync cursor when no merchant push delivery is accepted', async () => {
     const notificationClaimQuery = createQuery({
       data: { jumia_order_id: order.id },

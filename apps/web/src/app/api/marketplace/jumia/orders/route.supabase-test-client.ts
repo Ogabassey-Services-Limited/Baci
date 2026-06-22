@@ -25,6 +25,7 @@ type SupabaseTestMocks = {
   existingOrders: ExistingJumiaOrder[];
   inQueries: Array<{ column: string; values: string[] }>;
   mutations: MutationRecord[];
+  notificationAlreadySentRows: ExistingJumiaOrder[] | null;
   notificationClaimError: { message: string } | null;
   notificationClaimRows: ExistingJumiaOrder[] | null;
   notificationMarkerError: { message: string } | null;
@@ -132,6 +133,84 @@ function createMutationQuery(
   return query;
 }
 
+function createSelectQuery(mocks: SupabaseTestMocks) {
+  const eqFilters: [string, unknown][] = [];
+
+  const getSourceRows = () =>
+    mocks.upserts.length > 0 && mocks.notificationStates
+      ? mocks.notificationStates
+      : mocks.existingOrders;
+  const shouldUseAlreadySentRows = () =>
+    eqFilters.some(
+      ([column, value]) => column === 'notification_sent' && value === true
+    ) && mocks.notificationAlreadySentRows;
+
+  const filterRows = (rows: ExistingJumiaOrder[]) =>
+    rows.filter((order) =>
+      eqFilters.every(([column, value]) => {
+        if (column === 'merchant_id') return value === 'merchant-1';
+        return order[column as keyof ExistingJumiaOrder] === value;
+      })
+    );
+
+  type SelectQuery = {
+    eq: (column: string, value: unknown) => SelectQuery;
+    in: (
+      column: string,
+      values: string[]
+    ) => Promise<{
+      data: ExistingJumiaOrder[] | null;
+      error: { message: string } | null;
+    }>;
+    maybeSingle: () => Promise<{
+      data: ExistingJumiaOrder | null;
+      error: { message: string } | null;
+    }>;
+  };
+
+  const query = {} as SelectQuery;
+  query.eq = (column: string, value: unknown) => {
+    eqFilters.push([column, value]);
+    return query;
+  };
+  query.in = (column: string, values: string[]) => {
+    mocks.inQueries.push({ column, values });
+    if (mocks.prefetchError) {
+      return Promise.resolve({
+        data: null,
+        error: mocks.prefetchError,
+      });
+    }
+
+    return Promise.resolve({
+      data: filterRows(getSourceRows()).filter((order) =>
+        values.includes(order.jumia_order_id)
+      ),
+      error: null,
+    });
+  };
+  query.maybeSingle = () => {
+    if (mocks.prefetchError) {
+      return Promise.resolve({
+        data: null,
+        error: mocks.prefetchError,
+      });
+    }
+
+    return Promise.resolve({
+      data:
+        filterRows(
+          shouldUseAlreadySentRows()
+            ? (mocks.notificationAlreadySentRows ?? [])
+            : getSourceRows()
+        )[0] ?? null,
+      error: null,
+    });
+  };
+
+  return query;
+}
+
 export function createSupabaseTestClient(mocks: SupabaseTestMocks) {
   return {
     auth: {
@@ -141,29 +220,7 @@ export function createSupabaseTestClient(mocks: SupabaseTestMocks) {
       }),
     },
     from: vi.fn((table: string) => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          in: vi.fn((column: string, values: string[]) => {
-            mocks.inQueries.push({ column, values });
-            if (mocks.prefetchError) {
-              return Promise.resolve({
-                data: null,
-                error: mocks.prefetchError,
-              });
-            }
-            const sourceRows =
-              mocks.upserts.length > 0 && mocks.notificationStates
-                ? mocks.notificationStates
-                : mocks.existingOrders;
-            return Promise.resolve({
-              data: sourceRows.filter((order) =>
-                values.includes(order.jumia_order_id)
-              ),
-              error: null,
-            });
-          }),
-        })),
-      })),
+      select: vi.fn(() => createSelectQuery(mocks)),
       update: vi.fn((payload: Record<string, unknown>) =>
         createMutationQuery(mocks, table, payload)
       ),

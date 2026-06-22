@@ -5,6 +5,7 @@ import type { JumiaOrderWrite } from './manual-order-sync-types';
 import { mapWithBoundedConcurrency } from './manual-order-sync-utils';
 import {
   claimJumiaNotificationDelivery,
+  isJumiaNotificationAlreadySent,
   markJumiaNotificationSent,
   releaseJumiaNotificationDeliveryClaim,
 } from './order-sync-notifications';
@@ -92,7 +93,21 @@ export async function sendManualJumiaNotifications(
       continue;
     }
     if (!claim.claimed || !claim.claimedAt) {
-      currentlyNotifiedOrderIds.add(write.orderId);
+      if (
+        await isJumiaNotificationAlreadySent(
+          supabase,
+          merchantId,
+          write.orderId
+        )
+      ) {
+        currentlyNotifiedOrderIds.add(write.orderId);
+        continue;
+      }
+      markerFailed = true;
+      logger.error({
+        message: 'Jumia order notification delivery is already leased',
+        orderId: write.orderId,
+      });
       continue;
     }
 
@@ -105,6 +120,7 @@ export async function sendManualJumiaNotifications(
         write.currency
       );
       if (deliveryResult.sent <= 0) {
+        markerFailed = true;
         await releaseJumiaNotificationDeliveryClaim(
           supabase,
           merchantId,
@@ -120,6 +136,7 @@ export async function sendManualJumiaNotifications(
         continue;
       }
     } catch (pushError) {
+      markerFailed = true;
       await releaseJumiaNotificationDeliveryClaim(
         supabase,
         merchantId,

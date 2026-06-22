@@ -11,6 +11,7 @@ import {
 import { notifySyncedJumiaOrder } from './order-sync-operations';
 
 type SyncedJumiaNotificationDeliveryResult = NotificationSendResult & {
+  alreadySent?: boolean;
   markerErrorMessage?: string;
   retryableMessage?: string;
 };
@@ -41,6 +42,7 @@ export async function deliverSyncedJumiaOrderNotification({
   if (!claim.claimed || !claim.claimedAt) {
     if (await isJumiaNotificationAlreadySent(supabase, merchantId, order.id)) {
       return {
+        alreadySent: true,
         sent: 0,
         failed: 0,
         errors: [],
