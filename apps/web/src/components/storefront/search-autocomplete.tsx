@@ -64,7 +64,9 @@ export function SearchAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debouncedValue = useDebounce(value, 300);
+  // 200ms sits at the responsive end of the 200-400ms typeahead debounce range;
+  // pairs with the per-request AbortController below so superseded queries cancel.
+  const debouncedValue = useDebounce(value, 200);
   const safeCountryCode = countryCode || 'NG';
   const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
 
@@ -121,52 +123,59 @@ export function SearchAutocomplete({
       return;
     }
 
+    // Abort the request when this debounced query is superseded (cleanup runs on
+    // the next debouncedValue) so a slow earlier query can never paint over newer
+    // results and the server stops work it no longer needs. We deliberately do
+    // NOT abort on every raw keystroke: that would cancel the in-flight request
+    // without guaranteeing a replacement (e.g. type "iphones" then backspace to
+    // "iphone" within the debounce window — debouncedValue never changes, so the
+    // effect would not re-run and the dropdown would be left empty).
+    const controller = new AbortController();
     let isMounted = true;
-    const fetchAutocomplete = () => {
-      setLoading(true);
-      fetch(
-        `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`
-      )
-        .then((response) => response.json())
-        .then(
-          (data: {
-            suggestions?: Product[];
-            popularSearches?: PopularSearch[];
-          }) => {
-            if (!isMounted) {
-              return;
-            }
-            setSuggestions(data.suggestions || []);
-            setPopularSearches(data.popularSearches || []);
-            setIsOpen(true);
-            setHighlightedIndex(-1);
-
-            // Track search event for merchant analytics
-            const resultsCount =
-              (data.suggestions?.length || 0) +
-              (data.popularSearches?.length || 0);
-            trackEvent.search(merchantId, debouncedValue, resultsCount);
-          }
-        )
-        .catch((error: unknown) => {
+    setLoading(true);
+    fetch(
+      `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`,
+      { signal: controller.signal }
+    )
+      .then((response) => response.json())
+      .then(
+        (data: {
+          suggestions?: Product[];
+          popularSearches?: PopularSearch[];
+        }) => {
           if (!isMounted) {
             return;
           }
-          console.error('Autocomplete error:', error);
-          setSuggestions([]);
-          setPopularSearches([]);
-        })
-        .finally(() => {
-          if (isMounted) {
-            setLoading(false);
-          }
-        });
-    };
+          setSuggestions(data.suggestions || []);
+          setPopularSearches(data.popularSearches || []);
+          setIsOpen(true);
+          setHighlightedIndex(-1);
 
-    fetchAutocomplete();
+          // Track search event for merchant analytics
+          const resultsCount =
+            (data.suggestions?.length || 0) +
+            (data.popularSearches?.length || 0);
+          trackEvent.search(merchantId, debouncedValue, resultsCount);
+        }
+      )
+      .catch((error: unknown) => {
+        // Ignore aborts from superseded keystrokes / unmount.
+        if (controller.signal.aborted || !isMounted) {
+          return;
+        }
+        console.error('Autocomplete error:', error);
+        setSuggestions([]);
+        setPopularSearches([]);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [debouncedValue, merchantId]);
 

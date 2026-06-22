@@ -32,6 +32,15 @@ vi.mock('@/hooks/useDiscounts', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({
+    symbol: '₦',
+    currency: 'NGN',
+    format: (amount: number) => `₦${amount}`,
+    formatCompact: (amount: number) => `₦${amount}`,
+  }),
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
