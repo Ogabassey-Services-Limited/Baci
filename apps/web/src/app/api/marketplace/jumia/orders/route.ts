@@ -24,6 +24,8 @@ import { logger } from '@/lib/logger';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
+const JUMIA_ORDER_UPSERT_BATCH_SIZE = 100;
+
 /** Deduplicate customer name formatting from Jumia shipping address */
 function getCustomerName(
   shippingAddress: { firstName?: string; lastName?: string } | undefined
@@ -33,6 +35,14 @@ function getCustomerName(
     `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim() ||
     'Unknown Customer'
   );
+}
+
+function chunkRecords<T>(records: T[], batchSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < records.length; index += batchSize) {
+    chunks.push(records.slice(index, index + batchSize));
+  }
+  return chunks;
 }
 
 /**
@@ -311,6 +321,7 @@ export async function POST(request: NextRequest) {
       isNewOrder: boolean;
       orderId: string;
       orderNumber: string;
+      prefetchedNotificationSent: boolean;
       sanitizedCustomerName: string;
       totalAmount: number;
       upsertPayload: Record<string, unknown>;
@@ -395,8 +406,10 @@ export async function POST(request: NextRequest) {
         total_amount: order.totalAmount?.value ?? 0,
         currency: order.totalAmount?.currency ?? 'NGN',
         created_at_jumia: order.createdAt,
-        notification_sent: existingOrder?.notification_sent || false,
       };
+      if (isNewOrder) {
+        upsertPayload.notification_sent = false;
+      }
 
       if (itemsFetched) {
         const sanitizedItems = orderItems.map((item) => ({
@@ -415,6 +428,7 @@ export async function POST(request: NextRequest) {
         isNewOrder,
         orderId,
         orderNumber: String(order.number),
+        prefetchedNotificationSent: existingOrder?.notification_sent === true,
         sanitizedCustomerName,
         totalAmount: Number(order.totalAmount?.value ?? 0),
         upsertPayload,
@@ -433,45 +447,88 @@ export async function POST(request: NextRequest) {
       const persistedOrderWrites: typeof pendingOrderWrites = [];
 
       for (const writes of writeGroups.values()) {
-        const payloads = writes.map((write) => write.upsertPayload);
-        const { error: upsertError } = await supabase
-          .from('jumia_orders')
-          .upsert(payloads, {
-            defaultToNull: false,
-            onConflict: 'jumia_order_id',
-          });
+        const writeChunks = chunkRecords(writes, JUMIA_ORDER_UPSERT_BATCH_SIZE);
+        for (const writeChunk of writeChunks) {
+          const payloads = writeChunk.map((write) => write.upsertPayload);
+          const { error: upsertError } = await supabase
+            .from('jumia_orders')
+            .upsert(payloads, {
+              defaultToNull: false,
+              onConflict: 'jumia_order_id',
+            });
 
-        if (upsertError) {
-          upsertFailed = true;
-          logger.error({
-            message: 'Failed to bulk upsert Jumia orders',
-            orderCount: payloads.length,
-            persistedOrderCount: persistedOrderWrites.length,
-            error: upsertError,
-          });
-          break;
+          if (upsertError) {
+            upsertFailed = true;
+            logger.error({
+              message: 'Failed to bulk upsert Jumia orders',
+              orderCount: payloads.length,
+              persistedOrderCount: persistedOrderWrites.length,
+              error: upsertError,
+            });
+            break;
+          }
+
+          persistedOrderWrites.push(...writeChunk);
         }
 
-        persistedOrderWrites.push(...writes);
-
-        for (const write of writes) {
-          existingOrdersMap.set(write.orderId, {
-            id: write.existingOrderId,
-            jumia_order_id: write.orderId,
-            notification_sent: Boolean(write.upsertPayload.notification_sent),
-          });
+        if (upsertFailed) {
+          break;
         }
       }
 
       pendingOrderWrites = persistedOrderWrites;
     }
 
+    const notificationCandidateIds = pendingOrderWrites
+      .filter((write) => write.isNewOrder || !write.prefetchedNotificationSent)
+      .map((write) => write.orderId);
+    const currentlyNotifiedOrderIds = new Set<string>();
+
+    if (notificationCandidateIds.length > 0) {
+      const notificationStateResults = await Promise.all(
+        chunkOrderIds(notificationCandidateIds).map((orderIdChunk) =>
+          supabase
+            .from('jumia_orders')
+            .select('jumia_order_id, notification_sent')
+            .eq('merchant_id', merchantId)
+            .in('jumia_order_id', orderIdChunk)
+        )
+      );
+
+      for (const {
+        data: notificationStates,
+        error: notificationStatesError,
+      } of notificationStateResults) {
+        if (notificationStatesError) {
+          logger.error({
+            message: 'Failed to refresh Jumia notification state',
+            error: notificationStatesError,
+          });
+          return NextResponse.json(
+            { error: 'Failed to process orders' },
+            { status: 500 }
+          );
+        }
+
+        for (const state of notificationStates || []) {
+          if (state.notification_sent === true) {
+            currentlyNotifiedOrderIds.add(String(state.jumia_order_id));
+          }
+        }
+      }
+    }
+
     for (const write of pendingOrderWrites) {
-      if (!write.isNewOrder) {
+      const shouldNotify =
+        (write.isNewOrder || !write.prefetchedNotificationSent) &&
+        !currentlyNotifiedOrderIds.has(write.orderId);
+      if (!shouldNotify) {
         continue;
       }
 
-      newOrdersCount++;
+      if (write.isNewOrder) {
+        newOrdersCount++;
+      }
       try {
         await notifyJumiaOrder(
           merchantId,

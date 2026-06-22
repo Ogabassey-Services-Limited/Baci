@@ -40,6 +40,7 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   inQueries: [] as Array<{ column: string; values: string[] }>,
   loggerError: vi.fn(),
+  notificationStates: null as ExistingJumiaOrder[] | null,
   mutations: [] as MutationRecord[],
   notifyJumiaOrder: vi.fn(),
   prefetchError: null as { message: string } | null,
@@ -135,8 +136,12 @@ function createSupabase() {
                 error: mocks.prefetchError,
               });
             }
+            const sourceRows =
+              mocks.upserts.length > 0 && mocks.notificationStates
+                ? mocks.notificationStates
+                : mocks.existingOrders;
             return Promise.resolve({
-              data: mocks.existingOrders.filter((order) =>
+              data: sourceRows.filter((order) =>
                 values.includes(order.jumia_order_id)
               ),
               error: null,
@@ -211,6 +216,7 @@ function reset() {
   mocks.existingOrders.length = 0;
   mocks.inQueries.length = 0;
   mocks.mutations.length = 0;
+  mocks.notificationStates = null;
   mocks.prefetchError = null;
   mocks.upsertError = null;
   mocks.upsertErrors.length = 0;
