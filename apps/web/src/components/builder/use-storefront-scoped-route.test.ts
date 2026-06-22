@@ -11,10 +11,22 @@ describe('useStorefrontScopedRoute', () => {
   it('returns a function that scopes routes to the current merchant basePath', () => {
     vi.mocked(useMerchantSafe).mockReturnValue({
       basePath: '/test-store',
-    } as any);
+    } as ReturnType<typeof useMerchantSafe>);
     const { result } = renderHook(() => useStorefrontScopedRoute());
 
     expect(result.current('/products')).toBe('/test-store/products');
+  });
+
+  it('leaves external and hash routes unscoped', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      basePath: '/test-store',
+    } as ReturnType<typeof useMerchantSafe>);
+    const { result } = renderHook(() => useStorefrontScopedRoute());
+
+    expect(result.current('https://example.com/products')).toBe(
+      'https://example.com/products'
+    );
+    expect(result.current('#reviews')).toBe('#reviews');
   });
 
   it('handles empty merchant context', () => {
