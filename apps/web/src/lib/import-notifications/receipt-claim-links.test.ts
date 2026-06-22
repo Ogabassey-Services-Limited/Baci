@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
@@ -13,13 +15,13 @@ import {
 } from './receipt-claim-links';
 
 describe('receipt claim links', () => {
-  it('creates a URL-safe token and stores only a deterministic hash', () => {
+  it('creates a lower-case URL-safe token and stores only a deterministic hash', () => {
     const bytes = new Uint8Array(32);
     bytes.fill(7);
 
     const claimToken = createReceiptClaimToken({ bytes });
 
-    expect(claimToken.token).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(claimToken.token).toMatch(/^[a-f0-9]+$/);
     expect(claimToken.token).not.toBe(claimToken.tokenHash);
     expect(claimToken.tokenHash).toBe(hashReceiptClaimToken(claimToken.token));
     expect(claimToken.tokenHash).toHaveLength(64);
