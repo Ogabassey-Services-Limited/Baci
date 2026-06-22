@@ -8,6 +8,8 @@ import {
   resolveStorefrontSitemapContext,
 } from '../../../sitemap-data';
 
+export const preferredRegion = 'dub1';
+
 const NEWS_SITEMAP_WINDOW_MS = 48 * 60 * 60 * 1000;
 const NEWS_SITEMAP_LIMIT = 1000;
 
