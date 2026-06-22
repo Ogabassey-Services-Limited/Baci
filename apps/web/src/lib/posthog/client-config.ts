@@ -477,6 +477,7 @@ export function buildPostHogClientConfig(
     api_host: getPostHogProxyPath(env),
     ui_host: getPostHogUiHost(env),
     defaults: '2026-05-30',
+    advanced_disable_flags: false,
     autocapture: true,
     rageclick: true,
     capture_dead_clicks: true,

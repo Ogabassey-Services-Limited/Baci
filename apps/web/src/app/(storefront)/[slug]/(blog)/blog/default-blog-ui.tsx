@@ -147,6 +147,7 @@ export function DefaultBlogUi({
             initialPosts={posts}
             totalPosts={totalPosts}
             category={category}
+            searchQuery={searchQuery}
             basePath={basePath}
             initialPage={currentPage}
           />

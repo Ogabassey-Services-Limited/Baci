@@ -7,6 +7,13 @@ const mocks = vi.hoisted(() => {
   const posthogCapture = vi.fn();
   const posthogInit = vi.fn();
   const posthogSetConfig = vi.fn();
+  const buildPostHogClientConfig = vi.fn(
+    (_env: unknown, _token: unknown, options?: { lightweight?: boolean }) => ({
+      advanced_disable_flags: options?.lightweight === true,
+      api_host: '/baci-relay',
+      loaded: clientConfigLoaded,
+    })
+  );
   const posthogClient = {
     __loaded: false,
     capture: posthogCapture,
@@ -15,10 +22,7 @@ const mocks = vi.hoisted(() => {
   };
 
   return {
-    buildPostHogClientConfig: vi.fn(() => ({
-      api_host: '/baci-relay',
-      loaded: clientConfigLoaded,
-    })),
+    buildPostHogClientConfig,
     clientConfigLoaded,
     posthogCapture,
     posthogClient,
@@ -148,6 +152,40 @@ describe('initializePostHogBrowser', () => {
     );
     expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
     expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
+      advanced_disable_flags: true,
+      api_host: '/baci-relay',
+    });
+
+    vi.unstubAllGlobals();
+  });
+  it('clears lightweight flag disabling when returning to full instrumentation', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      href: 'https://usebaci.com/ogabassey/blog/best-phones',
+    });
+    const { initializePostHogBrowser } = await importBrowserInitializer();
+
+    initializePostHogBrowser(env);
+
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products',
+      href: 'https://usebaci.com/ogabassey/products',
+    });
+    initializePostHogBrowser(env);
+
+    expect(mocks.buildPostHogClientConfig).toHaveBeenLastCalledWith(
+      env,
+      'ph_project_token',
+      { lightweight: false }
+    );
+    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
+    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
+      advanced_disable_flags: false,
       api_host: '/baci-relay',
     });
 

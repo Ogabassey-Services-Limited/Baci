@@ -411,7 +411,7 @@ function buildResponsiveInlineImageTag(
   siblings: ReturnType<typeof buildInlineImageSiblings>,
   { isFirstBodyImage = false }: { isFirstBodyImage?: boolean } = {}
 ): string {
-  let nextTag = imgTag;
+  let nextTag = stripHtmlAttribute(imgTag, 'fetchpriority');
   const originalSrc = readHtmlTagAttribute(imgTag, 'src');
   const attributes = {
     ...(originalSrc ? { 'data-original-src': originalSrc } : {}),

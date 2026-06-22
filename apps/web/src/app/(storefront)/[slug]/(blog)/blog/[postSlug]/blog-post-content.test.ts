@@ -543,6 +543,17 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain('decoding="async"');
     expect(out).not.toContain('fetchpriority="high"');
   });
+  it('strips stale high fetch priority from lazy rebuilt body images', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="First" fetchpriority="high" />`,
+      { prioritizeFirstBodyImage: false }
+    );
+
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+    expect(out).not.toContain('fetchpriority="high"');
+  });
 
   it('does not prioritize a trusted CDN image after an earlier body image', () => {
     const out = wrapTrustedCdnInlineImagesInPicture(

@@ -14,8 +14,18 @@ vi.mock('next/image', () => ({
 }));
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: ReactNode;
+    href: string;
+    [key: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -120,7 +130,7 @@ describe('BlogList', () => {
     ).toHaveAttribute('data-preload', 'true');
   });
 
-  it('renders crawlable pagination copy instead of auto-fetching with IntersectionObserver', () => {
+  it('renders crawlable pagination controls instead of auto-fetching with IntersectionObserver', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
@@ -130,12 +140,20 @@ describe('BlogList', () => {
     );
 
     expect(screen.getByText('Showing 1 of 48 articles')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog?page=2'
+    );
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog?page=2'
+    );
     expect(
       screen.queryByText("You've reached the end")
     ).not.toBeInTheDocument();
   });
 
-  it('does not show pagination copy when rendering a later crawl page', () => {
+  it('renders current-page pagination controls when rendering a later crawl page', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
@@ -145,6 +163,35 @@ describe('BlogList', () => {
       />
     );
 
-    expect(screen.queryByText(/Showing /)).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 25 of 48 articles')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog?page=2'
+    );
+    expect(screen.getByRole('link', { name: '4' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog?page=4'
+    );
+    expect(screen.getByRole('link', { name: '3' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
+  it('preserves search and category params in pagination links', () => {
+    render(
+      <BlogList
+        initialPosts={[blogPost]}
+        totalPosts={48}
+        category="Buying Guides"
+        searchQuery="iphone 17"
+        basePath="/ogabassey"
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog?category=Buying+Guides&search=iphone+17&page=2'
+    );
   });
 });

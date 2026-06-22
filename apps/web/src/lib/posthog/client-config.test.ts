@@ -54,7 +54,7 @@ describe('PostHog client config', () => {
     expect(config.autocapture).toBe(true);
     expect(config.disable_session_recording).toBe(false);
     expect(config.capture_heatmaps).toBe(true);
-    expect(config.advanced_disable_flags).toBeUndefined();
+    expect(config.advanced_disable_flags).toBe(false);
   });
 
   it('returns a lightweight config for public blog surfaces', () => {

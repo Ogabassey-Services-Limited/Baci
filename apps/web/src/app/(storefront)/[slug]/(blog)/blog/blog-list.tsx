@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { formatBlogListDateLabel } from './blog-date-label';
+import { BlogListingPagination } from './blog-listing-pagination';
 
 interface BlogPost {
   id: string;
@@ -32,6 +33,7 @@ interface BlogListProps {
   initialPosts: BlogPost[];
   totalPosts: number;
   category?: string;
+  searchQuery?: string;
   basePath: string;
   initialPage?: number;
 }
@@ -40,6 +42,7 @@ export function BlogList({
   initialPosts: posts,
   totalPosts,
   category,
+  searchQuery,
   basePath,
   initialPage = 1,
 }: BlogListProps) {
@@ -57,8 +60,20 @@ export function BlogList({
     );
   }
 
-  const hasMoreServerPages =
-    initialPage <= 1 && totalPosts > BLOG_LISTING_PAGE_SIZE;
+  const totalPages = Math.ceil(totalPosts / BLOG_LISTING_PAGE_SIZE);
+  const hasMultipleServerPages = totalPages > 1;
+  const firstVisiblePostNumber = Math.min(
+    totalPosts,
+    (initialPage - 1) * BLOG_LISTING_PAGE_SIZE + 1
+  );
+  const lastVisiblePostNumber = Math.min(
+    totalPosts,
+    firstVisiblePostNumber + posts.length - 1
+  );
+  const visiblePostRangeLabel =
+    firstVisiblePostNumber === lastVisiblePostNumber
+      ? String(firstVisiblePostNumber)
+      : `${firstVisiblePostNumber}–${lastVisiblePostNumber}`;
   const firstImagePostIndex = posts.findIndex((post) =>
     Boolean(post.featured_image_url)
   );
@@ -130,10 +145,19 @@ export function BlogList({
         })}
       </div>
 
-      {hasMoreServerPages && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Showing {posts.length} of {totalPosts} articles
-        </p>
+      {hasMultipleServerPages && (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          <p>
+            Showing {visiblePostRangeLabel} of {totalPosts} articles
+          </p>
+          <BlogListingPagination
+            storeBasePath={basePath}
+            currentPage={initialPage}
+            totalPages={totalPages}
+            category={category}
+            search={searchQuery}
+          />
+        </div>
       )}
     </>
   );

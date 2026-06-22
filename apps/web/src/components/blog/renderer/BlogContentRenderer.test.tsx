@@ -810,8 +810,8 @@ describe('BlogContentRenderer', () => {
       expect(img?.getAttribute('sizes')).toBe(
         '(max-width: 768px) calc(100vw - 3rem), 800px'
       );
-      expect(img?.getAttribute('width')).toBe('1200');
-      expect(img?.getAttribute('height')).toBe('675');
+      expect(img?.getAttribute('width')).toBeNull();
+      expect(img?.getAttribute('height')).toBeNull();
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
