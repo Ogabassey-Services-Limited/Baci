@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOG_INLINE_IMAGE_HEIGHT,
   BLOG_INLINE_IMAGE_SIZES,
-  BLOG_INLINE_IMAGE_WIDTH,
   buildInlineImageSiblings,
   isTrustedCdnInlineImage,
 } from './blog-inline-image-optimization';
@@ -85,8 +83,8 @@ describe('buildInlineImageSiblings', () => {
       avif: `${INLINE}.avif`,
       webp: `${INLINE}.webp`,
       sizes: BLOG_INLINE_IMAGE_SIZES,
-      width: BLOG_INLINE_IMAGE_WIDTH,
-      height: BLOG_INLINE_IMAGE_HEIGHT,
+      width: undefined,
+      height: undefined,
     });
     expect(siblings.fallback).toContain('width=828,quality=70,format=auto');
     expect(siblings.avifSrcSet).toContain(

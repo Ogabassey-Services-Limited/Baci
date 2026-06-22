@@ -60,9 +60,6 @@ const TRANSFORM_RESERVED_KEYS = new Set([
 ]);
 export const BLOG_INLINE_IMAGE_SIZES =
   '(max-width: 768px) calc(100vw - 3rem), 800px';
-export const BLOG_INLINE_IMAGE_WIDTH = 1200;
-export const BLOG_INLINE_IMAGE_HEIGHT = 675;
-
 export interface InlineImageSiblings {
   avif: string;
   webp: string;
@@ -71,8 +68,8 @@ export interface InlineImageSiblings {
   webpSrcSet: string;
   fallbackSrcSet: string;
   sizes: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
 }
 
 function parseTransformSegment(transformSegment: string): Map<string, string> {
@@ -196,7 +193,7 @@ export function buildInlineImageSiblings(
     webpSrcSet: buildResponsiveSrcSet(webp),
     fallbackSrcSet: buildResponsiveSrcSet(src),
     sizes: BLOG_INLINE_IMAGE_SIZES,
-    width: dimensions.width || BLOG_INLINE_IMAGE_WIDTH,
-    height: dimensions.height || BLOG_INLINE_IMAGE_HEIGHT,
+    width: dimensions.width,
+    height: dimensions.height,
   };
 }

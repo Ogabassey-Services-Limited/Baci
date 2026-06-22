@@ -496,8 +496,8 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain(
       'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png 384w'
     );
-    expect(out).toContain('width="1200"');
-    expect(out).toContain('height="675"');
+    expect(out).not.toContain('width="1200"');
+    expect(out).not.toContain('height="675"');
     expect(out).toContain(`data-original-src="${CDN}"`);
 
     expect(out).toContain('loading="eager"');
