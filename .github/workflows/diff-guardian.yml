@@ -65,7 +65,7 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
           PR: ${{ github.event.pull_request.number }}
           HAS_BYPASS: ${{ contains(github.event.pull_request.labels.*.name, 'bypass-ai-gate') }}
-          # The reviewers to tally (their commit-status "context" names), pipe-separated.
+          # The reviewers to tally (commit-status context or check-run names), pipe-separated.
           VOTERS: 'Gemini review|Jules review'
           # How many voters must report a FAILURE for Diff Guardian to BLOCK.
           BLOCK_QUORUM: '2'
@@ -97,25 +97,58 @@ jobs:
           set_status pending "Waiting for AI reviewers to finish…"
 
           deadline=$(( $(date +%s) + POLL_TIMEOUT_SECONDS ))
-          # A voter's latest commit-status state: success|failure|error|pending|(missing).
-          voter_state() {
+          # A voter can report either as a commit status (external services) or
+          # as a check run (GitHub Actions). Gemini currently reports both; Jules
+          # currently reports only a check run. Read both current GitHub API
+          # surfaces so a check-only voter cannot be mistaken as missing.
+          status_state() {
             printf '%s' "$1" | jq -r --arg c "$2" \
               '([.statuses[] | select(.context==$c)] | sort_by(.updated_at) | last | .state) // "missing"'
           }
 
+          check_state() {
+            printf '%s' "$1" | jq -r --arg c "$2" '
+              ([.check_runs[] | select(.name==$c)]
+                | sort_by(.completed_at // .started_at // .created_at // "")
+                | last) as $run
+              | if $run == null then "missing"
+                elif $run.status != "completed" then "pending"
+                elif ($run.conclusion // "") == "success" then "success"
+                elif ($run.conclusion // "") == "neutral" then "success"
+                elif ($run.conclusion // "") == "skipped" then "missing"
+                elif ($run.conclusion // "") == "failure" then "failure"
+                elif ($run.conclusion // "") == "timed_out" then "failure"
+                elif ($run.conclusion // "") == "action_required" then "failure"
+                elif ($run.conclusion // "") == "cancelled" then "failure"
+                else "pending"
+                end
+            '
+          }
+
+          voter_state() {
+            local commit_status check_run
+            commit_status="$(status_state "$1" "$3")"
+            check_run="$(check_state "$2" "$3")"
+
+            case "$commit_status" in
+              failure|error|success|pending) printf '%s' "$commit_status" ; return ;;
+            esac
+            printf '%s' "$check_run"
+          }
+
           while :; do
             combined="$(gh api "repos/$REPO/commits/$SHA/status" 2>/dev/null || echo '{"statuses":[]}')"
+            checks="$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" 2>/dev/null || echo '{"check_runs":[]}')"
 
             reported=0 ; blocking=0 ; pending=0 ; summary=""
             while IFS= read -r ctx; do
               [ -z "$ctx" ] && continue
-              st="$(voter_state "$combined" "$ctx")"
+              st="$(voter_state "$combined" "$checks" "$ctx")"
               summary="${summary}${ctx}=${st}; "
               case "$st" in
                 failure|error) reported=$((reported+1)); blocking=$((blocking+1)) ;;
                 success)       reported=$((reported+1)) ;;
-                pending)       pending=$((pending+1)) ;;
-                missing)       : ;; # workflow may not have started yet (or isn't configured)
+                pending|missing) pending=$((pending+1)) ;;
               esac
             done <<< "$voters"
 
@@ -136,9 +169,10 @@ jobs:
             fi
 
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              # Timed out with some voters still pending. Tally what we have:
-              # only block if the agreed-blocking already meets quorum (it can't,
-              # or we'd have exited above), so pass — never block on missing data.
+              # Timed out with some voters still pending/missing. Tally what we
+              # have: only block if agreed-blocking already meets quorum (it
+              # can't, or we'd have exited above), so pass — never block on
+              # missing data.
               echo "::warning::Diff Guardian: timed out waiting for reviewers ($summary). Passing on available results."
               set_status success "Timed out; $blocking/$BLOCK_QUORUM blocking among reported reviewers"
               exit 0
