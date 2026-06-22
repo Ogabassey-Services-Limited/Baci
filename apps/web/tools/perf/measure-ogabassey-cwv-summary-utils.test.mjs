@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getDebugBearFailureMessage,
   getFieldMetric,
+  isDebugBearComplete,
   summarizeDebugBearResult,
   summarizePsiResult,
 } from './measure-ogabassey-cwv-summary-utils.mjs';
@@ -131,7 +133,7 @@ describe('summarizeDebugBearResult', () => {
             'performance.totalBlockingTime': 382,
             'performance.cumulativeLayoutShift': 0,
             'performance.speedIndex': 2354,
-            'console.totalErrors': 0,
+            'console.errors': 3,
             'pageWeight.total': 768615,
           },
         },
@@ -140,7 +142,7 @@ describe('summarizeDebugBearResult', () => {
       a11y: 97,
       bp: 100,
       cls: 0,
-      consoleErrors: 0,
+      consoleErrors: 3,
       device: 'Mobile',
       fcpMs: 1385,
       label: 'pdp',
@@ -155,5 +157,27 @@ describe('summarizeDebugBearResult', () => {
       speedIndexMs: 2354,
       tbtMs: 382,
     });
+  });
+});
+
+describe('DebugBear status helpers', () => {
+  it('treats documented terminal statuses as complete', () => {
+    expect(isDebugBearComplete({ status: 'success' })).toBe(true);
+    expect(isDebugBearComplete({ status: 'neutral' })).toBe(true);
+    expect(isDebugBearComplete({ status: 'failure' })).toBe(true);
+  });
+
+  it('returns a failure message for completed failed DebugBear tests', () => {
+    expect(
+      getDebugBearFailureMessage({
+        error: { message: 'Performance budget breached' },
+        status: 'failure',
+      })
+    ).toBe('Performance budget breached');
+  });
+
+  it('does not mark successful or neutral DebugBear tests as failures', () => {
+    expect(getDebugBearFailureMessage({ status: 'success' })).toBeNull();
+    expect(getDebugBearFailureMessage({ status: 'neutral' })).toBeNull();
   });
 });

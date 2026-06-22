@@ -125,15 +125,42 @@ export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
   };
 }
 
+export function getDebugBearStatus(body) {
+  return `${body?.status ?? body?.state ?? ''}`.trim().toLowerCase();
+}
+
 export function isDebugBearComplete(body) {
-  const status = `${body?.status ?? body?.state ?? ''}`.toLowerCase();
+  const status = getDebugBearStatus(body);
   return (
     body?.hasFinished === true ||
     status === 'complete' ||
     status === 'completed' ||
+    status === 'success' ||
+    status === 'neutral' ||
+    status === 'failure' ||
+    status === 'failed' ||
     Boolean(body?.lighthouseResult) ||
     Boolean(body?.metrics?.['performance.largestContentfulPaint'])
   );
+}
+
+export function getDebugBearFailureMessage(body) {
+  const status = getDebugBearStatus(body);
+  if (status === 'failure' || status === 'failed') {
+    return (
+      body?.error?.message || body?.error || 'DebugBear test status was failure'
+    );
+  }
+
+  if (typeof body?.error === 'string' && body.error.trim()) {
+    return body.error;
+  }
+
+  if (typeof body?.error?.message === 'string' && body.error.message.trim()) {
+    return body.error.message;
+  }
+
+  return null;
 }
 
 export function summarizeDebugBearResult({
@@ -160,6 +187,7 @@ export function summarizeDebugBearResult({
       'cumulative-layout-shift',
     ]),
     consoleErrors: getDebugBearMetric(body, [
+      'console.errors',
       'console.totalErrors',
       'console.errorCount',
       'consoleErrors',

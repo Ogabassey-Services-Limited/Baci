@@ -15,6 +15,7 @@ import {
 import {
   buildPsiUrl,
   formatMetricMs,
+  getDebugBearFailureMessage,
   isDebugBearComplete,
   summarizeDebugBearResult,
   summarizePsiResult,
@@ -148,8 +149,17 @@ async function runDebugBear(target, projects) {
     );
   }
 
+  const failureMessage = getDebugBearFailureMessage(result);
+  const payload = { created, result };
+  if (failureMessage) {
+    return {
+      failure: failureMessage,
+      payload,
+    };
+  }
+
   return {
-    payload: { created, result },
+    payload,
     summary: summarizeDebugBearResult({
       body: result,
       device: debugBearDevice,
@@ -183,9 +193,24 @@ function printTable(rows) {
 
 await mkdir(outputDir, { recursive: true });
 
-const blogPostUrl = await resolveLatestBlogPostUrl(
-  process.env.OGABASSEY_BLOG_URL || 'https://ogabassey.com/blog'
-);
+const skipLatestBlogPostTarget =
+  process.env.OGABASSEY_CWV_SKIP_LATEST_BLOG_POST === '1';
+const blogPostUrl = skipLatestBlogPostTarget
+  ? null
+  : await resolveLatestBlogPostUrl(
+      process.env.OGABASSEY_BLOG_URL || 'https://ogabassey.com/blog'
+    );
+const targetResolutionFailures =
+  !blogPostUrl && !skipLatestBlogPostTarget
+    ? [
+        {
+          label: 'blog-post-latest',
+          message:
+            'Could not resolve the latest blog post URL. Set OGABASSEY_BLOG_POST_URL or OGABASSEY_CWV_SKIP_LATEST_BLOG_POST=1.',
+          source: 'target-resolution',
+        },
+      ]
+    : [];
 const pdpUrl = await resolveCanonicalUrl(
   process.env.OGABASSEY_PDP_URL || DEFAULT_OGABASSEY_CWV_TARGETS.pdp
 );
@@ -197,7 +222,7 @@ const targets = buildOgaBasseyCwvTargets({
 });
 
 const summaries = [];
-const failures = [];
+const failures = [...targetResolutionFailures];
 
 function logProgress(message) {
   console.error(`[ogabassey-cwv] ${message}`);
@@ -254,7 +279,15 @@ if (shouldRunDebugBear) {
         join(outputDir, `${target.label}-debugbear.json`),
         JSON.stringify(debugBearResult.payload, null, 2)
       );
-      summaries.push(debugBearResult.summary);
+      if (debugBearResult.failure) {
+        failures.push({
+          label: target.label,
+          message: debugBearResult.failure,
+          source: 'debugbear',
+        });
+      } else {
+        summaries.push(debugBearResult.summary);
+      }
     } catch (error) {
       failures.push({
         label: target.label,
