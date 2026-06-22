@@ -109,14 +109,15 @@ function createMutationQuery(table: string, payload: Record<string, unknown>) {
   mocks.mutations.push(mutation);
 
   type MutationResult = {
-    data?: ExistingJumiaOrder[] | null;
+    data?: ExistingJumiaOrder[] | ExistingJumiaOrder | null;
     error: { message: string } | null;
   };
 
   type MutationQuery = Promise<MutationResult> & {
     eq: (column: string, value: unknown) => MutationQuery;
+    maybeSingle: () => Promise<MutationResult>;
     or: (filters: string) => MutationQuery;
-    select: (columns: string) => Promise<MutationResult>;
+    select: (columns: string) => MutationQuery;
   };
 
   const resolveMutation = (): MutationResult => {
@@ -156,11 +157,18 @@ function createMutationQuery(table: string, payload: Record<string, unknown>) {
     mutation.filters.push([column, value]);
     return query;
   };
+  query.maybeSingle = () => {
+    const result = resolveMutation();
+    return Promise.resolve({
+      data: Array.isArray(result.data) ? (result.data[0] ?? null) : result.data,
+      error: result.error,
+    });
+  };
   query.or = (filters: string) => {
     mutation.orFilters.push(filters);
     return query;
   };
-  query.select = () => Promise.resolve(resolveMutation());
+  query.select = () => query;
 
   return query;
 }

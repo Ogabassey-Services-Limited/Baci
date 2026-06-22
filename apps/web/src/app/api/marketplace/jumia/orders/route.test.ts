@@ -170,15 +170,15 @@ describe('POST /api/marketplace/jumia/orders', () => {
       )
     ).toBe(true);
     expect(
-      harness.mocks.mutations.some((mutation) =>
-        mutation.orFilters.includes(
-          'notification_sent.is.false,notification_sent.is.null'
-        )
+      harness.mocks.mutations.some(
+        (mutation) =>
+          mutation.table === 'jumia_orders' &&
+          mutation.payload.notification_sent === true
       )
     ).toBe(true);
   });
 
-  it('skips notification when another sync already claimed the retry', async () => {
+  it('fails closed when the post-delivery notification marker fails', async () => {
     harness.mocks.existingOrders.push({
       id: 'cache-row-order-1',
       jumia_order_id: 'order-1',
@@ -191,33 +191,7 @@ describe('POST /api/marketplace/jumia/orders', () => {
         notification_sent: false,
       },
     ];
-    harness.mocks.notificationClaimRows = [];
-    harness.mocks.getAllOrders.mockResolvedValue([
-      harness.createOrder('order-1'),
-    ]);
-
-    const response = await POST(harness.createRequest());
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.newOrders).toBe(0);
-    expect(harness.mocks.notifyJumiaOrder).not.toHaveBeenCalled();
-  });
-
-  it('fails closed when the atomic notification claim fails', async () => {
-    harness.mocks.existingOrders.push({
-      id: 'cache-row-order-1',
-      jumia_order_id: 'order-1',
-      notification_sent: false,
-    });
-    harness.mocks.notificationStates = [
-      {
-        id: 'cache-row-order-1',
-        jumia_order_id: 'order-1',
-        notification_sent: false,
-      },
-    ];
-    harness.mocks.notificationClaimError = { message: 'claim failed' };
+    harness.mocks.notificationClaimError = { message: 'marker failed' };
     harness.mocks.getAllOrders.mockResolvedValue([
       harness.createOrder('order-1'),
     ]);
@@ -227,10 +201,10 @@ describe('POST /api/marketplace/jumia/orders', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Failed to process orders' });
-    expect(harness.mocks.notifyJumiaOrder).not.toHaveBeenCalled();
+    expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledTimes(1);
     expect(harness.mocks.loggerError).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Failed to claim Jumia notification',
+        message: 'Failed to mark Jumia order notification as sent',
         orderId: 'order-1',
       })
     );

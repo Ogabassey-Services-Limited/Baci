@@ -18,6 +18,7 @@ import {
   JumiaClient,
   jumiaErrorResponse,
 } from '@/lib/jumia/client';
+import { markJumiaNotificationSent } from '@/lib/jumia/order-sync-notifications';
 import { chunkOrderIds } from '@/lib/jumia/order-sync-operations';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
@@ -548,35 +549,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let notificationClaimFailed = false;
+    let notificationMarkerFailed = false;
 
     for (const write of pendingOrderWrites) {
       const shouldNotify =
         (write.isNewOrder || !write.prefetchedNotificationSent) &&
         !currentlyNotifiedOrderIds.has(write.orderId);
       if (!shouldNotify) {
-        continue;
-      }
-
-      const { data: claimedRows, error: claimError } = await supabase
-        .from('jumia_orders')
-        .update({ notification_sent: true })
-        .eq('jumia_order_id', write.orderId)
-        .eq('merchant_id', merchantId)
-        .or('notification_sent.is.false,notification_sent.is.null')
-        .select('id, jumia_order_id, notification_sent');
-
-      if (claimError) {
-        notificationClaimFailed = true;
-        logger.error({
-          message: 'Failed to claim Jumia notification',
-          orderId: write.orderId,
-          error: claimError,
-        });
-        continue;
-      }
-
-      if (!claimedRows?.[0]) {
         continue;
       }
 
@@ -602,24 +581,27 @@ export async function POST(request: NextRequest) {
               ? { message: pushError.message, stack: pushError.stack }
               : pushError,
         });
-
-        const { error: releaseClaimError } = await supabase
-          .from('jumia_orders')
-          .update({ notification_sent: false })
-          .eq('jumia_order_id', write.orderId)
-          .eq('merchant_id', merchantId);
-        if (releaseClaimError) {
-          notificationClaimFailed = true;
-          logger.error({
-            message: 'Failed to release Jumia notification claim',
-            orderId: write.orderId,
-            error: releaseClaimError,
-          });
-        }
+        continue;
       }
+
+      const notificationUpdateError = await markJumiaNotificationSent(
+        supabase,
+        merchantId,
+        write.orderId
+      );
+      if (notificationUpdateError) {
+        notificationMarkerFailed = true;
+        logger.error({
+          message: 'Failed to mark Jumia order notification as sent',
+          orderId: write.orderId,
+          error: notificationUpdateError,
+        });
+        continue;
+      }
+      currentlyNotifiedOrderIds.add(write.orderId);
     }
 
-    if (upsertFailed || notificationClaimFailed) {
+    if (upsertFailed || notificationMarkerFailed) {
       return NextResponse.json(
         { error: 'Failed to process orders' },
         { status: 500 }
