@@ -9,6 +9,7 @@ import {
 } from './debugbear-quick-test-utils.mjs';
 import {
   fetchJson,
+  resolveCanonicalUrl,
   resolveLatestBlogPostUrl,
 } from './measure-ogabassey-cwv-network-utils.mjs';
 import {
@@ -21,6 +22,7 @@ import {
 import {
   buildDebugBearHeaders,
   buildOgaBasseyCwvTargets,
+  DEFAULT_OGABASSEY_CWV_TARGETS,
   findDebugBearProjectIdForUrl,
   normalizeDebugBearProjects,
 } from './measure-ogabassey-cwv-utils.mjs';
@@ -39,6 +41,8 @@ const psiApiKey =
   process.env.PAGESPEED_INSIGHTS_API_KEY || process.env.PSI_API_KEY || '';
 const debugBearApiKey =
   process.env.DEBUGBEAR_API_KEY || process.env.DEBUGBEAR_ADMIN_API_KEY || '';
+const debugBearAdminApiKey =
+  process.env.DEBUGBEAR_ADMIN_API_KEY || process.env.DEBUGBEAR_API_KEY || '';
 const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
 const debugBearProjectId = process.env.DEBUGBEAR_PROJECT_ID?.trim() || '';
 const debugBearRegion = process.env.DEBUGBEAR_REGION || 'uk';
@@ -47,7 +51,8 @@ const debugBearMaxPollAttempts =
 const debugBearPollIntervalMs =
   Number(process.env.DEBUGBEAR_POLL_INTERVAL_MS) || 5000;
 const shouldRunDebugBear =
-  process.env.OGABASSEY_CWV_DEBUGBEAR !== '0' && Boolean(debugBearApiKey);
+  process.env.OGABASSEY_CWV_DEBUGBEAR !== '0' &&
+  Boolean(debugBearApiKey || debugBearAdminApiKey);
 const shouldRunPsi = process.env.OGABASSEY_CWV_PSI !== '0';
 const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
   .split(',')
@@ -82,24 +87,32 @@ async function runPsi(target, strategy) {
   };
 }
 
-function debugBear(path, init = {}) {
+function debugBear(path, init = {}, apiKey = debugBearApiKey) {
   return fetchJson(`https://www.debugbear.com/api/v1${path}`, {
     ...init,
     headers: {
-      ...buildDebugBearHeaders(debugBearApiKey),
+      ...buildDebugBearHeaders(apiKey),
       ...(init.headers || {}),
     },
   });
 }
 
 async function getDebugBearProjects() {
-  const body = await debugBear('/projects');
+  if (!debugBearAdminApiKey) {
+    throw new Error(
+      'Set DEBUGBEAR_ADMIN_API_KEY for project discovery or DEBUGBEAR_PROJECT_ID to skip discovery'
+    );
+  }
+  const body = await debugBear('/projects', {}, debugBearAdminApiKey);
   return normalizeDebugBearProjects(body);
 }
 
 async function runDebugBear(target, projects) {
   const projectId =
-    debugBearProjectId || findDebugBearProjectIdForUrl(projects, target.url);
+    debugBearProjectId ||
+    findDebugBearProjectIdForUrl(projects, target.url, {
+      deviceName: debugBearDevice,
+    });
   if (!projectId) {
     throw new Error(`No DebugBear project found for ${target.url}`);
   }
@@ -130,16 +143,20 @@ async function runDebugBear(target, projects) {
     );
   }
   if (!isDebugBearComplete(result)) {
-    logProgress(`DebugBear poll timed out for ${target.label}`);
+    throw new Error(
+      `DebugBear poll timed out for ${target.label} after ${debugBearMaxPollAttempts} attempts`
+    );
   }
 
   return {
     payload: { created, result },
     summary: summarizeDebugBearResult({
       body: result,
+      device: debugBearDevice,
       label: target.label,
       projectId,
       quickTestId,
+      region: debugBearRegion,
       url: target.url,
     }),
   };
@@ -169,11 +186,14 @@ await mkdir(outputDir, { recursive: true });
 const blogPostUrl = await resolveLatestBlogPostUrl(
   process.env.OGABASSEY_BLOG_URL || 'https://ogabassey.com/blog'
 );
+const pdpUrl = await resolveCanonicalUrl(
+  process.env.OGABASSEY_PDP_URL || DEFAULT_OGABASSEY_CWV_TARGETS.pdp
+);
 const targets = buildOgaBasseyCwvTargets({
   blogPostUrl,
   blogUrl: process.env.OGABASSEY_BLOG_URL,
   homeUrl: process.env.OGABASSEY_HOME_URL,
-  pdpUrl: process.env.OGABASSEY_PDP_URL,
+  pdpUrl,
 });
 
 const summaries = [];
@@ -212,10 +232,6 @@ if (shouldRunDebugBear) {
     try {
       logProgress('DebugBear projects');
       projects = await getDebugBearProjects();
-      await writeFile(
-        join(outputDir, 'debugbear-projects.json'),
-        JSON.stringify(projects, null, 2)
-      );
     } catch (error) {
       failures.push({
         label: 'projects',

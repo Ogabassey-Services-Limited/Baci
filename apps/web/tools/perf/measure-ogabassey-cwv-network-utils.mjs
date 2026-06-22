@@ -1,10 +1,29 @@
 import { DEBUGBEAR_USER_AGENT } from './measure-ogabassey-cwv-utils.mjs';
 
+function redactUrlForError(value) {
+  try {
+    const url = new URL(value);
+    for (const key of ['api_key', 'key', 'token']) {
+      if (url.searchParams.has(key)) {
+        url.searchParams.set(key, 'REDACTED');
+      }
+    }
+    return url.toString();
+  } catch {
+    return `${value}`.replace(
+      /([?&](?:api_key|key|token)=)[^&\s]+/gi,
+      '$1REDACTED'
+    );
+  }
+}
+
 export async function fetchJson(url, init = {}) {
   const response = await fetch(url, init);
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`${url} failed with ${response.status}: ${text}`);
+    throw new Error(
+      `${redactUrlForError(url)} failed with ${response.status}: ${text}`
+    );
   }
   return text ? JSON.parse(text) : {};
 }
@@ -30,7 +49,7 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
         const url = new URL(href, blogUrl);
         if (
           url.origin === origin &&
-          /^\/blog\/[^/?#]+/.test(url.pathname) &&
+          /(?:^|\/)blog\/[^/?#]+/.test(url.pathname) &&
           !url.pathname.includes('/page/') &&
           !url.pathname.includes('/author/')
         ) {
@@ -47,4 +66,29 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
   }
 
   return null;
+}
+
+export async function resolveCanonicalUrl(url) {
+  try {
+    const response = await fetch(url, {
+      headers: { 'user-agent': DEBUGBEAR_USER_AGENT },
+    });
+    if (!response.ok) return url;
+
+    const html = await response.text();
+    const canonicalTag = html.match(
+      /<link\b[^>]*rel=["'][^"']*\bcanonical\b[^"']*["'][^>]*>/i
+    )?.[0];
+    const href = canonicalTag?.match(/\bhref=["']([^"']+)["']/i)?.[1];
+    if (!href) return url;
+
+    const canonical = new URL(href, url);
+    const original = new URL(url);
+    if (canonical.origin !== original.origin) return url;
+    canonical.hash = '';
+    canonical.search = '';
+    return canonical.toString();
+  } catch {
+    return url;
+  }
 }

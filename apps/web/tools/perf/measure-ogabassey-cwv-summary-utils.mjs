@@ -139,8 +139,10 @@ export function isDebugBearComplete(body) {
 export function summarizeDebugBearResult({
   body,
   label,
+  device,
   projectId,
   quickTestId,
+  region,
   url,
 }) {
   return {
@@ -162,6 +164,7 @@ export function summarizeDebugBearResult({
       'console.errorCount',
       'consoleErrors',
     ]),
+    device,
     fcpMs: getDebugBearMetric(body, [
       'performance.firstContentfulPaint',
       'firstContentfulPaint',
@@ -185,6 +188,7 @@ export function summarizeDebugBearResult({
     performance: getDebugBearCategoryScore(body, ['performance']),
     projectId,
     quickTestId,
+    region,
     resultUrl:
       body?.resultUrl ??
       body?.url ??

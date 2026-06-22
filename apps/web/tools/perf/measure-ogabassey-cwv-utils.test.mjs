@@ -66,6 +66,29 @@ describe('findDebugBearProjectIdForUrl', () => {
     ).toBe('101919');
   });
 
+  it('honors configured desktop device during project discovery', () => {
+    expect(
+      findDebugBearProjectIdForUrl(
+        [
+          {
+            id: 'mobile-project',
+            pages: [
+              { url: 'https://ogabassey.com/', device: { name: 'Mobile' } },
+            ],
+          },
+          {
+            id: 'desktop-project',
+            pages: [
+              { url: 'https://ogabassey.com/', device: { name: 'Desktop' } },
+            ],
+          },
+        ],
+        'https://ogabassey.com/',
+        { deviceName: 'Desktop' }
+      )
+    ).toBe('desktop-project');
+  });
+
   it('rejects malformed target URLs instead of matching empty origins', () => {
     expect(
       findDebugBearProjectIdForUrl(

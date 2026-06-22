@@ -38,7 +38,7 @@ function getPageUrl(page) {
   return page?.url ?? page?.targetUrl ?? page?.pageUrl ?? page?.name ?? null;
 }
 
-function isMobilePage(page) {
+function pageMatchesDevice(page, requestedDevice) {
   const text = [
     page?.deviceName,
     page?.formFactor,
@@ -49,8 +49,16 @@ function isMobilePage(page) {
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
+  if (!text) return true;
 
-  return !text || text.includes('mobile') || text.includes('phone');
+  const requested = `${requestedDevice || ''}`.toLowerCase();
+  if (requested.includes('desktop')) {
+    return text.includes('desktop');
+  }
+  if (requested.includes('mobile') || requested.includes('phone')) {
+    return text.includes('mobile') || text.includes('phone');
+  }
+  return text.includes(requested);
 }
 
 export function normalizeUrlForMatch(value) {
@@ -75,7 +83,11 @@ function getOrigin(value) {
   }
 }
 
-export function findDebugBearProjectIdForUrl(projects, targetUrl) {
+export function findDebugBearProjectIdForUrl(
+  projects,
+  targetUrl,
+  { deviceName = 'Mobile' } = {}
+) {
   const target = normalizeUrlForMatch(targetUrl);
   const targetOrigin = getOrigin(targetUrl);
   if (!target || !targetOrigin) return null;
@@ -83,7 +95,7 @@ export function findDebugBearProjectIdForUrl(projects, targetUrl) {
   for (const project of projects) {
     for (const page of getProjectPages(project)) {
       if (
-        isMobilePage(page) &&
+        pageMatchesDevice(page, deviceName) &&
         normalizeUrlForMatch(getPageUrl(page)) === target
       ) {
         return project.id ?? project.projectId ?? null;
@@ -93,7 +105,10 @@ export function findDebugBearProjectIdForUrl(projects, targetUrl) {
 
   for (const project of projects) {
     for (const page of getProjectPages(project)) {
-      if (isMobilePage(page) && getOrigin(getPageUrl(page)) === targetOrigin) {
+      if (
+        pageMatchesDevice(page, deviceName) &&
+        getOrigin(getPageUrl(page)) === targetOrigin
+      ) {
         return project.id ?? project.projectId ?? null;
       }
     }

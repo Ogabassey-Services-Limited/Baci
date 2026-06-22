@@ -114,8 +114,10 @@ describe('summarizeDebugBearResult', () => {
       summarizeDebugBearResult({
         label: 'pdp',
         url: 'https://ogabassey.com/pdp',
+        device: 'Mobile',
         projectId: '102065',
         quickTestId: '1431',
+        region: 'uk',
         body: {
           resultUrl:
             'https://www.debugbear.com/project/102065/quickTest/x/overview',
@@ -139,6 +141,7 @@ describe('summarizeDebugBearResult', () => {
       bp: 100,
       cls: 0,
       consoleErrors: 0,
+      device: 'Mobile',
       fcpMs: 1385,
       label: 'pdp',
       lcpMs: 2587,
@@ -146,6 +149,7 @@ describe('summarizeDebugBearResult', () => {
       performance: 88,
       projectId: '102065',
       quickTestId: '1431',
+      region: 'uk',
       seo: 100,
       source: 'debugbear',
       speedIndexMs: 2354,

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchJson,
+  resolveCanonicalUrl,
   resolveLatestBlogPostUrl,
 } from './measure-ogabassey-cwv-network-utils.mjs';
 
@@ -21,6 +22,23 @@ describe('fetchJson', () => {
 
     await expect(fetchJson('https://example.com/api')).rejects.toThrow(
       'https://example.com/api failed with 503: <html>Service unavailable</html>'
+    );
+  });
+
+  it('redacts PageSpeed keys from error URLs', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 403,
+        text: async () => 'quota exceeded',
+      }))
+    );
+
+    await expect(
+      fetchJson('https://example.com/api?url=https://x.test&key=secret')
+    ).rejects.toThrow(
+      'https://example.com/api?url=https%3A%2F%2Fx.test&key=REDACTED failed with 403: quota exceeded'
     );
   });
 
@@ -70,6 +88,21 @@ describe('resolveLatestBlogPostUrl', () => {
     ).resolves.toBe('https://ogabassey.com/blog/post');
   });
 
+  it('accepts slug-prefixed path-mode blog post links', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () => '<a href="/ogabassey/blog/post?utm=1"></a>',
+      }))
+    );
+
+    await expect(
+      resolveLatestBlogPostUrl('https://usebaci.com/ogabassey/blog')
+    ).resolves.toBe('https://usebaci.com/ogabassey/blog/post');
+  });
+
   it('returns null when the blog index cannot be fetched', async () => {
     vi.stubGlobal(
       'fetch',
@@ -81,5 +114,43 @@ describe('resolveLatestBlogPostUrl', () => {
     await expect(
       resolveLatestBlogPostUrl('https://ogabassey.com/blog')
     ).resolves.toBeNull();
+  });
+});
+
+describe('resolveCanonicalUrl', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('uses same-origin canonical URLs without query strings', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          '<link rel="canonical" href="/products/canonical?utm=1#top">',
+      }))
+    );
+
+    await expect(
+      resolveCanonicalUrl('https://ogabassey.com/products/source')
+    ).resolves.toBe('https://ogabassey.com/products/canonical');
+  });
+
+  it('keeps the input URL when canonical points off origin', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          '<link rel="canonical" href="https://evil.example/products/canonical">',
+      }))
+    );
+
+    await expect(
+      resolveCanonicalUrl('https://ogabassey.com/products/source')
+    ).resolves.toBe('https://ogabassey.com/products/source');
   });
 });
