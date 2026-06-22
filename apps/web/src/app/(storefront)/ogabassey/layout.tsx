@@ -15,6 +15,10 @@ import {
 } from '../[slug]/seo-helpers';
 import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints';
 
+// Co-locate with the Supabase primary (eu-west-1 / Dublin) — route handlers
+// and sibling layouts do not inherit the [slug] layout preferredRegion.
+export const preferredRegion = 'dub1';
+
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
 
 export { generateViewport };
