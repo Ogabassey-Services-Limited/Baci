@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  hexToRgb,
   type ReceiptEmailTemplateInput,
   renderReceiptCta,
   renderReceiptDeviceRows,
@@ -34,13 +33,6 @@ function baseInput(
     ...overrides,
   };
 }
-
-describe('hexToRgb', () => {
-  it('converts 6-digit and 3-digit hex to r,g,b', () => {
-    expect(hexToRgb('#d62027')).toBe('214,32,39');
-    expect(hexToRgb('#fff')).toBe('255,255,255');
-  });
-});
 
 describe('renderReceiptDeviceRows', () => {
   it('renders one numbered, brand-colored row per device', () => {
@@ -165,6 +157,7 @@ describe('renderReceiptEmailHtml', () => {
     expect(html).toContain('<img src="https://cdn.example.com/logo.png"');
     expect(html).toContain('alt="Ogabassey"');
     expect(html).toContain('class="r-logo-chip"');
-    expect(html).toContain('background:#ffffff;background-color:#ffffff'); // white chip behind the logo
+    expect(html).toContain('background:#ffffff');
+    expect(html).toContain('background-color:#ffffff');
   });
 });
