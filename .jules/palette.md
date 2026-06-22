@@ -112,8 +112,3 @@
 **Learning:** Icon-only toggle buttons and popover menus in React Native components (like `FilterBar`) often lack `accessibilityState` semantics and `accessibilityRole`. While visual cues like color changes are present, screen readers don't announce whether a toggle is expanded or which popover item is currently selected.
 **Action:** Always verify that interactive elements reflecting state changes use `accessibilityState={{ expanded: boolean }}` for toggles and `accessibilityState={{ selected: boolean }}` for lists/tabs, along with `accessibilityRole="button"` and a descriptive `accessibilityLabel`.
 **Source:** WCAG SC 4.1.2 Name, Role, Value
-
-## 2024-05-14 — Accessible Custom Toggle Switch in React Native
-**Learning:** Custom interactive components mimicking switches using `<Pressable>` do not inherently announce their role or current toggle state to assistive technologies, making them opaque to screen reader users.
-**Action:** Explicitly set `accessibilityRole="switch"` and `accessibilityState={{ checked: isEnabled, disabled: isPending }}` to custom toggle components so screen readers can accurately interpret their function and state.
-**Source:** WCAG 4.1.2 / React Native Accessibility API

@@ -94,6 +94,10 @@ describe('VatCard', () => {
     });
     expect(toggleBtn).toBeInTheDocument();
     expect(toggleBtn).toHaveAttribute('aria-checked', 'false');
+    expect(toggleBtn).toHaveAttribute(
+      'title',
+      'Toggles whether to charge VAT on orders'
+    );
     expect(toggleBtn).not.toBeDisabled();
 
     fireEvent.click(toggleBtn);

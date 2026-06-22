@@ -10,7 +10,3 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
-## 2024-06-25 — OrderItemDetailModal Done Button Text Color
-**Learning:** A color `#FFF` was hardcoded for text on a primary-colored button, which is incorrect in dark/light adaptable modes
-**Action:** Use the dynamic token `colors.textOnPrimary` alongside `colors.primary` inline for correct adaptable text contrast on buttons
-**Source:** apps/mobile-admin/constants/theme.ts
