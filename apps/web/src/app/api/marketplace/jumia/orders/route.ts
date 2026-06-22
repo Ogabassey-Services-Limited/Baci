@@ -18,6 +18,7 @@ import {
   JumiaClient,
   jumiaErrorResponse,
 } from '@/lib/jumia/client';
+import { chunkOrderIds } from '@/lib/jumia/order-sync-operations';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -256,24 +257,77 @@ export async function POST(request: NextRequest) {
     // Sync to our database
     let newOrdersCount = 0;
 
+    // PREFETCH: Collapse N+1 SELECTs into bounded .in() batches.
+    type ExistingJumiaOrderLookup = {
+      id: string;
+      jumia_order_id: string;
+      notification_sent: boolean | null;
+    };
+
+    const jumiaOrderIds = Array.from(
+      new Set(jumiaOrders.map((order) => String(order.id)))
+    );
+    const existingOrdersMap = new Map<string, ExistingJumiaOrderLookup>();
+
+    const existingOrderResults = await Promise.all(
+      chunkOrderIds(jumiaOrderIds).map((orderIdChunk) =>
+        supabase
+          .from('jumia_orders')
+          .select('id, jumia_order_id, notification_sent')
+          .eq('merchant_id', merchantId)
+          .in('jumia_order_id', orderIdChunk)
+      )
+    );
+
+    for (const {
+      data: existingOrders,
+      error: existingOrdersError,
+    } of existingOrderResults) {
+      if (existingOrdersError) {
+        logger.error({
+          message: 'Failed to prefetch existing Jumia orders',
+          error: existingOrdersError,
+        });
+        // Fail closed: treating unknown rows as new could reset
+        // notification_sent or re-notify customers for already-synced orders.
+        return NextResponse.json(
+          { error: 'Failed to process orders' },
+          { status: 500 }
+        );
+      }
+
+      for (const existingOrder of existingOrders || []) {
+        existingOrdersMap.set(String(existingOrder.jumia_order_id), {
+          id: String(existingOrder.id),
+          jumia_order_id: String(existingOrder.jumia_order_id),
+          notification_sent: Boolean(existingOrder.notification_sent),
+        });
+      }
+    }
+
+    const pendingOrderWrites: Array<{
+      currency: string;
+      existingOrderId: string;
+      isNewOrder: boolean;
+      orderId: string;
+      orderNumber: string;
+      sanitizedCustomerName: string;
+      totalAmount: number;
+      upsertPayload: Record<string, unknown>;
+    }> = [];
+    const stagedOrderIds = new Set<string>();
+
     for (const order of jumiaOrders) {
       const customerName = getCustomerName(order.shippingAddress);
+      const orderId = String(order.id);
 
-      const { data: existingOrder, error: existingOrderError } = await supabase
-        .from('jumia_orders')
-        .select('id, notification_sent')
-        .eq('jumia_order_id', order.id)
-        .eq('merchant_id', merchantId)
-        .maybeSingle();
-
-      if (existingOrderError) {
-        logger.error({
-          message: 'Failed to look up existing Jumia order',
-          orderId: order.id,
-          error: existingOrderError,
-        });
+      if (stagedOrderIds.has(orderId)) {
         continue;
       }
+      stagedOrderIds.add(orderId);
+
+      const existingOrder = existingOrdersMap.get(orderId);
+      const existingOrderId = existingOrder?.id ?? '';
 
       const isNewOrder = !existingOrder;
 
@@ -330,7 +384,7 @@ export async function POST(request: NextRequest) {
       // to avoid overwriting previously stored items with an empty array
       const upsertPayload: Record<string, unknown> = {
         merchant_id: merchantId,
-        jumia_order_id: order.id,
+        jumia_order_id: orderId,
         jumia_order_number: String(order.number),
         jumia_shop_id: jumiaClient.shopId,
         status: order.status,
@@ -354,50 +408,101 @@ export async function POST(request: NextRequest) {
         upsertPayload.items = sanitizedItems;
       }
 
-      const { error: upsertError } = await supabase
-        .from('jumia_orders')
-        .upsert(upsertPayload, { onConflict: 'jumia_order_id' });
+      pendingOrderWrites.push({
+        currency: order.totalAmount?.currency ?? 'NGN',
+        existingOrderId,
+        isNewOrder,
+        orderId,
+        orderNumber: String(order.number),
+        sanitizedCustomerName,
+        totalAmount: Number(order.totalAmount?.value ?? 0),
+        upsertPayload,
+      });
+    }
 
-      if (upsertError) {
-        console.error('[Jumia Orders] Upsert error:', upsertError);
+    if (pendingOrderWrites.length > 0) {
+      const writeGroups = new Map<string, Record<string, unknown>[]>();
+      for (const write of pendingOrderWrites) {
+        const payloadKey = Object.keys(write.upsertPayload).sort().join('\0');
+        const payloads = writeGroups.get(payloadKey) ?? [];
+        payloads.push(write.upsertPayload);
+        writeGroups.set(payloadKey, payloads);
+      }
+
+      const bulkUpsertResults = await Promise.all(
+        Array.from(writeGroups.values()).map((payloads) =>
+          supabase
+            .from('jumia_orders')
+            .upsert(payloads, { onConflict: 'jumia_order_id' })
+        )
+      );
+      const failedUpsert = bulkUpsertResults.find((result) => result.error);
+
+      if (failedUpsert?.error) {
+        logger.error({
+          message: 'Failed to bulk upsert Jumia orders',
+          orderCount: pendingOrderWrites.length,
+          error: failedUpsert.error,
+        });
+        return NextResponse.json(
+          { error: 'Failed to process orders' },
+          { status: 500 }
+        );
+      }
+
+      for (const write of pendingOrderWrites) {
+        existingOrdersMap.set(write.orderId, {
+          id: write.existingOrderId,
+          jumia_order_id: write.orderId,
+          notification_sent: Boolean(write.upsertPayload.notification_sent),
+        });
+      }
+    }
+
+    for (const write of pendingOrderWrites) {
+      if (!write.isNewOrder) {
         continue;
       }
 
-      if (isNewOrder) {
-        newOrdersCount++;
-        try {
-          await notifyJumiaOrder(
-            merchantId,
-            String(order.number),
-            sanitizedCustomerName,
-            Number(order.totalAmount?.value ?? 0),
-            order.totalAmount?.currency ?? 'NGN'
-          );
+      newOrdersCount++;
+      try {
+        await notifyJumiaOrder(
+          merchantId,
+          write.orderNumber,
+          write.sanitizedCustomerName,
+          write.totalAmount,
+          write.currency
+        );
 
-          // Only mark notification_sent after successful notify
-          const { error: notifyUpdateError } = await supabase
-            .from('jumia_orders')
-            .update({ notification_sent: true })
-            .eq('jumia_order_id', order.id)
-            .eq('merchant_id', merchantId);
-          if (notifyUpdateError) {
-            logger.error({
-              message: 'Failed to update notification_sent flag',
-              orderId: order.id,
-              error: notifyUpdateError,
-            });
-          }
-        } catch (pushError) {
+        // Only mark notification_sent after successful notify.
+        const { error: notifyUpdateError } = await supabase
+          .from('jumia_orders')
+          .update({ notification_sent: true })
+          .eq('jumia_order_id', write.orderId)
+          .eq('merchant_id', merchantId);
+        if (notifyUpdateError) {
           logger.error({
-            message: 'Push notification failed for Jumia order',
-            orderId: order.id,
-            orderNumber: order.number,
-            error:
-              pushError instanceof Error
-                ? { message: pushError.message, stack: pushError.stack }
-                : pushError,
+            message: 'Failed to update notification_sent flag',
+            orderId: write.orderId,
+            error: notifyUpdateError,
+          });
+        } else {
+          existingOrdersMap.set(write.orderId, {
+            id: write.existingOrderId,
+            jumia_order_id: write.orderId,
+            notification_sent: true,
           });
         }
+      } catch (pushError) {
+        logger.error({
+          message: 'Push notification failed for Jumia order',
+          orderId: write.orderId,
+          orderNumber: write.orderNumber,
+          error:
+            pushError instanceof Error
+              ? { message: pushError.message, stack: pushError.stack }
+              : pushError,
+        });
       }
     }
 
@@ -409,10 +514,11 @@ export async function POST(request: NextRequest) {
       .eq('merchant_id', merchantId);
 
     if (syncUpdateError) {
-      console.error(
-        '[Jumia Orders] Failed to update last_sync_at:',
-        syncUpdateError
-      );
+      logger.error({
+        message: 'Failed to update Jumia integration last_sync_at',
+        integrationId,
+        error: syncUpdateError,
+      });
     }
 
     return NextResponse.json({
