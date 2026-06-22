@@ -7,15 +7,16 @@ import {
   type Mock,
   vi,
 } from 'vitest';
-import {
-  trackServerSideBeginCheckout,
-  trackServerSidePurchase,
-} from './server-side-analytics';
 
 vi.mock('@/env', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/env')>();
   return { ...mod, getAppUrl: vi.fn(() => 'http://localhost:3000') };
 });
+
+import {
+  trackServerSideBeginCheckout,
+  trackServerSidePurchase,
+} from './server-side-analytics';
 
 describe('Server-Side Analytics error handling', () => {
   const merchantId = 'merch_123';
