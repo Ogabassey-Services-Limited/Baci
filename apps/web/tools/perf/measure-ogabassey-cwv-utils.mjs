@@ -98,7 +98,8 @@ export function findDebugBearProjectIdForUrl(
         pageMatchesDevice(page, deviceName) &&
         normalizeUrlForMatch(getPageUrl(page)) === target
       ) {
-        return project.id ?? project.projectId ?? null;
+        const projectId = project.id ?? project.projectId;
+        if (projectId != null) return projectId;
       }
     }
   }
@@ -109,7 +110,8 @@ export function findDebugBearProjectIdForUrl(
         pageMatchesDevice(page, deviceName) &&
         getOrigin(getPageUrl(page)) === targetOrigin
       ) {
-        return project.id ?? project.projectId ?? null;
+        const projectId = project.id ?? project.projectId;
+        if (projectId != null) return projectId;
       }
     }
   }

@@ -42,6 +42,25 @@ describe('fetchJson', () => {
     );
   });
 
+  it('redacts secret query params regardless of casing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 403,
+        text: async () => 'quota exceeded',
+      }))
+    );
+
+    await expect(
+      fetchJson(
+        'https://example.com/api?url=https://x.test&KEY=secret&Api_Key=secret2&TOKEN=secret3'
+      )
+    ).rejects.toThrow(
+      'https://example.com/api?url=https%3A%2F%2Fx.test&KEY=REDACTED&Api_Key=REDACTED&TOKEN=REDACTED failed with 403: quota exceeded'
+    );
+  });
+
   it('parses successful JSON responses', async () => {
     vi.stubGlobal(
       'fetch',

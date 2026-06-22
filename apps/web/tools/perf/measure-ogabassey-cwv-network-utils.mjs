@@ -3,9 +3,10 @@ import { DEBUGBEAR_USER_AGENT } from './measure-ogabassey-cwv-utils.mjs';
 function redactUrlForError(value) {
   try {
     const url = new URL(value);
-    for (const key of ['api_key', 'key', 'token']) {
-      if (url.searchParams.has(key)) {
-        url.searchParams.set(key, 'REDACTED');
+    const secretKeys = new Set(['api_key', 'key', 'token']);
+    for (const [param] of url.searchParams.entries()) {
+      if (secretKeys.has(param.toLowerCase())) {
+        url.searchParams.set(param, 'REDACTED');
       }
     }
     return url.toString();

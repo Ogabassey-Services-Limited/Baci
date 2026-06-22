@@ -220,6 +220,14 @@ describe('getDebugBearCategoryScore', () => {
     ).toBe(88);
   });
 
+  it('normalizes DebugBear summary-backed category scores to percentages', () => {
+    expect(
+      getDebugBearCategoryScore({ summary: { 'performance.score': 0.73 } }, [
+        'performance',
+      ])
+    ).toBe(73);
+  });
+
   it('returns null when DebugBear does not include category scores', () => {
     expect(
       getDebugBearCategoryScore({ metrics: {} }, ['performance'])

@@ -102,6 +102,27 @@ describe('findDebugBearProjectIdForUrl', () => {
       )
     ).toBeNull();
   });
+
+  it('continues scanning when a matched page has no project id', () => {
+    expect(
+      findDebugBearProjectIdForUrl(
+        [
+          {
+            pages: [
+              { url: 'https://ogabassey.com/', device: { name: 'Mobile' } },
+            ],
+          },
+          {
+            id: 'valid-project',
+            pages: [
+              { url: 'https://ogabassey.com/', device: { name: 'Mobile' } },
+            ],
+          },
+        ],
+        'https://ogabassey.com/'
+      )
+    ).toBe('valid-project');
+  });
 });
 
 describe('buildOgaBasseyCwvTargets', () => {
