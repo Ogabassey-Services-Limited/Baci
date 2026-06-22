@@ -1,0 +1,147 @@
+# Diff Guardian — a QUORUM gate over the AI code reviewers.
+#
+# WHY THIS EXISTS
+# The repo already runs several AI reviewers (Gemini, Jules, Claude, CodeRabbit,
+# Codex). Each is good but each, alone, occasionally (a) raises a false-positive
+# you can't easily refute, or (b) crashes/times out. If any single reviewer is a
+# *required* merge gate, one bad call or one outage blocks every merge.
+#
+# Diff Guardian fixes that by VOTING: it watches the other reviewers' pass/fail
+# results on the PR and reports ONE status — and it only BLOCKS the merge when a
+# QUORUM of reviewers agree there is a problem. So:
+#   - one reviewer false-positives  -> does NOT block (others didn't agree)
+#   - one reviewer is down/flaky     -> does NOT block (it just abstains)
+#   - two+ reviewers flag a problem  -> BLOCKS (real signal, worth a human look)
+#
+# It re-implements no model calls; it only tallies the existing reviewers'
+# statuses, so it's cheap and can't itself hallucinate.
+#
+# HOW TO ADOPT (branch protection, main):
+#   1. Let this run on a few PRs first and confirm the `Diff Guardian` status
+#      appears and matches your expectation.
+#   2. Then in main's required status checks: ADD `Diff Guardian`, and REMOVE the
+#      individual `Gemini review` / `Jules review` from *required* (they keep
+#      running + commenting, just no longer block on their own). Diff Guardian
+#      becomes the single AI gate. Keep `Build` + `Quality Gate` (tests) required.
+#   3. Escape hatch: add the `bypass-ai-gate` label to a PR to force this green
+#      (same label the individual reviewers already honor).
+#
+# TUNING: edit VOTERS (the reviewers to tally) and BLOCK_QUORUM (how many must
+# agree to block) in the env block below. With 2 voters, BLOCK_QUORUM=2 means
+# "both must agree to block" (lenient — favors not-blocking). Add `Claude review`
+# as a 3rd voter (once it auto-runs + sets a status) and set BLOCK_QUORUM=2 for a
+# true majority.
+#
+# NOTE (merge queue): the voter reviewers run on `pull_request`, not
+# `merge_group`. If/when you enable the merge queue, add `merge_group` triggers
+# to the voters AND here, or this gate will just pass on the queue.
+
+name: Diff Guardian
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: read
+  statuses: write
+  checks: read
+  pull-requests: read
+
+concurrency:
+  group: diff-guardian-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guardian:
+    name: Diff Guardian
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Tally AI reviewers and gate by quorum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+          HAS_BYPASS: ${{ contains(github.event.pull_request.labels.*.name, 'bypass-ai-gate') }}
+          # The reviewers to tally (their commit-status "context" names), pipe-separated.
+          VOTERS: 'Gemini review|Jules review'
+          # How many voters must report a FAILURE for Diff Guardian to BLOCK.
+          BLOCK_QUORUM: '2'
+          # How long to wait for voters to finish before tallying what we have.
+          POLL_TIMEOUT_SECONDS: '1500'
+        run: |
+          set -euo pipefail
+
+          set_status() { # state, description
+            gh api -X POST "repos/$REPO/statuses/$SHA" \
+              -f state="$1" \
+              -f context='Diff Guardian' \
+              -f description="$2" \
+              -f target_url="https://github.com/$REPO/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+          }
+
+          # Escape hatch: explicit human override.
+          if [ "$HAS_BYPASS" = "true" ]; then
+            echo "::notice::'bypass-ai-gate' label present — Diff Guardian passing without tallying."
+            set_status success "Bypassed via bypass-ai-gate label"
+            exit 0
+          fi
+
+          # Pipe-separated -> newline list of voter contexts.
+          voters="$(printf '%s\n' "$VOTERS" | tr '|' '\n' | sed '/^$/d')"
+          voter_count="$(printf '%s\n' "$voters" | grep -c .)"
+          echo "Voters ($voter_count): $(printf '%s' "$VOTERS")  |  block quorum: $BLOCK_QUORUM"
+
+          set_status pending "Waiting for AI reviewers to finish…"
+
+          deadline=$(( $(date +%s) + POLL_TIMEOUT_SECONDS ))
+          # A voter's latest commit-status state: success|failure|error|pending|(missing).
+          voter_state() {
+            printf '%s' "$1" | jq -r --arg c "$2" \
+              '([.statuses[] | select(.context==$c)] | sort_by(.updated_at) | last | .state) // "missing"'
+          }
+
+          while :; do
+            combined="$(gh api "repos/$REPO/commits/$SHA/status" 2>/dev/null || echo '{"statuses":[]}')"
+
+            reported=0 ; blocking=0 ; pending=0 ; summary=""
+            while IFS= read -r ctx; do
+              [ -z "$ctx" ] && continue
+              st="$(voter_state "$combined" "$ctx")"
+              summary="${summary}${ctx}=${st}; "
+              case "$st" in
+                failure|error) reported=$((reported+1)); blocking=$((blocking+1)) ;;
+                success)       reported=$((reported+1)) ;;
+                pending)       pending=$((pending+1)) ;;
+                missing)       : ;; # workflow may not have started yet (or isn't configured)
+              esac
+            done <<< "$voters"
+
+            echo "$(date +%H:%M:%S)  $summary| reported=$reported blocking=$blocking pending=$pending"
+
+            # Decide early the moment the result is unambiguous:
+            #  - quorum to block already reached -> BLOCK now.
+            #  - quorum can no longer be reached even if all pending fail -> PASS now.
+            if [ "$blocking" -ge "$BLOCK_QUORUM" ]; then
+              echo "::error::Diff Guardian: $blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM). Review the failing reviewers, fix, or add 'bypass-ai-gate'."
+              set_status failure "$blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM)"
+              exit 1
+            fi
+            if [ $((blocking + pending)) -lt "$BLOCK_QUORUM" ]; then
+              echo "Diff Guardian: quorum to block is unreachable — passing."
+              set_status success "No reviewer quorum on blocking issues ($blocking/$BLOCK_QUORUM)"
+              exit 0
+            fi
+
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              # Timed out with some voters still pending. Tally what we have:
+              # only block if the agreed-blocking already meets quorum (it can't,
+              # or we'd have exited above), so pass — never block on missing data.
+              echo "::warning::Diff Guardian: timed out waiting for reviewers ($summary). Passing on available results."
+              set_status success "Timed out; $blocking/$BLOCK_QUORUM blocking among reported reviewers"
+              exit 0
+            fi
+            sleep 30
+          done
