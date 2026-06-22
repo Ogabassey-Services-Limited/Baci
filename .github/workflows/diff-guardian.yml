@@ -64,6 +64,8 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.pull_request.head.sha }}
           PR: ${{ github.event.pull_request.number }}
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_LABEL: ${{ github.event.label.name }}
           HAS_BYPASS: ${{ contains(github.event.pull_request.labels.*.name, 'bypass-ai-gate') }}
           # The reviewers to tally (commit-status context or check-run names), pipe-separated.
           VOTERS: 'Gemini review|Jules review'
@@ -79,7 +81,7 @@ jobs:
               -f state="$1" \
               -f context='Diff Guardian' \
               -f description="$2" \
-              -f target_url="https://github.com/$REPO/actions/runs/${GITHUB_RUN_ID}" >/dev/null
+              -f target_url="https://github.com/$REPO/actions/runs/${GITHUB_RUN_ID}" >/dev/null 2>&1 || true
           }
 
           # Escape hatch: explicit human override.
@@ -87,6 +89,14 @@ jobs:
             echo "::notice::'bypass-ai-gate' label present — Diff Guardian passing without tallying."
             set_status success "Bypassed via bypass-ai-gate label"
             exit 0
+          fi
+          # Removing the bypass label does not re-run the individual voters.
+          # Fail closed until a new commit re-runs them, otherwise stale
+          # bypass-success votes can be misread as real review passes.
+          if [ "$EVENT_ACTION" = "unlabeled" ] && [ "$EVENT_LABEL" = "bypass-ai-gate" ]; then
+            echo "::error::'bypass-ai-gate' label was removed. Push a new commit to re-run AI reviewers before Diff Guardian can tally them."
+            set_status failure "Push a new commit after removing bypass-ai-gate"
+            exit 1
           fi
 
           # Pipe-separated -> newline list of voter contexts.
@@ -119,7 +129,7 @@ jobs:
                 elif ($run.conclusion // "") == "failure" then "failure"
                 elif ($run.conclusion // "") == "timed_out" then "failure"
                 elif ($run.conclusion // "") == "action_required" then "failure"
-                elif ($run.conclusion // "") == "cancelled" then "failure"
+                elif ($run.conclusion // "") == "cancelled" then "missing"
                 else "pending"
                 end
             '
@@ -131,14 +141,21 @@ jobs:
             check_run="$(check_state "$2" "$3")"
 
             case "$commit_status" in
-              failure|error|success|pending) printf '%s' "$commit_status" ; return ;;
+              failure|error|success) printf '%s' "$commit_status" ; return ;;
             esac
+            case "$check_run" in
+              failure|success) printf '%s' "$check_run" ; return ;;
+            esac
+            if [ "$commit_status" = "pending" ]; then
+              printf 'pending'
+              return
+            fi
             printf '%s' "$check_run"
           }
 
           while :; do
             combined="$(gh api "repos/$REPO/commits/$SHA/status" 2>/dev/null || echo '{"statuses":[]}')"
-            checks="$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" 2>/dev/null || echo '{"check_runs":[]}')"
+            checks="$(gh api --paginate "repos/$REPO/commits/$SHA/check-runs?per_page=100" 2>/dev/null | jq -s '{"check_runs":[.[].check_runs[]?]}' 2>/dev/null || echo '{"check_runs":[]}' )"
 
             reported=0 ; blocking=0 ; pending=0 ; summary=""
             while IFS= read -r ctx; do
