@@ -39,7 +39,9 @@ import {
   order,
 } from './order-sync.test-helpers';
 import {
+  claimJumiaNotificationDelivery,
   getJumiaNotificationAttemptKey,
+  isJumiaNotificationAlreadySent,
   markJumiaNotificationSent,
 } from './order-sync-notifications';
 
@@ -52,6 +54,39 @@ describe('Jumia order sync notification markers', () => {
     expect(getJumiaNotificationAttemptKey('merchant:1', 'order/1')).toBe(
       'merchant%3A1:order%2F1'
     );
+  });
+
+  it('claims rows where notification_sent is not true so legacy null markers are eligible', async () => {
+    const claimQuery = createQuery({
+      data: { jumia_order_id: 'jumia-order-1' },
+      error: null,
+    });
+    const supabase = createSupabaseMock({ jumia_orders: [claimQuery] });
+
+    await expect(
+      claimJumiaNotificationDelivery(supabase, 'merchant-1', 'jumia-order-1')
+    ).resolves.toEqual({
+      claimed: true,
+      claimedAt: expect.any(String),
+      error: null,
+    });
+    expect(claimQuery.not).toHaveBeenCalledWith(
+      'notification_sent',
+      'is',
+      true
+    );
+  });
+
+  it('surfaces sent-state read errors instead of treating them as not sent', async () => {
+    const readErrorQuery = createQuery({
+      data: null,
+      error: { message: 'read timeout' },
+    });
+    const supabase = createSupabaseMock({ jumia_orders: [readErrorQuery] });
+
+    await expect(
+      isJumiaNotificationAlreadySent(supabase, 'merchant-1', 'jumia-order-1')
+    ).rejects.toEqual({ message: 'read timeout' });
   });
 
   it('retries notification_sent updates and scopes them to the merchant', async () => {

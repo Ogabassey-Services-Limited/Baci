@@ -16,6 +16,46 @@ type SyncedJumiaNotificationDeliveryResult = NotificationSendResult & {
   retryableMessage?: string;
 };
 
+async function releaseSyncedJumiaNotificationClaim({
+  claimedAt,
+  jumiaOrderId,
+  merchantId,
+  supabase,
+}: {
+  claimedAt: string;
+  jumiaOrderId: string;
+  merchantId: string;
+  supabase: SupabaseClient;
+}) {
+  try {
+    const releaseError = await releaseJumiaNotificationDeliveryClaim(
+      supabase,
+      merchantId,
+      jumiaOrderId,
+      claimedAt
+    );
+    if (releaseError) {
+      logger.error({
+        message: 'Failed to release Jumia notification delivery lease',
+        merchantId,
+        jumiaOrderId,
+        error: releaseError,
+      });
+    }
+    return releaseError;
+  } catch (releaseError) {
+    logger.error({
+      message: 'Failed to release Jumia notification delivery lease',
+      merchantId,
+      jumiaOrderId,
+      error: releaseError,
+    });
+    return releaseError instanceof Error
+      ? { message: releaseError.message }
+      : { message: 'Unknown Jumia notification lease release error' };
+  }
+}
+
 export async function deliverSyncedJumiaOrderNotification({
   baciOrderId,
   integrationId,
@@ -64,12 +104,12 @@ export async function deliverSyncedJumiaOrderNotification({
     order,
     baciOrderId
   ).catch(async (error: unknown) => {
-    await releaseJumiaNotificationDeliveryClaim(
-      supabase,
+    await releaseSyncedJumiaNotificationClaim({
+      claimedAt,
+      jumiaOrderId: order.id,
       merchantId,
-      order.id,
-      claimedAt
-    );
+      supabase,
+    });
     throw error;
   });
 
@@ -91,19 +131,23 @@ export async function deliverSyncedJumiaOrderNotification({
     };
 
   if (notificationResult.sent <= 0) {
-    await releaseJumiaNotificationDeliveryClaim(
-      supabase,
+    const releaseError = await releaseSyncedJumiaNotificationClaim({
+      claimedAt,
+      jumiaOrderId: order.id,
       merchantId,
-      order.id,
-      claimedAt
-    );
-    return {
+      supabase,
+    });
+    const result: SyncedJumiaNotificationDeliveryResult = {
       ...notificationResult,
       retryableMessage:
         notificationResult.failed > 0 || notificationResult.errors.length > 0
           ? undefined
           : 'No merchant push notification delivery was accepted for the Jumia order',
     };
+    if (releaseError) {
+      result.markerErrorMessage = `Failed to release Jumia notification delivery lease: ${releaseError.message}`;
+    }
+    return result;
   }
 
   const notificationUpdateError = await markJumiaNotificationSent(

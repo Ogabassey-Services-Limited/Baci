@@ -18,6 +18,26 @@ function getCustomerName(
   );
 }
 
+function sanitizeShippingAddress(
+  shippingAddress: ManualJumiaOrder['shippingAddress']
+) {
+  if (!shippingAddress) return undefined;
+
+  const sanitizedEntries = Object.entries(
+    shippingAddress as Record<string, unknown>
+  ).flatMap(([key, value]) => {
+    if (typeof value === 'string') {
+      const sanitizedValue = sanitizeText(value, 500);
+      return sanitizedValue ? [[key, sanitizedValue] as const] : [];
+    }
+    return value == null ? [] : [[key, value] as const];
+  });
+
+  return sanitizedEntries.length > 0
+    ? Object.fromEntries(sanitizedEntries)
+    : undefined;
+}
+
 export async function buildJumiaOrderWrites(
   jumiaClient: JumiaClient,
   merchantId: string,
@@ -69,17 +89,20 @@ export async function buildJumiaOrderWrites(
       | undefined;
     const customerPhone =
       typeof shippingAddr?.phone === 'string' ? shippingAddr.phone : '';
+    const sanitizedCustomerPhone = sanitizeText(customerPhone, 50);
     const sanitizedCustomerName = sanitizeText(customerName, 200);
-    const sanitizedShippingAddress = order.shippingAddress
-      ? Object.fromEntries(
-          Object.entries(order.shippingAddress as Record<string, unknown>).map(
-            ([key, value]) => [
-              key,
-              typeof value === 'string' ? sanitizeText(value, 500) : value,
-            ]
-          )
-        )
-      : {};
+    const sanitizedShippingAddress = sanitizeShippingAddress(
+      order.shippingAddress
+    );
+    const actualTotalAmount =
+      typeof order.totalAmount?.value === 'number' &&
+      Number.isFinite(order.totalAmount.value)
+        ? order.totalAmount.value
+        : undefined;
+    const actualCurrency =
+      typeof order.totalAmount?.currency === 'string'
+        ? sanitizeText(order.totalAmount.currency, 12)
+        : '';
     const upsertPayload: Record<string, unknown> = {
       merchant_id: merchantId,
       jumia_order_id: orderId,
@@ -87,12 +110,21 @@ export async function buildJumiaOrderWrites(
       jumia_shop_id: jumiaClient.shopId,
       status: order.status,
       customer_name: sanitizedCustomerName,
-      customer_phone: sanitizeText(customerPhone, 50),
-      shipping_address: sanitizedShippingAddress,
-      total_amount: order.totalAmount?.value ?? 0,
-      currency: order.totalAmount?.currency ?? 'NGN',
       created_at_jumia: order.createdAt,
     };
+
+    if (sanitizedCustomerPhone) {
+      upsertPayload.customer_phone = sanitizedCustomerPhone;
+    }
+    if (sanitizedShippingAddress) {
+      upsertPayload.shipping_address = sanitizedShippingAddress;
+    }
+    if (actualTotalAmount !== undefined) {
+      upsertPayload.total_amount = actualTotalAmount;
+    }
+    if (actualCurrency) {
+      upsertPayload.currency = actualCurrency;
+    }
 
     if (itemsFetched) {
       upsertPayload.items = orderItems.map((item) => ({
@@ -105,14 +137,14 @@ export async function buildJumiaOrderWrites(
     }
 
     pendingOrderWrites.push({
-      currency: order.totalAmount?.currency ?? 'NGN',
+      currency: actualCurrency || 'NGN',
       existingOrderId: existingOrder?.id ?? '',
       isNewOrder: !existingOrder,
       orderId,
       orderNumber: String(order.number),
       prefetchedNotificationSent: existingOrder?.notification_sent === true,
       sanitizedCustomerName,
-      totalAmount: Number(order.totalAmount?.value ?? 0),
+      totalAmount: Number(actualTotalAmount ?? 0),
       upsertPayload,
     });
   }

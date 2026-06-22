@@ -25,9 +25,13 @@ vi.mock('./order-sync-operations', async (importOriginal) => {
   };
 });
 
+const loggerError = vi.fn();
 const loggerWarn = vi.fn();
 vi.mock('@/lib/logger', () => ({
-  logger: { warn: (...args: unknown[]) => loggerWarn(...args) },
+  logger: {
+    error: (...args: unknown[]) => loggerError(...args),
+    warn: (...args: unknown[]) => loggerWarn(...args),
+  },
 }));
 
 import { deliverSyncedJumiaOrderNotification } from './order-sync-notification-delivery';
@@ -118,6 +122,50 @@ describe('deliverSyncedJumiaOrderNotification', () => {
       'merchant-1',
       'jumia-order-1',
       '2026-06-22T12:00:00.000Z'
+    );
+  });
+
+  it('surfaces release failures when no push is accepted', async () => {
+    vi.mocked(notifySyncedJumiaOrder).mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+    vi.mocked(releaseJumiaNotificationDeliveryClaim).mockResolvedValueOnce({
+      message: 'release timeout',
+    });
+
+    await expect(callDelivery()).resolves.toEqual({
+      sent: 0,
+      failed: 0,
+      errors: [],
+      markerErrorMessage:
+        'Failed to release Jumia notification delivery lease: release timeout',
+      retryableMessage:
+        'No merchant push notification delivery was accepted for the Jumia order',
+    });
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to release Jumia notification delivery lease',
+        jumiaOrderId: 'jumia-order-1',
+      })
+    );
+  });
+
+  it('logs release failures before rethrowing push errors', async () => {
+    vi.mocked(notifySyncedJumiaOrder).mockRejectedValueOnce(
+      new Error('push failed')
+    );
+    vi.mocked(releaseJumiaNotificationDeliveryClaim).mockResolvedValueOnce({
+      message: 'release timeout',
+    });
+
+    await expect(callDelivery()).rejects.toThrow('push failed');
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to release Jumia notification delivery lease',
+        jumiaOrderId: 'jumia-order-1',
+      })
     );
   });
 

@@ -123,6 +123,32 @@ describe('sendManualJumiaNotifications', () => {
     );
   });
 
+  it('fails closed when claim-miss sent-state verification fails', async () => {
+    vi.mocked(claimJumiaNotificationDelivery).mockResolvedValueOnce({
+      claimed: false,
+      claimedAt: null,
+      error: null,
+    });
+    vi.mocked(isJumiaNotificationAlreadySent).mockRejectedValueOnce(
+      new Error('read timeout')
+    );
+
+    const result = await sendManualJumiaNotifications(
+      createSupabaseWithNotificationRows([]),
+      'merchant-1',
+      [createWrite()]
+    );
+
+    expect(result).toEqual({ markerFailed: true, newOrders: 1 });
+    expect(notifyJumiaOrder).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to verify Jumia notification sent state',
+        orderId: 'order-1',
+      })
+    );
+  });
+
   it('releases the claim and fails closed when no push delivery is accepted', async () => {
     vi.mocked(notifyJumiaOrder).mockResolvedValueOnce({
       sent: 0,
@@ -142,6 +168,32 @@ describe('sendManualJumiaNotifications', () => {
       'merchant-1',
       'order-1',
       '2026-06-22T12:00:00.000Z'
+    );
+  });
+
+  it('logs release failures when no push delivery is accepted', async () => {
+    vi.mocked(notifyJumiaOrder).mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+    vi.mocked(releaseJumiaNotificationDeliveryClaim).mockResolvedValueOnce({
+      message: 'release timeout',
+    });
+
+    const result = await sendManualJumiaNotifications(
+      createSupabaseWithNotificationRows([]),
+      'merchant-1',
+      [createWrite()]
+    );
+
+    expect(result).toEqual({ markerFailed: true, newOrders: 1 });
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to release Jumia notification delivery lease',
+        orderId: 'order-1',
+        error: { message: 'release timeout' },
+      })
     );
   });
 });

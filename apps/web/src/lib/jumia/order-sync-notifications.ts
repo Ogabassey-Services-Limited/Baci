@@ -31,6 +31,24 @@ function isRetryableNotificationMarkerError(error: SyncErrorLike) {
   );
 }
 
+function toSyncErrorLike(error: unknown): SyncErrorLike {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const errorLike = error as { code?: unknown; message: unknown };
+    const message =
+      typeof errorLike.message === 'string'
+        ? errorLike.message
+        : 'Unknown Jumia notification error';
+    if (typeof errorLike.code === 'string') {
+      return { code: errorLike.code, message };
+    }
+    return {
+      message,
+    };
+  }
+
+  return { message: 'Unknown Jumia notification error' };
+}
+
 export function getJumiaNotificationAttemptKey(
   merchantId: string,
   jumiaOrderId: string
@@ -56,7 +74,7 @@ export async function claimJumiaNotificationDelivery(
     .update({ notification_claimed_at: claimedAt })
     .eq('merchant_id', merchantId)
     .eq('jumia_order_id', jumiaOrderId)
-    .eq('notification_sent', false)
+    .not('notification_sent', 'is', true)
     .or(
       `notification_claimed_at.is.null,notification_claimed_at.lt.${staleBefore}`
     )
@@ -89,13 +107,15 @@ export async function isJumiaNotificationAlreadySent(
   merchantId: string,
   jumiaOrderId: string
 ): Promise<boolean> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('jumia_orders')
     .select('jumia_order_id')
     .eq('merchant_id', merchantId)
     .eq('jumia_order_id', jumiaOrderId)
     .eq('notification_sent', true)
     .maybeSingle<{ jumia_order_id: string }>();
+
+  if (error) throw error;
 
   return Boolean(data);
 }
@@ -133,10 +153,14 @@ export async function markJumiaNotificationSent(
           supabase,
           merchantId,
           jumiaOrderId
-        ))
+        ).catch((sentCheckError: unknown) => {
+          lastError = toSyncErrorLike(sentCheckError);
+          return false;
+        }))
       ) {
         return null;
       }
+      if (lastError) return lastError;
       return {
         message: `No Jumia order notification marker updated for ${jumiaOrderId}`,
       };

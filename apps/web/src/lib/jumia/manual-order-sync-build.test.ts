@@ -123,4 +123,34 @@ describe('buildJumiaOrderWrites', () => {
       })
     );
   });
+
+  it('omits synthetic default fields from upsert payloads when Jumia omits real values', async () => {
+    const orderWithoutAmount = createOrder({
+      shippingAddress: {
+        address: '',
+        city: '',
+        countryName: '',
+        firstName: '',
+        lastName: '',
+        region: '',
+      },
+    });
+    delete (orderWithoutAmount as { totalAmount?: unknown }).totalAmount;
+
+    const writes = await buildJumiaOrderWrites(
+      client,
+      'merchant-1',
+      [orderWithoutAmount],
+      new Map()
+    );
+
+    expect(writes[0]).toMatchObject({
+      currency: 'NGN',
+      totalAmount: 0,
+    });
+    expect(writes[0]?.upsertPayload).not.toHaveProperty('customer_phone');
+    expect(writes[0]?.upsertPayload).not.toHaveProperty('shipping_address');
+    expect(writes[0]?.upsertPayload).not.toHaveProperty('total_amount');
+    expect(writes[0]?.upsertPayload).not.toHaveProperty('currency');
+  });
 });

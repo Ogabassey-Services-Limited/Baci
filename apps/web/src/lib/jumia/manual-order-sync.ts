@@ -9,6 +9,18 @@ import {
 } from './manual-order-sync-persist';
 import type { ManualJumiaOrderSyncResult } from './manual-order-sync-types';
 
+function formatUtcDateDaysAgo(daysAgo: number, now = new Date()) {
+  return new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysAgo
+    )
+  )
+    .toISOString()
+    .split('T')[0];
+}
+
 export async function syncJumiaOrdersForManualIntegration({
   jumiaClient,
   merchantId,
@@ -18,11 +30,8 @@ export async function syncJumiaOrdersForManualIntegration({
   merchantId: string;
   supabase: SupabaseClient;
 }): Promise<ManualJumiaOrderSyncResult> {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
   const jumiaOrders = await getAllOrders(jumiaClient, {
-    createdAfter: sevenDaysAgo.toISOString().split('T')[0],
+    createdAfter: formatUtcDateDaysAgo(7),
   });
   const jumiaOrderIds = Array.from(
     new Set(jumiaOrders.map((order) => String(order.id)))

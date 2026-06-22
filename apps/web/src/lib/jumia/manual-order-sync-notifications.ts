@@ -13,6 +13,44 @@ import { chunkOrderIds } from './order-sync-operations';
 
 const JUMIA_ORDER_LOOKUP_CONCURRENCY = 4;
 
+async function releaseManualJumiaNotificationClaim({
+  claimedAt,
+  orderId,
+  merchantId,
+  supabase,
+}: {
+  claimedAt: string;
+  orderId: string;
+  merchantId: string;
+  supabase: SupabaseClient;
+}) {
+  try {
+    const releaseError = await releaseJumiaNotificationDeliveryClaim(
+      supabase,
+      merchantId,
+      orderId,
+      claimedAt
+    );
+    if (releaseError) {
+      logger.error({
+        message: 'Failed to release Jumia notification delivery lease',
+        orderId,
+        error: releaseError,
+      });
+    }
+    return releaseError;
+  } catch (releaseError) {
+    logger.error({
+      message: 'Failed to release Jumia notification delivery lease',
+      orderId,
+      error: releaseError,
+    });
+    return releaseError instanceof Error
+      ? { message: releaseError.message }
+      : { message: 'Unknown Jumia notification lease release error' };
+  }
+}
+
 async function loadNotifiedJumiaOrderIds(
   supabase: SupabaseClient,
   merchantId: string,
@@ -93,13 +131,23 @@ export async function sendManualJumiaNotifications(
       continue;
     }
     if (!claim.claimed || !claim.claimedAt) {
-      if (
-        await isJumiaNotificationAlreadySent(
+      let alreadySent = false;
+      try {
+        alreadySent = await isJumiaNotificationAlreadySent(
           supabase,
           merchantId,
           write.orderId
-        )
-      ) {
+        );
+      } catch (sentCheckError) {
+        markerFailed = true;
+        logger.error({
+          message: 'Failed to verify Jumia notification sent state',
+          orderId: write.orderId,
+          error: sentCheckError,
+        });
+        continue;
+      }
+      if (alreadySent) {
         currentlyNotifiedOrderIds.add(write.orderId);
         continue;
       }
@@ -121,12 +169,12 @@ export async function sendManualJumiaNotifications(
       );
       if (deliveryResult.sent <= 0) {
         markerFailed = true;
-        await releaseJumiaNotificationDeliveryClaim(
-          supabase,
+        await releaseManualJumiaNotificationClaim({
+          claimedAt: claim.claimedAt,
+          orderId: write.orderId,
           merchantId,
-          write.orderId,
-          claim.claimedAt
-        );
+          supabase,
+        });
         logger.error({
           message: 'No Jumia order push notifications were accepted',
           orderId: write.orderId,
@@ -137,12 +185,12 @@ export async function sendManualJumiaNotifications(
       }
     } catch (pushError) {
       markerFailed = true;
-      await releaseJumiaNotificationDeliveryClaim(
-        supabase,
+      await releaseManualJumiaNotificationClaim({
+        claimedAt: claim.claimedAt,
+        orderId: write.orderId,
         merchantId,
-        write.orderId,
-        claim.claimedAt
-      );
+        supabase,
+      });
       logger.error({
         message: 'Push notification failed for Jumia order',
         orderId: write.orderId,

@@ -9,6 +9,7 @@ export type ExistingJumiaOrder = {
 
 export type MutationRecord = {
   filters: [string, unknown][];
+  notFilters: [string, string, unknown][];
   orFilters: string[];
   payload: Record<string, unknown>;
   table: string;
@@ -36,6 +37,8 @@ type SupabaseTestMocks = {
   upserts: UpsertRecord[];
 };
 
+const EXPECTED_TEST_MERCHANT_ID = 'merchant-1';
+
 function createMutationQuery(
   mocks: SupabaseTestMocks,
   table: string,
@@ -43,6 +46,7 @@ function createMutationQuery(
 ) {
   const mutation: MutationRecord = {
     filters: [],
+    notFilters: [],
     orFilters: [],
     payload,
     table,
@@ -58,6 +62,7 @@ function createMutationQuery(
   type MutationQuery = {
     eq: (column: string, value: unknown) => MutationQuery;
     maybeSingle: () => Promise<MutationResult>;
+    not: (column: string, operator: string, value: unknown) => MutationQuery;
     or: (filters: string) => MutationQuery;
     select: (columns: string) => MutationQuery;
   };
@@ -74,6 +79,13 @@ function createMutationQuery(
     const orderId = mutation.filters.find(
       ([column]) => column === 'jumia_order_id'
     )?.[1];
+    const merchantId = mutation.filters.find(
+      ([column]) => column === 'merchant_id'
+    )?.[1];
+
+    if (merchantId !== EXPECTED_TEST_MERCHANT_ID) {
+      return { data: null, error: null };
+    }
 
     if (payload.notification_claimed_at) {
       const claimRows = mocks.notificationClaimRows;
@@ -125,6 +137,10 @@ function createMutationQuery(
       error: result.error,
     });
   };
+  query.not = (column: string, operator: string, value: unknown) => {
+    mutation.notFilters.push([column, operator, value]);
+    return query;
+  };
   query.or = (filters: string) => {
     mutation.orFilters.push(filters);
     return query;
@@ -146,12 +162,17 @@ function createSelectQuery(mocks: SupabaseTestMocks) {
     ) && mocks.notificationAlreadySentRows;
 
   const filterRows = (rows: ExistingJumiaOrder[]) =>
-    rows.filter((order) =>
-      eqFilters.every(([column, value]) => {
-        if (column === 'merchant_id') return value === 'merchant-1';
-        return order[column as keyof ExistingJumiaOrder] === value;
-      })
-    );
+    eqFilters.some(
+      ([column, value]) =>
+        column === 'merchant_id' && value === EXPECTED_TEST_MERCHANT_ID
+    )
+      ? rows.filter((order) =>
+          eqFilters.every(([column, value]) => {
+            if (column === 'merchant_id') return true;
+            return order[column as keyof ExistingJumiaOrder] === value;
+          })
+        )
+      : [];
 
   type SelectQuery = {
     eq: (column: string, value: unknown) => SelectQuery;

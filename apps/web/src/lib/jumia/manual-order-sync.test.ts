@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JumiaClient } from '@/lib/jumia/client';
 import { getAllOrders } from '@/lib/jumia/orders';
 import { buildJumiaOrderWrites } from './manual-order-sync-build';
@@ -61,7 +61,14 @@ describe('syncJumiaOrdersForManualIntegration', () => {
     });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('orchestrates manual order fetch, persist, and notification stages', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-22T00:30:00.000Z'));
+
     const result = await syncJumiaOrdersForManualIntegration({
       jumiaClient: client,
       merchantId: 'merchant-1',
@@ -69,6 +76,9 @@ describe('syncJumiaOrdersForManualIntegration', () => {
     });
 
     expect(result).toEqual({ newOrders: 1, success: true, synced: 1 });
+    expect(getAllOrders).toHaveBeenCalledWith(client, {
+      createdAfter: '2026-06-15',
+    });
     expect(loadManualExistingJumiaOrders).toHaveBeenCalledWith(
       supabase,
       'merchant-1',

@@ -83,7 +83,9 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
           filters: expect.arrayContaining([
             ['merchant_id', 'merchant-1'],
             ['jumia_order_id', 'order-1'],
-            ['notification_sent', false],
+          ]),
+          notFilters: expect.arrayContaining([
+            ['notification_sent', 'is', true],
           ]),
           payload: { notification_claimed_at: expect.any(String) },
           table: 'jumia_orders',

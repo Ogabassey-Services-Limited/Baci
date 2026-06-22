@@ -19,6 +19,9 @@ export interface QueryMock {
     (_column?: string, _values?: unknown[]) => QueryMock | Promise<unknown>
   >;
   insert: Mock<(_payload?: unknown) => QueryMock | Promise<unknown>>;
+  not: Mock<
+    (_column?: string, _operator?: string, _value?: unknown) => QueryMock
+  >;
   or: Mock<(_filters?: string) => QueryMock>;
   update: Mock<(_payload?: unknown) => QueryMock>;
   upsert: Mock<
@@ -62,6 +65,9 @@ export function createQuery(
   );
   query.insert = vi.fn((_payload?: unknown) =>
     options.terminalInsert ? Promise.resolve(response) : query
+  );
+  query.not = vi.fn(
+    (_column?: string, _operator?: string, _value?: unknown) => query
   );
   query.or = vi.fn((_filters?: string) => query);
   query.update = vi.fn((_payload?: unknown) => query);
