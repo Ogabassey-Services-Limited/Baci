@@ -108,6 +108,29 @@ describe('POST /api/marketplace/jumia/orders', () => {
     expect(harness.mocks.notifyJumiaOrder).not.toHaveBeenCalled();
   });
 
+  it('does not reset or re-notify an order that was concurrently inserted and notified', async () => {
+    harness.mocks.notificationStates = [
+      {
+        id: 'cache-row-order-1',
+        jumia_order_id: 'order-1',
+        notification_sent: true,
+      },
+    ];
+    harness.mocks.getAllOrders.mockResolvedValue([
+      harness.createOrder('order-1'),
+    ]);
+
+    const response = await POST(harness.createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.newOrders).toBe(0);
+    const upsertRows = harness.getUpsertPayloadRows();
+    expect(upsertRows).toHaveLength(1);
+    expect(upsertRows[0]).not.toHaveProperty('notification_sent');
+    expect(harness.mocks.notifyJumiaOrder).not.toHaveBeenCalled();
+  });
+
   it('retries existing Jumia orders whose current notification marker is still unset', async () => {
     harness.mocks.existingOrders.push({
       id: 'cache-row-order-1',

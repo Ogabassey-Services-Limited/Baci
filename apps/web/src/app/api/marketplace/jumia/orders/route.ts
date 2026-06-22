@@ -407,9 +407,6 @@ export async function POST(request: NextRequest) {
         currency: order.totalAmount?.currency ?? 'NGN',
         created_at_jumia: order.createdAt,
       };
-      if (isNewOrder) {
-        upsertPayload.notification_sent = false;
-      }
 
       if (itemsFetched) {
         const sanitizedItems = orderItems.map((item) => ({
