@@ -25,6 +25,19 @@ import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
 const JUMIA_ORDER_UPSERT_BATCH_SIZE = 100;
+const JUMIA_ORDER_LOOKUP_CONCURRENCY = 4;
+
+type JumiaOrderWrite = {
+  currency: string;
+  existingOrderId: string;
+  isNewOrder: boolean;
+  orderId: string;
+  orderNumber: string;
+  prefetchedNotificationSent: boolean;
+  sanitizedCustomerName: string;
+  totalAmount: number;
+  upsertPayload: Record<string, unknown>;
+};
 
 /** Deduplicate customer name formatting from Jumia shipping address */
 function getCustomerName(
@@ -43,6 +56,19 @@ function chunkRecords<T>(records: T[], batchSize: number): T[][] {
     chunks.push(records.slice(index, index + batchSize));
   }
   return chunks;
+}
+
+async function mapWithBoundedConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let index = 0; index < values.length; index += concurrency) {
+    const batch = values.slice(index, index + concurrency);
+    results.push(...(await Promise.all(batch.map(mapper))));
+  }
+  return results;
 }
 
 /**
@@ -279,14 +305,15 @@ export async function POST(request: NextRequest) {
     );
     const existingOrdersMap = new Map<string, ExistingJumiaOrderLookup>();
 
-    const existingOrderResults = await Promise.all(
-      chunkOrderIds(jumiaOrderIds).map((orderIdChunk) =>
-        supabase
+    const existingOrderResults = await mapWithBoundedConcurrency(
+      chunkOrderIds(jumiaOrderIds),
+      JUMIA_ORDER_LOOKUP_CONCURRENCY,
+      async (orderIdChunk) =>
+        await supabase
           .from('jumia_orders')
           .select('id, jumia_order_id, notification_sent')
           .eq('merchant_id', merchantId)
           .in('jumia_order_id', orderIdChunk)
-      )
     );
 
     for (const {
@@ -315,17 +342,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let pendingOrderWrites: Array<{
-      currency: string;
-      existingOrderId: string;
-      isNewOrder: boolean;
-      orderId: string;
-      orderNumber: string;
-      prefetchedNotificationSent: boolean;
-      sanitizedCustomerName: string;
-      totalAmount: number;
-      upsertPayload: Record<string, unknown>;
-    }> = [];
+    let pendingOrderWrites: JumiaOrderWrite[] = [];
     const stagedOrderIds = new Set<string>();
     let upsertFailed = false;
 
@@ -441,7 +458,7 @@ export async function POST(request: NextRequest) {
         writeGroups.set(payloadKey, writes);
       }
 
-      const persistedOrderWrites: typeof pendingOrderWrites = [];
+      const persistedOrderWrites: JumiaOrderWrite[] = [];
 
       for (const writes of writeGroups.values()) {
         const writeChunks = chunkRecords(writes, JUMIA_ORDER_UPSERT_BATCH_SIZE);
@@ -455,21 +472,36 @@ export async function POST(request: NextRequest) {
             });
 
           if (upsertError) {
-            upsertFailed = true;
             logger.error({
               message: 'Failed to bulk upsert Jumia orders',
               orderCount: payloads.length,
               persistedOrderCount: persistedOrderWrites.length,
               error: upsertError,
             });
-            break;
+            for (const write of writeChunk) {
+              const { error: rowUpsertError } = await supabase
+                .from('jumia_orders')
+                .upsert(write.upsertPayload, {
+                  defaultToNull: false,
+                  onConflict: 'jumia_order_id',
+                });
+
+              if (rowUpsertError) {
+                upsertFailed = true;
+                logger.error({
+                  message: 'Failed to upsert individual Jumia order',
+                  orderId: write.orderId,
+                  error: rowUpsertError,
+                });
+                continue;
+              }
+
+              persistedOrderWrites.push(write);
+            }
+            continue;
           }
 
           persistedOrderWrites.push(...writeChunk);
-        }
-
-        if (upsertFailed) {
-          break;
         }
       }
 
@@ -482,14 +514,15 @@ export async function POST(request: NextRequest) {
     const currentlyNotifiedOrderIds = new Set<string>();
 
     if (notificationCandidateIds.length > 0) {
-      const notificationStateResults = await Promise.all(
-        chunkOrderIds(notificationCandidateIds).map((orderIdChunk) =>
-          supabase
+      const notificationStateResults = await mapWithBoundedConcurrency(
+        chunkOrderIds(notificationCandidateIds),
+        JUMIA_ORDER_LOOKUP_CONCURRENCY,
+        async (orderIdChunk) =>
+          await supabase
             .from('jumia_orders')
             .select('jumia_order_id, notification_sent')
             .eq('merchant_id', merchantId)
             .in('jumia_order_id', orderIdChunk)
-        )
       );
 
       for (const {
@@ -515,6 +548,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let notificationClaimFailed = false;
+
     for (const write of pendingOrderWrites) {
       const shouldNotify =
         (write.isNewOrder || !write.prefetchedNotificationSent) &&
@@ -523,9 +558,28 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      if (write.isNewOrder) {
-        newOrdersCount++;
+      const { data: claimedRows, error: claimError } = await supabase
+        .from('jumia_orders')
+        .update({ notification_sent: true })
+        .eq('jumia_order_id', write.orderId)
+        .eq('merchant_id', merchantId)
+        .or('notification_sent.is.false,notification_sent.is.null')
+        .select('id, jumia_order_id, notification_sent');
+
+      if (claimError) {
+        notificationClaimFailed = true;
+        logger.error({
+          message: 'Failed to claim Jumia notification',
+          orderId: write.orderId,
+          error: claimError,
+        });
+        continue;
       }
+
+      if (!claimedRows?.[0]) {
+        continue;
+      }
+
       try {
         await notifyJumiaOrder(
           merchantId,
@@ -535,25 +589,14 @@ export async function POST(request: NextRequest) {
           write.currency
         );
 
-        // Only mark notification_sent after successful notify.
-        const { error: notifyUpdateError } = await supabase
-          .from('jumia_orders')
-          .update({ notification_sent: true })
-          .eq('jumia_order_id', write.orderId)
-          .eq('merchant_id', merchantId);
-        if (notifyUpdateError) {
-          logger.error({
-            message: 'Failed to update notification_sent flag',
-            orderId: write.orderId,
-            error: notifyUpdateError,
-          });
-        } else {
-          existingOrdersMap.set(write.orderId, {
-            id: write.existingOrderId,
-            jumia_order_id: write.orderId,
-            notification_sent: true,
-          });
+        if (write.isNewOrder) {
+          newOrdersCount++;
         }
+        existingOrdersMap.set(write.orderId, {
+          id: write.existingOrderId,
+          jumia_order_id: write.orderId,
+          notification_sent: true,
+        });
       } catch (pushError) {
         logger.error({
           message: 'Push notification failed for Jumia order',
@@ -564,10 +607,24 @@ export async function POST(request: NextRequest) {
               ? { message: pushError.message, stack: pushError.stack }
               : pushError,
         });
+
+        const { error: releaseClaimError } = await supabase
+          .from('jumia_orders')
+          .update({ notification_sent: false })
+          .eq('jumia_order_id', write.orderId)
+          .eq('merchant_id', merchantId);
+        if (releaseClaimError) {
+          notificationClaimFailed = true;
+          logger.error({
+            message: 'Failed to release Jumia notification claim',
+            orderId: write.orderId,
+            error: releaseClaimError,
+          });
+        }
       }
     }
 
-    if (upsertFailed) {
+    if (upsertFailed || notificationClaimFailed) {
       return NextResponse.json(
         { error: 'Failed to process orders' },
         { status: 500 }

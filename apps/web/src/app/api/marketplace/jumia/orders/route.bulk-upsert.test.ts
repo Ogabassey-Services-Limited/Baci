@@ -38,7 +38,7 @@ describe('POST /api/marketplace/jumia/orders bulk upserts', () => {
     expect(upsertPayloads.some((payload) => !('items' in payload))).toBe(true);
   });
 
-  it('notifies successfully persisted groups before returning a later upsert failure', async () => {
+  it('falls back to individual upserts and notifies rows when a bulk group fails', async () => {
     harness.mocks.getAllOrders.mockResolvedValue([
       harness.createOrder('order-1'),
       harness.createOrder('order-2'),
@@ -51,10 +51,10 @@ describe('POST /api/marketplace/jumia/orders bulk upserts', () => {
     const response = await POST(harness.createRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to process orders' });
-    expect(harness.mocks.upserts).toHaveLength(2);
-    expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(body.newOrders).toBe(2);
+    expect(harness.mocks.upserts).toHaveLength(3);
+    expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledTimes(2);
     expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledWith(
       'merchant-1',
       'NO-order-1',
@@ -78,7 +78,38 @@ describe('POST /api/marketplace/jumia/orders bulk upserts', () => {
     );
   });
 
-  it('fails closed when the first bulk upsert fails before notifications', async () => {
+  it('notifies valid rows before returning a failed individual row fallback', async () => {
+    harness.mocks.getAllOrders.mockResolvedValue([
+      harness.createOrder('order-1'),
+      harness.createOrder('order-2'),
+    ]);
+    harness.mocks.upsertErrors.push({ message: 'bulk group failed' }, null, {
+      message: 'row failed',
+    });
+
+    const response = await POST(harness.createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to process orders' });
+    expect(harness.mocks.upserts).toHaveLength(3);
+    expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledTimes(1);
+    expect(harness.mocks.notifyJumiaOrder).toHaveBeenCalledWith(
+      'merchant-1',
+      'NO-order-1',
+      'Ada Lovelace',
+      12_000,
+      'NGN'
+    );
+    expect(harness.mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to upsert individual Jumia order',
+        orderId: 'order-2',
+      })
+    );
+  });
+
+  it('fails closed when the first bulk upsert and row fallback fail before notifications', async () => {
     harness.mocks.upsertError = { message: 'upsert failed' };
     harness.mocks.getAllOrders.mockResolvedValue([
       harness.createOrder('order-1'),
@@ -89,7 +120,7 @@ describe('POST /api/marketplace/jumia/orders bulk upserts', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Failed to process orders' });
-    expect(harness.mocks.upserts).toHaveLength(1);
+    expect(harness.mocks.upserts).toHaveLength(2);
     expect(harness.mocks.notifyJumiaOrder).not.toHaveBeenCalled();
     expect(harness.mocks.loggerError).toHaveBeenCalledWith(
       expect.objectContaining({

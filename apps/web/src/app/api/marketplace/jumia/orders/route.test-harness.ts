@@ -9,6 +9,7 @@ type ExistingJumiaOrder = {
 
 type MutationRecord = {
   filters: [string, unknown][];
+  orFilters: string[];
   payload: Record<string, unknown>;
   table: string;
   type: 'update';
@@ -43,6 +44,8 @@ const mocks = vi.hoisted(() => ({
   notificationStates: null as ExistingJumiaOrder[] | null,
   mutations: [] as MutationRecord[],
   notifyJumiaOrder: vi.fn(),
+  notificationClaimError: null as { message: string } | null,
+  notificationClaimRows: null as ExistingJumiaOrder[] | null,
   prefetchError: null as { message: string } | null,
   upsertError: null as { message: string } | null,
   upsertErrors: [] as Array<{ message: string } | null>,
@@ -98,21 +101,66 @@ vi.mock('@/lib/logger', () => ({
 function createMutationQuery(table: string, payload: Record<string, unknown>) {
   const mutation: MutationRecord = {
     filters: [],
+    orFilters: [],
     payload,
     table,
     type: 'update',
   };
   mocks.mutations.push(mutation);
 
-  type MutationQuery = Promise<{ error: null }> & {
-    eq: (column: string, value: unknown) => MutationQuery;
+  type MutationResult = {
+    data?: ExistingJumiaOrder[] | null;
+    error: { message: string } | null;
   };
 
-  const query = Promise.resolve({ error: null }) as MutationQuery;
+  type MutationQuery = Promise<MutationResult> & {
+    eq: (column: string, value: unknown) => MutationQuery;
+    or: (filters: string) => MutationQuery;
+    select: (columns: string) => Promise<MutationResult>;
+  };
+
+  const resolveMutation = (): MutationResult => {
+    if (table !== 'jumia_orders' || payload.notification_sent !== true) {
+      return { error: null };
+    }
+
+    if (mocks.notificationClaimError) {
+      return { data: null, error: mocks.notificationClaimError };
+    }
+
+    const orderId = mutation.filters.find(
+      ([column]) => column === 'jumia_order_id'
+    )?.[1];
+    const claimRows = mocks.notificationClaimRows;
+    if (claimRows) {
+      return {
+        data: claimRows.filter((row) => row.jumia_order_id === orderId),
+        error: null,
+      };
+    }
+
+    return {
+      data: [
+        {
+          id: `cache-row-${String(orderId)}`,
+          jumia_order_id: String(orderId),
+          notification_sent: true,
+        },
+      ],
+      error: null,
+    };
+  };
+
+  const query = Promise.resolve(resolveMutation()) as MutationQuery;
   query.eq = (column: string, value: unknown) => {
     mutation.filters.push([column, value]);
     return query;
   };
+  query.or = (filters: string) => {
+    mutation.orFilters.push(filters);
+    return query;
+  };
+  query.select = () => Promise.resolve(resolveMutation());
 
   return query;
 }
@@ -216,6 +264,8 @@ function reset() {
   mocks.existingOrders.length = 0;
   mocks.inQueries.length = 0;
   mocks.mutations.length = 0;
+  mocks.notificationClaimError = null;
+  mocks.notificationClaimRows = null;
   mocks.notificationStates = null;
   mocks.prefetchError = null;
   mocks.upsertError = null;
