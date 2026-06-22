@@ -176,6 +176,15 @@ describe('DebugBear status helpers', () => {
     ).toBe('Performance budget breached');
   });
 
+  it('falls back to a string message when failed DebugBear tests return structured error objects', () => {
+    expect(
+      getDebugBearFailureMessage({
+        error: { code: 'ERR_BUDGET' },
+        status: 'failure',
+      })
+    ).toBe('DebugBear test status was failure');
+  });
+
   it('does not mark successful or neutral DebugBear tests as failures', () => {
     expect(getDebugBearFailureMessage({ status: 'success' })).toBeNull();
     expect(getDebugBearFailureMessage({ status: 'neutral' })).toBeNull();

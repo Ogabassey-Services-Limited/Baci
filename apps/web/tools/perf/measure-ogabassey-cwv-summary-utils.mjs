@@ -166,9 +166,15 @@ export function isDebugBearComplete(body) {
 export function getDebugBearFailureMessage(body) {
   const status = getDebugBearStatus(body);
   if (status === 'failure' || status === 'failed') {
-    return (
-      body?.error?.message || body?.error || 'DebugBear test status was failure'
-    );
+    if (typeof body?.error?.message === 'string' && body.error.message.trim()) {
+      return body.error.message;
+    }
+
+    if (typeof body?.error === 'string' && body.error.trim()) {
+      return body.error;
+    }
+
+    return 'DebugBear test status was failure';
   }
 
   if (typeof body?.error === 'string' && body.error.trim()) {
@@ -193,12 +199,7 @@ export function summarizeDebugBearResult({
 }) {
   return {
     a11y: getDebugBearCategoryScore(body, ['accessibility']),
-    bp: getDebugBearCategoryScore(body, [
-      'best-practices',
-      'bestPractices',
-      'bestPractices.score',
-      'best-practices.score',
-    ]),
+    bp: getDebugBearCategoryScore(body, ['best-practices', 'bestPractices']),
     cls: getDebugBearMetric(body, [
       'performance.cumulativeLayoutShift',
       'cumulativeLayoutShift',
