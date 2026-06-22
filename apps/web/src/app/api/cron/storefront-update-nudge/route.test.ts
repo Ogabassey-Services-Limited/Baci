@@ -149,6 +149,9 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
+    expect(body.error).toBe(
+      'One or more storefront update nudges degraded or failed'
+    );
     expect(body.results).toContainEqual({
       platform: 'android',
       skipped: 'error',

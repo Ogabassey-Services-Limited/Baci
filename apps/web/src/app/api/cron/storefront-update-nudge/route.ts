@@ -116,7 +116,13 @@ export async function GET(request: NextRequest) {
   // run-web-cron.mjs exits non-zero and the schedule alerts. Healthy platforms'
   // sends already persisted, so surfacing the failure doesn't undo that work.
   if (errored > 0) {
-    return NextResponse.json({ results }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'One or more storefront update nudges degraded or failed',
+        results,
+      },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ results });
