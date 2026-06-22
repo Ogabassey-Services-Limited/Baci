@@ -779,4 +779,36 @@ describe('notifyStorefrontUpdateAvailable', () => {
     // Hit the per-run limit → backlog signal is set for operators.
     expect(result.cappedAtLimit).toBe(true);
   });
+
+  it('flags stampFailed when the throttle write fails after a successful send', async () => {
+    const selectChain = createChainableMock([
+      { id: 'id1', token: 'ExponentPushToken[a]' },
+    ]);
+    const ticketInsertChain = createChainableMock();
+    // The last_update_push_at update errors.
+    const stampChain = createChainableMock(null, { message: 'db write down' });
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain) // select eligible tokens
+        .mockReturnValueOnce(ticketInsertChain) // processTickets ticket insert
+        .mockReturnValueOnce(stampChain) // stamp (fails)
+        .mockReturnValueOnce(attemptInsertChain), // record attempt
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 't1' },
+    ]);
+
+    const result = await notifyStorefrontUpdateAvailable({
+      platform: 'android',
+      latestBuild: 646,
+    });
+
+    // Delivered, but throttle not written → caller must alert/retry.
+    expect(result.sent).toBe(1);
+    expect(result.stampFailed).toBe(true);
+  });
 });

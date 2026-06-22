@@ -65,14 +65,41 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
+    // Without a store URL the prompt's "Open store" action is a dead end (the
+    // release-policy gate returns a null storeUrl), so don't nudge users we
+    // can't route to the store.
+    const storeUrl = readMobilePlatformEnv(platform, 'STORE_URL');
+    if (!storeUrl) {
+      results.push({ platform, skipped: 'no_store_url' });
+      continue;
+    }
+
     try {
       const result = await notifyStorefrontUpdateAvailable({
         platform,
         latestBuild,
-        storeUrl: readMobilePlatformEnv(platform, 'STORE_URL'),
+        storeUrl,
         body,
       });
       results.push(result);
+
+      // notifyStorefrontUpdateAvailable resolves (doesn't throw) for Expo/DB
+      // failures — a select error or a total send failure comes back as a
+      // delivered-nothing result, and a throttle-stamp write failure leaves
+      // devices un-throttled. Both must alert, not just thrown errors.
+      const deliveredNothing =
+        result.sent === 0 && (result.failed > 0 || result.errors.length > 0);
+      if (deliveredNothing || result.stampFailed) {
+        errored += 1;
+        logger.error({
+          message: 'Storefront update nudge degraded',
+          platform,
+          sent: result.sent,
+          failed: result.failed,
+          stampFailed: result.stampFailed,
+          errors: result.errors,
+        });
+      }
     } catch (error) {
       errored += 1;
       logger.error({
@@ -84,10 +111,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Any platform send that threw is a real delivery failure for that platform —
-  // return non-2xx so run-web-cron.mjs exits non-zero and the schedule alerts.
-  // Successful platforms' sends already persisted (and stamped their throttle),
-  // so surfacing the failure doesn't undo that work; it just gets it noticed.
+  // Any platform that threw OR returned a degraded result (delivered nothing /
+  // failed to write the throttle) is a real failure — return non-2xx so
+  // run-web-cron.mjs exits non-zero and the schedule alerts. Healthy platforms'
+  // sends already persisted, so surfacing the failure doesn't undo that work.
   if (errored > 0) {
     return NextResponse.json({ results }, { status: 500 });
   }

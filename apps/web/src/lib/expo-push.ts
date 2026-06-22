@@ -998,6 +998,13 @@ export interface StorefrontUpdateNudgeResult extends NotificationSendResult {
    * cron output instead of misreading a capped `eligible` as "all done".
    */
   cappedAtLimit: boolean;
+  /**
+   * True when a `last_update_push_at` write failed for at least one chunk. Those
+   * devices keep their old (or null) throttle timestamp, so they stay eligible
+   * and would be re-nudged — surface it so the caller can alert/retry instead of
+   * silently defeating the throttle.
+   */
+  stampFailed: boolean;
 }
 
 /**
@@ -1088,6 +1095,7 @@ export async function notifyStorefrontUpdateAvailable(
       platform,
       eligible: 0,
       cappedAtLimit: false,
+      stampFailed: false,
     });
   }
 
@@ -1099,6 +1107,7 @@ export async function notifyStorefrontUpdateAvailable(
       platform,
       eligible: 0,
       cappedAtLimit: false,
+      stampFailed: false,
     });
   }
 
@@ -1114,6 +1123,7 @@ export async function notifyStorefrontUpdateAvailable(
 
   let sendResult: NotificationSendResult;
   let okTokenIds: string[] = [];
+  let stampFailed = false;
   try {
     const tickets = await sendPushNotifications(messages);
     okTokenIds = tokens
@@ -1141,6 +1151,7 @@ export async function notifyStorefrontUpdateAvailable(
       .update({ last_update_push_at: nowIso })
       .in('id', idChunk);
     if (stampError) {
+      stampFailed = true;
       logger.error({
         message: 'Failed to stamp last_update_push_at for nudged tokens',
         error: stampError,
@@ -1164,5 +1175,6 @@ export async function notifyStorefrontUpdateAvailable(
     platform,
     eligible: tokens.length,
     cappedAtLimit: tokens.length === limit,
+    stampFailed,
   };
 }

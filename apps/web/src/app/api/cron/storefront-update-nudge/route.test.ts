@@ -26,14 +26,32 @@ describe('GET /api/cron/storefront-update-nudge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('CRON_SECRET', SECRET);
+    // Default: a clean successful send (1 delivered, throttle stamped).
     mockNotify.mockResolvedValue({
       platform: 'android',
-      eligible: 0,
-      sent: 0,
+      eligible: 1,
+      sent: 1,
       failed: 0,
       errors: [],
+      cappedAtLimit: false,
+      stampFailed: false,
     });
   });
+
+  // Both platforms fully configured (latest build + store URL).
+  function stubBothPlatforms() {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+    vi.stubEnv(
+      'MOBILE_STOREFRONT_ANDROID_STORE_URL',
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store'
+    );
+    vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_BUILD', '390');
+    vi.stubEnv(
+      'MOBILE_STOREFRONT_IOS_STORE_URL',
+      'https://apps.apple.com/app/id6472735367'
+    );
+  }
 
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -92,10 +110,24 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     });
   });
 
-  it('nudges both platforms when both have a latest build', async () => {
-    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', '1');
+  it('skips a platform with a latest build but no store URL', async () => {
+    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
+    // Android: build but no store URL → dead-end "Open store", so skip.
     vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
-    vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_BUILD', '390');
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(body.results).toContainEqual({
+      platform: 'android',
+      skipped: 'no_store_url',
+    });
+  });
+
+  it('nudges both platforms when both are fully configured', async () => {
+    stubBothPlatforms();
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
 
@@ -109,40 +141,56 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     );
   });
 
-  it('returns 500 when every attempted platform send fails (pages ops)', async () => {
-    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
-    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
+  it('returns 500 when a platform send throws', async () => {
+    stubBothPlatforms();
     mockNotify.mockRejectedValueOnce(new Error('expo down'));
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     const body = await response.json();
 
-    // Only Android was attempted and it failed → total failure → non-2xx so the
-    // VPS scheduler (run-web-cron.mjs) exits non-zero and alerts.
     expect(response.status).toBe(500);
     expect(body.results).toContainEqual({
       platform: 'android',
       skipped: 'error',
     });
+    // iOS still attempted — a failure on one platform doesn't skip the other.
+    expect(mockNotify).toHaveBeenCalledTimes(2);
   });
 
-  it('returns 500 when any platform fails, even if another succeeds', async () => {
-    vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
-    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
-    vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_BUILD', '390');
-    // Android throws; iOS succeeds (default mockResolvedValue from beforeEach).
-    mockNotify.mockRejectedValueOnce(new Error('expo down'));
+  it('returns 500 when a platform resolves but delivered nothing', async () => {
+    stubBothPlatforms();
+    // No throw, but Expo/DB failure surfaced as a zero-delivery result.
+    mockNotify.mockResolvedValueOnce({
+      platform: 'android',
+      eligible: 5,
+      sent: 0,
+      failed: 5,
+      errors: ['ExpoError'],
+      cappedAtLimit: false,
+      stampFailed: false,
+    });
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
-    const body = await response.json();
 
-    // Surfaced to the scheduler so the android failure is noticed; iOS still ran.
     expect(response.status).toBe(500);
-    expect(body.results).toContainEqual({
+  });
+
+  it('returns 500 when the throttle stamp failed', async () => {
+    stubBothPlatforms();
+    // Sent fine, but last_update_push_at write failed → devices stay eligible.
+    mockNotify.mockResolvedValueOnce({
       platform: 'android',
-      skipped: 'error',
+      eligible: 5,
+      sent: 5,
+      failed: 0,
+      errors: [],
+      cappedAtLimit: false,
+      stampFailed: true,
     });
-    expect(mockNotify).toHaveBeenCalledTimes(2);
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+
+    expect(response.status).toBe(500);
   });
 
   it('exports a long maxDuration so large batches do not 504 mid-send', () => {
