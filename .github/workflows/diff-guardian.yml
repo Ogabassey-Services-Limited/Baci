@@ -41,6 +41,11 @@ name: Diff Guardian
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  issue_comment:
+    types: [created]
+  workflow_run:
+    workflows: [Gemini Code Review, Jules PR Review]
+    types: [completed]
 
 permissions:
   contents: read
@@ -55,24 +60,52 @@ concurrency:
 jobs:
   guardian:
     name: Diff Guardian
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        (
+          contains(github.event.comment.body, '@gemini-cli /review') ||
+          contains(github.event.comment.body, '/jules deep review')
+        ) &&
+        (
+          github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR'
+        )
+      ) ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.pull_requests[0].number != null
+      )
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 130
     steps:
       - name: Tally AI reviewers and gate by quorum
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          SHA: ${{ github.event.pull_request.head.sha }}
-          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || '' }}
+          PR: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.issue.number }}
           EVENT_ACTION: ${{ github.event.action }}
           EVENT_LABEL: ${{ github.event.label.name }}
-          HAS_BYPASS: ${{ contains(github.event.pull_request.labels.*.name, 'bypass-ai-gate') }}
           # The reviewers to tally (commit-status context or check-run names), pipe-separated.
           VOTERS: 'Gemini review|Jules review'
           # How many voters must report a FAILURE for Diff Guardian to BLOCK.
           BLOCK_QUORUM: '2'
-          # How long to wait for voters to finish before tallying what we have.
-          POLL_TIMEOUT_SECONDS: '1500'
+          # How long to wait for actively-running voters before leaving the
+          # Diff Guardian commit status pending. Jules fast reviews can poll for
+          # 7200s; the workflow_run trigger below re-tallies when reviewers
+          # complete so a late failure can still flip this status before merge.
+          POLL_TIMEOUT_SECONDS: '7200'
+          # Missing checks are different from active pending checks. Give the
+          # reviewer workflows a short window to create their check runs/statuses
+          # before treating missing voters as abstentions.
+          MISSING_GRACE_SECONDS: '300'
+          # Fork PRs do not get automatic same-repo reviewer votes. Require at
+          # least one trusted manual voter result before this quorum gate can pass.
+          MIN_FORK_REPORTED: '1'
         run: |
           set -euo pipefail
 
@@ -84,8 +117,29 @@ jobs:
               -f target_url="https://github.com/$REPO/actions/runs/${GITHUB_RUN_ID}" >/dev/null 2>&1 || true
           }
 
+          if [ -z "${PR:-}" ]; then
+            echo "::notice::Diff Guardian trigger has no associated PR; nothing to tally."
+            exit 0
+          fi
+
           # Escape hatch: explicit human override.
-          if [ "$HAS_BYPASS" = "true" ]; then
+          pr_json="$(gh api "repos/$REPO/pulls/$PR")"
+          current_sha="$(printf '%s' "$pr_json" | jq -r '.head.sha')"
+          if [ -z "${SHA:-}" ]; then
+            SHA="$current_sha"
+          fi
+          if [ "$SHA" != "$current_sha" ]; then
+            echo "::notice::Ignoring stale Diff Guardian trigger for $SHA; PR #$PR now points at $current_sha."
+            exit 0
+          fi
+          head_repo="$(printf '%s' "$pr_json" | jq -r '.head.repo.full_name')"
+          has_bypass="$(printf '%s' "$pr_json" | jq -r '[.labels[].name] | index("bypass-ai-gate") != null')"
+          is_fork_pr="false"
+          if [ "$head_repo" != "$REPO" ]; then
+            is_fork_pr="true"
+          fi
+
+          if [ "$has_bypass" = "true" ]; then
             echo "::notice::'bypass-ai-gate' label present — Diff Guardian passing without tallying."
             set_status success "Bypassed via bypass-ai-gate label"
             exit 0
@@ -106,7 +160,9 @@ jobs:
 
           set_status pending "Waiting for AI reviewers to finish…"
 
-          deadline=$(( $(date +%s) + POLL_TIMEOUT_SECONDS ))
+          started_at="$(date +%s)"
+          deadline=$(( started_at + POLL_TIMEOUT_SECONDS ))
+          missing_grace_deadline=$(( started_at + MISSING_GRACE_SECONDS ))
           # A voter can report either as a commit status (external services) or
           # as a check run (GitHub Actions). Gemini currently reports both; Jules
           # currently reports only a check run. Read both current GitHub API
@@ -127,7 +183,7 @@ jobs:
                 elif ($run.conclusion // "") == "neutral" then "success"
                 elif ($run.conclusion // "") == "skipped" then "missing"
                 elif ($run.conclusion // "") == "failure" then "failure"
-                elif ($run.conclusion // "") == "timed_out" then "failure"
+                elif ($run.conclusion // "") == "timed_out" then "missing"
                 elif ($run.conclusion // "") == "action_required" then "failure"
                 elif ($run.conclusion // "") == "cancelled" then "missing"
                 else "pending"
@@ -157,7 +213,7 @@ jobs:
             combined="$(gh api "repos/$REPO/commits/$SHA/status" 2>/dev/null || echo '{"statuses":[]}')"
             checks="$(gh api --paginate "repos/$REPO/commits/$SHA/check-runs?per_page=100" 2>/dev/null | jq -s '{"check_runs":[.[].check_runs[]?]}' 2>/dev/null || echo '{"check_runs":[]}' )"
 
-            reported=0 ; blocking=0 ; pending=0 ; summary=""
+            reported=0 ; blocking=0 ; active_pending=0 ; missing=0 ; summary=""
             while IFS= read -r ctx; do
               [ -z "$ctx" ] && continue
               st="$(voter_state "$combined" "$checks" "$ctx")"
@@ -165,11 +221,18 @@ jobs:
               case "$st" in
                 failure|error) reported=$((reported+1)); blocking=$((blocking+1)) ;;
                 success)       reported=$((reported+1)) ;;
-                pending|missing) pending=$((pending+1)) ;;
+                pending)       active_pending=$((active_pending+1)) ;;
+                missing)       missing=$((missing+1)) ;;
               esac
             done <<< "$voters"
 
-            echo "$(date +%H:%M:%S)  $summary| reported=$reported blocking=$blocking pending=$pending"
+            missing_unknown=0
+            if [ "$(date +%s)" -lt "$missing_grace_deadline" ]; then
+              missing_unknown="$missing"
+            fi
+            unknown=$((active_pending + missing_unknown))
+
+            echo "$(date +%H:%M:%S)  $summary| reported=$reported blocking=$blocking active_pending=$active_pending missing=$missing unknown=$unknown"
 
             # Decide early the moment the result is unambiguous:
             #  - quorum to block already reached -> BLOCK now.
@@ -179,18 +242,26 @@ jobs:
               set_status failure "$blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM)"
               exit 1
             fi
-            if [ $((blocking + pending)) -lt "$BLOCK_QUORUM" ]; then
+            if [ "$is_fork_pr" = "true" ] && [ "$reported" -lt "$MIN_FORK_REPORTED" ] && [ "$unknown" -eq 0 ]; then
+              echo "::error::Diff Guardian: fork PRs require at least $MIN_FORK_REPORTED trusted manual AI reviewer result before this gate can pass."
+              set_status failure "Fork PR needs trusted manual AI review"
+              exit 1
+            fi
+            if [ $((blocking + unknown)) -lt "$BLOCK_QUORUM" ]; then
               echo "Diff Guardian: quorum to block is unreachable — passing."
               set_status success "No reviewer quorum on blocking issues ($blocking/$BLOCK_QUORUM)"
               exit 0
             fi
 
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              # Timed out with some voters still pending/missing. Tally what we
-              # have: only block if agreed-blocking already meets quorum (it
-              # can't, or we'd have exited above), so pass — never block on
-              # missing data.
-              echo "::warning::Diff Guardian: timed out waiting for reviewers ($summary). Passing on available results."
+              if [ "$active_pending" -gt 0 ] && [ $((blocking + active_pending)) -ge "$BLOCK_QUORUM" ]; then
+                echo "::warning::Diff Guardian: timed out with active reviewer checks still capable of reaching block quorum ($summary). Leaving the Diff Guardian commit status pending until the reviewer workflow_run completion re-tallies."
+                set_status pending "Waiting for late AI reviewer completion"
+                exit 0
+              fi
+              # Timed out with only missing voters left. Missing/timed-out
+              # reviewers are abstentions, not blocking votes.
+              echo "::warning::Diff Guardian: timed out waiting for reviewers ($summary). Passing on available non-missing results."
               set_status success "Timed out; $blocking/$BLOCK_QUORUM blocking among reported reviewers"
               exit 0
             fi
