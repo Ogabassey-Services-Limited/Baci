@@ -77,6 +77,25 @@ export function buildPsiUrl({ apiKey, strategy, url }) {
   return endpoint;
 }
 
+export function printCwvSummaryTable(rows) {
+  console.table(
+    rows.map((row) => ({
+      route: row.label,
+      source: row.source,
+      strategy: row.strategy ?? '-',
+      perf: row.performance ?? '-',
+      seo: row.seo ?? '-',
+      lcp: formatMetricMs(row.lcpMs) ?? '-',
+      fcp: formatMetricMs(row.fcpMs) ?? '-',
+      tbt: formatMetricMs(row.tbtMs) ?? '-',
+      cls: row.cls ?? '-',
+      fieldLcp: row.fieldLcp?.p75 ?? '-',
+      fieldScope: row.fieldLcp?.scope ?? '-',
+      result: row.resultUrl ?? '-',
+    }))
+  );
+}
+
 export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
   const lighthouse = payload?.lighthouseResult ?? {};
   const audits = lighthouse.audits ?? {};

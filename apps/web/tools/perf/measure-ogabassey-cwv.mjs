@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -14,9 +13,9 @@ import {
 } from './measure-ogabassey-cwv-network-utils.mjs';
 import {
   buildPsiUrl,
-  formatMetricMs,
   getDebugBearFailureMessage,
   isDebugBearComplete,
+  printCwvSummaryTable,
   summarizeDebugBearResult,
   summarizePsiResult,
 } from './measure-ogabassey-cwv-summary-utils.mjs';
@@ -25,6 +24,7 @@ import {
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
   findDebugBearProjectIdForUrl,
+  loadEnvFile,
   normalizeDebugBearProjects,
 } from './measure-ogabassey-cwv-utils.mjs';
 
@@ -59,20 +59,6 @@ const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
   .split(',')
   .map((strategy) => strategy.trim())
   .filter(Boolean);
-
-async function loadEnvFile(path) {
-  if (!existsSync(path)) return;
-  const text = await readFile(path, 'utf8');
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-    const index = trimmed.indexOf('=');
-    const key = trimmed.slice(0, index).trim();
-    const raw = trimmed.slice(index + 1).trim();
-    if (!key || process.env[key] !== undefined) continue;
-    process.env[key] = raw.replace(/^['"]|['"]$/g, '');
-  }
-}
 
 async function runPsi(target, strategy) {
   const url = buildPsiUrl({ apiKey: psiApiKey, strategy, url: target.url });
@@ -172,25 +158,6 @@ async function runDebugBear(target, projects) {
   };
 }
 
-function printTable(rows) {
-  console.table(
-    rows.map((row) => ({
-      route: row.label,
-      source: row.source,
-      strategy: row.strategy ?? '-',
-      perf: row.performance ?? '-',
-      seo: row.seo ?? '-',
-      lcp: formatMetricMs(row.lcpMs) ?? '-',
-      fcp: formatMetricMs(row.fcpMs) ?? '-',
-      tbt: formatMetricMs(row.tbtMs) ?? '-',
-      cls: row.cls ?? '-',
-      fieldLcp: row.fieldLcp?.p75 ?? '-',
-      fieldScope: row.fieldLcp?.scope ?? '-',
-      result: row.resultUrl ?? '-',
-    }))
-  );
-}
-
 await mkdir(outputDir, { recursive: true });
 
 const skipLatestBlogPostTarget =
@@ -268,6 +235,15 @@ if (shouldRunDebugBear) {
     logProgress(`DebugBear project ${debugBearProjectId}`);
   }
 
+  if (!debugBearProjectId && projects.length === 0) {
+    failures.push({
+      label: 'projects',
+      message:
+        'DebugBear project discovery returned no projects. Set DEBUGBEAR_PROJECT_ID or use an admin key with project access.',
+      source: 'debugbear',
+    });
+  }
+
   const debugBearTargets = debugBearProjectId || projects.length ? targets : [];
   for (const target of debugBearTargets) {
     try {
@@ -313,7 +289,7 @@ await writeFile(
   )
 );
 
-printTable(summaries);
+printCwvSummaryTable(summaries);
 if (failures.length) {
   console.error('Failures:');
   console.error(JSON.stringify(failures, null, 2));

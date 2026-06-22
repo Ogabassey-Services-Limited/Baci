@@ -3,6 +3,7 @@ import {
   buildDebugBearHeaders,
   buildOgaBasseyCwvTargets,
   findDebugBearProjectIdForUrl,
+  loadEnvFile,
   normalizeDebugBearProjects,
 } from './measure-ogabassey-cwv-utils.mjs';
 
@@ -140,5 +141,41 @@ describe('buildOgaBasseyCwvTargets', () => {
       { label: 'blog-index', url: 'https://ogabassey.com/blog' },
       { label: 'blog-post-latest', url: 'https://ogabassey.com/blog/post' },
     ]);
+  });
+});
+
+describe('loadEnvFile', () => {
+  it('loads quoted env values without overwriting existing keys', async () => {
+    const env = { EXISTING: 'kept' };
+    const loaded = await loadEnvFile('/tmp/.env.local', {
+      env,
+      readText: async () =>
+        [
+          '# ignored',
+          'DEBUGBEAR_PROJECT_ID="101919"',
+          "OGABASSEY_CWV_PSI='0'",
+          'EXISTING=replaced',
+        ].join('\n'),
+    });
+
+    expect(loaded).toBe(true);
+    expect(env).toEqual({
+      DEBUGBEAR_PROJECT_ID: '101919',
+      EXISTING: 'kept',
+      OGABASSEY_CWV_PSI: '0',
+    });
+  });
+
+  it('returns false when the env file is missing', async () => {
+    await expect(
+      loadEnvFile('/tmp/missing.env', {
+        env: {},
+        readText: () => {
+          const error = new Error('missing');
+          error.code = 'ENOENT';
+          throw error;
+        },
+      })
+    ).resolves.toBe(false);
   });
 });

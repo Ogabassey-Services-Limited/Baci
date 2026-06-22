@@ -6,6 +6,35 @@ export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
   blog: 'https://ogabassey.com/blog',
 });
 
+export async function loadEnvFile(path, { env = process.env, readText } = {}) {
+  const reader = readText ?? (await import('node:fs/promises')).readFile;
+  let text = '';
+  try {
+    text = await reader(path, 'utf8');
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
+      return false;
+    }
+    throw error;
+  }
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+    const index = trimmed.indexOf('=');
+    const key = trimmed.slice(0, index).trim();
+    const raw = trimmed.slice(index + 1).trim();
+    if (!key || env[key] !== undefined) continue;
+    env[key] = raw.replace(/^["']|["']$/g, '');
+  }
+  return true;
+}
+
 export function buildDebugBearHeaders(apiKey) {
   return {
     'content-type': 'application/json',
