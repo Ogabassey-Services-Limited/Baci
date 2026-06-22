@@ -6,17 +6,13 @@ const GOOGLE_ADS_TXT_LINE =
 const NO_SELLERS_BODY =
   '# No authorized digital sellers are configured for this storefront.\n';
 
-// Hosts whose ad inventory is monetized under the platform's own AdSense
-// account. The usebaci.com apex and every *.usebaci.com merchant subdomain are
-// platform-owned and covered by the usebaci.com AdSense site approval;
-// ogabassey.com is the owned flagship storefront. Third-party custom domains are
-// intentionally excluded until each is individually approved in AdSense.
-const OWNED_AD_HOSTS = new Set([
-  'usebaci.com',
-  'www.usebaci.com',
-  'ogabassey.com',
-  'www.ogabassey.com',
-]);
+// Owned hosts outside the usebaci.com tree whose ad inventory is monetized
+// under the platform's own AdSense account — currently just the ogabassey.com
+// flagship storefront. The usebaci.com apex and every *.usebaci.com merchant
+// subdomain are matched directly in isOwnedAdHost (covered by the usebaci.com
+// AdSense site approval). Third-party custom domains are intentionally excluded
+// until each is individually approved in AdSense.
+const OWNED_AD_HOSTS = new Set(['ogabassey.com', 'www.ogabassey.com']);
 
 function isOwnedAdHost(hostHeader: string | null): boolean {
   if (!hostHeader) {
@@ -24,10 +20,11 @@ function isOwnedAdHost(hostHeader: string | null): boolean {
   }
   // Strip any port and normalize casing before matching.
   const host = hostHeader.toLowerCase().split(':')[0];
-  if (OWNED_AD_HOSTS.has(host)) {
-    return true;
-  }
-  return host === 'usebaci.com' || host.endsWith('.usebaci.com');
+  return (
+    host === 'usebaci.com' ||
+    host.endsWith('.usebaci.com') ||
+    OWNED_AD_HOSTS.has(host)
+  );
 }
 
 export function GET(request: Request): Response {

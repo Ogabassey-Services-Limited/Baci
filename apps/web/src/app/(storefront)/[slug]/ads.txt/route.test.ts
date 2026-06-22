@@ -52,6 +52,14 @@ describe('storefront ads.txt route', () => {
     );
   });
 
+  it('authorizes the www. subdomain of the owned flagship domain', async () => {
+    const response = GET(requestForHost('www.ogabassey.com'));
+
+    await expect(response.text()).resolves.toContain(
+      'pub-9332275663101466, DIRECT'
+    );
+  });
+
   it('ignores port suffixes and casing when matching owned hosts', async () => {
     const response = GET(requestForHost('Ogabassey.com:443'));
 

@@ -161,11 +161,15 @@ export async function generateMetadata({
     title: getStorefrontSeoTitle(merchant),
     description,
     icons,
-    verification: verificationCode
-      ? {
-          google: verificationCode,
-        }
-      : undefined,
+    // Always emit an explicit verification object so the platform-level
+    // `google-adsense-account` meta from the root layout never bleeds onto
+    // merchant storefronts — especially independent third-party custom domains
+    // (merchant sovereignty). The platform AdSense tag stays scoped to the
+    // usebaci.com apex, which is served by the root layout. A merchant's own
+    // Google Search Console code is still applied here when configured.
+    verification: {
+      google: verificationCode,
+    },
     openGraph: {
       title: merchant.site_title || merchant.business_name,
       description,
