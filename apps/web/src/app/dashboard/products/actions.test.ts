@@ -816,6 +816,84 @@ describe('product import actions', () => {
     expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
   });
 
+  it('does not import supplier shipping costs as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Supplier Shipping Cost,SKU\nNew Phone,2000,400,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
+  it('does not import cost center metadata as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Cost Center,SKU\nNew Phone,2000,12345,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
+  it('uses the explicit price column instead of retailer metadata', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Retailer,Price,SKU\nNew Phone,Partner Shop,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('accepts tax-inclusive price headers as selling prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price incl VAT,SKU\nNew Phone,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('parses localized currency strings before importing prices', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nBrazil Phone,"R$ 1.234,56","GH₵2,000",BR-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 2000,
+        price: 1234.56,
+      },
+      type: 'new',
+    });
+  });
+
   it('does not use a standalone cost column as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,

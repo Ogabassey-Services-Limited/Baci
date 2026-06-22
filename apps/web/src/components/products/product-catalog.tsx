@@ -25,6 +25,7 @@ import type { Product } from '@/lib/products';
 import { ExportToJumiaDialog } from './jumia/export-dialog';
 import { mergeLocalProducts } from './merge-local-products';
 import { ProductCatalogTable } from './product-catalog-table';
+import { parsePriceInput } from './product-currency-input';
 import { saveDirtyProducts } from './save-dirty-products';
 import { useJumiaIntegrations } from './use-jumia-integrations';
 
@@ -335,8 +336,7 @@ export function ProductCatalog({
   };
 
   const handlePriceChange = (productId: string, newPrice: string) => {
-    const cleanPrice = newPrice.replace(/[^0-9.]/g, '');
-    const priceValue = Number.parseFloat(cleanPrice);
+    const priceValue = parsePriceInput(newPrice, locale);
     if (Number.isNaN(priceValue)) return;
 
     setLocalProducts((current) =>

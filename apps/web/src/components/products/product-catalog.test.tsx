@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   setPage: vi.fn(),
   toast: vi.fn(),
   updateProduct: vi.fn(),
+  useMerchant: vi.fn(),
   useProductContext: vi.fn(),
 }));
 
@@ -36,7 +37,7 @@ vi.mock('@/hooks/use-debounce', () => ({
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({ merchant: { country: 'NG', id: 'merchant-1' } }),
+  useMerchant: () => mocks.useMerchant(),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -69,6 +70,12 @@ vi.mock('./product-catalog-table', () => ({
         </button>
         <button type="button" onClick={() => onPriceChange(product.id, '300')}>
           Set price 300
+        </button>
+        <button
+          type="button"
+          onClick={() => onPriceChange(product.id, '1.234,56')}
+        >
+          Set localized price
         </button>
         {secondProduct ? (
           <button
@@ -162,8 +169,12 @@ describe('ProductCatalog', () => {
     mocks.setPage.mockReset();
     mocks.toast.mockReset();
     mocks.updateProduct.mockReset();
+    mocks.useMerchant.mockReset();
     mocks.useProductContext.mockReset();
     mocks.updateProduct.mockResolvedValue(undefined);
+    mocks.useMerchant.mockReturnValue({
+      merchant: { country: 'NG', id: 'merchant-1' },
+    });
     mocks.useProductContext.mockReturnValue({
       isLoading: false,
       pagination: { limit: 20, page: 1, total: 1, totalPages: 1 },
@@ -226,6 +237,27 @@ describe('ProductCatalog', () => {
         })
       );
     });
+  });
+
+  it('parses localized decimal price input before saving', async () => {
+    const user = userEvent.setup();
+    mocks.useMerchant.mockReturnValue({
+      merchant: { country: 'BR', id: 'merchant-1', payout_currency: 'BRL' },
+    });
+    mocks.saveDirtyProducts.mockResolvedValueOnce(fulfilledProductSave());
+
+    render(<ProductCatalog statusFilter="all" stockFilter="all" />);
+
+    await user.click(
+      screen.getByRole('button', { name: /set localized price/i })
+    );
+
+    await waitFor(() => {
+      expect(mocks.saveDirtyProducts).toHaveBeenCalledTimes(1);
+    });
+    expect(getSaveCall(0).dirtyProductSnapshots?.get('product-1')?.price).toBe(
+      1234.56
+    );
   });
 
   it('shows a destructive toast when a queued follow-up autosave fails', async () => {

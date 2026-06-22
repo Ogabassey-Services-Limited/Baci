@@ -513,18 +513,33 @@ function isCostPriceHeader(header: string): boolean {
   const hasAmountSignal = words.some((word) =>
     ['amount', 'cost', 'price', 'rate', 'value'].includes(word)
   );
+  const hasMonetarySignal = words.some((word) =>
+    [
+      'amount',
+      'buying',
+      'landed',
+      'price',
+      'purchase',
+      'rate',
+      'value',
+      'wholesale',
+    ].includes(word)
+  );
   const hasSupplier = words.includes('supplier');
   const isCustomerFacingPrice = words.some((word) =>
     ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
   );
 
   return (
-    (hasCost && !isCustomerFacingPrice && !isLogisticsCost) ||
+    (hasCost &&
+      !isCustomerFacingPrice &&
+      !isLogisticsCost &&
+      (words.length === 1 || hasMonetarySignal)) ||
     header.includes('cogs') ||
     header.includes('buying') ||
     header.includes('purchase') ||
     header.includes('wholesale') ||
-    (hasSupplier && hasAmountSignal) ||
+    (!isLogisticsCost && hasSupplier && hasAmountSignal) ||
     header.includes('landed')
   );
 }
@@ -541,20 +556,42 @@ function isSellingRateHeader(header: string): boolean {
 
 function isNonPriceAmountHeader(header: string): boolean {
   const words = header.split(/[^a-z0-9]+/).filter(Boolean);
-  return words.some((word) =>
-    [
-      'courier',
-      'delivery',
-      'discount',
-      'fee',
-      'fees',
-      'freight',
-      'logistics',
-      'postage',
-      'shipping',
-      'tax',
-      'vat',
-    ].includes(word)
+  const isTaxOrVat = words.some((word) => ['tax', 'vat'].includes(word));
+  const isPriceColumn = words.some((word) =>
+    ['customer', 'list', 'price', 'retail', 'sale', 'selling'].includes(word)
+  );
+  return (
+    words.some((word) =>
+      [
+        'courier',
+        'delivery',
+        'discount',
+        'fee',
+        'fees',
+        'freight',
+        'logistics',
+        'postage',
+        'shipping',
+      ].includes(word)
+    ) ||
+    (isTaxOrVat && !isPriceColumn)
+  );
+}
+
+function isSellingPriceHeader(header: string): boolean {
+  const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  const hasPriceSignal = words.some((word) =>
+    ['amount', 'price', 'rate', 'value'].includes(word)
+  );
+  return (
+    header.includes('selling price') ||
+    header.includes('sale price') ||
+    header.includes('list price') ||
+    header.includes('customer price') ||
+    (hasPriceSignal &&
+      words.some((word) =>
+        ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
+      ))
   );
 }
 
@@ -563,11 +600,7 @@ function findSellingPriceColumnIndex(headers: string[]): number {
     (header) =>
       !isCostPriceHeader(header) &&
       !isNonPriceAmountHeader(header) &&
-      (header.includes('selling') ||
-        header.includes('retail') ||
-        header.includes('sale price') ||
-        header.includes('list price') ||
-        header.includes('customer price'))
+      isSellingPriceHeader(header)
   );
   if (customerPriceIdx !== -1) return customerPriceIdx;
 
@@ -589,9 +622,8 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   );
 }
 
-// Helper: Parse price string (handles currency symbols, ISO codes, commas)
-function parsePrice(priceStr: string): number {
-  const cleaned = priceStr
+function normalizeLocalizedNumericString(value: string): string {
+  const numeric = value
     .replace(
       /(^|[^a-z])(?:aed|aud|brl|cad|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)(?=\s*[-+]?\d)/gi,
       '$1'
@@ -600,8 +632,43 @@ function parsePrice(priceStr: string): number {
       /\b(?:aed|aud|brl|cad|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi,
       ''
     )
-    .replace(/[₦₹$€£¥,\s]/g, '') // Remove currency symbols, commas, and whitespace
-    .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
+    .replace(/[^\d,.\-+]/g, '');
+  const lastComma = numeric.lastIndexOf(',');
+  const lastDot = numeric.lastIndexOf('.');
+  const lastSeparator = Math.max(lastComma, lastDot);
+  let decimalSeparator = '';
+
+  if (lastSeparator !== -1) {
+    const separator = numeric[lastSeparator];
+    const digitsAfter = numeric
+      .slice(lastSeparator + 1)
+      .replace(/\D/g, '').length;
+    const hasBothSeparators = lastComma !== -1 && lastDot !== -1;
+    const hasRepeatedSeparator =
+      numeric.indexOf(separator) !== numeric.lastIndexOf(separator);
+
+    if (hasBothSeparators || (!hasRepeatedSeparator && digitsAfter !== 3)) {
+      decimalSeparator = separator ?? '';
+    }
+  }
+
+  let normalized = '';
+  for (const char of numeric) {
+    if (/\d/.test(char)) {
+      normalized += char;
+    } else if ((char === '-' || char === '+') && normalized.length === 0) {
+      normalized += char;
+    } else if (char === decimalSeparator) {
+      normalized += '.';
+    }
+  }
+
+  return normalized;
+}
+
+// Helper: Parse price string (handles currency symbols, ISO codes, commas)
+function parsePrice(priceStr: string): number {
+  const cleaned = normalizeLocalizedNumericString(priceStr);
   return Number.parseFloat(cleaned);
 }
 
