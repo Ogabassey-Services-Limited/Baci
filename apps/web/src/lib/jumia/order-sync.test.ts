@@ -102,6 +102,10 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
+    const notificationClaimQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
     const notifyUpdateQuery = createQuery({
       data: { jumia_order_id: order.id },
       error: null,
@@ -110,7 +114,12 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
-        jumia_orders: [existingJumiaQuery, cacheQuery, notifyUpdateQuery],
+        jumia_orders: [
+          existingJumiaQuery,
+          cacheQuery,
+          notificationClaimQuery,
+          notifyUpdateQuery,
+        ],
         orders: [existingCanonicalQuery, insertOrderQuery],
       },
       {
@@ -146,7 +155,11 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       }),
       'orders'
     );
+    expect(notificationClaimQuery.update).toHaveBeenCalledWith({
+      notification_claimed_at: expect.any(String),
+    });
     expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
+      notification_claimed_at: null,
       notification_sent: true,
     });
   });
@@ -345,6 +358,10 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
+    const notificationClaimQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
     const notifyUpdateQuery = createQuery({
       data: { jumia_order_id: order.id },
       error: null,
@@ -353,7 +370,12 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
-        jumia_orders: [existingJumiaQuery, cacheQuery, notifyUpdateQuery],
+        jumia_orders: [
+          existingJumiaQuery,
+          cacheQuery,
+          notificationClaimQuery,
+          notifyUpdateQuery,
+        ],
         orders: [existingCanonicalQuery, insertOrderQuery],
       },
       {
@@ -380,7 +402,11 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     expect(result.canonicalCreated).toBe(1);
     expect(result.notified).toBe(1);
     expect(result.orderErrors).toBe(1);
+    expect(notificationClaimQuery.update).toHaveBeenCalledWith({
+      notification_claimed_at: expect.any(String),
+    });
     expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
+      notification_claimed_at: null,
       notification_sent: true,
     });
     expect(result.errors).toEqual(

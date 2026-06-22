@@ -3,6 +3,7 @@ import { JUMIA_NOTIFICATION_MARKER_RETRY_CODES } from './order-sync-notification
 
 const NOTIFICATION_SENT_UPDATE_ATTEMPTS = 3;
 const NOTIFICATION_SENT_UPDATE_RETRY_DELAY_MS = 25;
+const JUMIA_NOTIFICATION_CLAIM_LEASE_MS = 10 * 60 * 1000;
 
 interface SyncErrorLike {
   message: string;
@@ -11,6 +12,7 @@ interface SyncErrorLike {
 
 interface MarkNotificationOptions {
   attempts?: number;
+  claimedAt?: string;
   retryDelayMs?: number;
 }
 
@@ -36,6 +38,52 @@ export function getJumiaNotificationAttemptKey(
   return `${encodeURIComponent(merchantId)}:${encodeURIComponent(jumiaOrderId)}`;
 }
 
+export async function claimJumiaNotificationDelivery(
+  supabase: SupabaseClient,
+  merchantId: string,
+  jumiaOrderId: string
+): Promise<{
+  claimed: boolean;
+  claimedAt: string | null;
+  error: SyncErrorLike | null;
+}> {
+  const claimedAt = new Date().toISOString();
+  const staleBefore = new Date(
+    Date.parse(claimedAt) - JUMIA_NOTIFICATION_CLAIM_LEASE_MS
+  ).toISOString();
+  const { data, error } = await supabase
+    .from('jumia_orders')
+    .update({ notification_claimed_at: claimedAt })
+    .eq('merchant_id', merchantId)
+    .eq('jumia_order_id', jumiaOrderId)
+    .eq('notification_sent', false)
+    .or(
+      `notification_claimed_at.is.null,notification_claimed_at.lt.${staleBefore}`
+    )
+    .select('jumia_order_id')
+    .maybeSingle<{ jumia_order_id: string }>();
+
+  return { claimed: Boolean(data), claimedAt: data ? claimedAt : null, error };
+}
+
+export async function releaseJumiaNotificationDeliveryClaim(
+  supabase: SupabaseClient,
+  merchantId: string,
+  jumiaOrderId: string,
+  claimedAt: string
+): Promise<SyncErrorLike | null> {
+  const { error } = await supabase
+    .from('jumia_orders')
+    .update({ notification_claimed_at: null })
+    .eq('merchant_id', merchantId)
+    .eq('jumia_order_id', jumiaOrderId)
+    .eq('notification_claimed_at', claimedAt)
+    .select('jumia_order_id')
+    .maybeSingle<{ jumia_order_id: string }>();
+
+  return error;
+}
+
 export async function markJumiaNotificationSent(
   supabase: SupabaseClient,
   merchantId: string,
@@ -48,11 +96,17 @@ export async function markJumiaNotificationSent(
   let lastError: SyncErrorLike | null = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('jumia_orders')
       .update({ notification_claimed_at: null, notification_sent: true })
       .eq('merchant_id', merchantId)
-      .eq('jumia_order_id', jumiaOrderId)
+      .eq('jumia_order_id', jumiaOrderId);
+
+    if (options.claimedAt) {
+      query = query.eq('notification_claimed_at', options.claimedAt);
+    }
+
+    const { data, error } = await query
       .select('jumia_order_id')
       .maybeSingle<{ jumia_order_id: string }>();
     if (!error) {

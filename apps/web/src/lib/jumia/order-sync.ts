@@ -4,49 +4,26 @@ import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import {
+  JumiaSyncCursorUpdateError,
+  persistJumiaSyncCursor,
+} from './order-sync-cursor';
+import {
   getJumiaSyncLowerBound,
   JUMIA_EXTERNAL_SOURCE,
   type MarketplaceIntegrationRow,
   readOrderSyncEnabled,
 } from './order-sync-mappers';
-import {
-  getJumiaNotificationAttemptKey,
-  markJumiaNotificationSent,
-} from './order-sync-notifications';
+import { deliverSyncedJumiaOrderNotification } from './order-sync-notification-delivery';
+import { getJumiaNotificationAttemptKey } from './order-sync-notifications';
 import {
   buildSyncedJumiaCacheRow,
   buildExistingJumiaCacheEntry as cacheEntry,
   loadExistingCanonicalOrders,
   loadExistingJumiaOrders,
-  notifySyncedJumiaOrder,
   upsertCanonicalOrder,
 } from './order-sync-operations';
-import {
-  clearFullFailureState,
-  MAX_FULL_FAILURES_BEFORE_ADVANCE,
-  readFullFailureState,
-  withFullFailureState,
-} from './order-sync-state';
 
 const JUMIA_ORDER_SYNC_ROUTE = 'jumia/order-sync';
-const INITIAL_SYNC_CURSOR = 'initial-sync';
-
-type SyncUpdatePayload = Partial<{ last_sync_at: string }> & {
-  sync_config: Record<string, unknown>;
-  sync_error: string | null;
-};
-
-class JumiaSyncCursorUpdateError extends Error {
-  constructor(
-    message: string,
-    readonly syncUpdate: SyncUpdatePayload
-  ) {
-    super(message);
-    this.name = 'JumiaSyncCursorUpdateError';
-    Object.setPrototypeOf(this, JumiaSyncCursorUpdateError.prototype);
-  }
-}
-
 async function syncIntegration(
   supabase: SupabaseClient,
   integration: MarketplaceIntegrationRow,
@@ -130,26 +107,14 @@ async function syncIntegration(
 
       if (shouldNotify) {
         attemptedNotificationKeys.add(notificationKey);
-        const rawNotificationResult = await notifySyncedJumiaOrder(
-          integration.merchant_id,
+        const notificationResult = await deliverSyncedJumiaOrderNotification({
+          baciOrderId: canonicalOrder.id,
+          integrationId: integration.id,
+          merchantId: integration.merchant_id,
           order,
-          canonicalOrder.id
-        );
-        if (!rawNotificationResult) {
-          logger.warn({
-            message: 'Jumia order notification returned no delivery result',
-            merchantId: integration.merchant_id,
-            integrationId: integration.id,
-            jumiaOrderId: order.id,
-            baciOrderId: canonicalOrder.id,
-          });
-        }
-        const notificationResult = rawNotificationResult ?? {
-          sent: 0,
-          failed: 0,
-          errors: [],
-        };
-        if (notificationResult.sent > 0) {
+          supabase,
+        });
+        if (notificationResult?.sent && notificationResult.sent > 0) {
           result.notified += 1;
           // The push provider accepted the notification. Keep duplicated Jumia
           // pages in this run from rebuilding a stale cache row as unnotified.
@@ -157,26 +122,14 @@ async function syncIntegration(
             order.id,
             cacheEntry(order.id, true, canonicalOrder.id)
           );
-          const notificationUpdateError = await markJumiaNotificationSent(
-            supabase,
-            integration.merchant_id,
-            order.id
-          );
-          if (notificationUpdateError) {
-            const markerErrorMessage = `Failed to mark Jumia notification as sent: ${notificationUpdateError.message}`;
-            logger.error({
-              message: 'Failed to mark Jumia order notification as sent',
-              merchantId: integration.merchant_id,
-              integrationId: integration.id,
-              jumiaOrderId: order.id,
-              error: notificationUpdateError,
-            });
-            throw new Error(markerErrorMessage);
-          }
+        }
+        if (notificationResult?.markerErrorMessage) {
+          throw new Error(notificationResult.markerErrorMessage);
         }
         if (
-          notificationResult.failed > 0 ||
-          notificationResult.errors.length > 0
+          notificationResult &&
+          (notificationResult.failed > 0 ||
+            notificationResult.errors.length > 0)
         ) {
           const failureDetails = [
             ...notificationResult.errors,
@@ -217,54 +170,15 @@ async function syncIntegration(
     }
   }
 
-  const integrationOrderErrors = result.orderErrors - orderErrorsBefore;
-  let syncUpdate: SyncUpdatePayload;
-  if (integrationOrderErrors === 0) {
-    syncUpdate = {
-      last_sync_at: syncStartedAt,
-      sync_error: null,
-      sync_config: clearFullFailureState(integration.sync_config),
-    };
-  } else if (syncedAnyOrder) {
-    syncUpdate = {
-      last_sync_at: earliestFailedSyncAt ?? syncStartedAt,
-      sync_error: `Processed with ${integrationOrderErrors} Jumia order error(s); cursor parked at earliest failed order ${earliestFailedSyncAt ?? syncStartedAt} so failed orders remain retryable`,
-      sync_config: clearFullFailureState(integration.sync_config),
-    };
-  } else {
-    const failureCursor = integration.last_sync_at ?? INITIAL_SYNC_CURSOR;
-    const previousFailureState = readFullFailureState(integration.sync_config);
-    const fullFailureCount =
-      previousFailureState?.cursor === failureCursor
-        ? previousFailureState.count + 1
-        : 1;
-    syncUpdate =
-      fullFailureCount >= MAX_FULL_FAILURES_BEFORE_ADVANCE
-        ? {
-            last_sync_at: syncStartedAt,
-            sync_error: `All ${integrationOrderErrors} Jumia order(s) failed ${fullFailureCount} consecutive time(s); cursor advanced to ${syncStartedAt} and operators should inspect the logged order errors`,
-            sync_config: clearFullFailureState(integration.sync_config),
-          }
-        : {
-            sync_error: `All ${integrationOrderErrors} Jumia order(s) failed; cursor not advanced before retry ${fullFailureCount}/${MAX_FULL_FAILURES_BEFORE_ADVANCE}`,
-            sync_config: withFullFailureState(
-              integration.sync_config,
-              failureCursor,
-              fullFailureCount
-            ),
-          };
-  }
-
-  const { error: syncError } = await supabase
-    .from('marketplace_integrations')
-    .update(syncUpdate)
-    .eq('id', integration.id);
-  if (syncError) {
-    throw new JumiaSyncCursorUpdateError(
-      `Failed to update Jumia sync cursor: ${syncError.message}`,
-      syncUpdate
-    );
-  }
+  await persistJumiaSyncCursor({
+    earliestFailedSyncAt,
+    integration,
+    orderErrorsBefore,
+    result,
+    supabase,
+    syncStartedAt,
+    syncedAnyOrder,
+  });
 }
 
 export async function syncJumiaOrdersForActiveIntegrations(

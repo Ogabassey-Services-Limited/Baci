@@ -120,13 +120,17 @@ describe('Jumia order sync notification markers', () => {
   });
 
   it('skips duplicate Jumia notifications after a marker retry failure in one run', async () => {
+    const notificationClaimQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
     const failedNotificationQueries = Array.from({ length: 3 }, () =>
       createQuery({ error: { message: 'write timeout' } })
     );
     const { duplicateCacheQuery, supabase } =
       createDuplicateNotificationSyncMock({
         jumiaOrder: order,
-        markerQueries: failedNotificationQueries,
+        markerQueries: [notificationClaimQuery, ...failedNotificationQueries],
       });
 
     mocks.forIntegration.mockResolvedValue({ client: true });
@@ -145,6 +149,9 @@ describe('Jumia order sync notification markers', () => {
     const result = await syncJumiaOrdersForActiveIntegrations(supabase);
 
     expect(notifyMerchant).toHaveBeenCalledTimes(1);
+    expect(notificationClaimQuery.update).toHaveBeenCalledWith({
+      notification_claimed_at: expect.any(String),
+    });
     for (const query of failedNotificationQueries) {
       expect(query.update).toHaveBeenCalledWith({
         notification_claimed_at: null,
@@ -173,6 +180,10 @@ describe('Jumia order sync notification markers', () => {
   });
 
   it('preserves notification state for duplicate Jumia pages after marker success', async () => {
+    const notificationClaimQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
     const notifyUpdateQuery = createQuery({
       data: { jumia_order_id: order.id },
       error: null,
@@ -180,7 +191,7 @@ describe('Jumia order sync notification markers', () => {
     const { duplicateCacheQuery, supabase } =
       createDuplicateNotificationSyncMock({
         jumiaOrder: order,
-        markerQueries: [notifyUpdateQuery],
+        markerQueries: [notificationClaimQuery, notifyUpdateQuery],
       });
 
     mocks.forIntegration.mockResolvedValue({ client: true });
@@ -199,6 +210,9 @@ describe('Jumia order sync notification markers', () => {
     const result = await syncJumiaOrdersForActiveIntegrations(supabase);
 
     expect(notifyMerchant).toHaveBeenCalledTimes(1);
+    expect(notificationClaimQuery.update).toHaveBeenCalledWith({
+      notification_claimed_at: expect.any(String),
+    });
     expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         notification_sent: true,
