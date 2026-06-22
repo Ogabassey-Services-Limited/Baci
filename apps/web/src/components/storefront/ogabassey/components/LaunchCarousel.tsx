@@ -114,7 +114,9 @@ export function LaunchCarousel({
       setCurrentSlide((prev) => (prev + 1) % slideCount);
     }, AUTOPLAY_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [slideCount, autoplay.isActive]);
+    // `currentSlide` resets the timer on manual navigation so a swipe/dot tap
+    // can't trigger an immediate second advance.
+  }, [slideCount, currentSlide, autoplay.isActive]);
 
   if (slideCount === 0) {
     return null;

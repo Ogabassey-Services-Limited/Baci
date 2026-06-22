@@ -131,6 +131,13 @@ describe('selectLaunchProducts', () => {
     ]);
   });
 
+  it('dedupes the same slug-less object appearing twice (by identity)', () => {
+    const orphan = p(null, 'orphan');
+    const result = selectLaunchProducts([orphan, orphan, p('a')]);
+
+    expect(result.map((i) => i.name)).toEqual(['orphan', 'a']);
+  });
+
   it('returns everything (uncapped) when no limit is given', () => {
     const items: TestProduct[] = [p('a'), p('b'), p('c')];
 

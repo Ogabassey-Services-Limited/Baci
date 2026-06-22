@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -117,6 +117,36 @@ describe('LaunchCarousel', () => {
     expect(visibleIndex()).toBe(1);
     fireEvent.keyDown(region, { key: 'ArrowLeft' });
     expect(visibleIndex()).toBe(0);
+  });
+
+  it('resets the autoplay timer on manual navigation (no double-advance)', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
+      const visibleIndex = () =>
+        Array.from(
+          container.querySelectorAll('[aria-roledescription="slide"]')
+        ).findIndex((slide) => slide.getAttribute('aria-hidden') === 'false');
+
+      expect(visibleIndex()).toBe(0);
+      // Almost a full 6s interval elapses on slide 1.
+      act(() => {
+        vi.advanceTimersByTime(5800);
+      });
+      // User manually jumps to slide 2.
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'Go to slide 2' }));
+      });
+      expect(visibleIndex()).toBe(1);
+      // Past the *original* boundary, but only 0.5s since the manual nav — the
+      // timer reset means no immediate second advance.
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(visibleIndex()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders a pause/play control that toggles autoplay (WCAG 2.2.2)', () => {

@@ -44,8 +44,10 @@ interface SelectLaunchProductsOptions {
 /**
  * Pinned-first, then input order, deduped by slug, capped at `limit`.
  * A plain `[...pinnedRows, ...windowRows]` concat is safe input — dedup keeps
- * the first occurrence of each slug. Rows without a slug are passed through
- * (they can be neither pinned nor deduped).
+ * the first occurrence of each slug. Rows without a slug are passed through but
+ * deduped by object identity (so the same reference appearing in both input
+ * arrays isn't emitted twice); since they can't be deep-linked, carousel
+ * consumers should still filter slug-less rows out.
  */
 export function selectLaunchProducts<T extends ProductWithSlug>(
   items: readonly T[],
@@ -63,6 +65,7 @@ export function selectLaunchProducts<T extends ProductWithSlug>(
 
   const result: T[] = [];
   const used = new Set<string>();
+  const usedSlugless = new Set<T>();
 
   for (const slug of pinned) {
     const item = firstBySlug.get(slug);
@@ -75,7 +78,10 @@ export function selectLaunchProducts<T extends ProductWithSlug>(
   for (const item of items) {
     const slug = item.slug;
     if (typeof slug !== 'string' || slug.length === 0) {
-      result.push(item);
+      if (!usedSlugless.has(item)) {
+        usedSlugless.add(item);
+        result.push(item);
+      }
       continue;
     }
     if (!used.has(slug)) {
