@@ -48,6 +48,37 @@ describe('PostHog client config', () => {
     );
   });
 
+  it('keeps the full instrumentation config by default', () => {
+    const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
+
+    expect(config.autocapture).toBe(true);
+    expect(config.disable_session_recording).toBe(false);
+    expect(config.capture_heatmaps).toBe(true);
+    expect(config.advanced_disable_flags).toBeUndefined();
+  });
+
+  it('returns a lightweight config for public blog surfaces', () => {
+    const config = buildPostHogClientConfig(
+      { NODE_ENV: 'production' },
+      'phc_public_token',
+      { lightweight: true }
+    );
+
+    expect(config).toMatchObject({
+      advanced_disable_flags: true,
+      autocapture: false,
+      capture_dead_clicks: false,
+      capture_heatmaps: false,
+      capture_performance: false,
+      disable_session_recording: true,
+      rageclick: false,
+    });
+    expect(config.capture_pageview).toBe(false);
+    expect(config.before_send).toEqual(expect.any(Function));
+    expect(config.loaded).toEqual(expect.any(Function));
+    expect(config.property_blacklist).toContain('email');
+  });
+
   it('registers stable app and tenant context after PostHog loads', () => {
     const config = buildPostHogClientConfig({
       NODE_ENV: 'production',

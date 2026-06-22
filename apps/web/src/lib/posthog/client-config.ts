@@ -450,11 +450,30 @@ export function sanitizePostHogCapture(
   };
 }
 
+export interface PostHogClientConfigOptions {
+  /**
+   * Strips expensive client-side instrumentation from SEO/content surfaces while
+   * preserving manual pageview capture and privacy sanitization.
+   */
+  lightweight?: boolean;
+}
+
+const LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES: Partial<PostHogConfig> = {
+  advanced_disable_flags: true,
+  autocapture: false,
+  capture_dead_clicks: false,
+  capture_heatmaps: false,
+  capture_performance: false,
+  disable_session_recording: true,
+  rageclick: false,
+};
+
 export function buildPostHogClientConfig(
   env: PostHogEnv = process.env,
-  projectToken: string | undefined = getPublicPostHogProjectToken()
+  projectToken: string | undefined = getPublicPostHogProjectToken(),
+  options: PostHogClientConfigOptions = {}
 ): Partial<PostHogConfig> {
-  return {
+  const baseConfig: Partial<PostHogConfig> = {
     api_host: getPostHogProxyPath(env),
     ui_host: getPostHogUiHost(env),
     defaults: '2026-05-30',
@@ -513,4 +532,10 @@ export function buildPostHogClientConfig(
       });
     },
   };
+
+  if (options.lightweight) {
+    return { ...baseConfig, ...LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES };
+  }
+
+  return baseConfig;
 }
