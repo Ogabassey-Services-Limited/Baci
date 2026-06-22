@@ -54,7 +54,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: diff-guardian-${{ github.event.pull_request.number }}
+  group: diff-guardian-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
