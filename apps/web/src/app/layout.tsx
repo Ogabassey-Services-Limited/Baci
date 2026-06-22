@@ -48,6 +48,13 @@ export const metadata: Metadata = {
   },
   // PWA manifest
   manifest: '/manifest.json',
+  // Google AdSense site-ownership verification (renders
+  // <meta name="google-adsense-account" content="ca-pub-9332275663101466">).
+  verification: {
+    other: {
+      'google-adsense-account': 'ca-pub-9332275663101466',
+    },
+  },
   robots: {
     index: true,
     follow: true,
