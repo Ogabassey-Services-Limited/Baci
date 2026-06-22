@@ -92,6 +92,21 @@ describe('BannerCarousel', () => {
     expect(images[0]).not.toHaveAttribute('priority');
   });
 
+  it('supports arrow-key navigation between slides', () => {
+    const { container } = render(<BannerCarousel />);
+    const region = screen.getByRole('region');
+    const visibleIndex = () =>
+      Array.from(
+        container.querySelectorAll('[aria-roledescription="slide"]')
+      ).findIndex((slide) => slide.getAttribute('aria-hidden') === 'false');
+
+    expect(visibleIndex()).toBe(0);
+    fireEvent.keyDown(region, { key: 'ArrowRight' });
+    expect(visibleIndex()).toBe(1);
+    fireEvent.keyDown(region, { key: 'ArrowLeft' });
+    expect(visibleIndex()).toBe(0);
+  });
+
   it('renders a pause/play control that toggles autoplay (WCAG 2.2.2)', () => {
     render(<BannerCarousel />);
 

@@ -170,15 +170,27 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
     }
   }
 
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+    }
+  };
+
   return (
     <div
       aria-label={title ? `${title} promotions` : 'Promotional banner'}
       aria-roledescription="carousel"
       className={`relative w-full overflow-hidden rounded-xl shadow-sm border border-store-border bg-store-background ${className}`}
+      onKeyDown={onKeyDown}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       role="region"
+      tabIndex={0}
       {...autoplay.containerHandlers}
     >
       <div
