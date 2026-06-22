@@ -166,3 +166,21 @@ export function buildOgaBasseyCwvTargets({
 
   return targets;
 }
+
+function normalizeTargetLabel(value) {
+  const normalized = `${value ?? ''}`.trim().toLowerCase();
+  if (normalized === 'pdp' || normalized === 'pdp-lcp') return 'pdp-dell';
+  if (normalized === 'blog') return 'blog-index';
+  return normalized;
+}
+
+export function filterOgaBasseyCwvTargets(targets, requestedLabels) {
+  const labels = `${requestedLabels ?? ''}`
+    .split(',')
+    .map(normalizeTargetLabel)
+    .filter(Boolean);
+  if (!labels.length) return targets;
+
+  const labelSet = new Set(labels);
+  return targets.filter((target) => labelSet.has(target.label));
+}

@@ -23,6 +23,7 @@ import {
   buildDebugBearHeaders,
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
+  filterOgaBasseyCwvTargets,
   findDebugBearProjectIdForUrl,
   loadEnvFile,
   normalizeDebugBearProjects,
@@ -54,8 +55,16 @@ const debugBearMaxPollAttempts =
   Number(process.env.DEBUGBEAR_MAX_POLL_ATTEMPTS) || 90;
 const debugBearPollIntervalMs =
   Number(process.env.DEBUGBEAR_POLL_INTERVAL_MS) || 5000;
-const shouldRunDebugBear =
-  process.env.OGABASSEY_CWV_DEBUGBEAR !== '0' && Boolean(debugBearApiKey);
+const debugBearSetting = `${process.env.OGABASSEY_CWV_DEBUGBEAR ?? ''}`
+  .trim()
+  .toLowerCase();
+const isDebugBearExplicitlyEnabled = ['1', 'true', 'yes', 'on'].includes(
+  debugBearSetting
+);
+const isDebugBearDisabled = ['0', 'false', 'no', 'off'].includes(
+  debugBearSetting
+);
+const shouldRunDebugBear = !isDebugBearDisabled && Boolean(debugBearApiKey);
 const shouldRunPsi = process.env.OGABASSEY_CWV_PSI !== '0';
 const shouldRunExternalProbes = shouldRunPsi || shouldRunDebugBear;
 const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
@@ -192,15 +201,50 @@ const requestedPdpUrl =
 const pdpUrl = shouldRunExternalProbes
   ? await resolveCanonicalUrl(requestedPdpUrl)
   : requestedPdpUrl;
-const targets = buildOgaBasseyCwvTargets({
-  blogPostUrl,
-  blogUrl: process.env.OGABASSEY_BLOG_URL,
-  homeUrl: process.env.OGABASSEY_HOME_URL,
-  pdpUrl,
-});
+const targets = filterOgaBasseyCwvTargets(
+  buildOgaBasseyCwvTargets({
+    blogPostUrl,
+    blogUrl: process.env.OGABASSEY_BLOG_URL,
+    homeUrl: process.env.OGABASSEY_HOME_URL,
+    pdpUrl,
+  }),
+  process.env.OGABASSEY_CWV_TARGET_LABELS
+);
 
 const summaries = [];
-const failures = [...targetResolutionFailures];
+const failures = [
+  ...targetResolutionFailures,
+  ...(isDebugBearExplicitlyEnabled && !debugBearApiKey
+    ? [
+        {
+          label: 'debugbear',
+          message:
+            'OGABASSEY_CWV_DEBUGBEAR explicitly enabled DebugBear, but DEBUGBEAR_API_KEY/DEBUGBEAR_ADMIN_API_KEY is not configured.',
+          source: 'configuration',
+        },
+      ]
+    : []),
+  ...(!shouldRunPsi && !shouldRunDebugBear
+    ? [
+        {
+          label: 'measurement',
+          message:
+            'No CWV provider is scheduled. Enable PageSpeed Insights or configure DebugBear with an API key.',
+          source: 'configuration',
+        },
+      ]
+    : []),
+  ...(targets.length === 0
+    ? [
+        {
+          label: 'targets',
+          message:
+            'No CWV targets matched OGABASSEY_CWV_TARGET_LABELS. Use home, pdp-dell, blog-index, or blog-post-latest.',
+          source: 'configuration',
+        },
+      ]
+    : []),
+];
 
 function logProgress(message) {
   console.error(`[ogabassey-cwv] ${message}`);
@@ -279,6 +323,14 @@ if (shouldRunDebugBear) {
       });
     }
   }
+}
+
+if (summaries.length === 0) {
+  failures.push({
+    label: 'measurement',
+    message: 'No CWV measurement summaries were produced.',
+    source: 'configuration',
+  });
 }
 
 await writeArtifact('summary.json', {

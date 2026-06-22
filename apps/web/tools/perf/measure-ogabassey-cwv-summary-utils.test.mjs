@@ -42,6 +42,21 @@ describe('getFieldMetric', () => {
     ).toEqual({ category: undefined, p75: 4400, scope: 'origin' });
   });
 
+  it('does not mark origin-level homepage fallbacks as URL-level data', () => {
+    expect(
+      getFieldMetric(
+        {
+          originLoadingExperience: {
+            id: 'https://ogabassey.com',
+            metrics: { LARGEST_CONTENTFUL_PAINT_MS: { percentile: 4500 } },
+          },
+        },
+        'https://ogabassey.com/',
+        'LARGEST_CONTENTFUL_PAINT_MS'
+      )
+    ).toEqual({ category: undefined, p75: 4500, scope: 'origin' });
+  });
+
   it('normalizes PageSpeed CLS percentiles from hundredths', () => {
     expect(
       getFieldMetric(

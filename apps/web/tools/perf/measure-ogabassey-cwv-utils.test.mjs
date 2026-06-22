@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDebugBearHeaders,
   buildOgaBasseyCwvTargets,
+  filterOgaBasseyCwvTargets,
   findDebugBearProjectIdForUrl,
   loadEnvFile,
   normalizeDebugBearProjects,
@@ -140,6 +141,25 @@ describe('buildOgaBasseyCwvTargets', () => {
       },
       { label: 'blog-index', url: 'https://ogabassey.com/blog' },
       { label: 'blog-post-latest', url: 'https://ogabassey.com/blog/post' },
+    ]);
+  });
+});
+
+describe('filterOgaBasseyCwvTargets', () => {
+  const targets = buildOgaBasseyCwvTargets({
+    blogPostUrl: 'https://ogabassey.com/blog/post',
+  });
+
+  it('returns every target when no filter is configured', () => {
+    expect(filterOgaBasseyCwvTargets(targets, '')).toEqual(targets);
+  });
+
+  it('keeps the documented PDP LCP alias focused on the PDP target', () => {
+    expect(filterOgaBasseyCwvTargets(targets, 'pdp-lcp')).toEqual([
+      {
+        label: 'pdp-dell',
+        url: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
+      },
     ]);
   });
 });

@@ -45,19 +45,22 @@ function normalizeFieldPercentile(metricName, percentile) {
 
 export function getFieldMetric(payload, requestedUrl, metricName) {
   const candidates = [
-    payload?.loadingExperience,
-    payload?.originLoadingExperience,
+    { experience: payload?.loadingExperience, scope: null },
+    { experience: payload?.originLoadingExperience, scope: 'origin' },
   ];
   const requested = normalizeFieldId(requestedUrl);
 
-  for (const candidate of candidates) {
+  for (const candidateEntry of candidates) {
+    const candidate = candidateEntry.experience;
     const metric = candidate?.metrics?.[metricName];
     if (!metric) continue;
 
     return {
       category: metric.category,
       p75: normalizeFieldPercentile(metricName, metric.percentile),
-      scope: normalizeFieldId(candidate.id) === requested ? 'url' : 'origin',
+      scope:
+        candidateEntry.scope ??
+        (normalizeFieldId(candidate.id) === requested ? 'url' : 'origin'),
     };
   }
 

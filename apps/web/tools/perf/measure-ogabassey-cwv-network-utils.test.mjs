@@ -122,6 +122,27 @@ describe('resolveLatestBlogPostUrl', () => {
     ).resolves.toBe('https://usebaci.com/ogabassey/blog/post');
   });
 
+  it('ignores feed, API, and sitemap blog links before selecting an article', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          [
+            '<a href="/api/blog/feed/ogabassey"></a>',
+            '<a href="/blog/feed"></a>',
+            '<a href="/blog/sitemap.xml"></a>',
+            '<a href="/blog/article-slug?utm=1"></a>',
+          ].join(''),
+      }))
+    );
+
+    await expect(
+      resolveLatestBlogPostUrl('https://ogabassey.com/blog')
+    ).resolves.toBe('https://ogabassey.com/blog/article-slug');
+  });
+
   it('returns null when the blog index cannot be fetched', async () => {
     vi.stubGlobal(
       'fetch',

@@ -29,6 +29,29 @@ export async function fetchJson(url, init = {}) {
   return text ? JSON.parse(text) : {};
 }
 
+function isBlogArticlePath(pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  const blogIndex = segments.indexOf('blog');
+  if (blogIndex < 0 || blogIndex > 1) return false;
+  if (segments[0] === 'api') return false;
+
+  const slug = segments[blogIndex + 1];
+  if (!slug) return false;
+
+  const nonArticleSegments = new Set([
+    'api',
+    'author',
+    'category',
+    'feed',
+    'news-sitemap.xml',
+    'page',
+    'rss',
+    'sitemap.xml',
+    'tag',
+  ]);
+  return !nonArticleSegments.has(slug.toLowerCase());
+}
+
 export async function resolveLatestBlogPostUrl(blogUrl) {
   if (process.env.OGABASSEY_BLOG_POST_URL) {
     return process.env.OGABASSEY_BLOG_POST_URL;
@@ -48,12 +71,7 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
     for (const href of matches) {
       try {
         const url = new URL(href, blogUrl);
-        if (
-          url.origin === origin &&
-          /(?:^|\/)blog\/[^/?#]+/.test(url.pathname) &&
-          !url.pathname.includes('/page/') &&
-          !url.pathname.includes('/author/')
-        ) {
+        if (url.origin === origin && isBlogArticlePath(url.pathname)) {
           url.hash = '';
           url.search = '';
           return url.toString();
