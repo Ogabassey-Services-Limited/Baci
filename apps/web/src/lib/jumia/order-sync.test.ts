@@ -421,9 +421,9 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       | undefined;
     expect(updatePayload).toEqual(
       expect.objectContaining({
-        sync_error: expect.stringContaining('cursor not advanced'),
+        last_sync_at: order.updatedAt,
+        sync_error: expect.stringContaining('cursor parked'),
       })
     );
-    expect(updatePayload).not.toHaveProperty('last_sync_at');
   });
 });

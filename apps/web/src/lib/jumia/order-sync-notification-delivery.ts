@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import type { JumiaOrder } from '@/schemas/jumia';
 import {
   claimJumiaNotificationDelivery,
+  isJumiaNotificationAlreadySent,
   markJumiaNotificationSent,
   releaseJumiaNotificationDeliveryClaim,
 } from './order-sync-notifications';
@@ -38,6 +39,14 @@ export async function deliverSyncedJumiaOrderNotification({
     );
   }
   if (!claim.claimed || !claim.claimedAt) {
+    if (await isJumiaNotificationAlreadySent(supabase, merchantId, order.id)) {
+      return {
+        sent: 0,
+        failed: 0,
+        errors: [],
+      };
+    }
+
     return {
       sent: 0,
       failed: 0,

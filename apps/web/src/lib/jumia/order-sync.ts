@@ -101,6 +101,10 @@ async function syncIntegration(
         order.id,
         cacheEntry(order.id, cacheRow.notification_sent, canonicalOrder.id)
       );
+      // The canonical order and Jumia cache row are durable at this point.
+      // Notification-only retry misses should park the cursor in the partial
+      // progress path, not count toward the full-failure cursor-advance cap.
+      syncedAnyOrder = true;
 
       if (existingCanonical) result.canonicalUpdated += 1;
       else result.canonicalCreated += 1;

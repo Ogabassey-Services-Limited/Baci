@@ -169,7 +169,54 @@ describe('Jumia order sync notification markers', () => {
     const updatePayload = syncCursorQuery.update.mock.calls[0]?.[0] as
       | Record<string, unknown>
       | undefined;
-    expect(updatePayload).not.toHaveProperty('last_sync_at');
+    expect(updatePayload).toEqual(
+      expect.objectContaining({
+        last_sync_at: order.updatedAt,
+        sync_error: expect.stringContaining('cursor parked'),
+      })
+    );
+    expect(updatePayload?.sync_config).not.toHaveProperty('jumia_full_failure');
+  });
+
+  it('treats a claim miss as success when another worker already marked the notification sent', async () => {
+    const heldClaimQuery = createQuery({ data: null, error: null });
+    const alreadySentQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
+    const { syncCursorQuery, supabase } = createDuplicateNotificationSyncMock({
+      markerQueries: [heldClaimQuery, alreadySentQuery],
+    });
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order]);
+    vi.mocked(getOrderItems).mockResolvedValue({
+      orderId: order.id,
+      orderNumber: order.number,
+      items: [item],
+    });
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(notifyMerchant).not.toHaveBeenCalled();
+    expect(alreadySentQuery.eq).toHaveBeenCalledWith('notification_sent', true);
+    expect(result).toEqual(
+      expect.objectContaining({
+        synced: 1,
+        notified: 0,
+        orderErrors: 0,
+      })
+    );
+    expect(result.errors).toEqual([]);
+    const updatePayload = syncCursorQuery.update.mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(updatePayload).toEqual(
+      expect.objectContaining({
+        last_sync_at: expect.any(String),
+        sync_error: null,
+      })
+    );
   });
 
   it('parks the sync cursor when no merchant push delivery is accepted', async () => {
@@ -216,7 +263,13 @@ describe('Jumia order sync notification markers', () => {
     const updatePayload = syncCursorQuery.update.mock.calls[0]?.[0] as
       | Record<string, unknown>
       | undefined;
-    expect(updatePayload).not.toHaveProperty('last_sync_at');
+    expect(updatePayload).toEqual(
+      expect.objectContaining({
+        last_sync_at: order.updatedAt,
+        sync_error: expect.stringContaining('cursor parked'),
+      })
+    );
+    expect(updatePayload?.sync_config).not.toHaveProperty('jumia_full_failure');
   });
 
   it('skips duplicate Jumia notifications after a marker retry failure in one run', async () => {

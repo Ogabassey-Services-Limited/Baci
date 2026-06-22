@@ -84,7 +84,7 @@ export async function releaseJumiaNotificationDeliveryClaim(
   return error;
 }
 
-async function isJumiaNotificationAlreadySent(
+export async function isJumiaNotificationAlreadySent(
   supabase: SupabaseClient,
   merchantId: string,
   jumiaOrderId: string
