@@ -62,6 +62,15 @@ describe('Currency Utils', () => {
       expect(config.locale).toBe('en-US');
       expect(config.symbol).toBeTruthy();
     });
+
+    it('uses payout currency when country lookup fails', () => {
+      const config = getCurrencyConfig('GH', 'GHS');
+      expect(config).toEqual({
+        code: 'GHS',
+        symbol: 'GH₵',
+        locale: 'en-GH',
+      });
+    });
   });
 
   describe('formatCurrency', () => {
@@ -129,6 +138,15 @@ describe('Currency Utils', () => {
     it('normalizes payout currency before resolving symbol and code', () => {
       expect(getCurrencyCode(null, ' ngn ')).toBe('NGN');
       expect(getCurrencySymbol(null, 'ngn')).toBe('₦');
+    });
+
+    it('falls back when payout currency is missing or invalid', () => {
+      expect(getCurrencyCode(null, null)).toBe('USD');
+      expect(getCurrencySymbol(null, null)).toBe('$');
+      expect(getCurrencyCode(null, undefined)).toBe('USD');
+      expect(getCurrencySymbol(null, undefined)).toBe('$');
+      expect(getCurrencyCode(null, 'INVALID')).toBe('INVALID');
+      expect(getCurrencySymbol(null, 'INVALID')).toBe('INVALID');
     });
   });
 });

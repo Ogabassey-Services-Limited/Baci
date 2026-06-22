@@ -67,6 +67,26 @@ function getCurrencySymbolForCode(
   }
 }
 
+const DEFAULT_CURRENCY_CONFIG: CurrencyConfig = {
+  code: 'USD',
+  symbol: '$',
+  locale: 'en-US',
+};
+
+function getPayoutCurrencyConfig(
+  payoutCurrency?: string | null
+): CurrencyConfig | null {
+  const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
+  if (!normalizedCurrency) return null;
+
+  const locale = CURRENCY_FALLBACK_LOCALES[normalizedCurrency] || 'en-US';
+  return {
+    code: normalizedCurrency,
+    symbol: getCurrencySymbolForCode(normalizedCurrency, locale),
+    locale,
+  };
+}
+
 /**
  * Common options for compact currency display (no decimals)
  * constant reference to avoid object creation on every render
@@ -87,32 +107,16 @@ export function getCurrencyConfig(
   countryCode?: string | null,
   payoutCurrency?: string | null
 ): CurrencyConfig {
-  if (!countryCode) {
-    const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
-    if (normalizedCurrency) {
-      const locale = CURRENCY_FALLBACK_LOCALES[normalizedCurrency] || 'en-US';
-      return {
-        code: normalizedCurrency,
-        symbol: getCurrencySymbolForCode(normalizedCurrency, locale),
-        locale,
-      };
-    }
+  const payoutConfig = getPayoutCurrencyConfig(payoutCurrency);
 
-    return {
-      code: 'USD',
-      symbol: '$',
-      locale: 'en-US',
-    };
+  if (!countryCode) {
+    return payoutConfig ?? DEFAULT_CURRENCY_CONFIG;
   }
 
   const country = getCountryByCode(countryCode);
 
   if (!country) {
-    return {
-      code: 'USD',
-      symbol: '$',
-      locale: 'en-US',
-    };
+    return payoutConfig ?? DEFAULT_CURRENCY_CONFIG;
   }
 
   return {

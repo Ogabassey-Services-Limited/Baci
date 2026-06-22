@@ -540,6 +540,7 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   const customerPriceIdx = headers.findIndex(
     (header) =>
       !isCostPriceHeader(header) &&
+      !isNonPriceAmountHeader(header) &&
       (header.includes('selling') ||
         header.includes('retail') ||
         header.includes('sale price') ||
@@ -551,6 +552,7 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   const explicitPriceIdx = headers.findIndex(
     (header) =>
       !isCostPriceHeader(header) &&
+      !isNonPriceAmountHeader(header) &&
       (header.includes('price') ||
         header.includes('naira') ||
         header.includes('ngn'))
@@ -560,8 +562,8 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   return headers.findIndex(
     (header) =>
       !isCostPriceHeader(header) &&
-      ((header.includes('amount') && !isNonPriceAmountHeader(header)) ||
-        isSellingRateHeader(header))
+      !isNonPriceAmountHeader(header) &&
+      (header.includes('amount') || isSellingRateHeader(header))
   );
 }
 
@@ -569,14 +571,14 @@ function findSellingPriceColumnIndex(headers: string[]): number {
 function parsePrice(priceStr: string): number {
   const cleaned = priceStr
     .replace(
-      /(^|[^a-z])(?:aed|aud|cad|cny|eur|gbp|ghs|jpy|kes|ngn|usd|xaf|xof|zar)(?=\s*[-+]?\d)/gi,
+      /(^|[^a-z])(?:aed|aud|brl|cad|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)(?=\s*[-+]?\d)/gi,
       '$1'
     )
     .replace(
-      /\b(?:aed|aud|cad|cny|eur|gbp|ghs|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi,
+      /\b(?:aed|aud|brl|cad|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi,
       ''
     )
-    .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols, commas, and whitespace
+    .replace(/[₦₹$€£¥,\s]/g, '') // Remove currency symbols, commas, and whitespace
     .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
   return Number.parseFloat(cleaned);
 }

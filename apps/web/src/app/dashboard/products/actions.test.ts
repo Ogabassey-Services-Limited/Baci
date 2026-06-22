@@ -754,6 +754,37 @@ describe('product import actions', () => {
     expect(result.changes[1]?.details).not.toHaveProperty('cost_price');
   });
 
+  it('parses supported INR and BRL price prefixes', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nIndia Phone,"INR 12,500","BRL 2,000",IN-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 2000,
+        price: 12500,
+      },
+      type: 'new',
+    });
+  });
+
+  it('skips fee columns before selecting the selling price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Fee,Retail Fee,Price,SKU\nNew Phone,25,30,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
   it('does not use a standalone cost column as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
