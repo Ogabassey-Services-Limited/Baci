@@ -146,7 +146,10 @@ describe('Jumia order sync notification markers', () => {
 
     expect(notifyMerchant).toHaveBeenCalledTimes(1);
     for (const query of failedNotificationQueries) {
-      expect(query.update).toHaveBeenCalledWith({ notification_sent: true });
+      expect(query.update).toHaveBeenCalledWith({
+        notification_claimed_at: null,
+        notification_sent: true,
+      });
     }
     expect(result).toEqual(
       expect.objectContaining({

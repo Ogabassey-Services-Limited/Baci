@@ -191,7 +191,7 @@ describe('POST /api/marketplace/jumia/orders', () => {
         notification_sent: false,
       },
     ];
-    harness.mocks.notificationClaimError = { message: 'marker failed' };
+    harness.mocks.notificationMarkerError = { message: 'marker failed' };
     harness.mocks.getAllOrders.mockResolvedValue([
       harness.createOrder('order-1'),
     ]);

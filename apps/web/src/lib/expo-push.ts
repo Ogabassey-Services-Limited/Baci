@@ -822,10 +822,10 @@ export async function notifyJumiaOrder(
   customerName: string,
   amount: number,
   currency = 'NGN'
-): Promise<void> {
+): Promise<NotificationSendResult> {
   const formattedAmount = formatCurrency(amount, currency);
 
-  await notifyMerchant(
+  return await notifyMerchant(
     merchantId,
     '🟠 Jumia Order',
     `Order #${jumiaOrderNumber} from ${customerName} - ${formattedAmount}`,

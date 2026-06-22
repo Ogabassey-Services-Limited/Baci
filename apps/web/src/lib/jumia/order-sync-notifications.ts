@@ -50,7 +50,7 @@ export async function markJumiaNotificationSent(
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const { data, error } = await supabase
       .from('jumia_orders')
-      .update({ notification_sent: true })
+      .update({ notification_claimed_at: null, notification_sent: true })
       .eq('merchant_id', merchantId)
       .eq('jumia_order_id', jumiaOrderId)
       .select('jumia_order_id')

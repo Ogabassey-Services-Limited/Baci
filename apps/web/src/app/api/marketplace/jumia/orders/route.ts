@@ -27,6 +27,9 @@ import { createClient } from '@/lib/supabase/server';
 
 const JUMIA_ORDER_UPSERT_BATCH_SIZE = 100;
 const JUMIA_ORDER_LOOKUP_CONCURRENCY = 4;
+const JUMIA_NOTIFICATION_CLAIM_LEASE_MS = 10 * 60 * 1000;
+
+type RouteSupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 type JumiaOrderWrite = {
   currency: string;
@@ -70,6 +73,45 @@ async function mapWithBoundedConcurrency<T, R>(
     results.push(...(await Promise.all(batch.map(mapper))));
   }
   return results;
+}
+
+async function claimJumiaNotificationDelivery(
+  supabase: RouteSupabaseClient,
+  merchantId: string,
+  orderId: string
+) {
+  const claimedAt = new Date();
+  const staleBefore = new Date(
+    claimedAt.getTime() - JUMIA_NOTIFICATION_CLAIM_LEASE_MS
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from('jumia_orders')
+    .update({ notification_claimed_at: claimedAt.toISOString() })
+    .eq('merchant_id', merchantId)
+    .eq('jumia_order_id', orderId)
+    .eq('notification_sent', false)
+    .or(
+      `notification_claimed_at.is.null,notification_claimed_at.lt.${staleBefore}`
+    )
+    .select('jumia_order_id, notification_claimed_at')
+    .maybeSingle<{ jumia_order_id: string; notification_claimed_at: string }>();
+
+  return { claimed: Boolean(data), error };
+}
+
+async function releaseJumiaNotificationDeliveryClaim(
+  supabase: RouteSupabaseClient,
+  merchantId: string,
+  orderId: string
+) {
+  const { error } = await supabase
+    .from('jumia_orders')
+    .update({ notification_claimed_at: null })
+    .eq('merchant_id', merchantId)
+    .eq('jumia_order_id', orderId);
+
+  return error;
 }
 
 /**
@@ -563,15 +605,55 @@ export async function POST(request: NextRequest) {
         newOrdersCount++;
       }
 
+      const notificationClaim = await claimJumiaNotificationDelivery(
+        supabase,
+        merchantId,
+        write.orderId
+      );
+      if (notificationClaim.error) {
+        notificationMarkerFailed = true;
+        logger.error({
+          message: 'Failed to claim Jumia notification delivery lease',
+          orderId: write.orderId,
+          error: notificationClaim.error,
+        });
+        continue;
+      }
+
+      if (!notificationClaim.claimed) {
+        currentlyNotifiedOrderIds.add(write.orderId);
+        continue;
+      }
+
       try {
-        await notifyJumiaOrder(
+        const deliveryResult = await notifyJumiaOrder(
           merchantId,
           write.orderNumber,
           write.sanitizedCustomerName,
           write.totalAmount,
           write.currency
         );
+
+        if (deliveryResult.sent <= 0) {
+          await releaseJumiaNotificationDeliveryClaim(
+            supabase,
+            merchantId,
+            write.orderId
+          );
+          logger.error({
+            message: 'No Jumia order push notifications were accepted',
+            orderId: write.orderId,
+            orderNumber: write.orderNumber,
+            deliveryResult,
+          });
+          continue;
+        }
       } catch (pushError) {
+        await releaseJumiaNotificationDeliveryClaim(
+          supabase,
+          merchantId,
+          write.orderId
+        );
         logger.error({
           message: 'Push notification failed for Jumia order',
           orderId: write.orderId,
