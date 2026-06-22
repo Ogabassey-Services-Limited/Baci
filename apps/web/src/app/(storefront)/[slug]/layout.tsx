@@ -79,6 +79,13 @@ function StorefrontLayoutRenderer({
   return <>{children}</>;
 }
 
+// Run storefront SSR next to the Supabase primary (AWS eu-west-1 / Dublin) so
+// every render's DB round-trips stay intra-region. Neither `vercel.json`
+// `regions` nor the project's serverlessFunctionRegion is honored for Next.js
+// App Router functions — `preferredRegion` is the only mechanism the framework
+// builder bakes into the function config.
+export const preferredRegion = 'dub1';
+
 export async function generateMetadata({
   params,
 }: {
