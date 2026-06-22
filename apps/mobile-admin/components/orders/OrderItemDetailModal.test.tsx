@@ -64,7 +64,9 @@ vi.mock('react-native', () => {
       create: (styles: Record<string, unknown>) => styles,
       hairlineWidth: 1,
     },
-    Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+    Text: ({ children, style }: { children?: ReactNode; style?: unknown }) => (
+      <span data-style={JSON.stringify(style)}>{children}</span>
+    ),
     View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   };
 });
@@ -132,6 +134,23 @@ describe('OrderItemDetailModal', () => {
     fireEvent.click(screen.getByLabelText('Close item details'));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the theme text-on-primary token for the done button label', () => {
+    render(
+      <OrderItemDetailModal
+        formattedLineTotal="₦500,000"
+        formattedUnitPrice="₦500,000"
+        item={createItem()}
+        onClose={vi.fn()}
+        visible
+      />
+    );
+
+    expect(screen.getByText('Done')).toHaveAttribute(
+      'data-style',
+      expect.stringContaining(LIGHT_COLORS.textOnPrimary)
+    );
   });
 
   it('exposes accessible button controls for both dismissal actions', () => {
