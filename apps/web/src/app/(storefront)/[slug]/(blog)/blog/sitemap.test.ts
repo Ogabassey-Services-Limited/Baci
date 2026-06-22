@@ -239,7 +239,16 @@ describe('blog sitemap', () => {
 
     const result = await sitemap();
 
-    expect(result).toHaveLength(2);
+    // blog index + 1 real post (test post excluded); author hubs append after.
+    const postEntries = result.filter(
+      (e) =>
+        e.url.startsWith('https://ogabassey.com/blog/') &&
+        !e.url.startsWith('https://ogabassey.com/blog/author/')
+    );
+    expect(postEntries).toHaveLength(1);
+    expect(
+      result.some((e) => e.url.includes('test-post-agent-integration-working'))
+    ).toBe(false);
     expect(result[1]).toEqual(
       expect.objectContaining({
         url: 'https://ogabassey.com/blog/android-17-buying-guide',
@@ -250,5 +259,45 @@ describe('blog sitemap', () => {
         ],
       })
     );
+  });
+
+  it('lists tenant-gated author hub pages for OgaBassey storefronts', async () => {
+    mockHeaders = new Map([['x-custom-domain', 'ogabassey.com']]);
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
+    mockNot.mockReturnValue({ data: [], error: null });
+
+    const { default: sitemap } = await import('./sitemap');
+    const result = await sitemap();
+
+    const authorUrls = result
+      .filter((e) => e.url.includes('/blog/author/'))
+      .map((e) => e.url);
+    expect(authorUrls).toEqual(
+      expect.arrayContaining([
+        'https://ogabassey.com/blog/author/bassey-john',
+        'https://ogabassey.com/blog/author/bolakale',
+      ])
+    );
+  });
+
+  it('omits author hub pages for storefronts without author profiles', async () => {
+    mockHeaders = new Map([['x-custom-domain', 'other-store.com']]);
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-2',
+      slug: 'other-store',
+      custom_domain: 'other-store.com',
+    });
+    mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
+    mockNot.mockReturnValue({ data: [], error: null });
+
+    const { default: sitemap } = await import('./sitemap');
+    const result = await sitemap();
+
+    expect(result.some((e) => e.url.includes('/blog/author/'))).toBe(false);
   });
 });

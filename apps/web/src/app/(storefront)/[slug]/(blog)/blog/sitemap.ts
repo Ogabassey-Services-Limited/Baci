@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
@@ -61,6 +62,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.8,
       ...(imageUrls.length > 0 && { images: imageUrls }),
+    });
+  }
+
+  // Author hub pages (tenant-gated; OgaBassey only today). Mirror the route's
+  // getBlogAuthorBySlug guard so storefronts without author profiles don't list
+  // routes that 404, and so bylines + sitemap surface the same author URLs.
+  for (const authorSlug of getBlogAuthorSlugs()) {
+    if (!getBlogAuthorBySlug(authorSlug, merchant.slug)) {
+      continue;
+    }
+    entries.push({
+      url: `${storeUrl}/blog/author/${authorSlug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.6,
     });
   }
 
