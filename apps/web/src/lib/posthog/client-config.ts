@@ -307,11 +307,36 @@ export function sanitizePostHogCapture(
   };
 }
 
+export interface PostHogClientConfigOptions {
+  /**
+   * When true, returns a stripped-down config for SEO/content surfaces (the
+   * public blog): no session replay, autocapture, heatmaps, dead-click or
+   * rageclick heuristics, web-vitals capture, or `/flags` request. Manual
+   * `$pageview` capture (see `capturePostHogPageview`) is unaffected, so blog
+   * pageviews, sessions, referrers and blog->product attribution still record.
+   */
+  lightweight?: boolean;
+}
+
+// Overrides applied on top of the full config for public blog pages. These turn
+// off the features that cost main-thread time / extra network requests on
+// content pages while leaving manual pageview capture and PII sanitization on.
+const LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES: Partial<PostHogConfig> = {
+  autocapture: false,
+  rageclick: false,
+  capture_dead_clicks: false,
+  capture_heatmaps: false,
+  disable_session_recording: true,
+  capture_performance: false,
+  advanced_disable_flags: true,
+};
+
 export function buildPostHogClientConfig(
   env: PostHogEnv = process.env,
-  projectToken: string | undefined = getPublicPostHogProjectToken()
+  projectToken: string | undefined = getPublicPostHogProjectToken(),
+  options: PostHogClientConfigOptions = {}
 ): Partial<PostHogConfig> {
-  return {
+  const baseConfig: Partial<PostHogConfig> = {
     api_host: getPostHogProxyPath(env),
     ui_host: getPostHogUiHost(env),
     defaults: '2026-05-30',
@@ -367,4 +392,10 @@ export function buildPostHogClientConfig(
       });
     },
   };
+
+  if (options.lightweight) {
+    return { ...baseConfig, ...LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES };
+  }
+
+  return baseConfig;
 }

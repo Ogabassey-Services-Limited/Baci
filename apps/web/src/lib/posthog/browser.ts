@@ -1,6 +1,7 @@
 import posthog from 'posthog-js';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
@@ -21,6 +22,18 @@ const pendingPostHogPageviewUrls: string[] = [];
 
 function isPostHogDevelopmentMode(env: PostHogEnv): boolean {
   return (env.NODE_ENV ?? POSTHOG_NODE_ENV) === 'development';
+}
+
+// Public blog (SEO/content) pages get a lightweight PostHog config. We key off
+// the entry pathname at init time; SPA navigations within a session keep the
+// surface they started on, which is fine because blog traffic almost always
+// enters fresh from search.
+function isLightweightPostHogSurface(): boolean {
+  if (typeof globalThis.location === 'undefined') {
+    return false;
+  }
+
+  return isPublicBlogPathname(globalThis.location.pathname);
 }
 
 export function initializePostHogBrowser(
@@ -46,7 +59,9 @@ export function initializePostHogBrowser(
 
   isPostHogBrowserDisabled = false;
 
-  const clientConfig = buildPostHogClientConfig(env, projectToken);
+  const clientConfig = buildPostHogClientConfig(env, projectToken, {
+    lightweight: isLightweightPostHogSurface(),
+  });
   const clientLoaded = clientConfig.loaded;
 
   try {

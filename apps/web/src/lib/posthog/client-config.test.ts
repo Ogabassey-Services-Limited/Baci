@@ -48,6 +48,39 @@ describe('PostHog client config', () => {
     );
   });
 
+  it('keeps the full instrumentation config by default', () => {
+    const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
+
+    expect(config.autocapture).toBe(true);
+    expect(config.disable_session_recording).toBe(false);
+    expect(config.capture_heatmaps).toBe(true);
+    expect(config.advanced_disable_flags).toBeUndefined();
+  });
+
+  it('returns a lightweight config for public blog surfaces', () => {
+    const config = buildPostHogClientConfig(
+      { NODE_ENV: 'production' },
+      'phc_public_token',
+      { lightweight: true }
+    );
+
+    // Heavy, main-thread features are disabled on SEO/content pages...
+    expect(config).toMatchObject({
+      autocapture: false,
+      rageclick: false,
+      capture_dead_clicks: false,
+      capture_heatmaps: false,
+      disable_session_recording: true,
+      capture_performance: false,
+      advanced_disable_flags: true,
+    });
+    // ...but manual pageview capture, sanitization, and tenant context stay on.
+    expect(config.capture_pageview).toBe(false);
+    expect(config.before_send).toEqual(expect.any(Function));
+    expect(config.loaded).toEqual(expect.any(Function));
+    expect(config.property_blacklist).toContain('email');
+  });
+
   it('registers stable app and tenant context after PostHog loads', () => {
     const config = buildPostHogClientConfig({
       NODE_ENV: 'production',

@@ -82,7 +82,8 @@ describe('initializePostHogBrowser', () => {
     expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
     expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(
       env,
-      'ph_project_token'
+      'ph_project_token',
+      { lightweight: false }
     );
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
     expect(mocks.posthogInit).toHaveBeenCalledWith(
@@ -92,6 +93,27 @@ describe('initializePostHogBrowser', () => {
         loaded: expect.any(Function),
       })
     );
+  });
+
+  it('requests the lightweight config on public blog surfaces', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    vi.stubGlobal('location', {
+      pathname: '/ogabassey/blog/best-phones',
+      href: 'https://usebaci.com/ogabassey/blog/best-phones',
+    });
+    const { initializePostHogBrowser } = await importBrowserInitializer();
+
+    initializePostHogBrowser(env);
+
+    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(
+      env,
+      'ph_project_token',
+      { lightweight: true }
+    );
+
+    vi.unstubAllGlobals();
   });
 
   it('queues pageviews until PostHog finishes loading', async () => {
