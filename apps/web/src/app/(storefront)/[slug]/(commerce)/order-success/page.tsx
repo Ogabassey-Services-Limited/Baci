@@ -76,7 +76,10 @@ function OrderSuccessContent() {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
   const merchant = merchantContext?.merchant;
-  const { formatCurrency } = useCurrencyWithCountry(merchant?.country);
+  const { formatCurrency } = useCurrencyWithCountry(
+    merchant?.country,
+    merchant?.payout_currency
+  );
   const auth = useAuthSafe();
   const user = auth?.user;
 

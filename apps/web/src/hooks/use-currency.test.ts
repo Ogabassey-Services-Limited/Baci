@@ -71,4 +71,12 @@ describe('useCurrencyWithCountry', () => {
     expect(result.current.currencyCode).toBe('USD');
     expect(result.current.currencySymbol).toBe('$');
   });
+
+  it('uses payout currency when country lookup fails', () => {
+    const { result } = renderHook(() => useCurrencyWithCountry('KE', 'KES'));
+
+    expect(result.current.formatCurrency(1000)).toContain('1,000.00');
+    expect(result.current.currencyCode).toBe('KES');
+    expect(result.current.currencySymbol).toBe('Ksh');
+  });
 });

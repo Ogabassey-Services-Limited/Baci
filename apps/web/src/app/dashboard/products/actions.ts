@@ -500,6 +500,16 @@ function normalizeName(name: string): string {
 function isCostPriceHeader(header: string): boolean {
   const words = header.split(/[^a-z0-9]+/).filter(Boolean);
   const hasCost = words.includes('cost');
+  const isLogisticsCost = words.some((word) =>
+    [
+      'courier',
+      'delivery',
+      'freight',
+      'logistics',
+      'postage',
+      'shipping',
+    ].includes(word)
+  );
   const hasAmountSignal = words.some((word) =>
     ['amount', 'cost', 'price', 'rate', 'value'].includes(word)
   );
@@ -509,7 +519,7 @@ function isCostPriceHeader(header: string): boolean {
   );
 
   return (
-    (hasCost && !isCustomerFacingPrice) ||
+    (hasCost && !isCustomerFacingPrice && !isLogisticsCost) ||
     header.includes('cogs') ||
     header.includes('buying') ||
     header.includes('purchase') ||
@@ -532,7 +542,19 @@ function isSellingRateHeader(header: string): boolean {
 function isNonPriceAmountHeader(header: string): boolean {
   const words = header.split(/[^a-z0-9]+/).filter(Boolean);
   return words.some((word) =>
-    ['discount', 'fee', 'shipping', 'tax', 'vat'].includes(word)
+    [
+      'courier',
+      'delivery',
+      'discount',
+      'fee',
+      'fees',
+      'freight',
+      'logistics',
+      'postage',
+      'shipping',
+      'tax',
+      'vat',
+    ].includes(word)
   );
 }
 

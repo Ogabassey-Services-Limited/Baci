@@ -785,6 +785,37 @@ describe('product import actions', () => {
     });
   });
 
+  it('skips plural fee columns before selecting the selling price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Fees,Retail Fees,Price,SKU\nNew Phone,25,30,2000,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('does not import shipping cost as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Shipping Cost,SKU\nNew Phone,2000,400,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        price: 2000,
+      },
+      type: 'new',
+    });
+    expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
+  });
+
   it('does not use a standalone cost column as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
