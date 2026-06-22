@@ -155,8 +155,10 @@ describe('storefront variant attribute helpers', () => {
           {
             attributes: {
               color: 'Black',
+              colour: 'Graphite',
               connectivity: 'WiFi',
               condition: 'new',
+              colour_hex: '#1f2937',
               platform: 'PS5',
               RAM: '8GB',
               Storage: '128GB',
@@ -165,8 +167,10 @@ describe('storefront variant attribute helpers', () => {
           {
             attributes: {
               color: 'White',
+              colour: 'Silver',
               connectivity: 'WiFi',
               condition: 'new',
+              colour_hex: '#f3f4f6',
               platform: 'Xbox',
               RAM: '12GB',
               Storage: '512GB',

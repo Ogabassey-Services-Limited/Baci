@@ -2441,6 +2441,8 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce(
       toLegacyCachedProduct({
         ...categorizedDetailedProduct,
+        color: null,
+        default_variant_id: null,
         has_variants: true,
         images: [baseProductImage],
         product_variants: variants,
@@ -2448,6 +2450,8 @@ describe('[category]/[productSlug] page render', () => {
     );
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
+      color: null,
+      default_variant_id: null,
       has_variants: true,
       images: [baseProductImage],
       product_variants: variants,

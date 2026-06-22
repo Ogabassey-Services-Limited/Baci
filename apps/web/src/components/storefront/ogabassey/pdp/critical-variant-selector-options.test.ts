@@ -7,22 +7,37 @@ import {
 describe('critical variant selector options', () => {
   it('keeps axes with visible options while filtering hidden axes', () => {
     expect(
-      getRenderableCriticalVariantAxes(['storage', 'ram', 'color'], [
+      getRenderableCriticalVariantAxes(
+        ['storage', 'ram', 'color', 'colour', 'colour_hex'],
+        [
         {
-          attributes: { color: 'Graphite', ram: '4GB', storage: '128GB' },
+          attributes: {
+            color: 'Graphite',
+            colour: 'Graphite',
+            colour_hex: '#1f2937',
+            ram: '4GB',
+            storage: '128GB',
+          },
           id: 'variant-128-4',
           merchant_id: 'merchant-1',
           product_id: 'product-1',
           stock_quantity: 10,
         },
         {
-          attributes: { color: 'Graphite', ram: '8GB', storage: '256GB' },
+          attributes: {
+            color: 'Graphite',
+            colour: 'Graphite',
+            colour_hex: '#1f2937',
+            ram: '8GB',
+            storage: '256GB',
+          },
           id: 'variant-256-8',
           merchant_id: 'merchant-1',
           product_id: 'product-1',
           stock_quantity: 8,
         },
-      ])
+        ]
+      )
     ).toEqual(['storage', 'ram']);
   });
 

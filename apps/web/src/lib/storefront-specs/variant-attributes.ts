@@ -155,7 +155,12 @@ function getVariantAxisValue(
 }
 
 function isRenderableVariantAxis(axis: string, options: string[]) {
-  if (axis === 'color' || axis === 'color_hex') {
+  if (
+    axis === 'color' ||
+    axis === 'colour' ||
+    axis === 'color_hex' ||
+    axis === 'colour_hex'
+  ) {
     return false;
   }
 

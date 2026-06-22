@@ -181,33 +181,37 @@ export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
 
 export function pickInitialSelectedAttributes({
   explicitAttributes,
+  fallbackAxisOptions,
   renderableVariantAxes,
   selection,
 }: {
   explicitAttributes?: Record<string, string>;
+  fallbackAxisOptions?: Record<string, string[]>;
   renderableVariantAxes: string[];
   selection: ResolvedCriticalVariantSelection | null;
 }) {
-  if (!selection) {
-    return {};
-  }
-
   const normalizedExplicitAttributes =
     normalizeCriticalVariantAttributes(explicitAttributes);
-  const normalizedSelectionAttributes = normalizeCriticalVariantAttributes(
-    selection.attributes
-  );
-  const normalizedSelectionCondition = selection.condition?.trim();
-  if (normalizedSelectionCondition) {
+  const normalizedSelectionAttributes = selection
+    ? normalizeCriticalVariantAttributes(selection.attributes)
+    : getSingleOptionVariantAttributes(fallbackAxisOptions);
+  const normalizedSelectionCondition = selection?.condition?.trim();
+  if (selection && normalizedSelectionCondition) {
     normalizedSelectionAttributes.condition = normalizedSelectionCondition;
   }
   const selectableAxes = new Set([
     ...renderableVariantAxes.map(canonicalizeVariantAxis).filter(Boolean),
     ...Object.keys(normalizedExplicitAttributes),
   ]);
+  const initialAttributes = selection
+    ? normalizedSelectionAttributes
+    : {
+        ...normalizedSelectionAttributes,
+        ...normalizedExplicitAttributes,
+      };
 
   return Object.fromEntries(
-    Object.entries(normalizedSelectionAttributes).filter(([axis]) =>
+    Object.entries(initialAttributes).filter(([axis]) =>
       selectableAxes.has(axis)
     )
   );

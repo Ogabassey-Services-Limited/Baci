@@ -11,7 +11,9 @@ import {
 // Color is represented by product imagery, and color_hex is only swatch metadata.
 const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
   'color',
+  'colour',
   'color_hex',
+  'colour_hex',
 ]);
 
 export function formatVariantAxisLabel(axis: string) {

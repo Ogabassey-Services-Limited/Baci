@@ -496,7 +496,9 @@ function getDefaultCriticalVariantSelection(product: Product) {
   }
 
   if (!productColor) {
-    return undefined;
+    return toInitialCriticalVariantSelection(
+      resolveDefaultVariantSelection(normalizedProduct)
+    );
   }
 
   const colorConditionSelection = productCondition

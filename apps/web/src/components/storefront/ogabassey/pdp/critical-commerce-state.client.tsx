@@ -92,6 +92,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
   >(() =>
     pickInitialSelectedAttributes({
       explicitAttributes: normalizedInitialSelectionAttributes,
+      fallbackAxisOptions: variantAxisOptions,
       renderableVariantAxes,
       selection: initialDisplayVariantSelection,
     })
