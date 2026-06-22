@@ -43,6 +43,9 @@ const STORE_NOT_FOUND_METADATA: Metadata = {
     index: false,
     follow: true,
   },
+  // Replace root verification so the platform `google-adsense-account` meta does
+  // not bleed onto not-found pages served on third-party custom domains.
+  verification: {},
 };
 
 /**
