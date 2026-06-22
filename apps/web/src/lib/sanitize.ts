@@ -162,7 +162,16 @@ export function sanitizeHtml(
         'rowspan',
       ],
       a: ['href', 'target', 'rel'],
-      img: ['src', 'alt', 'width', 'height', 'loading', 'decoding'],
+      img: [
+        'src',
+        'srcset',
+        'sizes',
+        'alt',
+        'width',
+        'height',
+        'loading',
+        'decoding',
+      ],
       source: ['srcset', 'type', 'media', 'sizes'],
     },
     // Security configurations
