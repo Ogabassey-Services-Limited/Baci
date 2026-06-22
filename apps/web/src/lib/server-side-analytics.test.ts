@@ -201,6 +201,7 @@ describe('Server-Side Analytics Service', () => {
       );
 
       expect(global.fetch).toHaveBeenCalledTimes(4);
+      expect(results).toHaveLength(4);
       expect(results.every((r) => r.success === false)).toBe(true);
       expect(results.every((r) => r.error === 'Platform Error')).toBe(true);
     });
@@ -217,6 +218,7 @@ describe('Server-Side Analytics Service', () => {
       );
 
       expect(global.fetch).toHaveBeenCalledTimes(4);
+      expect(results).toHaveLength(4);
       expect(results.every((r) => r.success === false)).toBe(true);
       expect(results.every((r) => r.error === 'Network failure')).toBe(true);
     });
