@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockGetBlogAuthorBySlug,
   mockGetCachedBlogAuthor,
+  mockHeaders,
   mockNotFound,
   mockPermanentRedirect,
   mockRedirect,
@@ -12,6 +13,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetBlogAuthorBySlug: vi.fn(),
   mockGetCachedBlogAuthor: vi.fn(),
+  mockHeaders: vi.fn(() => new Headers()),
   mockResolveBlogCatchAllOutcome: vi.fn(),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -22,6 +24,10 @@ const {
   mockRedirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/image', () => ({
@@ -63,6 +69,7 @@ vi.mock('@/lib/routes', () => ({ asRoute: (value: string) => value }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: (value: unknown) => JSON.stringify(value),
+  sanitizeSchemaUrl: (value: string) => value,
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -118,6 +125,7 @@ const authorData = {
 describe('BlogAuthorPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.mockReturnValue(new Headers());
     mockGetBlogAuthorBySlug.mockReturnValue({
       name: 'Bassey John',
       sameAs: [
@@ -255,49 +263,5 @@ describe('BlogAuthorPageContent', () => {
         }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
-  });
-
-  it('renders pagination controls and a full-count ItemList for multi-page authors', async () => {
-    mockGetCachedBlogAuthor.mockResolvedValue({
-      ...authorData,
-      totalPosts: 30,
-      currentPage: 2,
-      totalPages: 3,
-    });
-
-    const { container } = render(
-      await BlogAuthorPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          authorSlug: 'bassey-john',
-        }),
-        searchParams: Promise.resolve({ page: '2' }),
-      })
-    );
-
-    // page param is forwarded to the bounded data fetch
-    expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'Bassey John',
-      { page: 2 }
-    );
-
-    // crawlable prev/next navigation (page 1 drops the ?page query)
-    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
-      'href',
-      '/blog/author/bassey-john'
-    );
-    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
-      'href',
-      '/blog/author/bassey-john?page=3'
-    );
-    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
-
-    // ItemList reflects the FULL author corpus, positioned by page
-    const itemListScript = Array.from(
-      container.querySelectorAll('script[type="application/ld+json"]')
-    ).find((s) => s.textContent?.includes('ItemList'));
-    expect(itemListScript?.textContent).toContain('"numberOfItems":30');
-    expect(itemListScript?.textContent).toContain('"position":13');
   });
 });

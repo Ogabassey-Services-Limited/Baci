@@ -88,9 +88,11 @@ function buildMerchantRow() {
 function setupBlogAuthorFetch({
   posts = [],
   postsError = null,
+  count,
 }: {
   posts?: unknown[];
   postsError?: unknown;
+  count?: number | null;
 } = {}) {
   const merchantBuilder = createQueryBuilder({
     singleResult: { data: buildMerchantRow(), error: null },
@@ -104,7 +106,7 @@ function setupBlogAuthorFetch({
   const postsBuilder = createQueryBuilder({
     queryResult: {
       data: postsError ? null : posts,
-      count: postsError ? null : posts.length,
+      count: postsError ? null : (count ?? posts.length),
       error: postsError,
     },
   });
@@ -230,5 +232,20 @@ describe('getCachedBlogAuthor', () => {
     await expect(
       getCachedBlogAuthor('ogabassey', 'Bassey John', { page: 1 })
     ).resolves.toBeNull();
+  });
+
+  it('keeps totalPages for an out-of-range page so the route can redirect (no false 404)', async () => {
+    // The ranged window is empty, but the author still has posts (count > 0).
+    setupBlogAuthorFetch({ posts: [], count: 30 });
+
+    const result = await getCachedBlogAuthor('ogabassey', 'Bassey John', {
+      page: 999,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.posts).toEqual([]);
+    expect(result?.totalPosts).toBe(30);
+    expect(result?.totalPages).toBe(3);
+    expect(result?.currentPage).toBe(999);
   });
 });

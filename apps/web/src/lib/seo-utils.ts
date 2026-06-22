@@ -2378,6 +2378,9 @@ export function generateBlogPostSchema(
     ? sanitizeSchemaEntityId(data.publisher.id)
     : '';
   const blogId = data.blogId ? sanitizeSchemaEntityId(data.blogId) : '';
+  const authorImage = data.author.image
+    ? sanitizeSchemaUrl(data.author.image.trim())
+    : '';
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -2402,7 +2405,7 @@ export function generateBlogPostSchema(
       ...(authorSameAs.length > 0 && {
         sameAs: authorSameAs,
       }),
-      ...(data.author.image && { image: escapeHtml(data.author.image) }),
+      ...(authorImage && { image: escapeHtml(authorImage) }),
     },
     publisher: {
       '@type': 'Organization',

@@ -88,7 +88,16 @@ export function getBlogAuthorBySlug(
   return profile ? { name: profile.name, sameAs: [...profile.sameAs] } : null;
 }
 
-/** Whether a named author has a dedicated author page (so a byline can link). */
+/**
+ * Whether a named author has a dedicated author page (so a byline can link).
+ *
+ * Gated on an EXACT canonical-name match — not just a slug match — because the
+ * author hub fetches posts with `.eq('author_name', <canonical name>)`. A post
+ * bylined with a case/whitespace variant (e.g. `bassey john`) would otherwise
+ * link to `/blog/author/bassey-john` while being excluded from that hub's
+ * query, producing a byline link to a page that omits (or 404s on) the source
+ * post.
+ */
 export function hasBlogAuthorPage(
   authorName: string | null | undefined,
   tenantIdentifier: string | null | undefined
@@ -96,7 +105,7 @@ export function hasBlogAuthorPage(
   if (!authorName || !canUseOgabasseyAuthorProfiles(tenantIdentifier)) {
     return false;
   }
-  return Boolean(getBlogAuthorProfile(generateSlug(authorName)));
+  return getBlogAuthorProfile(generateSlug(authorName))?.name === authorName;
 }
 
 /** All known author-page slugs (for `generateStaticParams`). */

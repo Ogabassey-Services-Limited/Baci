@@ -1541,6 +1541,18 @@ describe('generateBlogPostSchema', () => {
     );
   });
 
+  it('drops the author image when author.image is an unsafe URL', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      author: {
+        ...baseBlogSchemaInput.author,
+        image: 'javascript:alert(1)',
+      },
+    });
+
+    expect((schema.author as Record<string, unknown>).image).toBeUndefined();
+  });
+
   it('emits a Google Discover image array when persisted image URLs are supplied', () => {
     const schema = generateBlogPostSchema({
       ...baseBlogSchemaInput,

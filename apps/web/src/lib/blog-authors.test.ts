@@ -58,6 +58,14 @@ describe('OgaBassey blog author profile helpers', () => {
     expect(hasBlogAuthorPage('Bolakale', 'another-store')).toBe(false);
   });
 
+  it('only links bylines that exactly match the canonical author name', () => {
+    // The hub fetches with `.eq('author_name', <canonical>)`, so a case/
+    // whitespace variant must NOT link (it would be excluded from the hub).
+    expect(hasBlogAuthorPage('Bassey John', 'ogabassey.com')).toBe(true);
+    expect(hasBlogAuthorPage('bassey john', 'ogabassey.com')).toBe(false);
+    expect(hasBlogAuthorPage('Bassey John ', 'ogabassey.com')).toBe(false);
+  });
+
   it('does not resolve inherited Object keys as author profiles', () => {
     expect(getBlogAuthorBySlug('constructor', 'ogabassey')).toBeNull();
     expect(hasBlogAuthorPage('constructor', 'ogabassey')).toBe(false);

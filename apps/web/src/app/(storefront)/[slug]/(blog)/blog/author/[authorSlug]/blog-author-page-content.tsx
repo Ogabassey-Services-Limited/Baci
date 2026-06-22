@@ -1,4 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
+import { headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
@@ -8,11 +9,12 @@ import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { safeJsonLdStringify, sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
+import { getBlogStorefrontPathPrefix } from '../../blog-storefront-path-prefix';
 
 interface BlogAuthorPageContentProps {
   params: Promise<{ slug: string; authorSlug: string }>;
@@ -68,16 +70,31 @@ export async function BlogAuthorPageContent({
 
   const { merchant, author, posts, totalPosts, totalPages, currentPage } = data;
   const baseUrl = buildStoreUrl(merchant);
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  // Header-aware prefix (mirrors the blog listing) so the proxy's /{slug}
+  // rewrite is not doubled on subdomains.
+  const headersList = await headers();
+  const basePath = isDomainIdentifier(slug)
+    ? ''
+    : getBlogStorefrontPathPrefix(headersList, merchant);
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
   const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
-  const personId = `${baseUrl}#author-${normalizedAuthorSlug}`;
-  const { sameAs } = profile;
 
   const buildAuthorPageHref = (page: number): string =>
     page > 1 ? `${authorRoutePath}?page=${page}` : authorRoutePath;
   const buildAuthorPageUrl = (page: number): string =>
     page > 1 ? `${authorPageUrl}?page=${page}` : authorPageUrl;
+
+  // Stale paginated URL (e.g. /blog/author/x?page=999) -> last valid page.
+  if (currentPage > totalPages) {
+    redirect(asRoute(buildAuthorPageHref(totalPages)));
+  }
+
+  const personId = `${baseUrl}#author-${normalizedAuthorSlug}`;
+  const personImageUrl = author.imageUrl
+    ? sanitizeSchemaUrl(author.imageUrl)
+    : '';
+  const { sameAs } = profile;
+
   const previousPageUrl =
     currentPage > 1 ? buildAuthorPageUrl(currentPage - 1) : undefined;
   const nextPageUrl =
@@ -95,7 +112,7 @@ export async function BlogAuthorPageContent({
       url: authorPageUrl,
       ...(author.title ? { jobTitle: author.title } : {}),
       ...(author.bio ? { description: author.bio } : {}),
-      ...(author.imageUrl ? { image: author.imageUrl } : {}),
+      ...(personImageUrl ? { image: personImageUrl } : {}),
       ...(sameAs.length > 0 ? { sameAs } : {}),
       worksFor: {
         '@type': 'Organization',

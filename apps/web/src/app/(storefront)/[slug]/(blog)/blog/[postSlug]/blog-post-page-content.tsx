@@ -30,6 +30,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import { isDomainIdentifier } from '@/lib/validation';
+import { getBlogStorefrontPathPrefix } from '../blog-storefront-path-prefix';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
 import { BlogPostHeader } from './BlogPostHeader';
@@ -82,7 +83,13 @@ async function renderBlogPostContent({
       : buildBlogOrganizationId(baseUrl);
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  // On a merchant subdomain the proxy already mapped /blog/... into the internal
+  // /{slug}/... route, so a naive `/${slug}` prefix double-prefixes the author
+  // byline link. Resolve the prefix from the proxy-trusted merchant headers.
+  const headersList = await headers();
+  const basePath = isDomainIdentifier(slug)
+    ? ''
+    : getBlogStorefrontPathPrefix(headersList, merchant);
   const authorName = post.author_name?.trim() || merchant.business_name;
   const hasAuthorHub = Boolean(
     post.author_name && hasBlogAuthorPage(post.author_name, merchant.slug)

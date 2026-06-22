@@ -2861,8 +2861,15 @@ export async function getCachedBlogAuthor(
   }
 
   const publicPosts = filterPublicBlogPosts(posts || []);
+  const totalCount = count ?? publicPosts.length;
+  // No public posts anywhere for this author -> genuine missing author (404).
+  if (totalCount === 0) {
+    return null;
+  }
+  // `identity` is absent only on an out-of-range page (count > 0 but this
+  // ranged window is empty); the route redirects those stale paginated URLs to
+  // the last valid page rather than 404ing a real author.
   const identity = publicPosts[0];
-  if (!identity) return null;
 
   return {
     merchant: {
@@ -2874,14 +2881,14 @@ export async function getCachedBlogAuthor(
     },
     author: {
       name: authorName,
-      title: identity.author_title ?? null,
-      bio: identity.author_bio ?? null,
-      imageUrl: identity.author_image_url ?? null,
+      title: identity?.author_title ?? null,
+      bio: identity?.author_bio ?? null,
+      imageUrl: identity?.author_image_url ?? null,
     },
     posts: publicPosts,
-    totalPosts: count ?? publicPosts.length,
+    totalPosts: totalCount,
     currentPage: page,
-    totalPages: Math.max(1, Math.ceil((count ?? publicPosts.length) / limit)),
+    totalPages: Math.max(1, Math.ceil(totalCount / limit)),
   };
 }
 
