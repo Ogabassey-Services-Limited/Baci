@@ -2308,10 +2308,12 @@ interface BlogPostSchemaData {
   dateModified?: string;
   author: {
     name: string;
+    id?: string;
     url?: string;
     jobTitle?: string;
     description?: string;
     sameAs?: readonly unknown[];
+    image?: string;
   };
   publisher: {
     id?: string;
@@ -2324,6 +2326,19 @@ interface BlogPostSchemaData {
   keywords?: string[];
   category?: string;
   readingTime?: number;
+  blogId?: string;
+}
+
+function sanitizeSchemaEntityId(id: string): string {
+  const trimmed = id.trim();
+  const sanitized = sanitizeSchemaUrl(trimmed);
+  if (!sanitized) {
+    return '';
+  }
+
+  return trimmed.includes('/#')
+    ? sanitized
+    : sanitized.replace(/\/(#.+)$/, '$1');
 }
 
 function normalizeBlogAuthorSameAs(
@@ -2352,6 +2367,20 @@ export function generateBlogPostSchema(
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
   const authorSameAs = normalizeBlogAuthorSameAs(data.author.sameAs);
   const publisherSameAs = normalizeBlogAuthorSameAs(data.publisher.sameAs);
+  const authorId = data.author.id
+    ? sanitizeSchemaEntityId(data.author.id)
+    : data.author.url
+      ? sanitizeSchemaEntityId(
+          `${data.author.url}#author-${generateSlug(data.author.name)}`
+        )
+      : '';
+  const publisherId = data.publisher.id
+    ? sanitizeSchemaEntityId(data.publisher.id)
+    : '';
+  const blogId = data.blogId ? sanitizeSchemaEntityId(data.blogId) : '';
+  const authorImage = data.author.image
+    ? sanitizeSchemaUrl(data.author.image.trim())
+    : '';
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -2362,6 +2391,9 @@ export function generateBlogPostSchema(
     dateModified: data.dateModified || data.datePublished,
     author: {
       '@type': 'Person',
+      ...(authorId && {
+        '@id': escapeHtml(authorId),
+      }),
       name: escapeHtml(data.author.name),
       ...(data.author.url && { url: escapeHtml(data.author.url) }),
       ...(data.author.jobTitle && {
@@ -2373,10 +2405,11 @@ export function generateBlogPostSchema(
       ...(authorSameAs.length > 0 && {
         sameAs: authorSameAs,
       }),
+      ...(authorImage && { image: escapeHtml(authorImage) }),
     },
     publisher: {
       '@type': 'Organization',
-      ...(data.publisher.id && { '@id': escapeHtml(data.publisher.id) }),
+      ...(publisherId && { '@id': escapeHtml(publisherId) }),
       name: escapeHtml(data.publisher.name),
       url: escapeHtml(data.publisher.url),
       logo: {
@@ -2391,6 +2424,12 @@ export function generateBlogPostSchema(
       '@type': 'WebPage',
       '@id': escapeHtml(data.url),
     },
+    ...(blogId && {
+      isPartOf: {
+        '@type': 'Blog',
+        '@id': escapeHtml(blogId),
+      },
+    }),
   };
 
   const imageUrls = Array.isArray(data.imageUrls)

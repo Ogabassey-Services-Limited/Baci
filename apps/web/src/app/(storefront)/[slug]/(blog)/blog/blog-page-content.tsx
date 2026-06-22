@@ -115,6 +115,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const blogSchema = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
+    '@id': `${baseUrl}/blog#blog`,
     name: `${merchant.business_name} Blog`,
     description: `Read the latest articles, news, and insights from ${merchant.business_name}.`,
     url: `${baseUrl}/blog`,
