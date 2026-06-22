@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   OgabasseyPdpCriticalCommerceProvider,
@@ -62,6 +62,21 @@ function CriticalCommerceStateProbe() {
       <p>{commerce.productForCart.price}</p>
       <p>{commerce.canAddToCart ? 'ready' : 'blocked'}</p>
       <p>axes:{commerce.renderableVariantAxes.join(',')}</p>
+      <p>explicit axes:{commerce.explicitSelectedAxes.join(',')}</p>
+      <p>selected condition:{commerce.selectedAttributes.condition || ''}</p>
+      <p>selected storage:{commerce.selectedAttributes.storage || ''}</p>
+      <button
+        onClick={() => commerce.handleAttributeSelection('condition', 'new')}
+        type="button"
+      >
+        Select new condition
+      </button>
+      <button
+        onClick={() => commerce.handleAttributeSelection('condition', 'used')}
+        type="button"
+      >
+        Select used condition
+      </button>
       <button
         onClick={() => commerce.handleAttributeSelection('storage', '256GB')}
         type="button"
@@ -88,6 +103,11 @@ function CriticalCommerceStateProbe() {
 beforeEach(() => {
   cartMocks.addToCart.mockClear();
   cartMocks.setIsCartOpen.mockClear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe('OgabasseyPdpCriticalCommerceProvider', () => {
@@ -218,6 +238,254 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     );
   });
 
+  it('uses the selected multi-condition SKU for price and cart options', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '128GB' },
+              id: 'variant-new-128',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        variantAxes={['condition', 'storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    // The initial summary state comes from the default purchasable SKU, not
+    // the parent product's stale condition or base price.
+    expect(screen.getByText('500000')).toBeInTheDocument();
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select new condition/i })
+    );
+
+    expect(screen.getByText('552000')).toBeInTheDocument();
+    expect(screen.getByText('selected condition:new')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition: 'new',
+        price: 552_000,
+        stock: 5,
+      }),
+      1,
+      expect.objectContaining({
+        condition: 'new',
+        storage: '128GB',
+        variantId: 'variant-new-128',
+      })
+    );
+  });
+
+  it('treats a top-level route condition as an explicit selector axis', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: 'used' }}
+        variantAxes={['condition', 'storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('explicit axes:condition')).toBeInTheDocument();
+  });
+
+  it('does not keep using a route condition after availability pruning removes it', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              condition: 'new',
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: 'used' }}
+        variantAxes={['condition', 'storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('500000')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select 256gb storage/i })
+    );
+
+    expect(screen.getByText('selected condition:')).toBeInTheDocument();
+    expect(screen.getByText('552000')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+    expect(cartMocks.addToCart).not.toHaveBeenCalled();
+  });
+
+  it('uses a top-level route condition when the condition axis is hidden', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          price: 552_000,
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: 'used' }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('selected condition:used')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(cartMocks.addToCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition: 'used',
+        price: 500_000,
+        stock: 3,
+      }),
+      1,
+      expect.objectContaining({
+        condition: 'used',
+        storage: '128GB',
+        variantId: 'variant-used-128',
+      })
+    );
+  });
+
+  it('does not satisfy hidden condition axes with malformed route conditions', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          condition: 'new',
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              id: 'variant-used-128',
+              merchant_id: 'merchant-1',
+              price_override: 500_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 3,
+            },
+            {
+              attributes: { storage: '256GB' },
+              id: 'variant-new-256',
+              merchant_id: 'merchant-1',
+              price_override: 552_000,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 5,
+            },
+          ],
+        }}
+        initialVariantSelection={{ condition: '   ' }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('explicit axes:')).toBeInTheDocument();
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+  });
+
   it('keeps required color-only axes hidden until explicitly selected', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider
@@ -251,6 +519,118 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
 
     expect(screen.getByText('axes:')).toBeInTheDocument();
     expect(screen.getByText('blocked')).toBeInTheDocument();
+  });
+
+  it('warns in development when a hidden required axis is missing upstream selection', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: { color: 'Black' },
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+            {
+              attributes: { color: 'Blue' },
+              id: 'variant-blue',
+              merchant_id: 'merchant-1',
+              price_override: 278_418.6,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 6,
+            },
+          ],
+        }}
+        variantAxes={[]}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('blocked')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[Ogabassey PDP] Missing hidden required variant selection.',
+        {
+          axes: ['color'],
+          productId: 'redmi-pad-2',
+        }
+      );
+    });
+  });
+
+  it('preselects single-option visible axes from the default SKU', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: { color: 'Black', storage: '128GB' },
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+            {
+              attributes: { color: 'Blue', storage: '128GB' },
+              id: 'variant-blue',
+              merchant_id: 'merchant-1',
+              price_override: 278_418.6,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 6,
+            },
+          ],
+        }}
+        variantAxes={['storage']}
+        variantCount={2}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+  });
+
+  it('preselects metadata-only single-option axes for critical variants', () => {
+    render(
+      <OgabasseyPdpCriticalCommerceProvider
+        cartProduct={{
+          ...variantCartProduct,
+          variants: [
+            {
+              attributes: {},
+              id: 'variant-black',
+              merchant_id: 'merchant-1',
+              price_override: 237_674.42,
+              product_id: 'redmi-pad-2',
+              stock_quantity: 4,
+            },
+          ],
+        }}
+        variantAxes={['storage']}
+        variantAxisOptions={{ storage: ['128GB'] }}
+        variantCount={1}
+      >
+        <CriticalCommerceStateProbe />
+      </OgabasseyPdpCriticalCommerceProvider>
+    );
+
+    expect(screen.getByText('axes:storage')).toBeInTheDocument();
+    expect(screen.getByText('selected storage:128GB')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
   });
 
   it('blocks checkout when a visible change prunes an explicit hidden SKU axis', () => {

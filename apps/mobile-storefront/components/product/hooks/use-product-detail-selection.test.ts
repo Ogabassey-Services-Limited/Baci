@@ -118,6 +118,36 @@ describe('useProductDetailSelection', () => {
     });
   });
 
+  it('preserves attribute-backed condition when seeding default selections', async () => {
+    const { result } = renderHook(() =>
+      useProductDetailSelection(
+        createHookArgs({
+          product: {
+            ...variantProduct,
+            condition: 'new',
+            variant_attributes: {
+              condition: ['used', 'open_box'],
+              storage: ['128GB', '256GB'],
+            },
+            variants: [
+              {
+                id: 'used-128',
+                name: '128GB Used',
+                price: 500_000,
+                attributes: { condition: 'used', storage: '128GB' },
+              },
+            ],
+          },
+        })
+      )
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedAttributes.condition).toBe('used');
+      expect(result.current.effectiveSelectedCondition).toBe('used');
+    });
+  });
+
   it('reseeds from route params when the route selection signature changes', async () => {
     const { rerender, result } = renderHook(
       (args: HookArgs) => useProductDetailSelection(args),

@@ -211,6 +211,37 @@ describe('resolveLinkedVariantSelection', () => {
     });
   });
 
+  it('preserves attribute-backed condition chips when condition is the changed axis', () => {
+    expect(
+      resolveSelection({
+        axis: 'condition',
+        attributes: { condition: 'open_box' },
+        condition: null,
+        storage: null,
+        usesVariantConditions: false,
+        value: 'open_box',
+        variants: [
+          {
+            id: 'used-128',
+            name: '128GB Used',
+            price: 1,
+            attributes: { condition: 'used', storage: '128GB' },
+          },
+          {
+            id: 'open-box-256',
+            name: '256GB Open Box',
+            price: 2,
+            attributes: { condition: 'open_box', storage: '256GB' },
+          },
+        ],
+      })
+    ).toEqual({
+      attributes: { condition: 'open_box' },
+      color: null,
+      storage: '256GB',
+    });
+  });
+
   it('normalizes caller-provided axes and values before matching variants', () => {
     expect(
       resolveSelection({

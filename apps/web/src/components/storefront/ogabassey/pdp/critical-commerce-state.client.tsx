@@ -1,85 +1,53 @@
 'use client';
 
 import {
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
 } from '@baci/shared/lib';
-import {
-  createContext,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-  useContext,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 import {
   canonicalizeVariantAxis,
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
 import { useCart } from '@/hooks/cart';
-import type { Product as CartProduct } from '@/lib/products';
 import {
   buildVariantCartProduct,
   compactVariantOptions,
   getVariantAxesWithMultipleOptions,
-  type InitialCriticalVariantSelection,
   normalizeCriticalVariantAttributes,
   normalizeCriticalVariantProduct,
   pickInitialSelectedAttributes,
 } from './critical-commerce-selection';
-import { getRenderableCriticalVariantAxes } from './critical-variant-selectors.client';
+import {
+  OgabasseyPdpCriticalCommerceContext,
+  type OgabasseyPdpCriticalCommerceProviderProps,
+} from './critical-commerce-state-context.client';
+import { getRenderableCriticalVariantAxes } from './critical-variant-selector-options';
 
-interface OgabasseyPdpCriticalCommerceProviderProps {
-  cartProduct: CartProduct;
-  children: ReactNode;
-  initialVariantSelection?: InitialCriticalVariantSelection;
-  variantAxes?: string[];
-  variantCount: number;
-}
-
-interface OgabasseyPdpCriticalCommerceState {
-  canAddToCart: boolean;
-  explicitSelectedAxes: string[];
-  handleAddToCart: () => void;
-  handleAttributeSelection: (axis: string, value: string) => void;
-  isAtMaxQuantity: boolean;
-  maxQuantity: number | null;
-  productForCart: CartProduct;
-  quantity: number;
-  renderableVariantAxes: string[];
-  selectedAttributes: Record<string, string>;
-  setQuantity: Dispatch<SetStateAction<number>>;
-  variantCount: number;
-  variants: CartProduct['variants'];
-}
-
-const OgabasseyPdpCriticalCommerceContext =
-  createContext<OgabasseyPdpCriticalCommerceState | null>(null);
-
-export function useOgabasseyPdpCriticalCommerce() {
-  const context = useContext(OgabasseyPdpCriticalCommerceContext);
-  if (!context) {
-    throw new Error(
-      'Ogabassey PDP critical commerce components must be rendered inside OgabasseyPdpCriticalCommerceProvider.'
-    );
-  }
-
-  return context;
-}
+export {
+  useOgabasseyPdpCriticalCommerce,
+  useOptionalOgabasseyPdpCriticalCommerce,
+} from './critical-commerce-state-context.client';
 
 export function OgabasseyPdpCriticalCommerceProvider({
   cartProduct,
   children,
   initialVariantSelection,
   variantAxes = [],
+  variantAxisOptions = {},
   variantCount,
 }: OgabasseyPdpCriticalCommerceProviderProps) {
-  const selectionCartProduct = normalizeCriticalVariantProduct(cartProduct);
+  const selectionCartProduct = normalizeCriticalVariantProduct(
+    cartProduct,
+    variantAxisOptions
+  );
   const variants = selectionCartProduct.variants || [];
   const firstViewportVariantAxes = getRenderableCriticalVariantAxes(
     variantAxes,
-    variants
+    variants,
+    variantAxisOptions
   );
   const requiredVariantAxes = getVariantAxesWithMultipleOptions(variants);
   const renderableVariantAxes = firstViewportVariantAxes;
@@ -88,7 +56,25 @@ export function OgabasseyPdpCriticalCommerceProvider({
   );
   const normalizedInitialVariantAttributes =
     normalizeCriticalVariantAttributes(initialVariantSelection?.attributes);
-  const explicitVariantCondition = initialVariantSelection?.condition;
+  const explicitVariantCondition =
+    normalizeCanonicalProductCondition(
+      normalizedInitialVariantAttributes.condition ??
+        initialVariantSelection?.condition
+    ) || undefined;
+  const normalizedInitialSelectionAttributes = explicitVariantCondition
+    ? {
+        ...normalizedInitialVariantAttributes,
+        condition: explicitVariantCondition,
+      }
+    : normalizedInitialVariantAttributes;
+  const resolverInitialVariantAttributes = Object.fromEntries(
+    Object.entries(normalizedInitialVariantAttributes).filter(
+      ([axis]) => axis !== 'condition'
+    )
+  );
+  const initialExplicitSelectedAxes = Object.keys(
+    normalizedInitialSelectionAttributes
+  );
   const defaultVariantSelection = selectionCartProduct.has_variants
     ? resolveDefaultVariantSelection(selectionCartProduct, {
         condition: explicitVariantCondition,
@@ -96,7 +82,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
     : null;
   const initialDisplayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
-        attributes: normalizedInitialVariantAttributes,
+        attributes: resolverInitialVariantAttributes,
         condition: explicitVariantCondition,
         variantId: initialVariantSelection?.variantId,
       }) ?? defaultVariantSelection)
@@ -105,7 +91,8 @@ export function OgabasseyPdpCriticalCommerceProvider({
     Record<string, string>
   >(() =>
     pickInitialSelectedAttributes({
-      explicitAttributes: normalizedInitialVariantAttributes,
+      explicitAttributes: normalizedInitialSelectionAttributes,
+      fallbackAxisOptions: variantAxisOptions,
       renderableVariantAxes,
       selection: initialDisplayVariantSelection,
     })
@@ -114,19 +101,23 @@ export function OgabasseyPdpCriticalCommerceProvider({
     string | undefined
   >(initialVariantSelection?.variantId);
   const [explicitSelectedAxes, setExplicitSelectedAxes] = useState<string[]>(
-    () => Object.keys(normalizedInitialVariantAttributes)
+    () => initialExplicitSelectedAxes
+  );
+  const selectedVariantCondition = selectedAttributes.condition;
+  const resolverSelectedAttributes = Object.fromEntries(
+    Object.entries(selectedAttributes).filter(([axis]) => axis !== 'condition')
   );
   const purchasableVariantSelection = selectionCartProduct.has_variants
     ? resolveVariantSelection(selectionCartProduct, {
-        attributes: selectedAttributes,
-        condition: explicitVariantCondition,
+        attributes: resolverSelectedAttributes,
+        condition: selectedVariantCondition,
         variantId: selectedVariantId,
       })
     : null;
   const displayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
-        attributes: selectedAttributes,
-        condition: explicitVariantCondition,
+        attributes: resolverSelectedAttributes,
+        condition: selectedVariantCondition,
         variantId: selectedVariantId,
       }) ?? defaultVariantSelection)
     : null;
@@ -144,9 +135,21 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const hasRequiredVariantSelection =
     renderableVariantAxes.length === 0 ||
     renderableVariantAxes.every((axis) => selectedAttributes[axis]);
-  const hasRequiredHiddenVariantSelection = hiddenRequiredVariantAxes.every(
-    (axis) => explicitSelectedAxes.includes(axis) && selectedAttributes[axis]
+  function getSelectedAxisValue(axis: string) {
+    if (axis === 'condition') {
+      return selectedAttributes.condition;
+    }
+
+    return selectedAttributes[axis];
+  }
+
+  const missingHiddenRequiredVariantAxes = hiddenRequiredVariantAxes.filter(
+    (axis) => !(explicitSelectedAxes.includes(axis) && getSelectedAxisValue(axis))
   );
+  const hasRequiredHiddenVariantSelection =
+    missingHiddenRequiredVariantAxes.length === 0;
+  const missingHiddenRequiredVariantAxisKey =
+    missingHiddenRequiredVariantAxes.join('|');
   const hasPurchasableVariantSelection =
     !selectionCartProduct.has_variants ||
     Boolean(effectivePurchasableVariantSelection);
@@ -159,6 +162,23 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const [quantity, setQuantity] = useState(maxQuantity === 0 ? 0 : 1);
   const [previousMaxQuantity, setPreviousMaxQuantity] = useState(maxQuantity);
   const { addToCart, setIsCartOpen } = useCart();
+
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== 'development' ||
+      !missingHiddenRequiredVariantAxisKey
+    ) {
+      return;
+    }
+
+    console.warn(
+      '[Ogabassey PDP] Missing hidden required variant selection.',
+      {
+        axes: missingHiddenRequiredVariantAxisKey.split('|'),
+        productId: selectionCartProduct.id,
+      }
+    );
+  }, [missingHiddenRequiredVariantAxisKey, selectionCartProduct.id]);
 
   if (previousMaxQuantity !== maxQuantity) {
     setPreviousMaxQuantity(maxQuantity);
@@ -255,6 +275,7 @@ export function OgabasseyPdpCriticalCommerceProvider({
         renderableVariantAxes,
         selectedAttributes,
         setQuantity,
+        variantAxisOptions,
         variantCount,
         variants,
       }}

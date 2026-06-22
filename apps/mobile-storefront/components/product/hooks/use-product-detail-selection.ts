@@ -67,9 +67,6 @@ export function useProductDetailSelection({
     useState(routeSelectionSignature);
   const [pendingRouteReseed, setPendingRouteReseed] = useState(false);
 
-  // The selection sync below adjusts state inline during render with guarded
-  // prev-value comparisons (instead of effects), so route/product changes
-  // settle before commit without flashing a stale frame.
   if (prevRouteSelectionSignature !== routeSelectionSignature) {
     setPrevRouteSelectionSignature(routeSelectionSignature);
     setPendingRouteReseed(true);
@@ -166,7 +163,9 @@ export function useProductDetailSelection({
       const fallbackSelection = getFallbackVariantSelections(product);
       const syncedAttributes = {
         ...fallbackSelection.attributes,
-        ...stripInternalSelectionAxes(nextSelection?.attributes ?? {}),
+        ...stripInternalSelectionAxes(nextSelection?.attributes ?? {}, {
+          preserveCondition: !usesVariantConditions,
+        }),
       };
       const resolvedLegacyColor =
         nextSelection?.attributes?.colour?.trim() || undefined;

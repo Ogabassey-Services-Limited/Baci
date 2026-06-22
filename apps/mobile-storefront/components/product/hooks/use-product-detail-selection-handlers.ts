@@ -73,7 +73,9 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     routeData.setSelectedVariant(resolvedSelectionFromImage?.variantId ?? null);
     routeData.setSelectedColor(selectedImageColor);
     routeData.setSelectedAttributes((current) =>
-      stripInternalSelectionAxes(current)
+      stripInternalSelectionAxes(current, {
+        preserveCondition: !routeData.usesVariantConditions,
+      })
     );
   };
 
@@ -83,6 +85,17 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
     if (routeData.usesVariantConditions) routeData.setSelectedVariant(null);
 
     const normalizedCondition = normalizeRouteCondition(condition);
+    if (!routeData.usesVariantConditions) {
+      if (normalizedCondition) {
+        routeData.setSelectedAttributes((current) => ({
+          ...current,
+          condition: normalizedCondition,
+        }));
+      }
+      routeData.setSelectedVariant(null);
+      return;
+    }
+
     const variantsForCondition = routeData.usesVariantConditions
       ? (routeData.product?.variants ?? []).filter(
           (variant) =>
@@ -180,7 +193,9 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
         routeData.setSelectedColor(color);
         routeData.setSelectedVariant(null);
         routeData.setSelectedAttributes((current) =>
-          stripInternalSelectionAxes(current)
+          stripInternalSelectionAxes(current, {
+            preserveCondition: !routeData.usesVariantConditions,
+          })
         );
         routeData.setSelectedImageIndex(
           getImageIndexForSelectionColor(

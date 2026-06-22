@@ -5,12 +5,14 @@ export {
   normalizeConditionType,
 } from './product-condition';
 export {
+  applySingleOptionAxisSelectionsToVariants,
   buildCartItemId,
   buildCartProduct,
   formatAxisLabel,
   getAxisOptions,
   getEffectiveAxes,
   getMissingSelectionFields,
+  getSingleOptionAxisSelections,
 } from './cart-helpers';
 export {
   type ProductDetailsCurrentOffer,

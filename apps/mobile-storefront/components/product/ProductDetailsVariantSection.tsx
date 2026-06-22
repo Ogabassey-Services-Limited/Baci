@@ -73,6 +73,7 @@ export function ProductDetailsVariantSection({
             attributes={mergedVariantAttributes}
             colors={product.colors}
             colorImages={product.color_images}
+            hideConditionAttributes={availableConditions.length > 1}
             storage={mergedVariantAttributes?.storage}
             variants={product.variants}
             manageStock={product.manage_stock}

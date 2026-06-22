@@ -15,13 +15,17 @@ describe('product-internal-selection-axes', () => {
   it('rejects non-internal selection axes', () => {
     expect(isInternalSelectionAxis('size')).toBe(false);
     expect(isInternalSelectionAxis('weight')).toBe(false);
-    expect(isInternalSelectionAxis('COLOR')).toBe(false);
-    expect(isInternalSelectionAxis('Color')).toBe(false);
-    expect(isInternalSelectionAxis(' color ')).toBe(false);
     expect(isInternalSelectionAxis(null)).toBe(false);
     expect(isInternalSelectionAxis(undefined)).toBe(false);
     expect(isInternalSelectionAxis(123)).toBe(false);
     expect(isInternalSelectionAxis({ axis: 'color' })).toBe(false);
+  });
+
+  it('recognizes cased and spaced internal selection axes', () => {
+    expect(isInternalSelectionAxis('COLOR')).toBe(true);
+    expect(isInternalSelectionAxis('Condition')).toBe(true);
+    expect(isInternalSelectionAxis(' color ')).toBe(true);
+    expect(isInternalSelectionAxis('Colour Hex')).toBe(true);
   });
 
   it('removes internal axes and preserves merchant-facing attributes', () => {
@@ -64,6 +68,34 @@ describe('product-internal-selection-axes', () => {
       bundle: features,
       network: 'Unlocked',
       warranty,
+    });
+  });
+
+  it('removes cased internal axes from generic attributes', () => {
+    expect(
+      stripInternalSelectionAxes({
+        Condition: 'Used',
+        Storage: '256GB',
+        warranty: '12 months',
+      })
+    ).toEqual({
+      warranty: '12 months',
+    });
+  });
+
+  it('can preserve condition when it is rendered as a generic selector', () => {
+    expect(
+      stripInternalSelectionAxes(
+        {
+          Condition: 'Used',
+          Storage: '256GB',
+          warranty: '12 months',
+        },
+        { preserveCondition: true }
+      )
+    ).toEqual({
+      Condition: 'Used',
+      warranty: '12 months',
     });
   });
 

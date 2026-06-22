@@ -19,6 +19,7 @@ import { useV2Saved } from '../../providers/v2-saved-context';
 import type { Product } from '../../types';
 import { createProductCartHandlers } from './product-cart-handlers';
 import {
+  applySingleOptionAxisSelectionsToVariants,
   buildCartItemId,
   buildCartProduct,
   type ConditionType,
@@ -27,6 +28,7 @@ import {
   getDeliveryEstimate,
   getEffectiveAxes,
   getMissingSelectionFields,
+  getSingleOptionAxisSelections,
   normalizeProductDetails,
   toRelatedProductsProduct,
 } from './product-details-helpers';
@@ -99,16 +101,25 @@ export function useProductDetailsState(serverProduct: Product) {
   const productData = normalizeProductDetails(serverProduct);
   const relatedProductsProduct = toRelatedProductsProduct(serverProduct);
   const effectiveAxes = getEffectiveAxes(serverProduct, productData);
-  const defaultVariantSelection = resolveDefaultVariantSelection({
+  const singleOptionAxisSelections = getSingleOptionAxisSelections(
+    productData,
+    effectiveAxes
+  );
+  const variantResolutionVariants = applySingleOptionAxisSelectionsToVariants(
+    productData.variants,
+    singleOptionAxisSelections
+  );
+  const variantResolutionProduct = {
     price: relatedProductsProduct.price,
     condition: productData.condition,
     manage_stock: productData.manage_stock,
-    variants: productData.variants,
+    variants: variantResolutionVariants,
+  };
+  const defaultVariantSelection = resolveDefaultVariantSelection({
+    ...variantResolutionProduct,
   });
   const usesVariantConditions = hasVariantConditionAxis({
-    price: relatedProductsProduct.price,
-    condition: productData.condition,
-    variants: productData.variants,
+    ...variantResolutionProduct,
   });
   const availableConditions = usesVariantConditions
     ? getValidAvailableConditions(
@@ -130,12 +141,9 @@ export function useProductDetailsState(serverProduct: Product) {
   const routeSelectionResolution = usesVariantRouteSelection
     ? resolveVariantSelectionParamResolution(
         {
+          ...variantResolutionProduct,
           attributeAxes: effectiveAxes,
-          condition: productData.condition,
-          manage_stock: productData.manage_stock,
-          price: relatedProductsProduct.price,
           variant_attributes: serverProduct.variant_attributes,
-          variants: productData.variants,
         },
         searchParams
       )
@@ -186,12 +194,7 @@ export function useProductDetailsState(serverProduct: Product) {
   // on mount instead of on every render.
   const resolveInitialSeed = () =>
     resolveVariantDisplaySelection(
-      {
-        price: relatedProductsProduct.price,
-        condition: productData.condition,
-        manage_stock: productData.manage_stock,
-        variants: productData.variants,
-      },
+      variantResolutionProduct,
       {
         attributes: routeSelectionAttributes,
         condition: routeCondition,
@@ -223,7 +226,13 @@ export function useProductDetailsState(serverProduct: Product) {
     Record<string, string>
   >(() => {
     const seed = resolveInitialSeed();
-    return seed ? { ...routeSelectionAttributes, ...seed.attributes } : {};
+    return seed
+      ? {
+          ...singleOptionAxisSelections,
+          ...routeSelectionAttributes,
+          ...seed.attributes,
+        }
+      : { ...singleOptionAxisSelections, ...routeSelectionAttributes };
   });
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
@@ -244,24 +253,14 @@ export function useProductDetailsState(serverProduct: Product) {
     ...(selectedColorName ? { color: selectedColorName } : {}),
   };
   const currentVariantDisplaySelection = resolveVariantDisplaySelection(
-    {
-      price: relatedProductsProduct.price,
-      condition: productData.condition,
-      manage_stock: productData.manage_stock,
-      variants: productData.variants,
-    },
+    variantResolutionProduct,
     {
       condition: selectedCondition,
       attributes: variantSelectionAttributes,
     }
   );
   const currentVariantSelection = resolveVariantSelection(
-    {
-      price: relatedProductsProduct.price,
-      condition: productData.condition,
-      manage_stock: productData.manage_stock,
-      variants: productData.variants,
-    },
+    variantResolutionProduct,
     {
       condition: selectedCondition,
       attributes: variantSelectionAttributes,
@@ -285,12 +284,7 @@ export function useProductDetailsState(serverProduct: Product) {
       buyActionHandled.current = true;
       const selectedVariantSelection =
         resolveVariantDisplaySelection(
-          {
-            price: relatedProductsProduct.price,
-            condition: productData.condition,
-            manage_stock: productData.manage_stock,
-            variants: productData.variants,
-          },
+          variantResolutionProduct,
           {
             attributes: routeSelectionAttributes,
             condition: routeCondition,
@@ -366,12 +360,7 @@ export function useProductDetailsState(serverProduct: Product) {
 
     const seedSelection =
       resolveVariantDisplaySelection(
-        {
-          price: relatedProductsProduct.price,
-          condition: productData.condition,
-          manage_stock: productData.manage_stock,
-          variants: productData.variants,
-        },
+        variantResolutionProduct,
         {
           attributes: routeSelectionAttributes,
           condition: routeCondition,
@@ -396,6 +385,7 @@ export function useProductDetailsState(serverProduct: Product) {
 
     if (seedSelection) {
       const nextAttributes = {
+        ...singleOptionAxisSelections,
         ...routeSelectionAttributes,
         ...seedSelection.attributes,
       };
@@ -418,6 +408,11 @@ export function useProductDetailsState(serverProduct: Product) {
         previousColor === null ? previousColor : null
       );
     } else {
+      const nextAttributes = {
+        ...singleOptionAxisSelections,
+        ...routeSelectionAttributes,
+      };
+
       setSelectedColor((previousColor) =>
         previousColor === null ? previousColor : null
       );
@@ -425,7 +420,9 @@ export function useProductDetailsState(serverProduct: Product) {
         previousColor === null ? previousColor : null
       );
       setSelectedAttributes((previousAttributes) =>
-        Object.keys(previousAttributes).length === 0 ? previousAttributes : {}
+        areSelectionAttributesEqual(previousAttributes, nextAttributes)
+          ? previousAttributes
+          : nextAttributes
       );
     }
   }
