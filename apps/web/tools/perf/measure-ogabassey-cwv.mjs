@@ -40,7 +40,7 @@ const outputDir =
   customOutputDir ||
   join(repoRoot, 'output/audits', `ogabassey-cwv-${auditId}`);
 const artifactFileName = (name) =>
-  customOutputDir ? `${auditId}-${name}` : name;
+  customOutputDir && name !== 'summary.json' ? `${auditId}-${name}` : name;
 const psiApiKey =
   process.env.PAGESPEED_INSIGHTS_API_KEY || process.env.PSI_API_KEY || '';
 const debugBearProjectId = process.env.DEBUGBEAR_PROJECT_ID?.trim() || '';
@@ -50,7 +50,7 @@ const debugBearApiKey = debugBearProjectId
   ? debugBearProjectApiKey || debugBearAdminApiKey
   : debugBearAdminApiKey || debugBearProjectApiKey;
 const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
-const debugBearRegion = process.env.DEBUGBEAR_REGION || 'uk';
+const debugBearRegion = process.env.DEBUGBEAR_REGION || 'us-east';
 const debugBearMaxPollAttempts =
   Number(process.env.DEBUGBEAR_MAX_POLL_ATTEMPTS) || 90;
 const debugBearPollIntervalMs =
@@ -67,6 +67,16 @@ const isDebugBearDisabled = ['0', 'false', 'no', 'off'].includes(
 const shouldRunDebugBear = !isDebugBearDisabled && Boolean(debugBearApiKey);
 const shouldRunPsi = process.env.OGABASSEY_CWV_PSI !== '0';
 const shouldRunExternalProbes = shouldRunPsi || shouldRunDebugBear;
+const targetLabelFilter = process.env.OGABASSEY_CWV_TARGET_LABELS || '';
+const requestedTargetLabels = targetLabelFilter
+  .split(',')
+  .map((label) => label.trim().toLowerCase())
+  .filter(Boolean);
+const shouldIncludeLatestBlogPostTarget =
+  requestedTargetLabels.length === 0 ||
+  requestedTargetLabels.some((label) =>
+    ['blog-post-latest', 'latest-blog-post'].includes(label)
+  );
 const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
   .split(',')
   .map((strategy) => strategy.trim())
@@ -176,7 +186,10 @@ const skipLatestBlogPostTarget =
   process.env.OGABASSEY_CWV_SKIP_LATEST_BLOG_POST === '1';
 const explicitBlogPostUrl = process.env.OGABASSEY_BLOG_POST_URL || '';
 const shouldResolveLatestBlogPost =
-  shouldRunExternalProbes && !skipLatestBlogPostTarget && !explicitBlogPostUrl;
+  shouldRunExternalProbes &&
+  shouldIncludeLatestBlogPostTarget &&
+  !skipLatestBlogPostTarget &&
+  !explicitBlogPostUrl;
 const blogPostUrl = skipLatestBlogPostTarget
   ? null
   : explicitBlogPostUrl ||
@@ -197,7 +210,9 @@ const targetResolutionFailures =
       ]
     : [];
 const requestedPdpUrl =
-  process.env.OGABASSEY_PDP_URL || DEFAULT_OGABASSEY_CWV_TARGETS.pdp;
+  process.env.OGABASSEY_PDP_LCP_URL ||
+  process.env.OGABASSEY_PDP_URL ||
+  DEFAULT_OGABASSEY_CWV_TARGETS.pdp;
 const pdpUrl = shouldRunExternalProbes
   ? await resolveCanonicalUrl(requestedPdpUrl)
   : requestedPdpUrl;
@@ -208,7 +223,7 @@ const targets = filterOgaBasseyCwvTargets(
     homeUrl: process.env.OGABASSEY_HOME_URL,
     pdpUrl,
   }),
-  process.env.OGABASSEY_CWV_TARGET_LABELS
+  targetLabelFilter
 );
 
 const summaries = [];
@@ -220,6 +235,16 @@ const failures = [
           label: 'debugbear',
           message:
             'OGABASSEY_CWV_DEBUGBEAR explicitly enabled DebugBear, but DEBUGBEAR_API_KEY/DEBUGBEAR_ADMIN_API_KEY is not configured.',
+          source: 'configuration',
+        },
+      ]
+    : []),
+  ...(shouldRunDebugBear && !debugBearProjectId && !debugBearAdminApiKey
+    ? [
+        {
+          label: 'debugbear-projects',
+          message:
+            'DebugBear is enabled without DEBUGBEAR_PROJECT_ID, but DEBUGBEAR_ADMIN_API_KEY is not configured for project discovery.',
           source: 'configuration',
         },
       ]

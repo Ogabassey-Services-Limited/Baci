@@ -171,6 +171,7 @@ function normalizeTargetLabel(value) {
   const normalized = `${value ?? ''}`.trim().toLowerCase();
   if (normalized === 'pdp' || normalized === 'pdp-lcp') return 'pdp-dell';
   if (normalized === 'blog') return 'blog-index';
+  if (normalized === 'latest-blog-post') return 'blog-post-latest';
   return normalized;
 }
 

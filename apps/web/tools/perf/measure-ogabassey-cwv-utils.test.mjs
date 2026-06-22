@@ -162,6 +162,12 @@ describe('filterOgaBasseyCwvTargets', () => {
       },
     ]);
   });
+
+  it('supports the latest-blog-post target alias', () => {
+    expect(filterOgaBasseyCwvTargets(targets, 'latest-blog-post')).toEqual([
+      { label: 'blog-post-latest', url: 'https://ogabassey.com/blog/post' },
+    ]);
+  });
 });
 
 describe('loadEnvFile', () => {
