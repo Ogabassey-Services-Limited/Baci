@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const pendingOrderWrites: Array<{
+    let pendingOrderWrites: Array<{
       currency: string;
       existingOrderId: string;
       isNewOrder: boolean;
@@ -316,6 +316,7 @@ export async function POST(request: NextRequest) {
       upsertPayload: Record<string, unknown>;
     }> = [];
     const stagedOrderIds = new Set<string>();
+    let upsertFailed = false;
 
     for (const order of jumiaOrders) {
       const customerName = getCustomerName(order.shippingAddress);
@@ -421,42 +422,48 @@ export async function POST(request: NextRequest) {
     }
 
     if (pendingOrderWrites.length > 0) {
-      const writeGroups = new Map<string, Record<string, unknown>[]>();
+      const writeGroups = new Map<string, typeof pendingOrderWrites>();
       for (const write of pendingOrderWrites) {
         const payloadKey = Object.keys(write.upsertPayload).sort().join('\0');
-        const payloads = writeGroups.get(payloadKey) ?? [];
-        payloads.push(write.upsertPayload);
-        writeGroups.set(payloadKey, payloads);
+        const writes = writeGroups.get(payloadKey) ?? [];
+        writes.push(write);
+        writeGroups.set(payloadKey, writes);
       }
 
-      const bulkUpsertResults = await Promise.all(
-        Array.from(writeGroups.values()).map((payloads) =>
-          supabase
-            .from('jumia_orders')
-            .upsert(payloads, { onConflict: 'jumia_order_id' })
-        )
-      );
-      const failedUpsert = bulkUpsertResults.find((result) => result.error);
+      const persistedOrderWrites: typeof pendingOrderWrites = [];
 
-      if (failedUpsert?.error) {
-        logger.error({
-          message: 'Failed to bulk upsert Jumia orders',
-          orderCount: pendingOrderWrites.length,
-          error: failedUpsert.error,
-        });
-        return NextResponse.json(
-          { error: 'Failed to process orders' },
-          { status: 500 }
-        );
+      for (const writes of writeGroups.values()) {
+        const payloads = writes.map((write) => write.upsertPayload);
+        const { error: upsertError } = await supabase
+          .from('jumia_orders')
+          .upsert(payloads, {
+            defaultToNull: false,
+            onConflict: 'jumia_order_id',
+          });
+
+        if (upsertError) {
+          upsertFailed = true;
+          logger.error({
+            message: 'Failed to bulk upsert Jumia orders',
+            orderCount: payloads.length,
+            persistedOrderCount: persistedOrderWrites.length,
+            error: upsertError,
+          });
+          break;
+        }
+
+        persistedOrderWrites.push(...writes);
+
+        for (const write of writes) {
+          existingOrdersMap.set(write.orderId, {
+            id: write.existingOrderId,
+            jumia_order_id: write.orderId,
+            notification_sent: Boolean(write.upsertPayload.notification_sent),
+          });
+        }
       }
 
-      for (const write of pendingOrderWrites) {
-        existingOrdersMap.set(write.orderId, {
-          id: write.existingOrderId,
-          jumia_order_id: write.orderId,
-          notification_sent: Boolean(write.upsertPayload.notification_sent),
-        });
-      }
+      pendingOrderWrites = persistedOrderWrites;
     }
 
     for (const write of pendingOrderWrites) {
@@ -504,6 +511,13 @@ export async function POST(request: NextRequest) {
               : pushError,
         });
       }
+    }
+
+    if (upsertFailed) {
+      return NextResponse.json(
+        { error: 'Failed to process orders' },
+        { status: 500 }
+      );
     }
 
     // Update last_sync_at only on THIS integration row
