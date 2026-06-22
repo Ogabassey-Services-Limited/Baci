@@ -158,22 +158,29 @@ function buildOgabasseyPrebakedImageWidthUrl({
 
   const params = new Map<string, string>();
   for (const part of transformSegment.split(',')) {
-    const [key, value] = part.split('=');
-    const trimmedKey = key?.trim();
-    if (trimmedKey) {
-      params.set(trimmedKey, (value ?? '').trim());
+    // Split on the FIRST '=' only so values that contain '=' survive intact.
+    const equalsIndex = part.indexOf('=');
+    const key = (equalsIndex >= 0 ? part.slice(0, equalsIndex) : part).trim();
+    if (key) {
+      params.set(
+        key,
+        equalsIndex >= 0 ? part.slice(equalsIndex + 1).trim() : ''
+      );
     }
   }
 
-  // Respect deliberately sized transforms — only fill in a missing width.
-  if (params.has('width')) {
+  // Honor a deliberately pinned width (any non-empty value); only inject when
+  // the transform omits a width or leaves it blank.
+  if (params.get('width')) {
     return null;
   }
 
-  const existingQuality = Number(params.get('quality'));
   const transformWidth = clampDimension(width);
+  // Treat a blank `quality=` like a missing key so it defaults to 75 instead of
+  // clamping to 1.
+  const pinnedQuality = params.get('quality');
   const transformQuality = clampQuality(
-    quality ?? (Number.isFinite(existingQuality) ? existingQuality : undefined)
+    quality ?? (pinnedQuality ? Number(pinnedQuality) : undefined)
   );
   const format = params.get('format') || 'auto';
   const extras = Array.from(params.entries())

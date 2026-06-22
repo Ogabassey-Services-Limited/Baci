@@ -90,6 +90,38 @@ describe('imageLoader', () => {
     );
   });
 
+  it('preserves unknown extra transform params when injecting width', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto,fit=cover/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto,fit=cover/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('reuses an existing quality from the pre-baked transform when none is requested', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/quality=40,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=40,format=auto/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('injects width when a pre-baked transform pins a blank width value', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/width=,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('defaults quality when a pre-baked transform pins a blank quality value', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/quality=,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/blog/post.jpg'
+    );
+  });
+
   it('adds loader params to non-OgaBassey https URLs', () => {
     const url = 'https://example.com/products/iphone.avif';
     expect(imageLoader({ src: url, width: 800 })).toBe(`${url}?w=800&q=75`);
