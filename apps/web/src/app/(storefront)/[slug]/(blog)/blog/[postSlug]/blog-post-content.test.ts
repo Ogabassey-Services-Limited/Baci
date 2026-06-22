@@ -522,6 +522,30 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain('decoding="async"');
   });
 
+  it('does not prioritize legacy body images when a featured hero is already rendered', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="First" />`,
+      { prioritizeFirstBodyImage: false }
+    );
+
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+    expect(out).not.toContain('fetchpriority="high"');
+  });
+
+  it('does not prioritize a trusted CDN image after an earlier body image', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="https://example.com/hero.jpg" alt="External" /><img src="${CDN}" alt="Trusted" />`
+    );
+
+    expect(out).toContain('alt="External"');
+    expect(out).toContain('alt="Trusted"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+    expect(out).not.toContain('fetchpriority="high"');
+  });
+
   it('leaves external and already-optimized featured images untouched', () => {
     const external = '<img src="https://example.com/inline-1.png" alt="x" />';
     expect(wrapTrustedCdnInlineImagesInPicture(external)).toBe(external);

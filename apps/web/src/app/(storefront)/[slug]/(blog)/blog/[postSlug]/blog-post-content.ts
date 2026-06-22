@@ -439,7 +439,12 @@ function isInsidePictureTag(html: string, innerStart: number): boolean {
  * they survive SafeHtml's re-sanitization. External, non-inline, and legacy
  * inline images without the generated-sibling filename marker are left untouched.
  */
-export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
+export function wrapTrustedCdnInlineImagesInPicture(
+  html: string,
+  {
+    prioritizeFirstBodyImage = true,
+  }: { prioritizeFirstBodyImage?: boolean } = {}
+): string {
   // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
   // value (e.g. alt text) instead of truncating on the first `>`.
   let bodyImageIndex = 0;
@@ -448,6 +453,10 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
     /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
     (imgTag, offset: number) => {
       const src = readHtmlTagAttribute(imgTag, 'src');
+      if (src) {
+        bodyImageIndex += 1;
+      }
+
       if (!src || !isTrustedCdnInlineImage(src)) {
         return imgTag;
       }
@@ -459,10 +468,9 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
       // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
       // so the values stay correctly escaped — re-escaping here would double-encode
       // ampersands in any query string (`&amp;` -> `&amp;amp;`).
-      bodyImageIndex += 1;
       const siblings = buildInlineImageSiblings(src);
       const fallbackImg = buildResponsiveInlineImageTag(imgTag, siblings, {
-        isFirstBodyImage: bodyImageIndex === 1,
+        isFirstBodyImage: prioritizeFirstBodyImage && bodyImageIndex === 1,
       });
       return (
         '<picture>' +
@@ -476,6 +484,7 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
 
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
   fallbackImageAlt?: string | null;
+  hasFeaturedImage?: boolean;
 };
 
 export async function resolveBlogPostContent(
@@ -508,7 +517,9 @@ export async function resolveBlogPostContent(
       captionedHtml,
       options.fallbackImageAlt
     );
-    legacyHtml = wrapTrustedCdnInlineImagesInPicture(altedHtml);
+    legacyHtml = wrapTrustedCdnInlineImagesInPicture(altedHtml, {
+      prioritizeFirstBodyImage: !options.hasFeaturedImage,
+    });
   }
 
   return {

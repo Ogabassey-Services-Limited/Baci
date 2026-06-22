@@ -137,7 +137,7 @@ describe('sanitize', () => {
 
   it('keeps <picture>/<source> for responsive blog inline images', () => {
     const input =
-      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" srcset="https://cdn.ogabassey.com/x/inline-1.png 384w" sizes="(max-width: 768px) 100vw, 800px" alt="speaker" /></picture>';
+      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" srcset="https://cdn.ogabassey.com/x/inline-1.png 384w" sizes="(max-width: 768px) 100vw, 800px" fetchpriority="high" alt="speaker" /></picture>';
 
     const output = sanitizeHtml(input);
 
@@ -151,6 +151,7 @@ describe('sanitize', () => {
       'srcset="https://cdn.ogabassey.com/x/inline-1.png 384w"'
     );
     expect(output).toContain('sizes="(max-width: 768px) 100vw, 800px"');
+    expect(output).toContain('fetchpriority="high"');
   });
 
   it('still strips event handlers and scripts from media tags', () => {

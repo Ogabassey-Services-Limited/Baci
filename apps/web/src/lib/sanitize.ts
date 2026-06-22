@@ -171,6 +171,7 @@ export function sanitizeHtml(
         'height',
         'loading',
         'decoding',
+        'fetchpriority',
       ],
       source: ['srcset', 'type', 'media', 'sizes'],
     },

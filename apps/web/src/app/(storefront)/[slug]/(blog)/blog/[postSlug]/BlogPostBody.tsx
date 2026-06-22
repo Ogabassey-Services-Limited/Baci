@@ -65,6 +65,7 @@ export async function BlogPostBody({
       basePath,
       baseUrl,
       fallbackImageAlt: post.title,
+      hasFeaturedImage: Boolean(post.featured_image_url),
       merchantSlug,
     }
   );
