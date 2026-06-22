@@ -17,6 +17,10 @@ jest.mock('@baci/shared/lib', () => ({
   getStorefrontNotificationNavigationTarget: jest.fn(),
 }));
 
+jest.mock('expo-application', () => ({
+  nativeBuildVersion: '646',
+}));
+
 jest.mock('expo-constants', () => ({
   expoConfig: { extra: { eas: { projectId: 'project-id' } } },
 }));
@@ -64,6 +68,7 @@ jest.mock('@/lib/supabase', () => ({
 const {
   handleNotificationResponse,
   registerForPushNotifications,
+  resolveNativeBuildNumber,
   savePushTokenToServer,
 } = require('./push-notifications') as typeof import('./push-notifications');
 const { getStorefrontNotificationNavigationTarget } = jest.requireMock(
@@ -97,6 +102,9 @@ describe('savePushTokenToServer', () => {
         p_merchant_id: 'merchant-1',
         p_platform: 'ios',
         p_app_type: 'storefront',
+        // Captured from Application.nativeBuildVersion ('646') for update-nudge
+        // targeting.
+        p_build_number: 646,
       })
     );
   });
@@ -129,6 +137,31 @@ describe('savePushTokenToServer', () => {
     expect(mockLogger.error).toHaveBeenCalledWith(
       'Refusing to save push token: empty token/userId/merchantId'
     );
+  });
+});
+
+describe('resolveNativeBuildNumber', () => {
+  it('parses a numeric build string to an integer', () => {
+    expect(resolveNativeBuildNumber('646')).toBe(646);
+    expect(resolveNativeBuildNumber('  390  ')).toBe(390);
+  });
+
+  it('returns null for missing or malformed values', () => {
+    expect(resolveNativeBuildNumber(null)).toBeNull();
+    expect(resolveNativeBuildNumber('')).toBeNull();
+    expect(resolveNativeBuildNumber('   ')).toBeNull();
+    expect(resolveNativeBuildNumber('not-a-number')).toBeNull();
+  });
+
+  it('rejects partially numeric builds instead of truncating them', () => {
+    // Strict Number(...) parse, matching the server gate — not parseInt, which
+    // would read these as 646 and disagree with the release policy.
+    expect(resolveNativeBuildNumber('646-beta')).toBeNull();
+    expect(resolveNativeBuildNumber('646.1')).toBeNull();
+  });
+
+  it('defaults to the installed Application.nativeBuildVersion', () => {
+    expect(resolveNativeBuildNumber()).toBe(646);
   });
 });
 

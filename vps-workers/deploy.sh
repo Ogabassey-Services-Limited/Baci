@@ -99,6 +99,7 @@ $CRON_BLOCK_START
 0 6    * * * flock -n $REMOTE_DIR/locks/wallet-payouts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/wallet-payouts' >> $REMOTE_DIR/logs/wallet-payouts.log 2>&1
 30 8   1 * * flock -n $REMOTE_DIR/locks/vtu-cashback-summaries.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/vtu-cashback-summaries' >> $REMOTE_DIR/logs/vtu-cashback-summaries.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/publish-scheduled-posts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/publish-scheduled-posts' >> $REMOTE_DIR/logs/publish-scheduled-posts.log 2>&1
+0 10   * * * flock -n $REMOTE_DIR/locks/storefront-update-nudge.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/storefront-update-nudge' >> $REMOTE_DIR/logs/storefront-update-nudge.log 2>&1
 $CRON_BLOCK_END
 EOF
 ssh "$VPS" "bash -s -- '$REMOTE_DIR/crontab.fragment' '$REMOTE_DIR' '$CRON_BLOCK_START' '$CRON_BLOCK_END'" <<'REMOTE_SH'
@@ -213,3 +214,9 @@ echo "         AI_STOREFRONT_TRIGGER_PORT=3917"
 echo "         IMPORT_JOB_TRIGGER_SECRET=..."
 echo "         IMPORT_JOB_TRIGGER_HOST=127.0.0.1"
 echo "         IMPORT_JOB_TRIGGER_PORT=3918"
+echo ""
+echo "    Note: the storefront-update-nudge cron reads its config from the WEB"
+echo "          (Vercel) env, NOT this worker .env: MOBILE_STOREFRONT_UPDATES_ENABLED,"
+echo "          MOBILE_STOREFRONT_{ANDROID,IOS}_LATEST_BUILD and _STORE_URL, plus"
+echo "          optional MOBILE_STOREFRONT_UPDATE_MESSAGE (overrides the copy)."
+echo "          A missing LATEST_BUILD or _STORE_URL silently skips that platform."
