@@ -1,8 +1,8 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { Thing, WithContext } from 'schema-dts';
-import { JsonLd } from '@/components/seo/json-ld';
+import type { BreadcrumbList, CollectionPage } from 'schema-dts';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import {
   getCachedCategories,
@@ -153,8 +153,12 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <JsonLd data={collectionSchema as unknown as WithContext<Thing>} />
-      <JsonLd data={breadcrumbSchema as unknown as WithContext<Thing>} />
+      <JsonLd
+        data={collectionSchema as unknown as JsonLdData<CollectionPage>}
+      />
+      <JsonLd
+        data={breadcrumbSchema as unknown as JsonLdData<BreadcrumbList>}
+      />
 
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">
