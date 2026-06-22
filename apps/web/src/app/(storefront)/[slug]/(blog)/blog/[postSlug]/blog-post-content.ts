@@ -484,7 +484,12 @@ export function wrapTrustedCdnInlineImagesInPicture(
 
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
   fallbackImageAlt?: string | null;
-  hasFeaturedImage?: boolean;
+  /**
+   * True when the page shell has already emitted an above-the-fold hero image
+   * candidate, including a fallback placeholder. This keeps legacy body images
+   * lazy so browsers receive a single high-priority image candidate per page.
+   */
+  hasPreloadedHeroImage?: boolean;
 };
 
 export async function resolveBlogPostContent(
@@ -518,7 +523,7 @@ export async function resolveBlogPostContent(
       options.fallbackImageAlt
     );
     legacyHtml = wrapTrustedCdnInlineImagesInPicture(altedHtml, {
-      prioritizeFirstBodyImage: !options.hasFeaturedImage,
+      prioritizeFirstBodyImage: !options.hasPreloadedHeroImage,
     });
   }
 

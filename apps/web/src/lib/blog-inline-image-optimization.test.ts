@@ -100,6 +100,32 @@ describe('buildInlineImageSiblings', () => {
     );
   });
 
+  it('preserves responsive width transforms for a configured blog CDN origin', () => {
+    const prev = process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
+    try {
+      const src =
+        'https://media.example.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      const siblings = buildInlineImageSiblings(src);
+
+      expect(siblings.fallback).toContain(
+        'https://media.example.com/image/width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+      );
+      expect(siblings.avifSrcSet).toContain(
+        'https://media.example.com/image/width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
+      );
+      expect(siblings.webpSrcSet).toContain(
+        'https://media.example.com/image/width=1200,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 1200w'
+      );
+    } finally {
+      if (prev === undefined) {
+        delete process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+      } else {
+        process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = prev;
+      }
+    }
+  });
+
   it('inserts the suffix before any query/hash', () => {
     const siblings = buildInlineImageSiblings(`${INLINE}?v=2`);
 

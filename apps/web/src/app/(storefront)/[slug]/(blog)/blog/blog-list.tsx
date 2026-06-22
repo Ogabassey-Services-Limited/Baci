@@ -59,14 +59,16 @@ export function BlogList({
 
   const hasMoreServerPages =
     initialPage <= 1 && totalPosts > BLOG_LISTING_PAGE_SIZE;
+  const firstImagePostIndex = posts.findIndex((post) =>
+    Boolean(post.featured_image_url)
+  );
 
   return (
     <>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {posts.map((post, index) => {
           const publishedDateLabel = formatBlogListDateLabel(post.published_at);
-          const isListingLcpCandidate =
-            index === 0 && !!post.featured_image_url;
+          const isListingLcpCandidate = index === firstImagePostIndex;
 
           return (
             <Link key={post.id} href={`${basePath}/blog/${post.slug}` as Route}>

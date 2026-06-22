@@ -59,13 +59,18 @@ export async function BlogPostBody({
   relatedProducts = EMPTY_RELATED_PRODUCTS,
   relatedPosts,
 }: BlogPostBodyProps) {
+  // The current post page template always renders an above-the-fold hero image
+  // slot, falling back to /placeholder.png when a post has no stored featured
+  // image. Keep body images lazy so the page never emits two high-priority image
+  // candidates for the same viewport.
+  const hasPreloadedHeroImage = true;
   const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
     content,
     {
       basePath,
       baseUrl,
       fallbackImageAlt: post.title,
-      hasFeaturedImage: Boolean(post.featured_image_url),
+      hasPreloadedHeroImage,
       merchantSlug,
     }
   );
@@ -103,7 +108,7 @@ export async function BlogPostBody({
             basePath={basePath}
             baseUrl={baseUrl}
             merchantSlug={merchantSlug}
-            priorityInlineImageSrc={post.featured_image_url ? null : undefined}
+            priorityInlineImageSrc={hasPreloadedHeroImage ? null : undefined}
           />
         ) : (
           <SafeHtml

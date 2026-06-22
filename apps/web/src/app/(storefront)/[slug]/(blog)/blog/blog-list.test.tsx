@@ -89,6 +89,37 @@ describe('BlogList', () => {
     expect(images[1]).not.toHaveAttribute('data-preload');
   });
 
+  it('preloads the first image-bearing card when earlier cards have no image', () => {
+    render(
+      <BlogList
+        initialPosts={[
+          {
+            ...blogPost,
+            id: 'post-without-image',
+            slug: 'intro-post',
+            title: 'Intro post',
+            featured_image_url: null,
+            featured_image_alt: null,
+          },
+          {
+            ...blogPost,
+            id: 'post-with-image',
+            slug: 'image-post',
+            title: 'Image post',
+            featured_image_url: 'https://cdn.example.com/blog/image-post.jpg',
+            featured_image_alt: 'Image post hero',
+          },
+        ]}
+        totalPosts={2}
+        basePath="/ogabassey"
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: 'Image post hero' })
+    ).toHaveAttribute('data-preload', 'true');
+  });
+
   it('renders crawlable pagination copy instead of auto-fetching with IntersectionObserver', () => {
     render(
       <BlogList

@@ -95,6 +95,7 @@ describe('BlogPostBody', () => {
       basePath: '/ogabassey',
       baseUrl: 'https://usebaci.com',
       fallbackImageAlt: 'Pixel 9 Review',
+      hasPreloadedHeroImage: true,
       merchantSlug: 'ogabassey',
     });
     expect(
@@ -163,6 +164,7 @@ describe('BlogPostBody', () => {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
         fallbackImageAlt: 'Pixel 9 Review',
+        hasPreloadedHeroImage: true,
         merchantSlug: 'ogabassey',
       }
     );
