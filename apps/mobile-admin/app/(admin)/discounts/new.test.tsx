@@ -32,6 +32,15 @@ vi.mock('@/hooks/useDiscounts', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({
+    symbol: '₦',
+    currency: 'NGN',
+    format: (amount: number) => `₦${amount}`,
+    formatCompact: (amount: number) => `₦${amount}`,
+  }),
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -124,6 +133,18 @@ vi.mock('react-native', async () => {
 import NewDiscountScreen from './new';
 
 describe('NewDiscountScreen theme styling', () => {
+  it('renders fixed-discount labels with the merchant currency symbol', () => {
+    render(<NewDiscountScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Fixed Amount/i }));
+
+    expect(screen.getByText(/Fixed Amount \(₦\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Discount Amount \(₦\)/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Min\. Purchase Amount \(₦\)/i)
+    ).toBeInTheDocument();
+  });
+
   it('applies the themed border color to specific item selectors', () => {
     render(<NewDiscountScreen />);
 
