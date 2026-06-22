@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from 'vitest';
 import {
   extractMerchantLookup,
@@ -65,6 +67,10 @@ describe('send-auth-email template helpers', () => {
     expect(html).toContain('support@ogabassey.com');
     expect(html).toContain('Ogabassey Never Disappoints.');
     expect(html).toContain('content="light dark"');
+    expect(html).toContain('.a-brand-cell,.a-badge-cell');
+    expect(html).toContain('class="a-brand-cell"');
+    expect(html).toContain('class="a-badge-cell"');
+    expect(html).toContain('class="a-badge"');
     expect(html).not.toContain('linear-gradient');
   });
 });
