@@ -580,6 +580,10 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      if (write.isNewOrder) {
+        newOrdersCount++;
+      }
+
       try {
         await notifyJumiaOrder(
           merchantId,
@@ -588,10 +592,6 @@ export async function POST(request: NextRequest) {
           write.totalAmount,
           write.currency
         );
-
-        if (write.isNewOrder) {
-          newOrdersCount++;
-        }
       } catch (pushError) {
         logger.error({
           message: 'Push notification failed for Jumia order',
