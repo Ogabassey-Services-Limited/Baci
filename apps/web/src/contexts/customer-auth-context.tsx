@@ -457,3 +457,13 @@ export function useCustomerAuth() {
   }
   return context;
 }
+
+/**
+ * Returns the customer auth context without throwing outside the provider.
+ * Use this for storefront components that can render both inside checkout/auth
+ * flows and in public shells where no customer session provider is mounted.
+ * Components that require customer auth should keep using useCustomerAuth().
+ */
+export function useOptionalCustomerAuth(): CustomerAuthContextType | null {
+  return use(CustomerAuthContext);
+}

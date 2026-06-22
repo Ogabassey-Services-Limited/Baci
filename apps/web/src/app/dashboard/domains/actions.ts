@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
@@ -59,8 +60,9 @@ export async function setPrimaryDomain(
       throw new Error('Failed to set primary domain');
     }
 
-    // Revalidate the domains page to show the updated primary status immediately
+    // Revalidate the domains page and feed URLs to reflect the new primary domain.
     revalidatePath('/dashboard/domains');
+    revalidateMerchantFeed(merchant.id);
     void triggerDomainEdgeConfigSync();
 
     return { success: true };

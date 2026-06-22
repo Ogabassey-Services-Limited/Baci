@@ -318,4 +318,173 @@ describe('PostHog client config', () => {
       },
     });
   });
+
+  it('drops synthetic browser Script error events with no actionable source', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Chrome',
+          $browser_version: 143,
+          $exception_values: ['Script error.'],
+          $exception_list: [
+            {
+              type: 'Error',
+              value: 'Script error.',
+              mechanism: {
+                handled: false,
+                synthetic: true,
+                type: 'generic',
+              },
+            },
+          ],
+        },
+      })
+    ).toBeNull();
+  });
+
+  it('keeps Script error without a synthetic flag actionable', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Chrome',
+          $browser_version: 143,
+          $exception_values: ['Script error.'],
+          $exception_list: [
+            {
+              type: 'Error',
+              value: 'Script error.',
+              mechanism: {
+                handled: false,
+                synthetic: false,
+                type: 'generic',
+              },
+            },
+          ],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $browser: 'Chrome',
+        $exception_values: ['Script error.'],
+      },
+    });
+  });
+
+  it('drops React hydration noise from browsers below the supported storefront floor', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Chrome',
+          $browser_version: 51,
+          $exception_values: [
+            'Minified React error #419; visit https://react.dev/errors/419 for the full message.',
+          ],
+        },
+      })
+    ).toBeNull();
+  });
+
+  it('drops React hydration noise from Safari versions below the 15.4 storefront floor', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Safari',
+          $browser_version: '15.3.1',
+          $exception_values: [
+            'Minified React error #418; visit https://react.dev/errors/418 for the full message.',
+          ],
+        },
+      })
+    ).toBeNull();
+  });
+
+  it('keeps React hydration errors from unknown browsers actionable', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Opera',
+          $browser_version: 51,
+          $exception_values: [
+            'Minified React error #419; visit https://react.dev/errors/419 for the full message.',
+          ],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $browser: 'Opera',
+        $browser_version: 51,
+      },
+    });
+  });
+
+  it('keeps non-hydration exceptions from old browsers actionable', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Chrome',
+          $browser_version: 51,
+          $exception_values: ['TypeError: Cannot read properties of null'],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $browser: 'Chrome',
+        $browser_version: 51,
+      },
+    });
+  });
+
+  it('keeps React hydration errors from supported browsers actionable', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Chrome',
+          $browser_version: 138,
+          $exception_values: [
+            'Minified React error #418; visit https://react.dev/errors/418 for the full message.',
+          ],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $browser: 'Chrome',
+        $browser_version: 138,
+      },
+    });
+  });
+
+  it('keeps React hydration errors from Safari 15.4 actionable', () => {
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$exception',
+        properties: {
+          $browser: 'Safari',
+          $browser_version: '15.4',
+          $exception_values: [
+            'Minified React error #418; visit https://react.dev/errors/418 for the full message.',
+          ],
+        },
+      })
+    ).toMatchObject({
+      properties: {
+        $browser: 'Safari',
+        $browser_version: '15.4',
+      },
+    });
+  });
 });

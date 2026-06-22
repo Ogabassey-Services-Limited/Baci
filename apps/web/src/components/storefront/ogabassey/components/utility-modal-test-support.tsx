@@ -102,7 +102,7 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 }));
 
 vi.mock('@/contexts/customer-auth-context', () => ({
-  useCustomerAuth: () => mockUseCustomerAuth(),
+  useOptionalCustomerAuth: () => mockUseCustomerAuth(),
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/checkout/hooks/use-wallet', () => ({
