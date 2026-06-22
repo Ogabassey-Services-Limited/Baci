@@ -652,7 +652,8 @@ describe('BlogContentRenderer', () => {
       // The doc wrapper renders but contains no visible child content.
       expect(container.querySelector('.space-y-4')).toBeEmptyDOMElement();
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('customWidget')
+        expect.stringContaining('Unknown blog renderer node type'),
+        expect.objectContaining({ nodeType: 'customWidget' })
       );
       consoleSpy.mockRestore();
     });

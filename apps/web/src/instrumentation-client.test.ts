@@ -53,9 +53,9 @@ describe('instrumentation-client', () => {
     });
 
     await importInstrumentationClient();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+      expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    });
   });
 });

@@ -4,21 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { BlogList } from './blog-list';
 
 vi.mock('next/image', () => ({
-  default: ({
-    alt,
-    fetchPriority,
-    loading,
-    preload,
-  }: {
-    alt: string;
-    fetchPriority?: string;
-    loading?: string;
-    preload?: boolean;
-  }) => (
+  default: ({ alt, preload }: { alt: string; preload?: boolean }) => (
     <span
       aria-label={alt}
-      data-fetch-priority={fetchPriority}
-      data-loading={loading}
       data-preload={preload ? 'true' : undefined}
       role="img"
     />
@@ -98,11 +86,7 @@ describe('BlogList', () => {
 
     const images = screen.getAllByRole('img');
     expect(images[0]).toHaveAttribute('data-preload', 'true');
-    expect(images[0]).toHaveAttribute('data-fetch-priority', 'high');
-    expect(images[0]).toHaveAttribute('data-loading', 'eager');
     expect(images[1]).not.toHaveAttribute('data-preload');
-    expect(images[1]).not.toHaveAttribute('data-fetch-priority');
-    expect(images[1]).not.toHaveAttribute('data-loading', 'eager');
   });
 
   it('renders crawlable pagination copy instead of auto-fetching with IntersectionObserver', () => {

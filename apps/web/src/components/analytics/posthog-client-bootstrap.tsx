@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
@@ -20,15 +21,24 @@ export function PostHogClientBootstrap() {
     let cancelled = false;
 
     async function initialize() {
-      const { initializePostHogBrowser } = await import(
-        '@/lib/posthog/browser'
-      );
+      try {
+        const { initializePostHogBrowser } = await import(
+          '@/lib/posthog/browser'
+        );
 
-      if (cancelled) {
-        return;
+        if (cancelled) {
+          return;
+        }
+
+        initializePostHogBrowser(postHogBrowserEnv);
+      } catch (error) {
+        if (!cancelled) {
+          logger.warn({
+            error,
+            message: 'PostHog client bootstrap failed to initialize.',
+          });
+        }
       }
-
-      initializePostHogBrowser(postHogBrowserEnv);
     }
 
     void initialize();

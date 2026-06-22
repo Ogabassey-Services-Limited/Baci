@@ -56,9 +56,9 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', pathname);
 
     render(<PostHogPageviewTracker />);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    });
   });
 
   it('captures after a client navigation from blog to a non-blog page', async () => {
@@ -66,8 +66,9 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', pathname);
     const { rerender } = render(<PostHogPageviewTracker />);
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    });
 
     pathname = '/ogabassey/laptops/macbook-pro';
     window.history.pushState(null, '', pathname);

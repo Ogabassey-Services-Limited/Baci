@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 export function PostHogPageviewTracker() {
@@ -17,13 +18,24 @@ export function PostHogPageviewTracker() {
     let cancelled = false;
 
     async function capturePageview() {
-      const { capturePostHogPageview } = await import('@/lib/posthog/browser');
+      try {
+        const { capturePostHogPageview } = await import(
+          '@/lib/posthog/browser'
+        );
 
-      if (cancelled) {
-        return;
+        if (cancelled) {
+          return;
+        }
+
+        capturePostHogPageview(window.location.href);
+      } catch (error) {
+        if (!cancelled) {
+          logger.warn({
+            error,
+            message: 'PostHog pageview capture failed.',
+          });
+        }
       }
-
-      capturePostHogPageview(window.location.href);
     }
 
     void capturePageview();
