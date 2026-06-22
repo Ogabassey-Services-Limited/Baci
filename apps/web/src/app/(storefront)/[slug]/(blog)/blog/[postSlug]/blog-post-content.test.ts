@@ -499,6 +499,27 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain('width="1200"');
     expect(out).toContain('height="675"');
     expect(out).toContain(`data-original-src="${CDN}"`);
+
+    expect(out).toContain('loading="eager"');
+    expect(out).toContain('decoding="sync"');
+    expect(out).toContain('fetchpriority="high"');
+  });
+
+  it('lazy-loads later optimized legacy body images', () => {
+    const secondCdn = CDN.replace(
+      'inline-1-b9244d7a754d',
+      'inline-2-b9244d7a754d'
+    );
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="First" /><img src="${secondCdn}" alt="Second" />`
+    );
+
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('loading="eager"');
+    expect(out).toContain('fetchpriority="high"');
+    expect(out).toContain('alt="Second"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
   });
 
   it('leaves external and already-optimized featured images untouched', () => {

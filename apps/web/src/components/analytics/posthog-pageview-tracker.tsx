@@ -9,7 +9,7 @@ export function PostHogPageviewTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const currentPathname = pathname || globalThis.location?.pathname;
+    const currentPathname = pathname ?? globalThis.location?.pathname;
 
     if (!currentPathname || isPublicBlogPathname(currentPathname)) {
       return;

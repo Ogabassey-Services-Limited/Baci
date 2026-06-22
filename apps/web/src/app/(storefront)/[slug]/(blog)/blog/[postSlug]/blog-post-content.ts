@@ -389,7 +389,8 @@ function setHtmlAttribute(tag: string, attributeName: string, value: string) {
 
 function buildResponsiveInlineImageTag(
   imgTag: string,
-  siblings: ReturnType<typeof buildInlineImageSiblings>
+  siblings: ReturnType<typeof buildInlineImageSiblings>,
+  { isFirstBodyImage = false }: { isFirstBodyImage?: boolean } = {}
 ): string {
   let nextTag = imgTag;
   const originalSrc = readHtmlTagAttribute(imgTag, 'src');
@@ -400,8 +401,9 @@ function buildResponsiveInlineImageTag(
     sizes: siblings.sizes,
     width: String(siblings.width),
     height: String(siblings.height),
-    loading: 'lazy',
-    decoding: 'async',
+    loading: isFirstBodyImage ? 'eager' : 'lazy',
+    decoding: isFirstBodyImage ? 'sync' : 'async',
+    ...(isFirstBodyImage ? { fetchpriority: 'high' } : {}),
   };
 
   for (const [attributeName, value] of Object.entries(attributes)) {
@@ -440,6 +442,8 @@ function isInsidePictureTag(html: string, innerStart: number): boolean {
 export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
   // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
   // value (e.g. alt text) instead of truncating on the first `>`.
+  let bodyImageIndex = 0;
+
   return html.replace(
     /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
     (imgTag, offset: number) => {
@@ -455,8 +459,11 @@ export function wrapTrustedCdnInlineImagesInPicture(html: string): string {
       // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
       // so the values stay correctly escaped — re-escaping here would double-encode
       // ampersands in any query string (`&amp;` -> `&amp;amp;`).
+      bodyImageIndex += 1;
       const siblings = buildInlineImageSiblings(src);
-      const fallbackImg = buildResponsiveInlineImageTag(imgTag, siblings);
+      const fallbackImg = buildResponsiveInlineImageTag(imgTag, siblings, {
+        isFirstBodyImage: bodyImageIndex === 1,
+      });
       return (
         '<picture>' +
         `<source srcset="${siblings.avifSrcSet}" sizes="${siblings.sizes}" type="image/avif" />` +

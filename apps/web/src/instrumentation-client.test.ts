@@ -24,7 +24,6 @@ afterEach(() => {
   vi.resetModules();
   vi.unstubAllGlobals();
 });
-
 describe('instrumentation-client', () => {
   it('initializes browser PostHog instrumentation', async () => {
     vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
@@ -61,5 +60,24 @@ describe('instrumentation-client', () => {
     await flushPostHogMicrotasks();
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+  });
+
+  it('initializes after an explicit client transition away from a skipped blog page', async () => {
+    vi.stubGlobal('location', {
+      pathname: '/blog/phone-guide',
+      href: 'https://ogabassey.com/blog/phone-guide',
+    });
+
+    const { initializePostHogInstrumentationIfAllowed } =
+      await importInstrumentationClient();
+    await flushPostHogMicrotasks();
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+
+    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
+
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
   });
 });

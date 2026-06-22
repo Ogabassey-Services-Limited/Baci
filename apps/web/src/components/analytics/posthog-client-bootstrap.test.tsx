@@ -5,10 +5,16 @@ let pathname = '/';
 
 const mocks = vi.hoisted(() => ({
   initializePostHogBrowser: vi.fn(),
+  initializePostHogInstrumentationIfAllowed: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
+}));
+
+vi.mock('@/instrumentation-client', () => ({
+  initializePostHogInstrumentationIfAllowed:
+    mocks.initializePostHogInstrumentationIfAllowed,
 }));
 
 vi.mock('@/lib/posthog/browser', () => ({
@@ -41,6 +47,9 @@ describe('PostHogClientBootstrap', () => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
 
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).toHaveBeenCalledWith('/');
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
@@ -53,6 +62,7 @@ describe('PostHogClientBootstrap', () => {
     vi.stubGlobal('location', {
       pathname,
       href: 'https://usebaci.com/ogabassey/blog/phone-guide',
+      hostname: 'usebaci.com',
     });
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
@@ -66,6 +76,7 @@ describe('PostHogClientBootstrap', () => {
     vi.stubGlobal('location', {
       pathname,
       href: 'https://usebaci.com/ogabassey/blog/phone-guide',
+      hostname: 'usebaci.com',
     });
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
@@ -77,11 +88,15 @@ describe('PostHogClientBootstrap', () => {
     vi.stubGlobal('location', {
       pathname,
       href: 'https://usebaci.com/ogabassey/laptops/macbook-pro',
+      hostname: 'usebaci.com',
     });
     rerender(<PostHogClientBootstrap />);
 
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).toHaveBeenCalledWith('/ogabassey/laptops/macbook-pro');
   });
 });

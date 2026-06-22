@@ -20,9 +20,21 @@ async function initializePostHogInstrumentation() {
   }
 }
 
-if (
-  typeof window !== 'undefined' &&
-  !isPublicBlogPathname(globalThis.location?.pathname)
+let postHogInstrumentationInitialized = false;
+
+export function initializePostHogInstrumentationIfAllowed(
+  pathname = globalThis.location?.pathname
 ) {
+  if (
+    typeof window === 'undefined' ||
+    postHogInstrumentationInitialized ||
+    isPublicBlogPathname(pathname)
+  ) {
+    return;
+  }
+
+  postHogInstrumentationInitialized = true;
   void initializePostHogInstrumentation();
 }
+
+initializePostHogInstrumentationIfAllowed();
