@@ -31,6 +31,7 @@ interface BlogPostRow {
   featured_image_url: string | null;
   featured_image_variants?: Record<string, unknown> | null;
   title?: string | null;
+  author_name?: string | null;
 }
 
 interface BlogPostsResponse {
@@ -261,7 +262,7 @@ describe('blog sitemap', () => {
     );
   });
 
-  it('lists tenant-gated author hub pages for OgaBassey storefronts', async () => {
+  it('lists author hubs with published posts and content-derived lastmod', async () => {
     mockHeaders = new Map([['x-custom-domain', 'ogabassey.com']]);
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
@@ -269,20 +270,87 @@ describe('blog sitemap', () => {
       custom_domain: 'ogabassey.com',
     });
     mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
-    mockNot.mockReturnValue({ data: [], error: null });
+    mockNot.mockReturnValue({
+      data: [
+        {
+          slug: 'bassey-old',
+          title: 'Bassey Guide One',
+          author_name: 'Bassey John',
+          published_at: '2026-04-01T00:00:00Z',
+          updated_at: '2026-04-02T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'bassey-new',
+          title: 'Bassey Guide Two',
+          author_name: 'Bassey John',
+          published_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-10T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'bolakale-post',
+          title: 'Bolakale Guide',
+          author_name: 'Bolakale',
+          published_at: '2026-03-01T00:00:00Z',
+          updated_at: '2026-03-03T00:00:00Z',
+          featured_image_url: null,
+        },
+      ],
+      error: null,
+    });
 
     const { default: sitemap } = await import('./sitemap');
     const result = await sitemap();
 
-    const authorUrls = result
-      .filter((e) => e.url.includes('/blog/author/'))
-      .map((e) => e.url);
-    expect(authorUrls).toEqual(
-      expect.arrayContaining([
-        'https://ogabassey.com/blog/author/bassey-john',
-        'https://ogabassey.com/blog/author/bolakale',
-      ])
+    const bassey = result.find(
+      (e) => e.url === 'https://ogabassey.com/blog/author/bassey-john'
     );
+    const bolakale = result.find(
+      (e) => e.url === 'https://ogabassey.com/blog/author/bolakale'
+    );
+    expect(bassey).toBeDefined();
+    expect(bolakale).toBeDefined();
+    // lastmod = the author's most recent post (Bassey John -> 2026-05-10)
+    expect((bassey?.lastModified as Date).toISOString()).toBe(
+      '2026-05-10T00:00:00.000Z'
+    );
+  });
+
+  it('omits author hubs for authors with no published posts', async () => {
+    mockHeaders = new Map([['x-custom-domain', 'ogabassey.com']]);
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
+    // Only Bassey John has a published post; Bolakale has none.
+    mockNot.mockReturnValue({
+      data: [
+        {
+          slug: 'bassey-post',
+          title: 'Bassey Guide',
+          author_name: 'Bassey John',
+          published_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-02T00:00:00Z',
+          featured_image_url: null,
+        },
+      ],
+      error: null,
+    });
+
+    const { default: sitemap } = await import('./sitemap');
+    const result = await sitemap();
+
+    expect(
+      result.some(
+        (e) => e.url === 'https://ogabassey.com/blog/author/bassey-john'
+      )
+    ).toBe(true);
+    expect(
+      result.some((e) => e.url === 'https://ogabassey.com/blog/author/bolakale')
+    ).toBe(false);
   });
 
   it('omits author hub pages for storefronts without author profiles', async () => {
@@ -293,7 +361,19 @@ describe('blog sitemap', () => {
       custom_domain: 'other-store.com',
     });
     mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
-    mockNot.mockReturnValue({ data: [], error: null });
+    mockNot.mockReturnValue({
+      data: [
+        {
+          slug: 'bassey-post',
+          title: 'Bassey Guide',
+          author_name: 'Bassey John',
+          published_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-02T00:00:00Z',
+          featured_image_url: null,
+        },
+      ],
+      error: null,
+    });
 
     const { default: sitemap } = await import('./sitemap');
     const result = await sitemap();
