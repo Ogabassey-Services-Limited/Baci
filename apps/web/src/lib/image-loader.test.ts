@@ -54,10 +54,40 @@ describe('imageLoader', () => {
     );
   });
 
-  it('preserves explicit OgaBassey CDN transformer URLs without resizing them', () => {
+  it('injects a width into pre-baked OgaBassey transform URLs that omit one', () => {
+    // A pre-baked `/image/format=auto/` URL (no width) would otherwise be
+    // returned unchanged, serving the full-resolution asset for every srcset
+    // candidate. Inject the requested width so each candidate is sized.
     const url =
       'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/codex/post-landscape_16x9.jpg';
-    expect(imageLoader({ src: url, width: 192, quality: 80 })).toBe(url);
+    expect(imageLoader({ src: url, width: 192, quality: 80 })).toBe(
+      'https://cdn.ogabassey.com/image/width=192,quality=80,format=auto/core-assets/blog/codex/post-landscape_16x9.jpg'
+    );
+  });
+
+  it('produces width-specific URLs across srcset candidates for pre-baked transforms', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toContain(
+      '/image/width=640,quality=75,format=auto/'
+    );
+    expect(imageLoader({ src: url, width: 1080 })).toContain(
+      '/image/width=1080,quality=75,format=auto/'
+    );
+  });
+
+  it('leaves pre-baked transforms with an explicit width untouched', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/width=320,quality=70,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 1080, quality: 90 })).toBe(url);
+  });
+
+  it('preserves query and hash when injecting width into pre-baked transforms', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/post.jpg?v=2#hero';
+    expect(imageLoader({ src: url, width: 640, quality: 75 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/blog/post.jpg?v=2#hero'
+    );
   });
 
   it('adds loader params to non-OgaBassey https URLs', () => {

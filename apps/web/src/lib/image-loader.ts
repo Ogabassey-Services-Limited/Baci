@@ -51,7 +51,9 @@ export default function imageLoader({
           quality,
           src,
           width,
-        }) ?? src
+        }) ??
+        buildOgabasseyPrebakedImageWidthUrl({ quality, src, width }) ??
+        src
       );
     }
 
@@ -110,6 +112,81 @@ function buildOgabasseyCdnTransformUrl({
   const transformQuality = clampQuality(quality);
 
   return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=auto${url.pathname}${url.search}${url.hash}`;
+}
+
+const OGABASSEY_IMAGE_TRANSFORM_PREFIX = '/image/';
+
+/**
+ * Pre-baked OgaBassey CDN transform URLs that omit a width (e.g.
+ * `/image/format=auto/<path>`) are otherwise returned unchanged, so
+ * next/image's srcset would request the same full-resolution asset for every
+ * candidate width. Inject the requested width (and a quality default) into the
+ * existing transform segment so each srcset entry resolves to a correctly sized
+ * image. URLs that already pin an explicit `width=` are left untouched to honor
+ * deliberately sized transforms.
+ */
+function buildOgabasseyPrebakedImageWidthUrl({
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string | null {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return null;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    !url.pathname.startsWith(OGABASSEY_IMAGE_TRANSFORM_PREFIX)
+  ) {
+    return null;
+  }
+
+  const remainder = url.pathname.slice(OGABASSEY_IMAGE_TRANSFORM_PREFIX.length);
+  const separatorIndex = remainder.indexOf('/');
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const transformSegment = remainder.slice(0, separatorIndex);
+  const assetPath = remainder.slice(separatorIndex);
+  if (!TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(assetPath)) {
+    return null;
+  }
+
+  const params = new Map<string, string>();
+  for (const part of transformSegment.split(',')) {
+    const [key, value] = part.split('=');
+    const trimmedKey = key?.trim();
+    if (trimmedKey) {
+      params.set(trimmedKey, (value ?? '').trim());
+    }
+  }
+
+  // Respect deliberately sized transforms — only fill in a missing width.
+  if (params.has('width')) {
+    return null;
+  }
+
+  const existingQuality = Number(params.get('quality'));
+  const transformWidth = clampDimension(width);
+  const transformQuality = clampQuality(
+    quality ?? (Number.isFinite(existingQuality) ? existingQuality : undefined)
+  );
+  const format = params.get('format') || 'auto';
+  const extras = Array.from(params.entries())
+    .filter(([key]) => key !== 'width' && key !== 'quality' && key !== 'format')
+    .map(([key, value]) => `${key}=${value}`);
+  const rebuiltTransform = [
+    `width=${transformWidth}`,
+    `quality=${transformQuality}`,
+    `format=${format}`,
+    ...extras,
+  ].join(',');
+
+  return `${url.origin}${OGABASSEY_IMAGE_TRANSFORM_PREFIX}${rebuiltTransform}${assetPath}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {
