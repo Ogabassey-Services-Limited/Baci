@@ -387,6 +387,25 @@ function setHtmlAttribute(tag: string, attributeName: string, value: string) {
   });
 }
 
+function readPositiveIntegerHtmlAttribute(
+  tag: string,
+  attributeName: string
+): number | undefined {
+  const value = readHtmlTagAttribute(tag, attributeName);
+  if (!value || !/^\d+$/.test(value)) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function readInlineImageDimensions(imgTag: string) {
+  const width = readPositiveIntegerHtmlAttribute(imgTag, 'width');
+  const height = readPositiveIntegerHtmlAttribute(imgTag, 'height');
+  return width && height ? { height, width } : undefined;
+}
+
 function buildResponsiveInlineImageTag(
   imgTag: string,
   siblings: ReturnType<typeof buildInlineImageSiblings>,
@@ -468,7 +487,10 @@ export function wrapTrustedCdnInlineImagesInPicture(
       // (entities already escaped). Deriving siblings only appends `.avif`/`.webp`,
       // so the values stay correctly escaped — re-escaping here would double-encode
       // ampersands in any query string (`&amp;` -> `&amp;amp;`).
-      const siblings = buildInlineImageSiblings(src);
+      const siblings = buildInlineImageSiblings(
+        src,
+        readInlineImageDimensions(imgTag)
+      );
       const fallbackImg = buildResponsiveInlineImageTag(imgTag, siblings, {
         isFirstBodyImage: prioritizeFirstBodyImage && bodyImageIndex === 1,
       });

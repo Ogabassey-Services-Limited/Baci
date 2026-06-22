@@ -11,6 +11,7 @@ const POSTHOG_LOADED_STATE_CHECK_INTERVAL_MS = 250;
 const POSTHOG_LOADED_STATE_CHECK_ATTEMPTS = 40;
 
 let hasInitializedPostHogBrowser = false;
+let lastConfiguredPostHogLightweight: boolean | undefined;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
@@ -38,10 +39,6 @@ export function initializePostHogBrowser(
   env: PostHogEnv = process.env,
   logger: Pick<Console, 'warn'> = console
 ) {
-  if (hasInitializedPostHogBrowser) {
-    return;
-  }
-
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 
   if (!projectToken) {
@@ -57,9 +54,19 @@ export function initializePostHogBrowser(
 
   isPostHogBrowserDisabled = false;
 
+  const lightweight = isLightweightPostHogSurface();
   const clientConfig = buildPostHogClientConfig(env, projectToken, {
-    lightweight: isLightweightPostHogSurface(),
+    lightweight,
   });
+  if (hasInitializedPostHogBrowser) {
+    if (lastConfiguredPostHogLightweight !== lightweight) {
+      const { loaded: _loaded, ...runtimeConfig } = clientConfig;
+      posthog.set_config(runtimeConfig);
+      lastConfiguredPostHogLightweight = lightweight;
+    }
+    return;
+  }
+
   const clientLoaded = clientConfig.loaded;
 
   try {
@@ -78,6 +85,7 @@ export function initializePostHogBrowser(
       },
     });
     hasInitializedPostHogBrowser = true;
+    lastConfiguredPostHogLightweight = lightweight;
     postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
     schedulePostHogLoadedStateCheck();

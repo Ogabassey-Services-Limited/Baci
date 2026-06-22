@@ -95,6 +95,7 @@ function buildTransformSegment(
   width: number
 ): string {
   const pinnedQuality = params.get('quality') || params.get('q');
+  const quality = pinnedQuality || String(INLINE_IMAGE_QUALITY);
   const format = params.get('format') || params.get('f') || 'auto';
   const extras = Array.from(params.entries())
     .filter(([key]) => !TRANSFORM_RESERVED_KEYS.has(key))
@@ -102,7 +103,7 @@ function buildTransformSegment(
 
   return [
     `width=${width}`,
-    `quality=${INLINE_IMAGE_QUALITY || pinnedQuality || 70}`,
+    `quality=${quality}`,
     `format=${format}`,
     ...extras,
   ].join(',');
@@ -177,7 +178,10 @@ function buildResponsiveSrcSet(src: string): string {
  * Caller must gate on {@link isTrustedCdnInlineImage} first. Any query/hash is
  * preserved by inserting the suffix before it.
  */
-export function buildInlineImageSiblings(src: string): InlineImageSiblings {
+export function buildInlineImageSiblings(
+  src: string,
+  dimensions: Partial<Pick<InlineImageSiblings, 'width' | 'height'>> = {}
+): InlineImageSiblings {
   const match = src.match(/^([^?#]+)([?#].*)?$/);
   const path = match?.[1] ?? src;
   const suffix = match?.[2] ?? '';
@@ -192,7 +196,7 @@ export function buildInlineImageSiblings(src: string): InlineImageSiblings {
     webpSrcSet: buildResponsiveSrcSet(webp),
     fallbackSrcSet: buildResponsiveSrcSet(src),
     sizes: BLOG_INLINE_IMAGE_SIZES,
-    width: BLOG_INLINE_IMAGE_WIDTH,
-    height: BLOG_INLINE_IMAGE_HEIGHT,
+    width: dimensions.width || BLOG_INLINE_IMAGE_WIDTH,
+    height: dimensions.height || BLOG_INLINE_IMAGE_HEIGHT,
   };
 }

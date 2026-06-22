@@ -138,4 +138,23 @@ describe('buildInlineImageSiblings', () => {
       'width=384,quality=70,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png.avif?v=2 384w'
     );
   });
+  it('preserves explicit inline image dimensions when provided', () => {
+    const siblings = buildInlineImageSiblings(INLINE, {
+      height: 1200,
+      width: 900,
+    });
+
+    expect(siblings.width).toBe(900);
+    expect(siblings.height).toBe(1200);
+  });
+
+  it('preserves an existing CDN quality transform while adding responsive widths', () => {
+    const lowQualitySrc = `${CDN}/image/quality=35,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
+    const siblings = buildInlineImageSiblings(lowQualitySrc);
+
+    expect(siblings.fallback).toContain('width=828,quality=35,format=auto');
+    expect(siblings.fallbackSrcSet).toContain(
+      'width=640,quality=35,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
+    );
+  });
 });

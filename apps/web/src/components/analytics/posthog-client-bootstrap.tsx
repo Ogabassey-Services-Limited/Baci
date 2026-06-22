@@ -14,28 +14,36 @@ export function PostHogClientBootstrap() {
   useEffect(() => {
     const currentPathname = pathname ?? globalThis.location?.pathname;
 
-    if (!currentPathname || isPublicBlogPathname(currentPathname)) {
+    if (!currentPathname) {
       return;
     }
 
+    const isPublicBlog = isPublicBlogPathname(currentPathname);
     let cancelled = false;
 
     async function initialize() {
       try {
-        const [
-          { initializePostHogInstrumentationIfAllowed },
-          { initializePostHogBrowser },
-        ] = await Promise.all([
-          import('@/instrumentation-client'),
-          import('@/lib/posthog/browser'),
-        ]);
+        const { initializePostHogBrowser } = await import(
+          '@/lib/posthog/browser'
+        );
 
         if (cancelled) {
           return;
         }
 
-        initializePostHogInstrumentationIfAllowed(currentPathname);
         initializePostHogBrowser(postHogBrowserEnv);
+
+        if (isPublicBlog) {
+          return;
+        }
+
+        const { initializePostHogInstrumentationIfAllowed } = await import(
+          '@/instrumentation-client'
+        );
+
+        if (!cancelled) {
+          initializePostHogInstrumentationIfAllowed(currentPathname);
+        }
       } catch (error) {
         if (!cancelled) {
           logger.warn({

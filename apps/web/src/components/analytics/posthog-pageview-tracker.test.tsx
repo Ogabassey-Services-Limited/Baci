@@ -6,6 +6,7 @@ let pathname = '/';
 
 const mocks = vi.hoisted(() => ({
   capturePostHogPageview: vi.fn(),
+  initializePostHogBrowser: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -14,17 +15,14 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/posthog/browser', () => ({
   capturePostHogPageview: mocks.capturePostHogPageview,
+  initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
-
-async function flushPostHogEffects() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
 
 describe('PostHogPageviewTracker', () => {
   beforeEach(() => {
     pathname = '/';
     mocks.capturePostHogPageview.mockClear();
+    mocks.initializePostHogBrowser.mockClear();
     window.history.replaceState(null, '', '/');
   });
 
@@ -56,13 +54,17 @@ describe('PostHogPageviewTracker', () => {
     });
   });
 
-  it('skips public blog pageviews to keep blog pages light', async () => {
+  it('captures public blog pageviews with lightweight browser initialization', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     window.history.replaceState(null, '', pathname);
 
     render(<PostHogPageviewTracker />);
-    await flushPostHogEffects();
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+    expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
+      'http://localhost:3000/ogabassey/blog/phone-guide'
+    );
   });
 
   it('captures after a client navigation from blog to a non-blog page', async () => {
@@ -70,8 +72,11 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', pathname);
     const { rerender } = render(<PostHogPageviewTracker />);
 
-    await flushPostHogEffects();
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
+        'http://localhost:3000/ogabassey/blog/phone-guide'
+      );
+    });
 
     pathname = '/ogabassey/laptops/macbook-pro';
     window.history.pushState(null, '', pathname);
@@ -81,6 +86,7 @@ describe('PostHogPageviewTracker', () => {
       expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
         'http://localhost:3000/ogabassey/laptops/macbook-pro'
       );
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
     });
   });
 });

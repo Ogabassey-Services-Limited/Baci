@@ -505,6 +505,16 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain('fetchpriority="high"');
   });
 
+  it('preserves trusted inline image dimensions from the source HTML', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" width="900" height="1200" alt="Portrait" />`
+    );
+
+    expect(out).toContain('width="900"');
+    expect(out).toContain('height="1200"');
+    expect(out).toContain('alt="Portrait"');
+  });
+
   it('lazy-loads later optimized legacy body images', () => {
     const secondCdn = CDN.replace(
       'inline-1-b9244d7a754d',

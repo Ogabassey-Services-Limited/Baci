@@ -6,10 +6,12 @@ const mocks = vi.hoisted(() => {
   const clientConfigLoaded = vi.fn();
   const posthogCapture = vi.fn();
   const posthogInit = vi.fn();
+  const posthogSetConfig = vi.fn();
   const posthogClient = {
     __loaded: false,
     capture: posthogCapture,
     init: posthogInit,
+    set_config: posthogSetConfig,
   };
 
   return {
@@ -21,6 +23,7 @@ const mocks = vi.hoisted(() => {
     posthogCapture,
     posthogClient,
     posthogInit,
+    posthogSetConfig,
   };
 });
 
@@ -79,12 +82,13 @@ describe('initializePostHogBrowser', () => {
     initializePostHogBrowser(env);
     initializePostHogBrowser(env);
 
-    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
-    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(
+    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledTimes(2);
+    expect(mocks.buildPostHogClientConfig).toHaveBeenLastCalledWith(
       env,
       'ph_project_token',
       { lightweight: false }
     );
+    expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
     expect(mocks.posthogInit).toHaveBeenCalledWith(
       'ph_project_token',
@@ -113,6 +117,39 @@ describe('initializePostHogBrowser', () => {
       'ph_project_token',
       { lightweight: true }
     );
+
+    vi.unstubAllGlobals();
+  });
+
+  it('reconfigures an initialized client when entering public blog surfaces', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/pricing',
+      href: 'https://usebaci.com/pricing',
+    });
+    const { initializePostHogBrowser } = await importBrowserInitializer();
+
+    initializePostHogBrowser(env);
+
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      href: 'https://usebaci.com/ogabassey/blog/best-phones',
+    });
+    initializePostHogBrowser(env);
+
+    expect(mocks.buildPostHogClientConfig).toHaveBeenLastCalledWith(
+      env,
+      'ph_project_token',
+      { lightweight: true }
+    );
+    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
+    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
+      api_host: '/baci-relay',
+    });
 
     vi.unstubAllGlobals();
   });

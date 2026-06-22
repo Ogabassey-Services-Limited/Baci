@@ -25,11 +25,6 @@ function importPostHogClientBootstrap() {
   return import('./posthog-client-bootstrap');
 }
 
-async function flushPostHogEffects() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
 afterEach(() => {
   pathname = '/';
   vi.clearAllMocks();
@@ -57,7 +52,7 @@ describe('PostHogClientBootstrap', () => {
     );
   });
 
-  it('skips PostHog on public blog pages', async () => {
+  it('initializes lightweight PostHog on public blog pages without heavy instrumentation', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     vi.stubGlobal('location', {
       pathname,
@@ -67,8 +62,12 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
-    await flushPostHogEffects();
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).not.toHaveBeenCalled();
   });
 
   it('initializes PostHog after a client navigation from blog to a non-blog page', async () => {
@@ -81,8 +80,12 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     const { rerender } = render(<PostHogClientBootstrap />);
-    await flushPostHogEffects();
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).not.toHaveBeenCalled();
 
     pathname = '/ogabassey/laptops/macbook-pro';
     vi.stubGlobal('location', {
@@ -93,7 +96,7 @@ describe('PostHogClientBootstrap', () => {
     rerender(<PostHogClientBootstrap />);
 
     await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
     });
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
