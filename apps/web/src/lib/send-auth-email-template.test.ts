@@ -73,4 +73,31 @@ describe('send-auth-email template helpers', () => {
     expect(html).toContain('class="a-badge"');
     expect(html).not.toContain('linear-gradient');
   });
+
+  it('omits the Ogabassey CTA when the action URL is unsafe', () => {
+    const config = getEmailConfig('magiclink', 'Ogabassey');
+    const branding = {
+      businessName: 'Ogabassey',
+      customDomain: 'ogabassey.com',
+      emailSenderName: 'Ogabassey',
+      logoUrl: null,
+      primaryColor: '#d62027',
+      buttonColor: '#d62027',
+      buttonTextColor: '#ffffff',
+      slug: 'ogabassey',
+      supportEmail: 'support@ogabassey.com',
+    };
+
+    const html = generateEmailHtml(
+      config,
+      'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
+      branding,
+      '123456',
+      'javascript:alert(1)'
+    );
+
+    expect(html).toContain('123456');
+    expect(html).not.toContain('javascript:alert');
+    expect(html).not.toContain(config.buttonText);
+  });
 });
