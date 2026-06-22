@@ -51,7 +51,9 @@ export default function imageLoader({
           quality,
           src,
           width,
-        }) ?? src
+        }) ??
+        buildOgabasseyPrebakedImageWidthUrl({ quality, src, width }) ??
+        src
       );
     }
 
@@ -110,6 +112,107 @@ function buildOgabasseyCdnTransformUrl({
   const transformQuality = clampQuality(quality);
 
   return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=auto${url.pathname}${url.search}${url.hash}`;
+}
+
+const OGABASSEY_IMAGE_TRANSFORM_PREFIX = '/image/';
+// CDN transform option keys (and their aliases) the parser understands.
+const OGABASSEY_TRANSFORM_DIMENSION_KEYS = ['width', 'w', 'height', 'h'];
+const OGABASSEY_TRANSFORM_RESERVED_KEYS = new Set([
+  'width',
+  'w',
+  'height',
+  'h',
+  'quality',
+  'q',
+  'format',
+  'f',
+]);
+
+/**
+ * Pre-baked OgaBassey CDN transform URLs that omit a width (e.g.
+ * `/image/format=auto/<path>`) are otherwise returned unchanged, so
+ * next/image's srcset would request the same full-resolution asset for every
+ * candidate width. Inject the requested width (and a quality default) into the
+ * existing transform segment so each srcset entry resolves to a correctly sized
+ * image. URLs that already pin an explicit `width=` are left untouched to honor
+ * deliberately sized transforms.
+ */
+function buildOgabasseyPrebakedImageWidthUrl({
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string | null {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return null;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    !url.pathname.startsWith(OGABASSEY_IMAGE_TRANSFORM_PREFIX)
+  ) {
+    return null;
+  }
+
+  const remainder = url.pathname.slice(OGABASSEY_IMAGE_TRANSFORM_PREFIX.length);
+  const separatorIndex = remainder.indexOf('/');
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const transformSegment = remainder.slice(0, separatorIndex);
+  const assetPath = remainder.slice(separatorIndex);
+  if (!TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(assetPath)) {
+    return null;
+  }
+
+  const params = new Map<string, string>();
+  for (const part of transformSegment.split(',')) {
+    // Split on the FIRST '=' only so values that contain '=' survive intact.
+    const equalsIndex = part.indexOf('=');
+    const key = (equalsIndex >= 0 ? part.slice(0, equalsIndex) : part).trim();
+    if (key) {
+      params.set(
+        key,
+        equalsIndex >= 0 ? part.slice(equalsIndex + 1).trim() : ''
+      );
+    }
+  }
+
+  // Honor a deliberately sized transform: the CDN resolves dimensions as
+  // `width || w` and `height || h`, so skip injection when ANY of those is
+  // already pinned (a blank value like `width=` is treated as unset). This only
+  // fills in genuinely unsized transforms (e.g. `format=auto`).
+  for (const dimensionKey of OGABASSEY_TRANSFORM_DIMENSION_KEYS) {
+    if (params.get(dimensionKey)) {
+      return null;
+    }
+  }
+
+  const transformWidth = clampDimension(width);
+  // Resolve quality/format from canonical OR aliased keys (CDN uses
+  // `quality || q`, `format || f`); a blank value defaults rather than clamping.
+  const pinnedQuality = params.get('quality') || params.get('q');
+  const transformQuality = clampQuality(
+    quality ?? (pinnedQuality ? Number(pinnedQuality) : undefined)
+  );
+  const format = params.get('format') || params.get('f') || 'auto';
+  // Drop every key we re-emit canonically (incl. aliases) so a leftover alias
+  // can't override the injected value via the CDN's `canonical || alias` rule;
+  // keep genuinely unknown params (e.g. `fit=cover`).
+  const extras = Array.from(params.entries())
+    .filter(([key]) => !OGABASSEY_TRANSFORM_RESERVED_KEYS.has(key))
+    .map(([key, value]) => `${key}=${value}`);
+  const rebuiltTransform = [
+    `width=${transformWidth}`,
+    `quality=${transformQuality}`,
+    `format=${format}`,
+    ...extras,
+  ].join(',');
+
+  return `${url.origin}${OGABASSEY_IMAGE_TRANSFORM_PREFIX}${rebuiltTransform}${assetPath}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {
