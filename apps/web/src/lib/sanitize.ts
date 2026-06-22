@@ -87,6 +87,20 @@ export function sanitizeHtml(
     : 0;
   const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
     a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    img: (_tagName, attribs) => {
+      const nextAttribs = { ...attribs };
+      const allowPriorityImage =
+        nextAttribs['data-baci-priority-image'] === 'true';
+      delete nextAttribs['data-baci-priority-image'];
+      if (!allowPriorityImage) {
+        delete nextAttribs.fetchpriority;
+      }
+
+      return {
+        tagName: 'img',
+        attribs: nextAttribs,
+      };
+    },
   };
 
   if (headingLevelOffset > 0) {

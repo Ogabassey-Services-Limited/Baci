@@ -155,4 +155,19 @@ describe('buildInlineImageSiblings', () => {
       'width=640,quality=35,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 640w'
     );
   });
+
+  it('rebuilds pinned CDN dimensions for each responsive srcset width', () => {
+    const pinnedWidthSrc = `${CDN}/image/width=1600,height=900,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png`;
+    const siblings = buildInlineImageSiblings(pinnedWidthSrc);
+
+    expect(siblings.fallback).toContain('width=828,quality=50,format=auto');
+    expect(siblings.fallback).not.toContain('width=1600');
+    expect(siblings.fallback).not.toContain('height=900');
+    expect(siblings.fallbackSrcSet).toContain(
+      'width=384,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 384w'
+    );
+    expect(siblings.fallbackSrcSet).toContain(
+      'width=1200,quality=50,format=auto/core-assets/blog/codex/post-token/inline-1-b9244d7a754d.png 1200w'
+    );
+  });
 });

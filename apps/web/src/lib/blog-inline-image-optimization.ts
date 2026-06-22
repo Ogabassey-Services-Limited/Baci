@@ -47,7 +47,6 @@ const INLINE_IMAGE_FALLBACK_WIDTH = 828;
 const INLINE_IMAGE_QUALITY = 70;
 const CDN_IMAGE_TRANSFORM_PREFIX = '/image/';
 const TRANSFORMABLE_IMAGE_EXTENSION_PATTERN = /\.(?:avif|jpe?g|png|webp)$/i;
-const TRANSFORM_DIMENSION_KEYS = ['width', 'w', 'height', 'h'] as const;
 const TRANSFORM_RESERVED_KEYS = new Set([
   'width',
   'w',
@@ -142,12 +141,6 @@ function buildTrustedCdnTransformUrl(
   }
 
   const params = parseTransformSegment(transformSegment);
-  for (const dimensionKey of TRANSFORM_DIMENSION_KEYS) {
-    if (params.get(dimensionKey)) {
-      return src;
-    }
-  }
-
   return `${url.origin}${CDN_IMAGE_TRANSFORM_PREFIX}${buildTransformSegment(params, width)}${assetPath}${url.search}${url.hash}`;
 }
 

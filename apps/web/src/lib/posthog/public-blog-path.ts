@@ -19,16 +19,38 @@ const PLATFORM_PATH_MODE_HOSTS = new Set([
   'www.usebaci.com',
 ]);
 
-function isPlatformPathModeHost(hostname: string | null | undefined) {
-  const normalized = hostname?.split(':', 1)[0]?.toLowerCase() ?? '';
-  return PLATFORM_PATH_MODE_HOSTS.has(normalized);
+function normalizeHostname(hostname: string | null | undefined) {
+  return (
+    hostname
+      ?.split(':', 1)[0]
+      ?.toLowerCase()
+      .replace(/^www\./, '') ?? ''
+  );
+}
+
+function normalizeRootDomain(rootDomain: string | null | undefined) {
+  return normalizeHostname(rootDomain || 'usebaci.com');
+}
+
+function isPlatformPathModeHost(
+  hostname: string | null | undefined,
+  rootDomain: string | null | undefined
+) {
+  const normalized = normalizeHostname(hostname);
+  const configuredRootDomain = normalizeRootDomain(rootDomain);
+  return (
+    PLATFORM_PATH_MODE_HOSTS.has(normalized) ||
+    normalized === configuredRootDomain ||
+    normalized.endsWith('.vercel.app')
+  );
 }
 
 export function isPublicBlogPathname(
   pathname: string | null | undefined,
   {
     hostname = globalThis.location?.hostname,
-  }: { hostname?: string | null } = {}
+    rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+  }: { hostname?: string | null; rootDomain?: string | null } = {}
 ) {
   const normalizedPathname = pathname?.split(/[?#]/, 1)[0]?.trim() || '/';
   const segments = normalizedPathname.split('/').filter(Boolean);
@@ -47,7 +69,7 @@ export function isPublicBlogPathname(
   }
 
   return (
-    isPlatformPathModeHost(hostname) &&
+    isPlatformPathModeHost(hostname, rootDomain) &&
     segments.length >= 2 &&
     segments[1]?.toLowerCase() === 'blog'
   );

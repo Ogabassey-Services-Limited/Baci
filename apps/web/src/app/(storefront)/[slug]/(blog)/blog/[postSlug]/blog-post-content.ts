@@ -422,7 +422,9 @@ function buildResponsiveInlineImageTag(
     ...(siblings.height ? { height: String(siblings.height) } : {}),
     loading: isFirstBodyImage ? 'eager' : 'lazy',
     decoding: isFirstBodyImage ? 'sync' : 'async',
-    ...(isFirstBodyImage ? { fetchpriority: 'high' } : {}),
+    ...(isFirstBodyImage
+      ? { 'data-baci-priority-image': 'true', fetchpriority: 'high' }
+      : {}),
   };
 
   for (const [attributeName, value] of Object.entries(attributes)) {

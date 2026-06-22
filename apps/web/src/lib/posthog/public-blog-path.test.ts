@@ -49,4 +49,21 @@ describe('isPublicBlogPathname', () => {
       isPublicBlogPathname('/phones/blog', { hostname: 'shop.usebaci.com' })
     ).toBe(false);
   });
+
+  it('honors the configured platform root domain for path-mode blogs', () => {
+    expect(
+      isPublicBlogPathname('/ogabassey/blog/post-1', {
+        hostname: 'preview.baci.test',
+        rootDomain: 'preview.baci.test',
+      })
+    ).toBe(true);
+  });
+
+  it('treats Vercel preview hosts as platform path-mode hosts', () => {
+    expect(
+      isPublicBlogPathname('/ogabassey/blog/post-1', {
+        hostname: 'baci-git-feature-ogabasseyy.vercel.app',
+      })
+    ).toBe(true);
+  });
 });
