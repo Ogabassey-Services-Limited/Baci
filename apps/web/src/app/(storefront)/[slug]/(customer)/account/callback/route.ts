@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
+export const preferredRegion = 'dub1';
+
 /**
  * Storefront OAuth Callback Handler
  *

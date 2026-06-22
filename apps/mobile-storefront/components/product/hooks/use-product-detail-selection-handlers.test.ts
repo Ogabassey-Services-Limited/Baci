@@ -43,6 +43,7 @@ function createRouteData(overrides: Record<string, unknown> = {}) {
     setHasCustomizedSelection: jest.fn(),
     setSelectedAttributes: jest.fn(),
     setSelectedColor: jest.fn(),
+    setSelectedCondition: jest.fn(),
     setSelectedImageIndex: jest.fn(),
     setSelectedStorage: jest.fn(),
     setSelectedVariant: jest.fn(),
@@ -53,7 +54,9 @@ function createRouteData(overrides: Record<string, unknown> = {}) {
 }
 
 function resolveAttributeUpdate(
-  updater: Record<string, string> | ((current: Record<string, string>) => Record<string, string>)
+  updater:
+    | Record<string, string>
+    | ((current: Record<string, string>) => Record<string, string>)
 ) {
   return typeof updater === 'function' ? updater({ ram: '6GB' }) : updater;
 }
@@ -224,5 +227,26 @@ describe('useProductDetailSelectionHandlers', () => {
     expect(routeData.setSelectedColor).toHaveBeenCalledWith('Blue');
     expect(routeData.setSelectedStorage).toHaveBeenCalledWith('256GB');
     expect(routeData.setSelectedImageIndex).toHaveBeenCalledWith(1);
+  });
+
+  it('stores condition as an attribute when condition is attribute-backed', () => {
+    const routeData = createRouteData({
+      effectiveSelectedAttributes: { condition: 'used', storage: '128GB' },
+      usesVariantConditions: false,
+    });
+    const handlers = useProductDetailSelectionHandlers(routeData as never);
+
+    handlers.onSelectCondition('open_box');
+
+    expect(routeData.setSelectedCondition).toHaveBeenCalledWith('open_box');
+    expect(routeData.setSelectedVariant).toHaveBeenCalledWith(null);
+    expect(routeData.setSelectedAttributes).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        routeData.setSelectedAttributes.mock.calls[0][0] as (
+          current: Record<string, string>
+        ) => Record<string, string>
+      )({ condition: 'used', storage: '128GB' })
+    ).toEqual({ condition: 'open_box', storage: '128GB' });
   });
 });

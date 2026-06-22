@@ -10,6 +10,10 @@ import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogaba
 import { OgabasseyShellMobileHero } from '@/components/storefront/ogabassey/components/ogabassey-shell-mobile-hero';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
+// Co-locate with the Supabase primary (eu-west-1 / Dublin) — route handlers
+// and sibling layouts do not inherit the [slug] layout preferredRegion.
+export const preferredRegion = 'dub1';
+
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
 const OGABASSEY_DOMAIN_PARAMS = Promise.resolve({
   slug: OGABASSEY_DOMAIN_IDENTIFIER,

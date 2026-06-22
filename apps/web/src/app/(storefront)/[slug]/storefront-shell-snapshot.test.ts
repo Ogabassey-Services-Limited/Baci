@@ -123,6 +123,23 @@ describe('getStorefrontShellSnapshot', () => {
     expect(getCachedNavigationCategories).toHaveBeenCalledWith('merchant-1');
   });
 
+  it('does not read request headers when the storefront identifier is already a domain', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+
+    const shellSnapshotBase =
+      await getStorefrontShellSnapshotBase('ogabassey.com');
+
+    expect(shellSnapshotBase).toMatchObject({
+      routingMode: 'domain',
+      basePath: '',
+    });
+    expect(mockHeaders).not.toHaveBeenCalled();
+  });
+
   it('treats slug subdomains as domain-routed even without x-merchant headers', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       baseMerchant as unknown as Awaited<

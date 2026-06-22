@@ -54,10 +54,92 @@ describe('imageLoader', () => {
     );
   });
 
-  it('preserves explicit OgaBassey CDN transformer URLs without resizing them', () => {
+  it('injects a width into pre-baked OgaBassey transform URLs that omit one', () => {
+    // A pre-baked `/image/format=auto/` URL (no width) would otherwise be
+    // returned unchanged, serving the full-resolution asset for every srcset
+    // candidate. Inject the requested width so each candidate is sized.
     const url =
       'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/codex/post-landscape_16x9.jpg';
-    expect(imageLoader({ src: url, width: 192, quality: 80 })).toBe(url);
+    expect(imageLoader({ src: url, width: 192, quality: 80 })).toBe(
+      'https://cdn.ogabassey.com/image/width=192,quality=80,format=auto/core-assets/blog/codex/post-landscape_16x9.jpg'
+    );
+  });
+
+  it('produces width-specific URLs across srcset candidates for pre-baked transforms', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toContain(
+      '/image/width=640,quality=75,format=auto/'
+    );
+    expect(imageLoader({ src: url, width: 1080 })).toContain(
+      '/image/width=1080,quality=75,format=auto/'
+    );
+  });
+
+  it('leaves pre-baked transforms with an explicit width untouched', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/width=320,quality=70,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 1080, quality: 90 })).toBe(url);
+  });
+
+  it('preserves query and hash when injecting width into pre-baked transforms', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/post.jpg?v=2#hero';
+    expect(imageLoader({ src: url, width: 640, quality: 75 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/blog/post.jpg?v=2#hero'
+    );
+  });
+
+  it('preserves unknown extra transform params when injecting width', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/format=auto,fit=cover/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto,fit=cover/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('reuses an existing quality from the pre-baked transform when none is requested', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/quality=40,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=40,format=auto/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('injects width when a pre-baked transform pins a blank width value', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/width=,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('defaults quality when a pre-baked transform pins a blank quality value', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/quality=,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=75,format=auto/core-assets/blog/post.jpg'
+    );
+  });
+
+  it('leaves transforms sized via the `w=` width alias untouched', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/w=320,format=auto/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 1080 })).toBe(url);
+  });
+
+  it('leaves height-constrained transforms untouched (width||w and height||h)', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/height=320,fit=cover/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 1080 })).toBe(url);
+  });
+
+  it('resolves quality/format from aliases and drops the alias keys', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/q=90,f=webp,fit=cover/core-assets/blog/post.jpg';
+    expect(imageLoader({ src: url, width: 640 })).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=90,format=webp,fit=cover/core-assets/blog/post.jpg'
+    );
   });
 
   it('adds loader params to non-OgaBassey https URLs', () => {

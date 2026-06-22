@@ -1,11 +1,10 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { Suspense, type ReactNode } from 'react';
 import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-  OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-} from '@/components/storefront/ogabassey/config/product-media';
+  OgabasseyPdpCriticalConditionBadge,
+  OgabasseyPdpCriticalProductImage,
+} from './critical-commerce.client';
 import type { OgabasseyPdpCriticalProduct } from './critical-product';
 
 interface OgabasseyPdpCriticalShellProps {
@@ -143,19 +142,13 @@ export function OgabasseyPdpCriticalShell({
         </nav>
         <div data-ogabassey-pdp-grid>
           <div data-ogabassey-pdp-image-frame>
-            <Image
+            <OgabasseyPdpCriticalProductImage
               alt={product.name}
-              data-ogabassey-pdp-image="true"
-              fetchPriority="high"
-              fill
-              loading="eager"
-              quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
-              sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-              src={product.image}
+              fallbackImage={product.image}
             />
-            <span data-ogabassey-pdp-condition>
-              {product.condition}
-            </span>
+            <OgabasseyPdpCriticalConditionBadge
+              fallbackCondition={product.condition}
+            />
           </div>
           <div data-ogabassey-pdp-summary>
             <p data-ogabassey-pdp-brand>{product.brand}</p>

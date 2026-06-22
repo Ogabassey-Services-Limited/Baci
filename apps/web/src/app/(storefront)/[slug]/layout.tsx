@@ -27,6 +27,14 @@ import {
   getStorefrontShellSnapshotBase,
 } from './storefront-shell-snapshot';
 
+// Run storefront SSR next to the Supabase primary (AWS eu-west-1 / Dublin) so
+// every render's DB round-trips stay intra-region. Neither `vercel.json`
+// `regions` nor the project's serverlessFunctionRegion is honored for Next.js
+// App Router functions — `preferredRegion` is the only mechanism the framework
+// builder bakes into the function config. Inherited by storefront PAGE routes;
+// route handlers + sibling layouts export it individually.
+export const preferredRegion = 'dub1';
+
 const STORE_NOT_FOUND_METADATA: Metadata = {
   title: 'Store Not Found',
   // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.

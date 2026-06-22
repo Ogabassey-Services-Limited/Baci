@@ -228,10 +228,10 @@ function isOgabasseyBrand(branding: MerchantBranding): boolean {
 function renderLogo(branding: MerchantBranding, safeBrandName: string): string {
   const safeLogoUrl = sanitizeUrl(branding.logoUrl ?? '');
   if (!safeLogoUrl) {
-    return `<span style="font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
+    return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
   }
 
-  return `<span style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;line-height:0;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;height:24px;width:auto;max-width:220px;"></span>`;
+  return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;background:#ffffff;border-radius:10px;padding:8px 12px;line-height:0;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;height:24px;width:auto;max-width:220px;"></span>`;
 }
 
 function renderTokenBlock(
@@ -282,7 +282,7 @@ function renderOgabasseyEmailHtml(
 @media (prefers-color-scheme:dark){
 .a-bg{background:#0b0b0c!important}.a-card{background:#161618!important;border-color:#2a2a2e!important}.a-strong{color:#f4f4f5!important}.a-muted{color:#c3c5cc!important}.a-footer{background:#101012!important;border-color:#2a2a2e!important}
 }
-@media only screen and (max-width:600px){.a-card{width:100%!important;border-radius:0!important}.a-pad{padding-left:24px!important;padding-right:24px!important}.a-cta{display:block!important;width:100%!important;box-sizing:border-box!important}}
+@media only screen and (max-width:600px){.a-card{width:100%!important;border-radius:0!important}.a-pad{padding-left:24px!important;padding-right:24px!important}.a-cta{display:block!important;width:100%!important;box-sizing:border-box!important}.a-brand-cell,.a-badge-cell{display:block!important;width:100%!important;text-align:left!important}.a-badge-cell{padding-top:14px!important}.a-brand-logo img{height:auto!important;max-width:180px!important}.a-badge{display:inline-block!important;white-space:normal!important;max-width:100%!important}}
 </style>
 </head>
 <body class="a-bg" style="margin:0;padding:0;background:#f2f4f7;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
@@ -292,8 +292,8 @@ function renderOgabasseyEmailHtml(
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="a-card" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #e8edf3;border-radius:18px;overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,0.10);">
 <tr><td class="a-pad" style="background:#101010;padding:30px 34px 28px 34px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td valign="middle">${renderLogo(branding, safeBrandName)}</td>
-<td valign="middle" align="right"><span style="display:inline-block;border:1px solid ${brandColor};background:rgba(${hexToRgb(brandColor)},0.16);border-radius:999px;padding:7px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:800;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">Secure sign in</span></td>
+<td class="a-brand-cell" valign="middle">${renderLogo(branding, safeBrandName)}</td>
+<td class="a-badge-cell" valign="middle" align="right"><span class="a-badge" style="display:inline-block;border:1px solid ${brandColor};background:rgba(${hexToRgb(brandColor)},0.16);border-radius:999px;padding:7px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:800;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">Secure sign in</span></td>
 </tr></table>
 <div style="height:3px;width:46px;background:${brandColor};border-radius:4px;margin-top:24px;font-size:1px;line-height:3px;">&nbsp;</div>
 <h1 style="font-family:${FONT_STACK};font-size:25px;font-weight:800;color:#ffffff;line-height:1.25;margin:17px 0 0 0;">${escapeHtml(config.heading)}</h1>

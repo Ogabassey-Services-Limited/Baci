@@ -42,6 +42,7 @@ describe('variant attributes helpers', () => {
             sim_type: 'Dual Nano SIM',
             storage: '128GB',
           },
+          condition: 'refurbished',
         },
         {
           attributes: {
@@ -50,11 +51,13 @@ describe('variant attributes helpers', () => {
             sim_type: 'eSIM Only',
             storage: '512GB',
           },
+          condition: 'new',
         },
       ],
       [{ param: 'storage', options: ['128GB', '256GB', '512GB'] }]
     );
 
+    expect(merged.condition).toEqual(['open_box', 'new']);
     expect(merged.storage).toEqual(['128GB', '256GB', '512GB']);
     expect(merged.sim_type).toEqual(['Dual Nano SIM', 'eSIM Only']);
     expect(merged.color).toEqual(['Black']);
@@ -68,6 +71,7 @@ describe('variant attributes helpers', () => {
             attributes: {
               color: 'Black',
               color_hex: '#000000',
+              ram: '8GB',
               sim_type: 'Dual Nano SIM',
               storage: '128GB',
             },
@@ -76,6 +80,7 @@ describe('variant attributes helpers', () => {
             attributes: {
               color: 'White',
               color_hex: '#ffffff',
+              ram: '8GB',
               sim_type: 'eSIM Only',
               storage: '512GB',
             },
@@ -83,7 +88,39 @@ describe('variant attributes helpers', () => {
         ],
         [{ param: 'storage', options: ['128GB', '256GB', '512GB'] }]
       )
-    ).toEqual(['storage', 'sim_type']);
+    ).toEqual(['storage', 'ram', 'sim_type']);
+  });
+
+  it('shows condition as a selector only for multi-condition SKU matrices', () => {
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { storage: '128GB' }, condition: 'used' },
+          { attributes: { storage: '256GB' }, condition: 'new' },
+        ],
+        []
+      )
+    ).toEqual(['condition', 'storage']);
+
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { storage: '128GB' }, condition: 'used' },
+          { attributes: { storage: '256GB' }, condition: 'used' },
+        ],
+        []
+      )
+    ).toEqual(['storage']);
+
+    expect(
+      getRenderableVariantAxes(
+        [
+          { attributes: { storage: '128GB' } },
+          { attributes: { storage: '256GB' } },
+        ],
+        []
+      )
+    ).toEqual(['storage']);
   });
 
   describe('getAvailableOptionsForAxis', () => {
@@ -146,9 +183,16 @@ describe('variant attributes helpers', () => {
       const s24Variants = [
         {
           attributes: { ram: '12GB', storage: '512GB', sim_type: 'Single' },
+          condition: 'uk_used',
         },
-        { attributes: { ram: '12GB', storage: '512GB', sim_type: 'Dual' } },
-        { attributes: { ram: '12GB', storage: '1TB', sim_type: 'Single' } },
+        {
+          attributes: { ram: '12GB', storage: '512GB', sim_type: 'Dual' },
+          condition: 'new',
+        },
+        {
+          attributes: { ram: '12GB', storage: '1TB', sim_type: 'Single' },
+          condition: 'new',
+        },
       ];
 
       expect(
@@ -162,6 +206,12 @@ describe('variant attributes helpers', () => {
           storage: '512GB',
         }),
       ).toEqual(['Single', 'Dual']);
+
+      expect(
+        getAvailableOptionsForAxis('condition', s24Variants, {
+          sim_type: 'Single',
+        }),
+      ).toEqual(['used', 'new']);
     });
   });
 
@@ -185,6 +235,6 @@ describe('variant attributes helpers', () => {
         [{}, { attributes: undefined }, { attributes: { storage: '128GB' } }],
         []
       )
-    ).toEqual([]);
+    ).toEqual(['storage']);
   });
 });

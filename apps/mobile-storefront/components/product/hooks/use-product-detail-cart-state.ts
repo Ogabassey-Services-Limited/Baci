@@ -15,6 +15,11 @@ export function useProductDetailCartState(routeData: RouteData) {
     }))
   );
   const getConditionDisplay = (): string | undefined => {
+    if (routeData.effectiveSelectedAttributes.condition) {
+      return formatProductConditionDisplay(
+        routeData.effectiveSelectedAttributes.condition
+      );
+    }
     if (routeData.currentVariantDisplaySelection?.condition) {
       return formatProductConditionDisplay(
         routeData.currentVariantDisplaySelection.condition

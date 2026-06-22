@@ -140,8 +140,10 @@ describe('critical commerce selection helpers', () => {
     expect(
       normalizeCriticalVariantAttributes({
         ' ': 'Ignored',
+        Battery: null,
         'SIM Type': ' eSIM Only ',
         Color: ' ',
+        Camera: 48,
         RAM: '8GB  ',
         Storage: ' 256GB',
       })
@@ -186,11 +188,72 @@ describe('critical commerce selection helpers', () => {
     expect(normalizeCriticalVariantProduct(cartProduct)).toBe(cartProduct);
   });
 
+  it('applies the parent condition to critical variant rows that inherit it', () => {
+    expect(
+      normalizeCriticalVariantProduct({
+        ...cartProduct,
+        condition: 'new',
+        variants: [
+          {
+            attributes: { Storage: '128GB' },
+            id: 'variant-inherited-new',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 4,
+          },
+          {
+            attributes: { Storage: '128GB' },
+            condition: 'used',
+            id: 'variant-used',
+            merchant_id: 'merchant-1',
+            product_id: 'product-1',
+            stock_quantity: 2,
+          },
+        ],
+      }).variants
+    ).toEqual([
+      expect.objectContaining({
+        condition: 'new',
+        id: 'variant-inherited-new',
+      }),
+      expect.objectContaining({
+        condition: 'used',
+        id: 'variant-used',
+      }),
+    ]);
+  });
+
+  it('applies single-option metadata axes to critical variant rows that omit them', () => {
+    expect(
+      normalizeCriticalVariantProduct(
+        {
+          ...cartProduct,
+          variants: [
+            {
+              attributes: {},
+              id: 'variant-metadata-only',
+              merchant_id: 'merchant-1',
+              product_id: 'product-1',
+              stock_quantity: 4,
+            },
+          ],
+        },
+        { condition: ['new'], storage: ['128GB'] }
+      ).variants
+    ).toEqual([
+      expect.objectContaining({
+        attributes: { storage: '128GB' },
+        id: 'variant-metadata-only',
+      }),
+    ]);
+  });
+
   it('detects hidden axes with multiple SKU options', () => {
     expect(
       getVariantAxesWithMultipleOptions([
         {
           attributes: { color: 'Black', storage: '128GB' },
+          condition: 'used',
           id: 'variant-black',
           merchant_id: 'merchant-1',
           product_id: 'product-1',
@@ -198,13 +261,79 @@ describe('critical commerce selection helpers', () => {
         },
         {
           attributes: { color: 'Blue', storage: '128GB' },
+          condition: 'new',
           id: 'variant-blue',
           merchant_id: 'merchant-1',
           product_id: 'product-1',
           stock_quantity: 8,
         },
       ])
-    ).toEqual(['color']);
+    ).toEqual(['condition', 'color']);
+  });
+
+  it('normalizes condition aliases before requiring condition selection', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { storage: '128GB' },
+          condition: 'uk_used' as unknown as ProductVariant['condition'],
+          id: 'variant-uk-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { storage: '128GB' },
+          condition: 'used',
+          id: 'variant-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
+
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { storage: '128GB' },
+          condition: 'refurbished' as unknown as ProductVariant['condition'],
+          id: 'variant-refurbished',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { storage: '128GB' },
+          condition: 'open_box',
+          id: 'variant-open-box',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
+  });
+
+  it('ignores attribute-backed condition values before requiring condition selection', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { condition: 'used', storage: '128GB' },
+          id: 'variant-attribute-used',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { condition: 'new', storage: '128GB' },
+          id: 'variant-attribute-new',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual([]);
   });
 
   it('canonicalizes legacy-cased SKU axes before requiring selections', () => {
@@ -226,6 +355,27 @@ describe('critical commerce selection helpers', () => {
         },
       ])
     ).toEqual(['ram', 'storage']);
+  });
+
+  it('ignores non-string variant axis values before requiring selections', () => {
+    expect(
+      getVariantAxesWithMultipleOptions([
+        {
+          attributes: { Camera: 48 as never, storage: '128GB' },
+          id: 'variant-128',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 10,
+        },
+        {
+          attributes: { Camera: 50 as never, storage: '256GB' },
+          id: 'variant-256',
+          merchant_id: 'merchant-1',
+          product_id: 'product-1',
+          stock_quantity: 8,
+        },
+      ])
+    ).toEqual(['storage']);
   });
 
   it('handles empty, single-valued, and multi-axis option sets', () => {
@@ -271,9 +421,11 @@ describe('critical commerce selection helpers', () => {
   it('keeps hidden attributes only when they came from the route', () => {
     const selection = {
       attributes: { color: 'Blue', ram: '8GB', storage: '256GB' },
+      condition: 'used',
       price: 278_418.6,
       variant: {
         attributes: { color: 'Blue', ram: '8GB', storage: '256GB' },
+        condition: 'used' as const,
         id: 'variant-blue',
         merchant_id: 'merchant-1',
         product_id: 'product-1',
@@ -293,6 +445,12 @@ describe('critical commerce selection helpers', () => {
         selection,
       })
     ).toEqual({ ram: '8GB', storage: '256GB' });
+    expect(
+      pickInitialSelectedAttributes({
+        renderableVariantAxes: ['condition', 'storage', 'ram'],
+        selection,
+      })
+    ).toEqual({ condition: 'used', ram: '8GB', storage: '256GB' });
     expect(
       pickInitialSelectedAttributes({
         explicitAttributes: { Color: 'Blue' },
