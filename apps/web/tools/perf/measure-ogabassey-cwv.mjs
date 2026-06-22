@@ -3,30 +3,19 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  getDebugBearQuickTestId,
-  getDebugBearQuickTestPollPath,
-} from './debugbear-quick-test-utils.mjs';
-import {
-  fetchJson,
   resolveCanonicalUrl,
   resolveLatestBlogPostUrl,
 } from './measure-ogabassey-cwv-network-utils.mjs';
 import {
-  buildPsiUrl,
-  getDebugBearFailureMessage,
-  isDebugBearComplete,
-  printCwvSummaryTable,
-  summarizeDebugBearResult,
-  summarizePsiResult,
-} from './measure-ogabassey-cwv-summary-utils.mjs';
+  createDebugBearRunner,
+  createPsiRunner,
+} from './measure-ogabassey-cwv-runners.mjs';
+import { printCwvSummaryTable } from './measure-ogabassey-cwv-summary-utils.mjs';
 import {
-  buildDebugBearHeaders,
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
   filterOgaBasseyCwvTargets,
-  findDebugBearProjectIdForUrl,
   loadEnvFile,
-  normalizeDebugBearProjects,
 } from './measure-ogabassey-cwv-utils.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -81,99 +70,16 @@ const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
   .split(',')
   .map((strategy) => strategy.trim())
   .filter(Boolean);
-async function runPsi(target, strategy) {
-  const url = buildPsiUrl({ apiKey: psiApiKey, strategy, url: target.url });
-  const payload = await fetchJson(url);
-  return {
-    payload,
-    summary: summarizePsiResult({
-      label: target.label,
-      payload,
-      requestedUrl: target.url,
-      strategy,
-    }),
-  };
-}
-function debugBear(path, init = {}, apiKey = debugBearApiKey) {
-  return fetchJson(`https://www.debugbear.com/api/v1${path}`, {
-    ...init,
-    headers: {
-      ...buildDebugBearHeaders(apiKey),
-      ...(init.headers || {}),
-    },
-  });
-}
-async function getDebugBearProjects() {
-  if (!debugBearAdminApiKey) {
-    throw new Error(
-      'Set DEBUGBEAR_ADMIN_API_KEY for project discovery or DEBUGBEAR_PROJECT_ID to skip discovery'
-    );
-  }
-  const body = await debugBear('/projects', {}, debugBearAdminApiKey);
-  return normalizeDebugBearProjects(body);
-}
-async function runDebugBear(target, projects) {
-  const projectId =
-    debugBearProjectId ||
-    findDebugBearProjectIdForUrl(projects, target.url, {
-      deviceName: debugBearDevice,
-    });
-  if (!projectId) {
-    throw new Error(`No DebugBear project found for ${target.url}`);
-  }
-  const created = await debugBear(`/project/${projectId}/quickTests`, {
-    body: JSON.stringify([
-      { device: debugBearDevice, region: debugBearRegion, url: target.url },
-    ]),
-    method: 'POST',
-  });
-
-  const quickTestId = getDebugBearQuickTestId(created);
-  if (!quickTestId) {
-    throw new Error('DebugBear quick test response did not include an id');
-  }
-
-  const pollPath = getDebugBearQuickTestPollPath({
-    body: created,
-    projectId,
-    quickTestId,
-  });
-  let result = created;
-  for (let attempt = 0; attempt < debugBearMaxPollAttempts; attempt += 1) {
-    result = await debugBear(pollPath);
-    if (isDebugBearComplete(result)) break;
-    await new Promise((resolve) =>
-      setTimeout(resolve, debugBearPollIntervalMs)
-    );
-  }
-  if (!isDebugBearComplete(result)) {
-    throw new Error(
-      `DebugBear poll timed out for ${target.label} after ${debugBearMaxPollAttempts} attempts`
-    );
-  }
-
-  const failureMessage = getDebugBearFailureMessage(result);
-  const payload = { created, result };
-  if (failureMessage) {
-    return {
-      failure: failureMessage,
-      payload,
-    };
-  }
-
-  return {
-    payload,
-    summary: summarizeDebugBearResult({
-      body: result,
-      device: debugBearDevice,
-      label: target.label,
-      projectId,
-      quickTestId,
-      region: debugBearRegion,
-      url: target.url,
-    }),
-  };
-}
+const runPsi = createPsiRunner({ apiKey: psiApiKey });
+const debugBearRunner = createDebugBearRunner({
+  adminApiKey: debugBearAdminApiKey,
+  apiKey: debugBearApiKey,
+  device: debugBearDevice,
+  maxPollAttempts: debugBearMaxPollAttempts,
+  pollIntervalMs: debugBearPollIntervalMs,
+  projectId: debugBearProjectId,
+  region: debugBearRegion,
+});
 
 await mkdir(outputDir, { recursive: true });
 async function writeArtifact(name, payload) {
@@ -301,7 +207,7 @@ if (shouldRunDebugBear) {
   if (!debugBearProjectId) {
     try {
       logProgress('DebugBear projects');
-      projects = await getDebugBearProjects();
+      projects = await debugBearRunner.getProjects();
     } catch (error) {
       failures.push({
         label: 'projects',
@@ -328,7 +234,7 @@ if (shouldRunDebugBear) {
       logProgress(
         `DebugBear ${debugBearDevice}/${debugBearRegion} ${target.label}`
       );
-      const debugBearResult = await runDebugBear(target, projects);
+      const debugBearResult = await debugBearRunner.run(target, projects);
       const artifact = `${target.label}-debugbear.json`;
       await writeArtifact(artifact, debugBearResult.payload);
       if (debugBearResult.failure) {

@@ -26,7 +26,7 @@
     "perf:ogabassey-css-budget": "node tools/perf/assert-ogabassey-css-budget.mjs",
     "perf:ogabassey-critical-path": "node tools/perf/measure-ogabassey-cwv.mjs",
     "perf:ogabassey-cwv": "node tools/perf/measure-ogabassey-cwv.mjs",
-    "perf:ogabassey-pdp-lcp": "OGABASSEY_CWV_TARGET_LABELS=pdp-lcp OGABASSEY_CWV_SKIP_LATEST_BLOG_POST=1 OGABASSEY_CWV_PSI=0 OGABASSEY_CWV_DEBUGBEAR=1 node tools/perf/measure-ogabassey-cwv.mjs",
+    "perf:ogabassey-pdp-lcp": "node tools/perf/measure-ogabassey-pdp-lcp.mjs",
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs",
     "process:import-jobs": "tsx src/scripts/process-import-jobs.ts",
     "sync:jumia-orders": "tsx src/scripts/sync-jumia-orders.ts",

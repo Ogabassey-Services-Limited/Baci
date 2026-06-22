@@ -1,0 +1,52 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+function wrapperEnv(outputDir) {
+  const env = { ...process.env };
+  delete env.OGABASSEY_CWV_TARGET_LABELS;
+  delete env.OGABASSEY_CWV_DEBUGBEAR;
+  delete env.OGABASSEY_CWV_PSI;
+  delete env.OGABASSEY_CWV_SKIP_LATEST_BLOG_POST;
+  return {
+    ...env,
+    DEBUGBEAR_ADMIN_API_KEY: '',
+    DEBUGBEAR_API_KEY: '',
+    DEBUGBEAR_PROJECT_ID: '',
+    OGABASSEY_AUDIT_OUTPUT_DIR: outputDir,
+    PAGESPEED_INSIGHTS_API_KEY: '',
+    PSI_API_KEY: '',
+  };
+}
+
+describe('measure-ogabassey-pdp-lcp CLI', () => {
+  it('sets PDP-only DebugBear defaults without POSIX inline env syntax', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-pdp-lcp-test-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-pdp-lcp.mjs'
+    );
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env: wrapperEnv(outputDir),
+    });
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(
+      await readFile(join(outputDir, 'summary.json'), 'utf8')
+    );
+    expect(summary.targets.map((target) => target.label)).toEqual(['pdp-dell']);
+    expect(summary.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'debugbear',
+          message: expect.stringContaining('explicitly enabled DebugBear'),
+          source: 'configuration',
+        }),
+      ])
+    );
+  });
+});
