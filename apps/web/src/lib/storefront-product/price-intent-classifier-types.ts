@@ -4,6 +4,14 @@ export type PriceIntentAssetKind =
   | 'no-catalog'
   | 'ignore';
 
+export type PriceIntentClassificationReason =
+  | 'not_price_intent'
+  | 'exact_product'
+  | 'exact_product_with_modifiers'
+  | 'modifier_not_supported_by_catalog'
+  | 'broad_cluster_price_intent'
+  | 'no_matching_catalog_entity';
+
 export interface PriceIntentCatalogProduct {
   slug: string;
   name: string;
@@ -44,7 +52,7 @@ export type ClassifyPriceIntentKeywordInput =
 
 export interface PriceIntentClassification {
   assetKind: PriceIntentAssetKind;
-  reason: string;
+  reason: PriceIntentClassificationReason;
   keyword: string;
   categorySlug?: string;
   targetSlug?: string;

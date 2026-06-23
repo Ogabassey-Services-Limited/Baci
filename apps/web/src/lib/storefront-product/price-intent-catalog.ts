@@ -2,8 +2,8 @@ import {
   BASE_STOP_TOKENS,
   CONDITION_TOKENS,
   GENERIC_HUB_TOKENS,
+  getStoragePattern,
   HUB_CATEGORY_WORDS,
-  STORAGE_PATTERN,
   STORAGE_TOKEN_PATTERN,
   UK_USED_PATTERN,
   USED_PATTERN,
@@ -28,7 +28,7 @@ export function tokenizePriceIntentText(value: string) {
 }
 
 export function getStorageModifiers(keyword: string) {
-  return Array.from(keyword.matchAll(STORAGE_PATTERN)).map((match) =>
+  return Array.from(keyword.matchAll(getStoragePattern())).map((match) =>
     match[0].toLowerCase().replace(/\s+/g, '')
   );
 }
