@@ -73,7 +73,9 @@ describe('send-auth-email template helpers', () => {
     expect(html).toContain('support@ogabassey.com');
     expect(html).toContain('Ogabassey Never Disappoints.');
     expect(html).toContain('content="light dark"');
-    expect(html).toContain('.a-brand-cell,.a-badge-cell');
+    // Mobile header keeps the badge pinned top-right (logo 60% / badge 40%)
+    // rather than stacking — the pill stays in the top-right corner on phones.
+    expect(html).toContain('.a-brand-cell{width:60%');
     expect(html).toContain('class="a-brand-cell"');
     expect(html).toContain('class="a-badge-cell"');
     expect(html).toContain('class="a-badge"');
@@ -146,8 +148,12 @@ describe('send-auth-email template helpers', () => {
     );
 
     expect(appLocalHtml).toBe(rootHtml);
-    expect(rootHtml).toContain(`<img src="${ogabasseyOpaqueEmailLogoUrl}"`);
-    expect(rootHtml).toContain('class="a-email-logo"');
+    // Opaque email logo is rendered directly as an image (white plate baked in),
+    // with no white CSS chip — Gmail's dark mode cannot invert image pixels.
+    expect(rootHtml).toContain(
+      `<img class="a-logo-img" src="${ogabasseyOpaqueEmailLogoUrl}"`
+    );
+    expect(rootHtml).toContain('class="a-logo-img"');
     expect(rootHtml).not.toContain('class="a-logo-chip"');
     expect(rootHtml).not.toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
   });
