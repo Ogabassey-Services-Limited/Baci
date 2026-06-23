@@ -2075,13 +2075,15 @@ export function generateCollectionPageSchema(
   data: CollectionPageData
 ): CollectionPageJsonLdSchema {
   const safeProducts = data.products.slice(0, 20).flatMap((product) => {
-    const productImage = toAbsoluteSchemaImageUrl(
-      data.url,
-      product.imageLarge,
-      product.image
+    const imageCandidates = [product.imageLarge, product.image];
+    const productImage = toAbsoluteSchemaImageUrl(data.url, ...imageCandidates);
+    const hasImageCandidate = imageCandidates.some((value) =>
+      Boolean(value?.trim())
     );
 
-    return productImage ? [{ product, productImage }] : [];
+    return hasImageCandidate && !productImage
+      ? []
+      : [{ product, productImage }];
   });
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
   const currency = data.currency || 'NGN';
