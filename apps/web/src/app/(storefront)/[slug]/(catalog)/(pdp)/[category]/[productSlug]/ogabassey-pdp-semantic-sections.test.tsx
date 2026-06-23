@@ -12,8 +12,7 @@ type SemanticModel = {
   samePrice: null;
 };
 
-const mockGetCachedCategoryPageData = vi.fn();
-const mockGetPublishedClusterPosts = vi.fn();
+const mockGetCachedProductSeoLinkData = vi.fn();
 const mockBuildProductSemanticModel =
   vi.fn<(input: unknown) => SemanticModel>();
 const mockProductSemanticSections = vi.fn(
@@ -24,14 +23,9 @@ const mockProductSemanticSections = vi.fn(
   )
 );
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategoryPageData: (...args: unknown[]) =>
-    mockGetCachedCategoryPageData(...args),
-}));
-
-vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
-  getPublishedClusterPosts: (...args: unknown[]) =>
-    mockGetPublishedClusterPosts(...args),
+vi.mock('@/lib/storefront-product/get-cached-product-seo-link-data', () => ({
+  getCachedProductSeoLinkData: (...args: unknown[]) =>
+    mockGetCachedProductSeoLinkData(...args),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -62,9 +56,8 @@ const product = {
 describe('OgabasseyPdpSemanticSections', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      products: [
+    mockGetCachedProductSeoLinkData.mockResolvedValue({
+      inventory: [
         {
           slug: 'macbook-pro',
           name: 'MacBook Pro',
@@ -75,10 +68,12 @@ describe('OgabasseyPdpSemanticSections', () => {
           product_key_specs: { ram_gb: 18 },
         },
       ],
+      guidePosts: [
+        { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+        { slug: 'best-laptops', title: 'Best laptops' },
+      ],
+      priorityGuidePostSlugs: ['lenovo-legion-guide'],
     });
-    mockGetPublishedClusterPosts.mockResolvedValue([
-      { slug: 'best-laptops', title: 'Best laptops' },
-    ]);
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: ['Model trust bullet'],
       supportLinks: [],
@@ -105,17 +100,21 @@ describe('OgabasseyPdpSemanticSections', () => {
       })
     );
 
-    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+    expect(mockGetCachedProductSeoLinkData).toHaveBeenCalledWith(
       'merchant-1',
       'laptops',
-      'ogabassey'
+      'ogabassey',
+      'prod-1'
     );
-    expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1');
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({
         categorySlug: 'laptops',
         currentProduct: expect.objectContaining({ slug: 'lenovo-legion' }),
-        guidePosts: [{ slug: 'best-laptops', title: 'Best laptops' }],
+        guidePosts: [
+          { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+          { slug: 'best-laptops', title: 'Best laptops' },
+        ],
+        priorityGuidePostSlugs: ['lenovo-legion-guide'],
         inventory: [
           expect.objectContaining({
             slug: 'macbook-pro',
@@ -125,8 +124,46 @@ describe('OgabasseyPdpSemanticSections', () => {
         storeUrl: 'https://ogabassey.com',
       })
     );
+    // Page-level trust bullets are merged outside the strict cached SEO-link
+    // data fetch so the cache boundary stays focused on inventory and guides.
     expect(screen.getByLabelText('semantic sections')).toHaveTextContent(
       'Ships across Nigeria | Model trust bullet'
     );
+  });
+
+  it('returns no semantic sections when the strict server fetch fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected warning noise for this server-side fallback path.
+    });
+    mockGetCachedProductSeoLinkData.mockRejectedValueOnce(
+      new Error('transient inventory failure')
+    );
+
+    const result = await OgabasseyPdpSemanticSections({
+      categoryName: 'Laptops',
+      categorySlug: 'laptops',
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'OgaBassey',
+      },
+      product,
+      storeSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      trustBullets: ['Ships across Nigeria'],
+    });
+
+    expect(result).toBeNull();
+    expect(mockBuildProductSemanticModel).not.toHaveBeenCalled();
+    expect(mockProductSemanticSections).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to load Ogabassey PDP semantic links',
+      expect.objectContaining({
+        categorySlug: 'laptops',
+        merchantId: 'merchant-1',
+        productId: 'prod-1',
+      })
+    );
+
+    warnSpy.mockRestore();
   });
 });

@@ -188,6 +188,34 @@ describe('BrandProducts', () => {
     );
   });
 
+  it('links the brand rail to the category shopping page', () => {
+    render(<BrandProducts product={product} />);
+
+    expect(
+      screen.getByRole('heading', { name: 'More Sony Accessories' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Shop more Accessories' })
+    ).toHaveAttribute('href', '/ogabassey/accessories');
+  });
+
+  it('slugifies text-only fallback categories for the category shopping link', () => {
+    render(
+      <BrandProducts
+        product={{
+          ...product,
+          category: 'Smart TVs',
+          category_slug: '',
+          categories: null,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Shop more Smart TVs' })
+    ).toHaveAttribute('href', '/ogabassey/smart-tvs');
+  });
+
   it('filters mismatched brands locally for normal brand names', async () => {
     apiGetMock.mockResolvedValue({
       products: [

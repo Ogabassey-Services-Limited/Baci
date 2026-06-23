@@ -44,6 +44,35 @@ export function ProductSemanticSections({
         </section>
       ) : null}
 
+      {hasGuideLinks ? (
+        <section
+          aria-labelledby="product-guide-links"
+          className="ogabassey-pdp-semantic-card"
+        >
+          <h2
+            id="product-guide-links"
+            className="ogabassey-pdp-semantic-card__title"
+          >
+            Buyer guides
+          </h2>
+          <ul className="ogabassey-pdp-semantic-card__link-list">
+            {model.guideLinks.map((link) => (
+              <li key={link.href}>
+                <a
+                  className="ogabassey-pdp-semantic-card__link"
+                  href={link.href}
+                >
+                  {link.title}
+                </a>
+                <p className="ogabassey-pdp-semantic-card__description">
+                  {link.description}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {model.alternatives ? (
         <CategoryHubCardGrid
           title={model.alternatives.heading}
@@ -69,35 +98,6 @@ export function ProductSemanticSections({
         heading="Compare and Buying Guides"
         links={model.supportLinks}
       />
-
-      {hasGuideLinks ? (
-        <section
-          aria-labelledby="product-guide-links"
-          className="ogabassey-pdp-semantic-card"
-        >
-          <h2
-            id="product-guide-links"
-            className="ogabassey-pdp-semantic-card__title"
-          >
-            Buyer guides and support articles
-          </h2>
-          <ul className="ogabassey-pdp-semantic-card__link-list">
-            {model.guideLinks.map((link) => (
-              <li key={link.href}>
-                <a
-                  className="ogabassey-pdp-semantic-card__link"
-                  href={link.href}
-                >
-                  {link.title}
-                </a>
-                <p className="ogabassey-pdp-semantic-card__description">
-                  {link.description}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </section>
   );
 }

@@ -14,6 +14,7 @@ import { apiGet } from '@/lib/api-client';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
+import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
 import { cn } from '@/lib/utils';
 import { useViewportActivation } from './use-viewport-activation';
 
@@ -194,12 +195,25 @@ export function PriceRangeProducts({
     return `${productCategory} ${formattedMin} - ${formattedMax}`;
   };
 
-  const title = formatPriceRange();
+  // Use the curated band label as descriptive heading copy when the product
+  // falls inside a defined band, but do NOT link it here: this client rail only
+  // sees a ±priceTolerance window, not the band's full inventory, so it cannot
+  // verify the band page is indexable (active product / spec thresholds). The
+  // server-gated, indexable band link is surfaced via CommercialSupportLinks
+  // ("Compare and Buying Guides") instead — linking here risks pointing at a
+  // thin band page that 404s.
+  const curatedPriceBand =
+    getCuratedPriceBands(categorySlug).find(
+      (band) =>
+        rawPrice <= band.ceiling &&
+        (band.floor === undefined || rawPrice >= band.floor)
+    ) ?? null;
+  const title = curatedPriceBand?.label ?? formatPriceRange();
 
   return (
     <section ref={sectionRef} className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
             {title}
           </h2>

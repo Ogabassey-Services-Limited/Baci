@@ -1,9 +1,10 @@
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
-import { getCachedCategoryPageData } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
-import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
+import {
+  getCachedProductSeoLinkData,
+  type ProductSeoLinkData,
+} from '@/lib/storefront-product/get-cached-product-seo-link-data';
 
 interface OgabasseyPdpSemanticMerchant {
   business_name?: string | null;
@@ -30,15 +31,32 @@ export async function OgabasseyPdpSemanticSections({
   storeUrl,
   trustBullets,
 }: OgabasseyPdpSemanticSectionsProps) {
-  const [categoryPageData, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(merchant.id, categorySlug, storeSlug),
-    getPublishedClusterPosts(merchant.id),
-  ]);
-  const inventory = (
-    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
-  )
-    .filter(isProductSemanticCandidate)
-    .map(toProductSemanticCandidate);
+  // Strict, cache-isolated fetch: throws on a transient inventory failure so a
+  // link-poor result is never cached (stale-while-revalidate serves last-good).
+  // Server components cannot rely on client error boundaries during the initial
+  // SSR pass, so cold-cache failures must degrade here before reaching the
+  // route error boundary. Warm cache failures serve last-good data via
+  // stale-while-revalidate and do not reach this catch.
+  let seoLinkData: ProductSeoLinkData;
+
+  try {
+    seoLinkData = await getCachedProductSeoLinkData(
+      merchant.id,
+      categorySlug,
+      storeSlug,
+      String(product.id || '')
+    );
+  } catch (error) {
+    console.warn('Failed to load Ogabassey PDP semantic links', {
+      merchantId: merchant.id,
+      categorySlug,
+      productId: product.id,
+      error,
+    });
+    return null;
+  }
+
+  const { inventory, guidePosts, priorityGuidePostSlugs } = seoLinkData;
   const semanticModel = buildProductSemanticModel({
     storeUrl,
     merchantBusinessName: merchant?.business_name || 'Baci Store',
@@ -57,6 +75,7 @@ export async function OgabasseyPdpSemanticSections({
     },
     inventory,
     guidePosts,
+    priorityGuidePostSlugs,
   });
 
   return (
@@ -67,34 +86,4 @@ export async function OgabasseyPdpSemanticSections({
       }}
     />
   );
-}
-
-function isProductSemanticCandidate(
-  candidate: unknown
-): candidate is ProductSemanticCandidate {
-  if (!candidate || typeof candidate !== 'object') {
-    return false;
-  }
-
-  const product = candidate as Record<string, unknown>;
-  return (
-    typeof product.slug === 'string' &&
-    typeof product.name === 'string' &&
-    typeof product.price === 'number'
-  );
-}
-
-function toProductSemanticCandidate(
-  product: ProductSemanticCandidate
-): ProductSemanticCandidate {
-  return {
-    slug: product.slug,
-    name: product.name,
-    brand: product.brand,
-    condition: product.condition,
-    price: product.price,
-    stock: product.stock,
-    category_slug: product.category_slug,
-    product_key_specs: product.product_key_specs,
-  };
 }

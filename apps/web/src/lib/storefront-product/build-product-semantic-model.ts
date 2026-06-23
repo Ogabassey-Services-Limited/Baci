@@ -9,7 +9,13 @@ import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-e
 import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
-import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
+import type {
+  ContentClusterKind,
+  InformationalGuideLink,
+  PublishedClusterPost,
+  SupportedClusterCategory,
+} from '@/lib/storefront-content/content-cluster-types';
+import { inferContentClusterContext } from '@/lib/storefront-content/infer-content-cluster-context';
 import type {
   BuildProductSemanticModelInput,
   ProductSemanticCandidate,
@@ -23,7 +29,13 @@ function getSupportCopy(categorySlug: string) {
 }
 
 function toTitleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  // Humanize machine values like "open_box" / "like-new" into "Open Box" /
+  // "Like New" by splitting on whitespace, underscores, and hyphens.
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 function isInStock(product: ProductSemanticCandidate) {
@@ -78,6 +90,49 @@ function dedupeLinks(links: CommercialSupportLink[]) {
     seen.add(link.href);
     return true;
   });
+}
+
+function dedupeGuideLinks(links: ReturnType<typeof buildCommercialGuideLinks>) {
+  const seen = new Set<string>();
+
+  return links.filter((link) => {
+    if (seen.has(link.href)) {
+      return false;
+    }
+
+    seen.add(link.href);
+    return true;
+  });
+}
+
+function buildGuideDescription(post: PublishedClusterPost) {
+  const excerpt = post.excerpt?.trim();
+
+  if (excerpt) {
+    return excerpt;
+  }
+
+  return post.reading_time_minutes
+    ? `${post.reading_time_minutes} minute guide`
+    : 'Read the full guide';
+}
+
+function inferPriorityGuideKind(
+  post: PublishedClusterPost
+): ContentClusterKind {
+  return inferContentClusterContext(post).kind ?? 'buyer-guide';
+}
+
+function buildPriorityProductGuideLinks(input: {
+  posts: PublishedClusterPost[];
+  storeUrl: string;
+}): InformationalGuideLink[] {
+  return input.posts.map((post) => ({
+    href: `${input.storeUrl}/blog/${post.slug}`,
+    title: post.title,
+    description: buildGuideDescription(post),
+    kind: inferPriorityGuideKind(post),
+  }));
 }
 
 function buildDirectCompareCta(input: {
@@ -290,20 +345,33 @@ export function buildProductSemanticModel(
       products: input.inventory,
     }),
   ]).filter((link) => link.href !== currentProductHref);
+  const guideContext = {
+    pageKind: 'product' as const,
+    categorySlug: input.categorySlug as SupportedClusterCategory,
+    brands: input.currentProduct.brand ? [input.currentProduct.brand] : [],
+    productSlugs: [input.currentProduct.slug],
+  };
+  const guidePosts = input.guidePosts ?? [];
+  const priorityGuidePostSlugs = new Set(input.priorityGuidePostSlugs ?? []);
+  const priorityGuidePosts = guidePosts.filter((post) =>
+    priorityGuidePostSlugs.has(post.slug)
+  );
+  const fallbackGuidePosts = guidePosts.filter(
+    (post) => !priorityGuidePostSlugs.has(post.slug)
+  );
   const guideLinks =
     input.categorySlug in CONTENT_CLUSTER_SUPPORT
-      ? buildCommercialGuideLinks({
-          storeUrl: input.storeUrl,
-          posts: input.guidePosts ?? [],
-          context: {
-            pageKind: 'product',
-            categorySlug: input.categorySlug as SupportedClusterCategory,
-            brands: input.currentProduct.brand
-              ? [input.currentProduct.brand]
-              : [],
-            productSlugs: [input.currentProduct.slug],
-          },
-        })
+      ? dedupeGuideLinks([
+          ...buildPriorityProductGuideLinks({
+            storeUrl: input.storeUrl,
+            posts: priorityGuidePosts,
+          }),
+          ...buildCommercialGuideLinks({
+            storeUrl: input.storeUrl,
+            posts: fallbackGuidePosts,
+            context: guideContext,
+          }),
+        ]).slice(0, 3)
       : [];
 
   return {
