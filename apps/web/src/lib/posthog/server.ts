@@ -1,4 +1,5 @@
 import { PostHog } from 'posthog-node';
+import { getNextErrorDigest } from '@/lib/errors/next-error-digest';
 import { sanitizePostHogProperties } from '@/lib/posthog/client-config';
 import {
   DEFAULT_POSTHOG_INGEST_HOST,
@@ -55,20 +56,6 @@ export function getPostHogServerClient(
   return postHogServerClient;
 }
 
-function getErrorDigest(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object' || !('digest' in error)) {
-    return undefined;
-  }
-
-  const digest = (error as { digest?: unknown }).digest;
-  if (typeof digest !== 'string') {
-    return undefined;
-  }
-
-  const trimmedDigest = digest.trim();
-  return trimmedDigest || undefined;
-}
-
 function getContextString(
   properties: Record<string, unknown> | undefined,
   key: string
@@ -86,7 +73,8 @@ function normalizeCapturedError(
   }
 
   const digest =
-    getContextString(properties, 'next_error_digest') ?? getErrorDigest(error);
+    getContextString(properties, 'next_error_digest') ??
+    getNextErrorDigest(error);
   const requestPath = getContextString(properties, 'request_path');
   const routePath = getContextString(properties, 'route_path');
   const context = requestPath ?? routePath;

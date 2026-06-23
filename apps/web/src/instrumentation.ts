@@ -8,6 +8,7 @@
  * See: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 import type { Instrumentation } from 'next';
+import { getNextErrorDigest } from '@/lib/errors/next-error-digest';
 
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 
@@ -28,20 +29,6 @@ function getHeaderValue(
   const normalizedValue = firstValue?.trim().toLowerCase();
 
   return normalizedValue || undefined;
-}
-
-function getErrorDigest(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object' || !('digest' in error)) {
-    return undefined;
-  }
-
-  const digest = (error as { digest?: unknown }).digest;
-  if (typeof digest !== 'string') {
-    return undefined;
-  }
-
-  const trimmedDigest = digest.trim();
-  return trimmedDigest || undefined;
 }
 
 function getRequestTenantContext(
@@ -85,7 +72,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
 
   const { captureServerException } = await import('@/lib/posthog/server');
 
-  const nextErrorDigest = getErrorDigest(error);
+  const nextErrorDigest = getNextErrorDigest(error);
 
   await captureServerException(error, {
     ...(nextErrorDigest ? { next_error_digest: nextErrorDigest } : {}),
