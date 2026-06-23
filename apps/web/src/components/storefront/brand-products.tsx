@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
-import { getProductUrl } from '@/lib/seo-utils';
+import { generateSlug, getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 import { useViewportActivation } from './use-viewport-activation';
 
@@ -65,7 +65,7 @@ export function BrandProducts({
   const categoriesSlug = product.categories?.slug;
   const categorySlugFallback = product.category_slug;
   const categorySlug =
-    categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
+    categoriesSlug || categorySlugFallback || generateSlug(productCategory);
   const fetchLimit = Math.max(maxProducts + 2, 8);
   const { ref: sectionRef, isActive } = useViewportActivation<HTMLElement>({
     enabled: Boolean(merchant?.id && productBrand && productCategory),

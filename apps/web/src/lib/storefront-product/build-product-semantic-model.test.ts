@@ -189,6 +189,41 @@ describe('buildProductSemanticModel', () => {
     expect(model.trustBullets.join(' ')).not.toContain('₦');
   });
 
+  it('keeps explicitly product-linked guides ahead of broader cluster guides', () => {
+    const currentProduct = makeCandidate({
+      slug: 'iphone-17-pro-max',
+      name: 'iPhone 17 Pro Max',
+      brand: 'Apple',
+      price: 495_000,
+    });
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory: [currentProduct],
+        guidePosts: [
+          ...publishedGuidePosts,
+          {
+            slug: 'iphone-17-pro-max-buying-guide',
+            title: 'iPhone 17 Pro Max Buying Guide',
+            excerpt: 'Exact buying context for iPhone 17 Pro Max.',
+            category: 'Smartphones',
+            tags: ['smartphones', 'apple'],
+            keywords: ['iphone 17 pro max'],
+            featured_image_url: null,
+            published_at: '2026-04-01T09:00:00.000Z',
+            reading_time_minutes: 4,
+          },
+        ],
+        priorityGuidePostSlugs: ['iphone-17-pro-max-buying-guide'],
+      })
+    );
+
+    expect(model.guideLinks[0]).toMatchObject({
+      href: 'https://ogabassey.com/blog/iphone-17-pro-max-buying-guide',
+      title: 'iPhone 17 Pro Max Buying Guide',
+    });
+  });
+
   it('falls back to Nigerian currency for semantic trust bullets', () => {
     const currentProduct = makeCandidate({
       slug: 'galaxy-a56',

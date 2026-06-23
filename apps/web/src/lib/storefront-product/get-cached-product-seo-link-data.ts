@@ -8,6 +8,7 @@ import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-
 export interface ProductSeoLinkData {
   inventory: ProductSemanticCandidate[];
   guidePosts: PublishedClusterPost[];
+  priorityGuidePostSlugs: string[];
 }
 
 /**
@@ -15,11 +16,12 @@ export interface ProductSeoLinkData {
  * internal links (compare / brand / price-band support links + guide links).
  *
  * Why this exists — the reliability pattern (Next 16 Cache Components):
- *   `getCachedCategoryPageData` deliberately FAILS OPEN: on a transient Supabase
- *   error (e.g. the 10s query timeout) it returns `products: []` plus a
- *   `productsQueryFailed` flag so category pages don't 404. But that empty
- *   result is cached (`'use cache'` + cacheLife('products')), which would cache
- *   a *link-poor* PDP until the next revalidate.
+ *   `getCachedCategoryPageData` deliberately FAILS OPEN: on transient Supabase
+ *   errors (e.g. the 10s query timeout) it returns `products: []` plus
+ *   `productsQueryFailed` / `categoryQueryFailed` flags so category pages don't
+ *   404. But that degraded result is cached (`'use cache'` +
+ *   cacheLife('products')), which would cache a *link-poor* PDP until the next
+ *   revalidate.
  *
  *   Here we re-read that flag and THROW on a transient failure. Because this
  *   function is its own `'use cache'` boundary, a throw means its cache entry is
@@ -47,6 +49,7 @@ export async function getCachedProductSeoLinkData(
   cacheLife('products');
   cacheTag(
     'products',
+    'blog-posts',
     `seo-links-${merchantId}-${categorySlug}-${productId || 'category'}`
   );
 
@@ -57,14 +60,20 @@ export async function getCachedProductSeoLinkData(
       getPublishedProductGuidePosts(merchantId, productId),
     ]);
   const guidePosts = mergeGuidePosts(productGuidePosts, clusterGuidePosts);
+  const priorityGuidePostSlugs = productGuidePosts
+    .map((post) => post.slug)
+    .filter(Boolean);
 
-  // `productsQueryFailed` only exists on the non-collection result shape.
+  // Transient flags only exist on the non-collection result shape.
   const productResult =
     categoryPageData && !categoryPageData.isCollection
       ? categoryPageData
       : null;
 
-  if (productResult?.productsQueryFailed) {
+  if (
+    productResult?.productsQueryFailed ||
+    productResult?.categoryQueryFailed
+  ) {
     // Transient inventory failure — do NOT cache a link-poor result. Throwing
     // preserves this unit's last-good cache entry via stale-while-revalidate.
     throw new Error(
@@ -77,7 +86,7 @@ export async function getCachedProductSeoLinkData(
     .filter(isProductSemanticCandidate)
     .map(toProductSemanticCandidate);
 
-  return { inventory, guidePosts };
+  return { inventory, guidePosts, priorityGuidePostSlugs };
 }
 
 function isProductSemanticCandidate(

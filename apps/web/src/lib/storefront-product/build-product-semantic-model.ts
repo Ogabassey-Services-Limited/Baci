@@ -86,6 +86,19 @@ function dedupeLinks(links: CommercialSupportLink[]) {
   });
 }
 
+function dedupeGuideLinks(links: ReturnType<typeof buildCommercialGuideLinks>) {
+  const seen = new Set<string>();
+
+  return links.filter((link) => {
+    if (seen.has(link.href)) {
+      return false;
+    }
+
+    seen.add(link.href);
+    return true;
+  });
+}
+
 function buildDirectCompareCta(input: {
   storeUrl: string;
   categorySlug: string;
@@ -296,20 +309,34 @@ export function buildProductSemanticModel(
       products: input.inventory,
     }),
   ]).filter((link) => link.href !== currentProductHref);
+  const guideContext = {
+    pageKind: 'product' as const,
+    categorySlug: input.categorySlug as SupportedClusterCategory,
+    brands: input.currentProduct.brand ? [input.currentProduct.brand] : [],
+    productSlugs: [input.currentProduct.slug],
+  };
+  const guidePosts = input.guidePosts ?? [];
+  const priorityGuidePostSlugs = new Set(input.priorityGuidePostSlugs ?? []);
+  const priorityGuidePosts = guidePosts.filter((post) =>
+    priorityGuidePostSlugs.has(post.slug)
+  );
+  const fallbackGuidePosts = guidePosts.filter(
+    (post) => !priorityGuidePostSlugs.has(post.slug)
+  );
   const guideLinks =
     input.categorySlug in CONTENT_CLUSTER_SUPPORT
-      ? buildCommercialGuideLinks({
-          storeUrl: input.storeUrl,
-          posts: input.guidePosts ?? [],
-          context: {
-            pageKind: 'product',
-            categorySlug: input.categorySlug as SupportedClusterCategory,
-            brands: input.currentProduct.brand
-              ? [input.currentProduct.brand]
-              : [],
-            productSlugs: [input.currentProduct.slug],
-          },
-        })
+      ? dedupeGuideLinks([
+          ...buildCommercialGuideLinks({
+            storeUrl: input.storeUrl,
+            posts: priorityGuidePosts,
+            context: guideContext,
+          }),
+          ...buildCommercialGuideLinks({
+            storeUrl: input.storeUrl,
+            posts: fallbackGuidePosts,
+            context: guideContext,
+          }),
+        ]).slice(0, 3)
       : [];
 
   return {

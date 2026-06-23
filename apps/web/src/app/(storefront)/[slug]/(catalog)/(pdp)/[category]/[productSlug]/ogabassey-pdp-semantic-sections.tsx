@@ -33,12 +33,13 @@ export async function OgabasseyPdpSemanticSections({
   // Rendered behind a Suspense + error boundary by the caller. `inventory` is
   // already normalized to ProductSemanticCandidate[] inside the cached unit, and
   // product-linked guides are merged ahead of broader cluster guides there.
-  const { inventory, guidePosts } = await getCachedProductSeoLinkData(
-    merchant.id,
-    categorySlug,
-    storeSlug,
-    String(product.id || '')
-  );
+  const { inventory, guidePosts, priorityGuidePostSlugs } =
+    await getCachedProductSeoLinkData(
+      merchant.id,
+      categorySlug,
+      storeSlug,
+      String(product.id || '')
+    );
   const semanticModel = buildProductSemanticModel({
     storeUrl,
     merchantBusinessName: merchant?.business_name || 'Baci Store',
@@ -57,6 +58,7 @@ export async function OgabasseyPdpSemanticSections({
     },
     inventory,
     guidePosts,
+    priorityGuidePostSlugs,
   });
 
   return (

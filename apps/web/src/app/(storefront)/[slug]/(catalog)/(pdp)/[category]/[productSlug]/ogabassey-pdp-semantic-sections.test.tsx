@@ -72,6 +72,7 @@ describe('OgabasseyPdpSemanticSections', () => {
         { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
         { slug: 'best-laptops', title: 'Best laptops' },
       ],
+      priorityGuidePostSlugs: ['lenovo-legion-guide'],
     });
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: ['Model trust bullet'],
@@ -113,6 +114,7 @@ describe('OgabasseyPdpSemanticSections', () => {
           { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
           { slug: 'best-laptops', title: 'Best laptops' },
         ],
+        priorityGuidePostSlugs: ['lenovo-legion-guide'],
         inventory: [
           expect.objectContaining({
             slug: 'macbook-pro',

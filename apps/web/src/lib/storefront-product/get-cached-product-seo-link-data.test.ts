@@ -4,11 +4,12 @@ import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data'
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGetPublishedProductGuidePosts = vi.fn();
+const mockCacheTag = vi.fn();
 
 // cacheLife/cacheTag throw outside Next's cacheComponents runtime; no-op them.
 vi.mock('next/cache', () => ({
   cacheLife: vi.fn(),
-  cacheTag: vi.fn(),
+  cacheTag: (...args: string[]) => mockCacheTag(...args),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -71,7 +72,13 @@ describe('getCachedProductSeoLinkData', () => {
         { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
         { slug: 'best-laptops', title: 'Best laptops' },
       ],
+      priorityGuidePostSlugs: ['lenovo-legion-guide', 'best-laptops'],
     });
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      'products',
+      'blog-posts',
+      'seo-links-merchant-1-laptops-prod-1'
+    );
   });
 
   it('THROWS on a transient inventory failure so the degraded result is never cached', async () => {
@@ -79,6 +86,19 @@ describe('getCachedProductSeoLinkData', () => {
       isCollection: false,
       products: [],
       productsQueryFailed: true,
+    });
+
+    await expect(
+      getCachedProductSeoLinkData('merchant-1', 'laptops', 'ogabassey')
+    ).rejects.toThrow(/transient/i);
+  });
+
+  it('THROWS on a transient category lookup failure so fallback inventory is never cached', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products,
+      productsQueryFailed: false,
+      categoryQueryFailed: true,
     });
 
     await expect(
@@ -103,6 +123,10 @@ describe('getCachedProductSeoLinkData', () => {
     expect(result.guidePosts).toEqual([
       { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
       { slug: 'best-laptops', title: 'Best laptops' },
+    ]);
+    expect(result.priorityGuidePostSlugs).toEqual([
+      'lenovo-legion-guide',
+      'best-laptops',
     ]);
   });
 

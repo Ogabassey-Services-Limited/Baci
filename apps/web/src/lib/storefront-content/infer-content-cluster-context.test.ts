@@ -90,4 +90,26 @@ describe('inferContentClusterContext', () => {
       }).brands
     ).toEqual(['samsung']);
   });
+
+  it('prefers the most specific explicit category alias over generic parent aliases', () => {
+    expect(
+      inferContentClusterContext({
+        title: 'RTX Gaming Laptop Buying Guide',
+        excerpt: 'Gaming notebooks with RTX graphics.',
+        category: 'Gaming Laptops',
+        tags: ['rtx', 'laptops'],
+        keywords: ['gaming laptops'],
+      }).categorySlug
+    ).toBe('gaming-laptops');
+
+    expect(
+      inferContentClusterContext({
+        title: 'Nintendo Switch 2 Launch Bundle Guide',
+        excerpt: 'Console bundle context for buyers.',
+        category: 'Nintendo Switch 2',
+        tags: ['switch', 'switch 2'],
+        keywords: ['console'],
+      }).categorySlug
+    ).toBe('nintendo-switch-2');
+  });
 });
