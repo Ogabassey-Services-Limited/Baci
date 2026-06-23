@@ -231,7 +231,7 @@ The Vercel AI SDK automatically reads these environment variables when using the
 
 If issues arise, you can rollback by:
 
-1. Reinstall Genkit: `npm install genkit @genkit-ai/google-genai`
+1. Reinstall Genkit: `pnpm add genkit @genkit-ai/google-genai`
 2. Restore deleted files from git history
 3. Revert changes to flow files
 
