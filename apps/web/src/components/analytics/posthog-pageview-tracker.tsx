@@ -14,7 +14,7 @@ export function PostHogPageviewTracker() {
   useEffect(() => {
     const currentPathname = pathname ?? globalThis.location?.pathname;
 
-    if (!currentPathname || isPublicBlogPathname(currentPathname)) {
+    if (!currentPathname) {
       return;
     }
 
@@ -29,7 +29,11 @@ export function PostHogPageviewTracker() {
           return;
         }
 
-        initializePostHogBrowser(postHogBrowserEnv);
+        initializePostHogBrowser(postHogBrowserEnv, console, {
+          lightweight: isPublicBlogPathname(currentPathname),
+          pathname: currentPathname,
+          hostname: globalThis.location?.hostname,
+        });
         capturePostHogPageview(window.location.href);
       } catch (error) {
         if (!cancelled) {

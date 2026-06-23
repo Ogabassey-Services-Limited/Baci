@@ -1,6 +1,7 @@
 import posthog from 'posthog-js';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
@@ -10,6 +11,7 @@ const POSTHOG_LOADED_STATE_CHECK_INTERVAL_MS = 250;
 const POSTHOG_LOADED_STATE_CHECK_ATTEMPTS = 40;
 
 let hasInitializedPostHogBrowser = false;
+let lastConfiguredPostHogLightweight: boolean | undefined;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
@@ -23,9 +25,51 @@ function isPostHogDevelopmentMode(env: PostHogEnv): boolean {
   return (env.NODE_ENV ?? POSTHOG_NODE_ENV) === 'development';
 }
 
+export interface InitializePostHogBrowserOptions {
+  lightweight?: boolean;
+  pathname?: string;
+  hostname?: string;
+}
+
+function isLightweightPostHogSurface(
+  options: InitializePostHogBrowserOptions = {}
+): boolean {
+  if (options.lightweight !== undefined) {
+    return options.lightweight;
+  }
+
+  const pathname =
+    options.pathname ||
+    (typeof globalThis.location === 'undefined'
+      ? undefined
+      : globalThis.location.pathname);
+
+  if (!pathname) {
+    return false;
+  }
+
+  return isPublicBlogPathname(pathname, {
+    hostname:
+      options.hostname ||
+      (typeof globalThis.location === 'undefined'
+        ? undefined
+        : globalThis.location.hostname),
+  });
+}
+
+function maybeReloadPostHogFeatureFlags(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  if (previousLightweight === true && nextLightweight === false) {
+    posthog.reloadFeatureFlags();
+  }
+}
+
 export function initializePostHogBrowser(
   env: PostHogEnv = process.env,
-  logger: Pick<Console, 'warn'> = console
+  logger: Pick<Console, 'warn'> = console,
+  options: InitializePostHogBrowserOptions = {}
 ) {
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 
@@ -42,12 +86,24 @@ export function initializePostHogBrowser(
 
   isPostHogBrowserDisabled = false;
 
+  const lightweight = isLightweightPostHogSurface(options);
+
   if (hasInitializedPostHogBrowser) {
+    if (lastConfiguredPostHogLightweight !== lightweight) {
+      const clientConfig = buildPostHogClientConfig(env, projectToken, {
+        lightweight,
+      });
+      const { loaded: _loaded, ...runtimeConfig } = clientConfig;
+      const previousLightweight = lastConfiguredPostHogLightweight;
+      posthog.set_config(runtimeConfig);
+      lastConfiguredPostHogLightweight = lightweight;
+      maybeReloadPostHogFeatureFlags(previousLightweight, lightweight);
+    }
     return;
   }
 
   const clientConfig = buildPostHogClientConfig(env, projectToken, {
-    lightweight: false,
+    lightweight,
   });
   const clientLoaded = clientConfig.loaded;
 
@@ -67,6 +123,7 @@ export function initializePostHogBrowser(
       },
     });
     hasInitializedPostHogBrowser = true;
+    lastConfiguredPostHogLightweight = lightweight;
     postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
     schedulePostHogLoadedStateCheck();

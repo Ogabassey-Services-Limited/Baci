@@ -25,11 +25,6 @@ function importPostHogClientBootstrap() {
   return import('./posthog-client-bootstrap');
 }
 
-async function flushPostHogEffects() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
 afterEach(() => {
   pathname = '/';
   vi.clearAllMocks();
@@ -53,11 +48,17 @@ describe('PostHogClientBootstrap', () => {
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
-      })
+      }),
+      console,
+      {
+        lightweight: false,
+        pathname: '/',
+        hostname: undefined,
+      }
     );
   });
 
-  it('skips PostHog initialization on public blog pages', async () => {
+  it('initializes lightweight PostHog on public blog pages without full instrumentation', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     vi.stubGlobal('location', {
       pathname,
@@ -67,9 +68,21 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
-    await flushPostHogEffects();
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
 
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        NODE_ENV: expect.any(String),
+      }),
+      console,
+      {
+        lightweight: true,
+        pathname: '/ogabassey/blog/phone-guide',
+        hostname: 'usebaci.com',
+      }
+    );
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
     ).not.toHaveBeenCalled();
@@ -85,9 +98,10 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     const { rerender } = render(<PostHogClientBootstrap />);
-    await flushPostHogEffects();
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
 
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
     ).not.toHaveBeenCalled();
@@ -101,8 +115,19 @@ describe('PostHogClientBootstrap', () => {
     rerender(<PostHogClientBootstrap />);
 
     await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
     });
+    expect(mocks.initializePostHogBrowser).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        NODE_ENV: expect.any(String),
+      }),
+      console,
+      {
+        lightweight: false,
+        pathname: '/ogabassey/laptops/macbook-pro',
+        hostname: 'usebaci.com',
+      }
+    );
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
     ).toHaveBeenCalledWith('/ogabassey/laptops/macbook-pro');
