@@ -175,7 +175,7 @@ jobs:
 
           # Pipe-separated -> newline list of voter contexts.
           voters="$(printf '%s\n' "$VOTERS" | tr '|' '\n' | sed '/^$/d')"
-          voter_count="$(printf '%s\n' "$voters" | grep -c .)"
+          voter_count="$(printf '%s\n' "$voters" | grep -c . || true)"
           echo "Voters ($voter_count): $(printf '%s' "$VOTERS")  |  block quorum: $BLOCK_QUORUM"
 
           # A voter can report either as a commit status (external services) or
