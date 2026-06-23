@@ -151,15 +151,20 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('alt="Future Merchant"');
   });
 
-  it('preserves the configured Ogabassey raster logo in receipt emails', () => {
-    const merchantLogoUrl =
+  it('uses the dedicated opaque Ogabassey logo with no white chip (Gmail dark-mode safe)', () => {
+    // The merchant's own logo_url is a transparent PNG; Gmail's app darkens the
+    // white CSS chip behind it and the dark wordmark lands black-on-black. For
+    // Ogabassey we render a dedicated fully-opaque plate directly instead.
+    const transparentMerchantLogo =
       'https://cdn.ogabassey.com/media/ogabassey-logo.png';
+    const opaqueEmailLogo =
+      'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
     const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
       merchant: {
         ...merchant,
-        logo_url: merchantLogoUrl,
+        logo_url: transparentMerchantLogo,
       },
       recipientName: 'Ada',
       delivery,
@@ -167,9 +172,14 @@ describe('import notification email content', () => {
       devices: ['iPhone 16 Pro Max'],
     });
 
-    expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
-    expect(content.htmlContent).toContain('class="r-logo-chip"');
+    expect(content.htmlContent).toContain(`<img src="${opaqueEmailLogo}"`);
     expect(content.htmlContent).toContain('alt="Ogabassey"');
+    // Opaque logo is rendered directly — no CSS white chip (which Gmail inverts).
+    expect(content.htmlContent).not.toContain('class="r-logo-chip"');
+    // The transparent merchant logo must NOT be used for the email header.
+    expect(content.htmlContent).not.toContain(
+      `<img src="${transparentMerchantLogo}"`
+    );
   });
 
   it('keeps configured logos for merchants with similar names', () => {

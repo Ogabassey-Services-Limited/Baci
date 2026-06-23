@@ -80,6 +80,47 @@ function emailSafeLogoUrl(logoUrl: string | null | undefined): string {
   return RASTER_LOGO_PATTERN.test(path) ? safe : '';
 }
 
+/**
+ * Dedicated, fully OPAQUE Ogabassey email logo (wordmark flattened onto a solid
+ * white plate — no alpha channel). The Gmail mobile app force-applies dark-mode
+ * inversion and ignores `color-scheme` / `forced-color-adjust` /
+ * `prefers-color-scheme`, so the transparent `logo_url` rendered on a CSS white
+ * chip lands black-on-black once Gmail darkens the chip. Gmail never inverts the
+ * pixels *inside* an image, so an opaque plate stays readable. Shared with the
+ * auth email (send-auth-email edge function) — keep the asset in sync.
+ */
+const OGABASSEY_EMAIL_LOGO_URL =
+  'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
+
+function isOgabasseyMerchant(merchant: MerchantNotificationContext): boolean {
+  const slug = merchant.slug.trim().toLowerCase();
+  const domain = merchant.custom_domain
+    ?.trim()
+    .toLowerCase()
+    .replace(/\/$/, '');
+
+  return (
+    slug === 'ogabassey' ||
+    domain === 'ogabassey.com' ||
+    domain === 'www.ogabassey.com'
+  );
+}
+
+/**
+ * Resolve the header logo for a merchant. Ogabassey gets the dedicated opaque
+ * plate (dark-mode-safe, rendered with no white chip); everyone else falls back
+ * to their raster `logo_url` shown on a white chip.
+ */
+function resolveReceiptLogo(merchant: MerchantNotificationContext): {
+  logoUrl: string;
+  logoIsOpaque: boolean;
+} {
+  if (isOgabasseyMerchant(merchant)) {
+    return { logoUrl: OGABASSEY_EMAIL_LOGO_URL, logoIsOpaque: true };
+  }
+  return { logoUrl: emailSafeLogoUrl(merchant.logo_url), logoIsOpaque: false };
+}
+
 function readReceiptTagline(migrationSettings: Record<string, unknown>) {
   const configuredTagline = migrationSettings.receipt_tagline;
   if (typeof configuredTagline !== 'string') {
@@ -210,6 +251,7 @@ function buildAppFirstReceiptEmailContent({
   const rawSupport =
     merchant.support_email || merchant.email || 'the store team';
   const supportContact = escapeHtmlAttribute(rawSupport);
+  const receiptLogo = resolveReceiptLogo(merchant);
   // Only render a tagline the merchant actually configured — never invent one.
   const footerNote = delivery.receiptTagline
     ? escapeHtmlAttribute(delivery.receiptTagline)
@@ -230,7 +272,8 @@ function buildAppFirstReceiptEmailContent({
       subhead:
         'A quicker, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
+      logoUrl: escapeHtmlAttribute(receiptLogo.logoUrl),
+      logoIsOpaque: receiptLogo.logoIsOpaque,
       introHtml: `${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
@@ -287,6 +330,7 @@ function buildSiteReceiptEmailContent({
     merchant.support_email || merchant.email || 'the store team';
   const supportContact = escapeHtmlAttribute(rawSupport);
   const sanitizedReceiptsUrl = sanitizeUrl(claimUrl || delivery.receiptsUrl);
+  const receiptLogo = resolveReceiptLogo(merchant);
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
@@ -303,7 +347,8 @@ function buildSiteReceiptEmailContent({
       subhead:
         'A simpler, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
+      logoUrl: escapeHtmlAttribute(receiptLogo.logoUrl),
+      logoIsOpaque: receiptLogo.logoIsOpaque,
       introHtml: `${escapedMerchantName} has moved your receipt for the following item(s) to your online account.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),

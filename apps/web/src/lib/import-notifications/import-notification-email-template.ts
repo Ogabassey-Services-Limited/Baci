@@ -47,6 +47,15 @@ export interface ReceiptEmailTemplateInput {
    * (guarantees contrast); otherwise the {@link brandWordmark} text is used.
    */
   logoUrl?: string;
+  /**
+   * When true, {@link logoUrl} is a fully OPAQUE image (white plate baked into
+   * the pixels) and is rendered directly with no CSS white chip. The Gmail
+   * mobile app force-applies dark-mode inversion and ignores `color-scheme` /
+   * `forced-color-adjust` / `prefers-color-scheme`, so a transparent logo on a
+   * CSS chip lands black-on-black once Gmail darkens the chip. Gmail never
+   * inverts the pixels *inside* an image, so an opaque plate stays readable.
+   */
+  logoIsOpaque?: boolean;
   /** Small uppercase tag shown top-right of the header (rendered as a pill). */
   eyebrow: string;
   headline: string;
@@ -117,7 +126,19 @@ export function renderReceiptCta(
 <!--<![endif]-->`;
 }
 
-function renderBrandLockup(brandWordmark: string, logoUrl?: string): string {
+function renderBrandLockup(
+  brandWordmark: string,
+  logoUrl?: string,
+  logoIsOpaque?: boolean
+): string {
+  if (logoUrl && logoIsOpaque) {
+    // Opaque logo: white plate is baked into the image, so render it directly
+    // with no CSS chip. Dark-mode-inverting clients (Gmail app) cannot make an
+    // image's own pixels unreadable.
+    return `<td valign="middle">
+<img src="${logoUrl}" alt="${brandWordmark}" height="28" style="display:block;border:0;outline:none;text-decoration:none;height:28px;width:auto;max-width:230px;border-radius:8px;background-color:#ffffff;">
+</td>`;
+  }
   if (logoUrl) {
     return `<td valign="middle">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -165,7 +186,7 @@ ${DARK_MODE_STYLES}
 <tr>
 <td style="background-color:${HEADER_BG};padding:30px 32px 26px 32px;" class="px-pad">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-${renderBrandLockup(input.brandWordmark, input.logoUrl)}
+${renderBrandLockup(input.brandWordmark, input.logoUrl, input.logoIsOpaque)}
 <td valign="middle" align="right"><span style="display:inline-block;background-color:${EYEBROW_BG};border:1px solid ${input.brandColor};border-radius:999px;padding:6px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:700;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">${input.eyebrow}</span></td>
 </tr></table>
 <div style="height:3px;width:44px;background-color:${input.brandColor};border-radius:3px;margin-top:22px;font-size:1px;line-height:3px;">&nbsp;</div>
