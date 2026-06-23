@@ -13,9 +13,9 @@ interface HeroDesktopGridProps {
 }
 
 // Light, neutral card surface (matches the previous hero's restrained palette):
-// the brand red (#d62027 / --store-primary) is used only as an accent — the
+// the merchant primary (`--store-primary`) is used only as an accent — the
 // eyebrow label, a thin rule, and the CTA button — never as a large fill.
-const CARD_SURFACE = 'bg-[#f5f5f7]';
+const CARD_SURFACE = 'bg-store-secondary';
 
 const BIG_IMAGE_WIDTH = 800;
 const BIG_IMAGE_HEIGHT = 800;
@@ -66,16 +66,16 @@ function HeroBigCard({ slide }: { slide: LaunchProductSlide }) {
       href={asRoute(slide.href)}
       prefetch={false}
       aria-label={`${slide.name} — ${slide.ctaLabel}`}
-      className={`group relative lg:col-span-3 h-[400px] lg:h-full overflow-hidden rounded-2xl ring-1 ring-black/5 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-5 ${CARD_SURFACE}`}
+      className={`group relative lg:col-span-3 h-[400px] lg:h-full overflow-hidden rounded-2xl ring-1 ring-store-border/70 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-5 ${CARD_SURFACE}`}
     >
       <div className="col-span-3 flex flex-col justify-center gap-3 px-10 lg:px-16 py-8">
         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-store-primary">
           Just launched
         </span>
-        <h2 className="line-clamp-3 text-4xl font-bold leading-tight text-gray-900 lg:text-5xl">
+        <h2 className="line-clamp-3 text-4xl font-bold leading-tight text-store-secondary-text lg:text-5xl">
           {slide.name}
         </h2>
-        <p className="text-xl font-semibold text-gray-900">{slide.priceLabel}</p>
+        <p className="text-xl font-semibold text-store-secondary-text">{slide.priceLabel}</p>
         <div className="mt-1 h-1.5 w-16 rounded-full bg-store-primary" />
         <span className="mt-3 inline-flex w-fit items-center rounded-full bg-store-primary px-7 py-3 text-base font-bold text-store-on-primary shadow-sm transition-all group-hover:scale-105 group-hover:shadow-lg group-active:scale-95">
           {slide.ctaLabel}
@@ -95,16 +95,16 @@ function HeroSideCard({ slide }: { slide: LaunchProductSlide }) {
       href={asRoute(slide.href)}
       prefetch={false}
       aria-label={`${slide.name} — ${slide.ctaLabel}`}
-      className={`group relative grid flex-1 grid-cols-5 overflow-hidden rounded-2xl shadow-lg ring-1 ring-black/5 transition-all duration-300 hover:shadow-xl ${CARD_SURFACE}`}
+      className={`group relative grid flex-1 grid-cols-5 overflow-hidden rounded-2xl shadow-lg ring-1 ring-store-border/70 transition-all duration-300 hover:shadow-xl ${CARD_SURFACE}`}
     >
       <div className="col-span-3 flex flex-col justify-center gap-1.5 px-5 py-4">
         <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-store-primary">
           Just launched
         </span>
-        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-gray-900">
+        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-store-secondary-text">
           {slide.name}
         </h3>
-        <p className="text-sm font-semibold text-gray-900">{slide.priceLabel}</p>
+        <p className="text-sm font-semibold text-store-secondary-text">{slide.priceLabel}</p>
         <span className="mt-1 text-xs font-bold text-store-primary underline underline-offset-2">
           {slide.ctaLabel}
         </span>

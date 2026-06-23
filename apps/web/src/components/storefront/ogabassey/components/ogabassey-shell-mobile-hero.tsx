@@ -26,8 +26,8 @@ const HERO_CTA_STYLE = {
 export function OgabasseyShellMobileHero() {
   return (
     <div className="mb-4" aria-hidden="true">
-      <div className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 bg-gray-100">
-        <div className="absolute inset-0 bg-[#F5F5F7]">
+      <div className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-store-border/70 bg-store-secondary">
+        <div className="absolute inset-0 bg-store-secondary">
           <Image
             alt=""
             aria-hidden="true"
@@ -41,7 +41,7 @@ export function OgabasseyShellMobileHero() {
             width={OGABASSEY_SHELL_BANNER_INLINE_WIDTH}
           />
           <div className="relative z-10 flex h-full items-center px-6 py-5">
-            <div className="w-[46%] pr-2 text-gray-900">
+            <div className="w-[46%] pr-2 text-store-secondary-text">
               <h2 className="mb-2 font-sans text-2xl font-extrabold leading-tight drop-shadow-xs">
                 Just Launched
               </h2>

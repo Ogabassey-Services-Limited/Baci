@@ -16,7 +16,7 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ slides }) => {
   return (
-    <div className="w-full bg-white relative">
+    <div className="w-full bg-store-background relative">
       <h1 className="sr-only">
         OgaBassey - Buy Phones, Laptops, Gaming Consoles & More. Pay Later in
         Nigeria

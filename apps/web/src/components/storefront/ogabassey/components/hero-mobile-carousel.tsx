@@ -29,7 +29,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
   return (
     <div className="md:hidden mb-4 order-1">
       <div
-        className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 bg-[#f5f5f7]"
+        className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-store-border/70 bg-store-secondary"
         data-ogabassey-mobile-hero-panel="true"
       >
         {slides.map((slide, index) => {
@@ -47,10 +47,10 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
                 <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-store-primary">
                   Just launched
                 </span>
-                <h2 className="line-clamp-2 text-[1.2rem] font-extrabold leading-tight text-gray-900">
+                <h2 className="line-clamp-2 text-[1.2rem] font-extrabold leading-tight text-store-secondary-text">
                   {slide.name}
                 </h2>
-                <p className="text-[11px] font-semibold text-gray-900">
+                <p className="text-[11px] font-semibold text-store-secondary-text">
                   {slide.priceLabel}
                 </p>
                 <span className="mt-2 inline-flex w-fit items-center rounded-full bg-store-primary px-4 py-1.5 text-[11px] font-bold text-store-on-primary shadow-sm">

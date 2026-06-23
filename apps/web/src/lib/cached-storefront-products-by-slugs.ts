@@ -1,17 +1,9 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import type { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 import {
   getPublicSupabaseClient,
   hydrateAndSanitizeProducts,
+  type StorefrontHomeProduct,
 } from '@/lib/cached-data';
-
-/**
- * The home feed's row shape. By-slug rows are returned as this type so callers
- * (selection, adapter, JSON-LD) treat pinned and recent products identically.
- */
-type StorefrontHomeProduct = Awaited<
-  ReturnType<typeof getCachedStorefrontHomeProducts>
->[number];
 
 /**
  * Same column list as `getCachedStorefrontHomeProducts`'s base select, so rows
@@ -28,6 +20,19 @@ const PRODUCTS_BY_SLUG_SELECT = `
       categories:category_id(id, name, slug, parent_id),
       product_categories(categories(name, slug))
     `;
+
+interface StorefrontProductsBySlugsQuery
+  extends PromiseLike<{
+    data: StorefrontHomeProduct[] | null;
+    error: unknown;
+  }> {
+  eq(column: string, value: unknown): StorefrontProductsBySlugsQuery;
+  in(column: string, values: readonly string[]): StorefrontProductsBySlugsQuery;
+}
+
+interface StorefrontProductsBySlugsTable {
+  select(columns: string): StorefrontProductsBySlugsQuery;
+}
 
 /**
  * Deterministically fetch specific active products by slug for the current
@@ -56,12 +61,14 @@ export async function getCachedStorefrontProductsBySlugs(
   }
 
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
-    .from('products')
+  const productsTable = supabase.from(
+    'products'
+  ) as unknown as StorefrontProductsBySlugsTable;
+  const { data, error } = await productsTable
     .select(PRODUCTS_BY_SLUG_SELECT)
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
-    .in('slug', slugs as string[]);
+    .in('slug', slugs);
 
   if (error) {
     console.error('Failed to load storefront products by slug', {

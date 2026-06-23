@@ -1,14 +1,10 @@
-import type { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
+import type { StorefrontHomeProduct } from '@/lib/cached-data';
 import {
   PRODUCT_STATUS_ACTIVE,
   type Product,
   type ProductCondition,
   type ProductImage,
 } from '@/lib/products';
-
-type StorefrontHomeProduct = Awaited<
-  ReturnType<typeof getCachedStorefrontHomeProducts>
->[number];
 
 const PRODUCT_CONDITION_VALUES = [
   'new',
@@ -27,6 +23,19 @@ function getNullableNumber(
   value: number | null | undefined
 ): number | undefined {
   return value ?? undefined;
+}
+
+function getPriceNumber(value: StorefrontHomeProduct['price']): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
 }
 
 function mapHomeProductImage(
@@ -117,9 +126,9 @@ export function mapHomeProductsToTemplateProducts(
       slug: product.slug ?? undefined,
       description: product.description || '',
       status: PRODUCT_STATUS_ACTIVE,
-      price: product.price,
+      price: getPriceNumber(product.price),
       compare_at_price: getNullableNumber(product.compare_at_price),
-      manage_stock: product.manage_stock,
+      manage_stock: product.manage_stock ?? false,
       stock: product.stock_quantity ?? product.stock ?? 0,
       image: primaryImage,
       imageLarge: primaryImage,
