@@ -9,11 +9,11 @@ vi.mock('next/image', () => ({
     <img
       {...Object.fromEntries(
         Object.entries(props).filter(
-          ([key]) => key !== 'fill' && key !== 'priority'
+          ([key]) => key !== 'fill' && key !== 'preload'
         )
       )}
       alt={String(props.alt ?? '')}
-      data-priority={props.priority ? 'true' : undefined}
+      data-preload={props.preload ? 'true' : undefined}
     />
   ),
 }));
@@ -76,13 +76,12 @@ describe('ProductMediaGallery', () => {
       'sizes',
       OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     );
+    // `preload` (Next 16's replacement for the deprecated `priority`) injects
+    // the SSR <link rel="preload"> for LCP; the next/image mock surfaces it as
+    // data-preload.
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
-      'loading',
-      'eager',
-    );
-    expect(screen.getByAltText('Test Product')).toHaveAttribute(
-      'fetchpriority',
-      'high',
+      'data-preload',
+      'true',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'decoding',

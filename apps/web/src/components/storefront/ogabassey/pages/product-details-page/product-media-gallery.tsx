@@ -1,5 +1,8 @@
 'use client';
 
+// Client component: tracks broken-image state (useState) so the gallery can
+// fall back to a working image when a CDN photo 404s. (ADR-003)
+
 import Image from 'next/image';
 import { useState } from 'react';
 import { DeferredShellFeature } from '@/components/storefront/ogabassey/components/deferred-shell-feature';
@@ -87,8 +90,7 @@ export function ProductMediaGallery({
             fill
             className="object-cover"
             sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-            loading="eager"
-            fetchPriority="high"
+            preload
             decoding="sync"
             quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
             onError={() => markImageBroken(mainImageSrc)}
@@ -120,7 +122,7 @@ export function ProductMediaGallery({
                 }`}
               >
                 {brokenImages.has(image) ? (
-                  <span aria-hidden="true" className="size-full bg-gray-100" />
+                  <div aria-hidden="true" className="size-full bg-gray-100" />
                 ) : (
                   <Image
                     src={image}
