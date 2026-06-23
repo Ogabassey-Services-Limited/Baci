@@ -34,6 +34,10 @@ describe('OgabasseyV2Repairs', () => {
     expect(
       screen.getByRole('link', { name: /trade-in instead/i })
     ).toHaveAttribute('href', '/ogabassey/swap');
+    expect(screen.getByRole('link', { name: /visit store/i })).toHaveAttribute(
+      'href',
+      '/ogabassey'
+    );
   });
 
   it('normalizes fallback and trailing-slash storefront paths', () => {
