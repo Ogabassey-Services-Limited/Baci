@@ -11,7 +11,6 @@ interface ImageLoaderParams {
   src: string;
   width: number;
   quality?: number;
-  preferOgabasseyTransform?: boolean;
 }
 
 const DEFAULT_IMAGE_QUALITY = 75;

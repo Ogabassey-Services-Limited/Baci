@@ -40,7 +40,6 @@ describe('imageLoader', () => {
     const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
     expect(
       imageLoader({
-        preferOgabasseyTransform: true,
         quality: 30,
         src: url,
         width: 750,
@@ -206,7 +205,6 @@ describe('imageLoader', () => {
     const url = 'https://cdn.ogabassey.com/img.avif?v=1';
     expect(
       imageLoader({
-        preferOgabasseyTransform: true,
         quality: 90,
         src: url,
         width: 1200,

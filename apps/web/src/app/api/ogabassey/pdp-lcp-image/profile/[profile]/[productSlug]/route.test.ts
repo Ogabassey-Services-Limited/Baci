@@ -86,7 +86,6 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
     expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
       quality: 30,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
       width: 750,
@@ -106,7 +105,6 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
 
     expect(response.status).toBe(307);
     expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
       quality: 35,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
       width: 640,
@@ -126,7 +124,6 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
 
     expect(response.status).toBe(307);
     expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
       quality: 35,
       src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
       width: 1080,
