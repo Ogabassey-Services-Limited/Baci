@@ -3,8 +3,8 @@ import {
   PLACEHOLDER_IMAGE,
 } from '@/lib/image-utils';
 import {
+  buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
-  normalizeOgabasseyCdnImageUrl,
 } from '@/lib/ogabassey-cdn-image-url';
 
 interface ImageLoaderParams {
@@ -51,7 +51,11 @@ export default function imageLoader({
     }
 
     if (isOgabasseyCdnImageUrl(src)) {
-      return normalizeOgabasseyCdnImageUrl(src);
+      return buildOgabasseyCdnImageLoaderUrl(
+        src,
+        clampDimension(width),
+        clampQuality(quality)
+      );
     }
 
     return appendLoaderParams(src, width, quality);

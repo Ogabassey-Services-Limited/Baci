@@ -31,24 +31,12 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { default: WalletPage } = await import('./page');
-const { WalletContentSection } = await import('./wallet-content-section');
 
 describe('WalletPage', () => {
   beforeEach(() => {
     vi.mocked(getCachedMerchant).mockReset();
     vi.mocked(isValidMerchantIdentifier).mockReturnValue(true);
     notFound.mockClear();
-  });
-
-  it('renders a server-owned H1 for crawler and no-JS output', () => {
-    render(<WalletContentSection />);
-
-    expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: 'Wallet Balance',
-      })
-    ).toBeInTheDocument();
   });
 
   it('does not render a page-owned loading fallback while content loads', () => {

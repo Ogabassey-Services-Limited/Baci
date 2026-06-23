@@ -936,6 +936,17 @@ describe('category page route', () => {
     expect(metadata.title).toBe('Category not found');
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates).toBeNull();
+    expect(metadata).toMatchObject({
+      openGraph: {
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+      twitter: {
+        card: 'summary',
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+    });
     expect(notFound).not.toHaveBeenCalled();
   });
 
@@ -964,6 +975,17 @@ describe('category page route', () => {
     expect(metadata.title).toBe('Category not found');
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates).toBeNull();
+    expect(metadata).toMatchObject({
+      openGraph: {
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+      twitter: {
+        card: 'summary',
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+    });
     expect(notFound).not.toHaveBeenCalled();
   });
 
@@ -1081,6 +1103,17 @@ describe('category page route', () => {
     expect(metadata.title).toBe('Category page not found');
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates).toBeNull();
+    expect(metadata).toMatchObject({
+      openGraph: {
+        description: 'This category page is unavailable or has moved.',
+        title: 'Category page not found',
+      },
+      twitter: {
+        card: 'summary',
+        description: 'This category page is unavailable or has moved.',
+        title: 'Category page not found',
+      },
+    });
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {

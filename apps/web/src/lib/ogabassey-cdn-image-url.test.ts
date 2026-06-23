@@ -52,6 +52,23 @@ describe('ogabassey-cdn-image-url', () => {
     ).toBe('https://cdn.ogabassey.com/core-assets/products/phone.avif');
   });
 
+  it('normalizes unwrapped legacy product transforms to core assets', () => {
+    expect(
+      normalizeOgabasseyCdnImageUrl(
+        'https://cdn.ogabassey.com/image/width=750,quality=75,format=auto/products/phone.avif?v=1#main'
+      )
+    ).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif?v=1#main'
+    );
+  });
+
+  it('preserves explicit transform URLs outside managed product and blog assets', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=auto/img.avif?v=1';
+
+    expect(normalizeOgabasseyCdnImageUrl(url)).toBe(url);
+  });
+
   it('leaves malformed transform URLs untouched', () => {
     const transformWithoutAssetPath =
       'https://cdn.ogabassey.com/image/width=750';

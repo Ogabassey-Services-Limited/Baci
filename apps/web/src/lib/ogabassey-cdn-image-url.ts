@@ -15,11 +15,12 @@ export function isOgabasseyCdnImageUrl(src: string): boolean {
 }
 
 export function normalizeOgabasseyCdnImageUrl(src: string): string {
-  return (
-    unwrapOgabasseyTransformUrl(src) ??
-    normalizeOgabasseyLegacyProductImageUrl(src) ??
-    src
-  );
+  const unwrapped = unwrapOgabasseyTransformUrl(src);
+  if (unwrapped) {
+    return normalizeOgabasseyLegacyProductImageUrl(unwrapped) ?? unwrapped;
+  }
+
+  return normalizeOgabasseyLegacyProductImageUrl(src) ?? src;
 }
 
 export function buildOgabasseyCdnImageLoaderUrl(
@@ -76,11 +77,19 @@ function unwrapOgabasseyTransformUrl(src: string): string | null {
   }
 
   const assetPath = remainder.slice(separatorIndex);
-  if (!TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(assetPath)) {
+  if (!isTransformableOrLegacyOgabasseyAssetPath(assetPath)) {
     return null;
   }
 
   return `${url.origin}${assetPath}${url.search}${url.hash}`;
+}
+
+function isTransformableOrLegacyOgabasseyAssetPath(pathname: string): boolean {
+  return (
+    isTransformableOgabasseyAssetPath(pathname) ||
+    (pathname.startsWith(OGABASSEY_LEGACY_PRODUCT_IMAGE_PATH_PREFIX) &&
+      TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(pathname))
+  );
 }
 
 function normalizeOgabasseyLegacyProductImageUrl(src: string): string | null {
