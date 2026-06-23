@@ -1,6 +1,7 @@
 import {
   BASE_STOP_TOKENS,
   CONDITION_TOKENS,
+  GENERIC_HUB_TOKENS,
   HUB_CATEGORY_WORDS,
   STORAGE_PATTERN,
   STORAGE_TOKEN_PATTERN,
@@ -8,6 +9,7 @@ import {
   USED_PATTERN,
 } from './price-intent-classifier-constants';
 import type {
+  PreparedPriceIntentCatalog,
   PreparedPriceIntentCatalogProduct,
   PriceIntentCatalogProduct,
 } from './price-intent-classifier-types';
@@ -88,13 +90,32 @@ export function getKeywordExactTokens(
   );
 }
 
+function getPreparedTokenCounts(entries: PreparedPriceIntentCatalogProduct[]) {
+  const tokenCounts = new Map<string, number>();
+
+  for (const entry of entries) {
+    for (const token of entry.coreTokens) {
+      if (!/^\d+$/.test(token) && !GENERIC_HUB_TOKENS.has(token)) {
+        tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1);
+      }
+    }
+  }
+
+  return tokenCounts;
+}
+
+function getPreparedBrandTokenSet(
+  entries: PreparedPriceIntentCatalogProduct[]
+) {
+  return new Set(entries.flatMap((entry) => entry.brandTokens));
+}
+
 export function preparePriceIntentCatalog(
   catalog: PriceIntentCatalogProduct[],
   marketPhrase?: string | null
-): PreparedPriceIntentCatalogProduct[] {
+): PreparedPriceIntentCatalog {
   const stopTokens = getPriceIntentStopTokens(marketPhrase);
-
-  return catalog.map((product) => {
+  const entries = catalog.map((product) => {
     const coreTokens = getCoreProductTokens(product, stopTokens);
     const brandTokens = product.brand?.trim()
       ? tokenizePriceIntentText(product.brand)
@@ -103,4 +124,10 @@ export function preparePriceIntentCatalog(
 
     return { brandTokens, coreTokens, product, tokenSet };
   });
+
+  return {
+    brandTokenSet: getPreparedBrandTokenSet(entries),
+    entries,
+    tokenCounts: getPreparedTokenCounts(entries),
+  };
 }

@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  classifyPriceIntentKeyword,
-  preparePriceIntentCatalog,
-} from './price-intent-classifier';
+import { preparePriceIntentCatalog } from './price-intent-catalog';
+import { classifyPriceIntentKeyword } from './price-intent-classifier';
 
 const catalog = [
   {

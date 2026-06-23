@@ -20,6 +20,12 @@ export interface PreparedPriceIntentCatalogProduct {
   tokenSet: Set<string>;
 }
 
+export interface PreparedPriceIntentCatalog {
+  brandTokenSet: Set<string>;
+  entries: PreparedPriceIntentCatalogProduct[];
+  tokenCounts: Map<string, number>;
+}
+
 interface BaseClassifyPriceIntentKeywordInput {
   keyword: string;
   marketPhrase?: string | null;
@@ -29,11 +35,11 @@ interface BaseClassifyPriceIntentKeywordInput {
 export type ClassifyPriceIntentKeywordInput =
   | (BaseClassifyPriceIntentKeywordInput & {
       catalog: PriceIntentCatalogProduct[];
-      preparedCatalog?: PreparedPriceIntentCatalogProduct[];
+      preparedCatalog?: PreparedPriceIntentCatalog;
     })
   | (BaseClassifyPriceIntentKeywordInput & {
       catalog?: PriceIntentCatalogProduct[];
-      preparedCatalog: PreparedPriceIntentCatalogProduct[];
+      preparedCatalog: PreparedPriceIntentCatalog;
     });
 
 export interface PriceIntentClassification {

@@ -31,7 +31,7 @@ describe('price intent catalog helpers', () => {
   });
 
   it('prepares catalog tokens without market or modifier tokens', () => {
-    const [entry] = preparePriceIntentCatalog(
+    const preparedCatalog = preparePriceIntentCatalog(
       [
         {
           slug: 'iphone-x-64gb-uk-used',
@@ -43,7 +43,10 @@ describe('price intent catalog helpers', () => {
       ],
       'Nigeria'
     );
+    const [entry] = preparedCatalog.entries;
 
+    expect(preparedCatalog.brandTokenSet.has('apple')).toBe(true);
+    expect(preparedCatalog.tokenCounts.get('iphone')).toBe(1);
     expect(entry?.brandTokens).toEqual(['apple']);
     expect(entry?.coreTokens).toEqual(['iphone', 'x']);
     expect(entry?.tokenSet.has('64gb')).toBe(false);

@@ -15,12 +15,11 @@ import {
 } from './price-intent-classifier-constants';
 import type {
   ClassifyPriceIntentKeywordInput,
+  PreparedPriceIntentCatalog,
   PreparedPriceIntentCatalogProduct,
   PriceIntentClassification,
 } from './price-intent-classifier-types';
 import { productSupportsPriceIntentModifiers } from './price-intent-modifiers';
-
-export { preparePriceIntentCatalog } from './price-intent-catalog';
 
 function isOptionalExactToken(
   entry: PreparedPriceIntentCatalogProduct,
@@ -61,28 +60,20 @@ function getProductMatchScore(
 
 function getBroadHubToken(
   keywordTokens: Set<string>,
-  catalog: PreparedPriceIntentCatalogProduct[],
+  preparedCatalog: PreparedPriceIntentCatalog,
   requestedCategorySlug: string | null
 ) {
-  for (const entry of catalog) {
-    for (const token of entry.brandTokens) {
-      if (keywordTokens.has(token)) {
-        return token;
-      }
-    }
-  }
-
-  const tokenCounts = new Map<string, number>();
-  for (const entry of catalog) {
-    for (const token of entry.coreTokens) {
-      if (!/^\d+$/.test(token) && !GENERIC_HUB_TOKENS.has(token)) {
-        tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1);
-      }
+  for (const token of keywordTokens) {
+    if (preparedCatalog.brandTokenSet.has(token)) {
+      return token;
     }
   }
 
   for (const token of keywordTokens) {
-    if (!GENERIC_HUB_TOKENS.has(token) && (tokenCounts.get(token) ?? 0) >= 2) {
+    if (
+      !GENERIC_HUB_TOKENS.has(token) &&
+      (preparedCatalog.tokenCounts.get(token) ?? 0) >= 2
+    ) {
       return token;
     }
   }
@@ -127,14 +118,11 @@ function buildHubSlug(
 
 function buildResult(
   input: ClassifyPriceIntentKeywordInput,
-  result: Omit<PriceIntentClassification, 'keyword' | 'modifiers'> & {
-    modifiers?: string[];
-  }
+  result: Omit<PriceIntentClassification, 'keyword'>
 ): PriceIntentClassification {
   return {
     keyword: input.keyword,
     ...result,
-    modifiers: result.modifiers ?? getPriceIntentModifiers(input.keyword),
   };
 }
 
@@ -143,10 +131,11 @@ function hasPriceIntent(keyword: string) {
 }
 
 function getPreparedCatalog(input: ClassifyPriceIntentKeywordInput) {
-  return (
-    input.preparedCatalog ??
-    preparePriceIntentCatalog(input.catalog ?? [], input.marketPhrase)
-  );
+  if (input.preparedCatalog) {
+    return input.preparedCatalog;
+  }
+
+  return preparePriceIntentCatalog(input.catalog ?? [], input.marketPhrase);
 }
 
 function getExactMatches(
@@ -203,7 +192,7 @@ export function classifyPriceIntentKeyword(
   const stopTokens = getPriceIntentStopTokens(input.marketPhrase);
   const requestedCategorySlug = getRequestedCategorySlug(keywordTokens);
   const exactMatches = getExactMatches(
-    preparedCatalog,
+    preparedCatalog.entries,
     keywordTokens,
     stopTokens
   );
@@ -241,7 +230,7 @@ export function classifyPriceIntentKeyword(
 
   if (hubToken) {
     const matchedProducts = getHubProducts(
-      preparedCatalog,
+      preparedCatalog.entries,
       hubToken,
       requestedCategorySlug,
       modifiers
