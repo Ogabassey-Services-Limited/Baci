@@ -124,9 +124,9 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     setIsCartOpen(true);
                   }}
                   className="ogabassey-navbar__icon-link"
-                  aria-label="Open cart"
                 >
                   <ShoppingCart size={22} aria-hidden="true" />
+                  <span className="sr-only">Open cart</span>
                   <span
                     className="ogabassey-navbar__cart-badge"
                     data-visible={visibleCartItems > 0 ? 'true' : undefined}
@@ -137,10 +137,10 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 <Link
                   href={`${basePath}/account` as `/${string}`}
                   prefetch={false}
-                  aria-label="View account"
                   className="ogabassey-navbar__icon-link"
                 >
                   <User size={22} aria-hidden="true" />
+                  <span className="sr-only">View account</span>
                 </Link>
               </div>
             </div>

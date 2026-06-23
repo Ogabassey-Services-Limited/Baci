@@ -59,14 +59,12 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // without adjusting state from an effect.
   const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
 
-  // Fallback placeholder for products without images
-  const PLACEHOLDER_IMAGE =
-    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="48" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
+  const placeholderImage = '/placeholder.svg';
 
   // Determine current image with fallback
   const currentImage = resolveProductImageSource(
     [product.images?.[activeColorIndex], product.image],
-    PLACEHOLDER_IMAGE
+    placeholderImage
   );
   const currentImageAlt = currentImage.isPlaceholder
     ? ''
@@ -76,6 +74,8 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   const productHref = asRoute(
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
+  const linkTitle =
+    `${product.name}${product.brand ? ` - ${product.brand}` : ''}`.trim();
   const requiresSelection = requiresOgabasseyProductSelection(product);
   const isImageLoaded = loadedImageSrc === currentImage.src;
 
@@ -106,10 +106,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
       <Link
         href={productHref}
         prefetch={false}
+        title={linkTitle}
         className="absolute inset-0 z-0"
       >
         <span className="sr-only">
-          {product.name} - {product.price}
+          View {product.name} for {product.price}
         </span>
       </Link>
 

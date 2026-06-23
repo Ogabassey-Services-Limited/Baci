@@ -202,17 +202,31 @@ describe('BlogContentRenderer', () => {
 
   describe('heading nodes', () => {
     it.each([
-      1, 2, 3, 4,
-    ] as const)('renders an <h%i> element for level %i', (level) => {
-      const json = doc(headingNode(level, textNode(`Heading ${level}`)));
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+    ] as const)('renders source level %i as an <h%i> article-body heading', (sourceLevel, renderedLevel) => {
+      const json = doc(
+        headingNode(sourceLevel, textNode(`Heading ${sourceLevel}`))
+      );
       const { container } = render(<BlogContentRenderer json={json} />);
-      const el = container.querySelector(`h${level}`);
+      const el = container.querySelector(`h${renderedLevel}`);
       expect(el).toBeInTheDocument();
-      expect(el).toHaveTextContent(`Heading ${level}`);
+      expect(el).toHaveTextContent(`Heading ${sourceLevel}`);
+    });
+
+    it('does not render a body h1 below the blog post page heading', () => {
+      const json = doc(headingNode(1, textNode('Imported Title')));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('h1')).toBeNull();
+      expect(
+        screen.getByRole('heading', { level: 2, name: /Imported Title/i })
+      ).toBeInTheDocument();
     });
 
     it('generates a slug id from the heading text', () => {
-      const json = doc(headingNode(2, textNode('My Section Title')));
+      const json = doc(headingNode(1, textNode('My Section Title')));
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('h2')).toHaveAttribute(
         'id',
@@ -230,7 +244,7 @@ describe('BlogContentRenderer', () => {
     it('sets the scroll-mt-20 class for sticky-header offset', () => {
       const json = doc(headingNode(1, textNode('Title')));
       const { container } = render(<BlogContentRenderer json={json} />);
-      expect(container.querySelector('h1')).toHaveClass('scroll-mt-20');
+      expect(container.querySelector('h2')).toHaveClass('scroll-mt-20');
     });
   });
 

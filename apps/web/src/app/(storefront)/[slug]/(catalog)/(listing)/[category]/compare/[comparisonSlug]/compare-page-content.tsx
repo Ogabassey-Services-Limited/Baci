@@ -7,6 +7,10 @@ import {
 } from '@/lib/storefront-compare/compare-schema';
 import { loadComparePage } from '@/lib/storefront-compare/load-compare-page';
 
+type ProductCompareSchemaProduct = Parameters<
+  typeof buildProductCompareItemListSchema
+>[0]['products'][number];
+
 interface ComparePageContentProps {
   params: Promise<{
     slug: string;
@@ -50,6 +54,165 @@ function getComparisonRowGroups(
   return [{ category: 'Overview', rows: page.comparisonRows }];
 }
 
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function normalizeStructuredDataImageUrl(
+  value: string,
+  baseUrl: string
+): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '/placeholder.svg') {
+    return '';
+  }
+
+  try {
+    const url = new URL(trimmed, baseUrl);
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? url.toString()
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+function getStructuredDataImage(
+  product: Record<string, unknown>,
+  baseUrl: string
+): string {
+  if (typeof product.image === 'string') {
+    const image = normalizeStructuredDataImageUrl(product.image, baseUrl);
+    if (image) {
+      return image;
+    }
+  }
+
+  if (!Array.isArray(product.images)) {
+    return '';
+  }
+
+  for (const image of product.images) {
+    if (typeof image === 'string') {
+      const imageUrl = normalizeStructuredDataImageUrl(image, baseUrl);
+      if (imageUrl) {
+        return imageUrl;
+      }
+    }
+
+    const imageRecord = getRecord(image);
+    if (typeof imageRecord?.url === 'string') {
+      const imageUrl = normalizeStructuredDataImageUrl(
+        imageRecord.url,
+        baseUrl
+      );
+      if (imageUrl) {
+        return imageUrl;
+      }
+    }
+  }
+
+  return '';
+}
+
+function toOptionalNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function getStructuredDataAvailability(
+  product: Record<string, unknown>
+): ProductCompareSchemaProduct['availability'] {
+  if (
+    product.availability === 'InStock' ||
+    product.availability === 'OutOfStock'
+  ) {
+    return product.availability;
+  }
+
+  if (typeof product.availability === 'string') {
+    const normalized = product.availability.toLowerCase();
+    if (
+      normalized.includes('outofstock') ||
+      normalized.includes('out_of_stock')
+    ) {
+      return 'OutOfStock';
+    }
+    if (normalized.includes('instock') || normalized.includes('in_stock')) {
+      return 'InStock';
+    }
+  }
+
+  if (typeof product.in_stock === 'boolean') {
+    return product.in_stock ? 'InStock' : 'OutOfStock';
+  }
+
+  if (product.manage_stock === false) {
+    return 'InStock';
+  }
+
+  const stockQuantity =
+    toOptionalNumber(product.stock_quantity) ?? toOptionalNumber(product.stock);
+  if (stockQuantity !== null) {
+    return stockQuantity > 0 ? 'InStock' : 'OutOfStock';
+  }
+
+  if (typeof product.status === 'string') {
+    const normalizedStatus = product.status.toLowerCase();
+    if (
+      normalizedStatus === 'out_of_stock' ||
+      normalizedStatus === 'sold_out'
+    ) {
+      return 'OutOfStock';
+    }
+  }
+
+  return undefined;
+}
+
+function toProductCompareSchemaProduct(
+  product: unknown,
+  baseUrl: string
+): ProductCompareSchemaProduct | null {
+  const record = getRecord(product);
+  if (!record) return null;
+
+  const id =
+    typeof record.id === 'string' || typeof record.id === 'number'
+      ? String(record.id)
+      : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const image = getStructuredDataImage(record, baseUrl);
+
+  if (!id || !name || !image) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    image,
+    availability: getStructuredDataAvailability(record),
+    category: typeof record.category === 'string' ? record.category : null,
+    category_slug:
+      typeof record.category_slug === 'string' ? record.category_slug : null,
+    description:
+      typeof record.description === 'string' ? record.description : null,
+    price: toOptionalNumber(record.price),
+    slug: typeof record.slug === 'string' ? record.slug : undefined,
+  };
+}
+
 export async function ComparePageContent({ params }: ComparePageContentProps) {
   const resolvedParams = await params;
   const page = await loadComparePage({
@@ -66,16 +229,24 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
     breadcrumbItems: page.breadcrumbItems,
     faqItems: page.faqItems,
   });
-  const itemListSchema =
+  const productSchemaProducts =
     page.kind === 'product'
+      ? [page.leftProduct, page.rightProduct]
+          .map((product) =>
+            toProductCompareSchemaProduct(product, page.canonicalUrl)
+          )
+          .filter(
+            (product): product is ProductCompareSchemaProduct =>
+              product !== null
+          )
+      : [];
+  const itemListSchema =
+    page.kind === 'product' && productSchemaProducts.length === 2
       ? buildProductCompareItemListSchema({
           pageName: page.heading,
           pageUrl: page.canonicalUrl,
           currency: page.merchant.payout_currency || 'NGN',
-          products: [page.leftProduct, page.rightProduct].filter(
-            (product): product is NonNullable<typeof product> =>
-              Boolean(product)
-          ),
+          products: productSchemaProducts,
           comparisonMatrix: page.comparisonMatrix,
         })
       : null;

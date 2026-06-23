@@ -73,7 +73,9 @@ export function buildProductCompareItemListSchema(input: {
       const availability =
         product.availability === 'OutOfStock'
           ? 'https://schema.org/OutOfStock'
-          : 'https://schema.org/InStock';
+          : product.availability === 'InStock'
+            ? 'https://schema.org/InStock'
+            : undefined;
       const additionalProperty = input.comparisonMatrix?.flatRows
         .slice(0, 12)
         .map((row) => {
@@ -118,7 +120,7 @@ export function buildProductCompareItemListSchema(input: {
                   '@type': 'Offer',
                   price: product.price,
                   priceCurrency: input.currency,
-                  availability,
+                  ...(availability ? { availability } : {}),
                 }
               : undefined,
         },

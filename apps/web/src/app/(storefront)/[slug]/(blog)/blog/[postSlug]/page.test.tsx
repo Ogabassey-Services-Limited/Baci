@@ -290,6 +290,30 @@ describe('storefront blog post page', () => {
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
   });
 
+  it('bounds long blog post title and description metadata', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      post: {
+        ...liveBlogPost.post,
+        title:
+          'Best Phones Under 500000 Naira in Nigeria With Camera Battery and Gaming Performance Compared',
+        excerpt:
+          'Compare the best phones under 500000 naira in Nigeria with camera quality, battery life, gaming performance, warranty coverage, delivery options, and flexible payment notes for shoppers.',
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'best-phones-under-500000',
+      }),
+    });
+
+    expect(String(metadata.title).length).toBeLessThanOrEqual(70);
+    expect(String(metadata.title)).toContain('Ogabassey');
+    expect(String(metadata.description).length).toBeLessThanOrEqual(160);
+  });
+
   it('returns noindex fallback metadata when the public cache lookup throws', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')

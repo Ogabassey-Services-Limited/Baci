@@ -143,4 +143,16 @@ describe('SafeHtml', () => {
       screen.getByRole('heading', { level: 3, name: 'Imported Section' })
     ).toBeInTheDocument();
   });
+
+  it('normalizes SEO-hostile anchors when requested', () => {
+    render(
+      <SafeHtml
+        html='<a href="https://example.com/data.json">Raw JSON</a><a href="https://example.com/phone"></a>'
+        normalizeSeoAnchors={true}
+      />
+    );
+
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText('Raw JSON')).toBeInTheDocument();
+  });
 });

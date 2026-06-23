@@ -108,6 +108,8 @@ export async function BlogPostBody({
               legacyHtml,
               post.featured_image_url
             )}
+            headingLevelOffset={1}
+            normalizeSeoAnchors={true}
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600!"
           />
         )}

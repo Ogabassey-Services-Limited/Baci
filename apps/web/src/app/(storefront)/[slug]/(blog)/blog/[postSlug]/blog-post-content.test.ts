@@ -46,6 +46,40 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toBe('');
   });
 
+  it('parses leading TipTap JSON when legacy HTML was appended after it', async () => {
+    const structuredContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Shop the MacBook lineup',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'http://ogabassey.com',
+                    target: '_blank',
+                    rel: 'noopener noreferrer nofollow',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const content = `${JSON.stringify(structuredContent)}<p>Related reading: <a href="https://ogabassey.com/blog/macbook-guide">MacBook guide</a>.</p>`;
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(structuredContent);
+    expect(result.legacyHtml).toBe('');
+  });
+
   it('keeps legacy HTML on the sanitized legacy branch', async () => {
     const result = await resolveBlogPostContent('<p>Legacy content</p>');
 

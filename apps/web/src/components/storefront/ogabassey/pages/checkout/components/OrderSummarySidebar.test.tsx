@@ -638,7 +638,7 @@ describe('OrderSummarySidebar', () => {
       });
       expect(productImage).toHaveAttribute(
         'src',
-        'https://placehold.co/600x600/f4f4f5/a1a1aa?text=No+Image'
+        '/placeholder.svg'
       );
     });
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
 import {
@@ -14,6 +15,23 @@ export const metadata: Metadata = {
   title: 'Book a Repair',
   description: 'Schedule a repair for your device',
 };
+
+function getRepairsBasePath(
+  headersList: { get(name: string): string | null },
+  merchant: { custom_domain?: string | null; slug: string }
+): string {
+  const requestMerchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
+  const merchantSlug = merchant.slug.toLowerCase();
+  const requestCustomDomain = headersList.get('x-custom-domain')?.toLowerCase();
+  const merchantCustomDomain = merchant.custom_domain?.toLowerCase();
+  const servedAtDomainRoot =
+    requestMerchantSlug === merchantSlug ||
+    (requestCustomDomain != null &&
+      requestCustomDomain.length > 0 &&
+      requestCustomDomain === merchantCustomDomain);
+
+  return servedAtDomainRoot ? '' : `/${merchant.slug}`;
+}
 
 export default async function RepairsPage({
   params,
@@ -45,5 +63,9 @@ export default async function RepairsPage({
     notFound();
   }
 
-  return <OgabasseyV2Repairs />;
+  return (
+    <OgabasseyV2Repairs
+      basePath={getRepairsBasePath(await headers(), merchant)}
+    />
+  );
 }

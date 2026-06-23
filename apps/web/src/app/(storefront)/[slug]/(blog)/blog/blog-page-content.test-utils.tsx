@@ -83,6 +83,25 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: vi.fn(() => ({})),
   generateMetaDescription: vi.fn((description: string) => description),
+  generateMetaTitle: vi.fn(
+    (
+      title: string,
+      options?: { fallback?: string; maxLength?: number; suffix?: string }
+    ) => {
+      const baseTitle = title || options?.fallback || '';
+      const fullTitle = options?.suffix
+        ? `${baseTitle} | ${options.suffix}`
+        : baseTitle;
+      const maxLength = options?.maxLength ?? 70;
+
+      if (fullTitle.length <= maxLength || !options?.suffix) {
+        return fullTitle;
+      }
+
+      const suffix = ` | ${options.suffix}`;
+      return `${baseTitle.slice(0, maxLength - suffix.length - 3).trim()}...${suffix}`;
+    }
+  ),
   generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
 }));
 

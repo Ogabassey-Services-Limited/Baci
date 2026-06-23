@@ -313,9 +313,12 @@ describe('OgabasseyNavbar', () => {
   it('gives the account link an explicit accessible name', () => {
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    expect(screen.getByRole('link', { name: /view account/i })).toHaveAttribute(
-      'href',
-      '/ogabassey/account'
+    const accountLink = screen.getByRole('link', { name: /view account/i });
+
+    expect(accountLink).toHaveAttribute('href', '/ogabassey/account');
+    expect(accountLink).toHaveTextContent(/view account/i);
+    expect(screen.getByRole('link', { name: /open cart/i })).toHaveTextContent(
+      /open cart/i
     );
   });
 

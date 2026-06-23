@@ -21,13 +21,92 @@ function normalizeBasePath(basePath: string): string {
   return !basePath || basePath === '/' ? '' : basePath.replace(/\/+$/, '');
 }
 
+function isTipTapDocument(content: unknown): content is { type: 'doc' } {
+  return (
+    !!content &&
+    typeof content === 'object' &&
+    (content as { type?: unknown }).type === 'doc'
+  );
+}
+
+function extractLeadingJsonPrefix(content: string): string | null {
+  const firstContentIndex = content.search(/\S/);
+  if (firstContentIndex === -1) return null;
+
+  const firstCharacter = content[firstContentIndex];
+  if (firstCharacter !== '{' && firstCharacter !== '[') return null;
+
+  const closingStack: string[] = [];
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = firstContentIndex; index < content.length; index += 1) {
+    const character = content[index];
+
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (character === '\\') {
+        isEscaped = true;
+        continue;
+      }
+
+      if (character === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (character === '{') {
+      closingStack.push('}');
+      continue;
+    }
+
+    if (character === '[') {
+      closingStack.push(']');
+      continue;
+    }
+
+    if (character !== '}' && character !== ']') {
+      continue;
+    }
+
+    if (closingStack.pop() !== character) {
+      return null;
+    }
+
+    if (closingStack.length === 0) {
+      return content.slice(firstContentIndex, index + 1);
+    }
+  }
+
+  return null;
+}
+
 function tryParseJson(content: unknown): unknown | null {
   if (typeof content !== 'string') return content ?? null;
 
   try {
     return JSON.parse(content.trim());
   } catch {
-    return null;
+    const leadingJsonPrefix = extractLeadingJsonPrefix(content);
+    if (!leadingJsonPrefix) return null;
+
+    try {
+      const parsedPrefix = JSON.parse(leadingJsonPrefix);
+      return isTipTapDocument(parsedPrefix) ? parsedPrefix : null;
+    } catch {
+      return null;
+    }
   }
 }
 

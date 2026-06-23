@@ -18,12 +18,17 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
+import { asRoute } from '@/lib/routes';
 
 interface OgabasseyV2RepairsProps {
+  basePath?: string;
   storeSlug?: string;
 }
 
-export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
+export function OgabasseyV2Repairs({
+  basePath,
+  storeSlug,
+}: OgabasseyV2RepairsProps) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -55,9 +60,14 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
     },
   ];
 
-  const swapLink = storeSlug
-    ? `/storefront/${storeSlug}/swap`
-    : '/storefront/ogabassey/swap'; // Fallback or handle appropriately
+  const normalizedBasePath =
+    basePath !== undefined
+      ? basePath.replace(/\/+$/, '')
+      : storeSlug
+        ? `/${storeSlug}`
+        : '/ogabassey';
+  const repairLink = asRoute(`${normalizedBasePath}/repair`);
+  const swapLink = asRoute(`${normalizedBasePath}/swap`);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -90,13 +100,13 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
             </p>
             <div className="flex flex-wrap gap-4">
               <Link
-                href={storeSlug ? `/${storeSlug}/repair` : '/ogabassey/repair'}
+                href={repairLink}
                 className="bg-red-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-red-700 transition-colors shadow-lg active:scale-95 shadow-red-900/20"
               >
                 Book a Repair
               </Link>
               <Link
-                href={swapLink as any}
+                href={swapLink}
                 className="bg-white/10 text-white border border-white/20 font-bold py-3.5 px-8 rounded-xl hover:bg-white/20 transition-colors active:scale-95 backdrop-blur-xs"
               >
                 Trade-in Instead

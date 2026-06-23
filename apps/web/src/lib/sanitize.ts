@@ -8,6 +8,7 @@ import sanitizeLib from 'sanitize-html';
 
 interface SanitizeHtmlOptions {
   headingLevelOffset?: number;
+  normalizeSeoAnchors?: boolean;
   trustedPriorityImageSources?: readonly string[];
 }
 
@@ -48,6 +49,22 @@ function createTrustedPriorityImageSourceSet(
       .map((source) => normalizeTrustedPriorityImageSource(source.trim()))
       .filter(Boolean)
   );
+}
+
+function isCrawlableResourceHref(href: string | undefined): boolean {
+  const normalizedHref = href?.trim().toLowerCase();
+  if (!normalizedHref) {
+    return false;
+  }
+  try {
+    const { pathname } = new URL(normalizedHref, 'https://example.invalid');
+    if (pathname === '/_next/image') {
+      return true;
+    }
+    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
+  } catch {
+    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
+  }
 }
 
 /**
@@ -125,6 +142,21 @@ export function sanitizeHtml(
       };
     },
   };
+  const exclusiveFilter: sanitizeLib.IOptions['exclusiveFilter'] =
+    options.normalizeSeoAnchors
+      ? (frame) => {
+          if (frame.tag !== 'a') {
+            return false;
+          }
+          if (!frame.text.trim()) {
+            return frame.mediaChildren.length > 0 ? 'excludeTag' : true;
+          }
+          if (isCrawlableResourceHref(frame.attribs.href)) {
+            return 'excludeTag';
+          }
+          return false;
+        }
+      : undefined;
 
   if (headingLevelOffset > 0) {
     for (let level = 1; level <= 6; level += 1) {
@@ -215,6 +247,7 @@ export function sanitizeHtml(
     // Security configurations
     // Ensure all external links have rel="noopener noreferrer"
     transformTags,
+    exclusiveFilter,
     // Only allow safe URL protocols (no javascript:, data:, etc.)
     allowedSchemes: [
       'http',

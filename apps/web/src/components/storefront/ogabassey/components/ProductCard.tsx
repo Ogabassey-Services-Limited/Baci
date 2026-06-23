@@ -14,7 +14,7 @@ import { useV2Saved } from '../providers/v2-saved-context';
 import { requiresOgabasseyProductSelection } from '../product-selection';
 import type { Product } from '../types';
 
-const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
+const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
 // Note: The getProductImage helper was removed because product data is now
 // normalized upstream via normalizeProduct(), ensuring product.image is always set.

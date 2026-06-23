@@ -75,9 +75,61 @@ describe('blog page metadata', () => {
       'https://example.com/blog?page=2'
     );
     expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+    expect(metadata.title).toBe('Blog | Page 2 | Ogabassey');
+    expect(metadata.description).toContain('Page 2:');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.other).toBeUndefined();
     expect(mockGetCachedBlogListing).toHaveBeenCalledWith('example.com', {
       page: 2,
+    });
+  });
+
+  it('uses distinct noindex metadata for filtered blog listings', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ category: 'buying-guides' }),
+    });
+
+    expect(metadata.title).toBe('Buying Guides Articles | Ogabassey');
+    expect(metadata.description).toContain('buying guides articles');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      category: 'buying-guides',
+      page: 1,
+    });
+  });
+
+  it('uses distinct noindex metadata for blog search listings', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ search: 'iphone-reviews' }),
+    });
+
+    expect(metadata.title).toBe('Search: iphone reviews | Ogabassey');
+    expect(metadata.description).toContain(
+      'Search results for "iphone reviews"'
+    );
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      page: 1,
+      searchQuery: 'iphone-reviews',
+    });
+  });
+
+  it('caps long filtered metadata titles without changing the listing query', async () => {
+    const longSearch =
+      'iphone-reviews-for-used-flagship-smartphones-in-nigeria-under-budget';
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ search: longSearch }),
+    });
+
+    expect(String(metadata.title).length).toBeLessThanOrEqual(70);
+    expect(metadata.title).toContain('Ogabassey');
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      page: 1,
+      searchQuery: longSearch,
     });
   });
 

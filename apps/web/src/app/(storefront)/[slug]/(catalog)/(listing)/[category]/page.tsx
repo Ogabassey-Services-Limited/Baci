@@ -134,7 +134,9 @@ export async function generateMetadata({
     fallback: categoryName,
   });
   const description = generateMetaDescription(
-    hubContent.intro.description,
+    currentPage > 1
+      ? `Page ${currentPage} of ${totalPages}: ${hubContent.intro.description}`
+      : hubContent.intro.description,
     160,
     {
       minLength: 110,

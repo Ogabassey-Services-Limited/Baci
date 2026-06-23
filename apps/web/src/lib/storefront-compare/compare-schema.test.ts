@@ -94,6 +94,13 @@ describe('buildProductCompareItemListSchema', () => {
         }>
       )[0]?.item.offers.priceCurrency
     ).toBe('NGN');
+    expect(
+      (
+        schema.itemListElement as Array<{
+          item: { offers: Record<string, unknown> };
+        }>
+      )[0]?.item.offers
+    ).not.toHaveProperty('availability');
   });
 
   it('throws a clear error when the compare pageUrl is not absolute', () => {

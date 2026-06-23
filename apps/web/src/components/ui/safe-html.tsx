@@ -7,6 +7,7 @@ type SafeHtmlProps = {
   as?: SafeHtmlTag;
   html: string;
   headingLevelOffset?: number;
+  normalizeSeoAnchors?: boolean;
   trustedPriorityImageSources?: readonly string[];
 } & Omit<HTMLAttributes<HTMLElement>, 'dangerouslySetInnerHTML' | 'children'>;
 
@@ -28,6 +29,7 @@ export function SafeHtml({
   as = 'div',
   html,
   headingLevelOffset,
+  normalizeSeoAnchors,
   trustedPriorityImageSources,
   ...rest
 }: SafeHtmlProps) {
@@ -42,6 +44,7 @@ export function SafeHtml({
     dangerouslySetInnerHTML: {
       __html: sanitizeHtml(html, {
         headingLevelOffset,
+        normalizeSeoAnchors,
         trustedPriorityImageSources,
       }),
     },

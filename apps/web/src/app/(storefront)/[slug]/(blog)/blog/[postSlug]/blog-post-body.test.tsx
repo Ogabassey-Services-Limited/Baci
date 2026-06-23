@@ -9,8 +9,24 @@ import { BlogPostBody } from './blog-post-body';
 
 // SafeHtml: render a plain div with a data-testid so we can inspect html prop
 vi.mock('@/components/ui/safe-html', () => ({
-  SafeHtml: ({ html, ...rest }: { html: string; [key: string]: unknown }) => (
-    <div data-testid="safe-html" data-html={html} {...rest} />
+  SafeHtml: ({
+    headingLevelOffset,
+    html,
+    normalizeSeoAnchors,
+    ...rest
+  }: {
+    headingLevelOffset?: number;
+    html: string;
+    normalizeSeoAnchors?: boolean;
+    [key: string]: unknown;
+  }) => (
+    <div
+      data-testid="safe-html"
+      data-heading-level-offset={headingLevelOffset ?? ''}
+      data-html={html}
+      data-normalize-seo-anchors={normalizeSeoAnchors ? 'true' : 'false'}
+      {...rest}
+    />
   ),
 }));
 
@@ -205,6 +221,21 @@ describe('BlogPostBody', () => {
       expect(screen.getByTestId('safe-html')).toHaveAttribute(
         'data-html',
         '<p>Hello world</p>'
+      );
+    });
+
+    it('demotes legacy HTML body headings below the post title h1', async () => {
+      const content = '<h1>Imported Title</h1><p>Hello world</p>';
+
+      render(await BlogPostBody({ ...BASE_PROPS, content }));
+
+      expect(screen.getByTestId('safe-html')).toHaveAttribute(
+        'data-heading-level-offset',
+        '1'
+      );
+      expect(screen.getByTestId('safe-html')).toHaveAttribute(
+        'data-normalize-seo-anchors',
+        'true'
       );
     });
 
