@@ -57,7 +57,7 @@ interface EmailPayload {
 // ⚠️ Keep MERCHANT_BRANDING_COLUMNS and MerchantBrandingRow in sync — a Deno
 // edge fn gets no typed Supabase inference, so a mismatch surfaces only at runtime.
 const MERCHANT_BRANDING_COLUMNS =
-  'business_name, logo_url, brand_colors, slug, support_email, email_sender_name, email';
+  'business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email';
 
 interface MerchantBrandingRow {
   brand_colors: { primary?: string; accent?: string } | null;
@@ -65,6 +65,7 @@ interface MerchantBrandingRow {
   email: string | null;
   email_sender_name: string | null;
   logo_url: string | null;
+  email_logo_url: string | null;
   slug: string | null;
   support_email: string | null;
 }
@@ -154,6 +155,7 @@ async function fetchMerchantBranding(
       businessName: merchant.business_name,
       customDomain: resolvedCustomDomain,
       emailSenderName: merchant.email_sender_name,
+      emailLogoUrl: merchant.email_logo_url || null,
       logoUrl: merchant.logo_url || null,
       primaryColor: brandColors?.primary || BACI_PRIMARY_COLOR,
       buttonColor:

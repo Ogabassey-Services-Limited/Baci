@@ -12,6 +12,8 @@ import { generateEmailHtml as generateAppLocalEmailHtml } from '../../supabase/f
 describe('send-auth-email template helpers', () => {
   const ogabasseyMerchantLogoUrl =
     'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png';
+  const ogabasseyOpaqueEmailLogoUrl =
+    'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
 
   it('detects Baci merchant subdomains from auth redirects', () => {
     expect(
@@ -107,6 +109,47 @@ describe('send-auth-email template helpers', () => {
     expect(html).toContain('mso-table-lspace:0pt');
     expect(html).toContain('mso-table-rspace:0pt');
     expect(html).not.toContain('display:inline-table');
+  });
+
+  it('renders configured opaque email logos directly without the white chip', () => {
+    const config = getEmailConfig('magiclink', 'Ogabassey');
+    const confirmationUrl =
+      'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink';
+    const branding = {
+      businessName: 'Ogabassey',
+      customDomain: 'ogabassey.com',
+      emailLogoUrl: ogabasseyOpaqueEmailLogoUrl,
+      emailSenderName: 'Ogabassey',
+      logoUrl: ogabasseyMerchantLogoUrl,
+      primaryColor: '#d62027',
+      buttonColor: '#d62027',
+      buttonTextColor: '#ffffff',
+      slug: 'ogabassey',
+      supportEmail: 'support@ogabassey.com',
+    };
+    const token = '123456';
+    const actionUrl = 'https://ogabassey.com/account/verify';
+
+    const rootHtml = generateEmailHtml(
+      config,
+      confirmationUrl,
+      branding,
+      token,
+      actionUrl
+    );
+    const appLocalHtml = generateAppLocalEmailHtml(
+      config,
+      confirmationUrl,
+      branding,
+      token,
+      actionUrl
+    );
+
+    expect(appLocalHtml).toBe(rootHtml);
+    expect(rootHtml).toContain(`<img src="${ogabasseyOpaqueEmailLogoUrl}"`);
+    expect(rootHtml).toContain('class="a-email-logo"');
+    expect(rootHtml).not.toContain('class="a-logo-chip"');
+    expect(rootHtml).not.toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
   });
 
   it('centers table-based logos in default auth emails', () => {
