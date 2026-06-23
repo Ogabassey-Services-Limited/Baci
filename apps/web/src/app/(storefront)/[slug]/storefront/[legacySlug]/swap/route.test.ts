@@ -25,7 +25,7 @@ describe('GET /[slug]/storefront/[legacySlug]/swap', () => {
     expect(response.headers.get('location')).toBe('https://ogabassey.com/swap');
   });
 
-  it('keeps non-Ogabassey rewritten legacy paths under the merchant slug', async () => {
+  it('redirects non-Ogabassey custom-domain legacy paths to the root swap route', async () => {
     const response = await GET(
       createRequest(
         'https://demo.example.com/demo.example.com/storefront/test-store/swap?ref=audit'
@@ -35,7 +35,7 @@ describe('GET /[slug]/storefront/[legacySlug]/swap', () => {
 
     expect(response.status).toBe(308);
     expect(response.headers.get('location')).toBe(
-      'https://demo.example.com/test-store/swap?ref=audit'
+      'https://demo.example.com/swap?ref=audit'
     );
   });
 

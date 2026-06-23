@@ -47,6 +47,30 @@ describe('GET /storefront/[slug]/swap', () => {
     );
   });
 
+  it('redirects custom-domain legacy paths to the root swap route', async () => {
+    const response = await GET(
+      createRequest('https://shop.example/storefront/test-store/swap'),
+      createContext('test-store')
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe('https://shop.example/swap');
+  });
+
+  it('redirects merchant-subdomain legacy paths to the root swap route', async () => {
+    const response = await GET(
+      createRequest(
+        'https://test-store.usebaci.com/storefront/test-store/swap'
+      ),
+      createContext('test-store')
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe(
+      'https://test-store.usebaci.com/swap'
+    );
+  });
+
   it('normalizes mixed-case slugs and preserves the request query string', async () => {
     const response = await GET(
       createRequest('https://usebaci.com/storefront/Test-Store/swap?ref=audit'),
