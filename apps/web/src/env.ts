@@ -71,6 +71,11 @@ const optionalTrimmedUrlSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.url().optional());
 
+const recoveryCodePepperSchema = optionalTrimmedStringSchema.refine(
+  (value) => value === undefined || value.length >= 32,
+  { message: 'RECOVERY_CODE_PEPPER must be at least 32 characters' }
+);
+
 const ENV_VALUE_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
 
 const aiChatProviderSchema = z.preprocess(
@@ -164,6 +169,7 @@ const serverSchema = z
     SUPABASE_SERVICE_ROLE_KEY: z
       .string()
       .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+    RECOVERY_CODE_PEPPER: recoveryCodePepperSchema,
     SUPABASE_JWT_SECRET: optionalTrimmedStringSchema,
     SUPABASE_AGENTIC_JWT_PRIVATE_JWK: supabaseAgenticJwtPrivateJwkStringSchema,
 
@@ -396,6 +402,19 @@ const serverSchema = z
   })
   .superRefine((value, ctx) => {
     if (
+      process.env.NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED === 'true' &&
+      !value.RECOVERY_CODE_PEPPER
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'RECOVERY_CODE_PEPPER is required when passkey recovery codes are enabled',
+        path: ['RECOVERY_CODE_PEPPER'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (
       value.AI_STOREFRONT_TRIGGER_URL &&
       !value.AI_STOREFRONT_TRIGGER_SECRET
     ) {
@@ -527,6 +546,7 @@ const getEnv = () => {
   const serverEnv = isServer
     ? {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        RECOVERY_CODE_PEPPER: process.env.RECOVERY_CODE_PEPPER,
         SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
         SUPABASE_AGENTIC_JWT_PRIVATE_JWK:
           process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK,
@@ -734,6 +754,22 @@ export const getSupabaseServiceRoleKey = (): string => {
   if (!env?.SUPABASE_SERVICE_ROLE_KEY)
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
   return env.SUPABASE_SERVICE_ROLE_KEY;
+};
+
+export const getRecoveryCodePepper = (): string => {
+  if (isBrowserRuntime()) {
+    throw new Error('RECOVERY_CODE_PEPPER cannot be accessed on the client');
+  }
+  const pepper = trimSecret(
+    process.env.RECOVERY_CODE_PEPPER ?? env?.RECOVERY_CODE_PEPPER
+  );
+  if (!pepper) {
+    throw new Error('RECOVERY_CODE_PEPPER is not defined');
+  }
+  if (pepper.length < 32) {
+    throw new Error('RECOVERY_CODE_PEPPER must be at least 32 characters');
+  }
+  return pepper;
 };
 
 const isBrowserRuntime = () =>

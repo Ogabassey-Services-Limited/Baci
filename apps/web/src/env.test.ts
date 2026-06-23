@@ -1060,3 +1060,45 @@ describe('isAllowedLlmServerUrl', () => {
     expect(isAllowedLlmServerUrl(url)).toBe(false);
   });
 });
+
+describe('recovery-code env', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    stubBaseEnv();
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-test-secret');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('requires RECOVERY_CODE_PEPPER when passkey recovery is enabled', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED', 'true');
+    delete process.env.RECOVERY_CODE_PEPPER;
+
+    await expect(loadEnvModule()).rejects.toThrow('RECOVERY_CODE_PEPPER');
+  });
+
+  it('allows passkey recovery when RECOVERY_CODE_PEPPER is provisioned', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED', 'true');
+    vi.stubEnv('RECOVERY_CODE_PEPPER', 'x'.repeat(32));
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('returns the trimmed runtime recovery-code pepper', async () => {
+    vi.stubEnv('RECOVERY_CODE_PEPPER', `  ${'x'.repeat(32)}  `);
+
+    const { getRecoveryCodePepper } = await loadEnvModule();
+
+    expect(getRecoveryCodePepper()).toBe('x'.repeat(32));
+  });
+});

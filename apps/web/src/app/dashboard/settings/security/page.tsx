@@ -2,9 +2,14 @@ import { ChevronLeft, Shield } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { PasskeySecurityCard } from './passkey-security-card';
+import {
+  RecoveryCodesSection,
+  RecoveryCodesSkeleton,
+} from './recovery-codes-section';
 import { SecurityForm } from './security-form';
 
 export const metadata: Metadata = {
@@ -18,6 +23,9 @@ export default async function SecuritySettingsPage() {
   if (!merchant) {
     redirect('/login');
   }
+
+  const passkeyEnabled =
+    process.env.NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED === 'true';
 
   return (
     <div className="grid gap-6">
@@ -43,8 +51,11 @@ export default async function SecuritySettingsPage() {
       </div>
 
       <SecurityForm />
-      {process.env.NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED === 'true' && (
-        <PasskeySecurityCard />
+      {passkeyEnabled && <PasskeySecurityCard />}
+      {passkeyEnabled && (
+        <Suspense fallback={<RecoveryCodesSkeleton />}>
+          <RecoveryCodesSection />
+        </Suspense>
       )}
     </div>
   );
