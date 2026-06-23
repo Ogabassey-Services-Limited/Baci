@@ -20,7 +20,10 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
   // Standard: 728x90 (Desktop) | 320x100 (Mobile)
   HEADER_LEADERBOARD: {
     id: 'div-gpt-ad-header',
-    name: 'header_leaderboard',
+    // Must exactly match the Google Ad Manager ad unit code (case-sensitive);
+    // the GAM unit was created as `Header_Leaderboard` and already has
+    // impressions, so the app aligns to it rather than recreating the unit.
+    name: 'Header_Leaderboard',
     description: 'High visibility top-of-page banner.',
     width: 728,
     height: 90,
