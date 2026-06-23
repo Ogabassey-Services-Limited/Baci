@@ -1,36 +1,27 @@
+import {
+  BASE_STOP_TOKENS,
+  CONDITION_TOKENS,
+  GENERIC_HUB_TOKENS,
+  HUB_CATEGORY_WORDS,
+  OPTIONAL_EXACT_TOKENS,
+  PRICE_INTENT_PATTERN,
+  STORAGE_PATTERN,
+  STORAGE_TOKEN_PATTERN,
+  UK_USED_PATTERN,
+  USED_PATTERN,
+} from './price-intent-classifier-constants';
 import type {
   ClassifyPriceIntentKeywordInput,
+  PreparedPriceIntentCatalogProduct,
   PriceIntentCatalogProduct,
   PriceIntentClassification,
 } from './price-intent-classifier-types';
-
-const PRICE_INTENT_PATTERN = /\b(price|prices|cost|how\s+much)\b/i;
-const STORAGE_PATTERN = /\b\d{2,4}\s?gb\b/gi;
-const UK_USED_PATTERN = /\b(?:uk\s*used|uk-used|tokunbo)\b/i;
-const USED_PATTERN = /\bused\b/i;
-const HUB_CATEGORY_WORDS = new Map([
-  ['phone', 'smartphones'],
-  ['phones', 'smartphones'],
-  ['smartphone', 'smartphones'],
-  ['smartphones', 'smartphones'],
-  ['laptop', 'laptops'],
-  ['laptops', 'laptops'],
-  ['tablet', 'tablets'],
-  ['tablets', 'tablets'],
-  ['drone', 'drones'],
-  ['drones', 'drones'],
-]);
-const STOP_TOKENS = new Set(
-  'a an and buy cost for how in is much nigeria of phone phones price prices the'.split(
-    ' '
-  )
-);
-const CONDITION_TOKENS = new Set('uk used tokunbo'.split(' '));
 
 function normalizeText(value: string) {
   return value
     .toLowerCase()
     .replace(/&/g, ' and ')
+    .replace(/\b(\d{1,4})\s*(gb|tb|mb)\b/gi, '$1$2')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
@@ -57,20 +48,54 @@ function getModifiers(keyword: string) {
   return [...getStorageModifiers(keyword), ...getConditionModifiers(keyword)];
 }
 
-function getCoreProductTokens(product: PriceIntentCatalogProduct) {
+function getStopTokens(marketPhrase: string | null | undefined) {
+  return new Set([...BASE_STOP_TOKENS, ...tokenize(marketPhrase ?? '')]);
+}
+
+function getCoreProductTokens(
+  product: PriceIntentCatalogProduct,
+  stopTokens: Set<string>
+) {
   return tokenize(product.name).filter(
     (token) =>
-      !STOP_TOKENS.has(token) &&
+      !stopTokens.has(token) &&
       !CONDITION_TOKENS.has(token) &&
-      !/^\d{2,4}gb$/.test(token)
+      !STORAGE_TOKEN_PATTERN.test(token)
   );
+}
+
+export function preparePriceIntentCatalog(
+  catalog: PriceIntentCatalogProduct[],
+  marketPhrase?: string | null
+): PreparedPriceIntentCatalogProduct[] {
+  const stopTokens = getStopTokens(marketPhrase);
+
+  return catalog.map((product) => {
+    const coreTokens = getCoreProductTokens(product, stopTokens);
+    const brandTokens = product.brand?.trim() ? tokenize(product.brand) : [];
+    const tokenSet = new Set([...coreTokens, ...brandTokens]);
+
+    return { brandTokens, coreTokens, product, tokenSet };
+  });
+}
+
+function parseStorageModifier(modifier: string) {
+  const match = /^(\d{1,4})(gb|tb|mb)$/.exec(modifier);
+  if (!match) return null;
+
+  return {
+    unit: match[2],
+    value: Number.parseInt(match[1], 10),
+  };
 }
 
 function productHasStorage(
   product: PriceIntentCatalogProduct,
   storageModifier: string
 ) {
-  const storageValue = Number.parseInt(storageModifier, 10);
+  const parsedStorage = parseStorageModifier(storageModifier);
+  if (!parsedStorage) return false;
+
   if (getStorageModifiers(product.name).includes(storageModifier)) {
     return true;
   }
@@ -78,12 +103,16 @@ function productHasStorage(
   return Object.entries(product.productKeySpecs ?? {}).some(([key, value]) => {
     const normalizedKey = normalizeText(key);
 
-    if (!normalizedKey.includes('storage')) {
+    if (!normalizedKey.includes('storage') && !normalizedKey.includes('ram')) {
       return false;
     }
 
     if (typeof value === 'number') {
-      return value === storageValue;
+      return (
+        parsedStorage.unit === 'gb' &&
+        normalizedKey.includes('gb') &&
+        value === parsedStorage.value
+      );
     }
 
     return normalizeText(String(value)).replace(/\s+/g, '') === storageModifier;
@@ -112,7 +141,7 @@ function productSupportsModifiers(
   modifiers: string[]
 ) {
   return modifiers.every((modifier) => {
-    if (/^\d{2,4}gb$/.test(modifier)) {
+    if (STORAGE_TOKEN_PATTERN.test(modifier)) {
       return productHasStorage(product, modifier);
     }
 
@@ -121,52 +150,48 @@ function productSupportsModifiers(
 }
 
 function matchesExactProduct(
-  product: PriceIntentCatalogProduct,
+  entry: PreparedPriceIntentCatalogProduct,
   keywordTokens: Set<string>
 ) {
-  const coreTokens = getCoreProductTokens(product);
-
+  const requiredTokens = entry.coreTokens.filter(
+    (token) => !OPTIONAL_EXACT_TOKENS.has(token)
+  );
   return (
-    coreTokens.length > 0 &&
-    coreTokens.every((token) => keywordTokens.has(token))
+    requiredTokens.length > 0 &&
+    requiredTokens.every((token) => keywordTokens.has(token))
   );
 }
 
 function getProductMatchScore(
-  product: PriceIntentCatalogProduct,
+  entry: PreparedPriceIntentCatalogProduct,
   keywordTokens: Set<string>
 ) {
-  return getCoreProductTokens(product).filter((token) =>
-    keywordTokens.has(token)
-  ).length;
+  return entry.coreTokens.filter((token) => keywordTokens.has(token)).length;
 }
 
 function getBroadHubToken(
   keywordTokens: Set<string>,
-  catalog: PriceIntentCatalogProduct[]
+  catalog: PreparedPriceIntentCatalogProduct[]
 ) {
-  const brandTokens = catalog
-    .map((product) => product.brand)
-    .filter((brand): brand is string => Boolean(brand?.trim()))
-    .flatMap((brand) => tokenize(brand));
-
-  for (const token of brandTokens) {
-    if (keywordTokens.has(token)) {
-      return token;
+  for (const entry of catalog) {
+    for (const token of entry.brandTokens) {
+      if (keywordTokens.has(token)) {
+        return token;
+      }
     }
   }
 
-  const productTokens = catalog
-    .flatMap((product) => getCoreProductTokens(product))
-    .filter((token) => !/^\d+$/.test(token));
   const tokenCounts = new Map<string, number>();
-
-  for (const token of productTokens) {
-    tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1);
+  for (const entry of catalog) {
+    for (const token of entry.coreTokens) {
+      if (!/^\d+$/.test(token) && !GENERIC_HUB_TOKENS.has(token)) {
+        tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1);
+      }
+    }
   }
 
   for (const token of keywordTokens) {
-    if ((tokenCounts.get(token) ?? 0) >= 2) {
+    if (!GENERIC_HUB_TOKENS.has(token) && (tokenCounts.get(token) ?? 0) >= 2) {
       return token;
     }
   }
@@ -176,7 +201,7 @@ function getBroadHubToken(
 
 function getHubCategorySlug(
   keywordTokens: Set<string>,
-  products: PriceIntentCatalogProduct[]
+  entries: PreparedPriceIntentCatalogProduct[]
 ) {
   for (const token of keywordTokens) {
     const categorySlug = HUB_CATEGORY_WORDS.get(token);
@@ -187,7 +212,8 @@ function getHubCategorySlug(
   }
 
   return (
-    products.find((product) => product.categorySlug)?.categorySlug ?? 'products'
+    entries.find(({ product }) => product.categorySlug)?.product.categorySlug ??
+    'products'
   );
 }
 
@@ -195,8 +221,13 @@ function slugify(value: string) {
   return normalizeText(value).replace(/\s+/g, '-');
 }
 
-function buildHubSlug(hubToken: string, categorySlug: string) {
-  return `${slugify(`${hubToken} ${categorySlug} price in Nigeria`)}`;
+function buildHubSlug(
+  hubToken: string,
+  categorySlug: string,
+  marketPhrase: string | null | undefined
+) {
+  const localizedSuffix = marketPhrase ? ` in ${marketPhrase}` : '';
+  return slugify(`${hubToken} ${categorySlug} price${localizedSuffix}`);
 }
 
 function buildResult(
@@ -207,8 +238,8 @@ function buildResult(
 ): PriceIntentClassification {
   return {
     keyword: input.keyword,
-    modifiers: result.modifiers ?? getModifiers(input.keyword),
     ...result,
+    modifiers: result.modifiers ?? getModifiers(input.keyword),
   };
 }
 
@@ -225,16 +256,19 @@ export function classifyPriceIntentKeyword(
     });
   }
 
+  const preparedCatalog =
+    input.preparedCatalog ??
+    preparePriceIntentCatalog(input.catalog, input.marketPhrase);
   const keywordTokens = new Set(tokenize(input.keyword));
-  const exactMatches = input.catalog
-    .filter((product) => matchesExactProduct(product, keywordTokens))
+  const exactMatches = preparedCatalog
+    .filter((entry) => matchesExactProduct(entry, keywordTokens))
     .sort(
       (left, right) =>
         getProductMatchScore(right, keywordTokens) -
           getProductMatchScore(left, keywordTokens) ||
-        left.slug.localeCompare(right.slug)
+        left.product.slug.localeCompare(right.product.slug)
     );
-  const supportedExactMatch = exactMatches.find((product) =>
+  const supportedExactMatch = exactMatches.find(({ product }) =>
     productSupportsModifiers(product, modifiers)
   );
 
@@ -244,8 +278,8 @@ export function classifyPriceIntentKeyword(
       reason: modifiers.length
         ? 'exact_product_with_modifiers'
         : 'exact_product',
-      targetSlug: supportedExactMatch.slug,
-      categorySlug: supportedExactMatch.categorySlug ?? 'products',
+      targetSlug: supportedExactMatch.product.slug,
+      categorySlug: supportedExactMatch.product.categorySlug ?? 'products',
       modifiers,
     });
   }
@@ -254,24 +288,19 @@ export function classifyPriceIntentKeyword(
     return buildResult(input, {
       assetKind: 'no-catalog',
       reason: 'modifier_not_supported_by_catalog',
-      nearestProductSlug: exactMatches[0]?.slug,
-      categorySlug: exactMatches[0]?.categorySlug ?? 'products',
+      nearestProductSlug: exactMatches[0]?.product.slug,
+      categorySlug: exactMatches[0]?.product.categorySlug ?? 'products',
       modifiers,
     });
   }
 
-  const hubToken = getBroadHubToken(keywordTokens, input.catalog);
+  const hubToken = getBroadHubToken(keywordTokens, preparedCatalog);
 
   if (hubToken) {
-    const matchedProducts = input.catalog.filter((product) => {
-      const productTokens = new Set([
-        ...getCoreProductTokens(product),
-        ...tokenize(product.brand ?? ''),
-      ]);
-
+    const matchedProducts = preparedCatalog.filter((entry) => {
       return (
-        productTokens.has(hubToken) &&
-        productSupportsModifiers(product, modifiers)
+        entry.tokenSet.has(hubToken) &&
+        productSupportsModifiers(entry.product, modifiers)
       );
     });
     const minHubProducts = Math.max(1, input.minHubProducts ?? 2);
@@ -283,8 +312,8 @@ export function classifyPriceIntentKeyword(
         assetKind: 'price-hub',
         reason: 'broad_cluster_price_intent',
         categorySlug,
-        hubSlug: buildHubSlug(hubToken, categorySlug),
-        matchedProductSlugs: matchedProducts.map((product) => product.slug),
+        hubSlug: buildHubSlug(hubToken, categorySlug, input.marketPhrase),
+        matchedProductSlugs: matchedProducts.map(({ product }) => product.slug),
         modifiers,
       });
     }

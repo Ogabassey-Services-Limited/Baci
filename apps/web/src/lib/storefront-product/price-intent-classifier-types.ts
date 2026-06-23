@@ -14,10 +14,19 @@ export interface PriceIntentCatalogProduct {
   productKeySpecs?: Record<string, unknown> | null;
 }
 
+export interface PreparedPriceIntentCatalogProduct {
+  brandTokens: string[];
+  coreTokens: string[];
+  product: PriceIntentCatalogProduct;
+  tokenSet: Set<string>;
+}
+
 export interface ClassifyPriceIntentKeywordInput {
   keyword: string;
   catalog: PriceIntentCatalogProduct[];
+  marketPhrase?: string | null;
   minHubProducts?: number;
+  preparedCatalog?: PreparedPriceIntentCatalogProduct[];
 }
 
 export interface PriceIntentClassification {
