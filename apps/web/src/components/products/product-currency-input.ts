@@ -48,7 +48,24 @@ export function parsePriceInput(value: string, locale: string): number {
   const decimalSeparator =
     parts.find((part) => part.type === 'decimal')?.value ?? '.';
 
-  const normalized = value
+  const trimmedValue = value.trim();
+  const dotIndex = trimmedValue.lastIndexOf('.');
+  const hasLocaleDecimal = trimmedValue.includes(decimalSeparator);
+
+  if (decimalSeparator !== '.' && dotIndex !== -1 && !hasLocaleDecimal) {
+    const digitsAfterDot = trimmedValue
+      .slice(dotIndex + 1)
+      .replace(/\D/g, '').length;
+    const dotCount = [...trimmedValue].filter((char) => char === '.').length;
+
+    if (dotCount === 1 && digitsAfterDot !== 3) {
+      return Number.parseFloat(
+        trimmedValue.replace(/\s/g, '').replace(/[^\d.+-]/g, '')
+      );
+    }
+  }
+
+  const normalized = trimmedValue
     .replaceAll(groupSeparator, '')
     .replaceAll(decimalSeparator, '.')
     .replace(/\s/g, '')

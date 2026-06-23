@@ -105,8 +105,13 @@ export async function POST(request: NextRequest) {
             category: change.details.category,
             name: change.details.name,
           };
-          if (change.details.cost_price !== undefined) {
+          if (typeof change.details.cost_price === 'number') {
             updates.cost_price = change.details.cost_price;
+          } else if (
+            change.details.cost_price === null &&
+            change.details.cost_price_was_edited === true
+          ) {
+            updates.cost_price = null;
           }
           let matchQuery = supabase.from('products').update(updates);
 

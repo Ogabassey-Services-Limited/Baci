@@ -82,6 +82,7 @@ const ChangeDetailsSchema = z.object({
   name: z.string(),
   price: z.number(),
   cost_price: z.number().finite().nonnegative().nullable().optional(),
+  cost_price_was_edited: z.boolean().optional(),
   sku: z.string().optional(),
   description: z.string().optional(),
   stock: z.number().optional(),

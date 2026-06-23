@@ -65,6 +65,24 @@ describe('Currency Utils', () => {
       });
     });
 
+    it('rejects unsupported payout currency codes before country fallback', () => {
+      expect(getCurrencyConfig('NG', 'XXX')).toEqual({
+        code: 'NGN',
+        symbol: '₦',
+        locale: 'en-NG',
+      });
+      expect(getCurrencyConfig('US', 'ZZZ')).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+      expect(getCurrencyConfig(null, 'ABC')).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+    });
+
     it('uses the default locale for unmapped payout currencies', () => {
       const config = getCurrencyConfig(null, 'CHF');
       expect(config.code).toBe('CHF');

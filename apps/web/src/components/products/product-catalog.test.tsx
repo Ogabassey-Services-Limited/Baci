@@ -77,6 +77,9 @@ vi.mock('./product-catalog-table', () => ({
         >
           Set localized price
         </button>
+        <button type="button" onClick={() => onPriceChange(product.id, '9.99')}>
+          Set decimal dot price
+        </button>
         <button type="button" onClick={() => onPriceChange(product.id, '-5')}>
           Set negative price
         </button>
@@ -260,6 +263,27 @@ describe('ProductCatalog', () => {
     });
     expect(getSaveCall(0).dirtyProductSnapshots?.get('product-1')?.price).toBe(
       1234.56
+    );
+  });
+
+  it('preserves decimal-dot edits in comma-decimal locales', async () => {
+    const user = userEvent.setup();
+    mocks.useMerchant.mockReturnValue({
+      merchant: { country: 'BR', id: 'merchant-1', payout_currency: 'BRL' },
+    });
+    mocks.saveDirtyProducts.mockResolvedValueOnce(fulfilledProductSave());
+
+    render(<ProductCatalog statusFilter="all" stockFilter="all" />);
+
+    await user.click(
+      screen.getByRole('button', { name: /set decimal dot price/i })
+    );
+
+    await waitFor(() => {
+      expect(mocks.saveDirtyProducts).toHaveBeenCalledTimes(1);
+    });
+    expect(getSaveCall(0).dirtyProductSnapshots?.get('product-1')?.price).toBe(
+      9.99
     );
   });
 

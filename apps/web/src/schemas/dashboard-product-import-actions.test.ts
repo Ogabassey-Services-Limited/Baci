@@ -274,6 +274,25 @@ describe('dashboard product import action schemas', () => {
     ).toBe(true);
   });
 
+  it('allows explicit cost-price edit markers on bulk changes', () => {
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            details: {
+              name: 'Updated Phone',
+              price: 1000,
+              cost_price: null,
+              cost_price_was_edited: true,
+            },
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
   it('accepts zero and decimal bulk change cost prices', () => {
     for (const costPrice of [0, 10.5]) {
       expect(

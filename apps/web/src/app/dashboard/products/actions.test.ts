@@ -956,6 +956,61 @@ describe('product import actions', () => {
     });
   });
 
+  it('imports standalone wholesale headers as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Wholesale,SKU\nNew Phone,2000,1250,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1250,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('parses only the primary price token from annotated price cells', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nDiscount Phone,"₦2,000 (10% off)","₦1,000 - ₦1,500",DISC-1\nPack Phone,"₦2,000 / 2 pack",500,PACK-1'
+    );
+
+    expect(result.summary).toContain('Parsed 2 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1000,
+        price: 2000,
+      },
+      type: 'new',
+    });
+    expect(result.changes[1]).toMatchObject({
+      details: {
+        cost_price: 500,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
+  it('preserves scientific-notation prices from spreadsheet exports', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nMillion Phone,1.2E+06,2.5E+05,MIL-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 250_000,
+        price: 1_200_000,
+      },
+      type: 'new',
+    });
+  });
+
   it('does not use a standalone cost column as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,

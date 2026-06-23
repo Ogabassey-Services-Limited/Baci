@@ -79,6 +79,7 @@ describe('ReviewChanges', () => {
         expect.objectContaining({
           details: expect.objectContaining({
             cost_price: 800,
+            cost_price_was_edited: true,
           }),
           type: 'new',
         }),
@@ -132,6 +133,7 @@ describe('ReviewChanges', () => {
         expect.objectContaining({
           details: expect.objectContaining({
             cost_price: null,
+            cost_price_was_edited: true,
           }),
           type: 'new',
         }),

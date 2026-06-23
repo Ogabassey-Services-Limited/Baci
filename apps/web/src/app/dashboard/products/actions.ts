@@ -48,6 +48,7 @@ export interface Change {
     name: string;
     price: number;
     cost_price?: number | null;
+    cost_price_was_edited?: boolean;
     sku?: string;
     description?: string;
     stock?: number;
@@ -511,7 +512,9 @@ function isCostPriceHeader(header: string): boolean {
     ].includes(word)
   );
   const hasAmountSignal = words.some((word) =>
-    ['amount', 'cost', 'price', 'rate', 'unit', 'value'].includes(word)
+    ['amount', 'cost', 'price', 'rate', 'unit', 'value', 'wholesale'].includes(
+      word
+    )
   );
   const hasMonetarySignal = words.some((word) =>
     [
@@ -632,17 +635,13 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   );
 }
 
-function normalizeLocalizedNumericString(value: string): string {
-  const numeric = value
-    .replace(
-      /(^|[^a-z])(?:aed|aud|brl|cad|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)(?=\s*[-+]?\d)/gi,
-      '$1'
-    )
-    .replace(
-      /\b(?:aed|aud|brl|cad|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi,
-      ''
-    )
-    .replace(/[^\d,.\-+]/g, '');
+const PRICE_CURRENCY_CODE_PATTERN =
+  /\b(?:aed|aud|brl|cad|chf|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi;
+const PRIMARY_PRICE_TOKEN_PATTERN =
+  /[-+]?(?:(?:\d[\d,.]*|[,.]\d+)(?:[eE][-+]?\d+)?)/;
+
+function normalizeLocalizedNumericToken(token: string): string {
+  const numeric = token.replace(/[^\d,.\-+]/g, '');
   const lastComma = numeric.lastIndexOf(',');
   const lastDot = numeric.lastIndexOf('.');
   const lastSeparator = Math.max(lastComma, lastDot);
@@ -680,6 +679,26 @@ function normalizeLocalizedNumericString(value: string): string {
   }
 
   return normalized;
+}
+
+function normalizeLocalizedNumericString(value: string): string {
+  const currencylessValue = value.replace(PRICE_CURRENCY_CODE_PATTERN, '');
+  const primaryToken = currencylessValue.match(
+    PRIMARY_PRICE_TOKEN_PATTERN
+  )?.[0];
+
+  if (!primaryToken) {
+    return '';
+  }
+
+  const exponentMatch = primaryToken.match(/^(.*?)[eE]([-+]?\d+)$/);
+  if (exponentMatch) {
+    const mantissa = normalizeLocalizedNumericToken(exponentMatch[1] ?? '');
+    const exponent = exponentMatch[2];
+    return mantissa && exponent ? `${mantissa}e${exponent}` : '';
+  }
+
+  return normalizeLocalizedNumericToken(primaryToken);
 }
 
 // Helper: Parse price string (handles currency symbols, ISO codes, commas)

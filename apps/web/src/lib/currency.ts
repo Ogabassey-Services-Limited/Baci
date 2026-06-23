@@ -47,16 +47,45 @@ const CURRENCY_FALLBACK_LOCALES: Record<string, string> = {
   ZAR: 'en-ZA',
 };
 
-function isValidCurrencyCode(currencyCode: string): boolean {
+const FALLBACK_SUPPORTED_CURRENCY_CODES = new Set([
+  ...Object.keys(CURRENCY_FALLBACK_LOCALES),
+  'AED',
+  'CHF',
+  'CNY',
+]);
+
+let supportedCurrencyCodes: Set<string> | null | undefined;
+
+function getSupportedCurrencyCodes(): Set<string> | null {
+  if (supportedCurrencyCodes !== undefined) {
+    return supportedCurrencyCodes;
+  }
+
+  if (typeof Intl.supportedValuesOf !== 'function') {
+    supportedCurrencyCodes = null;
+    return supportedCurrencyCodes;
+  }
+
   try {
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currencyCode,
-    });
-    return true;
+    supportedCurrencyCodes = new Set(Intl.supportedValuesOf('currency'));
   } catch {
+    supportedCurrencyCodes = null;
+  }
+
+  return supportedCurrencyCodes;
+}
+
+function isValidCurrencyCode(currencyCode: string): boolean {
+  if (!/^[A-Z]{3}$/.test(currencyCode)) {
     return false;
   }
+
+  const runtimeSupportedCurrencies = getSupportedCurrencyCodes();
+  if (runtimeSupportedCurrencies) {
+    return runtimeSupportedCurrencies.has(currencyCode);
+  }
+
+  return FALLBACK_SUPPORTED_CURRENCY_CODES.has(currencyCode);
 }
 
 function getCurrencySymbolForCode(

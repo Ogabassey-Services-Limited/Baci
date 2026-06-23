@@ -476,6 +476,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                               details: {
                                 ...next[index].details,
                                 cost_price: costPrice,
+                                cost_price_was_edited: true,
                               },
                             };
                             return next;

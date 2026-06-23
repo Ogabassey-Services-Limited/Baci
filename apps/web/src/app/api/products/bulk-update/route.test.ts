@@ -380,6 +380,7 @@ describe('POST /api/products/bulk-update', () => {
               name: 'Updated Product',
               price: 150,
               cost_price: null,
+              cost_price_was_edited: true,
             },
           },
         ],
@@ -394,6 +395,36 @@ describe('POST /api/products/bulk-update', () => {
       name: 'Updated Product',
       price: 150,
     });
+  });
+
+  it('does not clear product cost price from AI-null details without an explicit edit marker', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              name: 'Updated Product',
+              price: 150,
+              cost_price: null,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      name: 'Updated Product',
+      price: 150,
+    });
+    expect(productUpdates[0]).not.toHaveProperty('cost_price');
   });
 
   it('processes new product changes', async () => {
