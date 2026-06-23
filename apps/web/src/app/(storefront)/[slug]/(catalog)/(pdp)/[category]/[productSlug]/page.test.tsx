@@ -3129,11 +3129,16 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: jadeImage,
     });
+    // Color is preserved for a stable LCP hero and resolves to the cheapest
+    // variant within that color. Crucially, no product-level `condition` is
+    // emitted: forcing it would open the above-the-fold critical state on the
+    // pricier condition-first variant and then flip to the cheapest after
+    // hydration.
     expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         initialVariantSelection: {
-          attributes: { color: 'Jade Green' },
-          condition: 'open_box',
+          attributes: { color: 'Jade Green', storage: '128GB' },
+          variantId: 'variant-open-jade-128',
         },
       })
     );

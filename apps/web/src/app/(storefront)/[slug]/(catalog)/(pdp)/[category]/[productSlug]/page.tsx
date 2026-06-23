@@ -493,7 +493,6 @@ function getPriceFirstCriticalVariantSelection(product: Product) {
 
 function getDefaultCriticalVariantSelection(product: Product) {
   const productColor = normalizeRouteSelectionValue(product.color);
-  const productCondition = normalizeProductCondition(product.condition);
   const defaultVariantId = normalizeRouteSelectionValue(
     product.default_variant_id
   );
@@ -516,20 +515,11 @@ function getDefaultCriticalVariantSelection(product: Product) {
     return getPriceFirstCriticalVariantSelection(product);
   }
 
-  const colorConditionSelection = productCondition
-    ? resolveVariantSelection(normalizedProduct, {
-        attributes: { color: productColor },
-        condition: productCondition,
-      })
-    : null;
-
-  if (colorConditionSelection) {
-    return {
-      attributes: { color: productColor },
-      condition: productCondition,
-    };
-  }
-
+  // No explicit query selection: preserve only the product's default color for
+  // a stable LCP hero, but never carry the product-level condition. Emitting a
+  // condition here would make the above-the-fold critical state open on the
+  // pricier condition-first variant and then flip to the cheapest after
+  // hydration. Price-first (cheapest) decides the variant within that color.
   const colorSelection = resolveVariantSelection(normalizedProduct, {
     attributes: { color: productColor },
   });
