@@ -1,30 +1,4 @@
-export type SupportedClusterCategory =
-  | 'accessories'
-  | 'audio'
-  | 'childrens-tablets'
-  | 'desktops'
-  | 'earbuds'
-  | 'gaming'
-  | 'gaming-accessories'
-  | 'gaming-laptops'
-  | 'gift-cards'
-  | 'laptops'
-  | 'lg-tvs'
-  | 'monitors'
-  | 'nintendo-switch'
-  | 'nintendo-switch-2'
-  | 'playstation-4'
-  | 'playstation-5'
-  | 'portable-gaming'
-  | 'printers'
-  | 'samsung-tvs'
-  | 'smart-tvs'
-  | 'smartphones'
-  | 'smartwatches'
-  | 'tablets'
-  | 'vr-headsets'
-  | 'wearables'
-  | 'xbox';
+export type SupportedClusterCategory = 'smartphones' | 'laptops' | 'smart-tvs';
 
 export type ContentClusterKind =
   | 'buyer-guide'

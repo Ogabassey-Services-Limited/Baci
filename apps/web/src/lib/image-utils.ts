@@ -19,9 +19,6 @@ const CATEGORY_BLUR_COLORS: Record<string, string> = {
   default: '#f4f4f5', // Neutral gray
 };
 
-// Served by apps/web/public/placeholder.svg.
-export const PLACEHOLDER_IMAGE = '/placeholder.svg';
-
 /**
  * Generate a solid color blur data URL
  * Faster than image-based blur, good for product cards
@@ -98,10 +95,22 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
 }
 
 /**
- * Get the local fallback image URL.
+ * Get fallback image URL based on product category
  */
-export function getFallbackImage(): string {
-  // Keep missing-image fallbacks local so crawlers do not depend on external
-  // placeholder hosts that may be blocked or rate-limited.
-  return PLACEHOLDER_IMAGE;
+export function getFallbackImage(category?: string): string {
+  // Using placehold.co for consistent, styled placeholders
+  const categoryColors: Record<string, string> = {
+    fashion: 'f5f0eb/999999',
+    electronics: 'e8eef4/666666',
+    food: 'f0ebe5/8b7355',
+    beauty: 'fdf2f8/d4859e',
+    home: 'f5f5f4/737373',
+    sports: 'ecfdf5/059669',
+    default: 'f4f4f5/a1a1aa',
+  };
+
+  const colors =
+    categoryColors[category?.toLowerCase() || 'default'] ||
+    categoryColors.default;
+  return `https://placehold.co/600x600/${colors}?text=No+Image`;
 }

@@ -6,7 +6,7 @@ import {
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import { generateMetaTitle, generateSlug } from '@/lib/seo-utils';
+import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type {
@@ -439,11 +439,7 @@ export async function loadComparePage(args: {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
       canonicalUrl,
-      metaTitle: generateMetaTitle(compareLabel, {
-        maxLength: 70,
-        suffix: merchant.business_name,
-        fallback: categoryName,
-      }),
+      metaTitle: `${compareLabel} | ${merchant.business_name}`,
       metaDescription: `Compare ${leftDetails.name} vs ${rightDetails.name}${countrySuffix} by price, specs, condition, warranty, delivery, and buying priorities on ${merchant.business_name}.`,
       heading: compareLabel,
       summaryVerdict: `${leftDetails.name} and ${rightDetails.name} both target ${categoryName.toLowerCase()} buyers${countrySuffix}, but the deciding factors are ${differenceLabels}.`,
@@ -562,11 +558,7 @@ export async function loadComparePage(args: {
     kind: 'brand',
     canonicalSlug: parsed.canonicalSlug,
     canonicalUrl,
-    metaTitle: generateMetaTitle(heading, {
-      maxLength: 70,
-      suffix: merchant.business_name,
-      fallback: categoryName,
-    }),
+    metaTitle: `${heading} | ${merchant.business_name}`,
     metaDescription: `Compare ${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} ${categoryName.toLowerCase()}${countrySuffix} by live model count, price range, warranty, delivery, and buying fit on ${merchant.business_name}.`,
     heading,
     summaryVerdict: `${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} both matter for ${categoryName.toLowerCase()} shoppers${countrySuffix}, but their active model counts and price positioning differ.`,

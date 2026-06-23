@@ -144,7 +144,6 @@ export function ProductDetailsPage({
           onSelectTab={setActiveTab}
           productData={productData}
           relatedProductsProduct={relatedProductsProduct}
-          showRails={false}
           storeSlug={merchantSlug}
         />
       </div>

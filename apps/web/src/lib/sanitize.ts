@@ -8,8 +8,6 @@ import sanitizeLib from 'sanitize-html';
 
 interface SanitizeHtmlOptions {
   headingLevelOffset?: number;
-  normalizeSeoAnchors?: boolean;
-  trustedPriorityImageSources?: readonly string[];
 }
 
 const ESCAPE_HTML_TEXT_OPTIONS: sanitizeLib.IOptions = {
@@ -35,36 +33,6 @@ const DISALLOWED_RAW_TEXT_BLOCK_REGEX =
 
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
-}
-
-function normalizeTrustedPriorityImageSource(value: string): string {
-  return value.replace(/&amp;/gi, '&');
-}
-
-function createTrustedPriorityImageSourceSet(
-  sources: readonly string[] | undefined
-): ReadonlySet<string> {
-  return new Set(
-    (sources ?? [])
-      .map((source) => normalizeTrustedPriorityImageSource(source.trim()))
-      .filter(Boolean)
-  );
-}
-
-function isTechnicalResourceHref(href: string | undefined): boolean {
-  const normalizedHref = href?.trim().toLowerCase();
-  if (!normalizedHref) {
-    return false;
-  }
-  try {
-    const { pathname } = new URL(normalizedHref, 'https://example.invalid');
-    if (pathname === '/_next/image') {
-      return true;
-    }
-    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
-  } catch {
-    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
-  }
 }
 
 /**
@@ -117,46 +85,9 @@ export function sanitizeHtml(
   const headingLevelOffset = Number.isFinite(rawHeadingLevelOffset)
     ? Math.max(0, Math.trunc(rawHeadingLevelOffset))
     : 0;
-  const trustedPriorityImageSources = createTrustedPriorityImageSourceSet(
-    options.trustedPriorityImageSources
-  );
   const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
     a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
-    img: (_tagName, attribs) => {
-      const nextAttribs = { ...attribs };
-      const normalizedImageSource =
-        typeof nextAttribs.src === 'string'
-          ? normalizeTrustedPriorityImageSource(nextAttribs.src)
-          : '';
-      const allowPriorityImage =
-        nextAttribs.fetchpriority === 'high' &&
-        trustedPriorityImageSources.has(normalizedImageSource);
-      delete nextAttribs['data-baci-priority-image'];
-      if (!allowPriorityImage) {
-        delete nextAttribs.fetchpriority;
-      }
-
-      return {
-        tagName: 'img',
-        attribs: nextAttribs,
-      };
-    },
   };
-  const exclusiveFilter: sanitizeLib.IOptions['exclusiveFilter'] =
-    options.normalizeSeoAnchors
-      ? (frame) => {
-          if (frame.tag !== 'a') {
-            return false;
-          }
-          if (!frame.text.trim()) {
-            return frame.mediaChildren.length > 0 ? 'excludeTag' : true;
-          }
-          if (isTechnicalResourceHref(frame.attribs.href)) {
-            return 'excludeTag';
-          }
-          return false;
-        }
-      : undefined;
 
   if (headingLevelOffset > 0) {
     for (let level = 1; level <= 6; level += 1) {
@@ -231,23 +162,12 @@ export function sanitizeHtml(
         'rowspan',
       ],
       a: ['href', 'target', 'rel'],
-      img: [
-        'src',
-        'srcset',
-        'sizes',
-        'alt',
-        'width',
-        'height',
-        'loading',
-        'decoding',
-        'fetchpriority',
-      ],
+      img: ['src', 'alt', 'width', 'height', 'loading', 'decoding'],
       source: ['srcset', 'type', 'media', 'sizes'],
     },
     // Security configurations
     // Ensure all external links have rel="noopener noreferrer"
     transformTags,
-    exclusiveFilter,
     // Only allow safe URL protocols (no javascript:, data:, etc.)
     allowedSchemes: [
       'http',

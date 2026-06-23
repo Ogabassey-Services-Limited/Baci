@@ -75,20 +75,14 @@ export async function generateMetadata({
     currentPage > 1
       ? `Products | Page ${currentPage} | ${merchant.business_name}`
       : `Products | ${merchant.business_name}`;
-  const fallbackDescription = `Browse all products available at ${merchant.business_name}. Compare smartphones, laptops, accessories, and gaming devices with nationwide delivery and flexible payment options.`;
-  const baseDescription = merchant.site_description || fallbackDescription;
-  const pageAwareDescription =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${baseDescription}`
-      : baseDescription;
-  const pageAwareFallback =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${fallbackDescription}`
-      : fallbackDescription;
-  const description = generateMetaDescription(pageAwareDescription, 160, {
-    minLength: 110,
-    fallback: pageAwareFallback,
-  });
+  const description = generateMetaDescription(
+    merchant.site_description || '',
+    160,
+    {
+      minLength: 110,
+      fallback: `Browse all products available at ${merchant.business_name}. Compare smartphones, laptops, accessories, and gaming devices with nationwide delivery and flexible payment options.`,
+    }
+  );
   const socialImageCandidates = [
     productIndex.products[0]?.image,
     productIndex.products[0]?.imageLarge,

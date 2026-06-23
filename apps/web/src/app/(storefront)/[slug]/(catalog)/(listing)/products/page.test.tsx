@@ -377,9 +377,6 @@ describe('products index page', () => {
       'max-video-preview': -1,
     });
     expect(metadata.title).toBe('Products | Page 2 | Ogabassey');
-    expect(metadata.description).toContain('Page 2 of 2');
-    expect(metadata.openGraph?.description).toContain('Page 2 of 2');
-    expect(metadata.twitter?.description).toContain('Page 2 of 2');
     expect(metadata.openGraph?.images).toEqual([
       {
         url: 'https://cdn.example.com/iphone-16.png',

@@ -76,37 +76,6 @@ describe('sanitize', () => {
     expect(output).toContain('<figcaption>Camera sample</figcaption>');
   });
 
-  it('strips stale fetchpriority from generic sanitized images', () => {
-    const output = sanitizeHtml(
-      '<img src="https://example.com/body.jpg" alt="Body" fetchpriority="high">'
-    );
-
-    expect(output).toContain('<img');
-    expect(output).not.toContain('fetchpriority=');
-  });
-
-  it('keeps fetchpriority only for internally trusted priority blog images', () => {
-    const priorityImageSource =
-      'https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png';
-
-    const output = sanitizeHtml(
-      `<img src="${priorityImageSource}" alt="Hero" data-baci-priority-image="true" fetchpriority="high">`,
-      { trustedPriorityImageSources: [priorityImageSource] }
-    );
-
-    expect(output).toContain('fetchpriority="high"');
-    expect(output).not.toContain('data-baci-priority-image');
-  });
-
-  it('strips user-supplied priority markers from dirty images', () => {
-    const output = sanitizeHtml(
-      '<img src="https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png" alt="Hero" data-baci-priority-image="true" fetchpriority="high">'
-    );
-
-    expect(output).not.toContain('fetchpriority=');
-    expect(output).not.toContain('data-baci-priority-image');
-  });
-
   it('sanitizes unsafe caption markup while keeping figcaption', () => {
     const output = sanitizeHtml(
       '<figure><img src="https://example.com/photo.jpg"><figcaption><img src=x onerror=alert(1)>Caption<script>alert(1)</script></figcaption></figure>'
@@ -127,49 +96,6 @@ describe('sanitize', () => {
         headingLevelOffset: Number.POSITIVE_INFINITY,
       })
     ).toContain('<h1>Title</h1>');
-  });
-
-  it('removes empty anchors when SEO anchor normalization is enabled', () => {
-    const output = sanitizeHtml(
-      '<p>See <a href="https://example.com/phone"></a> details.</p>',
-      { normalizeSeoAnchors: true }
-    );
-
-    expect(output).toBe('<p>See  details.</p>');
-    expect(output).not.toContain('<a');
-  });
-
-  it('unwraps empty linked images when SEO anchor normalization is enabled', () => {
-    const output = sanitizeHtml(
-      '<p><a href="https://example.com/photo"><img src="https://example.com/photo.jpg" alt="Product photo"></a></p>',
-      { normalizeSeoAnchors: true }
-    );
-
-    expect(output).toBe(
-      '<p><img src="https://example.com/photo.jpg" alt="Product photo" /></p>'
-    );
-    expect(output).not.toContain('<a');
-  });
-
-  it('keeps resource source labels but removes crawlable resource links when SEO anchor normalization is enabled', () => {
-    const output = sanitizeHtml(
-      '<p>Source: <a href="https://example.com/assets/specs.json">Product data JSON</a> and <a href="https://example.com/app.js">App JS</a>.</p>',
-      { normalizeSeoAnchors: true }
-    );
-
-    expect(output).toBe('<p>Source: Product data JSON and App JS.</p>');
-    expect(output).not.toContain('.json');
-    expect(output).not.toContain('.js');
-  });
-
-  it('keeps labels but removes Next image optimizer links when SEO anchor normalization is enabled', () => {
-    const output = sanitizeHtml(
-      '<p><a href="/_next/image?url=https%3A%2F%2Fapi.example.com%2Fproduct.avif&w=128&q=75">Samsung Galaxy Watch 6 Classic</a></p>',
-      { normalizeSeoAnchors: true }
-    );
-
-    expect(output).toBe('<p>Samsung Galaxy Watch 6 Classic</p>');
-    expect(output).not.toContain('/_next/image');
   });
 
   it('removes active content from SVG', () => {
@@ -211,11 +137,9 @@ describe('sanitize', () => {
 
   it('keeps <picture>/<source> for responsive blog inline images', () => {
     const input =
-      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" srcset="https://cdn.ogabassey.com/x/inline-1.png 384w" sizes="(max-width: 768px) 100vw, 800px" data-baci-priority-image="true" fetchpriority="high" alt="speaker" /></picture>';
+      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" alt="speaker" /></picture>';
 
-    const output = sanitizeHtml(input, {
-      trustedPriorityImageSources: ['https://cdn.ogabassey.com/x/inline-1.png'],
-    });
+    const output = sanitizeHtml(input);
 
     expect(output).toContain('<picture>');
     expect(output).toContain('type="image/avif"');
@@ -223,12 +147,6 @@ describe('sanitize', () => {
       'srcset="https://cdn.ogabassey.com/x/inline-1.png.avif"'
     );
     expect(output).toContain('<img');
-    expect(output).toContain(
-      'srcset="https://cdn.ogabassey.com/x/inline-1.png 384w"'
-    );
-    expect(output).toContain('sizes="(max-width: 768px) 100vw, 800px"');
-    expect(output).toContain('fetchpriority="high"');
-    expect(output).not.toContain('data-baci-priority-image');
   });
 
   it('still strips event handlers and scripts from media tags', () => {

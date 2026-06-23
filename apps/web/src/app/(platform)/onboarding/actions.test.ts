@@ -938,7 +938,7 @@ describe('sendMagicLink', () => {
     });
   });
 
-  it('returns a generic failed result for Supabase OTP errors', async () => {
+  it('surfaces supabase OTP errors as a failed result', async () => {
     mockSignInWithOtp.mockResolvedValueOnce({
       error: new Error('OTP rate limit reached'),
     });
@@ -946,8 +946,6 @@ describe('sendMagicLink', () => {
     const result = await sendMagicLink('merchant@example.com');
 
     expect(result.success).toBe(false);
-    expect(result.message).toBe(
-      'Unable to send magic link. Please try again later.'
-    );
+    expect(result.message).toBe('OTP rate limit reached');
   });
 });

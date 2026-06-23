@@ -13,25 +13,13 @@ function collectHeadings(setHeadings: (items: TocItem[]) => void): void {
   const container = document.querySelector('.blog-content-renderer');
   if (!container) return;
 
-  const elements = container.querySelectorAll('h2[id], h3[id], h4[id]');
+  const elements = container.querySelectorAll('h2[id], h3[id]');
   const items: TocItem[] = Array.from(elements).map((el) => ({
     id: el.id,
     text: el.textContent || '',
     level: Number(el.tagName[1]),
   }));
   setHeadings(items);
-}
-
-function getHeadingIndentClass(level: number): string {
-  if (level >= 4) {
-    return 'pl-8';
-  }
-
-  if (level === 3) {
-    return 'pl-4';
-  }
-
-  return '';
 }
 
 export function TableOfContents() {
@@ -80,9 +68,9 @@ export function TableOfContents() {
           <li key={heading.id}>
             <a
               href={`#${heading.id}`}
-              className={`block text-sm transition-colors hover:text-foreground ${getHeadingIndentClass(
-                heading.level
-              )} ${
+              className={`block text-sm transition-colors hover:text-foreground ${
+                heading.level === 3 ? 'pl-4' : ''
+              } ${
                 activeId === heading.id
                   ? 'text-primary font-medium'
                   : 'text-muted-foreground'

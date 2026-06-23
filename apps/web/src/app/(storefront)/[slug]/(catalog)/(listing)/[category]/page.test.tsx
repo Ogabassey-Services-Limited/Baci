@@ -10,7 +10,8 @@ import {
 } from '@/lib/cached-data';
 import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 
-const NORMALIZED_PLACEHOLDER_IMAGE = '/placeholder.svg';
+const NORMALIZED_PLACEHOLDER_IMAGE =
+  'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
 const mockConnection = vi.hoisted(() => vi.fn());
 const { mockCategoryPageContent } = vi.hoisted(() => ({
@@ -898,9 +899,6 @@ describe('category page route', () => {
     expect(secondPageMetadata.title).toContain('Ogabassey');
     expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
     expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
-    expect(secondPageMetadata.description).toContain('Page 2 of');
-    expect(secondPageMetadata.openGraph?.description).toContain('Page 2 of');
-    expect(secondPageMetadata.twitter?.description).toContain('Page 2 of');
     expect(secondPageMetadata.openGraph?.url).toBe(
       'https://test-store.usebaci.com/smartphones?page=2'
     );
@@ -1184,12 +1182,10 @@ describe('category page route', () => {
 
     expect(metadata.openGraph?.images).toEqual([
       {
-        url: `https://test-store.usebaci.com${NORMALIZED_PLACEHOLDER_IMAGE}`,
+        url: NORMALIZED_PLACEHOLDER_IMAGE,
         alt: 'Smartphones',
       },
     ]);
-    expect(metadata.twitter?.images).toEqual([
-      `https://test-store.usebaci.com${NORMALIZED_PLACEHOLDER_IMAGE}`,
-    ]);
+    expect(metadata.twitter?.images).toEqual([NORMALIZED_PLACEHOLDER_IMAGE]);
   });
 });

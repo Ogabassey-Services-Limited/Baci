@@ -1,70 +1,18 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
-import { logger } from '@/lib/logger';
+import {
+  capturePostHogPageview,
+  initializePostHogBrowser,
+} from '@/lib/posthog/browser';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
-import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
 
+if (typeof window !== 'undefined') {
+  initializePostHogBrowser(postHogBrowserEnv);
+  capturePostHogPageview();
+}
+
 export function PostHogClientBootstrap() {
-  const pathname = usePathname();
-
-  useEffect(() => {
-    const currentPathname = pathname ?? globalThis.location?.pathname;
-
-    if (!currentPathname) {
-      return;
-    }
-
-    const isPublicBlog = isPublicBlogPathname(currentPathname);
-
-    let cancelled = false;
-
-    async function initialize() {
-      try {
-        const { initializePostHogBrowser } = await import(
-          '@/lib/posthog/browser'
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        initializePostHogBrowser(postHogBrowserEnv, console, {
-          lightweight: isPublicBlog,
-          pathname: currentPathname,
-          hostname: globalThis.location?.hostname,
-        });
-
-        if (isPublicBlog) {
-          return;
-        }
-
-        const { initializePostHogInstrumentationIfAllowed } = await import(
-          '@/instrumentation-client'
-        );
-
-        if (!cancelled) {
-          initializePostHogInstrumentationIfAllowed(currentPathname);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          logger.warn({
-            error,
-            message: 'PostHog client bootstrap failed to initialize.',
-          });
-        }
-      }
-    }
-
-    void initialize();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
-
   return null;
 }

@@ -133,21 +133,14 @@ export async function generateMetadata({
     suffix: merchant.business_name,
     fallback: categoryName,
   });
-  const fallbackDescription = `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`;
-  const baseDescription =
-    hubContent.intro.description.trim() || fallbackDescription;
-  const pageAwareDescription =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${baseDescription}`
-      : baseDescription;
-  const pageAwareFallback =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${fallbackDescription}`
-      : fallbackDescription;
-  const description = generateMetaDescription(pageAwareDescription, 160, {
-    minLength: 110,
-    fallback: pageAwareFallback,
-  });
+  const description = generateMetaDescription(
+    hubContent.intro.description,
+    160,
+    {
+      minLength: 110,
+      fallback: `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`,
+    }
+  );
   const firstProductImage = paginatedProducts[0]?.image || null;
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
 

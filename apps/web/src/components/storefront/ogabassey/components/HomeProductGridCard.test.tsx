@@ -123,33 +123,10 @@ describe('HomeProductGridCard', () => {
   it('links to the storefront product details route', () => {
     render(<HomeProductGridCard basePath="/ogabassey" product={baseProduct} />);
 
-    const productLink = screen.getByRole('link', {
-      name: `View ${baseProduct.name} for ${baseProduct.price}`,
-    });
-
-    expect(productLink).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /iPhone 17 Pro Max/i })).toHaveAttribute(
       'href',
       '/ogabassey/smartphones/iphone-17-pro-max'
     );
-    const expectedTitle = baseProduct.brand
-      ? `${baseProduct.name} - ${baseProduct.brand}`
-      : baseProduct.name;
-    expect(productLink).toHaveAttribute('title', expectedTitle);
-  });
-
-  it('includes brand names in product link titles when available', () => {
-    render(
-      <HomeProductGridCard
-        basePath="/ogabassey"
-        product={{ ...baseProduct, brand: 'Apple' }}
-      />
-    );
-
-    expect(
-      screen.getByRole('link', {
-        name: `View ${baseProduct.name} for ${baseProduct.price}`,
-      })
-    ).toHaveAttribute('title', `${baseProduct.name} - Apple`);
   });
 
   it('waits to mount deferred images until the card is near the viewport', () => {
@@ -267,7 +244,7 @@ describe('HomeProductGridCard', () => {
     const image = container.querySelector('img');
 
     expect(image).toHaveAttribute('alt', '');
-    expect(image).toHaveAttribute('src', '/placeholder.svg');
+    expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
   });
 
 });

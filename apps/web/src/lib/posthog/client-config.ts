@@ -5,7 +5,6 @@ import {
   type PostHogEnv,
 } from '@/lib/posthog/config';
 import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
-import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
@@ -400,46 +399,6 @@ function shouldSuppressClientException(properties: Properties): boolean {
   );
 }
 
-function isPublicBlogUrl(value: unknown): boolean {
-  if (typeof value !== 'string' || value.trim() === '') {
-    return false;
-  }
-
-  try {
-    const url = new URL(value, globalThis.location?.origin);
-    return isPublicBlogPathname(url.pathname, { hostname: url.hostname });
-  } catch {
-    return false;
-  }
-}
-
-function getWebVitalsMetricUrls(properties: Properties): string[] {
-  return Object.entries(properties)
-    .filter(
-      ([key, value]) =>
-        key.startsWith('$web_vitals_') &&
-        key.endsWith('_event') &&
-        isRecord(value) &&
-        typeof value.$current_url === 'string'
-    )
-    .map(([, value]) => (value as { $current_url: string }).$current_url);
-}
-
-function isPublicBlogWebVitalsEvent(properties: Properties): boolean {
-  const metricUrls = getWebVitalsMetricUrls(properties);
-  if (metricUrls.length > 0) {
-    return metricUrls.some(isPublicBlogUrl);
-  }
-
-  if (typeof globalThis.location !== 'undefined') {
-    return isPublicBlogPathname(globalThis.location.pathname, {
-      hostname: globalThis.location.hostname,
-    });
-  }
-
-  return false;
-}
-
 export function sanitizePostHogProperties(
   properties: Record<string, unknown> | undefined
 ): Properties | undefined {
@@ -475,13 +434,6 @@ export function sanitizePostHogCapture(
     return null;
   }
 
-  if (
-    capture.event === '$web_vitals' &&
-    isPublicBlogWebVitalsEvent(properties)
-  ) {
-    return null;
-  }
-
   if (typeof globalThis.location !== 'undefined') {
     for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {
       delete properties[key];
@@ -498,34 +450,14 @@ export function sanitizePostHogCapture(
   };
 }
 
-export interface PostHogClientConfigOptions {
-  /**
-   * Strips expensive client-side instrumentation from SEO/content surfaces while
-   * preserving manual pageview capture and privacy sanitization.
-   */
-  lightweight?: boolean;
-}
-
-const LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES: Partial<PostHogConfig> = {
-  advanced_disable_flags: true,
-  autocapture: false,
-  capture_dead_clicks: false,
-  capture_heatmaps: false,
-  capture_performance: false,
-  disable_session_recording: true,
-  rageclick: false,
-};
-
 export function buildPostHogClientConfig(
   env: PostHogEnv = process.env,
-  projectToken: string | undefined = getPublicPostHogProjectToken(),
-  options: PostHogClientConfigOptions = {}
+  projectToken: string | undefined = getPublicPostHogProjectToken()
 ): Partial<PostHogConfig> {
-  const baseConfig: Partial<PostHogConfig> = {
+  return {
     api_host: getPostHogProxyPath(env),
     ui_host: getPostHogUiHost(env),
     defaults: '2026-05-30',
-    advanced_disable_flags: false,
     autocapture: true,
     rageclick: true,
     capture_dead_clicks: true,
@@ -539,11 +471,13 @@ export function buildPostHogClientConfig(
       capture_unhandled_rejections: true,
       capture_console_errors: false,
     },
-    // Keep PostHog's web-vitals autocapture disabled. In posthog-js@1.387.0
-    // WebVitalsAutocapture exposes startIfEnabled() but no stop(), so enabling
-    // it on a full page would leak observers into public blog SPA transitions.
-    // CWV collection remains handled by WebVitalsReporter.
-    capture_performance: false,
+    capture_performance: {
+      web_vitals: true,
+      web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
+      web_vitals_delayed_flush_ms: 5000,
+      web_vitals_attribution: true,
+      network_timing: false,
+    },
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,
@@ -579,10 +513,4 @@ export function buildPostHogClientConfig(
       });
     },
   };
-
-  if (options.lightweight) {
-    return { ...baseConfig, ...LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES };
-  }
-
-  return baseConfig;
 }

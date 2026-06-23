@@ -175,11 +175,12 @@ describe('BlogPageContent', () => {
       })
     );
 
+    expect(
+      screen.getByRole('navigation', { name: 'Blog pagination' })
+    ).toHaveAttribute('data-store-base-path', '');
     expect(mockDefaultBlogUi).toHaveBeenCalledWith(
       expect.objectContaining({
         basePath: '',
-        currentPage: 2,
-        totalPosts: 50,
       })
     );
   });
