@@ -38,7 +38,7 @@ GOOGLE_GENAI_API_KEY=your_api_key_here
 ### Step 3: Restart Dev Server
 
 ```bash
-pnpm --filter @baci/web dev
+npm run dev
 ```
 
 ## Testing AI Features

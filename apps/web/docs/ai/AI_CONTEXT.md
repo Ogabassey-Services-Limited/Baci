@@ -303,11 +303,11 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-Validate AI behavior with `pnpm --filter @baci/web test src/ai`.
-1. Add or update targeted Vitest coverage for changed AI behavior.
-2. Verify output schemas match TypeScript types.
-3. Test error handling with invalid inputs.
-4. Run the app with `pnpm --filter @baci/web dev` for browser-level flows.
+Use Genkit Dev UI: `npm run genkit:dev`
+1. Navigate to http://localhost:4000
+2. Test each flow individually with sample inputs
+3. Verify output schemas match TypeScript types
+4. Test error handling with invalid inputs
 
 ---
 
@@ -418,11 +418,12 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-pnpm --filter @baci/web dev       # Start Next.js dev server
-pnpm --filter @baci/web test src/ai  # Run AI-related tests
-pnpm --filter @baci/web build     # Production build
-pnpm --filter @baci/web typecheck # TypeScript type checking
-pnpm --filter @baci/web lint      # Biome
+npm run dev              # Start Next.js dev server on port 9002
+npm run genkit:dev       # Start Genkit Dev UI on port 4000
+npm run genkit:watch     # Genkit with hot reload
+npm run build            # Production build
+npm run typecheck        # TypeScript type checking
+npm run lint             # ESLint
 ```
 
 ---

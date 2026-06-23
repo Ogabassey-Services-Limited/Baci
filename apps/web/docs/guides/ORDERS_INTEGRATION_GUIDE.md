@@ -101,8 +101,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ### Step 3: Rebuild and Restart
 
 ```bash
-pnpm --filter @baci/web build
-pnpm --filter @baci/web dev
+npm run build
+npm run dev
 ```
 
 ## Testing the Integration

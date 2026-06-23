@@ -41,7 +41,7 @@ POSTHOG_CLI_PROJECT_ID=202711
 POSTHOG_CLI_API_KEY=phx_...
 ```
 
-`POSTHOG_CLI_API_KEY` needs Error Tracking write access. The Expo plugin uploads JavaScript source maps during native builds and uploads native symbols when `uploadNativeSymbols: true` is applied during prebuild. For OTA updates, run source-map upload after `eas update` or `pnpm dlx expo export --dump-sourcemap`:
+`POSTHOG_CLI_API_KEY` needs Error Tracking write access. The Expo plugin uploads JavaScript source maps during native builds and uploads native symbols when `uploadNativeSymbols: true` is applied during prebuild. For OTA updates, run source-map upload after `eas update` or `npx expo export --dump-sourcemap`:
 
 ```bash
 pnpm --filter @baci/mobile-storefront exec posthog-cli hermes upload --directory dist
