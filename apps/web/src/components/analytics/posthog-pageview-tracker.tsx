@@ -1,19 +1,63 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
-import { capturePostHogPageview } from '@/lib/posthog/browser';
+import { logger } from '@/lib/logger';
+import { getPostHogBrowserEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
+
+const postHogBrowserEnv = getPostHogBrowserEnv();
 
 export function PostHogPageviewTracker() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamString = searchParams?.toString() ?? '';
 
   useEffect(() => {
-    if (!pathname) {
+    const currentPathname = pathname ?? globalThis.location?.pathname;
+
+    if (!currentPathname) {
       return;
     }
 
-    capturePostHogPageview(window.location.href);
-  }, [pathname]);
+    const currentSearch = searchParamString ? `?${searchParamString}` : '';
+    const currentUrl =
+      typeof globalThis.location !== 'undefined'
+        ? globalThis.location.href
+        : `${currentPathname}${currentSearch}`;
+    let cancelled = false;
+
+    async function capturePageview() {
+      try {
+        const { capturePostHogPageview, initializePostHogBrowser } =
+          await import('@/lib/posthog/browser');
+
+        if (cancelled) {
+          return;
+        }
+
+        initializePostHogBrowser(postHogBrowserEnv, console, {
+          lightweight: isPublicBlogPathname(currentPathname),
+          pathname: currentPathname,
+          hostname: globalThis.location?.hostname,
+        });
+        capturePostHogPageview(currentUrl);
+      } catch (error) {
+        if (!cancelled) {
+          logger.warn({
+            error,
+            message: 'PostHog pageview capture failed.',
+          });
+        }
+      }
+    }
+
+    void capturePageview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, searchParamString]);
 
   return null;
 }

@@ -59,15 +59,19 @@ export async function BlogPostBody({
   relatedProducts = EMPTY_RELATED_PRODUCTS,
   relatedPosts,
 }: BlogPostBodyProps) {
-  const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
-    content,
-    {
+  // The current post page template always renders an above-the-fold hero image
+  // slot, falling back to /placeholder.png when a post has no stored featured
+  // image. Keep body images lazy so the page never emits two high-priority image
+  // candidates for the same viewport.
+  const hasPreloadedHeroImage = true;
+  const { isJson, legacyHtml, legacyPriorityImageSources, renderedContent } =
+    await resolveBlogPostContent(content, {
       basePath,
       baseUrl,
       fallbackImageAlt: post.title,
+      hasPreloadedHeroImage,
       merchantSlug,
-    }
-  );
+    });
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
   const safeRelatedProducts = relatedProducts.flatMap((product) => {
     const name = typeof product.name === 'string' ? product.name.trim() : '';
@@ -102,7 +106,7 @@ export async function BlogPostBody({
             basePath={basePath}
             baseUrl={baseUrl}
             merchantSlug={merchantSlug}
-            priorityInlineImageSrc={post.featured_image_url ? null : undefined}
+            priorityInlineImageSrc={hasPreloadedHeroImage ? null : undefined}
           />
         ) : (
           <SafeHtml
@@ -111,6 +115,7 @@ export async function BlogPostBody({
               legacyHtml,
               post.featured_image_url
             )}
+            trustedPriorityImageSources={legacyPriorityImageSources}
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600!"
           />
         )}

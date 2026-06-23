@@ -76,6 +76,37 @@ describe('sanitize', () => {
     expect(output).toContain('<figcaption>Camera sample</figcaption>');
   });
 
+  it('strips stale fetchpriority from generic sanitized images', () => {
+    const output = sanitizeHtml(
+      '<img src="https://example.com/body.jpg" alt="Body" fetchpriority="high">'
+    );
+
+    expect(output).toContain('<img');
+    expect(output).not.toContain('fetchpriority=');
+  });
+
+  it('keeps fetchpriority only for internally trusted priority blog images', () => {
+    const priorityImageSource =
+      'https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png';
+
+    const output = sanitizeHtml(
+      `<img src="${priorityImageSource}" alt="Hero" data-baci-priority-image="true" fetchpriority="high">`,
+      { trustedPriorityImageSources: [priorityImageSource] }
+    );
+
+    expect(output).toContain('fetchpriority="high"');
+    expect(output).not.toContain('data-baci-priority-image');
+  });
+
+  it('strips user-supplied priority markers from dirty images', () => {
+    const output = sanitizeHtml(
+      '<img src="https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png" alt="Hero" data-baci-priority-image="true" fetchpriority="high">'
+    );
+
+    expect(output).not.toContain('fetchpriority=');
+    expect(output).not.toContain('data-baci-priority-image');
+  });
+
   it('sanitizes unsafe caption markup while keeping figcaption', () => {
     const output = sanitizeHtml(
       '<figure><img src="https://example.com/photo.jpg"><figcaption><img src=x onerror=alert(1)>Caption<script>alert(1)</script></figcaption></figure>'
@@ -137,9 +168,11 @@ describe('sanitize', () => {
 
   it('keeps <picture>/<source> for responsive blog inline images', () => {
     const input =
-      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" alt="speaker" /></picture>';
+      '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" srcset="https://cdn.ogabassey.com/x/inline-1.png 384w" sizes="(max-width: 768px) 100vw, 800px" data-baci-priority-image="true" fetchpriority="high" alt="speaker" /></picture>';
 
-    const output = sanitizeHtml(input);
+    const output = sanitizeHtml(input, {
+      trustedPriorityImageSources: ['https://cdn.ogabassey.com/x/inline-1.png'],
+    });
 
     expect(output).toContain('<picture>');
     expect(output).toContain('type="image/avif"');
@@ -147,6 +180,12 @@ describe('sanitize', () => {
       'srcset="https://cdn.ogabassey.com/x/inline-1.png.avif"'
     );
     expect(output).toContain('<img');
+    expect(output).toContain(
+      'srcset="https://cdn.ogabassey.com/x/inline-1.png 384w"'
+    );
+    expect(output).toContain('sizes="(max-width: 768px) 100vw, 800px"');
+    expect(output).toContain('fetchpriority="high"');
+    expect(output).not.toContain('data-baci-priority-image');
   });
 
   it('still strips event handlers and scripts from media tags', () => {

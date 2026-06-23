@@ -98,6 +98,35 @@ describe('SafeHtml', () => {
     expect(screen.getByText('Malicious')).toBeInTheDocument();
   });
 
+  it('strips user-supplied fetch priority markers by default', () => {
+    const imageSource =
+      'https://cdn.ogabassey.com/core-assets/blog/merchant/inline-1.png';
+    const { container } = render(
+      <SafeHtml
+        html={`<img src="${imageSource}" alt="Body image" data-baci-priority-image="true" fetchpriority="high">`}
+      />
+    );
+
+    const image = screen.getByRole('img', { name: 'Body image' });
+    expect(image).not.toHaveAttribute('fetchpriority');
+    expect(container.innerHTML).not.toContain('data-baci-priority-image');
+  });
+
+  it('preserves fetch priority only for trusted internally generated image sources', () => {
+    const imageSource =
+      'https://cdn.ogabassey.com/core-assets/blog/merchant/inline-1.png';
+    const { container } = render(
+      <SafeHtml
+        html={`<img src="${imageSource}" alt="Priority image" data-baci-priority-image="true" fetchpriority="high">`}
+        trustedPriorityImageSources={[imageSource]}
+      />
+    );
+
+    const image = screen.getByRole('img', { name: 'Priority image' });
+    expect(image).toHaveAttribute('fetchpriority', 'high');
+    expect(container.innerHTML).not.toContain('data-baci-priority-image');
+  });
+
   it('demotes heading tags when headingLevelOffset is provided', () => {
     const { container } = render(
       <SafeHtml

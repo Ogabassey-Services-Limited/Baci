@@ -145,7 +145,6 @@ export function DefaultBlogUi({
 
           <BlogList
             initialPosts={posts}
-            merchantId={merchant.id}
             totalPosts={totalPosts}
             category={category}
             searchQuery={searchQuery}

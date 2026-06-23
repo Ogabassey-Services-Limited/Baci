@@ -269,13 +269,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
         totalPosts={totalPosts}
         currentPage={currentPage}
       />
-      <BlogListingPagination
-        storeBasePath={basePath}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        category={category}
-        search={effectiveSearchQuery}
-      />
       <InformationalClusterIndex collections={guideCollections} />
       <BlogDiscoverySection
         baseUrl={baseUrl}

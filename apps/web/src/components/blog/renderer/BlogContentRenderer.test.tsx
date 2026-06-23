@@ -585,6 +585,12 @@ describe('BlogContentRenderer', () => {
       const json = doc({ type: 'image', attrs: { src: null } });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Blog image node missing or invalid src attribute'
+        ),
+        expect.objectContaining({ src: null })
+      );
       consoleSpy.mockRestore();
     });
 
@@ -599,6 +605,12 @@ describe('BlogContentRenderer', () => {
       });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Blog image node missing or invalid src attribute'
+        ),
+        expect.objectContaining({ src: 'data:image/png;base64,abc' })
+      );
       consoleSpy.mockRestore();
     });
   });
@@ -652,7 +664,8 @@ describe('BlogContentRenderer', () => {
       // The doc wrapper renders but contains no visible child content.
       expect(container.querySelector('.space-y-4')).toBeEmptyDOMElement();
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('customWidget')
+        expect.stringContaining('Unknown blog renderer node type'),
+        expect.objectContaining({ nodeType: 'customWidget' })
       );
       consoleSpy.mockRestore();
     });
@@ -779,14 +792,26 @@ describe('BlogContentRenderer', () => {
         picture
           ?.querySelector('source[type="image/avif"]')
           ?.getAttribute('srcset')
-      ).toBe(`${src}.avif`);
+      ).toContain(
+        'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
+      );
       expect(
         picture
           ?.querySelector('source[type="image/webp"]')
           ?.getAttribute('srcset')
-      ).toBe(`${src}.webp`);
+      ).toContain(
+        'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 384w'
+      );
       const img = picture?.querySelector('img');
-      expect(img?.getAttribute('src')).toBe(src);
+      expect(img?.getAttribute('src')).toContain('width=828');
+      expect(img?.getAttribute('srcset')).toContain(
+        'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png 384w'
+      );
+      expect(img?.getAttribute('sizes')).toBe(
+        '(max-width: 768px) calc(100vw - 3rem), 800px'
+      );
+      expect(img?.getAttribute('width')).toBeNull();
+      expect(img?.getAttribute('height')).toBeNull();
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
@@ -818,10 +843,14 @@ describe('BlogContentRenderer', () => {
 
       const images = Array.from(container.querySelectorAll('picture img'));
       expect(images).toHaveLength(2);
-      expect(images[0]).toHaveAttribute('src', firstSrc);
+      expect(images[0]?.getAttribute('src')).toContain(
+        'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+      );
       expect(images[0]).toHaveAttribute('fetchpriority', 'high');
       expect(images[0]).toHaveAttribute('loading', 'eager');
-      expect(images[1]).toHaveAttribute('src', secondSrc);
+      expect(images[1]?.getAttribute('src')).toContain(
+        'width=828,quality=70,format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png'
+      );
       expect(images[1]).not.toHaveAttribute('fetchpriority');
       expect(images[1]).toHaveAttribute('loading', 'lazy');
     });
@@ -842,7 +871,9 @@ describe('BlogContentRenderer', () => {
       const allImages = Array.from(container.querySelectorAll('img'));
       expect(allImages[0]).toHaveAttribute('src', firstSrc);
       const trustedInlineImage = container.querySelector('picture img');
-      expect(trustedInlineImage).toHaveAttribute('src', secondSrc);
+      expect(trustedInlineImage?.getAttribute('src')).toContain(
+        'width=828,quality=70,format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png'
+      );
       expect(trustedInlineImage).not.toHaveAttribute('fetchpriority');
       expect(trustedInlineImage).toHaveAttribute('loading', 'lazy');
     });
@@ -879,7 +910,9 @@ describe('BlogContentRenderer', () => {
       );
 
       const img = container.querySelector('picture img');
-      expect(img).toHaveAttribute('src', src);
+      expect(img?.getAttribute('src')).toContain(
+        'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+      );
       expect(img).not.toHaveAttribute('fetchpriority');
       expect(img).toHaveAttribute('loading', 'lazy');
     });

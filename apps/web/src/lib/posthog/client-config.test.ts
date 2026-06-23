@@ -7,7 +7,7 @@ import {
 } from './client-config';
 
 describe('PostHog client config', () => {
-  it('enables web vitals, exception capture, and privacy-safe replay defaults', () => {
+  it('keeps PostHog web-vitals off while preserving exception capture and privacy-safe replay defaults', () => {
     const config = buildPostHogClientConfig({
       NEXT_PUBLIC_POSTHOG_PROXY_PATH: '/baci-observe',
       NEXT_PUBLIC_POSTHOG_UI_HOST: 'https://eu.posthog.com',
@@ -28,12 +28,7 @@ describe('PostHog client config', () => {
         capture_unhandled_rejections: true,
         capture_console_errors: false,
       },
-      capture_performance: {
-        web_vitals: true,
-        web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
-        web_vitals_attribution: true,
-        network_timing: false,
-      },
+      capture_performance: false,
       mask_all_text: true,
       mask_all_element_attributes: true,
       session_recording: expect.objectContaining({
@@ -46,6 +41,37 @@ describe('PostHog client config', () => {
     expect(config.session_recording?.maskTextFn?.('private note')).toBe(
       '[Filtered]'
     );
+  });
+
+  it('keeps the full instrumentation config by default', () => {
+    const config = buildPostHogClientConfig({ NODE_ENV: 'production' });
+
+    expect(config.autocapture).toBe(true);
+    expect(config.disable_session_recording).toBe(false);
+    expect(config.capture_heatmaps).toBe(true);
+    expect(config.advanced_disable_flags).toBe(false);
+  });
+
+  it('returns a lightweight config for public blog surfaces', () => {
+    const config = buildPostHogClientConfig(
+      { NODE_ENV: 'production' },
+      'phc_public_token',
+      { lightweight: true }
+    );
+
+    expect(config).toMatchObject({
+      advanced_disable_flags: true,
+      autocapture: false,
+      capture_dead_clicks: false,
+      capture_heatmaps: false,
+      capture_performance: false,
+      disable_session_recording: true,
+      rageclick: false,
+    });
+    expect(config.capture_pageview).toBe(false);
+    expect(config.before_send).toEqual(expect.any(Function));
+    expect(config.loaded).toEqual(expect.any(Function));
+    expect(config.property_blacklist).toContain('email');
   });
 
   it('registers stable app and tenant context after PostHog loads', () => {
@@ -237,6 +263,7 @@ describe('PostHog client config', () => {
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',
       pathname: '/ogabassey/products/iphone',
+      origin: 'https://usebaci.com',
     });
 
     const capture = sanitizePostHogCapture({
@@ -255,10 +282,105 @@ describe('PostHog client config', () => {
     vi.unstubAllGlobals();
   });
 
+  it('drops web-vitals captures while the current route is a public blog page', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$web_vitals',
+        properties: {
+          $web_vitals_LCP_event: {
+            $current_url: 'https://usebaci.com/ogabassey/blog/best-phones',
+            name: 'LCP',
+            value: 1200,
+          },
+        },
+      })
+    ).toBeNull();
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-2',
+        event: '$pageview',
+        properties: {
+          $current_url: 'https://usebaci.com/ogabassey/blog/best-phones',
+        },
+      })
+    ).toMatchObject({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://usebaci.com/ogabassey/blog/best-phones',
+      },
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('drops delayed web-vitals captures whose metric URL came from a public blog page', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$web_vitals',
+        properties: {
+          $web_vitals_CLS_event: {
+            $current_url: 'https://ogabassey.com/blog/best-phones',
+            name: 'CLS',
+            value: 0.01,
+          },
+        },
+      })
+    ).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps delayed non-blog web-vitals captures after navigating to a blog page', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$web_vitals',
+        properties: {
+          $web_vitals_LCP_event: {
+            $current_url: 'https://usebaci.com/ogabassey/products/iphone',
+            name: 'LCP',
+            value: 1200,
+          },
+        },
+      })
+    ).toMatchObject({
+      event: '$web_vitals',
+      properties: {
+        $web_vitals_LCP_event: {
+          $current_url: 'https://usebaci.com/ogabassey/products/iphone',
+        },
+      },
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it('removes stale tenant context from capture payloads on platform routes', () => {
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',
       pathname: '/staff/accept',
+      origin: 'https://usebaci.com',
     });
 
     const capture = sanitizePostHogCapture({

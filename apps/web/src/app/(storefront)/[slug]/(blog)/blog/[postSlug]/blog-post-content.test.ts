@@ -483,11 +483,88 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     );
 
     expect(out).toContain('<picture>');
-    expect(out).toContain(`srcset="${CDN}.avif" type="image/avif"`);
-    expect(out).toContain(`srcset="${CDN}.webp" type="image/webp"`);
-    // The original <img> is preserved as the fallback for browsers/clients
-    // without AVIF/WebP support.
-    expect(out).toContain(`<img src="${CDN}" alt="Speaker" />`);
+    expect(out).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
+    );
+    expect(out).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 384w'
+    );
+    expect(out).toContain(
+      'sizes="(max-width: 768px) calc(100vw - 3rem), 800px"'
+    );
+    // The original asset stays as fallback but gets responsive width candidates.
+    expect(out).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png 384w'
+    );
+    expect(out).not.toContain('width="1200"');
+    expect(out).not.toContain('height="675"');
+    expect(out).toContain(`data-original-src="${CDN}"`);
+
+    expect(out).toContain('loading="eager"');
+    expect(out).toContain('decoding="sync"');
+    expect(out).toContain('fetchpriority="high"');
+  });
+
+  it('preserves trusted inline image dimensions from the source HTML', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" width="900" height="1200" alt="Portrait" />`
+    );
+
+    expect(out).toContain('width="900"');
+    expect(out).toContain('height="1200"');
+    expect(out).toContain('alt="Portrait"');
+  });
+
+  it('lazy-loads later optimized legacy body images', () => {
+    const secondCdn = CDN.replace(
+      'inline-1-b9244d7a754d',
+      'inline-2-b9244d7a754d'
+    );
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="First" /><img src="${secondCdn}" alt="Second" />`
+    );
+
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('loading="eager"');
+    expect(out).toContain('fetchpriority="high"');
+    expect(out).toContain('alt="Second"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+  });
+
+  it('does not prioritize legacy body images when a featured hero is already rendered', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="First" />`,
+      { prioritizeFirstBodyImage: false }
+    );
+
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+    expect(out).not.toContain('fetchpriority="high"');
+  });
+  it('strips stale high fetch priority from lazy rebuilt body images', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" alt="First" fetchpriority="high" />`,
+      { prioritizeFirstBodyImage: false }
+    );
+
+    expect(out).toContain('alt="First"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+    expect(out).not.toContain('fetchpriority="high"');
+  });
+
+  it('does not prioritize a trusted CDN image after an earlier body image', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="https://example.com/hero.jpg" alt="External" /><img src="${CDN}" alt="Trusted" />`
+    );
+
+    expect(out).toContain('alt="External"');
+    expect(out).toContain('alt="Trusted"');
+    expect(out).toContain('loading="lazy"');
+    expect(out).toContain('decoding="async"');
+    expect(out).not.toContain('fetchpriority="high"');
   });
 
   it('leaves external and already-optimized featured images untouched', () => {
@@ -513,9 +590,13 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     );
 
     expect(out).toContain('<picture>');
-    expect(out).toContain(`${CDN}.avif`);
-    // The full <img> (including the ">" inside alt) is preserved as the fallback.
-    expect(out).toContain(`<img src="${CDN}" alt="value a > b" />`);
+    expect(out).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif'
+    );
+    expect(out).toContain('alt="value a > b"');
+    expect(out).toContain(
+      'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+    );
   });
 
   it('does not wrap trusted CDN inline images that are already inside a picture', () => {
@@ -535,6 +616,16 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(wrapTrustedCdnInlineImagesInPicture(srcInAlt)).toBe(srcInAlt);
   });
 
+  it('preserves quoted text that looks like replaced attributes', () => {
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img alt="notes src=text width=12 srcset=demo" src="${CDN}" />`
+    );
+
+    expect(out).toContain('alt="notes src=text width=12 srcset=demo"');
+    expect(out).toContain('src="https://cdn.ogabassey.com/image/width=828');
+    expect(out).toContain('srcset="https://cdn.ogabassey.com/image/width=384');
+  });
+
   it('does not double-escape ampersands already escaped by the sanitizer', () => {
     // src is captured from sanitized HTML, so `&` is already `&amp;`.
     const src = `${CDN}?v=1&amp;x=2`;
@@ -542,7 +633,9 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
       `<img src="${src}" alt="x" />`
     );
 
-    expect(out).toContain(`${CDN}.avif?v=1&amp;x=2`);
+    expect(out).toContain(
+      'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif?v=1&amp;x=2'
+    );
     expect(out).not.toContain('&amp;amp;');
   });
 });

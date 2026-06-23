@@ -1,5 +1,3 @@
-'use client';
-
 import { toHtml } from 'hast-util-to-html';
 import { common, createLowlight } from 'lowlight';
 import Image from 'next/image';
@@ -10,6 +8,7 @@ import {
   isTrustedCdnInlineImage,
 } from '@/lib/blog-inline-image-optimization';
 import { generateHeadingId } from '@/lib/blog-utils';
+import { logger } from '@/lib/logger';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';
@@ -264,7 +263,10 @@ const NodeRenderer = ({
 
       // Only allow http/https protocols for blog images in 2026 for security and CDN stability
       if (!imageSrc?.startsWith('http')) {
-        console.warn('Blog image node missing or invalid src attribute');
+        logger.warn({
+          message: 'Blog image node missing or invalid src attribute',
+          src: rawSrc ?? null,
+        });
         return null;
       }
 
@@ -289,10 +291,22 @@ const NodeRenderer = ({
             // compatibility fallback. next/image would needlessly re-process an
             // already-optimized CDN URL.
             <picture>
-              <source srcSet={inlineSiblings.avif} type="image/avif" />
-              <source srcSet={inlineSiblings.webp} type="image/webp" />
+              <source
+                srcSet={inlineSiblings.avifSrcSet}
+                sizes={inlineSiblings.sizes}
+                type="image/avif"
+              />
+              <source
+                srcSet={inlineSiblings.webpSrcSet}
+                sizes={inlineSiblings.sizes}
+                type="image/webp"
+              />
               <img
-                src={imageSrc}
+                src={inlineSiblings.fallback}
+                srcSet={inlineSiblings.fallbackSrcSet}
+                sizes={inlineSiblings.sizes}
+                width={inlineSiblings.width}
+                height={inlineSiblings.height}
                 alt={imageAlt}
                 className="absolute inset-0 h-full w-full object-cover"
                 decoding="async"
@@ -402,7 +416,10 @@ const NodeRenderer = ({
       return <br />;
 
     default:
-      console.warn(`Unknown node type: ${node.type}`);
+      logger.warn({
+        message: 'Unknown blog renderer node type',
+        nodeType: node.type,
+      });
       return null;
   }
 };
@@ -423,7 +440,10 @@ function parseBlogDoc(json: unknown): ParsedBlogDoc {
       return { kind: 'doc', doc: doc as TipTapNode };
     }
   } catch (e) {
-    console.error('Renderer failed:', e);
+    logger.error({
+      error: e,
+      message: 'Blog renderer failed to parse document',
+    });
   }
   return { kind: 'fallback' };
 }

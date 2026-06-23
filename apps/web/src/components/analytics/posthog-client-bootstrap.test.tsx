@@ -1,13 +1,23 @@
 import { render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+let pathname = '/';
+
 const mocks = vi.hoisted(() => ({
-  capturePostHogPageview: vi.fn(),
   initializePostHogBrowser: vi.fn(),
+  initializePostHogInstrumentationIfAllowed: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathname,
+}));
+
+vi.mock('@/instrumentation-client', () => ({
+  initializePostHogInstrumentationIfAllowed:
+    mocks.initializePostHogInstrumentationIfAllowed,
 }));
 
 vi.mock('@/lib/posthog/browser', () => ({
-  capturePostHogPageview: mocks.capturePostHogPageview,
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
@@ -16,22 +26,110 @@ function importPostHogClientBootstrap() {
 }
 
 afterEach(() => {
+  pathname = '/';
   vi.clearAllMocks();
   vi.resetModules();
+  vi.unstubAllGlobals();
 });
 
 describe('PostHogClientBootstrap', () => {
-  it('initializes PostHog when the browser module loads', async () => {
+  it('initializes PostHog after mount on non-blog pages', async () => {
+    vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
 
-    expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).toHaveBeenCalledWith('/');
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
-      })
+      }),
+      console,
+      {
+        lightweight: false,
+        pathname: '/',
+        hostname: undefined,
+      }
     );
-    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
+  });
+
+  it('initializes lightweight PostHog on public blog pages without full instrumentation', async () => {
+    pathname = '/ogabassey/blog/phone-guide';
+    vi.stubGlobal('location', {
+      pathname,
+      href: 'https://usebaci.com/ogabassey/blog/phone-guide',
+      hostname: 'usebaci.com',
+    });
+    const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
+
+    render(<PostHogClientBootstrap />);
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+
+    expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        NODE_ENV: expect.any(String),
+      }),
+      console,
+      {
+        lightweight: true,
+        pathname: '/ogabassey/blog/phone-guide',
+        hostname: 'usebaci.com',
+      }
+    );
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).not.toHaveBeenCalled();
+  });
+
+  it('initializes PostHog after a client navigation from blog to a non-blog page', async () => {
+    pathname = '/ogabassey/blog/phone-guide';
+    vi.stubGlobal('location', {
+      pathname,
+      href: 'https://usebaci.com/ogabassey/blog/phone-guide',
+      hostname: 'usebaci.com',
+    });
+    const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
+
+    const { rerender } = render(<PostHogClientBootstrap />);
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
+    });
+
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).not.toHaveBeenCalled();
+
+    pathname = '/ogabassey/laptops/macbook-pro';
+    vi.stubGlobal('location', {
+      pathname,
+      href: 'https://usebaci.com/ogabassey/laptops/macbook-pro',
+      hostname: 'usebaci.com',
+    });
+    rerender(<PostHogClientBootstrap />);
+
+    await vi.waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
+    });
+    expect(mocks.initializePostHogBrowser).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        NODE_ENV: expect.any(String),
+      }),
+      console,
+      {
+        lightweight: false,
+        pathname: '/ogabassey/laptops/macbook-pro',
+        hostname: 'usebaci.com',
+      }
+    );
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).toHaveBeenCalledWith('/ogabassey/laptops/macbook-pro');
   });
 });

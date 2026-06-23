@@ -8,6 +8,7 @@ import sanitizeLib from 'sanitize-html';
 
 interface SanitizeHtmlOptions {
   headingLevelOffset?: number;
+  trustedPriorityImageSources?: readonly string[];
 }
 
 const ESCAPE_HTML_TEXT_OPTIONS: sanitizeLib.IOptions = {
@@ -33,6 +34,20 @@ const DISALLOWED_RAW_TEXT_BLOCK_REGEX =
 
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
+}
+
+function normalizeTrustedPriorityImageSource(value: string): string {
+  return value.replace(/&amp;/gi, '&');
+}
+
+function createTrustedPriorityImageSourceSet(
+  sources: readonly string[] | undefined
+): ReadonlySet<string> {
+  return new Set(
+    (sources ?? [])
+      .map((source) => normalizeTrustedPriorityImageSource(source.trim()))
+      .filter(Boolean)
+  );
 }
 
 /**
@@ -85,8 +100,30 @@ export function sanitizeHtml(
   const headingLevelOffset = Number.isFinite(rawHeadingLevelOffset)
     ? Math.max(0, Math.trunc(rawHeadingLevelOffset))
     : 0;
+  const trustedPriorityImageSources = createTrustedPriorityImageSourceSet(
+    options.trustedPriorityImageSources
+  );
   const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
     a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    img: (_tagName, attribs) => {
+      const nextAttribs = { ...attribs };
+      const normalizedImageSource =
+        typeof nextAttribs.src === 'string'
+          ? normalizeTrustedPriorityImageSource(nextAttribs.src)
+          : '';
+      const allowPriorityImage =
+        nextAttribs.fetchpriority === 'high' &&
+        trustedPriorityImageSources.has(normalizedImageSource);
+      delete nextAttribs['data-baci-priority-image'];
+      if (!allowPriorityImage) {
+        delete nextAttribs.fetchpriority;
+      }
+
+      return {
+        tagName: 'img',
+        attribs: nextAttribs,
+      };
+    },
   };
 
   if (headingLevelOffset > 0) {
@@ -162,7 +199,17 @@ export function sanitizeHtml(
         'rowspan',
       ],
       a: ['href', 'target', 'rel'],
-      img: ['src', 'alt', 'width', 'height', 'loading', 'decoding'],
+      img: [
+        'src',
+        'srcset',
+        'sizes',
+        'alt',
+        'width',
+        'height',
+        'loading',
+        'decoding',
+        'fetchpriority',
+      ],
       source: ['srcset', 'type', 'media', 'sizes'],
     },
     // Security configurations

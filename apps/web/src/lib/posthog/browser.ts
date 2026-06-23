@@ -1,6 +1,7 @@
 import posthog from 'posthog-js';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
@@ -10,6 +11,7 @@ const POSTHOG_LOADED_STATE_CHECK_INTERVAL_MS = 250;
 const POSTHOG_LOADED_STATE_CHECK_ATTEMPTS = 40;
 
 let hasInitializedPostHogBrowser = false;
+let lastConfiguredPostHogLightweight: boolean | undefined;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
@@ -23,14 +25,94 @@ function isPostHogDevelopmentMode(env: PostHogEnv): boolean {
   return (env.NODE_ENV ?? POSTHOG_NODE_ENV) === 'development';
 }
 
-export function initializePostHogBrowser(
-  env: PostHogEnv = process.env,
-  logger: Pick<Console, 'warn'> = console
-) {
-  if (hasInitializedPostHogBrowser) {
-    return;
+export interface InitializePostHogBrowserOptions {
+  lightweight?: boolean;
+  pathname?: string;
+  hostname?: string;
+}
+
+function isLightweightPostHogSurface(
+  options: InitializePostHogBrowserOptions = {}
+): boolean {
+  if (options.lightweight !== undefined) {
+    return options.lightweight;
   }
 
+  const pathname =
+    options.pathname ||
+    (typeof globalThis.location === 'undefined'
+      ? undefined
+      : globalThis.location.pathname);
+
+  if (!pathname) {
+    return false;
+  }
+
+  return isPublicBlogPathname(pathname, {
+    hostname:
+      options.hostname ||
+      (typeof globalThis.location === 'undefined'
+        ? undefined
+        : globalThis.location.hostname),
+  });
+}
+
+type PostHogBrowserClientConfig = ReturnType<typeof buildPostHogClientConfig>;
+
+function splitPostHogInitConfig(clientConfig: PostHogBrowserClientConfig) {
+  const { advanced_disable_flags: advancedDisableFlags, ...initConfig } =
+    clientConfig;
+
+  return { advancedDisableFlags, initConfig };
+}
+
+type PostHogLoadedInstance = Parameters<
+  NonNullable<PostHogBrowserClientConfig['loaded']>
+>[0];
+
+function applyPostHogFlagDisableConfig(
+  posthogInstance: PostHogLoadedInstance,
+  advancedDisableFlags: PostHogBrowserClientConfig['advanced_disable_flags'],
+  expectedLightweight: boolean
+) {
+  if (
+    advancedDisableFlags === true &&
+    lastConfiguredPostHogLightweight === expectedLightweight
+  ) {
+    posthogInstance.set_config({ advanced_disable_flags: true });
+  }
+}
+
+function isLeavingLightweightPostHogMode(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  return previousLightweight === true && nextLightweight === false;
+}
+
+function maybeReloadPostHogFeatureFlags(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
+    posthog.reloadFeatureFlags();
+  }
+}
+
+function maybeReloadPostHogRemoteConfig(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
+    posthog._remoteConfigLoader?.load();
+  }
+}
+
+export function initializePostHogBrowser(
+  env: PostHogEnv = process.env,
+  logger: Pick<Console, 'warn'> = console,
+  options: InitializePostHogBrowserOptions = {}
+) {
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 
   if (!projectToken) {
@@ -46,13 +128,41 @@ export function initializePostHogBrowser(
 
   isPostHogBrowserDisabled = false;
 
-  const clientConfig = buildPostHogClientConfig(env, projectToken);
+  const lightweight = isLightweightPostHogSurface(options);
+
+  if (hasInitializedPostHogBrowser) {
+    if (lastConfiguredPostHogLightweight !== lightweight) {
+      const clientConfig = buildPostHogClientConfig(env, projectToken, {
+        lightweight,
+      });
+      const { loaded: _loaded, ...runtimeConfig } = clientConfig;
+      const previousLightweight = lastConfiguredPostHogLightweight;
+      posthog.set_config(runtimeConfig);
+      lastConfiguredPostHogLightweight = lightweight;
+      maybeReloadPostHogRemoteConfig(previousLightweight, lightweight);
+      maybeReloadPostHogFeatureFlags(previousLightweight, lightweight);
+    }
+    return;
+  }
+
+  const clientConfig = buildPostHogClientConfig(env, projectToken, {
+    lightweight,
+  });
+  const { advancedDisableFlags, initConfig } =
+    splitPostHogInitConfig(clientConfig);
   const clientLoaded = clientConfig.loaded;
 
   try {
+    lastConfiguredPostHogLightweight = lightweight;
     posthog.init(projectToken, {
-      ...clientConfig,
+      ...initConfig,
       loaded(posthogInstance) {
+        applyPostHogFlagDisableConfig(
+          posthogInstance,
+          advancedDisableFlags,
+          lightweight
+        );
+
         try {
           clientLoaded?.(posthogInstance);
         } catch (error) {
@@ -70,6 +180,7 @@ export function initializePostHogBrowser(
     schedulePostHogLoadedStateCheck();
   } catch (error) {
     isPostHogReadyForCapture = false;
+    lastConfiguredPostHogLightweight = undefined;
     throw error;
   }
 }

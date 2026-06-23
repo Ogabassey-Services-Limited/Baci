@@ -20,6 +20,15 @@ describe('removeDuplicateLegacyFeaturedImage', () => {
     );
   });
 
+  it('removes a leading picture wrapper when the fallback keeps the featured image as original source', () => {
+    const fallback = 'https://cdn.ogabassey.com/blog/featured-828.jpeg';
+    const html = `<p><picture><source srcset="${FEATURED}.webp" type="image/webp"><img src="${fallback}" data-original-src="${FEATURED}" alt="Hero" /></picture></p><p>Body</p>`;
+
+    expect(removeDuplicateLegacyFeaturedImage(html, FEATURED)).toBe(
+      '<p>Body</p>'
+    );
+  });
+
   it('removes a leading figure wrapper with an optional caption when it duplicates the featured image', () => {
     const html = `<figure><img src="${FEATURED}" alt="Hero" /><figcaption>Hero caption</figcaption></figure><p>Body</p>`;
 
