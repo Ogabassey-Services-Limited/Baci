@@ -268,6 +268,7 @@ describe('PostHog client config', () => {
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',
       pathname: '/ogabassey/products/iphone',
+      origin: 'https://usebaci.com',
     });
 
     const capture = sanitizePostHogCapture({
@@ -286,10 +287,74 @@ describe('PostHog client config', () => {
     vi.unstubAllGlobals();
   });
 
+  it('drops web-vitals captures while the current route is a public blog page', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$web_vitals',
+        properties: {
+          $web_vitals_LCP_event: {
+            $current_url: 'https://usebaci.com/ogabassey/blog/best-phones',
+            name: 'LCP',
+            value: 1200,
+          },
+        },
+      })
+    ).toBeNull();
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-2',
+        event: '$pageview',
+        properties: {
+          $current_url: 'https://usebaci.com/ogabassey/blog/best-phones',
+        },
+      })
+    ).toMatchObject({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://usebaci.com/ogabassey/blog/best-phones',
+      },
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('drops delayed web-vitals captures whose metric URL came from a public blog page', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$web_vitals',
+        properties: {
+          $web_vitals_CLS_event: {
+            $current_url: 'https://ogabassey.com/blog/best-phones',
+            name: 'CLS',
+            value: 0.01,
+          },
+        },
+      })
+    ).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
   it('removes stale tenant context from capture payloads on platform routes', () => {
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',
       pathname: '/staff/accept',
+      origin: 'https://usebaci.com',
     });
 
     const capture = sanitizePostHogCapture({

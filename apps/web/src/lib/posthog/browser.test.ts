@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   const posthogCapture = vi.fn();
   const posthogInit = vi.fn();
   const posthogReloadFeatureFlags = vi.fn();
+  const posthogRemoteConfigLoad = vi.fn();
   const posthogSetConfig = vi.fn();
   const webVitalsStartIfEnabled = vi.fn();
   const buildPostHogClientConfig = vi.fn(
@@ -22,6 +23,9 @@ const mocks = vi.hoisted(() => {
     init: posthogInit,
     reloadFeatureFlags: posthogReloadFeatureFlags,
     set_config: posthogSetConfig,
+    _remoteConfigLoader: {
+      load: posthogRemoteConfigLoad,
+    },
     webVitalsAutocapture: {
       startIfEnabled: webVitalsStartIfEnabled,
     },
@@ -34,6 +38,7 @@ const mocks = vi.hoisted(() => {
     posthogClient,
     posthogInit,
     posthogReloadFeatureFlags,
+    posthogRemoteConfigLoad,
     posthogSetConfig,
     webVitalsStartIfEnabled,
   };
@@ -114,6 +119,7 @@ describe('initializePostHogBrowser', () => {
     );
     expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
+    expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
     expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
   });
 
@@ -153,6 +159,7 @@ describe('initializePostHogBrowser', () => {
         Number.POSITIVE_INFINITY
     );
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
+    expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
     expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
@@ -189,6 +196,7 @@ describe('initializePostHogBrowser', () => {
       api_host: '/baci-relay',
     });
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
+    expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
     expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
@@ -229,10 +237,21 @@ describe('initializePostHogBrowser', () => {
       api_host: '/baci-relay',
     });
     expect(mocks.posthogReloadFeatureFlags).toHaveBeenCalledOnce();
+    expect(mocks.posthogRemoteConfigLoad).toHaveBeenCalledOnce();
+    expect(
+      mocks.posthogRemoteConfigLoad.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(mocks.posthogSetConfig.mock.invocationCallOrder[1] ?? 0);
+    expect(
+      mocks.posthogReloadFeatureFlags.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(
+      mocks.posthogRemoteConfigLoad.mock.invocationCallOrder[0] ?? 0
+    );
     expect(mocks.webVitalsStartIfEnabled).toHaveBeenCalledOnce();
     expect(
       mocks.webVitalsStartIfEnabled.mock.invocationCallOrder[0]
-    ).toBeGreaterThan(mocks.posthogSetConfig.mock.invocationCallOrder[1] ?? 0);
+    ).toBeGreaterThan(
+      mocks.posthogReloadFeatureFlags.mock.invocationCallOrder[0] ?? 0
+    );
 
     vi.unstubAllGlobals();
   });

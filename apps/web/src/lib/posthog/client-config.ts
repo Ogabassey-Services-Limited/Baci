@@ -5,6 +5,7 @@ import {
   type PostHogEnv,
 } from '@/lib/posthog/config';
 import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
@@ -399,6 +400,39 @@ function shouldSuppressClientException(properties: Properties): boolean {
   );
 }
 
+function isPublicBlogUrl(value: unknown): boolean {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return false;
+  }
+
+  try {
+    const url = new URL(value, globalThis.location?.origin);
+    return isPublicBlogPathname(url.pathname, { hostname: url.hostname });
+  } catch {
+    return false;
+  }
+}
+
+function isPublicBlogWebVitalsEvent(properties: Properties): boolean {
+  if (typeof globalThis.location !== 'undefined') {
+    if (
+      isPublicBlogPathname(globalThis.location.pathname, {
+        hostname: globalThis.location.hostname,
+      })
+    ) {
+      return true;
+    }
+  }
+
+  return Object.entries(properties).some(
+    ([key, value]) =>
+      key.startsWith('$web_vitals_') &&
+      key.endsWith('_event') &&
+      isRecord(value) &&
+      isPublicBlogUrl(value.$current_url)
+  );
+}
+
 export function sanitizePostHogProperties(
   properties: Record<string, unknown> | undefined
 ): Properties | undefined {
@@ -430,6 +464,13 @@ export function sanitizePostHogCapture(
   if (
     capture.event === '$exception' &&
     shouldSuppressClientException(properties)
+  ) {
+    return null;
+  }
+
+  if (
+    capture.event === '$web_vitals' &&
+    isPublicBlogWebVitalsEvent(properties)
   ) {
     return null;
   }

@@ -95,6 +95,15 @@ function maybeReloadPostHogFeatureFlags(
   }
 }
 
+function maybeReloadPostHogRemoteConfig(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
+    posthog._remoteConfigLoader?.load();
+  }
+}
+
 function maybeStartPostHogWebVitals(
   previousLightweight: boolean | undefined,
   nextLightweight: boolean
@@ -135,6 +144,7 @@ export function initializePostHogBrowser(
       const previousLightweight = lastConfiguredPostHogLightweight;
       posthog.set_config(runtimeConfig);
       lastConfiguredPostHogLightweight = lightweight;
+      maybeReloadPostHogRemoteConfig(previousLightweight, lightweight);
       maybeReloadPostHogFeatureFlags(previousLightweight, lightweight);
       maybeStartPostHogWebVitals(previousLightweight, lightweight);
     }
