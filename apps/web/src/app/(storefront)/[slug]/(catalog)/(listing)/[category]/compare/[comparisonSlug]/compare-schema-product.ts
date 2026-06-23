@@ -1,4 +1,5 @@
 import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
+import { normalizeOgabasseyCdnImageUrl } from '@/lib/ogabassey-cdn-image-url';
 import type { buildProductCompareItemListSchema } from '@/lib/storefront-compare/compare-schema';
 
 export type ProductCompareSchemaProduct = Parameters<
@@ -27,7 +28,9 @@ export function normalizeStructuredDataImageUrl(
       url.pathname === PLACEHOLDER_IMAGE ||
       url.pathname.endsWith(PLACEHOLDER_IMAGE);
 
-    return isHttpImage && !isPlaceholder ? url.toString() : '';
+    return isHttpImage && !isPlaceholder
+      ? normalizeOgabasseyCdnImageUrl(url.toString())
+      : '';
   } catch {
     return '';
   }

@@ -34,7 +34,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     mockWarn.mockClear();
     mockGetBaciCdnOriginFetchSecret.mockReturnValue(undefined);
     mockImageLoader.mockReturnValue(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
     );
     mockFetch.mockResolvedValue(
       new Response('image-bytes', {
@@ -51,7 +51,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     restoreFetch = () => undefined;
   });
 
-  it('redirects valid preload inputs to the transformed primary image without proxy-fetching bytes', async () => {
+  it('redirects valid preload inputs to the primary CDN image without proxy-fetching bytes', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -80,7 +80,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     });
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(response.headers.get('cache-control')).toBe(
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
@@ -130,7 +130,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
-  it('redirects to the transformed CDN image without depending on upstream server-side fetches', async () => {
+  it('redirects to the CDN image without depending on upstream server-side fetches', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -151,12 +151,12 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('does not fetch the transformed CDN image before redirecting', async () => {
+  it('does not fetch the CDN image before redirecting', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -174,7 +174,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(mockWarn).not.toHaveBeenCalledWith(

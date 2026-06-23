@@ -1228,27 +1228,42 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('throws notFound from metadata when the product is missing and no legacy redirect exists', async () => {
+  it('returns noindex soft-404 metadata when the product is missing and no legacy redirect exists', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
+    let metadata: Awaited<ReturnType<typeof generateMetadata>>;
+
     try {
-      await expect(
-        generateMetadata({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'smartphones',
-            productSlug: 'missing-product',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      ).rejects.toThrow('NEXT_NOT_FOUND');
+      metadata = await generateMetadata({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      });
     } finally {
       consoleWarnSpy.mockRestore();
     }
 
-    expect(mockNotFound).toHaveBeenCalledTimes(1);
+    expect(metadata?.title).toBe('Product not found');
+    expect(metadata?.description).toBe(
+      'This product is unavailable or has moved.'
+    );
+    expect(metadata?.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata?.alternates).toBeNull();
+    expect(metadata?.openGraph).toMatchObject({
+      title: 'Product not found',
+      description: 'This product is unavailable or has moved.',
+    });
+    expect(metadata?.twitter).toMatchObject({
+      card: 'summary',
+      title: 'Product not found',
+      description: 'This product is unavailable or has moved.',
+    });
+    expect(mockNotFound).not.toHaveBeenCalled();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 

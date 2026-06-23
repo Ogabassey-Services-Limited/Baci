@@ -41,6 +41,22 @@ describe('compare schema product helpers', () => {
     ).toBe('');
   });
 
+  it('normalizes stale OgaBassey CDN image URL shapes for structured data', () => {
+    expect(
+      normalizeStructuredDataImageUrl(
+        'https://cdn.ogabassey.com/products/phone.avif',
+        BASE_URL
+      )
+    ).toBe('https://cdn.ogabassey.com/core-assets/products/phone.avif');
+
+    expect(
+      normalizeStructuredDataImageUrl(
+        'https://cdn.ogabassey.com/image/width=750,quality=75,format=auto/core-assets/products/phone.avif',
+        BASE_URL
+      )
+    ).toBe('https://cdn.ogabassey.com/core-assets/products/phone.avif');
+  });
+
   it('falls back through product image candidates', () => {
     expect(
       getStructuredDataImage(

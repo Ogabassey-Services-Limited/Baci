@@ -109,7 +109,7 @@ export function buildProductCompareItemListSchema(input: {
         item: {
           '@type': 'Product',
           name: product.name,
-          image: product.image || undefined,
+          image: product.image ? [product.image] : undefined,
           description: sanitizedDescription || undefined,
           url: new URL(getProductUrl(product), pageUrl).toString(),
           additionalProperty:

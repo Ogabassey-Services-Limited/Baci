@@ -17,6 +17,7 @@ interface ProductPriceSeoOffer {
 
 export interface ProductPriceSeoProduct {
   name: string;
+  slug?: string | null;
   price?: number | null;
   base_price?: number | null;
   sale_price?: number | null;
@@ -128,6 +129,70 @@ export function getProductPriceRange(
 }
 
 const _productPriceFormatterCache = new Map<string, Intl.NumberFormat>();
+const MAX_SLUG_DISAMBIGUATOR_TOKENS = 3;
+
+function tokenizeProductIdentity(value: string): Set<string> {
+  const normalized = value
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\+/g, ' plus ')
+    .replace(/£/g, ' gbp ')
+    .replace(/€/g, ' eur ')
+    .replace(/\$/g, ' usd ')
+    .replace(/₦/g, ' ngn ')
+    .replace(/\b(\d+)\s+(gb|tb|mb|mah|mp|hz|w)\b/g, '$1$2');
+
+  return new Set(normalized.match(/[a-z0-9]+/g) ?? []);
+}
+
+function getSlugTokens(slug: string | null | undefined): string[] {
+  return (slug || '')
+    .toLowerCase()
+    .split(/[-_]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function formatSlugDisambiguatorToken(token: string): string {
+  if (/^\d+gb$/.test(token)) {
+    return token.toUpperCase();
+  }
+
+  if (/^[a-z]+\d[a-z0-9]*$/.test(token) || /^\d+[a-z]+$/.test(token)) {
+    return token.toUpperCase();
+  }
+
+  if (token.length <= 3 && /^[a-z]+$/.test(token)) {
+    return token.toUpperCase();
+  }
+
+  return token.charAt(0).toUpperCase() + token.slice(1);
+}
+
+function getSeoProductName(product: ProductPriceSeoProduct): string {
+  const productName = product.name.trim();
+  if (!productName) {
+    return '';
+  }
+
+  const nameTokens = tokenizeProductIdentity(productName);
+  const trailingDisambiguators: string[] = [];
+
+  for (const token of getSlugTokens(product.slug).reverse()) {
+    if (nameTokens.has(token)) {
+      break;
+    }
+
+    trailingDisambiguators.unshift(token);
+  }
+
+  const suffix = trailingDisambiguators
+    .slice(-MAX_SLUG_DISAMBIGUATOR_TOKENS)
+    .map(formatSlugDisambiguatorToken)
+    .join(' ');
+
+  return suffix ? `${productName} ${suffix}` : productName;
+}
 
 function getProductPriceFormatter(
   locale: string,
@@ -193,11 +258,12 @@ export function buildProductPriceSeoCopy({
   const range = getProductPriceRange(product);
   const locale = getStorefrontLocale(country);
   const priceText = formatProductPriceRange(range, currency, locale);
+  const productName = getSeoProductName(product);
   const category = categoryName.toLowerCase();
   const countryContext = getCountryShoppingContext(country);
-  const title = appendCountryContext(`${product.name} Price`, countryContext);
+  const title = appendCountryContext(`${productName} Price`, countryContext);
   const pricePhrase = appendCountryContext(
-    `${product.name} price`,
+    `${productName} price`,
     countryContext
   );
 

@@ -21,6 +21,7 @@ import {
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
 import { PLACEHOLDER_IMAGE } from './image-utils';
+import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -2057,7 +2058,7 @@ function toAbsoluteSchemaImageUrl(
         url.pathname.endsWith(PLACEHOLDER_IMAGE);
 
       if (isHttpImage && !isPlaceholder) {
-        return url.toString();
+        return normalizeOgabasseyCdnImageUrl(url.toString());
       }
     } catch {
       // Ignore malformed image candidates and continue to the next fallback.
@@ -2081,13 +2082,8 @@ export function generateCollectionPageSchema(
         data.url,
         ...imageCandidates
       );
-      const hasImageCandidate = imageCandidates.some((value) =>
-        Boolean(value?.trim())
-      );
 
-      return hasImageCandidate && !productImage
-        ? []
-        : [{ product, productImage }];
+      return productImage ? [{ product, productImage }] : [];
     })
     .slice(0, 20);
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
@@ -2127,7 +2123,7 @@ export function generateCollectionPageSchema(
             description: product.description
               ? escapeHtml(generateMetaDescription(product.description, 100))
               : undefined,
-            image: productImage || undefined,
+            image: [productImage],
             url: productUrl || undefined,
             brand: {
               '@type': 'Brand',

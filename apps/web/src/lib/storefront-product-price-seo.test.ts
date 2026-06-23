@@ -175,6 +175,79 @@ describe('buildProductPriceSeoCopy', () => {
     );
   });
 
+  it('adds trailing slug storage tokens to distinguish variant PDP titles', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'Samsung Galaxy Tab S10 FE 5G',
+        slug: 'samsung-galaxy-tab-s10-fe-5g-8gb-128gb',
+        price: 780000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Tablets',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe(
+      'Samsung Galaxy Tab S10 FE 5G 8GB 128GB Price in Nigeria'
+    );
+    expect(copy.description).toContain(
+      'Samsung Galaxy Tab S10 FE 5G 8GB 128GB price in Nigeria is ₦780,000'
+    );
+  });
+
+  it('adds trailing slug model tokens to distinguish laptop PDP titles', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'HP OmniBook Ultra Flip 14',
+        slug: 'hp-omnibook-ultra-flip-14-fh0019nia',
+        price: 2006000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Laptops',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe(
+      'HP OmniBook Ultra Flip 14 FH0019NIA Price in Nigeria'
+    );
+  });
+
+  it('does not append non-trailing slug tokens when the visible value is already in the name', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'PSN Gift Card £50',
+        slug: 'psn-gift-card-gbp-50',
+        price: 70000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Gift Cards',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe('PSN Gift Card £50 Price in Nigeria');
+  });
+
+  it('does not append duplicate compact capacity tokens from the slug', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'Samsung Galaxy Tab S10 FE 5G 8 GB 128 GB',
+        slug: 'samsung-galaxy-tab-s10-fe-5g-8gb-128gb',
+        price: 780000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Tablets',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe(
+      'Samsung Galaxy Tab S10 FE 5G 8 GB 128 GB Price in Nigeria'
+    );
+  });
+
   it('builds generic check-price copy when no price is available', () => {
     const copy = buildProductPriceSeoCopy({
       product: {

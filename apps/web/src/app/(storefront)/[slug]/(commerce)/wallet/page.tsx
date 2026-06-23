@@ -51,12 +51,8 @@ async function WalletContent({
     notFound();
   }
 
-  // `OgabasseyV2Wallet` is a pure client component and has no server-rendered
-  // heading. Provide a sr-only `<h1>` so crawlers and no-JS/slow-hydration
-  // users see a labelled main region in the initial HTML.
   return (
     <section aria-label="Wallet Balance">
-      <h1 className="sr-only">Wallet Balance</h1>
       <OgabasseyV2Wallet />
     </section>
   );

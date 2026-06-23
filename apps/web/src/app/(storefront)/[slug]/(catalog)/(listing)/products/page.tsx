@@ -28,6 +28,28 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+function buildProductsNotFoundMetadata(
+  title = 'Products page not found',
+  description = 'This products page is unavailable or has moved.'
+): Metadata {
+  return {
+    title,
+    description,
+    // Replace root metadata alternates so soft-404 pages do not inherit a canonical.
+    alternates: null,
+    robots: { index: false, follow: true },
+    openGraph: {
+      title,
+      description,
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  };
+}
+
 export async function generateMetadata({
   params,
   searchParams,
@@ -37,7 +59,7 @@ export async function generateMetadata({
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
   if (!currentPage) {
-    notFound();
+    return buildProductsNotFoundMetadata();
   }
 
   if (!isValidMerchantIdentifier(slug)) {
@@ -59,7 +81,7 @@ export async function generateMetadata({
   const totalPages = Math.max(1, productIndex.totalPages || 1);
 
   if (!productIndex.hasError && currentPage > totalPages) {
-    notFound();
+    return buildProductsNotFoundMetadata();
   }
 
   const baseUrl = buildStoreUrl(merchant);
