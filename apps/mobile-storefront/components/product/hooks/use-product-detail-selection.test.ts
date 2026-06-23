@@ -4,7 +4,7 @@ import {
   baseProduct,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';
-import type { ProductCondition } from '@/types/product';
+import type { Product, ProductCondition } from '@/types/product';
 import { useProductDetailSelection } from './use-product-detail-selection';
 
 type HookArgs = Parameters<typeof useProductDetailSelection>[0];
@@ -88,6 +88,55 @@ describe('useProductDetailSelection', () => {
       expect(result.current.selectedVariant).toBe('variant-used-128');
       expect(result.current.selectedStorage).toBe('128GB');
       expect(result.current.effectiveSelectedCondition).toBe('used');
+    });
+  });
+
+  it('opens on the cheapest variant even when a more-preferred condition is pricier', async () => {
+    // Condition preference ranks "used" ahead of "open_box", so the
+    // condition-first default would lead with the pricier Used variant. The
+    // PDP must instead open on the cheaper Open Box variant (price-first).
+    const priceFirstProduct: Product = {
+      ...baseProduct,
+      has_variants: true,
+      variant_attributes: { storage: ['128GB'] },
+      variants: [
+        {
+          id: 'open-box-128',
+          name: '128GB Open Box',
+          condition: 'open_box',
+          price: 650000,
+          price_override: 650000,
+          stock_quantity: 2,
+          attributes: { storage: '128GB' },
+        },
+        {
+          id: 'used-128',
+          name: '128GB Used',
+          condition: 'used',
+          price: 750000,
+          price_override: 750000,
+          stock_quantity: 2,
+          attributes: { storage: '128GB' },
+        },
+      ],
+    };
+
+    const { result } = renderHook(() =>
+      useProductDetailSelection(
+        createHookArgs({
+          product: priceFirstProduct,
+          productGalleryImages: priceFirstProduct.images ?? [
+            priceFirstProduct.image,
+          ],
+          resolvedColorImages: priceFirstProduct.color_images,
+          routeSelectionSignature: routeSelectionSignature({}),
+        })
+      )
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedVariant).toBe('open-box-128');
+      expect(result.current.effectiveSelectedCondition).toBe('open_box');
     });
   });
 

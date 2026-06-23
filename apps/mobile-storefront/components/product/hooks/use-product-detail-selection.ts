@@ -1,5 +1,6 @@
 import {
   resolveDefaultVariantSelection,
+  resolveLowestPricedVariantSelection,
   resolveVariantDisplaySelection,
 } from '@baci/shared/lib';
 import { useState } from 'react';
@@ -7,6 +8,7 @@ import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axe
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 import type { Product, ProductCondition } from '@/types/product';
 import { resolveAvailableProductCondition } from './product-condition-selection';
+
 type FirstImageIndexForColorInput = {
   color: string | null | undefined;
   colorImages?: Record<string, string[]>;
@@ -81,8 +83,14 @@ export function useProductDetailSelection({
 
   const usesImageDrivenColorSelection =
     Object.keys(productImageColorMap).length > 0;
+  // The PDP opens on the cheapest buyable variant (price-first), so e.g. a
+  // cheaper "Used" leads over a pricier "Open Box". Falls back to the shared
+  // condition-first default when no variant is purchasable. This mirrors the
+  // web PDP and is intentionally PDP-only — listing cards, feeds and cart keep
+  // the shared condition-first resolver.
   const defaultVariantSelection = product
-    ? resolveDefaultVariantSelection(product)
+    ? (resolveLowestPricedVariantSelection(product) ??
+      resolveDefaultVariantSelection(product))
     : null;
   const {
     availableConditions,
@@ -126,15 +134,20 @@ export function useProductDetailSelection({
           !selectedStorage &&
           !selectedColor &&
           Object.keys(selectedAttributes).length === 0);
+      // Seed the on-open selection: honor an explicit route condition when one
+      // is present, otherwise open on the cheapest buyable variant (price-first,
+      // PDP-only). Falls back to the shared condition-first default.
       const seededSelection =
         resolveVariantDisplaySelection(product, {
           condition: routeCondition,
           variantId: typeof routeVariantId === 'string' ? routeVariantId : null,
           attributes: routeSelectionAttributes,
         }) ??
-        resolveDefaultVariantSelection(product, {
-          condition: routeCondition,
-        }) ??
+        (routeCondition
+          ? resolveDefaultVariantSelection(product, {
+              condition: routeCondition,
+            })
+          : resolveLowestPricedVariantSelection(product)) ??
         resolveDefaultVariantSelection(product);
       const activeColor = selectedColor ?? routeSelectionAttributes.color;
       const activeStorage = selectedStorage ?? routeSelectionAttributes.storage;
