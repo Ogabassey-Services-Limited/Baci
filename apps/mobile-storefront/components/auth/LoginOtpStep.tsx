@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { RefObject } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +14,8 @@ import { TextContentTypes } from '@/hooks/use-keyboard';
 import { getFirstError, OtpSchema } from '@/lib/validation';
 import { loginStepStyles } from './LoginStep.styles';
 
+const RESEND_COOLDOWN_MS = 60_000;
+
 type ColorsScheme = (typeof Colors)['light'];
 
 interface LoginOtpStepProps {
@@ -22,7 +25,7 @@ interface LoginOtpStepProps {
   isLoading: boolean;
   isMountedRef: RefObject<boolean>;
   isVerifyingRef: RefObject<boolean>;
-  onResendOtp: () => Promise<void>;
+  onResendOtp: () => Promise<boolean | void>;
   otp: string;
   otpError: string | null;
   otpInputRef: RefObject<TextInput | null>;
@@ -95,6 +98,28 @@ export function LoginOtpStep({
   setOtpError,
   verifyOtp,
 }: LoginOtpStepProps) {
+  const [resendAvailableAt, setResendAvailableAt] = useState(
+    () => Date.now() + RESEND_COOLDOWN_MS
+  );
+  const [now, setNow] = useState(() => Date.now());
+  const resendCooldownSeconds = Math.max(
+    0,
+    Math.ceil((resendAvailableAt - now) / 1000)
+  );
+  const isResendCoolingDown = resendCooldownSeconds > 0;
+
+  useEffect(() => {
+    if (!isResendCoolingDown) return;
+
+    const intervalId = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isResendCoolingDown]);
+
   const submitOtp = async (token: string) => {
     if (isVerifyingRef.current) return;
     const otpResult = OtpSchema.safeParse(token.trim());
@@ -112,6 +137,17 @@ export function LoginOtpStep({
       token,
       verifyOtp,
     });
+  };
+
+  const resendOtp = async () => {
+    if (isResendCoolingDown || isLoading) return;
+
+    const didSend = await onResendOtp();
+    if (didSend === false) return;
+
+    const nextAvailableAt = Date.now() + RESEND_COOLDOWN_MS;
+    setNow(Date.now());
+    setResendAvailableAt(nextAvailableAt);
   };
 
   return (
@@ -204,9 +240,23 @@ export function LoginOtpStep({
         >
           Didn't receive the code?
         </Text>
-        <Pressable onPress={() => void onResendOtp()} disabled={isLoading}>
+        <Pressable
+          onPress={() => void resendOtp()}
+          disabled={isLoading || isResendCoolingDown}
+          accessibilityLabel={
+            isResendCoolingDown
+              ? `Resend code in ${resendCooldownSeconds} seconds`
+              : 'Resend code'
+          }
+          accessibilityRole="button"
+          accessibilityState={{
+            disabled: isLoading || isResendCoolingDown,
+          }}
+        >
           <Text style={[loginStepStyles.resendLink, { color: colors.primary }]}>
-            Resend
+            {isResendCoolingDown
+              ? `Resend in ${resendCooldownSeconds}s`
+              : 'Resend'}
           </Text>
         </Pressable>
       </View>

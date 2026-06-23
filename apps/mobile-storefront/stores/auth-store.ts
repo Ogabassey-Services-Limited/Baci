@@ -31,7 +31,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set,
   }),
   cleanup: createCleanupAction(set, get),
-  ...createCredentialActions(set),
+  ...createCredentialActions(set, get),
   ...createOAuthActions(set, get),
   ...createAccountActions(set, get),
   clearError: () => {

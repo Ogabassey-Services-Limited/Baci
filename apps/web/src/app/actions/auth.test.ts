@@ -4,12 +4,16 @@ const {
   mockEnsureActionRateLimit,
   mockRedirect,
   mockResetPasswordForEmail,
+  mockSignInWithOtp,
   mockSignInWithPassword,
+  mockVerifyOtp,
 } = vi.hoisted(() => ({
   mockEnsureActionRateLimit: vi.fn(),
   mockRedirect: vi.fn(),
   mockResetPasswordForEmail: vi.fn(),
+  mockSignInWithOtp: vi.fn(),
   mockSignInWithPassword: vi.fn(),
+  mockVerifyOtp: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -32,16 +36,27 @@ vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mockEnsureActionRateLimit,
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
+      signInWithOtp: mockSignInWithOtp,
       signInWithPassword: mockSignInWithPassword,
       resetPasswordForEmail: mockResetPasswordForEmail,
+      verifyOtp: mockVerifyOtp,
     },
   })),
 }));
 
-import { forgotPasswordAction, loginAction } from './auth';
+import {
+  forgotPasswordAction,
+  loginAction,
+  sendMerchantPasswordlessLoginAction,
+  verifyMerchantPasswordlessLoginAction,
+} from './auth';
 
 const prevState = { error: null, success: false };
 
@@ -103,7 +118,7 @@ describe('loginAction', () => {
     );
 
     expect(result).toEqual({
-      error: 'Invalid login credentials',
+      error: 'We could not sign you in with those credentials.',
       success: false,
     });
     expect(mockSignInWithPassword).toHaveBeenCalledWith({
@@ -123,7 +138,7 @@ describe('loginAction', () => {
     );
 
     expect(result).toEqual({
-      error: 'Invalid login credentials',
+      error: 'We could not sign you in with those credentials.',
       success: false,
     });
   });
@@ -219,7 +234,7 @@ describe('forgotPasswordAction', () => {
     });
   });
 
-  it('returns the supabase error message when the reset request fails', async () => {
+  it('returns a uniform success result when the reset request fails', async () => {
     mockResetPasswordForEmail.mockResolvedValueOnce({
       error: { message: 'Email rate limit exceeded' },
     });
@@ -230,7 +245,102 @@ describe('forgotPasswordAction', () => {
     );
 
     expect(result).toEqual({
-      error: 'Email rate limit exceeded',
+      error: null,
+      success: true,
+    });
+  });
+});
+
+describe('sendMerchantPasswordlessLoginAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnsureActionRateLimit.mockResolvedValue(true);
+    mockSignInWithOtp.mockResolvedValue({ error: null });
+  });
+
+  it('sends a merchant OTP without creating new users', async () => {
+    const result = await sendMerchantPasswordlessLoginAction(
+      prevState,
+      makeFormData({
+        email: 'merchant@example.com',
+        redirectTo: '/dashboard/orders',
+      })
+    );
+
+    expect(result).toEqual({
+      email: 'merchant@example.com',
+      error: null,
+      success: true,
+    });
+    expect(mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'merchant@example.com',
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo:
+          'http://localhost:3000/auth/confirm?next=%2Fdashboard%2Forders',
+      },
+    });
+  });
+
+  it('keeps the response uniform when Supabase rejects the send request', async () => {
+    mockSignInWithOtp.mockResolvedValueOnce({
+      error: { message: 'User not found' },
+    });
+
+    const result = await sendMerchantPasswordlessLoginAction(
+      prevState,
+      makeFormData({ email: 'merchant@example.com' })
+    );
+
+    expect(result).toEqual({
+      email: 'merchant@example.com',
+      error: null,
+      success: true,
+    });
+  });
+});
+
+describe('verifyMerchantPasswordlessLoginAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyOtp.mockResolvedValue({ error: null });
+  });
+
+  it('verifies a merchant OTP and redirects to the requested dashboard path', async () => {
+    await verifyMerchantPasswordlessLoginAction(
+      prevState,
+      makeFormData({
+        email: 'merchant@example.com',
+        token: '123456',
+        redirectTo: '/dashboard/orders',
+      })
+    );
+
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      email: 'merchant@example.com',
+      token: '123456',
+      type: 'email',
+    });
+    expect(mockRedirect).toHaveBeenCalledWith('/dashboard/orders');
+  });
+
+  it('returns a generic verify error when Supabase rejects the OTP', async () => {
+    mockVerifyOtp.mockResolvedValueOnce({
+      error: { message: 'Token has expired or is invalid' },
+    });
+
+    const result = await verifyMerchantPasswordlessLoginAction(
+      prevState,
+      makeFormData({
+        email: 'merchant@example.com',
+        token: '123456',
+      })
+    );
+
+    expect(result).toEqual({
+      email: 'merchant@example.com',
+      error:
+        'We could not verify that code. Please request a new one and try again.',
       success: false,
     });
   });

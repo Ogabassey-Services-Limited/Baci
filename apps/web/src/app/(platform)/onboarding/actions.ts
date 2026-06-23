@@ -549,9 +549,25 @@ export async function sendMagicLink(
         emailRedirectTo: buildOnboardingRedirectUrl('fromMagicLink=true'),
       },
     });
-    if (error) throw error;
+    if (error) {
+      logger.warn({
+        message: 'Onboarding magic link send failed',
+        error,
+      });
+      return {
+        success: false,
+        message: 'Unable to send magic link. Please try again later.',
+      };
+    }
     return { success: true, message: 'Magic link sent! Check your email.' };
   } catch (e) {
-    return { success: false, message: (e as Error).message };
+    logger.warn({
+      message: 'Onboarding magic link send threw',
+      error: e,
+    });
+    return {
+      success: false,
+      message: 'Unable to send magic link. Please try again later.',
+    };
   }
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendCodeMocks = vi.hoisted(() => ({
+  mockCheckStorefrontOtpSendLimit: vi.fn(),
   mockFrom: vi.fn(),
   mockResolveStorefrontAuthMerchant: vi.fn(),
   mockSignInWithOtp: vi.fn(),
@@ -13,6 +14,11 @@ vi.mock('next/headers', () => ({
 vi.mock('../resolve-storefront-auth-merchant', () => ({
   resolveStorefrontAuthMerchant: (...args: unknown[]) =>
     sendCodeMocks.mockResolveStorefrontAuthMerchant(...args),
+}));
+
+vi.mock('@/lib/storefront-auth-abuse', () => ({
+  checkStorefrontOtpSendLimit: (...args: unknown[]) =>
+    sendCodeMocks.mockCheckStorefrontOtpSendLimit(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -61,6 +67,13 @@ describe('POST /api/storefront/auth/send-code', () => {
       ogabasseyMerchant
     );
     sendCodeMocks.mockSignInWithOtp.mockResolvedValue({ error: null });
+    sendCodeMocks.mockCheckStorefrontOtpSendLimit.mockResolvedValue({
+      allowed: true,
+      captchaRequired: false,
+      limit: 3,
+      remaining: 2,
+      resetTime: Date.now() + 60_000,
+    });
   });
 
   it('uses the current merchant custom-domain origin for OTP email redirects', async () => {
@@ -76,12 +89,87 @@ describe('POST /api/storefront/auth/send-code', () => {
       sendCodeMocks.mockResolveStorefrontAuthMerchant
     ).toHaveBeenCalledWith(expect.anything(), 'ogabassey');
     expect(sendCodeMocks.mockFrom).not.toHaveBeenCalled();
+    expect(sendCodeMocks.mockCheckStorefrontOtpSendLimit).toHaveBeenCalledWith({
+      captchaToken: undefined,
+      email: 'customer@example.com',
+      merchantId: 'merchant-1',
+    });
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
+        data: expect.objectContaining({
+          pending_merchant_id: 'merchant-1',
+          role: 'customer',
+        }),
         emailRedirectTo: 'https://ogabassey.com/account/verify',
       }),
     });
+  });
+
+  it('passes captcha tokens through to Supabase OTP sends', async () => {
+    const response = await POST(
+      makeRequest({
+        captchaToken: 'captcha-token',
+        email: 'customer@example.com',
+        merchantSlug: 'ogabassey',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendCodeMocks.mockCheckStorefrontOtpSendLimit).toHaveBeenCalledWith({
+      captchaToken: 'captcha-token',
+      email: 'customer@example.com',
+      merchantId: 'merchant-1',
+    });
+    expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'customer@example.com',
+      options: expect.objectContaining({
+        captchaToken: 'captcha-token',
+      }),
+    });
+  });
+
+  it('requires captcha when the durable identifier limiter crosses its challenge threshold', async () => {
+    sendCodeMocks.mockCheckStorefrontOtpSendLimit.mockResolvedValueOnce({
+      allowed: true,
+      captchaRequired: true,
+      limit: 3,
+      remaining: 0,
+      resetTime: Date.now() + 60_000,
+    });
+
+    const response = await POST(
+      makeRequest({ email: 'customer@example.com', merchantSlug: 'ogabassey' })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'CAPTCHA_REQUIRED',
+      error: 'Please complete the verification challenge and try again.',
+    });
+    expect(sendCodeMocks.mockSignInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('blocks sends when the durable identifier limiter is exhausted', async () => {
+    sendCodeMocks.mockCheckStorefrontOtpSendLimit.mockResolvedValueOnce({
+      allowed: false,
+      captchaRequired: false,
+      limit: 3,
+      remaining: 0,
+      resetTime: Date.now() + 60_000,
+    });
+
+    const response = await POST(
+      makeRequest({ email: 'customer@example.com', merchantSlug: 'ogabassey' })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toEqual({
+      error: 'Too many requests. Please wait a moment and try again.',
+    });
+    expect(sendCodeMocks.mockSignInWithOtp).not.toHaveBeenCalled();
   });
 
   it('falls back to the merchant custom domain in production when the origin is untrusted', async () => {

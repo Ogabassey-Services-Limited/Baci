@@ -21,7 +21,7 @@ interface LoginScreenContentProps {
   handleContinue: () => void;
   handleGoogleSignIn: () => Promise<void>;
   handlePasswordSignIn: () => void;
-  handleResendOtp: () => Promise<void>;
+  handleResendOtp: () => Promise<boolean | void>;
   isAppleLoading: boolean;
   isGoogleLoading: boolean;
   isLoading: boolean;

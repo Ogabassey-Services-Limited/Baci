@@ -214,11 +214,13 @@ export function useLoginScreenController() {
         'Success',
         'A new verification code has been sent to your email'
       );
+      return true;
     } else {
       Alert.alert(
         'Error',
         result.error || 'Failed to resend verification code'
       );
+      return false;
     }
   };
 

@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import {
+  checkStorefrontOtpVerifyLockout,
+  recordStorefrontOtpVerifyFailure,
+  resetStorefrontOtpVerifyFailures,
+} from '@/lib/storefront-auth-abuse';
 import { createClient } from '@/lib/supabase/server';
 import { verifyCodeSchema } from '@/schemas/auth';
 import { resolveStorefrontAuthMerchant } from '../resolve-storefront-auth-merchant';
@@ -26,7 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, token, merchantSlug } = validationResult.data;
+    const { audience, email, token, merchantSlug } = validationResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -38,6 +43,20 @@ export async function POST(request: Request) {
 
     if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    }
+
+    const lockout = await checkStorefrontOtpVerifyLockout({
+      email,
+      merchantId: merchant.id,
+    });
+    if (lockout.locked) {
+      return NextResponse.json(
+        {
+          error:
+            'Too many failed verification attempts. Please request a new code later.',
+        },
+        { status: 429 }
+      );
     }
 
     // Verify OTP code
@@ -66,6 +85,11 @@ export async function POST(request: Request) {
         email: redactedEmail,
       });
 
+      await recordStorefrontOtpVerifyFailure({
+        email,
+        merchantId: merchant.id,
+      });
+
       if (verifyErrorMessage.includes('expired')) {
         return NextResponse.json(
           { error: 'Verification code has expired. Please request a new one.' },
@@ -85,6 +109,11 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    await resetStorefrontOtpVerifyFailures({
+      email,
+      merchantId: merchant.id,
+    });
 
     // SECURITY: Use server-validated email from auth response, not user input
     // This ensures we trust data from Supabase Auth after successful verification
@@ -140,6 +169,35 @@ export async function POST(request: Request) {
       .eq('user_id', authData.user.id)
       .single();
 
+    if (
+      audience === 'native' &&
+      (!authData.session?.access_token || !authData.session.refresh_token)
+    ) {
+      logger.error({
+        message: 'Native OTP verification missing full session',
+        merchantId: merchant.id,
+        userId: authData.user.id,
+      });
+      return NextResponse.json(
+        { error: 'Authentication failed. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    const session =
+      audience === 'native'
+        ? {
+            access_token: authData.session?.access_token,
+            refresh_token: authData.session?.refresh_token,
+            token_type: authData.session?.token_type,
+            expires_in: authData.session?.expires_in,
+            expires_at: authData.session?.expires_at,
+          }
+        : {
+            access_token: authData.session?.access_token,
+            expires_at: authData.session?.expires_at,
+          };
+
     return NextResponse.json({
       success: true,
       message: 'Login successful',
@@ -152,10 +210,7 @@ export async function POST(request: Request) {
         email: verifiedEmail,
         full_name: verifiedEmail.split('@')[0],
       },
-      session: {
-        access_token: authData.session?.access_token,
-        expires_at: authData.session?.expires_at,
-      },
+      session,
     });
   } catch (error) {
     logger.error({
