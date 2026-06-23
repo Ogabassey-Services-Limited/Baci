@@ -442,7 +442,7 @@ export async function loadComparePage(args: {
       metaTitle: generateMetaTitle(compareLabel, {
         maxLength: 70,
         suffix: merchant.business_name,
-        fallback: compareLabel,
+        fallback: categoryName,
       }),
       metaDescription: `Compare ${leftDetails.name} vs ${rightDetails.name}${countrySuffix} by price, specs, condition, warranty, delivery, and buying priorities on ${merchant.business_name}.`,
       heading: compareLabel,
@@ -565,7 +565,7 @@ export async function loadComparePage(args: {
     metaTitle: generateMetaTitle(heading, {
       maxLength: 70,
       suffix: merchant.business_name,
-      fallback: heading,
+      fallback: categoryName,
     }),
     metaDescription: `Compare ${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} ${categoryName.toLowerCase()}${countrySuffix} by live model count, price range, warranty, delivery, and buying fit on ${merchant.business_name}.`,
     heading,

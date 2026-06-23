@@ -178,7 +178,7 @@ function normalizeSourceHeadingLevel(level: unknown): number {
 }
 
 function getBlogBodyHeadingLevel(sourceLevel: number): 2 | 3 | 4 | 5 | 6 {
-  return Math.min(sourceLevel + 1, 6) as 2 | 3 | 4 | 5 | 6;
+  return Math.max(Math.min(sourceLevel + 1, 6), 2) as 2 | 3 | 4 | 5 | 6;
 }
 
 const NodeRenderer = ({

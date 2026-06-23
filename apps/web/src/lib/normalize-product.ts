@@ -16,9 +16,8 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { PLACEHOLDER_IMAGE } from './image-utils';
 import { normalizeProductKeySpecs } from './product-key-specs-normalize';
-
-const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
 type ProductKeySpecValue = string | number | boolean | undefined;
 

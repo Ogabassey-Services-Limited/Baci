@@ -13,7 +13,13 @@ import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 const LOWERCASE_TITLE_WORDS = new Set(['and', 'for', 'of', 'the', 'to']);
 
 function normalizeBlogMetadataText(value: string | undefined): string {
-  return value?.trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ') ?? '';
+  return value?.trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() ?? '';
+}
+
+function toSingleBlogSearchParam(
+  value: string | string[] | undefined
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function formatBlogFilterLabel(value: string): string {
@@ -23,7 +29,7 @@ function formatBlogFilterLabel(value: string): string {
     .map((word, index) =>
       index > 0 && LOWERCASE_TITLE_WORDS.has(word.toLowerCase())
         ? word.toLowerCase()
-        : `${word.charAt(0).toUpperCase()}${word.slice(1)}`
+        : `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`
     )
     .join(' ');
 }
@@ -36,9 +42,9 @@ export async function generateMetadata({
     params,
     searchParams,
   ]);
-  const currentPage = parseBlogListingPage(page);
-  const filterCategory = category?.trim();
-  const filterSearch = search?.trim();
+  const filterCategory = toSingleBlogSearchParam(category)?.trim();
+  const filterSearch = toSingleBlogSearchParam(search)?.trim();
+  const currentPage = parseBlogListingPage(toSingleBlogSearchParam(page));
   const normalizedCategory = normalizeBlogMetadataText(filterCategory);
   const normalizedSearch = normalizeBlogMetadataText(filterSearch);
   const listingOptions: {
@@ -64,9 +70,9 @@ export async function generateMetadata({
   const canonicalPage = Math.min(currentPage, totalPages);
   const canonicalUrl = buildBlogListingSchemaUrl({
     baseUrl,
-    category,
+    category: filterCategory,
     page: canonicalPage,
-    search: data.searchQuery ?? search,
+    search: data.searchQuery ?? filterSearch,
   });
   const socialImageCandidates = [
     data.posts[0]?.featured_image_url,

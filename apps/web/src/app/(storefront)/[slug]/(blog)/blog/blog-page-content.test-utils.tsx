@@ -94,12 +94,20 @@ vi.mock('@/lib/seo-utils', () => ({
         : baseTitle;
       const maxLength = options?.maxLength ?? 70;
 
-      if (fullTitle.length <= maxLength || !options?.suffix) {
+      if (fullTitle.length <= maxLength) {
         return fullTitle;
       }
 
+      if (!options?.suffix) {
+        return `${baseTitle.slice(0, maxLength - 3).trim()}...`;
+      }
+
       const suffix = ` | ${options.suffix}`;
-      return `${baseTitle.slice(0, maxLength - suffix.length - 3).trim()}...${suffix}`;
+      const maxBaseLength = maxLength - suffix.length - 3;
+      if (maxBaseLength <= 0) {
+        return `${baseTitle.slice(0, maxLength - 3).trim()}...`;
+      }
+      return `${baseTitle.slice(0, maxBaseLength).trim()}...${suffix}`;
     }
   ),
   generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),

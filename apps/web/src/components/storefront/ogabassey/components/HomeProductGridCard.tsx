@@ -4,6 +4,7 @@ import { getProductImageAlt } from '@baci/shared/lib';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
+import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
@@ -36,8 +37,6 @@ function getCriticalConditionClass(condition: Product['condition']) {
 
   return 'ogabassey-home-product-card__condition--default';
 }
-
-const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
 export function HomeProductGridCard({
   product,

@@ -317,9 +317,9 @@ describe('OgabasseyNavbar', () => {
 
     expect(accountLink).toHaveAttribute('href', '/ogabassey/account');
     expect(accountLink).toHaveTextContent(/view account/i);
-    expect(screen.getByRole('link', { name: /open cart/i })).toHaveTextContent(
-      /open cart/i
-    );
+    expect(
+      screen.getByRole('link', { name: /open cart \(3 items\)/i })
+    ).toHaveTextContent(/open cart \(3 items\)/i);
   });
 
   it('emits root-relative first-render links for domain-routed storefronts', async () => {

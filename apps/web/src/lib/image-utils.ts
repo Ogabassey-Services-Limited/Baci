@@ -19,6 +19,7 @@ const CATEGORY_BLUR_COLORS: Record<string, string> = {
   default: '#f4f4f5', // Neutral gray
 };
 
+// Served by apps/web/public/placeholder.svg.
 export const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
 /**

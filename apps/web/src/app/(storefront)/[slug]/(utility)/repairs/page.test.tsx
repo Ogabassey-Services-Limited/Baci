@@ -23,7 +23,9 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/repairs', () => ({
   OgabasseyV2Repairs: (props: { basePath?: string }) => {
     mockOgabasseyV2Repairs(props);
-    return <div data-testid="repairs-page">basePath:{props.basePath}</div>;
+    return (
+      <section aria-label="Repairs page">basePath:{props.basePath}</section>
+    );
   },
 }));
 
@@ -43,7 +45,7 @@ const merchant = {
   custom_domain: 'ogabassey.com',
   slug: 'ogabassey',
   template_id: 'ogabassey',
-} as unknown as Awaited<ReturnType<typeof getCachedMerchant>>;
+} as unknown as NonNullable<Awaited<ReturnType<typeof getCachedMerchant>>>;
 
 const { default: RepairsPage, generateMetadata } = await import('./page');
 
@@ -69,7 +71,9 @@ describe('RepairsPage', () => {
       })
     );
 
-    expect(screen.getByTestId('repairs-page')).toHaveTextContent('basePath:');
+    expect(
+      screen.getByRole('region', { name: /repairs page/i })
+    ).toHaveTextContent('basePath:');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({ basePath: '' });
   });
 
@@ -84,7 +88,9 @@ describe('RepairsPage', () => {
       })
     );
 
-    expect(screen.getByTestId('repairs-page')).toHaveTextContent('basePath:');
+    expect(
+      screen.getByRole('region', { name: /repairs page/i })
+    ).toHaveTextContent('basePath:');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({ basePath: '' });
   });
 
@@ -95,12 +101,60 @@ describe('RepairsPage', () => {
       })
     );
 
-    expect(screen.getByTestId('repairs-page')).toHaveTextContent(
-      'basePath:/ogabassey'
-    );
+    expect(
+      screen.getByRole('region', { name: /repairs page/i })
+    ).toHaveTextContent('basePath:/ogabassey');
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '/ogabassey',
     });
+  });
+
+  it('throws notFound when the merchant is missing', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce(null);
+
+    await expect(
+      RepairsPage({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
+  });
+
+  it('throws notFound for non-Ogabassey merchants', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce({
+      ...merchant,
+      template_id: 'default',
+    });
+
+    await expect(
+      RepairsPage({
+        params: Promise.resolve({ slug: 'other-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockOgabasseyV2Repairs).not.toHaveBeenCalled();
+  });
+
+  it('returns fallback metadata when merchant resolution misses', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce(null);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'missing-store' }),
+      })
+    ).resolves.toEqual({ title: 'Repair Service Not Found' });
+  });
+
+  it('returns fallback metadata for non-Ogabassey merchants', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce({
+      ...merchant,
+      template_id: 'default',
+    });
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'other-store' }),
+      })
+    ).resolves.toEqual({ title: 'Repair Service Not Found' });
   });
 
   it('generates merchant-branded metadata', async () => {

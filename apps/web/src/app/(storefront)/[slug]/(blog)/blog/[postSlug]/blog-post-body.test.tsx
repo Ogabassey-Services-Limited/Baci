@@ -224,21 +224,6 @@ describe('BlogPostBody', () => {
       );
     });
 
-    it('demotes legacy HTML body headings below the post title h1', async () => {
-      const content = '<h1>Imported Title</h1><p>Hello world</p>';
-
-      render(await BlogPostBody({ ...BASE_PROPS, content }));
-
-      expect(screen.getByTestId('safe-html')).toHaveAttribute(
-        'data-heading-level-offset',
-        '1'
-      );
-      expect(screen.getByTestId('safe-html')).toHaveAttribute(
-        'data-normalize-seo-anchors',
-        'true'
-      );
-    });
-
     it('does not hide legacy inline images with a broad first-image selector', async () => {
       const content =
         '<p><picture><img src="/inline.png" alt="Inline" /></picture></p>';

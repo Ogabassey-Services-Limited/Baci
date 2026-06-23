@@ -1,16 +1,15 @@
 import { notFound } from 'next/navigation';
 import type { BreadcrumbList, FAQPage, ItemList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
-import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import {
   buildComparePageSchemas,
   buildProductCompareItemListSchema,
 } from '@/lib/storefront-compare/compare-schema';
 import { loadComparePage } from '@/lib/storefront-compare/load-compare-page';
-
-type ProductCompareSchemaProduct = Parameters<
-  typeof buildProductCompareItemListSchema
->[0]['products'][number];
+import {
+  type ProductCompareSchemaProduct,
+  toProductCompareSchemaProduct,
+} from './compare-schema-product';
 
 interface ComparePageContentProps {
   params: Promise<{
@@ -53,165 +52,6 @@ function getComparisonRowGroups(
   }
 
   return [{ category: 'Overview', rows: page.comparisonRows }];
-}
-
-function getRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function normalizeStructuredDataImageUrl(
-  value: string,
-  baseUrl: string
-): string {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === PLACEHOLDER_IMAGE) {
-    return '';
-  }
-
-  try {
-    const url = new URL(trimmed, baseUrl);
-    return url.protocol === 'http:' || url.protocol === 'https:'
-      ? url.toString()
-      : '';
-  } catch {
-    return '';
-  }
-}
-
-function getStructuredDataImage(
-  product: Record<string, unknown>,
-  baseUrl: string
-): string {
-  if (typeof product.image === 'string') {
-    const image = normalizeStructuredDataImageUrl(product.image, baseUrl);
-    if (image) {
-      return image;
-    }
-  }
-
-  if (!Array.isArray(product.images)) {
-    return '';
-  }
-
-  for (const image of product.images) {
-    if (typeof image === 'string') {
-      const imageUrl = normalizeStructuredDataImageUrl(image, baseUrl);
-      if (imageUrl) {
-        return imageUrl;
-      }
-    }
-
-    const imageRecord = getRecord(image);
-    if (typeof imageRecord?.url === 'string') {
-      const imageUrl = normalizeStructuredDataImageUrl(
-        imageRecord.url,
-        baseUrl
-      );
-      if (imageUrl) {
-        return imageUrl;
-      }
-    }
-  }
-
-  return '';
-}
-
-function toOptionalNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
-function getStructuredDataAvailability(
-  product: Record<string, unknown>
-): ProductCompareSchemaProduct['availability'] {
-  if (
-    product.availability === 'InStock' ||
-    product.availability === 'OutOfStock'
-  ) {
-    return product.availability;
-  }
-
-  if (typeof product.availability === 'string') {
-    const normalized = product.availability.toLowerCase();
-    if (
-      normalized.includes('outofstock') ||
-      normalized.includes('out_of_stock')
-    ) {
-      return 'OutOfStock';
-    }
-    if (normalized.includes('instock') || normalized.includes('in_stock')) {
-      return 'InStock';
-    }
-  }
-
-  if (typeof product.in_stock === 'boolean') {
-    return product.in_stock ? 'InStock' : 'OutOfStock';
-  }
-
-  if (product.manage_stock === false) {
-    return 'InStock';
-  }
-
-  const stockQuantity =
-    toOptionalNumber(product.stock_quantity) ?? toOptionalNumber(product.stock);
-  if (stockQuantity !== null) {
-    return stockQuantity > 0 ? 'InStock' : 'OutOfStock';
-  }
-
-  if (typeof product.status === 'string') {
-    const normalizedStatus = product.status.toLowerCase();
-    if (
-      normalizedStatus === 'out_of_stock' ||
-      normalizedStatus === 'sold_out'
-    ) {
-      return 'OutOfStock';
-    }
-  }
-
-  return undefined;
-}
-
-function toProductCompareSchemaProduct(
-  product: unknown,
-  baseUrl: string
-): ProductCompareSchemaProduct | null {
-  const record = getRecord(product);
-  if (!record) return null;
-
-  const id =
-    typeof record.id === 'string' || typeof record.id === 'number'
-      ? String(record.id)
-      : '';
-  const name = typeof record.name === 'string' ? record.name.trim() : '';
-  const image = getStructuredDataImage(record, baseUrl);
-
-  if (!id || !name || !image) {
-    return null;
-  }
-
-  return {
-    id,
-    name,
-    image,
-    availability: getStructuredDataAvailability(record),
-    category: typeof record.category === 'string' ? record.category : null,
-    category_slug:
-      typeof record.category_slug === 'string' ? record.category_slug : null,
-    description:
-      typeof record.description === 'string' ? record.description : null,
-    price: toOptionalNumber(record.price),
-    slug: typeof record.slug === 'string' ? record.slug : undefined,
-  };
 }
 
 export async function ComparePageContent({ params }: ComparePageContentProps) {

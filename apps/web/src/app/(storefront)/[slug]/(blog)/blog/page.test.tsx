@@ -116,6 +116,31 @@ describe('blog page metadata', () => {
     });
   });
 
+  it('uses the first repeated blog search parameter without throwing', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({ totalPosts: 50 })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({
+        category: ['buying-guides', 'tablets'],
+        page: ['2', '3'],
+        search: ['iphone-reviews', 'ipad-reviews'],
+      }),
+    });
+
+    expect(metadata.title).toBe('Search: iphone reviews | Page 2 | Ogabassey');
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/blog?category=buying-guides&search=iphone-reviews&page=2'
+    );
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      category: 'buying-guides',
+      page: 2,
+      searchQuery: 'iphone-reviews',
+    });
+  });
+
   it('caps long filtered metadata titles without changing the listing query', async () => {
     const longSearch =
       'iphone-reviews-for-used-flagship-smartphones-in-nigeria-under-budget';

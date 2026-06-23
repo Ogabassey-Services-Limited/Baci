@@ -126,7 +126,11 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   className="ogabassey-navbar__icon-link"
                 >
                   <ShoppingCart size={22} aria-hidden="true" />
-                  <span className="sr-only">Open cart</span>
+                  <span className="sr-only">
+                    {visibleCartItems > 0
+                      ? `Open cart (${visibleCartItems} ${visibleCartItems === 1 ? 'item' : 'items'})`
+                      : 'Open cart'}
+                  </span>
                   <span
                     className="ogabassey-navbar__cart-badge"
                     data-visible={visibleCartItems > 0 ? 'true' : undefined}

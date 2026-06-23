@@ -131,7 +131,25 @@ describe('HomeProductGridCard', () => {
       'href',
       '/ogabassey/smartphones/iphone-17-pro-max'
     );
-    expect(productLink).toHaveAttribute('title', baseProduct.name);
+    const expectedTitle = baseProduct.brand
+      ? `${baseProduct.name} - ${baseProduct.brand}`
+      : baseProduct.name;
+    expect(productLink).toHaveAttribute('title', expectedTitle);
+  });
+
+  it('includes brand names in product link titles when available', () => {
+    render(
+      <HomeProductGridCard
+        basePath="/ogabassey"
+        product={{ ...baseProduct, brand: 'Apple' }}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', {
+        name: `View ${baseProduct.name} for ${baseProduct.price}`,
+      })
+    ).toHaveAttribute('title', `${baseProduct.name} - Apple`);
   });
 
   it('waits to mount deferred images until the card is near the viewport', () => {

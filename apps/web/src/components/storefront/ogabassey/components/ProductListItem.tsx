@@ -1,6 +1,7 @@
 'use client';
 // Template preview
 
+import { getProductImageAlt } from '@baci/shared/lib';
 import {
   Check,
   ChevronLeft,
@@ -9,15 +10,15 @@ import {
   ShoppingCart,
   Star,
 } from 'lucide-react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
-import { getProductImageAlt } from '@baci/shared/lib';
-import type { Product } from '../types';
-import { getProductUrl } from '@/lib/seo-utils';
+import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import { asRoute } from '@/lib/routes';
+import { getProductUrl } from '@/lib/seo-utils';
 import { requiresOgabasseyProductSelection } from '../product-selection';
+import type { Product } from '../types';
 import { resolveProductImageSource } from './product-image-source';
 
 /**
@@ -34,7 +35,6 @@ function stripHtml(html: string): string {
   }
   return result;
 }
-
 
 interface ProductListItemProps {
   product: Product;
@@ -59,12 +59,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // without adjusting state from an effect.
   const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
 
-  const placeholderImage = '/placeholder.svg';
-
   // Determine current image with fallback
   const currentImage = resolveProductImageSource(
     [product.images?.[activeColorIndex], product.image],
-    placeholderImage
+    PLACEHOLDER_IMAGE
   );
   const currentImageAlt = currentImage.isPlaceholder
     ? ''

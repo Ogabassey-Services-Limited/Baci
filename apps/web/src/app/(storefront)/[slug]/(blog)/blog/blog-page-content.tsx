@@ -27,14 +27,29 @@ import { getBlogStorefrontPathPrefix } from './blog-storefront-path-prefix';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
+type BlogSearchParamValue = string | string[] | undefined;
+
 export interface BlogPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ category?: string; page?: string; search?: string }>;
+  searchParams: Promise<{
+    category?: BlogSearchParamValue;
+    page?: BlogSearchParamValue;
+    search?: BlogSearchParamValue;
+  }>;
+}
+
+function toSingleBlogSearchParam(
+  value: BlogSearchParamValue
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const { slug } = await params;
-  const { category, page, search } = await searchParams;
+  const searchParamValues = await searchParams;
+  const category = toSingleBlogSearchParam(searchParamValues.category);
+  const page = toSingleBlogSearchParam(searchParamValues.page);
+  const search = toSingleBlogSearchParam(searchParamValues.search);
   const currentPage = parseBlogListingPage(page);
   const data = await getCachedBlogListing(slug, {
     category,

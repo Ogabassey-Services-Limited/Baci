@@ -206,6 +206,8 @@ describe('BlogContentRenderer', () => {
       [2, 3],
       [3, 4],
       [4, 5],
+      [5, 6],
+      [6, 6],
     ] as const)('renders source level %i as an <h%i> article-body heading', (sourceLevel, renderedLevel) => {
       const json = doc(
         headingNode(sourceLevel, textNode(`Heading ${sourceLevel}`))

@@ -115,7 +115,7 @@ export function OgabasseyV2Repairs({
           </div>
 
           {/* Abstract Tech Pattern */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/circuit.png')]" />
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.35)_1px,transparent_0)] bg-[length:18px_18px]" />
 
           {/* Red Glow Effect */}
           <div className="absolute -right-20 -bottom-20 size-96 bg-red-600 rounded-full blur-[120px] opacity-20" />
@@ -204,7 +204,10 @@ export function OgabasseyV2Repairs({
               </p>
             </div>
             <div className="shrink-0">
-              <button type="button" className="bg-gray-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-black transition-colors shadow-lg active:scale-95">
+              <button
+                type="button"
+                className="bg-gray-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-black transition-colors shadow-lg active:scale-95"
+              >
                 Visit Store
               </button>
             </div>
