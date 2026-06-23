@@ -99,9 +99,6 @@ jobs:
           VOTERS: 'Gemini review|Jules review'
           # How many voters must report a FAILURE for Diff Guardian to BLOCK.
           BLOCK_QUORUM: '2'
-          # Fork PRs do not get automatic same-repo reviewer votes. Require at
-          # least one trusted manual voter result before this quorum gate can pass.
-          MIN_FORK_REPORTED: '1'
         run: |
           set -euo pipefail
 
@@ -158,6 +155,17 @@ jobs:
           if [ "$EVENT_ACTION" = "unlabeled" ] && [ "$EVENT_LABEL" = "bypass-ai-gate" ]; then
             echo "::error::'bypass-ai-gate' label was removed. Push a new commit to re-run AI reviewers before Diff Guardian can tally them."
             set_status failure "Push a new commit after removing bypass-ai-gate"
+            exit 1
+          fi
+
+          # Fork PRs get no automatic same-repo voter runs, and GitHub does not
+          # reliably carry the PR head SHA to comment-triggered voter
+          # `workflow_run` completions, so a manual fork review cannot be
+          # re-tallied against this head. Fail closed: a maintainer reviews the
+          # fork PR and adds 'bypass-ai-gate' to merge (bypass is honored above).
+          if [ "$is_fork_pr" = "true" ]; then
+            echo "::error::Diff Guardian: fork PR requires maintainer review + the 'bypass-ai-gate' label to merge."
+            set_status failure "Fork PR: add 'bypass-ai-gate' after maintainer review"
             exit 1
           fi
 
@@ -243,16 +251,6 @@ jobs:
             echo "::error::Diff Guardian: $blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM). Fix the findings, or add 'bypass-ai-gate'."
             set_status failure "$blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM)"
             exit 1
-          fi
-
-          # Fork PRs never get automatic same-repo voters. Stay PENDING (not fail)
-          # until a trusted manual reviewer produces a result for this head SHA —
-          # a later voter workflow_run completion then re-tallies. Maintainers can
-          # add 'bypass-ai-gate' to merge a fork PR without an AI vote.
-          if [ "$is_fork_pr" = "true" ] && [ "$reported" -lt "$MIN_FORK_REPORTED" ]; then
-            echo "::notice::Diff Guardian: fork PR awaiting a trusted manual AI review (have $reported, need $MIN_FORK_REPORTED). Add 'bypass-ai-gate' to override."
-            set_status pending "Fork PR: waiting for a trusted manual AI review"
-            exit 0
           fi
 
           # PASS: even if every still-outstanding voter were to fail, the block
