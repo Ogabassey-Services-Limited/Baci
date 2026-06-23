@@ -1484,10 +1484,9 @@ async function CategoryProductPageContent({
     .replace(/\s+/g, ' ')
     .trim();
   const semanticSections = (
-    // Error boundary degrades to no semantic links if the strict SEO-data unit
-    // throws with a cold cache (transient failure, no last-good to serve), so a
-    // Supabase blip never fails the whole PDP. A warm cache serves last-good via
-    // stale-while-revalidate and never reaches this boundary.
+    // The async server component catches strict SEO-data cold-cache failures
+    // before SSR can bubble to the route error boundary. This client boundary is
+    // still kept for downstream hydration/render failures.
     <SemanticSectionsErrorBoundary fallback={null}>
       <Suspense fallback={null}>
         <OgabasseyPdpSemanticSections

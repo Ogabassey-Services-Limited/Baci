@@ -130,4 +130,40 @@ describe('OgabasseyPdpSemanticSections', () => {
       'Ships across Nigeria | Model trust bullet'
     );
   });
+
+  it('returns no semantic sections when the strict server fetch fails', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Suppress expected warning noise for this server-side fallback path.
+    });
+    mockGetCachedProductSeoLinkData.mockRejectedValueOnce(
+      new Error('transient inventory failure')
+    );
+
+    const result = await OgabasseyPdpSemanticSections({
+      categoryName: 'Laptops',
+      categorySlug: 'laptops',
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'OgaBassey',
+      },
+      product,
+      storeSlug: 'ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      trustBullets: ['Ships across Nigeria'],
+    });
+
+    expect(result).toBeNull();
+    expect(mockBuildProductSemanticModel).not.toHaveBeenCalled();
+    expect(mockProductSemanticSections).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to load Ogabassey PDP semantic links',
+      expect.objectContaining({
+        categorySlug: 'laptops',
+        merchantId: 'merchant-1',
+        productId: 'prod-1',
+      })
+    );
+
+    warnSpy.mockRestore();
+  });
 });

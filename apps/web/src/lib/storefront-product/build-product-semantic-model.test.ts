@@ -224,6 +224,46 @@ describe('buildProductSemanticModel', () => {
     });
   });
 
+  it('renders explicitly product-linked guides even without cluster metadata', () => {
+    const currentProduct = makeCandidate({
+      slug: 'lenovo-legion',
+      name: 'Lenovo Legion',
+      brand: 'Lenovo',
+      price: 3_500_000,
+      category_slug: 'laptops',
+    });
+    const model = buildProductSemanticModel(
+      makeInput({
+        categorySlug: 'laptops',
+        categoryName: 'Laptops',
+        currentProduct,
+        inventory: [currentProduct],
+        guidePosts: [
+          {
+            slug: 'lenovo-legion-warranty-support',
+            title: 'Warranty Support Checklist',
+            excerpt: null,
+            category: 'Support',
+            tags: null,
+            keywords: null,
+            featured_image_url: null,
+            published_at: '2026-04-01T09:00:00.000Z',
+            reading_time_minutes: 3,
+          },
+          ...publishedGuidePosts,
+        ],
+        priorityGuidePostSlugs: ['lenovo-legion-warranty-support'],
+      })
+    );
+
+    expect(model.guideLinks[0]).toEqual({
+      href: 'https://ogabassey.com/blog/lenovo-legion-warranty-support',
+      title: 'Warranty Support Checklist',
+      description: '3 minute guide',
+      kind: 'buyer-guide',
+    });
+  });
+
   it('falls back to Nigerian currency for semantic trust bullets', () => {
     const currentProduct = makeCandidate({
       slug: 'galaxy-a56',

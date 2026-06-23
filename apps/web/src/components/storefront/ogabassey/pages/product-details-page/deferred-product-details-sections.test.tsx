@@ -12,7 +12,28 @@ const { brandProductsSpy, priceRangeProductsSpy } = vi.hoisted(() => ({
 
 vi.mock('next/dynamic', () => ({
   default: () =>
-    function DynamicAdUnit(props: { placementKey: string }) {
+    function DynamicComponent(props: {
+      placementKey?: string;
+      relatedProductsProduct?: { id?: string };
+    }) {
+      if (props.relatedProductsProduct) {
+        brandProductsSpy({
+          maxProducts: 4,
+          product: props.relatedProductsProduct,
+        });
+        priceRangeProductsSpy({
+          maxProducts: 4,
+          product: props.relatedProductsProduct,
+        });
+
+        return (
+          <>
+            <section aria-label="Brand products">{`${props.relatedProductsProduct.id ?? 'none'}:4`}</section>
+            <section aria-label="Price range products">{`${props.relatedProductsProduct.id ?? 'none'}:4`}</section>
+          </>
+        );
+      }
+
       return <section aria-label={`Ad Unit ${props.placementKey}`} />;
     },
 }));
@@ -76,6 +97,23 @@ function renderDeferredSections(productData: NormalizedProductDetails) {
   );
 }
 
+function renderDeferredSectionsWithoutRails(productData: NormalizedProductDetails) {
+  const relatedProduct = { id: 'related-1' } as unknown as RelatedProduct;
+  const handleSelectTab = (_tab: ProductDetailsActiveTab) => {};
+
+  return render(
+    <DeferredProductDetailsSections
+      activeTab="description"
+      normalizedReviewRatingWidth="80%"
+      onSelectTab={handleSelectTab}
+      productData={productData}
+      relatedProductsProduct={relatedProduct}
+      showRails={false}
+      storeSlug="ogabassey"
+    />
+  );
+}
+
 describe('DeferredProductDetailsSections', () => {
   beforeEach(() => {
     brandProductsSpy.mockClear();
@@ -126,5 +164,19 @@ describe('DeferredProductDetailsSections', () => {
     } as unknown as NormalizedProductDetails);
 
     expect(screen.queryByRole('region', { name: 'Product video' })).toBeNull();
+  });
+
+  it('skips inline rails when a separate rails island owns them', () => {
+    renderDeferredSectionsWithoutRails({
+      name: 'Lenovo Legion Pro 9',
+      videoUrl: null,
+    } as unknown as NormalizedProductDetails);
+
+    expect(screen.queryByRole('region', { name: 'Brand products' })).toBeNull();
+    expect(
+      screen.queryByRole('region', { name: 'Price range products' })
+    ).toBeNull();
+    expect(brandProductsSpy).not.toHaveBeenCalled();
+    expect(priceRangeProductsSpy).not.toHaveBeenCalled();
   });
 });

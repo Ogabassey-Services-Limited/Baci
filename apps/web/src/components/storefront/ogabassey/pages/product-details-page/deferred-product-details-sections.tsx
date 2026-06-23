@@ -4,8 +4,6 @@
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import type { Product as RelatedProduct } from '@/lib/products';
-import { BrandProducts } from '@/components/storefront/brand-products';
-import { PriceRangeProducts } from '@/components/storefront/price-range-products';
 import { ProductVideo } from '../../components/ProductVideo';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import { ProductDetailsTabs } from './product-details-tabs';
@@ -14,6 +12,11 @@ import type { ProductDetailsActiveTab } from './use-product-details-state';
 const AdUnit = dynamic(
   () => import('../../components/AdUnit').then((mod) => mod.AdUnit),
   { loading: () => null, ssr: false }
+);
+
+const InlineProductRails = dynamic(
+  () => import('./inline-product-rails').then((mod) => mod.InlineProductRails),
+  { loading: () => null }
 );
 
 export interface DeferredProductDetailsSectionsProps {
@@ -65,18 +68,7 @@ export function DeferredProductDetailsSections({
       ) : null}
 
       {showRails ? (
-        <div className="mx-auto max-w-[1400px]">
-          <BrandProducts
-            product={relatedProductsProduct}
-            maxProducts={4}
-            className="border-t border-store-background-text/10 pt-8"
-          />
-          <PriceRangeProducts
-            product={relatedProductsProduct}
-            maxProducts={4}
-            className="border-t border-store-background-text/10"
-          />
-        </div>
+        <InlineProductRails relatedProductsProduct={relatedProductsProduct} />
       ) : null}
     </div>
   );

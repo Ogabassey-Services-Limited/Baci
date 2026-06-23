@@ -9,7 +9,13 @@ import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-e
 import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
-import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
+import type {
+  ContentClusterKind,
+  InformationalGuideLink,
+  PublishedClusterPost,
+  SupportedClusterCategory,
+} from '@/lib/storefront-content/content-cluster-types';
+import { inferContentClusterContext } from '@/lib/storefront-content/infer-content-cluster-context';
 import type {
   BuildProductSemanticModelInput,
   ProductSemanticCandidate,
@@ -97,6 +103,36 @@ function dedupeGuideLinks(links: ReturnType<typeof buildCommercialGuideLinks>) {
     seen.add(link.href);
     return true;
   });
+}
+
+function buildGuideDescription(post: PublishedClusterPost) {
+  const excerpt = post.excerpt?.trim();
+
+  if (excerpt) {
+    return excerpt;
+  }
+
+  return post.reading_time_minutes
+    ? `${post.reading_time_minutes} minute guide`
+    : 'Read the full guide';
+}
+
+function inferPriorityGuideKind(
+  post: PublishedClusterPost
+): ContentClusterKind {
+  return inferContentClusterContext(post).kind ?? 'buyer-guide';
+}
+
+function buildPriorityProductGuideLinks(input: {
+  posts: PublishedClusterPost[];
+  storeUrl: string;
+}): InformationalGuideLink[] {
+  return input.posts.map((post) => ({
+    href: `${input.storeUrl}/blog/${post.slug}`,
+    title: post.title,
+    description: buildGuideDescription(post),
+    kind: inferPriorityGuideKind(post),
+  }));
 }
 
 function buildDirectCompareCta(input: {
@@ -326,10 +362,9 @@ export function buildProductSemanticModel(
   const guideLinks =
     input.categorySlug in CONTENT_CLUSTER_SUPPORT
       ? dedupeGuideLinks([
-          ...buildCommercialGuideLinks({
+          ...buildPriorityProductGuideLinks({
             storeUrl: input.storeUrl,
             posts: priorityGuidePosts,
-            context: guideContext,
           }),
           ...buildCommercialGuideLinks({
             storeUrl: input.storeUrl,

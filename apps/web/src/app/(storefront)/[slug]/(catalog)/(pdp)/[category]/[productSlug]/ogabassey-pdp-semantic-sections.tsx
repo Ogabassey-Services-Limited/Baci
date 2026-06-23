@@ -1,7 +1,10 @@
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product } from '@/lib/products';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
-import { getCachedProductSeoLinkData } from '@/lib/storefront-product/get-cached-product-seo-link-data';
+import {
+  getCachedProductSeoLinkData,
+  type ProductSeoLinkData,
+} from '@/lib/storefront-product/get-cached-product-seo-link-data';
 
 interface OgabasseyPdpSemanticMerchant {
   business_name?: string | null;
@@ -30,16 +33,30 @@ export async function OgabasseyPdpSemanticSections({
 }: OgabasseyPdpSemanticSectionsProps) {
   // Strict, cache-isolated fetch: throws on a transient inventory failure so a
   // link-poor result is never cached (stale-while-revalidate serves last-good).
-  // Rendered behind a Suspense + error boundary by the caller. `inventory` is
-  // already normalized to ProductSemanticCandidate[] inside the cached unit, and
-  // product-linked guides are merged ahead of broader cluster guides there.
-  const { inventory, guidePosts, priorityGuidePostSlugs } =
-    await getCachedProductSeoLinkData(
+  // Server components cannot rely on client error boundaries during the initial
+  // SSR pass, so cold-cache failures must degrade here before reaching the
+  // route error boundary. Warm cache failures serve last-good data via
+  // stale-while-revalidate and do not reach this catch.
+  let seoLinkData: ProductSeoLinkData;
+
+  try {
+    seoLinkData = await getCachedProductSeoLinkData(
       merchant.id,
       categorySlug,
       storeSlug,
       String(product.id || '')
     );
+  } catch (error) {
+    console.warn('Failed to load Ogabassey PDP semantic links', {
+      merchantId: merchant.id,
+      categorySlug,
+      productId: product.id,
+      error,
+    });
+    return null;
+  }
+
+  const { inventory, guidePosts, priorityGuidePostSlugs } = seoLinkData;
   const semanticModel = buildProductSemanticModel({
     storeUrl,
     merchantBusinessName: merchant?.business_name || 'Baci Store',
