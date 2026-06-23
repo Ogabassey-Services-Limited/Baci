@@ -65,7 +65,8 @@ describe('storefront metadata cache bot classifier', () => {
 
   it('matches the real Googlebot user-agent when serialized into Vercel PPR header bypass rules', () => {
     const vercelPprHeaderMatcher = new RegExp(
-      `^(?:${STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.source})`
+      `^(?:${STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.source})`,
+      STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.flags
     );
 
     expect(vercelPprHeaderMatcher.test('Googlebot/2.1')).toBe(true);
@@ -74,5 +75,10 @@ describe('storefront metadata cache bot classifier', () => {
         'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
       )
     ).toBe(true);
+    expect(
+      vercelPprHeaderMatcher.test(
+        'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
+      )
+    ).toBe(false);
   });
 });
