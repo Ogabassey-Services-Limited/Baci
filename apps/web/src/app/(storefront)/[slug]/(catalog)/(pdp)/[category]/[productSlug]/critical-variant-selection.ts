@@ -113,28 +113,14 @@ function getPriceFirstCriticalVariantSelection(product: Product) {
 }
 
 function getDefaultCriticalVariantSelection(product: Product) {
-  const defaultVariantId = normalizeRouteSelectionValue(
-    product.default_variant_id
-  );
-  const normalizedProduct = {
-    ...product,
-    variants: normalizeRouteProductVariants(product.variants || []),
-  };
-
-  if (defaultVariantId) {
-    return (
-      toInitialCriticalVariantSelection(
-        resolveVariantSelection(normalizedProduct, {
-          variantId: defaultVariantId,
-        })
-      ) ?? getPriceFirstCriticalVariantSelection(product)
-    );
-  }
-
   // No explicit query selection: open on the GLOBAL cheapest purchasable
-  // variant (the merchant's "lowest-priced default"), ignoring the product's
-  // default color so a cheaper color always wins. URL-selected colors are
-  // resolved by the caller before this default is used.
+  // variant (the merchant's "lowest-priced default"). product.default_variant_id
+  // is the SKU projection's condition-first default — not an explicit shopper
+  // choice — so it is intentionally ignored here; honoring it would seed/preload
+  // the pricier condition-first SKU above the fold and then flip to the cheapest
+  // after hydration, and it would disagree with the non-critical hook (which
+  // also opens on the cheapest). URL-supplied variantId selections are resolved
+  // by the caller's non-"none" path before this default is used.
   return getPriceFirstCriticalVariantSelection(product);
 }
 

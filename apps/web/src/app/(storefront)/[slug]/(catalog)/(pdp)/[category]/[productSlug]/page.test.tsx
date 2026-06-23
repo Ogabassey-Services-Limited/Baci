@@ -3152,7 +3152,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('prefers the configured default variant over product color metadata', async () => {
+  it('ignores the projection default_variant_id and opens on the cheapest variant', async () => {
     const jadeImage =
       'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
     const blackImage =
@@ -3162,6 +3162,7 @@ describe('[category]/[productSlug] page render', () => {
         attributes: { color: 'Jade Green', storage: '128GB' },
         condition: 'open_box',
         id: 'variant-open-jade-128',
+        price_override: 600_000,
         primary_image: jadeImage,
         stock_quantity: 3,
       },
@@ -3169,6 +3170,7 @@ describe('[category]/[productSlug] page render', () => {
         attributes: { color: 'Onyx Black', storage: '128GB' },
         condition: 'used',
         id: 'variant-used-black-128',
+        price_override: 750_000,
         primary_image: blackImage,
         stock_quantity: 4,
       },
@@ -3208,15 +3210,17 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
+    // default_variant_id points at the pricier Onyx Black (₦750k), but with no
+    // URL query the critical PDP must open on the globally cheapest variant —
+    // Jade Green (₦600k) — not the projection's condition-first default.
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: blackImage,
+      src: jadeImage,
     });
     expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         initialVariantSelection: {
-          attributes: { color: 'Onyx Black', storage: '128GB' },
-          condition: 'used',
-          variantId: 'variant-used-black-128',
+          attributes: { color: 'Jade Green', storage: '128GB' },
+          variantId: 'variant-open-jade-128',
         },
       })
     );

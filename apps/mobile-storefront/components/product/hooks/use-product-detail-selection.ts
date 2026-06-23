@@ -14,6 +14,7 @@ type FirstImageIndexForColorInput = {
   color: string | null | undefined;
   colorImages?: Record<string, string[]>;
   images: string[];
+  variantImage?: string | null;
 };
 type UseProductDetailSelectionArgs = {
   getFallbackVariantSelections: (product: Product | null) => {
@@ -195,6 +196,9 @@ export function useProductDetailSelection({
           color: syncedColor,
           colorImages: resolvedColorImages,
           images: productGalleryImages,
+          variantImage:
+            nextSelection?.variant.image ??
+            nextSelection?.variant.images?.find(Boolean),
         });
         if (selectedVariant !== nextVariant) {
           setSelectedVariant(nextVariant);
@@ -247,9 +251,8 @@ export function useProductDetailSelection({
         colorImages: resolvedColorImages,
         images: productGalleryImages,
       });
-      // Only update when the index actually moves: if the color has no
-      // matching image the resolver returns the current frame and an
-      // unconditional set would re-render forever.
+      // Only update when the index actually moves: if the color has no matching
+      // image the resolver returns the current frame and an unconditional set loops.
       if (nextImageIndex !== selectedImageIndex) {
         setSelectedImageIndex(nextImageIndex);
       }
