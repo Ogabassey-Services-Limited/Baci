@@ -23,6 +23,30 @@ const TEXT_ALIGN_CLASSES: Record<string, string> = {
   justify: 'text-justify',
 };
 
+const HEADING_SIZE_CLASSES: Record<number, string> = {
+  1: 'text-4xl font-bold mt-12 mb-6',
+  2: 'text-3xl font-bold mt-10 mb-5',
+  3: 'text-2xl font-bold mt-8 mb-4',
+  4: 'text-xl font-bold mt-6 mb-3',
+};
+
+function isTechnicalResourceHref(href: string): boolean {
+  const normalizedHref = href.trim().toLowerCase();
+  if (!normalizedHref) {
+    return false;
+  }
+
+  try {
+    const { pathname } = new URL(normalizedHref, 'https://example.invalid');
+    if (pathname === '/_next/image') {
+      return true;
+    }
+    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
+  } catch {
+    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
+  }
+}
+
 /**
  * Premium 2026 JSON-to-React Renderer for Baci
  * This component recursively renders TipTap JSON as native React components.
@@ -105,12 +129,21 @@ const TextRenderer = ({
           break;
         case 'link': {
           // 2026 Security Best Practice: Sanitize URLs but allow safe relative/anchor links
-          const rawHref = mark.attrs?.href ?? '';
+          const rawHref =
+            typeof mark.attrs?.href === 'string' ? mark.attrs.href : '';
           const normalizedHref = normalizeStorefrontContentHref(rawHref, {
             basePath,
             baseUrl,
             merchantSlug,
           });
+          if (
+            isTechnicalResourceHref(rawHref) ||
+            isTechnicalResourceHref(normalizedHref)
+          ) {
+            content = <span key={mark.type}>{content}</span>;
+            break;
+          }
+
           const isRelative =
             normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
           const isAnchor = normalizedHref.startsWith('#');
@@ -162,6 +195,18 @@ function extractNodeText(node: TipTapNode): string {
   return node.content?.map(extractNodeText).join('') || '';
 }
 
+function normalizeSourceHeadingLevel(level: unknown): number {
+  const parsedLevel = Number(level);
+  if (!Number.isFinite(parsedLevel)) {
+    return 1;
+  }
+  return Math.min(Math.max(Math.trunc(parsedLevel), 1), 6);
+}
+
+function getBlogBodyHeadingLevel(sourceLevel: number): 2 | 3 | 4 | 5 | 6 {
+  return Math.max(Math.min(sourceLevel + 1, 6), 2) as 2 | 3 | 4 | 5 | 6;
+}
+
 const NodeRenderer = ({
   basePath,
   baseUrl,
@@ -202,15 +247,11 @@ const NodeRenderer = ({
       );
 
     case 'heading': {
-      const level = node.attrs?.level || 1;
-      const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
+      const sourceLevel = normalizeSourceHeadingLevel(node.attrs?.level);
+      const renderedLevel = getBlogBodyHeadingLevel(sourceLevel);
+      const Tag = `h${renderedLevel}` as keyof React.JSX.IntrinsicElements;
       const sizeClasses =
-        {
-          1: 'text-4xl font-bold mt-12 mb-6',
-          2: 'text-3xl font-bold mt-10 mb-5',
-          3: 'text-2xl font-bold mt-8 mb-4',
-          4: 'text-xl font-bold mt-6 mb-3',
-        }[level as 1 | 2 | 3 | 4] || 'text-lg font-bold';
+        HEADING_SIZE_CLASSES[sourceLevel] || 'text-lg font-bold';
 
       const headingText = extractNodeText(node);
       const headingId = generateHeadingId(headingText);

@@ -16,10 +16,8 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { PLACEHOLDER_IMAGE } from './image-utils';
 import { normalizeProductKeySpecs } from './product-key-specs-normalize';
-
-const PLACEHOLDER_IMAGE =
-  'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 
 type ProductKeySpecValue = string | number | boolean | undefined;
 

@@ -202,17 +202,33 @@ describe('BlogContentRenderer', () => {
 
   describe('heading nodes', () => {
     it.each([
-      1, 2, 3, 4,
-    ] as const)('renders an <h%i> element for level %i', (level) => {
-      const json = doc(headingNode(level, textNode(`Heading ${level}`)));
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 6],
+    ] as const)('renders source level %i as an <h%i> article-body heading', (sourceLevel, renderedLevel) => {
+      const json = doc(
+        headingNode(sourceLevel, textNode(`Heading ${sourceLevel}`))
+      );
       const { container } = render(<BlogContentRenderer json={json} />);
-      const el = container.querySelector(`h${level}`);
+      const el = container.querySelector(`h${renderedLevel}`);
       expect(el).toBeInTheDocument();
-      expect(el).toHaveTextContent(`Heading ${level}`);
+      expect(el).toHaveTextContent(`Heading ${sourceLevel}`);
+    });
+
+    it('does not render a body h1 below the blog post page heading', () => {
+      const json = doc(headingNode(1, textNode('Imported Title')));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('h1')).toBeNull();
+      expect(
+        screen.getByRole('heading', { level: 2, name: /Imported Title/i })
+      ).toBeInTheDocument();
     });
 
     it('generates a slug id from the heading text', () => {
-      const json = doc(headingNode(2, textNode('My Section Title')));
+      const json = doc(headingNode(1, textNode('My Section Title')));
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('h2')).toHaveAttribute(
         'id',
@@ -230,7 +246,7 @@ describe('BlogContentRenderer', () => {
     it('sets the scroll-mt-20 class for sticky-header offset', () => {
       const json = doc(headingNode(1, textNode('Title')));
       const { container } = render(<BlogContentRenderer json={json} />);
-      expect(container.querySelector('h1')).toHaveClass('scroll-mt-20');
+      expect(container.querySelector('h2')).toHaveClass('scroll-mt-20');
     });
   });
 
@@ -372,6 +388,39 @@ describe('BlogContentRenderer', () => {
         'href',
         '/smartphones/iphone-13-pro-6gb-256gb'
       );
+    });
+
+    it('renders technical resource links as plain text for JSON posts', () => {
+      const json = doc(
+        paragraph(
+          textNode('Product data JSON', [
+            {
+              type: 'link',
+              attrs: { href: 'https://example.com/assets/specs.json' },
+            },
+          ]),
+          textNode(' and '),
+          textNode('Optimized image', [
+            {
+              type: 'link',
+              attrs: {
+                href: '/_next/image?url=https%3A%2F%2Fcdn.example.com%2Fphone.avif&w=640&q=75',
+              },
+            },
+          ])
+        )
+      );
+
+      render(<BlogContentRenderer json={json} />);
+
+      expect(screen.getByText('Product data JSON')).toBeInTheDocument();
+      expect(screen.getByText('Optimized image')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Product data JSON' })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Optimized image' })
+      ).not.toBeInTheDocument();
     });
 
     it('rewrites javascript: URLs to a safe hash anchor', () => {

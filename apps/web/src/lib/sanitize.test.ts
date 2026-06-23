@@ -129,6 +129,49 @@ describe('sanitize', () => {
     ).toContain('<h1>Title</h1>');
   });
 
+  it('removes empty anchors when SEO anchor normalization is enabled', () => {
+    const output = sanitizeHtml(
+      '<p>See <a href="https://example.com/phone"></a> details.</p>',
+      { normalizeSeoAnchors: true }
+    );
+
+    expect(output).toBe('<p>See  details.</p>');
+    expect(output).not.toContain('<a');
+  });
+
+  it('unwraps empty linked images when SEO anchor normalization is enabled', () => {
+    const output = sanitizeHtml(
+      '<p><a href="https://example.com/photo"><img src="https://example.com/photo.jpg" alt="Product photo"></a></p>',
+      { normalizeSeoAnchors: true }
+    );
+
+    expect(output).toBe(
+      '<p><img src="https://example.com/photo.jpg" alt="Product photo" /></p>'
+    );
+    expect(output).not.toContain('<a');
+  });
+
+  it('keeps resource source labels but removes crawlable resource links when SEO anchor normalization is enabled', () => {
+    const output = sanitizeHtml(
+      '<p>Source: <a href="https://example.com/assets/specs.json">Product data JSON</a> and <a href="https://example.com/app.js">App JS</a>.</p>',
+      { normalizeSeoAnchors: true }
+    );
+
+    expect(output).toBe('<p>Source: Product data JSON and App JS.</p>');
+    expect(output).not.toContain('.json');
+    expect(output).not.toContain('.js');
+  });
+
+  it('keeps labels but removes Next image optimizer links when SEO anchor normalization is enabled', () => {
+    const output = sanitizeHtml(
+      '<p><a href="/_next/image?url=https%3A%2F%2Fapi.example.com%2Fproduct.avif&w=128&q=75">Samsung Galaxy Watch 6 Classic</a></p>',
+      { normalizeSeoAnchors: true }
+    );
+
+    expect(output).toBe('<p>Samsung Galaxy Watch 6 Classic</p>');
+    expect(output).not.toContain('/_next/image');
+  });
+
   it('removes active content from SVG', () => {
     const input =
       '<svg viewBox="0 0 16 16" onload="alert(1)"><script>alert(1)</script><circle cx="8" cy="8" r="6" /></svg>';

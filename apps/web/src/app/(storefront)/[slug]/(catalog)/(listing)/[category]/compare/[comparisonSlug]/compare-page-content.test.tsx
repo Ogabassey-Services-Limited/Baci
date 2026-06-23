@@ -88,6 +88,7 @@ const comparePageModel = {
   isIndexable: true,
   leftProduct: {
     id: 'left-product',
+    image: 'https://cdn.ogabassey.com/products/iphone-17-pro-max.avif',
     name: 'iPhone 17 Pro Max',
     slug: 'iphone-17-pro-max',
     category_slug: 'smartphones',
@@ -95,6 +96,7 @@ const comparePageModel = {
   },
   rightProduct: {
     id: 'right-product',
+    image: 'https://cdn.ogabassey.com/products/samsung-galaxy-z-trifold.avif',
     name: 'Samsung Galaxy Z TriFold',
     slug: 'samsung-galaxy-z-trifold',
     category_slug: 'smartphones',
@@ -206,6 +208,122 @@ describe('ComparePageContent', () => {
     expect(schemaScripts[1]?.textContent).toContain('"@type":"ItemList"');
     expect(schemaScripts[1]?.textContent).toContain('"@type":"Product"');
     expect(schemaScripts[1]?.textContent).not.toContain('"@type":"FAQPage"');
+  });
+
+  it('keeps string-encoded prices in product ItemList JSON-LD', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      rightProduct: {
+        ...comparePageModel.rightProduct,
+        price: '2300000',
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
+
+    expect(itemListSchema.itemListElement[1].item.offers.price).toBe(2_300_000);
+  });
+
+  it('resolves relative product images in product ItemList JSON-LD', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      rightProduct: {
+        ...comparePageModel.rightProduct,
+        image: '/media/samsung-galaxy-z-trifold.avif',
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
+
+    expect(itemListSchema.itemListElement[1].item.image).toBe(
+      'https://ogabassey.com/media/samsung-galaxy-z-trifold.avif'
+    );
+  });
+
+  it('suppresses product ItemList JSON-LD when a compared product has no image', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      rightProduct: {
+        ...comparePageModel.rightProduct,
+        image: null,
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+
+    expect(schemaScripts).toHaveLength(1);
+    expect(schemaScripts[0]?.textContent).toContain('"@type":"BreadcrumbList"');
+    expect(schemaScripts[0]?.textContent).not.toContain('"@type":"ItemList"');
+  });
+
+  it('suppresses product ItemList JSON-LD when a compared product only has a local placeholder image', async () => {
+    mockLoadComparePage.mockResolvedValueOnce({
+      ...comparePageModel,
+      rightProduct: {
+        ...comparePageModel.rightProduct,
+        image: '/placeholder.svg',
+      },
+    });
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const { container } = render(
+      (await ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'smartphones',
+          comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      })) as ReactElement
+    );
+
+    const schemaScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+
+    expect(schemaScripts).toHaveLength(1);
+    expect(schemaScripts[0]?.textContent).toContain('"@type":"BreadcrumbList"');
+    expect(schemaScripts[0]?.textContent).not.toContain('"@type":"ItemList"');
   });
 
   it('keeps product ItemList JSON-LD when visible FAQ items are absent', async () => {

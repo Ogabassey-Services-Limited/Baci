@@ -46,6 +46,124 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toBe('');
   });
 
+  it('parses leading TipTap JSON when legacy HTML was appended after it', async () => {
+    const structuredContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Shop the MacBook lineup',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'http://ogabassey.com',
+                    target: '_blank',
+                    rel: 'noopener noreferrer nofollow',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const content = `${JSON.stringify(structuredContent)}<p>Related reading: <a href="https://ogabassey.com/blog/macbook-guide">MacBook guide</a>.</p>`;
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(structuredContent);
+    expect(result.legacyHtml).toBe('');
+  });
+
+  it('parses leading TipTap JSON with escaped quotes before legacy HTML', async () => {
+    const structuredContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'He said "buy now" today' }],
+        },
+      ],
+    };
+    const content = `${JSON.stringify(structuredContent)}<p>Legacy suffix</p>`;
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(structuredContent);
+  });
+
+  it('parses leading TipTap JSON with nested arrays and objects', async () => {
+    const structuredContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Nested spec' }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const content = `${JSON.stringify(structuredContent)}<p>Legacy suffix</p>`;
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(structuredContent);
+  });
+
+  it('keeps JSON-looking bracket characters inside string values', async () => {
+    const structuredContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Use {curly} and [square] marks' }],
+        },
+      ],
+    };
+    const content = `${JSON.stringify(structuredContent)}<p>Legacy suffix</p>`;
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(structuredContent);
+  });
+
+  it('falls back to legacy HTML when a leading JSON prefix is unbalanced', async () => {
+    const content =
+      '{"type":"doc","content":[{"type":"paragraph"}<p>Legacy fallback content</p>';
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('Legacy fallback content');
+  });
+
+  it('falls back to legacy HTML when a leading JSON prefix is not a TipTap doc', async () => {
+    const content =
+      '{"type":"paragraph","content":[] }<p>Legacy fallback content</p>';
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('Legacy fallback content');
+  });
+
   it('keeps legacy HTML on the sanitized legacy branch', async () => {
     const result = await resolveBlogPostContent('<p>Legacy content</p>');
 

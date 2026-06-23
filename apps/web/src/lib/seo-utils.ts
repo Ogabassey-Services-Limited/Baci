@@ -20,6 +20,7 @@ import {
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
+import { PLACEHOLDER_IMAGE } from './image-utils';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -2038,6 +2039,34 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
   }
 }
 
+function toAbsoluteSchemaImageUrl(
+  baseUrl: string,
+  ...values: Array<string | null | undefined>
+): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    try {
+      const url = new URL(trimmed, baseUrl);
+      const isHttpImage = url.protocol === 'http:' || url.protocol === 'https:';
+      const isPlaceholder =
+        url.pathname === PLACEHOLDER_IMAGE ||
+        url.pathname.endsWith(PLACEHOLDER_IMAGE);
+
+      if (isHttpImage && !isPlaceholder) {
+        return url.toString();
+      }
+    } catch {
+      // Ignore malformed image candidates and continue to the next fallback.
+    }
+  }
+
+  return '';
+}
+
 /**
  * Generates CollectionPage schema for product listing pages (categories, collections).
  * @see https://schema.org/CollectionPage
@@ -2045,7 +2074,22 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): CollectionPageJsonLdSchema {
-  const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
+  const safeProducts = data.products
+    .flatMap((product) => {
+      const imageCandidates = [product.imageLarge, product.image];
+      const productImage = toAbsoluteSchemaImageUrl(
+        data.url,
+        ...imageCandidates
+      );
+      const hasImageCandidate = imageCandidates.some((value) =>
+        Boolean(value?.trim())
+      );
+
+      return hasImageCandidate && !productImage
+        ? []
+        : [{ product, productImage }];
+    })
+    .slice(0, 20);
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
   const currency = data.currency || 'NGN';
   const country = data.country || 'NG';
@@ -2067,15 +2111,11 @@ export function generateCollectionPageSchema(
     ...(absolutePageUrl && { url: absolutePageUrl }),
     mainEntity: {
       '@type': 'ItemList',
-      numberOfItems: data.products.length,
-      itemListElement: safeProducts.map((product, index) => {
+      numberOfItems: safeProducts.length,
+      itemListElement: safeProducts.map(({ product, productImage }, index) => {
         const productUrl = toAbsoluteSchemaUrl(
           data.url,
           getProductUrl(product)
-        );
-        const productImage = toAbsoluteSchemaUrl(
-          data.url,
-          product.imageLarge || product.image
         );
 
         return {

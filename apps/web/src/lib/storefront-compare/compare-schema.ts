@@ -17,7 +17,9 @@ interface ProductCompareSchemaProduct {
   name: string;
   slug?: string;
   category?: string | null;
+  categories?: { name?: string; slug?: string } | null;
   category_slug?: string | null;
+  canonical_url?: string | null;
   price?: number | null;
   availability?: 'InStock' | 'OutOfStock';
   image?: string | null;
@@ -73,7 +75,9 @@ export function buildProductCompareItemListSchema(input: {
       const availability =
         product.availability === 'OutOfStock'
           ? 'https://schema.org/OutOfStock'
-          : 'https://schema.org/InStock';
+          : product.availability === 'InStock'
+            ? 'https://schema.org/InStock'
+            : undefined;
       const additionalProperty = input.comparisonMatrix?.flatRows
         .slice(0, 12)
         .map((row) => {
@@ -118,7 +122,7 @@ export function buildProductCompareItemListSchema(input: {
                   '@type': 'Offer',
                   price: product.price,
                   priceCurrency: input.currency,
-                  availability,
+                  ...(availability ? { availability } : {}),
                 }
               : undefined,
         },

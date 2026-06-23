@@ -6,6 +6,10 @@ import {
   buildProductCompareItemListSchema,
 } from '@/lib/storefront-compare/compare-schema';
 import { loadComparePage } from '@/lib/storefront-compare/load-compare-page';
+import {
+  type ProductCompareSchemaProduct,
+  toProductCompareSchemaProduct,
+} from './compare-schema-product';
 
 interface ComparePageContentProps {
   params: Promise<{
@@ -66,16 +70,24 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
     breadcrumbItems: page.breadcrumbItems,
     faqItems: page.faqItems,
   });
-  const itemListSchema =
+  const productSchemaProducts =
     page.kind === 'product'
+      ? [page.leftProduct, page.rightProduct]
+          .map((product) =>
+            toProductCompareSchemaProduct(product, page.canonicalUrl)
+          )
+          .filter(
+            (product): product is ProductCompareSchemaProduct =>
+              product !== null
+          )
+      : [];
+  const itemListSchema =
+    page.kind === 'product' && productSchemaProducts.length === 2
       ? buildProductCompareItemListSchema({
           pageName: page.heading,
           pageUrl: page.canonicalUrl,
           currency: page.merchant.payout_currency || 'NGN',
-          products: [page.leftProduct, page.rightProduct].filter(
-            (product): product is NonNullable<typeof product> =>
-              Boolean(product)
-          ),
+          products: productSchemaProducts,
           comparisonMatrix: page.comparisonMatrix,
         })
       : null;

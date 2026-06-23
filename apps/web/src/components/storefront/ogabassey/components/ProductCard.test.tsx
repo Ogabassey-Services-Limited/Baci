@@ -127,7 +127,7 @@ describe('ProductCard', () => {
 
     const image = container.querySelector('img');
 
-    expect(image).toHaveAttribute('src', expect.stringContaining('placehold.co'));
+    expect(image).toHaveAttribute('src', expect.stringContaining('placeholder.svg'));
     expect(image).toHaveAttribute('alt', '');
   });
 

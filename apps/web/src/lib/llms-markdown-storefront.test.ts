@@ -195,7 +195,7 @@ describe('llms markdown storefront builders', () => {
     );
     expect(result).toContain('- Availability: in_stock');
     expect(result).toContain('- quantity_available: untracked');
-    expect(result).toContain('https://placehold.co/400x400');
+    expect(result).toContain('/placeholder.svg');
   });
 
   it('sanitizes product-controlled markdown fields', () => {

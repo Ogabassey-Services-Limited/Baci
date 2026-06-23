@@ -6,6 +6,7 @@ const {
   mockBlogPostPageContent,
   mockBuildStoreUrl,
   mockGetBlogPostRedirect,
+  mockGetBlogPostTextPreview,
   mockPermanentRedirect,
 } = vi.hoisted(() => ({
   mockBlogPostPageContent: vi.fn((_props: unknown) => (
@@ -18,6 +19,9 @@ const {
         : `https://${merchant.slug}.usebaci.com`
   ),
   mockGetBlogPostRedirect: vi.fn(),
+  mockGetBlogPostTextPreview: vi.fn<(content: unknown) => string>(
+    () => 'Preview text'
+  ),
   mockPermanentRedirect: vi.fn((url: string) => {
     throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
   }),
@@ -74,7 +78,8 @@ vi.mock('./blog-post-content', () => ({
     merchant.custom_domain
       ? `https://${merchant.custom_domain}/blog/${postSlug}`
       : `https://${merchant.slug}.usebaci.com/blog/${postSlug}`,
-  getBlogPostTextPreview: () => 'Preview text',
+  getBlogPostTextPreview: (content: unknown) =>
+    mockGetBlogPostTextPreview(content),
 }));
 
 vi.mock('./blog-post-page-content', () => ({
@@ -135,6 +140,8 @@ describe('storefront blog post page', () => {
           : `https://${merchant.slug}.usebaci.com`
     );
     mockGetBlogPostRedirect.mockResolvedValue(null);
+    mockGetBlogPostTextPreview.mockReset();
+    mockGetBlogPostTextPreview.mockReturnValue('Preview text');
     mockConnection.mockReset();
   });
 
@@ -288,6 +295,109 @@ describe('storefront blog post page', () => {
       false
     );
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+  });
+
+  it('bounds long blog post title and description metadata', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      post: {
+        ...liveBlogPost.post,
+        title:
+          'Best Phones Under 500000 Naira in Nigeria With Camera Battery and Gaming Performance Compared',
+        excerpt:
+          'Compare the best phones under 500000 naira in Nigeria with camera quality, battery life, gaming performance, warranty coverage, delivery options, and flexible payment notes for shoppers.',
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'best-phones-under-500000',
+      }),
+    });
+
+    expect(String(metadata.title).length).toBeLessThanOrEqual(70);
+    expect(String(metadata.title)).toContain('Ogabassey');
+    expect(typeof metadata.description).toBe('string');
+    if (typeof metadata.description !== 'string') {
+      throw new TypeError('metadata.description must be a string');
+    }
+    expect(metadata.description.length).toBeLessThanOrEqual(160);
+  });
+
+  it('uses fallback blog description metadata when source text is empty', async () => {
+    mockGetBlogPostTextPreview.mockReturnValueOnce('');
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      post: {
+        ...liveBlogPost.post,
+        seo_description: '',
+        excerpt: '',
+        content: '',
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'empty-description',
+      }),
+    });
+
+    expect(metadata.description).toContain(
+      'Read The Great 5K Stall from Ogabassey'
+    );
+    expect(typeof metadata.description).toBe('string');
+    if (typeof metadata.description !== 'string') {
+      throw new TypeError('metadata.description must be a string');
+    }
+    expect(metadata.description.length).toBeLessThanOrEqual(160);
+  });
+
+  it('preserves short blog metadata that is already within bounds', async () => {
+    const boundedDescription =
+      'A practical buying guide for Nigerian shoppers comparing display quality, delivery confidence, warranty support, and upgrade timing.';
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      post: {
+        ...liveBlogPost.post,
+        seo_title: 'Studio Display Review',
+        seo_description: boundedDescription,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'studio-display-review',
+      }),
+    });
+
+    expect(metadata.title).toBe('Studio Display Review | Ogabassey');
+    expect(metadata.description).toBe(boundedDescription);
+  });
+
+  it('keeps min-length blog descriptions when they are already descriptive', async () => {
+    const descriptiveSummary =
+      'Compare phone options by camera quality, battery life, warranty confidence, delivery timing, payment flexibility, and everyday value.';
+    expect(descriptiveSummary.length).toBeGreaterThanOrEqual(110);
+    expect(descriptiveSummary.length).toBeLessThanOrEqual(160);
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      post: {
+        ...liveBlogPost.post,
+        seo_description: descriptiveSummary,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'descriptive-summary',
+      }),
+    });
+
+    expect(metadata.description).toBe(descriptiveSummary);
   });
 
   it('returns noindex fallback metadata when the public cache lookup throws', async () => {

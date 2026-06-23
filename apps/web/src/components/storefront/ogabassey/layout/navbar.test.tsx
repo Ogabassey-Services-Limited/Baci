@@ -313,10 +313,17 @@ describe('OgabasseyNavbar', () => {
   it('gives the account link an explicit accessible name', () => {
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    expect(screen.getByRole('link', { name: /view account/i })).toHaveAttribute(
-      'href',
-      '/ogabassey/account'
-    );
+    const accountLink = screen.getByRole('link', { name: /view account/i });
+
+    expect(accountLink).toHaveAttribute('href', '/ogabassey/account');
+    expect(accountLink).toHaveTextContent(/view account/i);
+    const cartLink = screen.getByRole('link', {
+      name: 'Open cart (3 items)',
+    });
+
+    expect(cartLink).toHaveAccessibleName('Open cart (3 items)');
+    expect(cartLink).toHaveTextContent(/open cart \(3 items\)/i);
+    expect(screen.getByText('3')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('emits root-relative first-render links for domain-routed storefronts', async () => {
@@ -415,6 +422,10 @@ describe('OgabasseyNavbar', () => {
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
     expect(screen.getByText('0')).toHaveClass('ogabassey-navbar__cart-badge');
+    expect(screen.getByText('0')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByText('0')).not.toHaveAttribute('data-visible');
+    expect(screen.getByRole('link', { name: 'Open cart' })).toHaveAccessibleName(
+      'Open cart'
+    );
   });
 });

@@ -170,6 +170,49 @@ describe('BlogPostBody', () => {
     );
   });
 
+  it('demotes legacy HTML h1 headings inside the article body', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml:
+        '<h1>Imported Article Title</h1><h2>Imported Section</h2><p>Source: <a href="https://example.com/specs.json">Product data JSON</a></p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<h1>Imported Article Title</h1>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'pixel-9-review',
+          tags: null,
+          title: 'Pixel 9 Review',
+        },
+        relatedProducts: [],
+        relatedPosts: [],
+      })
+    );
+
+    const legacyContent = screen.getByTestId('blog-post-legacy-content');
+
+    expect(legacyContent.querySelector('h1')).toBeNull();
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Imported Article Title',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Imported Section' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Product data JSON' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/Product data JSON/)).toBeInTheDocument();
+  });
+
   it('uses canonical postUrl for subdomain share links without doubled slug', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
