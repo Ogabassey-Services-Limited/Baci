@@ -19,7 +19,7 @@ export async function ReturnsPageContent({ params }: PageProps) {
   const returnPolicy = context.trustProfile.returnPolicy;
 
   const canonicalUrl = `${context.baseUrl}/returns`;
-  const jsonLd = {
+  const jsonLd: WithContext<WebPage> = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `Returns Policy | ${context.merchant.business_name}`,
@@ -46,7 +46,7 @@ export async function ReturnsPageContent({ params }: PageProps) {
 
   return (
     <>
-      <JsonLd data={jsonLd as WithContext<WebPage>} />
+      <JsonLd data={jsonLd} />
       <TrustPolicyPageClient
         kind="returns"
         merchantName={context.merchant.business_name}
