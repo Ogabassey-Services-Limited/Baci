@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
@@ -23,7 +23,14 @@ const mockDeferredAdUnit = vi.hoisted(() =>
 );
 const mockHero = vi.hoisted(() =>
   vi.fn((props: { slides?: Array<{ href?: string; ctaLabel?: string }> }) => (
-    <div>Hero ({props.slides?.length ?? 0})</div>
+    <section aria-label="Launch hero">
+      Hero
+      {(props.slides ?? []).map((slide, index) => (
+        <a href={slide.href} key={`${slide.href}-${index}`}>
+          {slide.ctaLabel ?? 'Shop now'}
+        </a>
+      ))}
+    </section>
   ))
 );
 
@@ -66,7 +73,9 @@ describe('OgabasseyHomePage', () => {
   it('renders core sections: hero, ad unit, and product grid', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
-    expect(screen.getByText(/^Hero/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /launch hero/i })
+    ).toBeInTheDocument();
     expect(screen.getByText(/^Ad unit/)).toBeInTheDocument();
     expect(screen.getByText(/^Product grid/)).toBeInTheDocument();
   });
@@ -91,11 +100,15 @@ describe('OgabasseyHomePage', () => {
       />
     );
 
-    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides).toHaveLength(1);
-    expect(slides[0]?.href?.startsWith('/test-store/')).toBe(true);
-    expect(slides[0]?.href).toContain('samsung-galaxy-a27-5g');
-    expect(slides[0]?.ctaLabel).toBe('Pre-order now');
+    const heroLink = screen.getByRole('link', { name: 'Pre-order now' });
+    expect(heroLink).toHaveAttribute(
+      'href',
+      expect.stringContaining('/test-store/')
+    );
+    expect(heroLink).toHaveAttribute(
+      'href',
+      expect.stringContaining('samsung-galaxy-a27-5g')
+    );
   });
 
   it('preserves an explicit empty base path for custom-domain hero links', () => {
@@ -109,9 +122,14 @@ describe('OgabasseyHomePage', () => {
       />
     );
 
-    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides[0]?.href?.startsWith('/test-store/')).toBe(false);
-    expect(slides[0]?.href).toContain('samsung-galaxy-a27-5g');
+    const heroLink = screen.getByRole('link', { name: 'Pre-order now' });
+    expect(heroLink.getAttribute('href')?.startsWith('/test-store/')).toBe(
+      false
+    );
+    expect(heroLink).toHaveAttribute(
+      'href',
+      expect.stringContaining('samsung-galaxy-a27-5g')
+    );
   });
 
   it('passes products to the home product grid', () => {
@@ -163,16 +181,17 @@ describe('OgabasseyHomePage', () => {
       />
     );
 
-    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides).toHaveLength(1);
-    expect(slides[0]?.href).toContain('samsung-galaxy-a27-5g');
+    expect(screen.getByRole('link', { name: 'Pre-order now' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('samsung-galaxy-a27-5g')
+    );
   });
 
   it('passes empty hero slides when there are no products at all', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
-    const slides = mockHero.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides).toHaveLength(0);
+    const hero = screen.getByRole('region', { name: /launch hero/i });
+    expect(within(hero).queryByRole('link')).toBeNull();
   });
 
   it('keeps the homepage strip ad out of the no-interaction main-thread window', () => {

@@ -27,7 +27,9 @@ vi.mock('./GadgetPattern', () => ({
 }));
 
 vi.mock('./hero-utility-panel', () => ({
-  HeroUtilityPanel: () => <div data-testid="utility-panel">Utility panel</div>,
+  HeroUtilityPanel: () => (
+    <aside aria-label="Hero utilities">Utility panel</aside>
+  ),
 }));
 
 import { Hero } from './Hero';
@@ -90,6 +92,8 @@ describe('Hero', () => {
   it('renders the utility panel chunk in the hero shell', () => {
     render(<Hero slides={SLIDES} />);
 
-    expect(screen.getByTestId('utility-panel')).toBeInTheDocument();
+    expect(
+      screen.getByRole('complementary', { name: /hero utilities/i })
+    ).toBeInTheDocument();
   });
 });

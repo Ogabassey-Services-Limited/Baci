@@ -68,13 +68,13 @@ vi.mock('./ogabassey-home-dynamic-content', () => ({
     if (mockDynamicContentShouldSuspend()) {
       throw new Promise(() => undefined);
     }
-    return <div data-testid="dynamic-content">{pathPrefix}</div>;
+    return <section aria-label="Dynamic home content">{pathPrefix}</section>;
   },
 }));
 
 vi.mock('./ogabassey-home-hero-fallback', () => ({
   OgabasseyHomeHeroFallback: () => (
-    <section data-testid="home-hero-fallback">Hero fallback</section>
+    <section aria-label="Home hero fallback">Hero fallback</section>
   ),
 }));
 
@@ -119,9 +119,9 @@ describe('OgabasseyHomePageContent', () => {
 
     render(result as ReactElement);
 
-    expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
-      '/ogabassey'
-    );
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toHaveTextContent('/ogabassey');
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
@@ -132,7 +132,9 @@ describe('OgabasseyHomePageContent', () => {
 
     render(result as ReactElement);
 
-    expect(screen.getByTestId('home-hero-fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /home hero fallback/i })
+    ).toBeInTheDocument();
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {
@@ -145,7 +147,9 @@ describe('OgabasseyHomePageContent', () => {
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
-    expect(screen.getByTestId('dynamic-content')).toBeEmptyDOMElement();
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toBeEmptyDOMElement();
   });
 
   it('falls back to the OgaBassey slug when only a deployment host is present', async () => {

@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/seo/json-ld', () => ({
@@ -9,7 +9,7 @@ vi.mock('./ogabassey-home-style-loader', () => ({
 }));
 vi.mock('./ogabassey-home-hero-fallback', () => ({
   OgabasseyHomeHeroFallback: () => (
-    <section data-testid="hero-fallback">Hero fallback</section>
+    <section aria-label="Hero fallback">Hero fallback</section>
   ),
 }));
 vi.mock('./ogabassey-home-page-content', () => ({
@@ -22,10 +22,10 @@ import { OgabasseyStaticHomePageContent } from './ogabassey-static-home-page-con
 
 describe('OgabasseyStaticHomePageContent', () => {
   it('uses a non-null hero fallback for the streaming home boundary', () => {
-    const { container } = render(<OgabasseyStaticHomePageContent />);
+    render(<OgabasseyStaticHomePageContent />);
 
     expect(
-      container.querySelector('[data-testid="hero-fallback"]')
+      screen.getByRole('region', { name: /hero fallback/i })
     ).toBeInTheDocument();
   });
 });

@@ -56,7 +56,7 @@ export const MOBILE_APPS = {
     ],
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-    appStoreUrl: 'https://apps.apple.com/app/id6472735367',
+    appStoreUrl: `https://apps.apple.com/app/id${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
     deepLinkPaths: [
       '/product/*',
       '/products/*',

@@ -10,6 +10,7 @@ import {
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
   Facebook,
+  Ghost,
   Instagram,
   Linkedin,
   Mail,
@@ -18,8 +19,8 @@ import {
   Phone,
   Twitter,
   Youtube,
-  Ghost,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 
@@ -264,9 +265,11 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                   aria-label="Download on the App Store"
                   className="inline-flex transition-opacity hover:opacity-90"
                 >
-                  <img
+                  <Image
                     src="/badges/app-store-black.svg"
                     alt="Download on the App Store"
+                    width={120}
+                    height={40}
                     className="h-10 w-auto"
                   />
                 </a>
@@ -278,9 +281,11 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 aria-label="Get it on Google Play"
                 className="inline-flex transition-opacity hover:opacity-90"
               >
-                <img
+                <Image
                   src="/badges/google-play.svg"
                   alt="Get it on Google Play"
+                  width={135}
+                  height={40}
                   className="h-10 w-auto"
                 />
               </a>

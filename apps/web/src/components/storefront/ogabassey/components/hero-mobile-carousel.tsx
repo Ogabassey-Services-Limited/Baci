@@ -29,8 +29,10 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
   return (
     <div className="md:hidden mb-4 order-1">
       <div
+        aria-label="Featured launch product carousel"
         className="relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-store-border/70 bg-store-secondary"
         data-ogabassey-mobile-hero-panel="true"
+        role="region"
       >
         {slides.map((slide, index) => {
           const isCurrent = index === currentSlide;

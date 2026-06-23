@@ -108,6 +108,27 @@ describe('JustLaunchedCarousel', () => {
     );
   });
 
+  it('skips launch rows that cannot render an image', () => {
+    mockUseProducts.mockReturnValue({
+      products: [
+        {
+          id: 'missing-image',
+          name: 'Image Missing Phone',
+          slug: 'image-missing-phone',
+          price: 500000,
+        },
+        xiaomi,
+      ],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<JustLaunchedCarousel />);
+
+    expect(screen.queryByText('Image Missing Phone')).toBeNull();
+    expect(screen.getByText('Xiaomi 17T')).toBeTruthy();
+  });
+
   it('renders a loading skeleton (not a blank gap) while loading', () => {
     mockUseProducts.mockReturnValue({
       products: [],

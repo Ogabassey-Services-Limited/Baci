@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -122,12 +122,17 @@ describe('HeroMobileCarousel', () => {
   });
 
   it('keeps the hero media inside the clipped carousel panel', () => {
-    const { container } = render(<HeroMobileCarousel slides={SLIDES} />);
+    render(<HeroMobileCarousel slides={SLIDES} />);
 
-    const carouselPanel = container.querySelector(
-      '[data-ogabassey-mobile-hero-panel="true"]'
-    );
-    expect(carouselPanel).toHaveClass('overflow-hidden');
+    const carouselPanel = screen.getByRole('region', {
+      name: /featured launch product carousel/i,
+    });
+    within(carouselPanel).getByRole('link', {
+      name: 'Samsung Galaxy A27 5G — Pre-order now',
+    });
+    within(carouselPanel).getByRole('img', {
+      name: 'Samsung Galaxy A27 5G',
+    });
   });
 
   it('returns null when there are no slides', () => {

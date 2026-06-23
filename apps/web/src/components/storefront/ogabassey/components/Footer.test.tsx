@@ -12,6 +12,28 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
+vi.mock('next/image', () => ({
+  default: ({
+    alt,
+    height,
+    src,
+    width,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & {
+    height: number;
+    src: string;
+    width: number;
+  }) => (
+    <img
+      alt={alt}
+      data-height={height}
+      data-width={width}
+      src={src}
+      {...props}
+    />
+  ),
+}));
+
 vi.mock('./Logo', () => ({
   Logo: () => <span>Logo</span>,
 }));
@@ -220,5 +242,26 @@ describe('Ogabassey Footer', () => {
       screen.getByRole('link', { name: 'account-private@gmail.com' })
     ).toHaveAttribute('href', 'mailto:account-private@gmail.com');
     expect(screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')).toBeVisible();
+  });
+
+  it('renders optimized store badges with explicit intrinsic dimensions', () => {
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+
+    render(<Footer storeSlug="ogabassey" merchant={merchantFixture} />);
+
+    const appStoreBadge = screen.getByRole('img', {
+      name: 'Download on the App Store',
+    });
+    const googlePlayBadge = screen.getByRole('img', {
+      name: 'Get it on Google Play',
+    });
+
+    expect(appStoreBadge).toHaveAttribute('data-width', '120');
+    expect(appStoreBadge).toHaveAttribute('data-height', '40');
+    expect(googlePlayBadge).toHaveAttribute('data-width', '135');
+    expect(googlePlayBadge).toHaveAttribute('data-height', '40');
   });
 });
