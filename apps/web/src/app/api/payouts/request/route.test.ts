@@ -49,18 +49,24 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+interface MockUpdateQuery {
+  error: null;
+  eq(column: string, value: unknown): MockUpdateQuery;
+}
+
 function createUpdateQuery(table: string, payload: Record<string, unknown>) {
   const record = { table, payload, filters: [] as [string, unknown][] };
   mocks.updateRecords.push(record);
 
-  return {
+  const builder: MockUpdateQuery = {
+    error: null,
     eq(column: string, value: unknown) {
       record.filters.push([column, value]);
-      return record.filters.length >= 2
-        ? Promise.resolve({ error: null })
-        : this;
+      return builder;
     },
   };
+
+  return builder;
 }
 
 function createPayoutRequestsTable() {
