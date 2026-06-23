@@ -10,6 +10,9 @@ export function getSelectionSyncSignature(product: Product | null) {
     images: product.images ?? null,
     colors: product.colors ?? null,
     id: product.id,
+    // Base price is the price-first resolver's fallback when a variant has no
+    // absolute price/override, so a base-price change must reseed too.
+    price: product.price ?? null,
     variantAttributes: product.variant_attributes ?? null,
     variants:
       product.variants?.map((variant) => ({

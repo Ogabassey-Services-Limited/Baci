@@ -3408,8 +3408,12 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: jadeImage,
     });
+    // The configured color is preserved (stable LCP hero) and resolves to the
+    // cheapest variant within that color — here the cheaper Used variant — with
+    // no product-level condition forced into the selection.
     expect(providerProps.initialVariantSelection).toEqual({
-      attributes: { color: 'Jade Green' },
+      attributes: { color: 'Jade Green', storage: '128GB' },
+      variantId: 'variant-used-128',
     });
   });
 

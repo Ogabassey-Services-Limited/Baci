@@ -515,22 +515,31 @@ function getDefaultCriticalVariantSelection(product: Product) {
     return getPriceFirstCriticalVariantSelection(product);
   }
 
-  // No explicit query selection: preserve only the product's default color for
-  // a stable LCP hero, but never carry the product-level condition. Emitting a
-  // condition here would make the above-the-fold critical state open on the
-  // pricier condition-first variant and then flip to the cheapest after
-  // hydration. Price-first (cheapest) decides the variant within that color.
-  const colorSelection = resolveVariantSelection(normalizedProduct, {
-    attributes: { color: productColor },
-  });
+  // No explicit query selection: preserve the product's default color for a
+  // stable LCP hero, but pick the cheapest purchasable variant *within* that
+  // color and never force a product-level condition. A bare color match would
+  // resolve to null when the color is sold in multiple conditions, dropping the
+  // color entirely; scoping price-first to the color keeps it.
+  const productColorKey = normalizeRouteSelectionKey(product.color);
+  const colorScopedVariants = (normalizedProduct.variants || []).filter(
+    (variant) =>
+      normalizeRouteSelectionKey(variant.attributes?.color) === productColorKey
+  );
+  const colorScopedSelection =
+    colorScopedVariants.length > 0
+      ? resolveLowestPricedVariantSelection({
+          ...normalizedProduct,
+          variants: colorScopedVariants,
+        })
+      : null;
 
-  if (!colorSelection) {
+  if (!colorScopedSelection) {
     return getPriceFirstCriticalVariantSelection(product);
   }
 
-  return {
-    attributes: { color: productColor },
-  };
+  return toInitialCriticalVariantSelection(colorScopedSelection, {
+    includeCondition: false,
+  });
 }
 
 type CategoryProductResult =
@@ -757,7 +766,6 @@ function getInitialRouteVariant(
 ) {
   const productColor = normalizeRouteSelectionValue(cachedProduct.color);
   const productColorKey = normalizeRouteSelectionKey(cachedProduct.color);
-  const productCondition = normalizeProductCondition(cachedProduct.condition);
   const defaultVariantId = normalizeRouteSelectionValue(
     cachedProduct.default_variant_id
   );
@@ -771,40 +779,36 @@ function getInitialRouteVariant(
       variantId: defaultVariantId,
     });
     const fallbackSelection =
-      defaultSelection ?? resolveDefaultVariantSelection(resolutionProduct);
+      defaultSelection ??
+      resolveLowestPricedVariantSelection(resolutionProduct) ??
+      resolveDefaultVariantSelection(resolutionProduct);
 
     return fallbackSelection?.variant ?? null;
   }
 
-  if (productColor) {
-    const colorSelection = resolveVariantSelection(resolutionProduct, {
-      attributes: { color: productColor },
-      condition: productCondition,
-    });
-
-    if (colorSelection) {
-      return colorSelection.variant;
-    }
-  }
-
-  const normalizedVariants = resolutionProduct.variants || [];
+  // Match the critical commerce default: open on the cheapest purchasable
+  // variant within the product's default color (price-first, no forced
+  // condition) so the early LCP preload hint targets the same image the PDP
+  // renders. Fall back to global price-first.
   const sameProductColorVariants = productColor
-    ? normalizedVariants.filter(
+    ? (resolutionProduct.variants || []).filter(
         (variant) =>
           normalizeRouteSelectionKey(variant.attributes?.color) ===
           productColorKey
       )
     : [];
-  const productColorAndConditionVariant = sameProductColorVariants.find(
-    (variant) =>
-      !productCondition ||
-      (variant.condition ?? productCondition) === productCondition
-  );
+  const colorScopedSelection =
+    sameProductColorVariants.length > 0
+      ? resolveLowestPricedVariantSelection({
+          ...resolutionProduct,
+          variants: sameProductColorVariants,
+        })
+      : null;
 
   return (
-    productColorAndConditionVariant ||
-    sameProductColorVariants[0] ||
-    resolveDefaultVariantSelection(resolutionProduct)?.variant ||
+    colorScopedSelection?.variant ??
+    resolveLowestPricedVariantSelection(resolutionProduct)?.variant ??
+    resolveDefaultVariantSelection(resolutionProduct)?.variant ??
     null
   );
 }

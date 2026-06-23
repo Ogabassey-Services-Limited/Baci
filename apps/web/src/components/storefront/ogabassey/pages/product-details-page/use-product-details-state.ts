@@ -206,6 +206,9 @@ export function useProductDetailsState(serverProduct: Product) {
       attributes: variant.attributes ?? {},
       condition: variant.condition ?? null,
       id: variant.id ?? null,
+      // Include every price field the price-first resolver consumes so a
+      // client-side price change reseeds the default selection.
+      price_modifier: variant.price_modifier ?? null,
       price_override: variant.price_override ?? null,
       stock_quantity: variant.stock_quantity ?? null,
     }))
