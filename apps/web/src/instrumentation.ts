@@ -30,6 +30,20 @@ function getHeaderValue(
   return normalizedValue || undefined;
 }
 
+function getErrorDigest(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('digest' in error)) {
+    return undefined;
+  }
+
+  const digest = (error as { digest?: unknown }).digest;
+  if (typeof digest !== 'string') {
+    return undefined;
+  }
+
+  const trimmedDigest = digest.trim();
+  return trimmedDigest || undefined;
+}
+
 function getRequestTenantContext(
   headers: NodeJS.Dict<string | string[]>
 ): Record<string, string> {
@@ -71,7 +85,10 @@ export const onRequestError: Instrumentation.onRequestError = async (
 
   const { captureServerException } = await import('@/lib/posthog/server');
 
+  const nextErrorDigest = getErrorDigest(error);
+
   await captureServerException(error, {
+    ...(nextErrorDigest ? { next_error_digest: nextErrorDigest } : {}),
     request_path: stripQueryAndHash(request.path),
     request_method: request.method,
     ...getRequestTenantContext(request.headers),

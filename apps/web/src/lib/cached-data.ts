@@ -14,6 +14,7 @@ import {
 } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
@@ -46,6 +47,12 @@ import {
   getPublicSerializedVariantSummariesByProductId,
   type PublicSerializedVariantSummary,
 } from './public-serialized-variant-summary';
+
+// Supabase/PostgREST `estimated` keeps small public blog counts exact while
+// avoiding full COUNT scans when stale route regeneration hits large merchant
+// blog catalogs. These pages tolerate planner-estimated pagination for large
+// result sets better than production 500s from exact COUNT pressure.
+const PUBLIC_BLOG_COUNT_OPTIONS = { count: 'estimated' as const };
 
 const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
@@ -2714,7 +2721,7 @@ export async function getCachedBlogListing(
     .from('blog_posts')
     .select(
       'id, title, slug, excerpt, featured_image_url, featured_image_alt, featured_image_variants, category, tags, author_name, published_at, reading_time_minutes, view_count',
-      { count: 'exact' }
+      PUBLIC_BLOG_COUNT_OPTIONS
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
@@ -2841,7 +2848,7 @@ export async function getCachedBlogAuthor(
     .from('blog_posts')
     .select(
       'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, author_name, author_title, author_bio, author_image_url, published_at, reading_time_minutes',
-      { count: 'exact' }
+      PUBLIC_BLOG_COUNT_OPTIONS
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')

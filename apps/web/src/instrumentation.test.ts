@@ -78,6 +78,71 @@ describe('onRequestError', () => {
     });
   });
 
+  it('adds the Next.js digest for React-processed Server Component errors', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    const error = Object.assign(new Error(''), { digest: 'NEXT_DIGEST_123' });
+
+    await onRequestError(
+      error,
+      {
+        headers: { host: 'ogabassey.com' },
+        method: 'GET',
+        path: '/blog',
+      } as Parameters<typeof onRequestError>[1],
+      {
+        revalidateReason: 'stale',
+        routePath: '/(storefront)/[slug]/(blog)/blog/page',
+        routeType: 'render',
+        routerKind: 'App Router',
+      } as Parameters<typeof onRequestError>[2]
+    );
+
+    expect(captureServerExceptionMock).toHaveBeenCalledWith(
+      error,
+      expect.objectContaining({
+        next_error_digest: 'NEXT_DIGEST_123',
+        request_path: '/blog',
+        revalidate_reason: 'stale',
+      })
+    );
+  });
+
+  it.each([
+    ['missing digest', new Error('')],
+    ['empty digest', Object.assign(new Error(''), { digest: '' })],
+    ['blank digest', Object.assign(new Error(''), { digest: '   ' })],
+    ['non-string digest', Object.assign(new Error(''), { digest: 123 })],
+  ])('omits %s from request error properties', async (_label, error) => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
+    await onRequestError(
+      error,
+      {
+        headers: { host: 'ogabassey.com' },
+        method: 'GET',
+        path: '/blog',
+      } as Parameters<typeof onRequestError>[1],
+      {
+        revalidateReason: 'stale',
+        routePath: '/(storefront)/[slug]/(blog)/blog/page',
+        routeType: 'render',
+        routerKind: 'App Router',
+      } as Parameters<typeof onRequestError>[2]
+    );
+
+    expect(captureServerExceptionMock).toHaveBeenCalledTimes(1);
+    const properties = captureServerExceptionMock.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined;
+    expect(properties).not.toHaveProperty('next_error_digest');
+    expect(properties).toEqual(
+      expect.objectContaining({
+        request_path: '/blog',
+        revalidate_reason: 'stale',
+      })
+    );
+  });
+
   it('does not capture request errors outside the Node.js runtime', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'edge');
 

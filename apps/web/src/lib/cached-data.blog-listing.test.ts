@@ -14,7 +14,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-import { getCachedBlogListing } from '@/lib/cached-data';
+import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
 
 function createQueryBuilder({
   queryResult = { data: [], count: 0, error: null },
@@ -90,7 +90,12 @@ function setupBlogListingFetch({
   posts = [],
 }: {
   categories?: Array<{ category: string | null }>;
-  posts?: Array<{ id: string; slug: string | null; title: string | null }>;
+  posts?: Array<{
+    id: string;
+    slug: string | null;
+    title: string | null;
+    author_name?: string | null;
+  }>;
 } = {}) {
   const merchantBuilder = createQueryBuilder({
     singleResult: { data: buildMerchantRow(), error: null },
@@ -125,17 +130,18 @@ function setupBlogListingFetch({
   });
 
   const blogBuilders = [postsBuilder, categoriesBuilder];
+  const blogSelects: ReturnType<typeof vi.fn>[] = [];
   const publicFrom = vi.fn((table: string) => {
     if (table === 'blog_posts') {
-      return {
-        select: vi.fn(() => {
-          const builder = blogBuilders.shift();
-          if (!builder) {
-            throw new Error('Unexpected extra blog_posts query');
-          }
-          return builder;
-        }),
-      };
+      const select = vi.fn(() => {
+        const builder = blogBuilders.shift();
+        if (!builder) {
+          throw new Error('Unexpected extra blog_posts query');
+        }
+        return builder;
+      });
+      blogSelects.push(select);
+      return { select };
     }
 
     throw new Error(`Unexpected public table: ${table}`);
@@ -155,7 +161,7 @@ function setupBlogListingFetch({
     }
   );
 
-  return { categoriesBuilder, postsBuilder };
+  return { blogSelects, categoriesBuilder, postsBuilder };
 }
 
 describe('getCachedBlogListing', () => {
@@ -191,6 +197,35 @@ describe('getCachedBlogListing', () => {
     expect(postsBuilder.range.mock.invocationCallOrder[0]).toBeGreaterThan(
       postsBuilder.not.mock.invocationCallOrder.at(-1) ?? 0
     );
+  });
+
+  it('uses estimated counts for public listing pagination to avoid full COUNT scans', async () => {
+    const { blogSelects } = setupBlogListingFetch();
+
+    await getCachedBlogListing('ogabassey', { page: 2 });
+
+    expect(blogSelects[0]).toHaveBeenCalledWith(expect.any(String), {
+      count: 'estimated',
+    });
+  });
+
+  it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
+    const { blogSelects } = setupBlogListingFetch({
+      posts: [
+        {
+          id: 'post-1',
+          slug: 'best-phones',
+          title: 'Best Phones',
+          author_name: 'Bassey John',
+        },
+      ],
+    });
+
+    await getCachedBlogAuthor('ogabassey', 'Bassey John', { page: 1 });
+
+    expect(blogSelects[0]).toHaveBeenCalledWith(expect.any(String), {
+      count: 'estimated',
+    });
   });
 
   it('removes known junk category values in the categories query', async () => {

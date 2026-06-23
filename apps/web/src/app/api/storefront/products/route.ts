@@ -26,12 +26,18 @@ import {
 type ProductFilters = StorefrontProductsQuery;
 
 const PRODUCT_ID_FETCH_CHUNK_SIZE = 100;
+const IN_MEMORY_FILTER_MIN_PAGE_SIZE = 48;
+const IN_MEMORY_FILTER_MAX_PAGE_SIZE = 200;
+const IN_MEMORY_FILTER_PAGE_SIZE_MULTIPLIER = 4;
+const IN_MEMORY_FILTER_MAX_CANDIDATES = 1000;
 
 function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
   return Boolean(
     (filters.category &&
       !storefrontProductFilters.isAllFilter(filters.category)) ||
-      (filters.brand && !storefrontProductFilters.isAllFilter(filters.brand))
+      (filters.brand && !storefrontProductFilters.isAllFilter(filters.brand)) ||
+      (filters.condition &&
+        !storefrontProductFilters.isAllFilter(filters.condition))
   );
 }
 
@@ -40,6 +46,58 @@ function escapeStorefrontSearchPattern(value: string) {
     .replaceAll('\\', '\\\\')
     .replaceAll('%', '\\%')
     .replaceAll('_', '\\_');
+}
+
+function getInMemoryFilterPageSize(limit: number): number {
+  return Math.min(
+    IN_MEMORY_FILTER_MAX_PAGE_SIZE,
+    Math.max(
+      IN_MEMORY_FILTER_MIN_PAGE_SIZE,
+      limit * IN_MEMORY_FILTER_PAGE_SIZE_MULTIPLIER
+    )
+  );
+}
+
+function applyInMemoryStorefrontFilters(
+  products: RawStorefrontProductRow[],
+  filters: ProductFilters
+): RawStorefrontProductRow[] {
+  let filteredProducts = products;
+
+  if (
+    filters.category &&
+    !storefrontProductFilters.isAllFilter(filters.category)
+  ) {
+    const category = filters.category;
+    filteredProducts = filteredProducts.filter((product) =>
+      storefrontProductFilters.matchesStorefrontCategoryFilter(
+        storefrontProductsRouteData.buildCategoryFilterSource(product),
+        category
+      )
+    );
+  }
+
+  if (filters.brand && !storefrontProductFilters.isAllFilter(filters.brand)) {
+    const brand = filters.brand;
+    filteredProducts = filteredProducts.filter((product) =>
+      storefrontProductFilters.matchesStorefrontBrandFilter(product, brand)
+    );
+  }
+
+  if (
+    filters.condition &&
+    !storefrontProductFilters.isAllFilter(filters.condition)
+  ) {
+    const condition = filters.condition;
+    filteredProducts = filteredProducts.filter((product) =>
+      storefrontProductFilters.matchesStorefrontConditionFilter(
+        product,
+        condition
+      )
+    );
+  }
+
+  return filteredProducts;
 }
 
 function createCachedProductsFetcher(
@@ -63,113 +121,136 @@ function createCachedProductsFetcher(
           ? storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT
           : storefrontProductsRouteData.STOREFRONT_PRODUCTS_COMPACT_SELECT;
 
-      let query = supabase
-        .from('products')
-        .select(selectColumns)
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active');
+      const fetchProductRows = async (range?: { from: number; to: number }) => {
+        let query = supabase
+          .from('products')
+          .select(selectColumns)
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active');
 
-      if (
-        filters.condition &&
-        !storefrontProductFilters.isAllFilter(filters.condition)
-      ) {
-        const clauses =
-          storefrontProductsRouteData.getConditionPrefilterClauses(
-            filters.condition
-          );
-        if (clauses.length > 0) {
-          query = query.or(clauses.join(','));
+        if (
+          filters.condition &&
+          !storefrontProductFilters.isAllFilter(filters.condition)
+        ) {
+          const clauses =
+            storefrontProductsRouteData.getConditionPrefilterClauses(
+              filters.condition
+            );
+          if (clauses.length > 0) {
+            query = query.or(clauses.join(','));
+          }
         }
-      }
 
-      if (filters.min_price !== undefined) {
-        query = query.gte('price', filters.min_price);
-      }
+        if (filters.min_price !== undefined) {
+          query = query.gte('price', filters.min_price);
+        }
 
-      if (filters.max_price !== undefined) {
-        query = query.lte('price', filters.max_price);
-      }
+        if (filters.max_price !== undefined) {
+          query = query.lte('price', filters.max_price);
+        }
 
-      if (filters.has_images) {
-        query = query.not('images->0', 'is', null);
-      }
+        if (filters.has_images) {
+          query = query.not('images->0', 'is', null);
+        }
 
-      if (filters.q) {
-        const sanitizedQuery = escapeStorefrontSearchPattern(
-          filters.q.slice(0, 100)
-        );
-        query = query.or(
-          `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
-        );
-      }
+        if (filters.q) {
+          const sanitizedQuery = escapeStorefrontSearchPattern(
+            filters.q.slice(0, 100)
+          );
+          query = query.or(
+            `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
+          );
+        }
 
-      if (filters.limit !== undefined && !hasInMemoryFilters) {
-        query = query.limit(filters.limit);
-      }
+        if (range) {
+          query = query.range(range.from, range.to);
+        } else if (filters.limit !== undefined && !hasInMemoryFilters) {
+          query = query.limit(filters.limit);
+        }
 
-      switch (filters.sort) {
-        case 'price-asc':
-          query = query.order('price', { ascending: true });
-          break;
-        case 'price-desc':
-          query = query.order('price', { ascending: false });
-          break;
-        default:
-          query = query.order('created_at', { ascending: false });
-          break;
-      }
+        switch (filters.sort) {
+          case 'price-asc':
+            query = query
+              .order('price', { ascending: true })
+              .order('id', { ascending: true });
+            break;
+          case 'price-desc':
+            query = query
+              .order('price', { ascending: false })
+              .order('id', { ascending: true });
+            break;
+          default:
+            query = query
+              .order('created_at', { ascending: false })
+              .order('id', { ascending: true });
+            break;
+        }
 
-      const { data: products, error } = (await query) as {
-        data: RawStorefrontProductRow[] | null;
-        error: unknown;
+        const { data, error } = (await query) as {
+          data: RawStorefrontProductRow[] | null;
+          error: unknown;
+        };
+
+        if (error) throw error;
+
+        return data || [];
       };
 
-      if (error) throw error;
+      if (hasInMemoryFilters) {
+        const targetProductCount =
+          filters.limit ?? IN_MEMORY_FILTER_MAX_CANDIDATES;
+        const pageSize = getInMemoryFilterPageSize(targetProductCount);
+        const filteredProducts: RawStorefrontProductRow[] = [];
+        let offset = 0;
 
-      let filteredProducts: RawStorefrontProductRow[] = products || [];
+        while (
+          filteredProducts.length < targetProductCount &&
+          offset < IN_MEMORY_FILTER_MAX_CANDIDATES
+        ) {
+          const rangeTo = Math.min(
+            offset + pageSize - 1,
+            IN_MEMORY_FILTER_MAX_CANDIDATES - 1
+          );
+          const requestedCandidateCount = rangeTo - offset + 1;
+          const products = await fetchProductRows({
+            from: offset,
+            to: rangeTo,
+          });
+          filteredProducts.push(
+            ...applyInMemoryStorefrontFilters(products, filters)
+          );
 
-      if (
-        filters.category &&
-        !storefrontProductFilters.isAllFilter(filters.category)
-      ) {
-        const category = filters.category;
-        filteredProducts = filteredProducts.filter((product) =>
-          storefrontProductFilters.matchesStorefrontCategoryFilter(
-            storefrontProductsRouteData.buildCategoryFilterSource(product),
-            category
-          )
-        );
+          if (products.length < requestedCandidateCount) {
+            break;
+          }
+
+          offset += requestedCandidateCount;
+        }
+
+        if (
+          offset >= IN_MEMORY_FILTER_MAX_CANDIDATES &&
+          (filters.limit === undefined ||
+            filteredProducts.length < filters.limit)
+        ) {
+          console.warn('Storefront product in-memory filter scan capped', {
+            merchantId,
+            category: filters.category ?? null,
+            brand: filters.brand ?? null,
+            condition: filters.condition ?? null,
+            limit: filters.limit ?? null,
+            scannedCandidates: offset,
+          });
+        }
+
+        return filteredProducts
+          .slice(0, targetProductCount)
+          .map(storefrontProductsRouteData.mapProduct);
       }
 
-      if (
-        filters.brand &&
-        !storefrontProductFilters.isAllFilter(filters.brand)
-      ) {
-        const brand = filters.brand;
-        filteredProducts = filteredProducts.filter((product) =>
-          storefrontProductFilters.matchesStorefrontBrandFilter(product, brand)
-        );
-      }
-
-      if (
-        filters.condition &&
-        !storefrontProductFilters.isAllFilter(filters.condition)
-      ) {
-        const condition = filters.condition;
-        filteredProducts = filteredProducts.filter((product) =>
-          storefrontProductFilters.matchesStorefrontConditionFilter(
-            product,
-            condition
-          )
-        );
-      }
-
-      const limitedProducts =
-        filters.limit !== undefined && hasInMemoryFilters
-          ? filteredProducts.slice(0, filters.limit)
-          : filteredProducts;
-
-      return limitedProducts.map(storefrontProductsRouteData.mapProduct);
+      const products = await fetchProductRows();
+      return applyInMemoryStorefrontFilters(products, filters).map(
+        storefrontProductsRouteData.mapProduct
+      );
     },
     cacheKeyParts,
     {
