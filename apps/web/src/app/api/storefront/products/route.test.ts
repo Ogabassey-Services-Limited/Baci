@@ -145,6 +145,56 @@ describe('GET /api/storefront/products cached filter execution', () => {
     });
   });
 
+  it('continues sparse category scans past 1000 candidates until the requested page is filled', async () => {
+    const merchantId = '00000000-0000-4000-8000-000000000001';
+    storefrontProductsRouteTestHarness.mockProductsResults.current = [
+      ...Array.from({ length: 5 }, (_, pageIndex) => ({
+        data: Array.from({ length: 200 }, (_, index) =>
+          storefrontProductsRouteTestHarness.createRawProduct({
+            id: `laptop-${pageIndex}-${index}`,
+            category: 'Laptops',
+            categories: { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
+            name: `Laptop ${pageIndex}-${index}`,
+            slug: `laptop-${pageIndex}-${index}`,
+          })
+        ),
+        error: null,
+      })),
+      {
+        data: [
+          storefrontProductsRouteTestHarness.createRawProduct({
+            id: 'phone-after-1000',
+            category: 'Smartphones',
+            categories: {
+              id: 'cat-smartphones',
+              name: 'Smartphones',
+              slug: 'smartphones',
+            },
+            name: 'Phone after 1000',
+            slug: 'phone-after-1000',
+          }),
+        ],
+        error: null,
+      },
+    ];
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/storefront/products?merchant_id=${merchantId}&category=smartphones&limit=50&compact=true`
+      )
+    );
+
+    const body = await response.json();
+    const queries =
+      storefrontProductsRouteTestHarness.mockProductsQueries.current;
+    expect(response.status).toBe(200);
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'phone-after-1000',
+    ]);
+    expect(queries).toHaveLength(6);
+    expect(queries[5]?.range).toHaveBeenCalledWith(1000, 1199);
+  });
+
   it('uses bounded pagination for category filters even when no limit is provided', async () => {
     const merchantId = '00000000-0000-4000-8000-000000000001';
     storefrontProductsRouteTestHarness.mockProductsResults.current = [
@@ -344,9 +394,8 @@ describe('GET /api/storefront/products cached filter execution', () => {
     ).toHaveLength(1);
   });
 
-  it('caps sparse in-memory filter scans before walking the full catalog', async () => {
+  it('stops sparse in-memory filter scans only after the database range is exhausted', async () => {
     const merchantId = '00000000-0000-4000-8000-000000000001';
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(vi.fn());
     storefrontProductsRouteTestHarness.mockProductsResults.current = [
       ...Array.from({ length: 20 }, (_, pageIndex) => ({
         data: Array.from({ length: 48 }, (_, productIndex) =>
@@ -374,31 +423,18 @@ describe('GET /api/storefront/products cached filter execution', () => {
       },
     ];
 
-    try {
-      const response = await GET(
-        new NextRequest(
-          `http://localhost/api/storefront/products?merchant_id=${merchantId}&category=smartphones&limit=1`
-        )
-      );
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/storefront/products?merchant_id=${merchantId}&category=smartphones&limit=1`
+      )
+    );
 
-      const body = await response.json();
-      const queries =
-        storefrontProductsRouteTestHarness.mockProductsQueries.current;
-      expect(response.status).toBe(200);
-      expect(body.products).toEqual([]);
-      expect(queries).toHaveLength(21);
-      expect(queries.at(-1)?.range).toHaveBeenCalledWith(960, 999);
-      expect(warnSpy).toHaveBeenCalledWith(
-        'Storefront product in-memory filter scan capped',
-        expect.objectContaining({
-          category: 'smartphones',
-          limit: 1,
-          merchantId,
-          scannedCandidates: 1000,
-        })
-      );
-    } finally {
-      warnSpy.mockRestore();
-    }
+    const body = await response.json();
+    const queries =
+      storefrontProductsRouteTestHarness.mockProductsQueries.current;
+    expect(response.status).toBe(200);
+    expect(body.products).toEqual([]);
+    expect(queries).toHaveLength(21);
+    expect(queries.at(-1)?.range).toHaveBeenCalledWith(960, 1007);
   });
 });

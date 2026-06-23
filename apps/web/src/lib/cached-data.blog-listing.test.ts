@@ -87,9 +87,11 @@ function buildMerchantRow() {
 
 function setupBlogListingFetch({
   categories = [],
+  count,
   posts = [],
 }: {
   categories?: Array<{ category: string | null }>;
+  count?: number | null;
   posts?: Array<{
     id: string;
     slug: string | null;
@@ -107,7 +109,7 @@ function setupBlogListingFetch({
     singleResult: { data: { blog_enabled: true }, error: null },
   });
   const postsBuilder = createQueryBuilder({
-    queryResult: { data: posts, count: posts.length, error: null },
+    queryResult: { data: posts, count: count ?? posts.length, error: null },
   });
   const categoriesBuilder = createQueryBuilder({
     queryResult: { data: categories, error: null },
@@ -293,5 +295,25 @@ describe('getCachedBlogListing', () => {
       { id: 'public-1', slug: 'best-phones', title: 'Best Phones' },
     ]);
     expect(result.categories).toEqual(['Smartphones']);
+  });
+
+  it('keeps totalPages at least at the current non-empty page when estimated counts undercount', async () => {
+    setupBlogListingFetch({
+      count: 1,
+      posts: [
+        {
+          id: 'page-3-post',
+          slug: 'page-3-post',
+          title: 'Page 3 Post',
+        },
+      ],
+    });
+
+    const result = await getCachedBlogListing('ogabassey', { page: 3 });
+
+    expect(result).not.toBeNull();
+    expect(result?.posts.map((post) => post.id)).toEqual(['page-3-post']);
+    expect(result?.currentPage).toBe(3);
+    expect(result?.totalPages).toBeGreaterThanOrEqual(3);
   });
 });

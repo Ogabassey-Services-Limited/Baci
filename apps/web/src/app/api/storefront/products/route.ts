@@ -29,7 +29,7 @@ const PRODUCT_ID_FETCH_CHUNK_SIZE = 100;
 const IN_MEMORY_FILTER_MIN_PAGE_SIZE = 48;
 const IN_MEMORY_FILTER_MAX_PAGE_SIZE = 200;
 const IN_MEMORY_FILTER_PAGE_SIZE_MULTIPLIER = 4;
-const IN_MEMORY_FILTER_MAX_CANDIDATES = 1000;
+const IN_MEMORY_FILTER_DEFAULT_TARGET = 1000;
 
 function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
   return Boolean(
@@ -198,19 +198,13 @@ function createCachedProductsFetcher(
 
       if (hasInMemoryFilters) {
         const targetProductCount =
-          filters.limit ?? IN_MEMORY_FILTER_MAX_CANDIDATES;
+          filters.limit ?? IN_MEMORY_FILTER_DEFAULT_TARGET;
         const pageSize = getInMemoryFilterPageSize(targetProductCount);
         const filteredProducts: RawStorefrontProductRow[] = [];
         let offset = 0;
 
-        while (
-          filteredProducts.length < targetProductCount &&
-          offset < IN_MEMORY_FILTER_MAX_CANDIDATES
-        ) {
-          const rangeTo = Math.min(
-            offset + pageSize - 1,
-            IN_MEMORY_FILTER_MAX_CANDIDATES - 1
-          );
+        while (filteredProducts.length < targetProductCount) {
+          const rangeTo = offset + pageSize - 1;
           const requestedCandidateCount = rangeTo - offset + 1;
           const products = await fetchProductRows({
             from: offset,
@@ -226,22 +220,6 @@ function createCachedProductsFetcher(
 
           offset += requestedCandidateCount;
         }
-
-        if (
-          offset >= IN_MEMORY_FILTER_MAX_CANDIDATES &&
-          (filters.limit === undefined ||
-            filteredProducts.length < filters.limit)
-        ) {
-          console.warn('Storefront product in-memory filter scan capped', {
-            merchantId,
-            category: filters.category ?? null,
-            brand: filters.brand ?? null,
-            condition: filters.condition ?? null,
-            limit: filters.limit ?? null,
-            scannedCandidates: offset,
-          });
-        }
-
         return filteredProducts
           .slice(0, targetProductCount)
           .map(storefrontProductsRouteData.mapProduct);
