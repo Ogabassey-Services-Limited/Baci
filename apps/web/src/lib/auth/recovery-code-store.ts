@@ -54,7 +54,7 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
       ).toISOString();
       const { count, error } = await supabase
         .from(RECOVERY_ATTEMPTS_TABLE)
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('succeeded', false)
         .gte('created_at', cutoff);

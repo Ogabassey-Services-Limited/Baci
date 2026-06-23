@@ -87,6 +87,10 @@ describe('recovery-code-store (Supabase-backed)', () => {
     const n = await createRecoveryCodeStore().countRecentFailures('user-1');
 
     expect(mockFrom).toHaveBeenCalledWith('merchant_auth_recovery_attempts');
+    expect(builder.select).toHaveBeenCalledWith('id', {
+      count: 'exact',
+      head: true,
+    });
     expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(builder.eq).toHaveBeenCalledWith('succeeded', false);
     expect(builder.gte).toHaveBeenCalledWith('created_at', expect.any(String));
