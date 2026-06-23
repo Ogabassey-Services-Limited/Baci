@@ -8,6 +8,8 @@ const mockFetch = vi.fn();
 let restoreFetch: () => void = () => undefined;
 const mockImageLoader = vi.fn();
 const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+const PRIMARY_PRODUCT_IMAGE =
+  'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif';
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedProductLcpHint: (...args: unknown[]) =>
@@ -50,9 +52,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       );
     restoreFetch = () => fetchSpy.mockRestore();
     mockWarn.mockClear();
-    mockImageLoader.mockReturnValue(
-      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
-    );
+    mockImageLoader.mockReturnValue(PRIMARY_PRODUCT_IMAGE);
     mockFetch.mockResolvedValue(
       new Response('image-bytes', {
         headers: {
@@ -71,9 +71,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
   it('redirects to the primary product image without proxy-fetching bytes', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
-      images: [
-        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      ],
+      images: [PRIMARY_PRODUCT_IMAGE],
       name: 'Dell Alienware m18 R3',
     });
 
@@ -84,7 +82,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
@@ -93,11 +91,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       'dell-alienware-m18-r3-rtx-5080',
       { includeVariants: false }
     );
-    expect(mockImageLoader).toHaveBeenCalledWith({
-      quality: 30,
-      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      width: 750,
-    });
+    expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the product has no primary image', async () => {
