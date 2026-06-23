@@ -11,6 +11,7 @@ interface TemplateBlogRendererProps {
   basePath: string;
   blogPosts: BlogPostData[];
   categories: NonNullable<TemplateBlogPageProps['categories']>;
+  category?: string;
   searchQuery?: string;
 }
 
@@ -23,6 +24,7 @@ export function TemplateBlogRenderer({
   basePath,
   blogPosts,
   categories,
+  category,
   searchQuery,
 }: TemplateBlogRendererProps) {
   return (
@@ -47,6 +49,7 @@ export function TemplateBlogRenderer({
         storeSlug={basePath}
         posts={blogPosts}
         categories={categories}
+        category={category}
         searchQuery={searchQuery}
       />
     </>

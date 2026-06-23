@@ -1,5 +1,3 @@
-'use client';
-
 export interface AdPlacement {
   id: string;
   name: string;
