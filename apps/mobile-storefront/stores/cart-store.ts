@@ -1,9 +1,3 @@
-/**
- * Shopping Cart Store using Zustand
- * Manages shopping cart state with AsyncStorage persistence
- * Compatible with Expo Go (no native modules required)
- */
-
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { syncStorage } from '../lib/storage';
@@ -13,41 +7,10 @@ import {
   mergeExistingCartItem,
 } from './cart-line';
 import type { CartItem } from './cart-store.types';
+import type { CartState } from './cart-store-state';
 
 export type { CartItem } from './cart-store.types';
-
-interface CartState {
-  // State
-  items: CartItem[];
-  isLoading: boolean;
-  lineSequence: number;
-  // True while a cart-wide (group) negotiation is applied. Removing or
-  // re-pricing an item invalidates the proportional group total, so the group
-  // negotiation is reset when the cart composition changes.
-  cartWideNegotiationActive: boolean;
-
-  // Computed (via getters)
-  itemCount: () => number;
-  subtotal: () => number;
-  totalSavings: () => number;
-
-  // Actions
-  addItem: (item: Omit<CartItem, 'id'>) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  clearCart: () => void;
-  getItem: (productId: string, variantId?: string) => CartItem | undefined;
-  // Negotiation actions (matches web feature parity)
-  applyNegotiatedPrice: (id: string, negotiatedPrice: number) => void;
-  applyCartWideNegotiation: (newTotal: number) => void;
-  clearNegotiatedPrice: (id: string) => void;
-  // Restore actions (for rollback without generating new IDs)
-  restoreItems: (items: CartItem[]) => void;
-  // Reconcile stored prices with the live catalog (keyed by cart line id).
-  repriceItems: (priceById: Record<string, number>) => void;
-  // Device assurance actions
-  toggleAssurance: (id: string) => void;
-}
+export { formatPrice, selectCartQuantities } from './cart-store-selectors';
 
 export function resetCartLineSequence() {
   if (useCartStore.getState().items.length === 0) {
@@ -331,41 +294,3 @@ export const useCartStore = create<CartState>()(
     }
   )
 );
-
-const NGN_PRICE_FORMATTER = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-/**
- * Format price in Naira
- */
-export function formatPrice(amount: number): string {
-  return NGN_PRICE_FORMATTER.format(amount);
-}
-
-let cachedCartItems: CartItem[] | null = null;
-let cachedCartQuantities = new Map<string, number>();
-
-/**
- * Memoized map of `product_id` → total quantity, rebuilt only when `items`
- * changes. Returns a read-only map (do not mutate the shared cache). Lets each
- * product card read its count in O(1) (a number primitive) instead of an
- * O(items) filter+reduce scan per card.
- */
-export function selectCartQuantities(state: {
-  items: CartItem[];
-}): ReadonlyMap<string, number> {
-  if (state.items !== cachedCartItems) {
-    cachedCartItems = state.items;
-    const next = new Map<string, number>();
-    for (const item of state.items) {
-      const key = String(item.product_id);
-      next.set(key, (next.get(key) ?? 0) + item.quantity);
-    }
-    cachedCartQuantities = next;
-  }
-  return cachedCartQuantities;
-}

@@ -8,11 +8,9 @@ jest.mock('../lib/storage', () => ({
   },
 }));
 
-import {
-  type CartItem,
-  selectCartQuantities,
-  useCartStore,
-} from './cart-store';
+import { useCartStore } from './cart-store';
+import type { CartItem } from './cart-store.types';
+import { formatPrice, selectCartQuantities } from './cart-store-selectors';
 
 function cartItem(id: string, productId: string, quantity: number): CartItem {
   return {
@@ -26,6 +24,10 @@ function cartItem(id: string, productId: string, quantity: number): CartItem {
 }
 
 describe('selectCartQuantities', () => {
+  it('formats naira prices without fractional digits', () => {
+    expect(formatPrice(470000)).toBe('₦470,000');
+  });
+
   beforeEach(() => {
     useCartStore.setState({ items: [], isLoading: false, lineSequence: 0 });
   });
