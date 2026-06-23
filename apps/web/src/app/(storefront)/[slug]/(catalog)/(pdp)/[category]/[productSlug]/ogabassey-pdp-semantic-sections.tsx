@@ -2,6 +2,7 @@ import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/p
 import { getCachedCategoryPageData } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { getPublishedProductGuidePosts } from '@/lib/storefront-content/get-published-product-guide-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
 
@@ -30,10 +31,14 @@ export async function OgabasseyPdpSemanticSections({
   storeUrl,
   trustBullets,
 }: OgabasseyPdpSemanticSectionsProps) {
-  const [categoryPageData, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(merchant.id, categorySlug, storeSlug),
-    getPublishedClusterPosts(merchant.id),
-  ]);
+  const productId = String(product.id || '');
+  const [categoryPageData, clusterGuidePosts, productGuidePosts] =
+    await Promise.all([
+      getCachedCategoryPageData(merchant.id, categorySlug, storeSlug),
+      getPublishedClusterPosts(merchant.id),
+      getPublishedProductGuidePosts(merchant.id, productId),
+    ]);
+  const guidePosts = mergeGuidePosts(productGuidePosts, clusterGuidePosts);
   const inventory = (
     categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
   )
@@ -97,4 +102,23 @@ function toProductSemanticCandidate(
     category_slug: product.category_slug,
     product_key_specs: product.product_key_specs,
   };
+}
+
+function mergeGuidePosts<T extends { slug: string }>(
+  priorityPosts: T[],
+  fallbackPosts: T[]
+): T[] {
+  const seen = new Set<string>();
+  const merged: T[] = [];
+
+  for (const post of [...priorityPosts, ...fallbackPosts]) {
+    if (!post.slug || seen.has(post.slug)) {
+      continue;
+    }
+
+    seen.add(post.slug);
+    merged.push(post);
+  }
+
+  return merged;
 }

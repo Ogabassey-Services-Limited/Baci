@@ -18,6 +18,50 @@ describe('inferContentClusterContext', () => {
     });
   });
 
+  it('infers expanded Ogabassey verticals from category and article terms', () => {
+    expect(
+      inferContentClusterContext({
+        title: 'JBL Charge 6 vs Soundbar: Which Audio Device Fits Your Room?',
+        excerpt: 'Bluetooth speaker and soundbar buying guide.',
+        category: 'Audio',
+        tags: ['jbl', 'speaker'],
+        keywords: ['bluetooth', 'soundbar'],
+      })
+    ).toMatchObject({
+      categorySlug: 'audio',
+      kind: 'decision-support',
+      brands: ['jbl'],
+    });
+
+    expect(
+      inferContentClusterContext({
+        title: 'HP LaserJet Printer Setup and Toner Buying Guide',
+        excerpt: 'Wireless office printer maintenance and cartridge context.',
+        category: 'Printers',
+        tags: ['hp', 'printer'],
+        keywords: ['toner', 'wireless'],
+      })
+    ).toMatchObject({
+      categorySlug: 'printers',
+      kind: 'buyer-guide',
+      brands: ['hp'],
+    });
+
+    expect(
+      inferContentClusterContext({
+        title: 'PlayStation 5 Disc Edition vs Digital Edition',
+        excerpt: 'PS5 console bundle decision guide.',
+        category: 'PlayStation 5',
+        tags: ['ps5', 'playstation'],
+        keywords: ['console', 'dualsense'],
+      })
+    ).toMatchObject({
+      categorySlug: 'playstation-5',
+      kind: 'decision-support',
+      brands: ['playstation'],
+    });
+  });
+
   it('returns nulls when category and intent cannot be inferred', () => {
     expect(
       inferContentClusterContext({
