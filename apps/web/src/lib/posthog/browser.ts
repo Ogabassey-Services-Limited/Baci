@@ -79,12 +79,28 @@ function applyPostHogFlagDisableConfig(
   }
 }
 
+function isLeavingLightweightPostHogMode(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  return previousLightweight === true && nextLightweight === false;
+}
+
 function maybeReloadPostHogFeatureFlags(
   previousLightweight: boolean | undefined,
   nextLightweight: boolean
 ) {
-  if (previousLightweight === true && nextLightweight === false) {
+  if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
     posthog.reloadFeatureFlags();
+  }
+}
+
+function maybeStartPostHogWebVitals(
+  previousLightweight: boolean | undefined,
+  nextLightweight: boolean
+) {
+  if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
+    posthog.webVitalsAutocapture?.startIfEnabled();
   }
 }
 
@@ -120,6 +136,7 @@ export function initializePostHogBrowser(
       posthog.set_config(runtimeConfig);
       lastConfiguredPostHogLightweight = lightweight;
       maybeReloadPostHogFeatureFlags(previousLightweight, lightweight);
+      maybeStartPostHogWebVitals(previousLightweight, lightweight);
     }
     return;
   }

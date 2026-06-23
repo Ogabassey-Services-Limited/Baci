@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
   const posthogInit = vi.fn();
   const posthogReloadFeatureFlags = vi.fn();
   const posthogSetConfig = vi.fn();
+  const webVitalsStartIfEnabled = vi.fn();
   const buildPostHogClientConfig = vi.fn(
     (_env: unknown, _token: unknown, options?: { lightweight?: boolean }) => ({
       advanced_disable_flags: options?.lightweight === true,
@@ -21,6 +22,9 @@ const mocks = vi.hoisted(() => {
     init: posthogInit,
     reloadFeatureFlags: posthogReloadFeatureFlags,
     set_config: posthogSetConfig,
+    webVitalsAutocapture: {
+      startIfEnabled: webVitalsStartIfEnabled,
+    },
   };
 
   return {
@@ -31,6 +35,7 @@ const mocks = vi.hoisted(() => {
     posthogInit,
     posthogReloadFeatureFlags,
     posthogSetConfig,
+    webVitalsStartIfEnabled,
   };
 });
 
@@ -109,6 +114,7 @@ describe('initializePostHogBrowser', () => {
     );
     expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
+    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
   });
 
   it('requests the lightweight config on public blog surfaces without locking init-time flag config', async () => {
@@ -147,6 +153,7 @@ describe('initializePostHogBrowser', () => {
         Number.POSITIVE_INFINITY
     );
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
+    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
   });
@@ -182,6 +189,7 @@ describe('initializePostHogBrowser', () => {
       api_host: '/baci-relay',
     });
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
+    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
   });
@@ -221,6 +229,10 @@ describe('initializePostHogBrowser', () => {
       api_host: '/baci-relay',
     });
     expect(mocks.posthogReloadFeatureFlags).toHaveBeenCalledOnce();
+    expect(mocks.webVitalsStartIfEnabled).toHaveBeenCalledOnce();
+    expect(
+      mocks.webVitalsStartIfEnabled.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(mocks.posthogSetConfig.mock.invocationCallOrder[1] ?? 0);
 
     vi.unstubAllGlobals();
   });
