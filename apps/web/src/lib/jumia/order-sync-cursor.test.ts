@@ -34,8 +34,21 @@ function createResult(orderErrors: number): JumiaOrderSyncResult {
 }
 
 function createUpdateClient(error: { message: string } | null = null) {
-  const eq = vi.fn(() => Promise.resolve({ error }));
-  const update = vi.fn(() => ({ eq }));
+  const eq = vi.fn();
+  const scopedQuery = {
+    eq: vi.fn((column: string, value: unknown) => {
+      eq(column, value);
+      return Promise.resolve({ error });
+    }),
+  };
+  const query = {
+    eq: vi.fn((column: string, value: unknown) => {
+      eq(column, value);
+      return scopedQuery;
+    }),
+  };
+
+  const update = vi.fn(() => query);
   const client = {
     from: vi.fn(() => ({ update })),
   } as unknown as SupabaseClient;
@@ -44,7 +57,7 @@ function createUpdateClient(error: { message: string } | null = null) {
 
 describe('persistJumiaSyncCursor', () => {
   it('parks the cursor at the earliest failed order after partial progress', async () => {
-    const { client, update } = createUpdateClient();
+    const { client, eq, update } = createUpdateClient();
 
     await persistJumiaSyncCursor({
       earliestFailedSyncAt: '2026-06-22T10:05:00.000Z',
@@ -62,6 +75,8 @@ describe('persistJumiaSyncCursor', () => {
         sync_error: expect.stringContaining('cursor parked'),
       })
     );
+    expect(eq).toHaveBeenCalledWith('id', 'integration-1');
+    expect(eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
   });
 
   it('advances the cursor only after the full-failure retry threshold', async () => {

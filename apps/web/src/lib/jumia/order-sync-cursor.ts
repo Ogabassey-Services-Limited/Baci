@@ -84,7 +84,8 @@ export async function persistJumiaSyncCursor({
   const { error: syncError } = await supabase
     .from('marketplace_integrations')
     .update(syncUpdate)
-    .eq('id', integration.id);
+    .eq('id', integration.id)
+    .eq('merchant_id', integration.merchant_id);
   if (syncError) {
     throw new JumiaSyncCursorUpdateError(
       `Failed to update Jumia sync cursor: ${syncError.message}`,
