@@ -24,6 +24,13 @@ export interface MerchantNotificationContext {
   email: string | null;
   brand_colors?: MerchantBrandColors | null;
   logo_url?: string | null;
+  /**
+   * Optional fully-opaque transactional-email logo (white plate baked into the
+   * pixels — `merchants.email_logo_url`). When set it is rendered directly with
+   * no white chip so it survives dark-mode-inverting clients (the Gmail app
+   * ignores CSS chip hardening). When null, {@link logo_url} is used on a chip.
+   */
+  email_logo_url?: string | null;
 }
 
 export interface ReceiptNotificationDeliveryConfig {
@@ -81,42 +88,20 @@ function emailSafeLogoUrl(logoUrl: string | null | undefined): string {
 }
 
 /**
- * Dedicated, fully OPAQUE Ogabassey email logo (wordmark flattened onto a solid
- * white plate — no alpha channel). The Gmail mobile app force-applies dark-mode
- * inversion and ignores `color-scheme` / `forced-color-adjust` /
- * `prefers-color-scheme`, so the transparent `logo_url` rendered on a CSS white
- * chip lands black-on-black once Gmail darkens the chip. Gmail never inverts the
- * pixels *inside* an image, so an opaque plate stays readable. Shared with the
- * auth email (send-auth-email edge function) — keep the asset in sync.
- */
-const OGABASSEY_EMAIL_LOGO_URL =
-  'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
-
-function isOgabasseyMerchant(merchant: MerchantNotificationContext): boolean {
-  const slug = merchant.slug.trim().toLowerCase();
-  const domain = merchant.custom_domain
-    ?.trim()
-    .toLowerCase()
-    .replace(/\/$/, '');
-
-  return (
-    slug === 'ogabassey' ||
-    domain === 'ogabassey.com' ||
-    domain === 'www.ogabassey.com'
-  );
-}
-
-/**
- * Resolve the header logo for a merchant. Ogabassey gets the dedicated opaque
- * plate (dark-mode-safe, rendered with no white chip); everyone else falls back
- * to their raster `logo_url` shown on a white chip.
+ * Resolve the header logo for a merchant. When the merchant has configured a
+ * dedicated opaque email logo (`merchants.email_logo_url` — a white plate baked
+ * into the pixels) it is rendered directly with no white chip, which keeps it
+ * readable in dark-mode-inverting clients (the Gmail app ignores CSS chip
+ * hardening). Otherwise the merchant's raster `logo_url` is shown on a white
+ * chip. Fully data-driven and merchant-agnostic — no per-tenant branches.
  */
 function resolveReceiptLogo(merchant: MerchantNotificationContext): {
   logoUrl: string;
   logoIsOpaque: boolean;
 } {
-  if (isOgabasseyMerchant(merchant)) {
-    return { logoUrl: OGABASSEY_EMAIL_LOGO_URL, logoIsOpaque: true };
+  const opaqueLogo = emailSafeLogoUrl(merchant.email_logo_url);
+  if (opaqueLogo) {
+    return { logoUrl: opaqueLogo, logoIsOpaque: true };
   }
   return { logoUrl: emailSafeLogoUrl(merchant.logo_url), logoIsOpaque: false };
 }

@@ -151,10 +151,11 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('alt="Future Merchant"');
   });
 
-  it('uses the dedicated opaque Ogabassey logo with no white chip (Gmail dark-mode safe)', () => {
+  it('renders a configured opaque email_logo_url directly with no white chip (Gmail dark-mode safe)', () => {
     // The merchant's own logo_url is a transparent PNG; Gmail's app darkens the
-    // white CSS chip behind it and the dark wordmark lands black-on-black. For
-    // Ogabassey we render a dedicated fully-opaque plate directly instead.
+    // white CSS chip behind it and the dark wordmark lands black-on-black. When
+    // a merchant configures a dedicated opaque email_logo_url, we render that
+    // plate directly instead (data-driven, no per-tenant branch).
     const transparentMerchantLogo =
       'https://cdn.ogabassey.com/media/ogabassey-logo.png';
     const opaqueEmailLogo =
@@ -165,6 +166,7 @@ describe('import notification email content', () => {
       merchant: {
         ...merchant,
         logo_url: transparentMerchantLogo,
+        email_logo_url: opaqueEmailLogo,
       },
       recipientName: 'Ada',
       delivery,
@@ -180,6 +182,26 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain(
       `<img src="${transparentMerchantLogo}"`
     );
+  });
+
+  it('falls back to the chip logo when no email_logo_url is configured', () => {
+    const merchantLogoUrl = 'https://cdn.example.com/media/merchant-logo.png';
+    const delivery = appFirstDelivery(merchant);
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant: {
+        ...merchant,
+        logo_url: merchantLogoUrl,
+        email_logo_url: null,
+      },
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
+      devices: ['iPhone 16 Pro Max'],
+    });
+
+    expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
+    expect(content.htmlContent).toContain('class="r-logo-chip"');
   });
 
   it('keeps configured logos for merchants with similar names', () => {
