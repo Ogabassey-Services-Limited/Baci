@@ -175,7 +175,7 @@ The QR code can be scanned by the NRS MBS360 mobile app for verification.
 NRS provides an official npm package to simplify integration:
 
 ```bash
-npm install firs-einvoicing
+pnpm add firs-einvoicing
 ```
 
 The `firs-einvoicing` package handles invoice decryption, QR code generation, and other integration tasks.

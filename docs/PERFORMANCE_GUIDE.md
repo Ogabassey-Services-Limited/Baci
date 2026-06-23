@@ -174,8 +174,8 @@ With these optimizations:
 ### **Lighthouse CI**
 
 ```bash
-npm run build
-npx lighthouse http://localhost:3000 --view
+pnpm turbo build
+pnpm dlx lighthouse http://localhost:3000 --view
 ```
 
 ### **Web Vitals (Production)**
@@ -214,7 +214,7 @@ Already configured with Vercel Analytics - check dashboard.
 
 ### Bundle size not improving?
 
-- Run `npm run build` to see production bundle sizes
+- Run `pnpm turbo build` to see production bundle sizes
 - Check `optimizePackageImports` is working (tree-shaking)
 
 ---

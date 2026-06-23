@@ -128,7 +128,7 @@ This section provides quick navigation and critical information for AI assistant
 |------|--------|
 | 1 | Read `/src/ai/flows/_AI_README.md` for flow details |
 | 2 | Locate flow file in `/src/ai/flows/` |
-| 3 | Test in Genkit Dev UI: `npm run genkit:dev` → http://localhost:4000 |
+| 3 | Test in Genkit Dev UI: `pnpm turbo genkit:dev` → http://localhost:4000 |
 | 4 | Search for callers: `grep -r "flowName" src/` |
 | 5 | Update callers if schema changed |
 | 6 | Test with all business types |
@@ -195,7 +195,7 @@ This section provides quick navigation and critical information for AI assistant
 **⚠️ When changing AI flows:**
 - DO NOT change input/output schemas without updating ALL callers
 - Use `grep -r "flowName" src/` to find callers
-- Test in Genkit Dev UI first: `npm run genkit:dev`
+- Test in Genkit Dev UI first: `pnpm turbo genkit:dev`
 - Update TypeScript types if schema changes
 - Test error handling paths
 
@@ -361,13 +361,13 @@ User Navigates to /dashboard/products/add
 
 ```bash
 # Type check
-npm run typecheck
+pnpm turbo typecheck
 
 # Dev server
-npm run dev  # http://localhost:9002
+pnpm turbo dev  # http://localhost:9002
 
 # Genkit Dev UI (test AI flows)
-npm run genkit:dev  # http://localhost:4000
+pnpm turbo genkit:dev  # http://localhost:4000
 ```
 
 #### What to Test
@@ -436,8 +436,8 @@ npm run genkit:dev  # http://localhost:4000
 
 3. **Test your changes:**
    - Use Genkit Dev UI for AI flows
-   - Run `npm run typecheck` for type errors
-   - Test in browser: `npm run dev`
+   - Run `pnpm turbo typecheck` for type errors
+   - Test in browser: `pnpm turbo dev`
 
 4. **Ask the user:**
    - If documentation is unclear
