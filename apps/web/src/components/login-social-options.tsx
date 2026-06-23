@@ -82,6 +82,7 @@ export function LoginSocialOptions({
 
       {isPasskeyEnabled && (
         <Button
+          type="button"
           variant="outline"
           className={`mb-4 w-full ${SOCIAL_BUTTON_STYLES}`}
           onClick={onPasskeySignIn}
@@ -98,6 +99,7 @@ export function LoginSocialOptions({
 
       <div className="grid grid-cols-2 gap-4">
         <Button
+          type="button"
           variant="outline"
           className={SOCIAL_BUTTON_STYLES}
           onClick={onGoogleSignIn}
@@ -112,6 +114,7 @@ export function LoginSocialOptions({
         </Button>
 
         <Button
+          type="button"
           variant="outline"
           className={SOCIAL_BUTTON_STYLES}
           onClick={onAppleSignIn}

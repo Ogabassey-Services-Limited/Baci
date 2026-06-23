@@ -21,7 +21,6 @@ additional_redirect_urls = [
   "https://baci-*-ogabasseyy-basseys-projects-d7395611.vercel.app",
   "https://baci-*-ogabasseyy-basseys-projects-d7395611.vercel.app/**",
   "https://ogabassey.com/account/callback",
-  "exp://192.168.100.196:8082/--/auth/callback",
   "ogabassey://auth/callback/",
   "ogabassey://auth/callback",
   "ogabassey://**",

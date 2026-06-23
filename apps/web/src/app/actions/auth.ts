@@ -241,6 +241,20 @@ export async function verifyMerchantPasswordlessLoginAction(
   _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
+  const rateLimitAllowed = await ensureActionRateLimit(
+    'merchant-passwordless-verify',
+    {
+      requests: 5,
+      windowMs: 60_000,
+    }
+  );
+  if (!rateLimitAllowed) {
+    return {
+      error: 'Too many verification attempts. Please try again later.',
+      success: false,
+    };
+  }
+
   const redirectEntry = formData.get('redirectTo');
   const emailEntry = formData.get('email');
   const redirectTo = sanitizeRelativeRedirectPath(

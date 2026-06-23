@@ -38,7 +38,9 @@ export const sendCodeSchema = z.object({
 export const verifyCodeSchema = z.object({
   audience: storefrontAuthAudienceSchema,
   captchaToken: z.string().trim().min(1).max(4096).optional(),
-  email: z.email({ error: 'Please enter a valid email address.' }),
+  email: z
+    .email({ error: 'Please enter a valid email address.' })
+    .max(254, 'Email too long'),
   token: z.string().regex(/^\d{6}$/, 'Verification code must be 6 digits'),
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
 });
@@ -47,12 +49,16 @@ export type SendCodeValues = z.infer<typeof sendCodeSchema>;
 export type VerifyCodeValues = z.infer<typeof verifyCodeSchema>;
 
 export const merchantPasswordlessSendSchema = z.object({
-  email: z.email({ error: 'Please enter a valid email address.' }),
+  email: z
+    .email({ error: 'Please enter a valid email address.' })
+    .max(254, 'Email too long'),
   redirectTo: z.string().optional(),
 });
 
 export const merchantPasswordlessVerifySchema = z.object({
-  email: z.email({ error: 'Please enter a valid email address.' }),
+  email: z
+    .email({ error: 'Please enter a valid email address.' })
+    .max(254, 'Email too long'),
   redirectTo: z.string().optional(),
   token: z.string().regex(/^\d{6}$/, 'Verification code must be 6 digits'),
 });

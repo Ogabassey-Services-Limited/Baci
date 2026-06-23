@@ -303,6 +303,7 @@ describe('sendMerchantPasswordlessLoginAction', () => {
 describe('verifyMerchantPasswordlessLoginAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnsureActionRateLimit.mockResolvedValue(true);
     mockVerifyOtp.mockResolvedValue({ error: null });
   });
 
@@ -343,5 +344,23 @@ describe('verifyMerchantPasswordlessLoginAction', () => {
         'We could not verify that code. Please request a new one and try again.',
       success: false,
     });
+  });
+
+  it('blocks verification when the rate limit is exceeded', async () => {
+    mockEnsureActionRateLimit.mockResolvedValueOnce(false);
+
+    const result = await verifyMerchantPasswordlessLoginAction(
+      prevState,
+      makeFormData({
+        email: 'merchant@example.com',
+        token: '123456',
+      })
+    );
+
+    expect(result).toEqual({
+      error: 'Too many verification attempts. Please try again later.',
+      success: false,
+    });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
 });
