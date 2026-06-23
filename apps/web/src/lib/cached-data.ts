@@ -3138,7 +3138,7 @@ export async function getCachedStorefrontHomeProducts(
   const supabase = getPublicSupabaseClient();
   const productsTable = storefrontHomeProductsTable(supabase);
   const homeProductSelect = `
-      id, name, slug, description, price, compare_at_price,
+      id, name, slug, description, price, compare_at_price, created_at,
       images, category, brand, condition, stock, stock_quantity,
       manage_stock, low_stock_threshold,
       product_categories(categories(name, slug))

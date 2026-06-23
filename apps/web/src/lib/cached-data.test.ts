@@ -552,6 +552,8 @@ describe('getCachedStorefrontHomeProducts', () => {
 
     await getCachedStorefrontHomeProducts('merchant-1');
 
+    const selectedColumns = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
+    expect(selectedColumns).toContain('created_at');
     expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
     expect(harness.mockOrder).toHaveBeenCalledTimes(1);
