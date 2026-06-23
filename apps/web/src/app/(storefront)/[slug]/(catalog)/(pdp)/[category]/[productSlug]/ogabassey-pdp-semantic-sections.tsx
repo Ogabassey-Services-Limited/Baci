@@ -29,11 +29,13 @@ export async function OgabasseyPdpSemanticSections({
   // Strict, cache-isolated fetch: throws on a transient inventory failure so a
   // link-poor result is never cached (stale-while-revalidate serves last-good).
   // Rendered behind a Suspense + error boundary by the caller. `inventory` is
-  // already normalized to ProductSemanticCandidate[] inside the cached unit.
+  // already normalized to ProductSemanticCandidate[] inside the cached unit, and
+  // product-linked guides are merged ahead of broader cluster guides there.
   const { inventory, guidePosts } = await getCachedProductSeoLinkData(
     merchant.id,
     categorySlug,
-    storeSlug
+    storeSlug,
+    String(product.id || '')
   );
   const semanticModel = buildProductSemanticModel({
     storeUrl,

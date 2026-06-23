@@ -2,6 +2,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { getCachedCategoryPageData } from '@/lib/cached-data';
 import type { PublishedClusterPost } from '@/lib/storefront-content/content-cluster-types';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { getPublishedProductGuidePosts } from '@/lib/storefront-content/get-published-product-guide-posts';
 import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
 
 export interface ProductSeoLinkData {
@@ -32,23 +33,30 @@ export interface ProductSeoLinkData {
  *   so the cold-cache case (no last-good value yet + a transient failure)
  *   degrades to "no semantic links" instead of failing the whole PDP.
  *
- * NOTE (prototype): only the inventory path is made strict here. The guide-post
- * fetch still fails open (returns []); giving it the same flag + strict
+ * NOTE (prototype): only the inventory path is made strict here. Guide-post
+ * fetches still fail open (return []); giving them the same flag + strict
  * treatment is a follow-up.
  */
 export async function getCachedProductSeoLinkData(
   merchantId: string,
   categorySlug: string,
-  storeSlug: string
+  storeSlug: string,
+  productId = ''
 ): Promise<ProductSeoLinkData> {
   'use cache: remote';
   cacheLife('products');
-  cacheTag('products', `seo-links-${merchantId}-${categorySlug}`);
+  cacheTag(
+    'products',
+    `seo-links-${merchantId}-${categorySlug}-${productId || 'category'}`
+  );
 
-  const [categoryPageData, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(merchantId, categorySlug, storeSlug),
-    getPublishedClusterPosts(merchantId),
-  ]);
+  const [categoryPageData, clusterGuidePosts, productGuidePosts] =
+    await Promise.all([
+      getCachedCategoryPageData(merchantId, categorySlug, storeSlug),
+      getPublishedClusterPosts(merchantId),
+      getPublishedProductGuidePosts(merchantId, productId),
+    ]);
+  const guidePosts = mergeGuidePosts(productGuidePosts, clusterGuidePosts);
 
   // `productsQueryFailed` only exists on the non-collection result shape.
   const productResult =
@@ -100,4 +108,23 @@ function toProductSemanticCandidate(
     category_slug: product.category_slug,
     product_key_specs: product.product_key_specs,
   };
+}
+
+function mergeGuidePosts<T extends { slug: string }>(
+  priorityPosts: T[],
+  fallbackPosts: T[]
+): T[] {
+  const seen = new Set<string>();
+  const merged: T[] = [];
+
+  for (const post of [...priorityPosts, ...fallbackPosts]) {
+    if (!post.slug || seen.has(post.slug)) {
+      continue;
+    }
+
+    seen.add(post.slug);
+    merged.push(post);
+  }
+
+  return merged;
 }

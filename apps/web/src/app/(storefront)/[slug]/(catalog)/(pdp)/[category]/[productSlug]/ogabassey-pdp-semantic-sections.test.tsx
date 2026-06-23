@@ -68,7 +68,10 @@ describe('OgabasseyPdpSemanticSections', () => {
           product_key_specs: { ram_gb: 18 },
         },
       ],
-      guidePosts: [{ slug: 'best-laptops', title: 'Best laptops' }],
+      guidePosts: [
+        { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+        { slug: 'best-laptops', title: 'Best laptops' },
+      ],
     });
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: ['Model trust bullet'],
@@ -98,13 +101,17 @@ describe('OgabasseyPdpSemanticSections', () => {
     expect(mockGetCachedProductSeoLinkData).toHaveBeenCalledWith(
       'merchant-1',
       'laptops',
-      'ogabassey'
+      'ogabassey',
+      'prod-1'
     );
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({
         categorySlug: 'laptops',
         currentProduct: expect.objectContaining({ slug: 'lenovo-legion' }),
-        guidePosts: [{ slug: 'best-laptops', title: 'Best laptops' }],
+        guidePosts: [
+          { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+          { slug: 'best-laptops', title: 'Best laptops' },
+        ],
         inventory: [
           expect.objectContaining({
             slug: 'macbook-pro',

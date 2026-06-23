@@ -7,10 +7,62 @@ import type {
 import { inferContentClusterContext } from './infer-content-cluster-context';
 
 const COLLECTION_HEADINGS: Record<SupportedClusterCategory, string> = {
-  smartphones: 'Smartphone buying guides',
+  accessories: 'Accessory buying guides',
+  audio: 'Audio buying guides',
+  'childrens-tablets': 'Kids tablet buying guides',
+  desktops: 'Desktop buying guides',
+  earbuds: 'Earbud buying guides',
+  gaming: 'Gaming buying guides',
+  'gaming-accessories': 'Gaming accessory guides',
+  'gaming-laptops': 'Gaming laptop buying guides',
+  'gift-cards': 'Gift card guides',
   laptops: 'Laptop buying guides',
+  'lg-tvs': 'LG TV buying guides',
+  monitors: 'Monitor buying guides',
+  'nintendo-switch': 'Nintendo Switch buying guides',
+  'nintendo-switch-2': 'Nintendo Switch 2 buying guides',
+  'playstation-4': 'PlayStation 4 buying guides',
+  'playstation-5': 'PlayStation 5 buying guides',
+  'portable-gaming': 'Portable gaming guides',
+  printers: 'Printer buying guides',
+  'samsung-tvs': 'Samsung TV buying guides',
   'smart-tvs': 'Smart TV buying guides',
+  smartphones: 'Smartphone buying guides',
+  smartwatches: 'Smartwatch buying guides',
+  tablets: 'Tablet buying guides',
+  'vr-headsets': 'VR headset buying guides',
+  wearables: 'Wearable buying guides',
+  xbox: 'Xbox buying guides',
 };
+
+const COLLECTION_ORDER: SupportedClusterCategory[] = [
+  'smartphones',
+  'laptops',
+  'gaming-laptops',
+  'tablets',
+  'audio',
+  'earbuds',
+  'smartwatches',
+  'wearables',
+  'gaming',
+  'playstation-5',
+  'playstation-4',
+  'nintendo-switch',
+  'nintendo-switch-2',
+  'portable-gaming',
+  'xbox',
+  'gift-cards',
+  'printers',
+  'monitors',
+  'samsung-tvs',
+  'lg-tvs',
+  'smart-tvs',
+  'accessories',
+  'gaming-accessories',
+  'desktops',
+  'childrens-tablets',
+  'vr-headsets',
+];
 
 function toPublishedTimestamp(value: string | null) {
   return value ? new Date(value).getTime() : 0;
@@ -51,41 +103,38 @@ export function buildBlogClusterCollections(input: {
     grouped.set(inferred.categorySlug, guides);
   }
 
-  return (['smartphones', 'laptops', 'smart-tvs'] as SupportedClusterCategory[])
-    .map((categorySlug) => {
-      const guides = (grouped.get(categorySlug) ?? [])
-        .slice()
-        .sort((left, right) => {
-          const leftPublished = toPublishedTimestamp(
-            input.posts.find(
-              (post) => `${input.storeUrl}/blog/${post.slug}` === left.href
-            )?.published_at ?? null
-          );
-          const rightPublished = toPublishedTimestamp(
-            input.posts.find(
-              (post) => `${input.storeUrl}/blog/${post.slug}` === right.href
-            )?.published_at ?? null
-          );
+  return COLLECTION_ORDER.map((categorySlug) => {
+    const guides = (grouped.get(categorySlug) ?? [])
+      .slice()
+      .sort((left, right) => {
+        const leftPublished = toPublishedTimestamp(
+          input.posts.find(
+            (post) => `${input.storeUrl}/blog/${post.slug}` === left.href
+          )?.published_at ?? null
+        );
+        const rightPublished = toPublishedTimestamp(
+          input.posts.find(
+            (post) => `${input.storeUrl}/blog/${post.slug}` === right.href
+          )?.published_at ?? null
+        );
 
-          return (
-            rightPublished - leftPublished ||
-            left.href.localeCompare(right.href)
-          );
-        })
-        .slice(0, 3);
+        return (
+          rightPublished - leftPublished || left.href.localeCompare(right.href)
+        );
+      })
+      .slice(0, 3);
 
-      if (guides.length < 2) {
-        return null;
-      }
+    if (guides.length < 2) {
+      return null;
+    }
 
-      return {
-        categorySlug,
-        heading: COLLECTION_HEADINGS[categorySlug],
-        categoryHref: `${input.storeUrl}/${categorySlug}`,
-        guides,
-      } satisfies BlogClusterCollection;
-    })
-    .filter((collection): collection is BlogClusterCollection =>
-      Boolean(collection)
-    );
+    return {
+      categorySlug,
+      heading: COLLECTION_HEADINGS[categorySlug],
+      categoryHref: `${input.storeUrl}/${categorySlug}`,
+      guides,
+    } satisfies BlogClusterCollection;
+  }).filter((collection): collection is BlogClusterCollection =>
+    Boolean(collection)
+  );
 }
