@@ -25,7 +25,7 @@ interface LoginOtpStepProps {
   isLoading: boolean;
   isMountedRef: RefObject<boolean>;
   isVerifyingRef: RefObject<boolean>;
-  onResendOtp: () => Promise<boolean | void>;
+  onResendOtp: () => Promise<boolean | undefined>;
   otp: string;
   otpError: string | null;
   otpInputRef: RefObject<TextInput | null>;

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { CONFIG } from '../lib/config';
+import type { AuthState } from './auth-store.types';
 import { createAccountActions } from './auth-store-account';
 import { createCredentialActions } from './auth-store-credentials';
 import {
@@ -7,7 +8,6 @@ import {
   createInitializeAction,
 } from './auth-store-initialize';
 import { createOAuthActions } from './auth-store-oauth';
-import type { AuthState, Customer } from './auth-store.types';
 
 export type { AuthState, Customer } from './auth-store.types';
 

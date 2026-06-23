@@ -3,8 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import type { AuthState, AuthStoreGet, AuthStoreSet } from './auth-store.types';
 import type { StorefrontOtpApi } from './auth-store-credentials';
 
-const mockSendStorefrontOtp =
-  jest.fn<StorefrontOtpApi['sendStorefrontOtp']>();
+const mockSendStorefrontOtp = jest.fn<StorefrontOtpApi['sendStorefrontOtp']>();
 const mockVerifyStorefrontOtp =
   jest.fn<StorefrontOtpApi['verifyStorefrontOtp']>();
 const mockSetSession = jest.fn<StorefrontOtpApi['setSession']>();

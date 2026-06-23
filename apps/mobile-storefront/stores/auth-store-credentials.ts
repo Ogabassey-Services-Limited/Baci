@@ -3,8 +3,8 @@ import {
   verifyStorefrontOtp,
 } from '@/lib/storefront-auth-api';
 import { supabase } from '../lib/supabase';
-import { syncAuthenticatedState } from './auth-store-sync';
 import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
+import { syncAuthenticatedState } from './auth-store-sync';
 
 export type StorefrontOtpApi = {
   sendStorefrontOtp: typeof sendStorefrontOtp;

@@ -1,6 +1,6 @@
 import { EXPO_PUBLIC_API_URL } from '@/env';
-import { CONFIG } from './config';
 import { resolveApiBaseUrl } from './api-url';
+import { CONFIG } from './config';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -111,7 +111,7 @@ async function postStorefrontAuth<T>(
   }
 }
 
-export async function sendStorefrontOtp(
+export function sendStorefrontOtp(
   email: string
 ): Promise<StorefrontAuthApiResult> {
   return postStorefrontAuth(
@@ -126,7 +126,7 @@ export async function sendStorefrontOtp(
   );
 }
 
-export async function verifyStorefrontOtp(
+export function verifyStorefrontOtp(
   email: string,
   token: string
 ): Promise<StorefrontAuthApiResult<NativeOtpSession>> {

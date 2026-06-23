@@ -37,6 +37,12 @@ function buildMerchantLoginRedirectUrl(redirectTo: string): string {
   return url.toString();
 }
 
+type NextRedirectTarget = Parameters<typeof redirect>[0];
+
+function redirectToValidatedPath(path: string): never {
+  redirect(path as NextRedirectTarget);
+}
+
 /**
  * Server action for email/password login
  * Works with useActionState for progressive enhancement
@@ -99,9 +105,8 @@ export async function loginAction(
     };
   }
 
-  // Redirect on success - this will throw and interrupt the response
-  // biome-ignore lint/suspicious/noExplicitAny: Next.js redirect needs Route type if typed routes are enabled
-  redirect(redirectTo as any);
+  // Redirect on success - this will throw and interrupt the response.
+  redirectToValidatedPath(redirectTo);
 }
 
 /**
@@ -308,6 +313,5 @@ export async function verifyMerchantPasswordlessLoginAction(
     };
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: Next.js redirect needs Route type if typed routes are enabled
-  redirect(redirectTo as any);
+  redirectToValidatedPath(redirectTo);
 }
