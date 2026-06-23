@@ -55,6 +55,11 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('Your receipt is now in the app');
     expect(content.htmlContent).toContain('On this receipt');
     expect(content.htmlContent).toContain('box-shadow');
+    expect(content.htmlContent).toContain('rgba(15,23,42,0.24)');
+    expect(content.htmlContent).not.toContain('rgba(214,32,39,0.32)');
+    expect(content.htmlContent).not.toContain(
+      'background-color:rgba(214,32,39,0.16)'
+    );
     expect(content.htmlContent).toContain('Powered by Baci');
     expect(content.htmlContent).toContain(
       'This ensures you can access the receipts for your devices purchased from us at any time in case you need them for support, warranty, or as proof of purchase.'

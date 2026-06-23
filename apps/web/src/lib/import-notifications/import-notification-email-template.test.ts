@@ -9,6 +9,22 @@ import {
 
 const BRAND = '#d62027';
 
+describe('hexToRgb', () => {
+  it('converts 6-digit and 3-digit hex to r,g,b', () => {
+    expect(hexToRgb('#d62027')).toBe('214,32,39');
+    expect(hexToRgb('#fff')).toBe('255,255,255');
+  });
+
+  it.each([
+    '#zzzzzz',
+    '#12',
+    '#12345g',
+    'rgba(214,32,39,0.32)',
+  ])('returns a safe fallback for malformed hex input %s', (hex) => {
+    expect(hexToRgb(hex)).toBe('0,0,0');
+  });
+});
+
 function baseInput(
   overrides: Partial<ReceiptEmailTemplateInput> = {}
 ): ReceiptEmailTemplateInput {
@@ -34,13 +50,6 @@ function baseInput(
     ...overrides,
   };
 }
-
-describe('hexToRgb', () => {
-  it('converts 6-digit and 3-digit hex to r,g,b', () => {
-    expect(hexToRgb('#d62027')).toBe('214,32,39');
-    expect(hexToRgb('#fff')).toBe('255,255,255');
-  });
-});
 
 describe('renderReceiptDeviceRows', () => {
   it('renders one numbered, brand-colored row per device', () => {
@@ -85,7 +94,8 @@ describe('renderReceiptCta', () => {
     expect(html).toContain('View your receipt');
     expect(html).toContain('box-shadow');
     expect(html).toContain(BRAND);
-    expect(html).toContain('rgba(214,32,39,0.32)'); // brand-derived shadow
+    expect(html).toContain('rgba(15,23,42,0.24)'); // neutral shadow avoids Gmail dark-mode red/orange shifts
+    expect(html).not.toContain('rgba(214,32,39,0.32)');
     expect(html).toContain('mso'); // Outlook VML fallback present
   });
 
@@ -116,8 +126,10 @@ describe('renderReceiptEmailHtml', () => {
   it('renders the eyebrow as a pill in the header', () => {
     const html = renderReceiptEmailHtml(baseInput({ eyebrow: 'Receipt' }));
 
-    // Eyebrow is a rounded, brand-tinted chip — not a separate status banner.
+    // Eyebrow is a rounded, brand-outlined chip — not a separate status banner.
     expect(html).toContain('border-radius:999px');
+    expect(html).toContain('background-color:#18181b');
+    expect(html).not.toContain('background-color:rgba(214,32,39,0.16)');
     expect(html).toContain('>Receipt</span>');
     expect(html).not.toContain('Receipt moved to app');
   });
@@ -144,6 +156,7 @@ describe('renderReceiptEmailHtml', () => {
 
     expect(html).toContain('@media (prefers-color-scheme:dark)');
     expect(html).toContain('content="light dark"');
+    expect(html).toContain('.r-logo-chip{background:#ffffff!important;');
   });
 
   it('renders the wordmark when no logo is provided', () => {
@@ -160,6 +173,8 @@ describe('renderReceiptEmailHtml', () => {
 
     expect(html).toContain('<img src="https://cdn.example.com/logo.png"');
     expect(html).toContain('alt="Ogabassey"');
-    expect(html).toContain('background-color:#ffffff'); // white chip behind the logo
+    expect(html).toContain('class="r-logo-chip"');
+    expect(html).toContain('background:#ffffff');
+    expect(html).toContain('background-color:#ffffff');
   });
 });
