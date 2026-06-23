@@ -15,6 +15,7 @@ import {
 import {
   getLastMockProps,
   mockProductDetailsBody,
+  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
@@ -204,6 +205,10 @@ describe('ProductDetailScreen variant pricing behavior', () => {
         expect.objectContaining({
           selectedColor: 'Sapphire Blue',
           selectedStorage: '128GB',
+        })
+      );
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+        expect.objectContaining({
           canPurchase: true,
         })
       );
@@ -231,6 +236,11 @@ describe('ProductDetailScreen variant pricing behavior', () => {
         })
       );
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+        expect.objectContaining({
+          selectedStorage: '256GB',
+        })
+      );
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })
