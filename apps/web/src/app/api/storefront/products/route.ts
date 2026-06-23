@@ -248,9 +248,7 @@ function createCachedProductsFetcher(
       }
 
       const products = await fetchProductRows();
-      return applyInMemoryStorefrontFilters(products, filters).map(
-        storefrontProductsRouteData.mapProduct
-      );
+      return products.map(storefrontProductsRouteData.mapProduct);
     },
     cacheKeyParts,
     {

@@ -228,6 +228,27 @@ describe('commerce-brain', () => {
     );
   });
 
+  it('does not fallback for VTU non-2xx edge responses', async () => {
+    const error = new Error('Edge Function returned a non-2xx status code');
+    mockState.invoke.mockResolvedValue({ data: null, error });
+
+    await expect(
+      calculateCommerce('calculate_vtu', {
+        amount: 1000,
+        provider: 'mtn',
+      })
+    ).rejects.toThrow('Edge Function returned a non-2xx status code');
+    expect(mockState.trackError).toHaveBeenCalledWith(
+      'commerce_brain_error',
+      'Edge Function returned a non-2xx status code',
+      expect.objectContaining({ action: 'calculate_vtu' })
+    );
+    expect(mockState.trackEvent).not.toHaveBeenCalledWith(
+      'commerce_brain_fallback',
+      expect.objectContaining({ action: 'calculate_vtu' })
+    );
+  });
+
   it('rethrows non-fallback order errors after tracking them', async () => {
     const error = new Error('Validation failed');
     mockState.invoke.mockResolvedValue({ data: null, error });

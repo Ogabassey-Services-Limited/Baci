@@ -17,6 +17,16 @@ vi.mock('posthog-node', () => ({
   }),
 }));
 
+const REDACTED_VALUE = '[Filtered]';
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
+
 describe('PostHog server exceptions', () => {
   const originalProjectToken = process.env.POSTHOG_PROJECT_TOKEN;
   const originalPublicToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -334,13 +344,3 @@ describe('PostHog server exceptions', () => {
     );
   });
 });
-
-const REDACTED_VALUE = '[Filtered]';
-
-function restoreEnv(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-}

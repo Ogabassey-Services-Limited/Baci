@@ -51,6 +51,8 @@ export function normalizeRemoteOrderTotals(
   };
 }
 
+// Safe only for `calculate_order`; VTU and loyalty non-2xx responses are
+// meaningful business errors and must not be converted to local totals.
 export function canFallbackToLocalOrderTotals(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
