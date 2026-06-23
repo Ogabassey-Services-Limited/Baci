@@ -10,3 +10,8 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+
+## 2024-06-23 — Hardcoded colors in mobile storefront categories screen
+**Learning:** Hardcoded `#FFF` used over `BRAND.primary` background and `#F3F4F6` for placeholder background breaks dark mode contrast and ignores the design system.
+**Action:** Use `BRAND.onPrimary` for text/icons displayed on a `BRAND.primary` background. Use dynamic tokens like `colors.muted` applied via inline styles for component backgrounds instead of hardcoded hex values in `StyleSheet.create`.
+**Source:** `apps/mobile-storefront/constants/Colors.ts`
