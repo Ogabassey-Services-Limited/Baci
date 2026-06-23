@@ -93,9 +93,7 @@ export default function CategoriesScreen() {
                     size={18}
                     color={BRAND.onPrimary}
                   />
-                  <Text
-                    style={[styles.retryButtonText, { color: BRAND.onPrimary }]}
-                  >
+                  <Text style={styles.retryButtonText}>
                     Try Again
                   </Text>
                 </>
@@ -235,6 +233,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
   },
   retryButtonText: {
+    color: BRAND.onPrimary,
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
   },

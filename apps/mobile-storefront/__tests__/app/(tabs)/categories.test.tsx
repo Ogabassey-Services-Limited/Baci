@@ -146,7 +146,7 @@ describe('CategoriesScreen', () => {
     expectTabShell();
   });
 
-  it('applies the on-primary token to retry button text', () => {
+  it('applies correct theme colors to error states', () => {
     mockUseNetworkState.mockReturnValue({ isOnline: true });
     mockUseCategories.mockReturnValue({
       data: [],
@@ -158,10 +158,9 @@ describe('CategoriesScreen', () => {
 
     render(<CategoriesScreen />);
 
-    expect(screen.getByText('Try Again').props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ color: BRAND.onPrimary }),
-      ])
+    const retryButtonText = screen.getByText('Try Again');
+    expect(retryButtonText.props.style).toEqual(
+      expect.objectContaining({ color: BRAND.onPrimary })
     );
   });
 });

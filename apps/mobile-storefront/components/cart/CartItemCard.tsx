@@ -207,7 +207,6 @@ export default function CartItemCard({
             onPress={() => handleQuantityChange(item, -1)}
             disabled={item.quantity <= 1}
             accessibilityRole="button"
-            accessibilityState={{ disabled: item.quantity <= 1 }}
             accessibilityLabel={`Decrease quantity for ${item.name}`}
           >
             <Ionicons
