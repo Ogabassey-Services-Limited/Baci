@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  hexToRgb,
   type ReceiptEmailTemplateInput,
   renderReceiptCta,
   renderReceiptDeviceRows,
@@ -8,23 +7,6 @@ import {
 } from '@/lib/import-notifications/import-notification-email-template';
 
 const BRAND = '#d62027';
-
-describe('hexToRgb', () => {
-  it('converts 6-digit and 3-digit hex to r,g,b', () => {
-    expect(hexToRgb('#d62027')).toBe('214,32,39');
-    expect(hexToRgb('#fff')).toBe('255,255,255');
-  });
-
-  it.each([
-    '#zzzzzz',
-    '#12',
-    '#12345g',
-    'rgba(214,32,39,0.32)',
-  ])('rejects malformed hex input %s', (hex) => {
-    expect(() => hexToRgb(hex)).toThrow(RangeError);
-    expect(() => hexToRgb(hex)).toThrow('Expected a 3- or 6-digit hex color.');
-  });
-});
 
 function baseInput(
   overrides: Partial<ReceiptEmailTemplateInput> = {}

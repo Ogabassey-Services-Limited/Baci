@@ -16,24 +16,6 @@ const DARK_MODE_STYLES = `@media (prefers-color-scheme:dark){
 .r-footer{background-color:#161618!important;border-top-color:#2a2a2e!important;}
 }`;
 
-/** Convert a 3- or 6-digit hex color to an "r,g,b" string for rgba(). */
-export function hexToRgb(hex: string): string {
-  const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex);
-  if (!match) {
-    throw new RangeError('Expected a 3- or 6-digit hex color.');
-  }
-
-  let h = match[1];
-  if (h.length === 3) {
-    h = h
-      .split('')
-      .map((c) => c + c)
-      .join('');
-  }
-  const n = Number.parseInt(h, 16);
-  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
-}
-
 export interface ReceiptEmailTemplateInput {
   /** Hidden inbox-preview text. Caller must pre-escape any merchant data. */
   preheader: string;
