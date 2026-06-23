@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { CONSTANT_MERCHANT_ID } from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -6,6 +7,16 @@ import {
   repriceCartItems,
 } from '@/services/cart-reprice';
 import { useCartStore } from '@/stores/cart-store';
+import type { CartItem } from '@/stores/cart-store.types';
+
+function getCartRepriceKey(items: CartItem[]) {
+  return items
+    .map(
+      (item) =>
+        `${item.id}:${item.product_id}:${item.variant_id ?? ''}:${item.quantity}`
+    )
+    .join('|');
+}
 
 /**
  * Reconciles cart line prices against the live catalog when the cart opens.
@@ -17,27 +28,29 @@ import { useCartStore } from '@/stores/cart-store';
  */
 export function useCartReprice() {
   const { data: merchant } = useMerchant();
+  const isFocused = useIsFocused();
+  const items = useCartStore((state) => state.items);
   const repriceItems = useCartStore((state) => state.repriceItems);
   const [priceChanges, setPriceChanges] = useState<CartPriceChange[]>([]);
-  const hasRunRef = useRef(false);
+  const lastRepriceKeyRef = useRef<string | null>(null);
 
-  const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
+  const merchantId = merchant?.id ?? CONSTANT_MERCHANT_ID;
+  const cartRepriceKey = getCartRepriceKey(items);
 
-  // Reprice once per mount. merchantId stays in the dependency array so the
-  // effect re-fires when it resolves on the first paint; the hasRunRef guard
-  // then ensures the actual reprice runs a single time (not on every change).
   useEffect(() => {
-    if (hasRunRef.current || !merchantId) {
+    if (!isFocused || items.length === 0) {
+      lastRepriceKeyRef.current = null;
       return;
     }
-    const items = useCartStore.getState().items;
-    if (items.length === 0) {
+
+    const repriceKey = `${merchantId}:${cartRepriceKey}`;
+    if (lastRepriceKeyRef.current === repriceKey) {
       return;
     }
-    hasRunRef.current = true;
+    lastRepriceKeyRef.current = repriceKey;
 
     let cancelled = false;
-    repriceCartItems(items, merchantId)
+    void repriceCartItems(items, merchantId)
       .then((result) => {
         if (cancelled) {
           return;
@@ -56,7 +69,7 @@ export function useCartReprice() {
     return () => {
       cancelled = true;
     };
-  }, [merchantId, repriceItems]);
+  }, [cartRepriceKey, isFocused, items, merchantId, repriceItems]);
 
   return {
     priceChanges,

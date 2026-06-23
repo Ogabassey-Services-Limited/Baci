@@ -5,6 +5,7 @@ import type { CartItem } from '@/stores/cart-store.types';
 const mockRepriceCartItems = jest.fn();
 const mockRepriceItems = jest.fn();
 let mockMerchant: { id: string } | null = { id: 'merchant-1' };
+let mockIsFocused = true;
 let mockItems: CartItem[] = [];
 
 jest.mock('@/hooks/product-utils', () => ({
@@ -13,6 +14,10 @@ jest.mock('@/hooks/product-utils', () => ({
 
 jest.mock('@/hooks/use-merchant', () => ({
   useMerchant: () => ({ data: mockMerchant }),
+}));
+
+jest.mock('expo-router', () => ({
+  useIsFocused: () => mockIsFocused,
 }));
 
 jest.mock('@/services/cart-reprice', () => ({
@@ -31,9 +36,7 @@ jest.mock('@/stores/cart-store', () => ({
 
 const mockedUseCartStore = (
   jest.requireMock('@/stores/cart-store') as {
-    useCartStore: jest.Mock & {
-      getState?: () => { items: CartItem[] };
-    };
+    useCartStore: jest.Mock;
   }
 ).useCartStore;
 
@@ -59,13 +62,16 @@ describe('useCartReprice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMerchant = { id: 'merchant-1' };
+    mockIsFocused = true;
     mockItems = [createItem()];
     mockedUseCartStore.mockImplementation(
       (
-        selector: (state: { repriceItems: typeof mockRepriceItems }) => unknown
-      ) => selector({ repriceItems: mockRepriceItems })
+        selector: (state: {
+          items: CartItem[];
+          repriceItems: typeof mockRepriceItems;
+        }) => unknown
+      ) => selector({ items: mockItems, repriceItems: mockRepriceItems })
     );
-    mockedUseCartStore.getState = () => ({ items: mockItems });
   });
 
   it('reprices cart lines and exposes dismissible price changes', async () => {
@@ -123,6 +129,96 @@ describe('useCartReprice', () => {
     const { result } = renderHook(() => useCartReprice());
 
     expect(mockRepriceCartItems).not.toHaveBeenCalled();
+    expect(mockRepriceItems).not.toHaveBeenCalled();
+    expect(result.current.priceChanges).toEqual([]);
+  });
+
+  it('reprices after an empty cart becomes populated while focused', async () => {
+    mockItems = [];
+    mockRepriceCartItems.mockResolvedValue({
+      priceById: {},
+      changes: [],
+    });
+
+    const { rerender } = renderHook(() => useCartReprice());
+
+    expect(mockRepriceCartItems).not.toHaveBeenCalled();
+
+    mockItems = [createItem({ id: 'cart-2', product_id: 'product-2' })];
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRepriceCartItems).toHaveBeenCalledWith(
+        mockItems,
+        'merchant-1'
+      );
+    });
+  });
+
+  it('waits until the cart screen is focused before repricing', async () => {
+    mockIsFocused = false;
+    mockRepriceCartItems.mockResolvedValue({
+      priceById: {},
+      changes: [],
+    });
+
+    const { rerender } = renderHook(() => useCartReprice());
+
+    expect(mockRepriceCartItems).not.toHaveBeenCalled();
+
+    mockIsFocused = true;
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRepriceCartItems).toHaveBeenCalledWith(
+        mockItems,
+        'merchant-1'
+      );
+    });
+  });
+
+  it('fails open when repricing rejects after an empty cart becomes populated', async () => {
+    mockItems = [];
+    mockRepriceCartItems.mockRejectedValue(new Error('network unavailable'));
+
+    const { result, rerender } = renderHook(() => useCartReprice());
+
+    expect(mockRepriceCartItems).not.toHaveBeenCalled();
+
+    mockItems = [createItem({ id: 'cart-2', product_id: 'product-2' })];
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRepriceCartItems).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockRepriceItems).not.toHaveBeenCalled();
+    expect(result.current.priceChanges).toEqual([]);
+  });
+
+  it('fails open when focus-gated repricing rejects', async () => {
+    mockIsFocused = false;
+    mockRepriceCartItems.mockRejectedValue(new Error('network unavailable'));
+
+    const { result, rerender } = renderHook(() => useCartReprice());
+
+    expect(mockRepriceCartItems).not.toHaveBeenCalled();
+
+    mockIsFocused = true;
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRepriceCartItems).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(mockRepriceItems).not.toHaveBeenCalled();
     expect(result.current.priceChanges).toEqual([]);
   });

@@ -16,6 +16,9 @@ const mockCreateOrder = jest.fn();
 const mockValidateCheckoutSubmission = jest.fn();
 const mockRepriceItems = jest.fn();
 const mockRestoreItems = jest.fn();
+const mockUseMerchant = jest.fn() as jest.MockedFunction<
+  () => { data: { id: string } | null }
+>;
 let cartItems: CartItem[] = [];
 
 jest.mock('@/services/cart-reprice', () => ({
@@ -37,6 +40,10 @@ jest.mock('@/services/tiktok-checkout-route-tracking', () => ({
 
 jest.mock('@/stores/cart-store', () => ({
   useCartStore: jest.fn(),
+}));
+
+jest.mock('@/hooks/use-merchant', () => ({
+  useMerchant: () => mockUseMerchant(),
 }));
 
 jest.mock('./checkout-bnpl-submit', () => ({
@@ -159,6 +166,7 @@ describe('useCheckoutSubmit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     cartItems = [cartItem];
+    mockUseMerchant.mockReturnValue({ data: { id: 'merchant-1' } });
     mockedUseCartStore.getState = () => ({
       items: cartItems,
       repriceItems: mockRepriceItems,
@@ -206,10 +214,7 @@ describe('useCheckoutSubmit', () => {
       await result.current(address);
     });
 
-    expect(mockRepriceCartItems).toHaveBeenCalledWith(
-      [cartItem],
-      CHECKOUT_MERCHANT_ID
-    );
+    expect(mockRepriceCartItems).toHaveBeenCalledWith([cartItem], 'merchant-1');
     expect(mockRepriceItems).toHaveBeenCalledWith({ 'line-1': 1250000 });
     expect(Alert.alert).toHaveBeenCalledWith(
       'Prices updated',
@@ -291,10 +296,7 @@ describe('useCheckoutSubmit', () => {
         selectedPayment: 'paystack',
       })
     );
-    expect(mockRepriceCartItems).toHaveBeenCalledWith(
-      [cartItem],
-      CHECKOUT_MERCHANT_ID
-    );
+    expect(mockRepriceCartItems).toHaveBeenCalledWith([cartItem], 'merchant-1');
     // No drift → cart is not mutated and no alert; the submit advances into
     // the order path (processing state set, order marked in-flight).
     expect(mockRepriceItems).not.toHaveBeenCalled();
@@ -303,6 +305,26 @@ describe('useCheckoutSubmit', () => {
     // past the freeze into the order path (isOrderInFlight is reset by the
     // downstream finally handler once the mocked order path settles).
     expect(setIsProcessing).toHaveBeenCalledWith(true);
+  });
+
+  it('falls back to the configured merchant id when merchant context has not loaded', async () => {
+    mockUseMerchant.mockReturnValue({ data: null });
+    mockRepriceCartItems.mockResolvedValue({
+      changes: [],
+      priceById: { 'line-1': 1200000 },
+    });
+    const params = createParams();
+
+    const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    expect(mockRepriceCartItems).toHaveBeenCalledWith(
+      [cartItem],
+      CHECKOUT_MERCHANT_ID
+    );
   });
 
   it('skips repricing entirely when validation fails', async () => {
