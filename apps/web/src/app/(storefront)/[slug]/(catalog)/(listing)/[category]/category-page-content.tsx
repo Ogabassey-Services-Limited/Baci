@@ -47,6 +47,9 @@ function renderCategoryNotFoundContent({
   title?: string;
   message?: string;
 }) {
+  // Metadata generation remains the primary hard notFound/noindex gate. This
+  // streamed content fallback is only for render-time races after a valid
+  // merchant/category shell has already started.
   return (
     <StorefrontRouteNotFoundContent
       backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}

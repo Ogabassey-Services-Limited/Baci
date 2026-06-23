@@ -134,6 +134,24 @@ describe('V2SavedProvider', () => {
     );
   });
 
+  it('keeps saved products that only have an empty description', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      JSON.stringify([{ ...baseProduct, description: '' }])
+    );
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('1');
+  });
+
   it('ignores unparseable saved items loaded from localStorage', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
       '{"id":"unterminated"'

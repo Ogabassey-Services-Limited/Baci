@@ -73,6 +73,8 @@ async function renderBlogPostContent({
 
     const blogHref = isDomainIdentifier(slug) ? '/blog' : `/${slug}/blog`;
 
+    // Blog metadata keeps missing posts noindex; this stable body covers
+    // render-time races without throwing inside an already-streaming route.
     return (
       <StorefrontRouteNotFoundContent
         backHref={asRoute(blogHref)}

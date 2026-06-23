@@ -97,6 +97,9 @@ export default async function LegacyProductPage({ params }: PageProps) {
       notFound();
     }
 
+    // Metadata keeps this legacy route noindex; this stable body only handles
+    // missing products for valid storefronts without throwing inside the
+    // streamed page render.
     return (
       <StorefrontRouteNotFoundContent
         backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}

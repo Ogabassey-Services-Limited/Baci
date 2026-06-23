@@ -656,4 +656,3 @@ function applyPostHogConfig(config: NextConfig): NextConfig {
 }
 
 export default applyPostHogConfig(withBundleAnalyzer(nextConfig));
-// Force rebuild: ${new Date().toISOString()}

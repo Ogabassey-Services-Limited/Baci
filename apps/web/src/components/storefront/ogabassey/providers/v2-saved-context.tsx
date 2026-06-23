@@ -28,7 +28,7 @@ function warnSavedStorageUnavailable(error: unknown) {
 
 function hasRequiredStoredString(
   value: Record<string, unknown>,
-  key: 'description' | 'image' | 'name' | 'price'
+  key: 'image' | 'name' | 'price'
 ) {
   return typeof value[key] === 'string' && value[key].trim().length > 0;
 }
@@ -48,7 +48,7 @@ function isStoredSavedProduct(value: unknown): value is Product {
     hasRequiredStoredString(product, 'name') &&
     hasRequiredStoredString(product, 'price') &&
     hasRequiredStoredString(product, 'image') &&
-    hasRequiredStoredString(product, 'description')
+    typeof product.description === 'string'
   );
 }
 
@@ -182,6 +182,9 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
     const hydratedSavedItems = hydrateSavedItems();
 
     setSavedItems((prev) => {
+      // First interaction may synchronously hydrate storage and enqueue that
+      // state update in the same React batch; prefer the freshly-read storage
+      // snapshot, otherwise use the already-hydrated state.
       const source = hydratedSavedItems ?? prev;
       // Ensure we compare IDs correctly (handle string/number mismatch if any)
       const exists = source.some((p) => String(p.id) === String(product.id));

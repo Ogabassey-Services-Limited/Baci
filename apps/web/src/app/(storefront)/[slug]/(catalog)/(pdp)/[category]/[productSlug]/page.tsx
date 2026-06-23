@@ -91,6 +91,9 @@ const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
 const priceFormatterCache = new Map<string, Intl.NumberFormat>();
 
 function renderCategoryProductNotFoundContent(slug: string) {
+  // generateMetadata keeps missing PDPs noindex/hard-not-found before render.
+  // This stable body only covers render-time races after the storefront shell
+  // is already streaming.
   return (
     <StorefrontRouteNotFoundContent
       backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}

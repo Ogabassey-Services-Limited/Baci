@@ -33,6 +33,7 @@ export function StorefrontRouteNotFoundContent({
         <p className="mt-4 text-sm leading-6 text-muted-foreground">
           {message}
         </p>
+        {/* Keep this as a document navigation out of the streamed soft-404 shell. */}
         <a
           className="mt-8 inline-flex items-center justify-center rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           href={backHref}

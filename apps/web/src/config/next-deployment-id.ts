@@ -16,7 +16,13 @@ function normalizeDeploymentId(value: string | undefined): string | undefined {
     return undefined;
   }
 
-  return trimmed.replace(/[^A-Za-z0-9_.:-]+/g, '-');
+  const normalized = trimmed.replace(/[^A-Za-z0-9_.:-]+/g, '-');
+
+  if (!/[A-Za-z0-9]/.test(normalized)) {
+    return undefined;
+  }
+
+  return normalized;
 }
 
 type DeploymentIdEnv = Partial<

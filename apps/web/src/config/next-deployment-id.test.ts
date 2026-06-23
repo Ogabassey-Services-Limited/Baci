@@ -52,12 +52,13 @@ describe('getNextDeploymentId', () => {
     ).toBe('dpl-unsafe-value');
   });
 
-  it('normalizes ids that only contain unsafe characters', () => {
+  it('skips ids that only contain unsafe characters', () => {
     expect(
       getNextDeploymentId({
         NEXT_DEPLOYMENT_ID: '///',
+        VERCEL_DEPLOYMENT_ID: 'fallback-dpl',
       })
-    ).toBe('-');
+    ).toBe('fallback-dpl');
   });
 
   it('leaves local development without a synthetic deployment id', () => {
