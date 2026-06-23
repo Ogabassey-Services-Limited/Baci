@@ -35,12 +35,13 @@ function makeStore(plaintextCodes: string[]) {
           .map(({ id, codeHash }) => ({ id, codeHash }))
       );
     },
-    markCodeUsed: (id: string): Promise<void> => {
+    markCodeUsed: (id: string): Promise<boolean> => {
       const c = codes.find((x) => x.id === id);
-      if (c) {
-        c.used = true;
+      if (!c || c.used) {
+        return Promise.resolve(false);
       }
-      return Promise.resolve();
+      c.used = true;
+      return Promise.resolve(true);
     },
     countRecentFailures: (): Promise<number> =>
       Promise.resolve(attempts.filter((a) => !a.succeeded).length),
@@ -125,6 +126,30 @@ describe('redeemRecoveryCode', () => {
       store,
     });
     expect(second).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('rejects a valid match when another request consumed it first', async () => {
+    const store = makeStore(codes);
+    const originalMarkCodeUsed = store.markCodeUsed;
+    store.markCodeUsed = async (id: string) => {
+      await originalMarkCodeUsed(id);
+      return false;
+    };
+
+    const result = await redeemRecoveryCode({
+      userId: USER,
+      ipHash: IP,
+      input: codes[1],
+      pepper: PEPPER,
+      store,
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'invalid' });
+    expect(store.attempts.at(-1)).toEqual({
+      userId: USER,
+      ipHash: IP,
+      succeeded: false,
+    });
   });
 
   it('locks out before verifying once failures reach the threshold', async () => {

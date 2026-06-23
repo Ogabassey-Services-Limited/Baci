@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   generateRecoveryCodes,
   hashRecoveryCode,
+  MAX_RECOVERY_CODE_INPUT_LENGTH,
   normalizeRecoveryCode,
   RECOVERY_CODE_COUNT,
   verifyRecoveryCode,
@@ -124,5 +125,17 @@ describe('verifyRecoveryCode', () => {
     const stored = hashRecoveryCode(code, PEPPER);
     expect(verifyRecoveryCode('', stored, PEPPER)).toBe(false);
     expect(verifyRecoveryCode(code, '', PEPPER)).toBe(false);
+  });
+
+  it('rejects oversized input before hashing', () => {
+    const [code] = generateRecoveryCodes(1);
+    const stored = hashRecoveryCode(code, PEPPER);
+    expect(
+      verifyRecoveryCode(
+        'A'.repeat(MAX_RECOVERY_CODE_INPUT_LENGTH + 1),
+        stored,
+        PEPPER
+      )
+    ).toBe(false);
   });
 });

@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   RecoveryAttempt,
@@ -35,17 +37,20 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
       return rows.map((row) => ({ id: row.id, codeHash: row.code_hash }));
     },
 
-    async markCodeUsed(codeId: string): Promise<void> {
-      // `is('used_at', null)` makes consumption idempotent — a second redeem of
-      // the same code updates zero rows.
-      const { error } = await supabase
+    async markCodeUsed(codeId: string): Promise<boolean> {
+      // `is('used_at', null)` makes consumption atomic: a concurrent redeem of
+      // the same code updates zero rows. Supabase update() returns no rows by
+      // default, so select the id back and treat an empty result as not claimed.
+      const { data, error } = await supabase
         .from(RECOVERY_CODES_TABLE)
         .update({ used_at: new Date().toISOString() })
         .eq('id', codeId)
-        .is('used_at', null);
+        .is('used_at', null)
+        .select('id');
       if (error) {
         throw new Error(`Failed to consume recovery code: ${error.message}`);
       }
+      return Array.isArray(data) && data.length > 0;
     },
 
     async countRecentFailures(userId: string): Promise<number> {

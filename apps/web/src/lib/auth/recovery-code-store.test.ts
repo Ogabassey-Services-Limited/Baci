@@ -66,18 +66,28 @@ describe('recovery-code-store (Supabase-backed)', () => {
     ).rejects.toThrow();
   });
 
-  it('markCodeUsed sets used_at only for a still-unused code', async () => {
-    const builder = queryReturning({ data: null, error: null });
+  it('markCodeUsed returns true after atomically claiming an unused code', async () => {
+    const builder = queryReturning({ data: [{ id: 'c1' }], error: null });
     mockFrom.mockReturnValueOnce(builder);
 
-    await createRecoveryCodeStore().markCodeUsed('c1');
+    const claimed = await createRecoveryCodeStore().markCodeUsed('c1');
 
+    expect(claimed).toBe(true);
     expect(mockFrom).toHaveBeenCalledWith('merchant_auth_recovery_codes');
     expect(builder.update).toHaveBeenCalledWith(
       expect.objectContaining({ used_at: expect.any(String) })
     );
     expect(builder.eq).toHaveBeenCalledWith('id', 'c1');
     expect(builder.is).toHaveBeenCalledWith('used_at', null);
+    expect(builder.select).toHaveBeenCalledWith('id');
+  });
+
+  it('markCodeUsed returns false when no unused row was claimed', async () => {
+    mockFrom.mockReturnValueOnce(queryReturning({ data: [], error: null }));
+
+    await expect(createRecoveryCodeStore().markCodeUsed('c1')).resolves.toBe(
+      false
+    );
   });
 
   it('countRecentFailures counts failed attempts within the window', async () => {

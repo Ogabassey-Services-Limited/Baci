@@ -1,4 +1,10 @@
-import { verifyRecoveryCode } from './recovery-codes';
+import 'server-only';
+
+import {
+  hashRecoveryCodeCandidate,
+  RECOVERY_CODE_COUNT,
+  verifyRecoveryCodeHash,
+} from './recovery-codes';
 
 /**
  * Store-agnostic redemption of a merchant recovery code.
@@ -26,8 +32,8 @@ export type RecoveryAttempt = {
 export interface RecoveryCodeStore {
   /** Unused, non-revoked codes from the user's ACTIVE code set. */
   listActiveCodes(userId: string): Promise<RecoveryCodeRecord[]>;
-  /** Mark a single code consumed — single-use. */
-  markCodeUsed(codeId: string): Promise<void>;
+  /** Mark a single code consumed. Returns false when another request already consumed it. */
+  markCodeUsed(codeId: string): Promise<boolean>;
   /** Failures within the lockout window (per user, incl. no-match attempts). */
   countRecentFailures(userId: string): Promise<number>;
   /** Append to the attempt ledger. */
@@ -61,13 +67,18 @@ export async function redeemRecoveryCode({
     return { ok: false, reason: 'locked' };
   }
 
-  // 2. Compare against every active code without short-circuiting, so timing
-  //    doesn't leak which/how many codes exist. Codes are unique, so at most one
-  //    matches.
+  // 2. Compute the candidate HMAC once, then compare against a padded active
+  //    set without short-circuiting. The active set should contain exactly
+  //    RECOVERY_CODE_COUNT rows; padding avoids making normal remaining-code
+  //    counts observable through loop duration.
   const codes = await store.listActiveCodes(userId);
+  const candidateHash = hashRecoveryCodeCandidate(input, pepper);
+  const comparisons = Math.max(RECOVERY_CODE_COUNT, codes.length);
+  const dummyHash = '0'.repeat(64);
   let match: RecoveryCodeRecord | null = null;
-  for (const code of codes) {
-    if (verifyRecoveryCode(input, code.codeHash, pepper)) {
+  for (let i = 0; i < comparisons; i += 1) {
+    const code = codes[i] ?? null;
+    if (verifyRecoveryCodeHash(candidateHash, code?.codeHash ?? dummyHash)) {
       match = code;
     }
   }
@@ -77,8 +88,14 @@ export async function redeemRecoveryCode({
     return { ok: false, reason: 'invalid' };
   }
 
-  // 3. Single-use: consume the code, then log the success.
-  await store.markCodeUsed(match.id);
+  // 3. Single-use: atomically claim the code, then log the success. A false
+  //    claim means another concurrent request consumed the matched code first.
+  const claimed = await store.markCodeUsed(match.id);
+  if (!claimed) {
+    await store.recordAttempt({ userId, ipHash, succeeded: false });
+    return { ok: false, reason: 'invalid' };
+  }
+
   await store.recordAttempt({ userId, ipHash, succeeded: true });
   return { ok: true, codeId: match.id };
 }

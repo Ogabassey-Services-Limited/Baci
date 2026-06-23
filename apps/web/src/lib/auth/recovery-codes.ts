@@ -19,6 +19,7 @@ const CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const CODE_CHARS = 24; // 24 * 5 bits = 120 bits of entropy per code
 
 export const RECOVERY_CODE_COUNT = 10;
+export const MAX_RECOVERY_CODE_INPUT_LENGTH = 128;
 
 function randomCrockfordChar(): string {
   return CROCKFORD_ALPHABET[randomInt(CROCKFORD_ALPHABET.length)];
@@ -56,20 +57,41 @@ export function hashRecoveryCode(code: string, pepper: string): string {
     .digest('hex');
 }
 
-export function verifyRecoveryCode(
+export function hashRecoveryCodeCandidate(
   input: string,
-  storedHash: string,
   pepper: string
+): string | null {
+  if (!input || input.length > MAX_RECOVERY_CODE_INPUT_LENGTH) {
+    return null;
+  }
+
+  return hashRecoveryCode(input, pepper);
+}
+
+export function verifyRecoveryCodeHash(
+  candidateHash: string | null,
+  storedHash: string
 ): boolean {
-  if (!input || !storedHash) {
+  if (!candidateHash || !storedHash) {
     return false;
   }
 
-  const candidate = Buffer.from(hashRecoveryCode(input, pepper), 'hex');
+  const candidate = Buffer.from(candidateHash, 'hex');
   const stored = Buffer.from(storedHash, 'hex');
   if (candidate.length !== stored.length) {
     return false;
   }
 
   return timingSafeEqual(candidate, stored);
+}
+
+export function verifyRecoveryCode(
+  input: string,
+  storedHash: string,
+  pepper: string
+): boolean {
+  return verifyRecoveryCodeHash(
+    hashRecoveryCodeCandidate(input, pepper),
+    storedHash
+  );
 }
