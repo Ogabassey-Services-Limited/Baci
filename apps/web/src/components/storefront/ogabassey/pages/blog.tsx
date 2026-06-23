@@ -1,21 +1,14 @@
-'use client';
-
-import { ArrowRight, Battery, Calendar, User, Search } from 'lucide-react';
+import { ArrowRight, Battery, Calendar, Search, User } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
-import type React from 'react';
-import { useState } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { HeroImage, ProductCardImage } from '@/components/optimized-image';
-import { asRoute } from '@/lib/routes';
-import type { TemplateBlogPageProps, BlogPostData } from '@/templates/registry';
+import { asRoute, joinRouteBasePath } from '@/lib/routes';
+import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { AdUnit } from './ad-unit';
 
-// Re-export BlogPost type for external use
 export type BlogPost = BlogPostData;
 
 interface OgabasseyBlogProps extends TemplateBlogPageProps {
-  merchantSlug?: string; // Optional override, otherwise uses storeSlug
-  searchQuery?: string; // Optional search query for filtering
+  merchantSlug?: string;
 }
 
 const OGABASSEY_BLOG_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -25,7 +18,19 @@ const OGABASSEY_BLOG_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-// Format date helper
+const OGABASSEY_BLOG_CATEGORIES = [
+  'All',
+  'Mobile Gadgets',
+  'Laptops',
+  'Tips and Tricks',
+  'Reviews',
+  'Tech News',
+  'How to Guides',
+  'Buying Guides',
+  'Smartphone Comparisons',
+  'Product Guides',
+] as const;
+
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
 
@@ -36,61 +41,63 @@ function formatDate(dateString: string): string {
   return OGABASSEY_BLOG_DATE_FORMATTER.format(date);
 }
 
-export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
+function getCategoryLabels(
+  categories: OgabasseyBlogProps['categories']
+): string[] {
+  const labels = categories?.map((category) => category.name).filter(Boolean) ?? [];
+  return Array.from(new Set([...OGABASSEY_BLOG_CATEGORIES, ...labels]));
+}
+
+function blogHref(basePath: string, path = ''): string {
+  return joinRouteBasePath(basePath, `/blog${path}`);
+}
+
+function blogCategoryHref(basePath: string, category: string): string {
+  if (category === 'All') {
+    return blogHref(basePath);
+  }
+
+  return blogHref(basePath, `?category=${encodeURIComponent(category)}`);
+}
+
+export function OgabasseyV2Blog({
   posts = [],
   storeSlug,
   merchantSlug,
   categories: propCategories,
   searchQuery,
-}) => {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath ?? (storeSlug || '');
-  const [activeCategory, setActiveCategory] = useState('All');
-  const isSearching = !!searchQuery;
-
-
-  // Use predefined categories as requested
-  const categories = [
-    'All',
-    'Mobile Gadgets',
-    'Laptops',
-    'Tips and Tricks',
-    'Reviews',
-    'Tech News',
-    'How to Guides',
-    'Buying Guides',
-    'Smartphone Comparisons',
-    'Product Guides',
-  ];
-
+  category,
+}: OgabasseyBlogProps) {
+  const basePath = storeSlug || merchantSlug || '';
+  const activeCategory = category || 'All';
+  const isSearching = Boolean(searchQuery);
+  const categories = getCategoryLabels(propCategories);
   const filteredPosts =
     activeCategory === 'All'
       ? posts
       : posts.filter((post) => post.category === activeCategory);
+  const featuredPost = posts.find((post) => post.featured) || posts[0];
 
-  const featuredPost = posts.find((p) => p.featured) || posts[0];
-
-  // Empty state
   if (posts.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20 pt-4">
-        <div className="bg-white border-b border-gray-100 pb-10 pt-8 mb-8">
-          <div className="max-w-[1400px] mx-auto px-4 md:px-6 text-center">
-            <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-4 tracking-tight">
+        <div className="mb-8 border-gray-100 border-b bg-white pt-8 pb-10">
+          <div className="mx-auto max-w-[1400px] px-4 text-center md:px-6">
+            <h1 className="mb-4 font-extrabold text-3xl text-gray-900 tracking-tight md:text-5xl">
               The Ogabassey Blog
             </h1>
             <p className="text-gray-500 text-lg">No posts found.</p>
           </div>
         </div>
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6">
-          <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">No posts yet</h2>
-            <p className="text-gray-500 mb-6">
+        <div className="mx-auto max-w-[1400px] px-4 md:px-6">
+          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center">
+            <h2 className="mb-4 font-bold text-2xl text-gray-900">No posts yet</h2>
+            <p className="mb-6 text-gray-500">
               Check back soon for expert reviews, tips, and guides!
             </p>
             <Link
-              href={asRoute(basePath || '/')}
-              className="inline-flex items-center gap-2 bg-red-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-red-700 transition-colors"
+              href={asRoute(joinRouteBasePath(basePath, '/'))}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 font-bold text-white transition-colors hover:bg-red-700"
             >
               Back to Store <ArrowRight size={20} />
             </Link>
@@ -101,53 +108,48 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 pt-4">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 pt-8 md:pt-12">
-        {/* 1. Featured Post - Moved to Top */}
+    <div className="min-h-screen bg-gray-50 pt-4 pb-20">
+      <div className="mx-auto max-w-[1400px] px-4 pt-8 md:px-6 md:pt-12">
         {!isSearching && activeCategory === 'All' && featuredPost && (
           <Link
-            href={asRoute(`${basePath}/blog/${featuredPost.slug}`)}
-            className="group relative block mb-12 rounded-4xl overflow-hidden shadow-2xl h-[400px] md:h-[500px] transform transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+            href={asRoute(blogHref(basePath, `/${featuredPost.slug}`))}
+            className="group relative mb-12 block h-[400px] overflow-hidden rounded-4xl shadow-2xl transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)] md:h-[500px]"
           >
             <div className="absolute inset-0 bg-gray-900">
-              <HeroImage
+              <Image
                 src={featuredPost.featured_image_url || '/placeholder.png'}
                 alt={featuredPost.title}
                 className="object-cover opacity-90 transition-transform duration-1000 group-hover:scale-105"
                 fill
+                sizes="100vw"
+                preload
+                fetchPriority="high"
               />
               <div className="absolute inset-0 bg-linear-to-t from-gray-900 via-gray-900/20 to-transparent" />
             </div>
-
-            <div className="absolute bottom-0 left-0 p-8 md:p-12 w-full md:w-3/4 lg:w-2/3">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="bg-red-600 text-white text-[10px] md:text-xs font-black px-3 py-1.5 rounded uppercase tracking-widest shadow-sm">
+            <div className="absolute bottom-0 left-0 w-full p-8 md:w-3/4 md:p-12 lg:w-2/3">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="rounded bg-red-600 px-3 py-1.5 font-black text-[10px] text-white uppercase tracking-widest shadow-sm md:text-xs">
                   Featured Story
                 </span>
                 {featuredPost.category && (
-                  <span className="text-white/80 text-xs font-bold uppercase tracking-wider px-2 py-1 border border-white/20 rounded backdrop-blur-xs">
+                  <span className="rounded border border-white/20 px-2 py-1 font-bold text-white/80 text-xs uppercase tracking-wider backdrop-blur-xs">
                     {featuredPost.category}
                   </span>
                 )}
               </div>
-
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-none transition-colors group-hover:text-red-50">
+              <h2 className="mb-4 font-black text-3xl text-white leading-none transition-colors group-hover:text-red-50 md:text-5xl lg:text-6xl">
                 {featuredPost.title}
               </h2>
-
-              <p className="text-gray-300 text-lg md:text-xl mb-6 line-clamp-2 max-w-2xl leading-relaxed">
+              <p className="mb-6 max-w-2xl text-gray-300 text-lg leading-relaxed line-clamp-2 md:text-xl">
                 {featuredPost.excerpt}
               </p>
-
-              <div className="flex items-center gap-4 text-white font-medium">
-                <span className="flex items-center gap-2 group-hover:gap-4 transition-all duration-300 border-b border-white/30 pb-0.5 group-hover:border-white">
+              <div className="flex items-center gap-4 font-medium text-white">
+                <span className="flex items-center gap-2 border-white/30 border-b pb-0.5 transition-all duration-300 group-hover:gap-4 group-hover:border-white">
                   Read Article <ArrowRight size={20} />
                 </span>
                 <span className="text-white/40">•</span>
-                <time
-                  className="text-white/80 text-sm"
-                  dateTime={featuredPost.published_at}
-                >
+                <time className="text-sm text-white/80" dateTime={featuredPost.published_at}>
                   {formatDate(featuredPost.published_at)}
                 </time>
               </div>
@@ -155,19 +157,18 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
           </Link>
         )}
 
-        {/* 2. Simplified Header - Moved Middle */}
-        <div className="flex flex-col justify-center items-center text-center mb-12">
+        <div className="mb-12 flex flex-col items-center justify-center text-center">
           {isSearching ? (
-            <div className="max-w-3xl text-left w-full">
-              <div className="flex items-center gap-2 mb-4 text-sm font-medium text-red-600 uppercase tracking-wider">
+            <div className="w-full max-w-3xl text-left">
+              <div className="mb-4 flex items-center gap-2 font-medium text-red-600 text-sm uppercase tracking-wider">
                 <Search size={16} /> Search Results
               </div>
-              <h1 className="text-4xl md:text-6xl font-black text-gray-900 mb-6 tracking-tight leading-none">
-                For "{searchQuery}"
+              <h1 className="mb-6 font-black text-4xl text-gray-900 leading-none tracking-tight md:text-6xl">
+                For &quot;{searchQuery}&quot;
               </h1>
               <Link
-                href={asRoute(`${basePath}/blog`)}
-                className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 border-b border-gray-300 hover:border-gray-900 transition-colors pb-0.5"
+                href={asRoute(blogHref(basePath))}
+                className="inline-flex items-center gap-2 border-gray-300 border-b pb-0.5 text-gray-500 transition-colors hover:border-gray-900 hover:text-gray-900"
               >
                 <ArrowRight size={16} className="rotate-180" />
                 Clear search
@@ -175,93 +176,85 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
             </div>
           ) : (
             <div className="w-full text-center">
-              <h1 className="text-4xl md:text-7xl font-black text-gray-900 mb-4 tracking-tight leading-[0.9]">
+              <h1 className="mb-4 font-black text-4xl text-gray-900 leading-[0.9] tracking-tight md:text-7xl">
                 The Ogabassey Blog
               </h1>
-              <p className="text-gray-500 text-lg md:text-xl w-full mx-auto leading-relaxed">
-                Tech reviews, sustainability guides, and the latest from the world
-                of gadgets.
+              <p className="mx-auto w-full text-gray-500 text-lg leading-relaxed md:text-xl">
+                Tech reviews, sustainability guides, and the latest from the world of gadgets.
               </p>
             </div>
           )}
         </div>
-        {/* 3. Categories as Filter Bar - Above Grid */}
-        <div className="sticky top-20 z-30 bg-gray-50/95 backdrop-blur-xs pt-2 pb-6 border-b border-gray-200/50 mb-10 -mx-4 px-4 md:px-0 md:mx-0">
-          <div className="flex overflow-x-auto gap-2 md:gap-3 hide-scrollbar items-center">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mr-2 shrink-0">
+
+        <div className="sticky top-20 z-30 -mx-4 mb-10 border-gray-200/50 border-b bg-gray-50/95 px-4 pt-2 pb-6 backdrop-blur-xs md:mx-0 md:px-0">
+          <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto md:gap-3">
+            <span className="mr-2 shrink-0 font-bold text-gray-400 text-xs uppercase tracking-widest">
               Filter By:
             </span>
             {categories.map((cat) => (
-              <button
+              <Link
                 key={cat}
-                type="button"
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all border ${activeCategory === cat
-                  ? 'bg-gray-900 text-white border-gray-900 shadow-md transform scale-105'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 hover:bg-gray-100'
-                  }`}
+                href={asRoute(blogCategoryHref(basePath, cat))}
+                className={`whitespace-nowrap rounded-lg border px-4 py-2 font-bold text-sm transition-all ${
+                  activeCategory === cat
+                    ? 'scale-105 transform border-gray-900 bg-gray-900 text-white shadow-md'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-100'
+                }`}
+                aria-current={activeCategory === cat ? 'page' : undefined}
               >
                 {cat}
-              </button>
+              </Link>
             ))}
           </div>
         </div>
 
-        {/* 4. Blog Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        <div className="mb-12 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {filteredPosts
-            .filter((p) => p.id !== featuredPost?.id || activeCategory !== 'All')
+            .filter((post) => post.id !== featuredPost?.id || activeCategory !== 'All')
             .map((post) => (
-              <Link
-                key={post.id}
-                href={asRoute(`${basePath}/blog/${post.slug}`)}
-                className="block h-full"
-              >
-                <article className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col h-full hover:-translate-y-1">
-                  <div className="h-64 overflow-hidden relative">
-                    <ProductCardImage
+              <Link key={post.id} href={asRoute(blogHref(basePath, `/${post.slug}`))} className="block h-full">
+                <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                  <div className="relative h-64 overflow-hidden">
+                    <Image
                       src={post.featured_image_url || '/placeholder.png'}
                       alt={post.title}
                       className="object-cover transition-transform duration-700 group-hover:scale-110"
                       fill
-                      category={post.category}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      loading="lazy"
+                      fetchPriority="low"
                     />
                     {post.category && (
-                      <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md px-3 py-1 rounded text-xs font-black uppercase tracking-wider text-gray-900 border border-gray-100 shadow-sm">
+                      <div className="absolute top-4 left-4 rounded border border-gray-100 bg-white/95 px-3 py-1 font-black text-gray-900 text-xs uppercase tracking-wider shadow-sm backdrop-blur-md">
                         {post.category}
                       </div>
                     )}
                   </div>
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="flex items-center gap-4 text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider">
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="mb-4 flex items-center gap-4 font-bold text-gray-400 text-xs uppercase tracking-wider">
                       <span className="flex items-center gap-1">
                         <Calendar size={12} className="text-red-500" />
-                        <time dateTime={post.published_at}>
-                          {formatDate(post.published_at)}
-                        </time>
+                        <time dateTime={post.published_at}>{formatDate(post.published_at)}</time>
                       </span>
-                      <span className="size-1 rounded-full bg-gray-300"></span>
+                      <span className="size-1 rounded-full bg-gray-300" />
                       <span>{post.reading_time_minutes || 3} MIN READ</span>
                     </div>
-
-                    <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-3 line-clamp-2 leading-tight group-hover:text-red-600 transition-colors">
+                    <h3 className="mb-3 font-black text-gray-900 text-xl leading-tight line-clamp-2 transition-colors group-hover:text-red-600 md:text-2xl">
                       {post.title}
                     </h3>
-
-                    <p className="text-gray-500 text-sm md:text-base mb-6 line-clamp-3 flex-1 leading-relaxed">
+                    <p className="mb-6 flex-1 text-gray-500 text-sm leading-relaxed line-clamp-3 md:text-base">
                       {post.excerpt}
                     </p>
-
-                    <div className="flex items-center justify-between pt-6 border-t border-gray-50 mt-auto">
+                    <div className="mt-auto flex items-center justify-between border-gray-50 border-t pt-6">
                       <div className="flex items-center gap-2">
-                        <div className="size-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 border border-gray-200">
+                        <div className="flex size-8 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-gray-500">
                           <User size={14} />
                         </div>
-                        <span className="text-xs font-bold text-gray-700">
+                        <span className="font-bold text-gray-700 text-xs">
                           {post.author_name || 'Ogabassey Team'}
                         </span>
                       </div>
-                      <span className="text-red-600 group-hover:text-red-700 transition-transform group-hover:translate-x-1">
+                      <span className="text-red-600 transition-transform group-hover:translate-x-1 group-hover:text-red-700">
                         <ArrowRight size={20} />
                       </span>
                     </div>
@@ -271,33 +264,27 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
             ))}
         </div>
 
-        {/* Sustainability Tip Banner */}
-        <div className="bg-linear-to-br from-green-50 to-emerald-50 rounded-3xl p-8 md:p-12 border border-green-100 flex flex-col md:flex-row items-center gap-8 mb-16 shadow-lg">
-          <div className="bg-white p-6 rounded-2xl shadow-md text-green-600 shrink-0 transform rotate-3">
+        <div className="mb-16 flex flex-col items-center gap-8 rounded-3xl border border-green-100 bg-linear-to-br from-green-50 to-emerald-50 p-8 shadow-lg md:flex-row md:p-12">
+          <div className="shrink-0 rotate-3 transform rounded-2xl bg-white p-6 text-green-600 shadow-md">
             <Battery size={40} />
           </div>
           <div className="flex-1 text-center md:text-left">
-            <h3 className="text-2xl font-black text-gray-900 mb-3">
-              Extend Your Tech's Life
-            </h3>
+            <h3 className="mb-3 font-black text-2xl text-gray-900">Extend Your Tech&apos;s Life</h3>
             <p className="text-gray-600 text-lg">
-              Keeping your phone battery between 20% and 80% can double its
-              lifespan. Read more tips in our{' '}
-              <span className="font-bold text-green-700">Sustainability</span>{' '}
-              section.
+              Keeping your phone battery between 20% and 80% can double its lifespan. Read more tips in our{' '}
+              <span className="font-bold text-green-700">Tips and Tricks</span> section.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveCategory('Sustainability')}
-            className="bg-green-600 text-white font-bold py-4 px-8 rounded-xl hover:bg-green-700 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-95"
+          <Link
+            href={asRoute(blogCategoryHref(basePath, 'Tips and Tricks'))}
+            className="rounded-xl bg-green-600 px-8 py-4 font-bold text-white shadow-xl transition-all hover:-translate-y-1 hover:bg-green-700 hover:shadow-2xl active:scale-95"
           >
             View Green Tips
-          </button>
+          </Link>
         </div>
 
         <AdUnit placementKey="FOOTER_BANNER" />
       </div>
     </div>
   );
-};
+}

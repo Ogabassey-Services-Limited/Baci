@@ -3,14 +3,11 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyV2Blog, type BlogPost } from './blog';
 
-// Mock next/image to inspect props passed to it
 interface MockNextImageProps {
   alt: string;
-  blurDataURL?: string;
   fetchPriority?: 'high' | 'low' | 'auto';
   fill?: boolean;
   loading?: 'eager' | 'lazy';
-  placeholder?: 'blur' | 'empty';
   preload?: boolean;
   priority?: boolean;
   sizes?: string;
@@ -28,8 +25,6 @@ vi.mock('next/image', () => ({
     fill,
     sizes,
     fetchPriority,
-    blurDataURL: _blurDataURL,
-    placeholder: _placeholder,
     ...props
   }: MockNextImageProps) => (
     <img
@@ -40,23 +35,21 @@ vi.mock('next/image', () => ({
       data-loading={loading}
       data-fill={fill ? 'true' : 'false'}
       data-fetchpriority={fetchPriority}
+      data-sizes={sizes}
       data-testid="next-image"
       {...props}
     />
   ),
 }));
 
-// Mock hooks
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: () => ({ basePath: '/test-store' }),
-}));
-
-// Mock next/link
 vi.mock('next/link', () => ({
-  default: ({ children }: { children: ReactNode }) => children,
+  default: ({ children, href, ...props }: { children: ReactNode; href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
-// Mock ad unit
 vi.mock('./ad-unit', () => ({
   AdUnit: () => <div data-testid="ad-unit" />,
 }));
@@ -89,57 +82,66 @@ describe('OgabasseyV2Blog', () => {
     },
   ];
 
-  it('renders featured post with HeroImage (high priority)', () => {
-    render(<OgabasseyV2Blog posts={mockPosts} />);
+  it('renders the featured post as the server LCP image', () => {
+    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
 
-    const images = screen.getAllByTestId('next-image');
-    // First image should be the featured one (HeroImage)
-    const featuredImage = images.find(
-      (img) => img.getAttribute('src') === 'https://example.com/featured.jpg'
-    );
+    const featuredImage = screen
+      .getAllByTestId('next-image')
+      .find((img) => img.getAttribute('src') === 'https://example.com/featured.jpg');
 
     expect(featuredImage).toBeInTheDocument();
-    // HeroImage maps legacy priority semantics to Next 16 `preload`.
     expect(featuredImage).toHaveAttribute('data-preload', 'true');
-    expect(featuredImage).toHaveAttribute('data-priority', 'false');
-    // HeroImage sets fetchPriority="high"
     expect(featuredImage).toHaveAttribute('data-fetchpriority', 'high');
-    // We added fill={true}
+    expect(featuredImage).toHaveAttribute('data-priority', 'false');
     expect(featuredImage).toHaveAttribute('data-fill', 'true');
+    expect(featuredImage).toHaveAttribute('data-sizes', '100vw');
   });
 
-  it('renders grid posts with ProductCardImage (lazy loading)', () => {
-    render(<OgabasseyV2Blog posts={mockPosts} />);
+  it('renders grid posts with lazy low-priority images', () => {
+    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
 
-    const images = screen.getAllByTestId('next-image');
-    // Find the grid image
-    const gridImage = images.find(
-      (img) => img.getAttribute('src') === 'https://example.com/regular.jpg'
-    );
+    const gridImage = screen
+      .getAllByTestId('next-image')
+      .find((img) => img.getAttribute('src') === 'https://example.com/regular.jpg');
 
     expect(gridImage).toBeInTheDocument();
-    // ProductCardImage sets loading="lazy"
     expect(gridImage).toHaveAttribute('data-loading', 'lazy');
-    // ProductCardImage sets fetchPriority="low"
     expect(gridImage).toHaveAttribute('data-fetchpriority', 'low');
-    // We added fill={true}
     expect(gridImage).toHaveAttribute('data-fill', 'true');
+    expect(gridImage).toHaveAttribute(
+      'data-sizes',
+      '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw'
+    );
   });
 
-  it('renders UTC-stable date labels to avoid hydration drift', () => {
+  it('uses crawlable category links instead of client-only filter state', () => {
+    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
+
+    expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
+      'href',
+      '/test-store/blog'
+    );
+    expect(screen.getByRole('link', { name: 'Tech News' })).toHaveAttribute(
+      'href',
+      '/test-store/blog?category=Tech%20News'
+    );
+  });
+
+  it('uses the server-selected category to filter and mark the active link', () => {
     render(
       <OgabasseyV2Blog
-        posts={[
-          {
-            ...mockPosts[0],
-            id: 'timezone-boundary-post',
-            published_at: '2026-03-28T23:30:00.000Z',
-          },
-        ]}
+        posts={mockPosts}
+        storeSlug="/test-store"
+        category="Reviews"
       />
     );
 
-    expect(screen.getByText('Mar 28, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Regular Post')).toBeInTheDocument();
+    expect(screen.queryByText('Featured Post')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Reviews' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   });
 
   it('keeps invalid date strings visible and machine-readable instead of throwing', () => {
@@ -152,6 +154,7 @@ describe('OgabasseyV2Blog', () => {
             published_at: 'not-a-date',
           },
         ]}
+        storeSlug="/test-store"
       />
     );
 
@@ -159,5 +162,31 @@ describe('OgabasseyV2Blog', () => {
 
     expect(dateLabel.tagName.toLowerCase()).toBe('time');
     expect(dateLabel).toHaveAttribute('datetime', 'not-a-date');
+  });
+
+  it('keeps the green tips CTA inside the published category taxonomy', () => {
+    render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
+
+    expect(screen.getByRole('link', { name: 'View Green Tips' })).toHaveAttribute(
+      'href',
+      '/test-store/blog?category=Tips%20and%20Tricks'
+    );
+  });
+
+  it('renders UTC-stable date labels to avoid hydration drift', () => {
+    render(
+      <OgabasseyV2Blog
+        posts={[
+          {
+            ...mockPosts[0],
+            id: 'timezone-boundary-post',
+            published_at: '2026-03-28T23:30:00.000Z',
+          },
+        ]}
+        storeSlug="/test-store"
+      />
+    );
+
+    expect(screen.getByText('Mar 28, 2026')).toBeInTheDocument();
   });
 });

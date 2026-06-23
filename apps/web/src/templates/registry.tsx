@@ -98,6 +98,8 @@ export interface TemplateBlogPageProps extends TemplatePageProps {
   posts?: BlogPostData[];
 
   categories?: { name: string; slug: string }[];
+  /** Current category query if filtering by category */
+  category?: string;
   /** Current search query if filtering by search */
   searchQuery?: string;
 }

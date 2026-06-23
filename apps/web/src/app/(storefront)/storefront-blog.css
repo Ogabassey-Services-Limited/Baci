@@ -1,0 +1,24 @@
+@import "tailwindcss" source(none);
+@import "./storefront-foundation.css";
+
+/* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
+@config "../../../tailwind.storefront-blog.config.mjs";
+
+/*
+  Blog CSS entrypoint.
+
+  Keep public blog routes off storefront-full.css. The live OgaBassey blog LCP
+  trace showed the broad storefront stylesheet as a render-blocking bottleneck,
+  while the listing itself needs only blog, nav shell, ad, and small UI surfaces.
+*/
+/* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
+@source "./[slug]/(blog)";
+@source "../../components/storefront/ogabassey/pages/blog.tsx";
+@source "../../components/storefront/ogabassey/pages/ad-unit.tsx";
+@source "../../components/storefront/ogabassey/pages/ad-config.ts";
+@source "../../components/storefront/ogabassey/seo/informational-cluster-index.tsx";
+@source "../../components/storefront/ogabassey/components/AdUnit.tsx";
+@source "../../components/storefront/ogabassey/components/ad-slot-shell.tsx";
+@source "../../components/ui/badge.tsx";
+@source "../../components/ui/card.tsx";
+/* stylelint-enable scss/at-rule-no-unknown */
