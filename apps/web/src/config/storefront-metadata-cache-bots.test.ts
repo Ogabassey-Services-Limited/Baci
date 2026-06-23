@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   getStorefrontMetadataCacheBucket,
+  NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 } from './storefront-metadata-cache-bots';
 
 describe('storefront metadata cache bot classifier', () => {
   it.each([
     ['Googlebot/2.1'],
+    [
+      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    ],
+    ['Googlebot-Image/1.0'],
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
     ['GPTBot/1.1 (+https://openai.com/gptbot)'],
@@ -51,5 +56,10 @@ describe('storefront metadata cache bot classifier', () => {
       false
     );
     expect(getStorefrontMetadataCacheBucket('')).toBe('streaming');
+  });
+
+  it('keeps the Googlebot branch compatible with Vercel PPR cache bypass matching', () => {
+    expect(NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN).toBe('Googlebot');
+    expect(NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN).not.toMatch(/\(\?!/);
   });
 });
