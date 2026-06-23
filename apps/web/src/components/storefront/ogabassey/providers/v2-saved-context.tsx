@@ -74,11 +74,14 @@ function readSavedItemsFromStorage(): Product[] {
   try {
     const parsedSavedItems: unknown = JSON.parse(stored);
 
-    if (
-      Array.isArray(parsedSavedItems) &&
-      parsedSavedItems.every(isStoredSavedProduct)
-    ) {
-      return parsedSavedItems;
+    if (Array.isArray(parsedSavedItems)) {
+      const validSavedItems = parsedSavedItems.filter(isStoredSavedProduct);
+
+      if (validSavedItems.length !== parsedSavedItems.length) {
+        warnInvalidSavedStorageData();
+      }
+
+      return validSavedItems;
     }
 
     warnInvalidSavedStorageData();

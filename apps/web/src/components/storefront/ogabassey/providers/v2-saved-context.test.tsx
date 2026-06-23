@@ -134,6 +134,30 @@ describe('V2SavedProvider', () => {
     );
   });
 
+  it('keeps valid saved products when mixed localStorage entries include invalid products', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      JSON.stringify([baseProduct, { id: 'missing-required-fields' }])
+    );
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('1');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Saved items storage returned invalid data'
+    );
+  });
+
   it('keeps saved products that only have an empty description', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
       JSON.stringify([{ ...baseProduct, description: '' }])
