@@ -67,6 +67,72 @@ function isTechnicalResourceHref(href: string | undefined): boolean {
   }
 }
 
+function decodeUriComponentSafely(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function getDecodedHrefCandidates(value: string): string[] {
+  const candidates = [value];
+  let current = value;
+
+  for (let index = 0; index < 3; index += 1) {
+    const decoded = decodeUriComponentSafely(current);
+    if (decoded === current) {
+      break;
+    }
+    candidates.push(decoded);
+    current = decoded;
+  }
+
+  return candidates;
+}
+
+function stripQueryAndHash(value: string): string {
+  const queryIndex = value.indexOf('?');
+  const hashIndex = value.indexOf('#');
+  const endIndexes = [queryIndex, hashIndex].filter((index) => index >= 0);
+  const endIndex = endIndexes.length > 0 ? Math.min(...endIndexes) : -1;
+
+  return endIndex >= 0 ? value.slice(0, endIndex) : value;
+}
+
+function isSerializedAttributeLeakHref(href: string | undefined): boolean {
+  const normalizedHref = href?.trim().toLowerCase();
+  if (!normalizedHref) {
+    return false;
+  }
+
+  return getDecodedHrefCandidates(normalizedHref)
+    .map(stripQueryAndHash)
+    .some(
+      (candidate) =>
+        candidate.includes('","target"') ||
+        candidate.includes('","rel"') ||
+        candidate.includes('","href"')
+    );
+}
+
+function sanitizeAnchorTag(_tagName: string, attribs: sanitizeLib.Attributes) {
+  const nextAttribs: sanitizeLib.Attributes = {
+    ...attribs,
+    rel: 'noopener noreferrer',
+  };
+
+  if (isSerializedAttributeLeakHref(nextAttribs.href)) {
+    delete nextAttribs.href;
+    delete nextAttribs.target;
+  }
+
+  return {
+    tagName: 'a',
+    attribs: nextAttribs,
+  };
+}
+
 /**
  * Sanitize HTML content to prevent XSS attacks using sanitize-html.
  *
@@ -121,7 +187,7 @@ export function sanitizeHtml(
     options.trustedPriorityImageSources
   );
   const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
-    a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    a: sanitizeAnchorTag,
     img: (_tagName, attribs) => {
       const nextAttribs = { ...attribs };
       const normalizedImageSource =

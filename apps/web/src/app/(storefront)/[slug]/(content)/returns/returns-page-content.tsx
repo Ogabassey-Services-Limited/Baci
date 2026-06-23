@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
+import type { WebPage, WithContext } from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
 import { TrustPolicyPageClient } from '@/components/storefront/trust/trust-policy-page-client';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { getContactHref, getTrustRouteContext } from '../trust-route-context';
 
 interface PageProps {
@@ -18,7 +19,7 @@ export async function ReturnsPageContent({ params }: PageProps) {
   const returnPolicy = context.trustProfile.returnPolicy;
 
   const canonicalUrl = `${context.baseUrl}/returns`;
-  const jsonLd = {
+  const jsonLd: WithContext<WebPage> = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `Returns Policy | ${context.merchant.business_name}`,
@@ -45,7 +46,7 @@ export async function ReturnsPageContent({ params }: PageProps) {
 
   return (
     <>
-      <script type="application/ld+json">{safeJsonLdStringify(jsonLd)}</script>
+      <JsonLd data={jsonLd} />
       <TrustPolicyPageClient
         kind="returns"
         merchantName={context.merchant.business_name}

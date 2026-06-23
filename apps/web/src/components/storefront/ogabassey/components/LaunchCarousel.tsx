@@ -197,7 +197,9 @@ export function LaunchCarousel({
                   className="absolute inset-0"
                   href={asRoute(slide.href)}
                   prefetch={false}
-                />
+                >
+                  <span className="sr-only">{label}</span>
+                </Link>
               ) : null}
             </div>
           );

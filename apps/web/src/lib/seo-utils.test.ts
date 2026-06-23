@@ -2050,9 +2050,9 @@ describe('generateCollectionPageSchema', () => {
 
     expect(schema.url).toBe('https://ogabassey.com/smartphones');
     expect(product.url).toBe('https://ogabassey.com/smartphones/iphone-16');
-    expect(product.image).toBe(
-      'https://ogabassey.com/images/iphone-16-large.jpg'
-    );
+    expect(product.image).toEqual([
+      'https://ogabassey.com/images/iphone-16-large.jpg',
+    ]);
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
   });
 
@@ -2080,7 +2080,97 @@ describe('generateCollectionPageSchema', () => {
     expect(itemList.itemListElement).toEqual([]);
   });
 
-  it('keeps products without image candidates in collection-page Product JSON-LD', () => {
+  it('omits external placeholder-only products from collection-page Product JSON-LD', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'External Placeholder Phone',
+          slug: 'external-placeholder-phone',
+          category: 'Smartphones',
+          image: 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image',
+          imageLarge: 'https://via.placeholder.com/800x800?text=No+Image',
+        }),
+      ],
+    });
+
+    const itemList = schema.mainEntity as Record<string, unknown>;
+
+    expect(itemList.numberOfItems).toBe(0);
+    expect(itemList.itemListElement).toEqual([]);
+  });
+
+  it('normalizes OgaBassey CDN image URL shapes in collection-page Product JSON-LD', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'Legacy Image Phone',
+          slug: 'legacy-image-phone',
+          category: 'Smartphones',
+          image: 'https://cdn.ogabassey.com/products/legacy-phone.avif',
+          imageLarge:
+            'https://cdn.ogabassey.com/image/width=750,quality=75,format=auto/core-assets/products/legacy-phone-large.avif',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(product.image).toEqual([
+      'https://cdn.ogabassey.com/core-assets/products/legacy-phone-large.avif',
+    ]);
+  });
+
+  it('normalizes legacy collection-page product image URLs when imageLarge is unavailable', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        (() => {
+          const product = makeProduct({
+            name: 'Legacy Image Phone',
+            slug: 'legacy-image-phone',
+            category: 'Smartphones',
+            image: 'https://cdn.ogabassey.com/products/legacy-phone.avif',
+          });
+          delete (product as Partial<Product>).imageLarge;
+          return product;
+        })(),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(product.image).toEqual([
+      'https://cdn.ogabassey.com/core-assets/products/legacy-phone.avif',
+    ]);
+  });
+
+  it('omits products without image candidates from collection-page Product JSON-LD', () => {
     const productWithoutImageCandidates = makeProduct({
       id: 'no-image-candidates-product',
       name: 'No Candidate Phone',
@@ -2100,17 +2190,9 @@ describe('generateCollectionPageSchema', () => {
     });
 
     const itemList = schema.mainEntity as Record<string, unknown>;
-    const itemListElement = itemList.itemListElement as Record<
-      string,
-      unknown
-    >[];
-    const product = itemListElement[0]?.item as Record<string, unknown>;
 
-    expect(itemList.numberOfItems).toBe(1);
-    expect(itemListElement).toHaveLength(1);
-    expect(itemListElement[0]?.position).toBe(1);
-    expect(product.name).toBe('No Candidate Phone');
-    expect(product.image).toBeUndefined();
+    expect(itemList.numberOfItems).toBe(0);
+    expect(itemList.itemListElement).toEqual([]);
   });
 
   it('keeps contiguous positions when placeholder products are filtered from collection-page JSON-LD', () => {
@@ -2151,9 +2233,9 @@ describe('generateCollectionPageSchema', () => {
     expect(itemListElement).toHaveLength(1);
     expect(itemListElement[0]?.position).toBe(1);
     expect(product.name).toBe('Phone With Image');
-    expect(product.image).toBe(
-      'https://ogabassey.com/images/phone-with-image-large.jpg'
-    );
+    expect(product.image).toEqual([
+      'https://ogabassey.com/images/phone-with-image-large.jpg',
+    ]);
   });
 
   it('filters invalid collection products before applying the Product JSON-LD cap', () => {
@@ -2206,12 +2288,12 @@ describe('generateCollectionPageSchema', () => {
     expect(emittedProducts.map((product) => product.name)).toEqual(
       Array.from({ length: 20 }, (_, index) => `Valid Phone ${index + 1}`)
     );
-    expect(emittedProducts[0]?.image).toBe(
-      'https://ogabassey.com/images/valid-phone-1-large.jpg'
-    );
-    expect(emittedProducts[19]?.image).toBe(
-      'https://ogabassey.com/images/valid-phone-20-large.jpg'
-    );
+    expect(emittedProducts[0]?.image).toEqual([
+      'https://ogabassey.com/images/valid-phone-1-large.jpg',
+    ]);
+    expect(emittedProducts[19]?.image).toEqual([
+      'https://ogabassey.com/images/valid-phone-20-large.jpg',
+    ]);
   });
 
   it('falls back to a real image when imageLarge is the local placeholder', () => {
@@ -2240,9 +2322,40 @@ describe('generateCollectionPageSchema', () => {
     )[0];
     const product = listItem.item as Record<string, unknown>;
 
-    expect(product.image).toBe(
-      'https://ogabassey.com/images/phone-with-image.jpg'
-    );
+    expect(product.image).toEqual([
+      'https://ogabassey.com/images/phone-with-image.jpg',
+    ]);
+  });
+
+  it('falls back to a real image when imageLarge is an external placeholder', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'Phone With Image',
+          slug: 'phone-with-image',
+          category: 'Smartphones',
+          image: '/images/phone-with-image.jpg',
+          imageLarge: 'https://placehold.it/800x800?text=No+Image',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(product.image).toEqual([
+      'https://ogabassey.com/images/phone-with-image.jpg',
+    ]);
   });
 
   it('omits the page url when the collection URL cannot be normalized', () => {
@@ -2287,9 +2400,9 @@ describe('generateCollectionPageSchema', () => {
     expect(schema.url).toBe(
       'https://ogabassey.com/smartphones?sort=popular&ref=home'
     );
-    expect(product.image).toBe(
-      'https://ogabassey.com/images/iphone-16-large.jpg?fit=cover&width=1200'
-    );
+    expect(product.image).toEqual([
+      'https://ogabassey.com/images/iphone-16-large.jpg?fit=cover&width=1200',
+    ]);
   });
 
   it('includes brand plus shipping and return policy on collection-page product offers', () => {

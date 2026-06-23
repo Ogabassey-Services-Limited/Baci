@@ -6,6 +6,8 @@ const mockGetCachedProductLcpHint = vi.fn();
 const mockFetch = vi.fn();
 let restoreFetch: () => void = () => undefined;
 const mockImageLoader = vi.fn();
+const PRIMARY_PRODUCT_IMAGE =
+  'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif';
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedProductLcpHint: (...args: unknown[]) =>
@@ -50,9 +52,7 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
         mockFetch(...args)
       );
     restoreFetch = () => fetchSpy.mockRestore();
-    mockImageLoader.mockReturnValue(
-      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
-    );
+    mockImageLoader.mockReturnValue(PRIMARY_PRODUCT_IMAGE);
     mockFetch.mockResolvedValue(
       new Response('image-bytes', {
         headers: {
@@ -68,12 +68,10 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     restoreFetch = () => undefined;
   });
 
-  it('redirects the mobile preload profile to the transformed primary product image', async () => {
+  it('redirects the mobile preload profile to the primary product image', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
-      images: [
-        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      ],
+      images: [PRIMARY_PRODUCT_IMAGE],
       name: 'Dell Alienware m18 R3',
     });
 
@@ -85,52 +83,39 @@ describe('GET /api/ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]', () 
     );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(response.headers.get('cache-control')).toContain('s-maxage=86400');
-    expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
-      quality: 30,
-      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      width: 750,
-    });
+    expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
   it('redirects the desktop preload profile with desktop dimensions', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
-      images: [
-        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      ],
+      images: [PRIMARY_PRODUCT_IMAGE],
       name: 'Dell Alienware m18 R3',
     });
 
     const response = await GET(createRequest(), createContext('desktop'));
 
     expect(response.status).toBe(307);
-    expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
-      quality: 35,
-      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      width: 640,
-    });
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=640,quality=35,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+    );
+    expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
   it('redirects the mobile header profile with the actual mobile LCP candidate dimensions', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
-      images: [
-        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      ],
+      images: [PRIMARY_PRODUCT_IMAGE],
       name: 'Dell Alienware m18 R3',
     });
 
     const response = await GET(createRequest(), createContext('mobile-header'));
 
     expect(response.status).toBe(307);
-    expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
-      quality: 35,
-      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      width: 1080,
-    });
+    expect(response.headers.get('location')).toBe(
+      'https://cdn.ogabassey.com/image/width=1080,quality=35,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+    );
+    expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
   it('returns 400 before lookup for invalid profiles', async () => {

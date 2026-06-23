@@ -32,6 +32,13 @@ describe('storefront metadata cache bot classifier', () => {
     ['Bytespider'],
     ['CCBot/2.0'],
     ['Twitterbot/1.0'],
+    [
+      'Mozilla/5.0 (compatible; SiteAuditBot/0.97; +http://www.semrush.com/bot.html)',
+    ],
+    [
+      'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)',
+    ],
+    ['SiteAuditBot-Mobile'],
   ])('uses the metadata-blocking bucket for %s', (userAgent) => {
     expect(
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test(userAgent)

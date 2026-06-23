@@ -89,6 +89,23 @@ const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
   robots: { index: false, follow: true },
 };
 
+const PRODUCT_NOT_FOUND_METADATA: Metadata = {
+  title: 'Product not found',
+  description: 'This product is unavailable or has moved.',
+  // Replace root metadata alternates so soft-404 pages do not inherit a canonical.
+  alternates: null,
+  robots: { index: false, follow: true },
+  openGraph: {
+    title: 'Product not found',
+    description: 'This product is unavailable or has moved.',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Product not found',
+    description: 'This product is unavailable or has moved.',
+  },
+};
+
 const priceFormatterCache = new Map<string, Intl.NumberFormat>();
 
 function renderCategoryProductNotFoundContent(slug: string) {
@@ -1358,7 +1375,13 @@ export async function generateMetadata({
   );
 
   if (!routeControl) {
-    notFound();
+    const merchant = await getRequestScopedMerchant(slug);
+
+    if (!merchant) {
+      notFound();
+    }
+
+    return PRODUCT_NOT_FOUND_METADATA;
   }
 
   // Don't redirect from generateMetadata — Next.js can't change HTTP status

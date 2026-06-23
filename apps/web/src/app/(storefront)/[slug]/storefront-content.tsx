@@ -1,3 +1,4 @@
+import { deriveProductImageData } from '@baci/shared/lib';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -271,6 +272,10 @@ export async function StorefrontContent({
         product.product_categories?.[0]?.categories
       );
       const category = directCategory ?? legacyCategory;
+      const { image: primaryImage } = deriveProductImageData({
+        image: product.image,
+        images: product.images ?? [],
+      });
 
       const { product_categories: _productCategories, ...productFields } =
         product;
@@ -290,9 +295,9 @@ export async function StorefrontContent({
         description: product.description ?? '',
         gtin: product.gtin ?? '',
         id: product.id ?? '',
-        image: product.image ?? '',
+        image: primaryImage,
         imageHint: product.imageHint ?? '',
-        imageLarge: product.imageLarge ?? product.image ?? '',
+        imageLarge: product.imageLarge ?? primaryImage,
         images: product.images ?? undefined,
         low_stock_threshold: product.low_stock_threshold ?? undefined,
         manage_stock: product.manage_stock ?? false,
