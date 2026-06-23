@@ -2070,7 +2070,17 @@ export async function getCachedCategoryPageData(
   categorySlug: string,
   _storeSlug: string
 ): Promise<CachedCategoryPageData> {
-  'use cache: remote';
+  'use cache';
+  /*
+    This intentionally uses the in-memory Cache Components layer, not
+    `use cache: remote`. Category pages can include an unbounded product array
+    with descriptions, images, and key specs; Vercel's remote/data cache stores
+    whole function outputs and has a 2 MB item limit. Remote writes for large
+    categories have produced production `RemoteCacheHandler.set` 503s after the
+    HTML response, causing noisy Node process exits. Keep remote caching for
+    smaller bounded records, but do not put this large aggregate payload in the
+    remote cache.
+  */
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
 

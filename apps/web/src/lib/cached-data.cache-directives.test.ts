@@ -53,6 +53,21 @@ describe('cached-data cache directives', () => {
     }
   });
 
+  it('keeps category page aggregate payloads off the remote cache handler', () => {
+    const source = getFunctionSource('getCachedCategoryPageData');
+
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+
+    // Category pages can serialize large product aggregates; keep them out of
+    // Vercel Runtime Cache's remote item-size limit while preserving Next 16
+    // Cache Components lifetime/tag invalidation behavior.
+    expect(source).toContain("cacheLife('storefront-page');");
+    expect(source).toContain(
+      "cacheTag('category-page-data', 'products', 'categories');"
+    );
+  });
+
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
     for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
       const source = getFunctionSource(functionName);
