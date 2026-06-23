@@ -6,7 +6,7 @@ const { mockFrom, mockRpc } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({ from: mockFrom, rpc: mockRpc }),
+  createClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
 import { createRecoveryCodeStore } from './recovery-code-store';
@@ -121,10 +121,12 @@ describe('recovery-code-store (Supabase-backed)', () => {
       codeSetId: 'set-1',
       codeId: 'c1',
       ipHash: 'ip',
+      attemptId: 'attempt-1',
     });
 
     expect(claimed).toBe(true);
     expect(mockRpc).toHaveBeenCalledWith('claim_merchant_auth_recovery_code', {
+      p_attempt_id: 'attempt-1',
       p_code_id: 'c1',
       p_code_set_id: 'set-1',
       p_ip_hash: 'ip',
@@ -141,6 +143,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
         codeSetId: 'set-1',
         codeId: 'c1',
         ipHash: 'ip',
+        attemptId: 'attempt-1',
       })
     ).rejects.toThrow('Failed to consume recovery code');
   });
@@ -154,8 +157,62 @@ describe('recovery-code-store (Supabase-backed)', () => {
         codeSetId: 'set-1',
         codeId: 'c1',
         ipHash: 'ip',
+        attemptId: 'attempt-1',
       })
     ).resolves.toBe(false);
+  });
+
+  it('beginAttempt returns the reserved attempt id when below lockout threshold', async () => {
+    mockRpc.mockResolvedValueOnce({ data: 'attempt-1', error: null });
+
+    await expect(
+      createRecoveryCodeStore().beginAttempt({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        ipHash: 'ip',
+        maxFailures: 10,
+      })
+    ).resolves.toBe('attempt-1');
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'begin_merchant_auth_recovery_attempt',
+      {
+        p_code_set_id: 'set-1',
+        p_cutoff: expect.any(String),
+        p_ip_hash: 'ip',
+        p_max_failures: 10,
+        p_user_id: 'user-1',
+      }
+    );
+  });
+
+  it('beginAttempt returns null when the tuple is already locked', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(
+      createRecoveryCodeStore().beginAttempt({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        ipHash: 'ip',
+        maxFailures: 10,
+      })
+    ).resolves.toBeNull();
+  });
+
+  it('beginAttempt throws on RPC error (fail closed)', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'lock denied' },
+    });
+
+    await expect(
+      createRecoveryCodeStore().beginAttempt({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        ipHash: 'ip',
+        maxFailures: 10,
+      })
+    ).rejects.toThrow('Failed to begin recovery attempt');
   });
 
   it('countRecentFailures throws on query error (fail closed)', async () => {

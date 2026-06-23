@@ -37,7 +37,12 @@ export type RecoveryFailureScope = {
 };
 
 export type RecoveryCodeClaim = RecoveryFailureScope & {
+  attemptId: string;
   codeId: string;
+};
+
+export type RecoveryAttemptReservation = RecoveryFailureScope & {
+  maxFailures: number;
 };
 
 export interface RecoveryCodeStore {
@@ -49,7 +54,13 @@ export interface RecoveryCodeStore {
     codeSetId: string
   ): Promise<RecoveryCodeRecord[]>;
   /**
-   * Atomically mark a single code consumed and append the attempt ledger row.
+   * Serialize lockout accounting for the user / active code-set / IP tuple,
+   * returning null when the tuple is already locked.
+   */
+  beginAttempt(attempt: RecoveryAttemptReservation): Promise<string | null>;
+  /**
+   * Atomically mark a single code consumed and flip the reserved attempt row
+   * from failure to success.
    * Returns false when another request already consumed/revoked it.
    */
   claimCode(claim: RecoveryCodeClaim): Promise<boolean>;
@@ -94,10 +105,16 @@ export async function redeemRecoveryCode({
     return { ok: false, reason: 'invalid' };
   }
 
-  // 2. Lockout check before loading/verifying recovery codes.
+  // 2. Reserve this verification attempt before loading/verifying recovery
+  //    codes. The Supabase store serializes this per user / active code-set /
+  //    IP, which avoids concurrent wrong-code bursts all passing a stale
+  //    count-before-insert check.
   const failureScope = { userId, ipHash, codeSetId };
-  const failures = await store.countRecentFailures(failureScope);
-  if (failures >= RECOVERY_MAX_FAILURES) {
+  const attemptId = await store.beginAttempt({
+    ...failureScope,
+    maxFailures: RECOVERY_MAX_FAILURES,
+  });
+  if (!attemptId) {
     return { ok: false, reason: 'locked' };
   }
 
@@ -118,12 +135,8 @@ export async function redeemRecoveryCode({
   }
 
   if (!match) {
-    await store.recordAttempt({
-      userId,
-      ipHash,
-      codeSetId,
-      succeeded: false,
-    });
+    // beginAttempt already reserved and recorded this request as a failed
+    // attempt. Leave that row as-is for no-match inputs.
     return { ok: false, reason: 'invalid' };
   }
 
@@ -132,6 +145,7 @@ export async function redeemRecoveryCode({
   //    consumed/revoked the matched code first.
   const claimed = await store.claimCode({
     ...failureScope,
+    attemptId,
     codeId: match.id,
   });
   if (!claimed) {

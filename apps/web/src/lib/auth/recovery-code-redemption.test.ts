@@ -57,10 +57,37 @@ function makeStore(plaintextCodes: string[]) {
           .map(({ id, codeHash }) => ({ id, codeHash }))
       );
     },
+    beginAttempt: ({
+      codeSetId,
+      ipHash,
+      maxFailures,
+      userId,
+    }): Promise<string | null> => {
+      if (
+        attempts.filter(
+          (attempt) =>
+            !attempt.succeeded &&
+            attempt.userId === userId &&
+            attempt.codeSetId === codeSetId &&
+            attempt.ipHash === ipHash
+        ).length >= maxFailures
+      ) {
+        return Promise.resolve(null);
+      }
+      attempts.push({
+        userId,
+        ipHash,
+        codeSetId,
+        succeeded: false,
+      });
+      return Promise.resolve(String(attempts.length - 1));
+    },
     claimCode: ({
+      attemptId,
       codeId,
       codeSetId,
     }: {
+      attemptId: string;
       codeId: string;
       codeSetId: string;
     }): Promise<boolean> => {
@@ -78,12 +105,7 @@ function makeStore(plaintextCodes: string[]) {
         return Promise.resolve(false);
       }
       c.used = true;
-      attempts.push({
-        userId: USER,
-        ipHash: IP,
-        codeSetId,
-        succeeded: true,
-      });
+      attempts[Number(attemptId)].succeeded = true;
       return Promise.resolve(true);
     },
     countRecentFailures: (): Promise<number> =>
@@ -178,15 +200,7 @@ describe('redeemRecoveryCode', () => {
 
   it('rejects a valid match when another request consumed it first', async () => {
     const store = makeStore(codes);
-    store.claimCode = ({ userId, ipHash, codeSetId }) => {
-      store.attempts.push({
-        userId,
-        ipHash,
-        codeSetId,
-        succeeded: false,
-      });
-      return Promise.resolve(false);
-    };
+    store.claimCode = () => Promise.resolve(false);
 
     const result = await redeemRecoveryCode({
       userId: USER,

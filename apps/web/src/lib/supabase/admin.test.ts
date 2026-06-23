@@ -1,0 +1,39 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockCreateClient } = vi.hoisted(() => ({
+  mockCreateClient: vi.fn(),
+}));
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+vi.mock('@/env', () => ({
+  getSupabaseServiceRoleKey: () => 'service-role-key',
+  getSupabaseUrl: () => 'https://example.supabase.co',
+}));
+
+import { createAdminClient, createClient } from './admin';
+
+describe('supabase admin client factory', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateClient.mockReturnValue({ kind: 'admin-client' });
+  });
+
+  it('exports the documented createClient factory and legacy createAdminClient alias', () => {
+    expect(createClient()).toEqual({ kind: 'admin-client' });
+    expect(createAdminClient()).toEqual({ kind: 'admin-client' });
+    expect(mockCreateClient).toHaveBeenCalledWith(
+      'https://example.supabase.co',
+      'service-role-key',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+    expect(mockCreateClient).toHaveBeenCalledTimes(2);
+  });
+});

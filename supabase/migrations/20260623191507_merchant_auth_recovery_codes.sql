@@ -75,8 +75,73 @@ CREATE INDEX IF NOT EXISTS merchant_auth_recovery_attempts_lockout_idx
   ON public.merchant_auth_recovery_attempts (user_id, code_set_id, ip_hash, created_at DESC)
   WHERE succeeded = false;
 
+DROP FUNCTION IF EXISTS public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, text);
+
+CREATE OR REPLACE FUNCTION public.begin_merchant_auth_recovery_attempt(
+  p_user_id uuid,
+  p_code_set_id uuid,
+  p_ip_hash text,
+  p_cutoff timestamptz,
+  p_max_failures integer
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  failure_count integer;
+  attempt_id uuid;
+BEGIN
+  IF COALESCE((SELECT auth.role()), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'begin_merchant_auth_recovery_attempt requires service_role'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Serialize lockout accounting for this user / code-set / IP tuple. This
+  -- prevents concurrent wrong-code bursts from all passing a stale
+  -- count-before-insert check.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended(
+      p_user_id::text || ':' || p_code_set_id::text || ':' || COALESCE(p_ip_hash, ''),
+      0
+    )
+  );
+
+  SELECT COUNT(*)::integer
+  INTO failure_count
+  FROM public.merchant_auth_recovery_attempts
+  WHERE user_id = p_user_id
+    AND code_set_id = p_code_set_id
+    AND ip_hash IS NOT DISTINCT FROM p_ip_hash
+    AND succeeded = false
+    AND created_at >= p_cutoff;
+
+  IF failure_count >= p_max_failures THEN
+    RETURN NULL;
+  END IF;
+
+  INSERT INTO public.merchant_auth_recovery_attempts (
+    user_id,
+    ip_hash,
+    code_set_id,
+    succeeded
+  )
+  VALUES (
+    p_user_id,
+    p_ip_hash,
+    p_code_set_id,
+    false
+  )
+  RETURNING id INTO attempt_id;
+
+  RETURN attempt_id;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.claim_merchant_auth_recovery_code(
   p_user_id uuid,
+  p_attempt_id uuid,
   p_code_id uuid,
   p_code_set_id uuid,
   p_ip_hash text
@@ -88,6 +153,7 @@ SET search_path = public
 AS $$
 DECLARE
   claimed_count integer;
+  attempt_count integer;
   claimed boolean;
 BEGIN
   IF COALESCE((SELECT auth.role()), '') <> 'service_role' THEN
@@ -106,26 +172,34 @@ BEGIN
   GET DIAGNOSTICS claimed_count = ROW_COUNT;
   claimed := claimed_count > 0;
 
-  INSERT INTO public.merchant_auth_recovery_attempts (
-    user_id,
-    ip_hash,
-    code_set_id,
-    succeeded
-  )
-  VALUES (
-    p_user_id,
-    p_ip_hash,
-    p_code_set_id,
-    claimed
-  );
+  IF claimed THEN
+    UPDATE public.merchant_auth_recovery_attempts
+    SET succeeded = true
+    WHERE id = p_attempt_id
+      AND user_id = p_user_id
+      AND code_set_id = p_code_set_id
+      AND ip_hash IS NOT DISTINCT FROM p_ip_hash
+      AND succeeded = false;
+
+    GET DIAGNOSTICS attempt_count = ROW_COUNT;
+    IF attempt_count <> 1 THEN
+      RAISE EXCEPTION 'recovery_attempt_not_found'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
 
   RETURN claimed;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, text)
+REVOKE ALL ON FUNCTION public.begin_merchant_auth_recovery_attempt(uuid, uuid, text, timestamptz, integer)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, text)
+GRANT EXECUTE ON FUNCTION public.begin_merchant_auth_recovery_attempt(uuid, uuid, text, timestamptz, integer)
+  TO service_role;
+
+REVOKE ALL ON FUNCTION public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, uuid, text)
   TO service_role;
 
 -- ---------------------------------------------------------------------------
