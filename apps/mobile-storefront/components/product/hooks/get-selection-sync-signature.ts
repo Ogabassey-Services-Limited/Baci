@@ -15,6 +15,9 @@ export function getSelectionSyncSignature(product: Product | null) {
       product.variants?.map((variant) => ({
         attributes: variant.attributes ?? null,
         id: variant.id,
+        price: variant.price ?? null,
+        price_modifier: variant.price_modifier ?? null,
+        price_override: variant.price_override ?? null,
         stock_quantity: variant.stock_quantity ?? null,
       })) ?? [],
   });

@@ -2,6 +2,7 @@ import '@/app/(storefront)/storefront-pdp-critical.css';
 import {
   type ResolvedProductVariantSelection,
   resolveDefaultVariantSelection,
+  resolveLowestPricedVariantSelection,
   resolveVariantSelection,
   resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
@@ -394,7 +395,8 @@ function shouldRedirectVariantSelectionParams(
 }
 
 function toInitialCriticalVariantSelection(
-  selection: ResolvedProductVariantSelection<ProductVariant> | null
+  selection: ResolvedProductVariantSelection<ProductVariant> | null,
+  options: { includeCondition?: boolean } = {}
 ) {
   if (!selection) {
     return undefined;
@@ -407,7 +409,8 @@ function toInitialCriticalVariantSelection(
 
   return {
     ...(selection.attributes && { attributes: selection.attributes }),
-    ...(selection.condition && { condition: selection.condition }),
+    ...(options.includeCondition !== false &&
+      selection.condition && { condition: selection.condition }),
     ...(variantId && { variantId }),
   };
 }
@@ -475,6 +478,19 @@ function getInitialCriticalVariantSelectionPrimaryImage(
   );
 }
 
+function getPriceFirstCriticalVariantSelection(product: Product) {
+  const normalizedProduct = {
+    ...product,
+    variants: normalizeRouteProductVariants(product.variants || []),
+  };
+
+  return toInitialCriticalVariantSelection(
+    resolveLowestPricedVariantSelection(normalizedProduct) ??
+      resolveDefaultVariantSelection(normalizedProduct),
+    { includeCondition: false }
+  );
+}
+
 function getDefaultCriticalVariantSelection(product: Product) {
   const productColor = normalizeRouteSelectionValue(product.color);
   const productCondition = normalizeProductCondition(product.condition);
@@ -492,17 +508,12 @@ function getDefaultCriticalVariantSelection(product: Product) {
         resolveVariantSelection(normalizedProduct, {
           variantId: defaultVariantId,
         })
-      ) ??
-      toInitialCriticalVariantSelection(
-        resolveDefaultVariantSelection(normalizedProduct)
-      )
+      ) ?? getPriceFirstCriticalVariantSelection(product)
     );
   }
 
   if (!productColor) {
-    return toInitialCriticalVariantSelection(
-      resolveDefaultVariantSelection(normalizedProduct)
-    );
+    return getPriceFirstCriticalVariantSelection(product);
   }
 
   const colorConditionSelection = productCondition
@@ -524,9 +535,7 @@ function getDefaultCriticalVariantSelection(product: Product) {
   });
 
   if (!colorSelection) {
-    return toInitialCriticalVariantSelection(
-      resolveDefaultVariantSelection(normalizedProduct)
-    );
+    return getPriceFirstCriticalVariantSelection(product);
   }
 
   return {

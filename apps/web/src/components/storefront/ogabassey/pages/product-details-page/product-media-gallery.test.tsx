@@ -173,9 +173,11 @@ describe('ProductMediaGallery', () => {
   });
 
   it('falls back to the first working image when the selected image fails to load', () => {
+    const onSelectImage = vi.fn();
+
     render(
       <ProductMediaGallery
-        onSelectImage={vi.fn()}
+        onSelectImage={onSelectImage}
         productData={buildProductData()}
         selectedCondition="new"
         selectedImage={0}
@@ -195,6 +197,7 @@ describe('ProductMediaGallery', () => {
       'src',
       'https://example.com/img-2.jpg',
     );
+    expect(onSelectImage).toHaveBeenCalledWith(1);
   });
 
   it('removes the main image instead of reusing a broken source when every image fails', () => {

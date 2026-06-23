@@ -119,6 +119,11 @@ export function useProductDetailSelection({
           !selectedStorage &&
           !selectedColor &&
           Object.keys(selectedAttributes).length === 0);
+      const shouldReapplyAutoSeed =
+        !hasCustomizedSelection &&
+        !shouldForceRouteSeed &&
+        !shouldRepairInvalidSelection &&
+        lastSelectionSyncSignature !== selectionSyncSignature;
       // Seed the on-open selection: honor an explicit route condition when one
       // is present, otherwise open on the cheapest buyable variant (price-first,
       // PDP-only). Falls back to the shared condition-first default.
@@ -183,7 +188,11 @@ export function useProductDetailSelection({
         imageDrivenSelectedColor ??
         fallbackSelection.color;
 
-      if (shouldSeedSelection || shouldRepairInvalidSelection) {
+      if (
+        shouldSeedSelection ||
+        shouldRepairInvalidSelection ||
+        shouldReapplyAutoSeed
+      ) {
         // Guard every setter behind value equality: a repair that cannot
         // resolve a variant must settle on the second render pass instead of
         // re-queueing fresh state (fresh object identities here would

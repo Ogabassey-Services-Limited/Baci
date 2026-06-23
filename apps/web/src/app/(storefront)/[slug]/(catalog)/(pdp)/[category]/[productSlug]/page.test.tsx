@@ -2502,6 +2502,80 @@ describe('[category]/[productSlug] page render', () => {
     });
   });
 
+  it('seeds no-query critical commerce from the lowest-priced variant', async () => {
+    const usedImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-used.avif';
+    const openBoxImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-open-box.avif';
+    const variants = [
+      {
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-128',
+        primary_image: usedImage,
+        price_override: 750000,
+        stock_quantity: 3,
+      },
+      {
+        attributes: { storage: '128GB' },
+        condition: 'open_box',
+        id: 'variant-open-box-128',
+        primary_image: openBoxImage,
+        price_override: 650000,
+        stock_quantity: 3,
+      },
+    ];
+
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        color: null,
+        condition: 'used',
+        default_variant_id: null,
+        has_variants: true,
+        images: [usedImage],
+        price: 800000,
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      color: null,
+      condition: 'used',
+      default_variant_id: null,
+      has_variants: true,
+      images: [usedImage],
+      price: 800000,
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: openBoxImage,
+    });
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          attributes: { storage: '128GB' },
+          variantId: 'variant-open-box-128',
+        },
+      })
+    );
+  });
+
   it('preloads legacy Colour variant images on the full product route path', async () => {
     const baseProductImage =
       'https://cdn.ogabassey.com/core-assets/products/s24-base.avif';
@@ -3200,7 +3274,6 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green', storage: '128GB' },
-          condition: 'used',
           variantId: 'variant-used-jade-128',
         },
       })
@@ -3270,7 +3343,6 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green', storage: '128GB' },
-          condition: 'used',
           variantId: 'variant-used-jade-128',
         },
       })

@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
+  type ResolvedProductVariantSelection,
   getVariantConditionOptions,
   hasVariantConditionAxis,
   normalizeCanonicalProductCondition,
@@ -78,6 +79,39 @@ function areSelectionAttributesEqual(
   }
 
   return leftEntries.every(([key, value]) => right[key] === value);
+}
+
+type ProductVariantSelection =
+  | ResolvedProductVariantSelection<NonNullable<Product['variants']>[number]>
+  | null;
+
+function getSelectionColor(selection: ProductVariantSelection) {
+  return (
+    selection?.color ||
+    selection?.attributes?.color ||
+    selection?.attributes?.Colour ||
+    selection?.attributes?.colour ||
+    undefined
+  );
+}
+
+function getSelectionImageIndex(
+  productData: ReturnType<typeof normalizeProductDetails>,
+  selection: ProductVariantSelection
+) {
+  const selectionColor = getSelectionColor(selection);
+  const colorImage = selectionColor
+    ? productData.colorImages[selectionColor]?.[0]
+    : undefined;
+  const variantImage = selection?.variant.images?.find(Boolean);
+  const image = colorImage || variantImage;
+
+  if (!image) {
+    return 0;
+  }
+
+  const imageIndex = productData.images.findIndex((item) => item === image);
+  return imageIndex >= 0 ? imageIndex : 0;
 }
 
 export function useProductDetailsState(serverProduct: Product) {
@@ -218,7 +252,9 @@ export function useProductDetailsState(serverProduct: Product) {
             ) as ConditionType) || 'new';
     }
   );
-  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedImage, setSelectedImage] = useState(() =>
+    getSelectionImageIndex(productData, resolveInitialSeed())
+  );
   const [selectedColor, setSelectedColor] = useState<number | null>(() => {
     const seed = resolveInitialSeed();
     const index = seed?.color
@@ -400,14 +436,17 @@ export function useProductDetailsState(serverProduct: Product) {
           ? previousAttributes
           : nextAttributes
       );
-      const defaultColorIndex = seedSelection.color
-        ? productData.colors.findIndex(
-            (color) => color.name === seedSelection.color
-          )
+      const seedColor = getSelectionColor(seedSelection);
+      const defaultColorIndex = seedColor
+        ? productData.colors.findIndex((color) => color.name === seedColor)
         : -1;
+      const nextImage = getSelectionImageIndex(productData, seedSelection);
       const nextColor = defaultColorIndex >= 0 ? defaultColorIndex : null;
       setSelectedColor((previousColor) =>
         previousColor === nextColor ? previousColor : nextColor
+      );
+      setSelectedImage((previousImage) =>
+        previousImage === nextImage ? previousImage : nextImage
       );
       setSecondaryColor((previousColor) =>
         previousColor === null ? previousColor : null
@@ -420,6 +459,9 @@ export function useProductDetailsState(serverProduct: Product) {
 
       setSelectedColor((previousColor) =>
         previousColor === null ? previousColor : null
+      );
+      setSelectedImage((previousImage) =>
+        previousImage === 0 ? previousImage : 0
       );
       setSecondaryColor((previousColor) =>
         previousColor === null ? previousColor : null

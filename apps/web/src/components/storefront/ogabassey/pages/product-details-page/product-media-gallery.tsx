@@ -45,6 +45,19 @@ export function ProductMediaGallery({
       return next;
     });
   };
+  const handleMainImageError = (src: string) => {
+    const nextBrokenImages = new Set(brokenImages);
+    nextBrokenImages.add(src);
+    const fallbackIndex = productData.images.findIndex(
+      (image) => image && !nextBrokenImages.has(image)
+    );
+
+    markImageBroken(src);
+
+    if (fallbackIndex >= 0 && fallbackIndex !== selectedImage) {
+      onSelectImage(fallbackIndex);
+    }
+  };
 
   const badgeCondition = (
     selectedCondition ||
@@ -93,7 +106,7 @@ export function ProductMediaGallery({
             preload
             decoding="sync"
             quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
-            onError={() => markImageBroken(mainImageSrc)}
+            onError={() => handleMainImageError(mainImageSrc)}
           />
         ) : null}
         <div

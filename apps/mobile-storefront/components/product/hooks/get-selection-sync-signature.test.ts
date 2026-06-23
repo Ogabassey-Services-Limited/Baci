@@ -15,6 +15,18 @@ describe('getSelectionSyncSignature', () => {
     expect(initialSignature).not.toBe(updatedSignature);
   });
 
+  it('changes when variant prices change', () => {
+    const initialSignature = getSelectionSyncSignature(variantProduct);
+    const updatedSignature = getSelectionSyncSignature({
+      ...variantProduct,
+      variants: variantProduct.variants?.map((variant, index) =>
+        index === 1 ? { ...variant, price_override: 1 } : variant
+      ),
+    });
+
+    expect(initialSignature).not.toBe(updatedSignature);
+  });
+
   it('returns an empty signature when no product is loaded', () => {
     expect(getSelectionSyncSignature(null)).toBe('');
   });

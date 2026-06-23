@@ -140,6 +140,158 @@ describe('useProductDetailSelection', () => {
     });
   });
 
+  it('reseeds the auto default when a same-product price update changes the cheapest variant', async () => {
+    const initialProduct: Product = {
+      ...baseProduct,
+      has_variants: true,
+      variant_attributes: { storage: ['128GB'] },
+      variants: [
+        {
+          id: 'open-box-128',
+          name: '128GB Open Box',
+          condition: 'open_box',
+          price: 650000,
+          price_override: 650000,
+          stock_quantity: 2,
+          attributes: { storage: '128GB' },
+        },
+        {
+          id: 'used-128',
+          name: '128GB Used',
+          condition: 'used',
+          price: 750000,
+          price_override: 750000,
+          stock_quantity: 2,
+          attributes: { storage: '128GB' },
+        },
+      ],
+    };
+    const updatedProduct: Product = {
+      ...initialProduct,
+      variants: initialProduct.variants?.map((variant) =>
+        variant.id === 'used-128'
+          ? { ...variant, price: 600000, price_override: 600000 }
+          : variant
+      ),
+    };
+    const signatureFor = (product: Product | null) =>
+      JSON.stringify(
+        product?.variants?.map((variant) => ({
+          id: variant.id,
+          price: variant.price,
+          price_override: variant.price_override,
+        })) ?? []
+      );
+    const { rerender, result } = renderHook(
+      (args: HookArgs) => useProductDetailSelection(args),
+      {
+        initialProps: createHookArgs({
+          getSelectionSyncSignature: signatureFor,
+          product: initialProduct,
+          productGalleryImages: initialProduct.images ?? [initialProduct.image],
+          routeSelectionSignature: routeSelectionSignature({}),
+        }),
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedVariant).toBe('open-box-128');
+      expect(result.current.hasCustomizedSelection).toBe(false);
+    });
+
+    rerender(
+      createHookArgs({
+        getSelectionSyncSignature: signatureFor,
+        product: updatedProduct,
+        productGalleryImages: updatedProduct.images ?? [updatedProduct.image],
+        routeSelectionSignature: routeSelectionSignature({}),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedVariant).toBe('used-128');
+      expect(result.current.effectiveSelectedCondition).toBe('used');
+    });
+  });
+
+  it('does not reseed price updates after the shopper customizes the selection', async () => {
+    const initialProduct: Product = {
+      ...baseProduct,
+      has_variants: true,
+      variant_attributes: { storage: ['128GB'] },
+      variants: [
+        {
+          id: 'open-box-128',
+          name: '128GB Open Box',
+          condition: 'open_box',
+          price: 650000,
+          price_override: 650000,
+          stock_quantity: 2,
+          attributes: { storage: '128GB' },
+        },
+        {
+          id: 'used-128',
+          name: '128GB Used',
+          condition: 'used',
+          price: 750000,
+          price_override: 750000,
+          stock_quantity: 2,
+          attributes: { storage: '128GB' },
+        },
+      ],
+    };
+    const updatedProduct: Product = {
+      ...initialProduct,
+      variants: initialProduct.variants?.map((variant) =>
+        variant.id === 'used-128'
+          ? { ...variant, price: 600000, price_override: 600000 }
+          : variant
+      ),
+    };
+    const signatureFor = (product: Product | null) =>
+      JSON.stringify(
+        product?.variants?.map((variant) => ({
+          id: variant.id,
+          price: variant.price,
+          price_override: variant.price_override,
+        })) ?? []
+      );
+    const { rerender, result } = renderHook(
+      (args: HookArgs) => useProductDetailSelection(args),
+      {
+        initialProps: createHookArgs({
+          getSelectionSyncSignature: signatureFor,
+          product: initialProduct,
+          productGalleryImages: initialProduct.images ?? [initialProduct.image],
+          routeSelectionSignature: routeSelectionSignature({}),
+        }),
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedVariant).toBe('open-box-128');
+    });
+
+    act(() => {
+      result.current.setHasCustomizedSelection(true);
+      result.current.setSelectedVariant('open-box-128');
+    });
+
+    rerender(
+      createHookArgs({
+        getSelectionSyncSignature: signatureFor,
+        product: updatedProduct,
+        productGalleryImages: updatedProduct.images ?? [updatedProduct.image],
+        routeSelectionSignature: routeSelectionSignature({}),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedVariant).toBe('open-box-128');
+      expect(result.current.hasCustomizedSelection).toBe(true);
+    });
+  });
+
   it('seeds fallback selections when variant rows have not loaded yet', async () => {
     const { result } = renderHook(() =>
       useProductDetailSelection(
