@@ -130,6 +130,20 @@ export function getProductPriceRange(
 
 const _productPriceFormatterCache = new Map<string, Intl.NumberFormat>();
 const MAX_SLUG_DISAMBIGUATOR_TOKENS = 3;
+const NON_IDENTIFYING_SLUG_DISAMBIGUATOR_TOKENS = new Set([
+  'a',
+  'an',
+  'and',
+  'for',
+  'new',
+  'old',
+  'or',
+  'preowned',
+  'refurbished',
+  'the',
+  'used',
+  'with',
+]);
 
 function tokenizeProductIdentity(value: string): Set<string> {
   const normalized = value
@@ -178,9 +192,13 @@ function getSeoProductName(product: ProductPriceSeoProduct): string {
   const nameTokens = tokenizeProductIdentity(productName);
   const trailingDisambiguators: string[] = [];
 
-  for (const token of getSlugTokens(product.slug).reverse()) {
+  for (const token of [...getSlugTokens(product.slug)].reverse()) {
     if (nameTokens.has(token)) {
       break;
+    }
+
+    if (NON_IDENTIFYING_SLUG_DISAMBIGUATOR_TOKENS.has(token)) {
+      continue;
     }
 
     trailingDisambiguators.unshift(token);

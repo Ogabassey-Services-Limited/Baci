@@ -17,7 +17,7 @@ function getLegacySwapRedirectUrl(request: NextRequest, slug: string): URL {
 
   redirectUrl.pathname = isOgabasseyCustomDomain
     ? '/swap'
-    : `/${encodeURIComponent(normalizedSlug)}/swap`;
+    : `/${normalizedSlug}/swap`;
 
   return redirectUrl;
 }

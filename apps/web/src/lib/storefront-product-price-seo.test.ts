@@ -248,6 +248,22 @@ describe('buildProductPriceSeoCopy', () => {
     );
   });
 
+  it('does not append non-identifying trailing condition tokens from the slug', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'Apple iPhone 15',
+        slug: 'apple-iphone-15-new',
+        price: 920000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Smartphones',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe('Apple iPhone 15 Price in Nigeria');
+  });
+
   it('builds generic check-price copy when no price is available', () => {
     const copy = buildProductPriceSeoCopy({
       product: {
