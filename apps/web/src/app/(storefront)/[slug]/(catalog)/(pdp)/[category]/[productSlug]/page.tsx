@@ -2,7 +2,6 @@ import '@/app/(storefront)/storefront-pdp-critical.css';
 import {
   resolveDefaultVariantSelection,
   resolveLowestPricedVariantSelection,
-  resolveVariantSelection,
 } from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -84,7 +83,6 @@ import {
   getInitialCriticalVariantSelectionPrimaryImage,
   getVariantPrimaryImage,
   normalizeRouteProductVariants,
-  normalizeRouteSelectionValue,
   shouldRedirectVariantSelectionParams,
 } from './critical-variant-selection';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
@@ -555,29 +553,15 @@ function getInitialRouteVariant(
   cachedProduct: CachedProductLcpHint,
   variants: NonNullable<Product['variants']>
 ) {
-  const defaultVariantId = normalizeRouteSelectionValue(
-    cachedProduct.default_variant_id
-  );
   const resolutionProduct = getRouteVariantResolutionProduct(
     cachedProduct,
     variants
   );
 
-  if (defaultVariantId) {
-    const defaultSelection = resolveVariantSelection(resolutionProduct, {
-      variantId: defaultVariantId,
-    });
-    const fallbackSelection =
-      defaultSelection ??
-      resolveLowestPricedVariantSelection(resolutionProduct) ??
-      resolveDefaultVariantSelection(resolutionProduct);
-
-    return fallbackSelection?.variant ?? null;
-  }
-
-  // Match the critical commerce default: open on the GLOBAL cheapest variant
-  // (ignoring product color) so the early LCP preload hint targets the same
-  // image the PDP renders.
+  // Match the critical commerce default: open on the GLOBAL cheapest variant,
+  // ignoring product.default_variant_id (the SKU projection's condition-first
+  // default), so the early LCP preload hint targets the same image the PDP
+  // renders instead of racing it and forcing a second preload.
   return (
     resolveLowestPricedVariantSelection(resolutionProduct)?.variant ??
     resolveDefaultVariantSelection(resolutionProduct)?.variant ??
