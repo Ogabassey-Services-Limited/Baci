@@ -63,9 +63,9 @@ interface MerchantBrandingRow {
   brand_colors: { primary?: string; accent?: string } | null;
   business_name: string;
   email: string | null;
+  email_logo_url: string | null;
   email_sender_name: string | null;
   logo_url: string | null;
-  email_logo_url: string | null;
   slug: string | null;
   support_email: string | null;
 }
@@ -154,8 +154,8 @@ async function fetchMerchantBranding(
     return {
       businessName: merchant.business_name,
       customDomain: resolvedCustomDomain,
-      emailSenderName: merchant.email_sender_name,
       emailLogoUrl: merchant.email_logo_url || null,
+      emailSenderName: merchant.email_sender_name,
       logoUrl: merchant.logo_url || null,
       primaryColor: brandColors?.primary || BACI_PRIMARY_COLOR,
       buttonColor:
