@@ -492,7 +492,6 @@ function getPriceFirstCriticalVariantSelection(product: Product) {
 }
 
 function getDefaultCriticalVariantSelection(product: Product) {
-  const productColor = normalizeRouteSelectionValue(product.color);
   const defaultVariantId = normalizeRouteSelectionValue(
     product.default_variant_id
   );
@@ -511,35 +510,12 @@ function getDefaultCriticalVariantSelection(product: Product) {
     );
   }
 
-  if (!productColor) {
-    return getPriceFirstCriticalVariantSelection(product);
-  }
-
-  // No explicit query selection: preserve the product's default color for a
-  // stable LCP hero, but pick the cheapest purchasable variant *within* that
-  // color and never force a product-level condition. A bare color match would
-  // resolve to null when the color is sold in multiple conditions, dropping the
-  // color entirely; scoping price-first to the color keeps it.
-  const productColorKey = normalizeRouteSelectionKey(product.color);
-  const colorScopedVariants = (normalizedProduct.variants || []).filter(
-    (variant) =>
-      normalizeRouteSelectionKey(variant.attributes?.color) === productColorKey
-  );
-  const colorScopedSelection =
-    colorScopedVariants.length > 0
-      ? resolveLowestPricedVariantSelection({
-          ...normalizedProduct,
-          variants: colorScopedVariants,
-        })
-      : null;
-
-  if (!colorScopedSelection) {
-    return getPriceFirstCriticalVariantSelection(product);
-  }
-
-  return toInitialCriticalVariantSelection(colorScopedSelection, {
-    includeCondition: false,
-  });
+  // No explicit query selection: open on the GLOBAL cheapest purchasable
+  // variant (the merchant's "lowest-priced default"), ignoring the product's
+  // default color so a cheaper color always wins. This keeps the above-the-fold
+  // critical state consistent with the non-critical hook. URL-selected colors
+  // are resolved by the caller before this default is used.
+  return getPriceFirstCriticalVariantSelection(product);
 }
 
 type CategoryProductResult =
@@ -700,10 +676,6 @@ function normalizeRouteSelectionValue(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizeRouteSelectionKey(value: string | null | undefined) {
-  return normalizeRouteSelectionValue(value).toLowerCase();
-}
-
 function normalizeRouteVariantAxis(axis: string) {
   const normalizedAxis = canonicalizeVariantAxis(axis);
   return normalizedAxis === 'colour' ? 'color' : normalizedAxis;
@@ -764,8 +736,6 @@ function getInitialRouteVariant(
   cachedProduct: CachedProductLcpHint,
   variants: NonNullable<Product['variants']>
 ) {
-  const productColor = normalizeRouteSelectionValue(cachedProduct.color);
-  const productColorKey = normalizeRouteSelectionKey(cachedProduct.color);
   const defaultVariantId = normalizeRouteSelectionValue(
     cachedProduct.default_variant_id
   );
@@ -786,27 +756,10 @@ function getInitialRouteVariant(
     return fallbackSelection?.variant ?? null;
   }
 
-  // Match the critical commerce default: open on the cheapest purchasable
-  // variant within the product's default color (price-first, no forced
-  // condition) so the early LCP preload hint targets the same image the PDP
-  // renders. Fall back to global price-first.
-  const sameProductColorVariants = productColor
-    ? (resolutionProduct.variants || []).filter(
-        (variant) =>
-          normalizeRouteSelectionKey(variant.attributes?.color) ===
-          productColorKey
-      )
-    : [];
-  const colorScopedSelection =
-    sameProductColorVariants.length > 0
-      ? resolveLowestPricedVariantSelection({
-          ...resolutionProduct,
-          variants: sameProductColorVariants,
-        })
-      : null;
-
+  // Match the critical commerce default: open on the GLOBAL cheapest variant
+  // (ignoring product color) so the early LCP preload hint targets the same
+  // image the PDP renders.
   return (
-    colorScopedSelection?.variant ??
     resolveLowestPricedVariantSelection(resolutionProduct)?.variant ??
     resolveDefaultVariantSelection(resolutionProduct)?.variant ??
     null
