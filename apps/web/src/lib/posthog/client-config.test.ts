@@ -7,7 +7,7 @@ import {
 } from './client-config';
 
 describe('PostHog client config', () => {
-  it('enables web vitals, exception capture, and privacy-safe replay defaults', () => {
+  it('keeps PostHog web-vitals off while preserving exception capture and privacy-safe replay defaults', () => {
     const config = buildPostHogClientConfig({
       NEXT_PUBLIC_POSTHOG_PROXY_PATH: '/baci-observe',
       NEXT_PUBLIC_POSTHOG_UI_HOST: 'https://eu.posthog.com',
@@ -28,12 +28,7 @@ describe('PostHog client config', () => {
         capture_unhandled_rejections: true,
         capture_console_errors: false,
       },
-      capture_performance: {
-        web_vitals: true,
-        web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
-        web_vitals_attribution: true,
-        network_timing: false,
-      },
+      capture_performance: false,
       mask_all_text: true,
       mask_all_element_attributes: true,
       session_recording: expect.objectContaining({

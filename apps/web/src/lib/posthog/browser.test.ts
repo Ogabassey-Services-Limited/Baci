@@ -165,6 +165,39 @@ describe('initializePostHogBrowser', () => {
     vi.unstubAllGlobals();
   });
 
+  it('ignores stale lightweight loaded callbacks after a blog-to-storefront transition', async () => {
+    const env = {
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
+    };
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      href: 'https://usebaci.com/ogabassey/blog/best-phones',
+    });
+    const { initializePostHogBrowser } = await importBrowserInitializer();
+
+    initializePostHogBrowser(env);
+
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/products',
+      href: 'https://usebaci.com/ogabassey/products',
+    });
+    initializePostHogBrowser(env);
+    loadPostHogClient();
+
+    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
+    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
+      advanced_disable_flags: false,
+      api_host: '/baci-relay',
+    });
+    expect(mocks.posthogSetConfig).not.toHaveBeenCalledWith({
+      advanced_disable_flags: true,
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it('reconfigures an initialized client when entering public blog surfaces', async () => {
     const env = {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
@@ -246,12 +279,7 @@ describe('initializePostHogBrowser', () => {
     ).toBeGreaterThan(
       mocks.posthogRemoteConfigLoad.mock.invocationCallOrder[0] ?? 0
     );
-    expect(mocks.webVitalsStartIfEnabled).toHaveBeenCalledOnce();
-    expect(
-      mocks.webVitalsStartIfEnabled.mock.invocationCallOrder[0]
-    ).toBeGreaterThan(
-      mocks.posthogReloadFeatureFlags.mock.invocationCallOrder[0] ?? 0
-    );
+    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
   });

@@ -72,9 +72,13 @@ type PostHogLoadedInstance = Parameters<
 
 function applyPostHogFlagDisableConfig(
   posthogInstance: PostHogLoadedInstance,
-  advancedDisableFlags: PostHogBrowserClientConfig['advanced_disable_flags']
+  advancedDisableFlags: PostHogBrowserClientConfig['advanced_disable_flags'],
+  expectedLightweight: boolean
 ) {
-  if (advancedDisableFlags === true) {
+  if (
+    advancedDisableFlags === true &&
+    lastConfiguredPostHogLightweight === expectedLightweight
+  ) {
     posthogInstance.set_config({ advanced_disable_flags: true });
   }
 }
@@ -101,15 +105,6 @@ function maybeReloadPostHogRemoteConfig(
 ) {
   if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
     posthog._remoteConfigLoader?.load();
-  }
-}
-
-function maybeStartPostHogWebVitals(
-  previousLightweight: boolean | undefined,
-  nextLightweight: boolean
-) {
-  if (isLeavingLightweightPostHogMode(previousLightweight, nextLightweight)) {
-    posthog.webVitalsAutocapture?.startIfEnabled();
   }
 }
 
@@ -146,7 +141,6 @@ export function initializePostHogBrowser(
       lastConfiguredPostHogLightweight = lightweight;
       maybeReloadPostHogRemoteConfig(previousLightweight, lightweight);
       maybeReloadPostHogFeatureFlags(previousLightweight, lightweight);
-      maybeStartPostHogWebVitals(previousLightweight, lightweight);
     }
     return;
   }
@@ -159,10 +153,15 @@ export function initializePostHogBrowser(
   const clientLoaded = clientConfig.loaded;
 
   try {
+    lastConfiguredPostHogLightweight = lightweight;
     posthog.init(projectToken, {
       ...initConfig,
       loaded(posthogInstance) {
-        applyPostHogFlagDisableConfig(posthogInstance, advancedDisableFlags);
+        applyPostHogFlagDisableConfig(
+          posthogInstance,
+          advancedDisableFlags,
+          lightweight
+        );
 
         try {
           clientLoaded?.(posthogInstance);
@@ -176,12 +175,12 @@ export function initializePostHogBrowser(
       },
     });
     hasInitializedPostHogBrowser = true;
-    lastConfiguredPostHogLightweight = lightweight;
     postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
     schedulePostHogLoadedStateCheck();
   } catch (error) {
     isPostHogReadyForCapture = false;
+    lastConfiguredPostHogLightweight = undefined;
     throw error;
   }
 }

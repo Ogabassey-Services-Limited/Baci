@@ -539,13 +539,11 @@ export function buildPostHogClientConfig(
       capture_unhandled_rejections: true,
       capture_console_errors: false,
     },
-    capture_performance: {
-      web_vitals: true,
-      web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
-      web_vitals_delayed_flush_ms: 5000,
-      web_vitals_attribution: true,
-      network_timing: false,
-    },
+    // Keep PostHog's web-vitals autocapture disabled. In posthog-js@1.387.0
+    // WebVitalsAutocapture exposes startIfEnabled() but no stop(), so enabling
+    // it on a full page would leak observers into public blog SPA transitions.
+    // CWV collection remains handled by WebVitalsReporter.
+    capture_performance: false,
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,
