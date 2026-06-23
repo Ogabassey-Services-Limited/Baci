@@ -261,8 +261,12 @@ export function useProductDetailsState(serverProduct: Product) {
   );
   const [selectedColor, setSelectedColor] = useState<number | null>(() => {
     const seed = resolveInitialSeed();
-    const index = seed?.color
-      ? productData.colors.findIndex((color) => color.name === seed.color)
+    // Derive the seed color via getSelectionColor (same as selectedImage and
+    // the reseed path) so a color exposed only through a legacy `Colour`/
+    // `colour` attribute still highlights its swatch on first render.
+    const seedColor = getSelectionColor(seed);
+    const index = seedColor
+      ? productData.colors.findIndex((color) => color.name === seedColor)
       : -1;
     return index >= 0 ? index : null;
   });
