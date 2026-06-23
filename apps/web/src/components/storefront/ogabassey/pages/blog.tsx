@@ -123,7 +123,6 @@ export function OgabasseyV2Blog({
                 fill
                 sizes="100vw"
                 preload
-                fetchPriority="high"
               />
               <div className="absolute inset-0 bg-linear-to-t from-gray-900 via-gray-900/20 to-transparent" />
             </div>
