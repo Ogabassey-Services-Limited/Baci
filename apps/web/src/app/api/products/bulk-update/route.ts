@@ -89,6 +89,17 @@ export async function POST(request: NextRequest) {
     for (const change of changes) {
       try {
         if (change.type === 'update') {
+          const productId = change.productId?.trim();
+          const sku = change.details.sku?.trim();
+          const name = change.details.name.trim();
+
+          if (!productId && !sku && !name) {
+            results.errors.push(
+              'Skipped update without a product id, SKU, or product name.'
+            );
+            continue;
+          }
+
           const updates: Record<string, unknown> = {
             price: change.newPrice ?? change.details.price,
             category: change.details.category,
@@ -99,18 +110,18 @@ export async function POST(request: NextRequest) {
           }
           let matchQuery = supabase.from('products').update(updates);
 
-          if (change.productId) {
+          if (productId) {
             matchQuery = matchQuery
-              .eq('id', change.productId)
+              .eq('id', productId)
               .eq('merchant_id', merchantId);
-          } else if (change.details.sku) {
+          } else if (sku) {
             matchQuery = matchQuery
-              .eq('sku', change.details.sku)
+              .eq('sku', sku)
               .eq('merchant_id', merchantId);
           } else {
-            // Fallback: match by name and merchant_id (risky but necessary for name-only sheets)
+            // Fallback: match by name and merchant_id for name-only sheets.
             matchQuery = matchQuery
-              .eq('name', change.details.name)
+              .eq('name', name)
               .eq('merchant_id', merchantId);
           }
 

@@ -338,6 +338,34 @@ describe('POST /api/products/bulk-update', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
+  it('skips update changes without a safe product selector', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: '   ',
+            details: {
+              name: '   ',
+              price: 150,
+              sku: '   ',
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(0);
+    expect(json.results.errors).toContain(
+      'Skipped update without a product id, SKU, or product name.'
+    );
+    expect(productUpdates).toEqual([]);
+  });
+
   it('clears product cost price when update details explicitly set null', async () => {
     const { POST } = await import('./route');
 
