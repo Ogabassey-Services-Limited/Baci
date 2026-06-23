@@ -38,6 +38,10 @@ export function StorefrontCartProvider({
   validationActivationTimeoutMs = DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS,
 }: StorefrontCartProviderProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  // True while a cart-wide (group) negotiation is applied. Removing a line
+  // invalidates the proportional group total, so it is reset on removal.
+  const [cartWideNegotiationActive, setCartWideNegotiationActive] =
+    useState(false);
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(
     initialMerchantSlug
   );
@@ -343,8 +347,8 @@ export function StorefrontCartProvider({
     cartItemIdOrProductId: string,
     variantId?: string
   ) => {
-    setCart((previousCart) =>
-      previousCart.filter((item) => {
+    setCart((previousCart) => {
+      const filtered = previousCart.filter((item) => {
         if (variantId) {
           return !(
             item.id === cartItemIdOrProductId && item.variantId === variantId
@@ -356,8 +360,24 @@ export function StorefrontCartProvider({
         }
 
         return !(item.id === cartItemIdOrProductId && !item.variantId);
-      })
-    );
+      });
+
+      // A cart-wide (group) negotiation distributes one negotiated total across
+      // all lines; removing a line breaks that total, so reset the group deal
+      // and revert remaining lines to catalog price.
+      if (cartWideNegotiationActive) {
+        return filtered.map((item) => ({
+          ...item,
+          negotiatedPrice: undefined,
+          negotiationStatus: undefined,
+        }));
+      }
+
+      return filtered;
+    });
+    if (cartWideNegotiationActive) {
+      setCartWideNegotiationActive(false);
+    }
   };
 
   const updateQuantity = (
@@ -381,7 +401,17 @@ export function StorefrontCartProvider({
 
       if (targetIndex === -1) return previousCart;
       if (quantity <= 0) {
-        return previousCart.filter((_, index) => index !== targetIndex);
+        const filtered = previousCart.filter(
+          (_, index) => index !== targetIndex
+        );
+        if (cartWideNegotiationActive) {
+          return filtered.map((item) => ({
+            ...item,
+            negotiatedPrice: undefined,
+            negotiationStatus: undefined,
+          }));
+        }
+        return filtered;
       }
 
       const nextCart = [...previousCart];
@@ -394,12 +424,16 @@ export function StorefrontCartProvider({
       };
       return nextCart;
     });
+    if (quantity <= 0 && cartWideNegotiationActive) {
+      setCartWideNegotiationActive(false);
+    }
   };
 
   const clearCart = () => {
     setCart([]);
     setMerchantSlugState(null);
     saveMerchantSlugToStorage(null);
+    setCartWideNegotiationActive(false);
     logger.info({ message: 'Cart cleared' });
   };
 
@@ -421,6 +455,24 @@ export function StorefrontCartProvider({
           : item
       )
     );
+    // Individual-line negotiation — not a group deal.
+    setCartWideNegotiationActive(false);
+  };
+
+  const clearNegotiatedPrice = (cartItemId: string) => {
+    if (!enableSmartCartPro) return;
+    setCart((previousCart) =>
+      previousCart.map((item) =>
+        item.cartItemId === cartItemId
+          ? {
+              ...item,
+              negotiatedPrice: undefined,
+              negotiationStatus: undefined,
+            }
+          : item
+      )
+    );
+    setCartWideNegotiationActive(false);
   };
 
   const applyCartWideNegotiation = (newTotal: number) => {
@@ -440,6 +492,7 @@ export function StorefrontCartProvider({
         negotiationStatus: 'accepted',
       }))
     );
+    setCartWideNegotiationActive(true);
   };
 
   const toggleAssurance = (cartItemId: string) => {
@@ -485,6 +538,8 @@ export function StorefrontCartProvider({
     applyCartWideNegotiation: enableSmartCartPro
       ? applyCartWideNegotiation
       : undefined,
+    clearNegotiatedPrice: enableSmartCartPro ? clearNegotiatedPrice : undefined,
+    cartWideNegotiationActive,
     toggleAssurance: enableSmartCartPro ? toggleAssurance : undefined,
     lastAddedProduct,
     showUpsell: enableSmartCartPro ? showUpsell : false,

@@ -30,12 +30,13 @@ describe('NegotiationOfferForm', () => {
     );
 
     fireEvent.changeText(
-      screen.getByPlaceholderText('Enter amount…'),
+      screen.getByLabelText('Your offer amount in naira'),
       '440000'
     );
-    fireEvent.press(screen.getByText('Submit Offer'));
+    fireEvent.press(screen.getByRole('button', { name: 'Submit your offer' }));
 
-    expect(screen.getByText('Your Offer (₦)')).toBeTruthy();
+    expect(screen.getByText('Your offer')).toBeTruthy();
+    expect(screen.getByText('₦')).toBeTruthy();
     expect(onOfferChange).toHaveBeenCalledWith('440000');
     expect(onSubmitPress).toHaveBeenCalledTimes(1);
   });

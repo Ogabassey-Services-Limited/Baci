@@ -63,7 +63,7 @@ describe('NegotiationWarningModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('calls onClose when Cancel is pressed', () => {
+  it('calls onClose when the close button is pressed', () => {
     const onClose = jest.fn();
     const onNegotiateItem = jest.fn();
     const onBulkNegotiate = jest.fn();
@@ -81,7 +81,7 @@ describe('NegotiationWarningModal', () => {
       />
     );
 
-    fireEvent.press(screen.getByText('Cancel'));
+    fireEvent.press(screen.getByLabelText('Close'));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onNegotiateItem).not.toHaveBeenCalled();
     expect(onBulkNegotiate).not.toHaveBeenCalled();

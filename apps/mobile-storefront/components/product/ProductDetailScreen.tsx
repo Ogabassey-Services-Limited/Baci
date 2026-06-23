@@ -1,4 +1,3 @@
-import { isProductNegotiable } from '@baci/shared/lib';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Share } from 'react-native';
@@ -53,14 +52,12 @@ export function ProductDetailScreen({
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
   const dismissSavedToast = useSavedStore((state) => state.dismissToast);
-  const [showNegotiationModal, setShowNegotiationModal] = useState(false);
-  const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const cartState = useProductDetailCartState(routeData);
   const purchaseState = useProductDetailPurchaseState(
     routeData,
     cartState.quantityInCart,
-    negotiatedPrice
+    null
   );
   const cartActions = useProductDetailCartActions(
     routeData,
@@ -137,23 +134,10 @@ export function ProductDetailScreen({
         effectivePrice: purchaseState.effectivePrice,
         hasMoreReviews: reviewsState.hasMore,
         loadMoreReviews: reviewsState.loadMore,
-        negotiatedPrice,
         onMarkHelpful: (reviewId) => {
           markReviewHelpful(reviewId, product.id).catch((err) =>
             log.error('Failed to mark review helpful:', err)
           );
-        },
-        onOpenNegotiation: () => {
-          const negotiableProduct = routeData.displayProduct ?? product;
-          if (
-            !isProductNegotiable({
-              brand: negotiableProduct?.brand,
-              name: negotiableProduct?.name,
-            })
-          ) {
-            return;
-          }
-          setShowNegotiationModal(true);
         },
         onSelectAttribute: selectionHandlers.onSelectAttribute,
         onSelectColor: selectionHandlers.onSelectColor,
@@ -170,7 +154,6 @@ export function ProductDetailScreen({
         setSelectedCondition: selectionHandlers.onSelectCondition,
         setSelectedVariant: selectionHandlers.onSetSelectedVariant,
       }}
-      calculatedPrice={purchaseState.calculatedPrice}
       colors={colors}
       flyingParticles={cartActions.flyingParticles}
       galleryProps={{
@@ -190,12 +173,6 @@ export function ProductDetailScreen({
       headerAnimatedStyle={animations.headerAnimatedStyle}
       insets={insets}
       isSaved={isSaved(product.id)}
-      merchantId={product.merchant_id || ''}
-      onCloseNegotiation={() => setShowNegotiationModal(false)}
-      onNegotiationSuccess={(price) => {
-        setNegotiatedPrice(price);
-        setShowNegotiationModal(false);
-      }}
       onScroll={animations.onScroll}
       onShare={handleShare}
       onWishlistPress={() => {
@@ -211,7 +188,6 @@ export function ProductDetailScreen({
       product={product}
       savedToastState={savedToastState}
       showAddedToast={cartActions.showAddedToast}
-      showNegotiationModal={showNegotiationModal}
       stickyProps={{
         canPurchase: purchaseState.canPurchase,
         colors,

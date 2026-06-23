@@ -3,6 +3,11 @@ import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeferredGoogleStoreWidget } from './deferred-google-store-widget';
 
+let mockPathname = '/';
+vi.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+}));
+
 type TestWidgetModule = {
   GoogleStoreWidget: ({
     merchantCustomDomain,
@@ -25,6 +30,7 @@ function createTestWidgetModule(): TestWidgetModule {
 
 describe('DeferredGoogleStoreWidget', () => {
   beforeEach(() => {
+    mockPathname = '/';
     vi.useFakeTimers();
   });
 
@@ -349,6 +355,30 @@ describe('DeferredGoogleStoreWidget', () => {
 
     await act(async () => {
       vi.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
+  });
+
+  it('stays suppressed on payment/checkout routes so it never covers the consent UI', async () => {
+    mockPathname = '/checkout';
+    const loadWidgetModule = vi
+      .fn()
+      .mockResolvedValue(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    fireEvent.pointerDown(window);
+    await act(async () => {
+      vi.advanceTimersByTime(21000);
       await Promise.resolve();
     });
 

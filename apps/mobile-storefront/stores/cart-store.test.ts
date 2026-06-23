@@ -224,6 +224,44 @@ describe('cart-store', () => {
     });
   });
 
+  it('reconciles stored cart prices by cart line id', () => {
+    const { addItem, repriceItems } = useCartStore.getState();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 220000,
+      quantity: 1,
+    });
+    addItem({
+      product_id: 'product-2',
+      slug: 'iphone-13',
+      name: 'iPhone 13',
+      price: 390000,
+      quantity: 1,
+    });
+
+    const [firstItem, secondItem] = useCartStore.getState().items;
+
+    repriceItems({
+      [firstItem.id]: 225000,
+      'missing-line': 1000,
+    });
+
+    expect(useCartStore.getState().items).toEqual([
+      expect.objectContaining({
+        id: firstItem.id,
+        price: 225000,
+      }),
+      expect.objectContaining({
+        id: secondItem.id,
+        price: 390000,
+      }),
+    ]);
+  });
+
   it('resets generated voucher line ids for deterministic test isolation', () => {
     const { addItem } = useCartStore.getState();
 
@@ -305,5 +343,152 @@ describe('cart-store', () => {
     const ids = useCartStore.getState().items.map((item) => item.id);
     expect(ids).toHaveLength(2);
     expect(new Set(ids).size).toBe(2);
+  });
+
+  it('reprices a line to the live price and clears a now-stale negotiation', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'product-1',
+      slug: 'iphone-xr',
+      variant_id: 'variant-64',
+      name: 'iPhone XR',
+      price: 195000,
+      quantity: 1,
+    });
+
+    const lineId = useCartStore.getState().items[0].id;
+    useCartStore.getState().applyNegotiatedPrice(lineId, 191000);
+
+    useCartStore.getState().repriceItems({ [lineId]: 205000 });
+
+    const item = useCartStore.getState().items[0];
+    expect(item.price).toBe(205000);
+    expect(item.negotiatedPrice).toBeUndefined();
+    expect(item.negotiationStatus).toBeUndefined();
+  });
+
+  it('leaves lines untouched when the live price is unchanged or unknown', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'product-1',
+      slug: 'iphone-xr',
+      variant_id: 'variant-64',
+      name: 'iPhone XR',
+      price: 205000,
+      quantity: 1,
+    });
+    const lineId = useCartStore.getState().items[0].id;
+    useCartStore.getState().applyNegotiatedPrice(lineId, 201000);
+
+    useCartStore
+      .getState()
+      .repriceItems({ [lineId]: 205000, 'missing-line': 100000 });
+
+    const item = useCartStore.getState().items[0];
+    expect(item.price).toBe(205000);
+    expect(item.negotiatedPrice).toBe(201000);
+    expect(item.negotiationStatus).toBe('accepted');
+  });
+
+  it('resets the group negotiation when an item is removed', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'p1',
+      slug: 's1',
+      name: 'Item A',
+      price: 100000,
+      quantity: 1,
+    });
+    addItem({
+      product_id: 'p2',
+      slug: 's2',
+      name: 'Item B',
+      price: 200000,
+      quantity: 1,
+    });
+
+    useCartStore.getState().applyCartWideNegotiation(270000);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+    expect(
+      useCartStore
+        .getState()
+        .items.every((item) => item.negotiationStatus === 'accepted')
+    ).toBe(true);
+
+    const removeId = useCartStore.getState().items[0].id;
+    useCartStore.getState().removeItem(removeId);
+
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(false);
+    expect(items[0].negotiatedPrice).toBeUndefined();
+    expect(items[0].negotiationStatus).toBeUndefined();
+  });
+
+  it('clears the group negotiation on ALL lines when a reprice changes any line', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'p1',
+      slug: 's1',
+      name: 'Item A',
+      price: 100000,
+      quantity: 1,
+    });
+    addItem({
+      product_id: 'p2',
+      slug: 's2',
+      name: 'Item B',
+      price: 200000,
+      quantity: 1,
+    });
+
+    useCartStore.getState().applyCartWideNegotiation(270000);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+
+    // Only Item A's live price drifts, but the group total spanned both lines,
+    // so both must lose their stale negotiated share — not just the drifted one.
+    const [itemA, itemB] = useCartStore.getState().items;
+    useCartStore.getState().repriceItems({ [itemA.id]: 120000 });
+
+    const items = useCartStore.getState().items;
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(false);
+    expect(items.every((item) => item.negotiatedPrice === undefined)).toBe(
+      true
+    );
+    expect(items.every((item) => item.negotiationStatus === undefined)).toBe(
+      true
+    );
+    // The drifted line took the live price; the other kept its base price.
+    expect(items.find((item) => item.id === itemA.id)?.price).toBe(120000);
+    expect(items.find((item) => item.id === itemB.id)?.price).toBe(200000);
+  });
+
+  it('keeps an individual negotiation on the remaining item when another is removed', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'p1',
+      slug: 's1',
+      name: 'Item A',
+      price: 100000,
+      quantity: 1,
+    });
+    addItem({
+      product_id: 'p2',
+      slug: 's2',
+      name: 'Item B',
+      price: 200000,
+      quantity: 1,
+    });
+
+    const [itemA, itemB] = useCartStore.getState().items;
+    useCartStore.getState().applyNegotiatedPrice(itemB.id, 195000);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(false);
+
+    useCartStore.getState().removeItem(itemA.id);
+
+    const remaining = useCartStore.getState().items;
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].negotiatedPrice).toBe(195000);
+    expect(remaining[0].negotiationStatus).toBe('accepted');
   });
 });

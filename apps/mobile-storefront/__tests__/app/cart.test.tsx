@@ -17,6 +17,7 @@ const mockOpenNegotiation = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
 const mockQueryClient = { prefetchQuery: jest.fn() };
 const mockWarmCheckoutEntry = jest.fn();
+const mockDismissPriceChanges = jest.fn();
 const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -51,6 +52,13 @@ jest.mock('@tanstack/react-query', () => ({
 
 jest.mock('@/components/checkout/checkout-entry-prefetch', () => ({
   warmCheckoutEntry: (...args: unknown[]) => mockWarmCheckoutEntry(...args),
+}));
+
+jest.mock('@/components/cart/use-cart-reprice', () => ({
+  useCartReprice: () => ({
+    priceChanges: [],
+    dismissPriceChanges: mockDismissPriceChanges,
+  }),
 }));
 
 jest.mock('expo-haptics', () => ({

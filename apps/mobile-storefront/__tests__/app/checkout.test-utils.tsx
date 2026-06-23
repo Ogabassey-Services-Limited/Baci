@@ -299,6 +299,13 @@ jest.mock('@/services/orders', () => ({
   createOrder: (...args: unknown[]) => mockCreateOrder(...args),
 }));
 
+// Cart reprice runs before checkout submit; default to "no price drift" so
+// these tests exercise the normal order path. Suites that want to test the
+// reconcile/abort behavior can override this mock.
+jest.mock('@/services/cart-reprice', () => ({
+  repriceCartItems: jest.fn(async () => ({ priceById: {}, changes: [] })),
+}));
+
 jest.mock('@/lib/customer-savings', () => ({
   listSavingsGoals: (...args: unknown[]) => mockListSavingsGoals(...args),
 }));

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { baseProduct } from '@/lib/product-route/product-detail-screen.fixtures';
 import type { ProductDetailsBodyProps } from './ProductDetailsBody';
@@ -49,7 +49,6 @@ function createProps(
     },
     effectivePrice: 552000,
     effectiveComparePrice: undefined,
-    negotiatedPrice: null,
     canPurchase: true,
     selectedVariant: null,
     setSelectedVariant: jest.fn(),
@@ -61,7 +60,6 @@ function createProps(
     onSelectAttribute: jest.fn(),
     onSelectColor: jest.fn(),
     onSelectStorage: jest.fn(),
-    onOpenNegotiation: jest.fn(),
     reviews: [],
     reviewStats: null,
     reviewsLoading: false,
@@ -78,43 +76,18 @@ describe('ProductDetailsBody', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the offer CTA and delegates purchase actions to the screen footer', () => {
-    const props = createProps();
-    render(<ProductDetailsBody {...props} />);
+  it('renders the product summary without an in-page negotiation CTA (negotiation lives in the cart)', () => {
+    render(<ProductDetailsBody {...createProps()} />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Make an Offer' }));
-
-    expect(props.onOpenNegotiation).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Add to Cart' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'View Cart' })).toBeNull();
-  });
-
-  it('disables the offer CTA when the selected SKU cannot be purchased', () => {
-    const props = createProps({ canPurchase: false });
-    render(<ProductDetailsBody {...props} />);
-
-    fireEvent.press(screen.getByRole('button', { name: 'Make an Offer' }));
-
-    expect(props.onOpenNegotiation).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole('button', { name: 'Make an Offer' })
-    ).toBeDisabled();
-  });
-
-  it('hides the offer CTA once a negotiated price exists', () => {
-    render(
-      <ProductDetailsBody
-        {...createProps({
-          negotiatedPrice: 470000,
-        })}
-      />
-    );
-
+    expect(screen.getByText(baseProduct.name)).toBeTruthy();
+    // Negotiation moved to the cart — no offer CTA or negotiated badge on the PDP.
     expect(screen.queryByRole('button', { name: 'Make an Offer' })).toBeNull();
-    expect(screen.getByText('Your negotiated price!')).toBeTruthy();
+    expect(screen.queryByText('Your negotiated price!')).toBeNull();
+    // Purchase actions live in the screen footer, not the body.
+    expect(screen.queryByRole('button', { name: 'Add to Cart' })).toBeNull();
   });
 
-  it('shows a best-price badge for non-negotiable budget-brand products', () => {
+  it('renders no negotiation UI for non-negotiable budget-brand products', () => {
     render(
       <ProductDetailsBody
         {...createProps({
@@ -128,9 +101,7 @@ describe('ProductDetailsBody', () => {
       />
     );
 
+    expect(screen.getByText('Tecno Spark 50')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Make an Offer' })).toBeNull();
-    expect(
-      screen.getByLabelText('This product is already at the best price')
-    ).toBeTruthy();
   });
 });

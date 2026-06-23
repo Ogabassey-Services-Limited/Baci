@@ -10,7 +10,8 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { BRAND, palette } from '@/constants/Colors';
+import { withAlpha } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { formatPrice } from '@/stores/cart-store';
 import { negotiationModalViewStyles as styles } from './NegotiationModalView.styles';
 import type {
@@ -53,6 +54,8 @@ export function NegotiationModalView({
   uploadLink,
   visible,
 }: NegotiationModalViewProps) {
+  const { colors, shadows } = useTheme();
+
   if (!visible) {
     return null;
   }
@@ -73,11 +76,13 @@ export function NegotiationModalView({
   };
 
   const successButtonStyle =
-    successActionStyle === 'primary' ? styles.applyButton : styles.doneButton;
+    successActionStyle === 'primary'
+      ? [styles.applyButton, { backgroundColor: colors.primary }]
+      : [styles.doneButton, { backgroundColor: colors.muted }];
   const successButtonTextStyle =
     successActionStyle === 'primary'
-      ? styles.applyButtonText
-      : styles.doneButtonText;
+      ? [styles.applyButtonText, { color: colors.primaryForeground }]
+      : [styles.doneButtonText, { color: colors.text }];
 
   return (
     <Modal
@@ -98,12 +103,25 @@ export function NegotiationModalView({
         <Animated.View
           entering={FadeInDown.duration(200).springify()}
           exiting={FadeOut.duration(150)}
-          style={styles.modalContainer}
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.card },
+            shadows.xl,
+          ]}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <Ionicons name="hand-right" size={18} color={BRAND.primary} />
-              <Text style={styles.headerTitle}>NEGOTIATE PRICE</Text>
+              <View
+                style={[
+                  styles.headerIcon,
+                  { backgroundColor: withAlpha(colors.primary, 0.14) },
+                ]}
+              >
+                <Ionicons name="pricetag" size={15} color={colors.primary} />
+              </View>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                Negotiate Price
+              </Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -112,7 +130,7 @@ export function NegotiationModalView({
               accessibilityLabel="Close"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={20} color={palette.gray[400]} />
+              <Ionicons name="close" size={20} color={colors.icon} />
             </Pressable>
           </View>
 
@@ -143,8 +161,15 @@ export function NegotiationModalView({
                 entering={FadeIn.duration(120)}
                 style={styles.centerContainer}
               >
-                <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.processingText}>Checking best deal…</Text>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text
+                  style={[
+                    styles.processingText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Checking best deal…
+                </Text>
               </Animated.View>
             )}
 
@@ -153,11 +178,29 @@ export function NegotiationModalView({
                 entering={FadeIn.duration(200)}
                 style={styles.centerContainer}
               >
-                <View style={styles.successCircle}>
-                  <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
+                <View
+                  style={[
+                    styles.statusCircle,
+                    { backgroundColor: withAlpha(colors.success, 0.16) },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={30}
+                    color={colors.success}
+                  />
                 </View>
-                <Text style={styles.successTitle}>Offer Accepted!</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
+                <Text style={[styles.successTitle, { color: colors.text }]}>
+                  Offer Accepted!
+                </Text>
+                <Text
+                  style={[
+                    styles.successSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {message}
+                </Text>
                 <Pressable style={successButtonStyle} onPress={onSuccessAction}>
                   <Text style={successButtonTextStyle}>
                     {successActionLabel}
@@ -171,13 +214,36 @@ export function NegotiationModalView({
                 entering={FadeIn.duration(200)}
                 style={styles.centerContainer}
               >
-                <View style={styles.amberCircle}>
-                  <Ionicons name="pricetag-outline" size={28} color="#F59E0B" />
+                <View
+                  style={[
+                    styles.statusCircle,
+                    { backgroundColor: withAlpha(colors.warning, 0.16) },
+                  ]}
+                >
+                  <Ionicons
+                    name="pricetag-outline"
+                    size={28}
+                    color={colors.warning}
+                  />
                 </View>
-                <Text style={styles.successTitle}>Best Price</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
-                <Pressable style={styles.doneButton} onPress={onClose}>
-                  <Text style={styles.doneButtonText}>Done</Text>
+                <Text style={[styles.successTitle, { color: colors.text }]}>
+                  Best Price
+                </Text>
+                <Text
+                  style={[
+                    styles.successSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {message}
+                </Text>
+                <Pressable
+                  style={[styles.doneButton, { backgroundColor: colors.muted }]}
+                  onPress={onClose}
+                >
+                  <Text style={[styles.doneButtonText, { color: colors.text }]}>
+                    Done
+                  </Text>
                 </Pressable>
               </Animated.View>
             )}
@@ -187,18 +253,47 @@ export function NegotiationModalView({
                 entering={FadeIn.duration(200)}
                 style={styles.centerContainer}
               >
-                <View style={styles.amberCircle}>
-                  <Ionicons name="alert-circle" size={28} color="#F59E0B" />
+                <View
+                  style={[
+                    styles.statusCircle,
+                    { backgroundColor: withAlpha(colors.warning, 0.16) },
+                  ]}
+                >
+                  <Ionicons
+                    name="alert-circle"
+                    size={28}
+                    color={colors.warning}
+                  />
                 </View>
-                <Text style={styles.successTitle}>Counter Offer</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
+                <Text style={[styles.successTitle, { color: colors.text }]}>
+                  Counter Offer
+                </Text>
+                <Text
+                  style={[
+                    styles.successSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {message}
+                </Text>
                 {counterOffer ? (
-                  <View style={styles.counterBox}>
-                    <Text style={styles.counterPrice}>
+                  <View
+                    style={[
+                      styles.counterBox,
+                      {
+                        backgroundColor: withAlpha(colors.warning, 0.12),
+                        borderColor: withAlpha(colors.warning, 0.4),
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.counterPrice, { color: colors.text }]}>
                       {formatPrice(counterOffer)}
                     </Text>
                     <Pressable
-                      style={styles.acceptButton}
+                      style={[
+                        styles.acceptButton,
+                        { backgroundColor: colors.success },
+                      ]}
                       onPress={onAcceptCounter}
                     >
                       <Ionicons
@@ -211,22 +306,44 @@ export function NegotiationModalView({
                   </View>
                 ) : null}
                 <View style={styles.failedActions}>
-                  <Pressable style={styles.tryAgainButton} onPress={onTryAgain}>
-                    <Text style={styles.tryAgainButtonText}>
+                  <Pressable
+                    style={[
+                      styles.tryAgainButton,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={onTryAgain}
+                  >
+                    <Text
+                      style={[
+                        styles.tryAgainButtonText,
+                        { color: colors.text },
+                      ]}
+                    >
                       Negotiate Again
                     </Text>
                   </Pressable>
                   {attemptCount >= NEGOTIATION_CHEAPER_BUTTON_THRESHOLD ? (
                     <Pressable
-                      style={styles.cheaperButton}
+                      style={[
+                        styles.cheaperButton,
+                        {
+                          borderColor: withAlpha(colors.primary, 0.4),
+                          backgroundColor: withAlpha(colors.primary, 0.1),
+                        },
+                      ]}
                       onPress={onOpenUpload}
                     >
                       <Ionicons
                         name="cloud-upload-outline"
                         size={16}
-                        color="#1D4ED8"
+                        color={colors.primary}
                       />
-                      <Text style={styles.cheaperButtonText}>
+                      <Text
+                        style={[
+                          styles.cheaperButtonText,
+                          { color: colors.primary },
+                        ]}
+                      >
                         I saw it cheaper
                       </Text>
                     </Pressable>
@@ -252,16 +369,34 @@ export function NegotiationModalView({
                 entering={FadeIn.duration(200)}
                 style={styles.centerContainer}
               >
-                <View style={styles.successCircle}>
-                  <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
+                <View
+                  style={[
+                    styles.statusCircle,
+                    { backgroundColor: withAlpha(colors.success, 0.16) },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={30}
+                    color={colors.success}
+                  />
                 </View>
-                <Text style={styles.successTitle}>Request Sent</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
+                <Text style={[styles.successTitle, { color: colors.text }]}>
+                  Request Sent
+                </Text>
+                <Text
+                  style={[
+                    styles.successSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {message}
+                </Text>
                 <Pressable
-                  style={styles.doneButton}
+                  style={[styles.doneButton, { backgroundColor: colors.muted }]}
                   onPress={onSubmittedAction}
                 >
-                  <Text style={styles.doneButtonText}>
+                  <Text style={[styles.doneButtonText, { color: colors.text }]}>
                     {submittedActionLabel}
                   </Text>
                 </Pressable>

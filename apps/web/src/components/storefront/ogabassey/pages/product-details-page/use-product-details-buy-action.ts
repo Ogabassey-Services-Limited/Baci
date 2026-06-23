@@ -81,7 +81,8 @@ export function useProductDetailsBuyAction({
         defaultColorIndex >= 0 ? defaultColorIndex : 0,
         (selectedVariantSelection?.condition as ConditionType | undefined) ||
           'new',
-        selectedAttributesForBuy
+        selectedAttributesForBuy,
+        selectedVariantSelection?.color
       ),
       1,
       {

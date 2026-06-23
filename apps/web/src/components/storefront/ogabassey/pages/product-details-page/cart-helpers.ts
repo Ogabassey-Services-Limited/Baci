@@ -231,16 +231,27 @@ export function buildCartProduct(
   currentOffer: ProductDetailsCurrentOffer,
   selectedImage: number,
   selectedCondition: ConditionType,
-  selectedAttributes: Record<string, string>
+  selectedAttributes: Record<string, string>,
+  selectedColorName?: string
 ): CartProduct {
   const baseProduct = toRelatedProductsProduct(productData);
+
+  // Color is carried into the cart by the image: prefer the selected color's
+  // own image so the cart always depicts the chosen color, even when the
+  // gallery is still showing a non-color default frame (e.g. an open-box hero
+  // shot the shopper never tapped off). Falls back to the displayed frame for
+  // single-image products that have no per-color image.
+  const colorImage = selectedColorName
+    ? productData.colorImages?.[selectedColorName]?.[0]
+    : undefined;
+  const image = colorImage ?? productData.images[selectedImage];
 
   return {
     ...baseProduct,
     ...selectedAttributes,
     price: currentOffer.rawPrice,
-    image: productData.images[selectedImage],
-    imageLarge: productData.images[selectedImage],
+    image,
+    imageLarge: image,
     description: productData.description,
     rating: productData.rating,
     category: productData.categories?.name || productData.category,

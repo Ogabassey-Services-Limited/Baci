@@ -48,6 +48,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     updateQuantity,
     applyNegotiatedPrice,
     applyCartWideNegotiation,
+    clearNegotiatedPrice,
     toggleAssurance,
     cartTotal,
   } = useCart();
@@ -110,12 +111,50 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
       return;
     }
 
-    setNegotiationState({
-      isOpen: true,
-      type: 'total',
-      currentPrice: cartTotal,
-      name: 'Entire Cart',
-    });
+    const openBulk = (currentPrice: number) => {
+      setNegotiationState({
+        isOpen: true,
+        type: 'total',
+        currentPrice,
+        name: 'Entire Cart',
+      });
+    };
+
+    const negotiatedItems = cart.filter(
+      (item) =>
+        item.negotiationStatus === 'accepted' || item.negotiatedPrice != null
+    );
+
+    // Cart-wide negotiation replaces any individual negotiations, so confirm
+    // the reset first, then negotiate from the base (pre-negotiation) total.
+    if (negotiatedItems.length > 0) {
+      // Without the clear action we can't reset the individual negotiations,
+      // so bail rather than stack a cart-wide negotiation on stale per-line
+      // prices (which would later trip the server-side floor at checkout).
+      if (!clearNegotiatedPrice) {
+        return;
+      }
+      const confirmed = window.confirm(
+        'Negotiating your whole cart will clear the prices you negotiated on individual items. Reset them and continue?'
+      );
+      if (!confirmed) {
+        return;
+      }
+      for (const item of negotiatedItems) {
+        clearNegotiatedPrice(item.cartItemId);
+      }
+      const baseTotal = cart.reduce((sum, item) => {
+        const lineBase = item.price * item.quantity;
+        const assurance = item.hasAssurance
+          ? lineBase * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+          : 0;
+        return sum + lineBase + assurance;
+      }, 0);
+      openBulk(baseTotal);
+      return;
+    }
+
+    openBulk(cartTotal);
   };
 
   return (

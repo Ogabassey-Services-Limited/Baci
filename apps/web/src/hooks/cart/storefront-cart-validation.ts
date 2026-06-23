@@ -104,6 +104,15 @@ export const applyValidationResults = (
         newPrice: priceChange.newPrice,
       });
 
-      return { ...item, price: priceChange.newPrice };
+      // The base price changed, so any prior negotiation was made against a
+      // stale basis and would be rejected at checkout (negotiated_price_below_floor).
+      // Clear it so the line reverts to the live catalog price — parity with the
+      // mobile reprice behavior.
+      return {
+        ...item,
+        price: priceChange.newPrice,
+        negotiatedPrice: undefined,
+        negotiationStatus: undefined,
+      };
     });
 };

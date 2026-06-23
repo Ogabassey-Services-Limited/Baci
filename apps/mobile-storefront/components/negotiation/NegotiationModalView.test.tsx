@@ -82,9 +82,12 @@ describe('NegotiationModalView', () => {
   it('renders the negotiation input form', () => {
     render(<NegotiationModalView {...createBaseProps()} />);
 
-    expect(screen.getByText('NEGOTIATE PRICE')).toBeTruthy();
-    expect(screen.getByText('Your Offer (₦)')).toBeTruthy();
-    expect(screen.getByText('Submit Offer')).toBeTruthy();
+    expect(screen.getByText('Negotiate Price')).toBeTruthy();
+    expect(screen.getByText('Your offer')).toBeTruthy();
+    expect(screen.getByLabelText('Your offer amount in naira')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Submit your offer' })
+    ).toBeTruthy();
   });
 
   it('blocks invalid numeric offers and shows validation alert', () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
@@ -21,6 +22,17 @@ interface GoogleStoreWidgetModule {
 const GOOGLE_STORE_WIDGET_DELAY_MS = 20000;
 const MAX_DEFERRED_WIDGET_LOAD_RETRIES = 2;
 
+// The store-rating badge is fixed bottom-left and would cover critical UI on
+// payment/checkout flows — including the embedded Credit Direct (Mono) consent
+// checkbox shown in the mobile app's checkout WebView. Suppress it on those
+// routes; it stays on browse/PDP pages where it belongs.
+const SUPPRESSED_ROUTE_PATTERN =
+  /(?:^|\/)(checkout|payment|pay|credit-direct|bnpl)(?:\/|$)/i;
+
+function isSuppressedRoute(pathname: string | null): boolean {
+  return Boolean(pathname) && SUPPRESSED_ROUTE_PATTERN.test(pathname ?? '');
+}
+
 // Module-scope dynamic import keeps the `import()` expression out of the
 // component body — the React Compiler cannot lower import expressions, so
 // inlining it would opt the component out of automatic memoization.
@@ -31,12 +43,14 @@ function importGoogleStoreWidgetModule(): Promise<GoogleStoreWidgetModule> {
 export function DeferredGoogleStoreWidget(
   props: DeferredGoogleStoreWidgetProps
 ) {
+  const pathname = usePathname();
+  const suppressed = isSuppressedRoute(pathname);
   const [Widget, setWidget] = useState<
     GoogleStoreWidgetModule['GoogleStoreWidget'] | null
   >(null);
 
   useEffect(() => {
-    if (props.enabled === false || Widget) {
+    if (props.enabled === false || suppressed || Widget) {
       return;
     }
 
@@ -108,9 +122,9 @@ export function DeferredGoogleStoreWidget(
       clearLoadTimeout();
       removeDeferredWidgetListeners();
     };
-  }, [Widget, props.enabled, props.loadWidgetModule]);
+  }, [Widget, props.enabled, props.loadWidgetModule, suppressed]);
 
-  if (props.enabled === false || !Widget) {
+  if (props.enabled === false || suppressed || !Widget) {
     return null;
   }
 

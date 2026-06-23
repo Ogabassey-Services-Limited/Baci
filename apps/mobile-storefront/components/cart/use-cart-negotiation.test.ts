@@ -5,6 +5,13 @@ import type { CartItem } from '@/stores/cart-store';
 import { useCartNegotiation } from './use-cart-negotiation';
 
 const mockOpenNegotiation = jest.fn();
+const mockClearNegotiatedPrice = jest.fn();
+
+type MockAlertButton = {
+  text: string;
+  style?: string;
+  onPress?: () => void;
+};
 
 jest.mock('zustand/react/shallow', () => ({
   useShallow: <T>(selector: T) => selector,
@@ -16,6 +23,14 @@ jest.mock('@/stores/ui-store', () => ({
       openNegotiation: typeof mockOpenNegotiation;
     }) => unknown
   ) => selector({ openNegotiation: mockOpenNegotiation }),
+}));
+
+jest.mock('@/stores/cart-store', () => ({
+  useCartStore: (
+    selector: (state: {
+      clearNegotiatedPrice: typeof mockClearNegotiatedPrice;
+    }) => unknown
+  ) => selector({ clearNegotiatedPrice: mockClearNegotiatedPrice }),
 }));
 
 function createItem(overrides: Partial<CartItem> = {}): CartItem {
@@ -200,7 +215,7 @@ describe('useCartNegotiation', () => {
     expect(result.current.pendingNegotiateItem).toBeNull();
   });
 
-  it('alerts and skips cart-wide negotiation when any line has a negotiated price', () => {
+  it('clears individual negotiated prices before cart-wide negotiation', () => {
     // Arrange
     const negotiatedLine = createItem({ negotiatedPrice: 490000 });
     const { result } = renderHook(() =>
@@ -214,10 +229,27 @@ describe('useCartNegotiation', () => {
 
     // Assert
     expect(Alert.alert).toHaveBeenCalledWith(
-      'Negotiation Active',
-      'Please reset individual item prices before negotiating the total cart.'
+      'Reset individual prices?',
+      'Negotiating your whole cart will clear the prices you negotiated on individual items. Reset them and continue?',
+      expect.any(Array)
     );
     expect(mockOpenNegotiation).not.toHaveBeenCalled();
+
+    const buttons = (Alert.alert as jest.Mock).mock.calls[0]?.[2] as
+      | MockAlertButton[]
+      | undefined;
+
+    act(() => {
+      buttons?.[1]?.onPress?.();
+    });
+
+    expect(mockClearNegotiatedPrice).toHaveBeenCalledWith(negotiatedLine.id);
+    expect(mockOpenNegotiation).toHaveBeenCalledWith({
+      type: 'total',
+      productName: 'Total Cart',
+      currentPrice: 500000,
+      isNegotiable: true,
+    });
   });
 
   it('opens cart-wide negotiation when every line is negotiable', () => {

@@ -21,6 +21,10 @@ interface CartState {
   items: CartItem[];
   isLoading: boolean;
   lineSequence: number;
+  // True while a cart-wide (group) negotiation is applied. Removing or
+  // re-pricing an item invalidates the proportional group total, so the group
+  // negotiation is reset when the cart composition changes.
+  cartWideNegotiationActive: boolean;
 
   // Computed (via getters)
   itemCount: () => number;
@@ -39,6 +43,8 @@ interface CartState {
   clearNegotiatedPrice: (id: string) => void;
   // Restore actions (for rollback without generating new IDs)
   restoreItems: (items: CartItem[]) => void;
+  // Reconcile stored prices with the live catalog (keyed by cart line id).
+  repriceItems: (priceById: Record<string, number>) => void;
   // Device assurance actions
   toggleAssurance: (id: string) => void;
 }
@@ -56,6 +62,7 @@ export const useCartStore = create<CartState>()(
       items: [],
       isLoading: false,
       lineSequence: 0,
+      cartWideNegotiationActive: false,
 
       // Computed values
       itemCount: () => {
@@ -120,16 +127,43 @@ export const useCartStore = create<CartState>()(
 
       // Remove item from cart
       removeItem: (id) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.id !== id),
-        }));
+        set((state) => {
+          const items = state.items.filter((item) => item.id !== id);
+
+          // A cart-wide (group) negotiation distributes one negotiated total
+          // across all lines; removing a line breaks that total, so reset the
+          // group negotiation and revert remaining lines to catalog price.
+          if (state.cartWideNegotiationActive) {
+            return {
+              items: items.map((item) => ({
+                ...item,
+                negotiatedPrice: undefined,
+                negotiationStatus: undefined,
+              })),
+              cartWideNegotiationActive: false,
+            };
+          }
+
+          return { items };
+        });
       },
 
       // Update item quantity
       updateQuantity: (id, quantity) => {
         set((state) => {
           if (quantity <= 0) {
-            return { items: state.items.filter((item) => item.id !== id) };
+            const items = state.items.filter((item) => item.id !== id);
+            if (state.cartWideNegotiationActive) {
+              return {
+                items: items.map((item) => ({
+                  ...item,
+                  negotiatedPrice: undefined,
+                  negotiationStatus: undefined,
+                })),
+                cartWideNegotiationActive: false,
+              };
+            }
+            return { items };
           }
 
           return {
@@ -149,7 +183,7 @@ export const useCartStore = create<CartState>()(
 
       // Clear all items
       clearCart: () => {
-        set({ items: [], lineSequence: 0 });
+        set({ items: [], lineSequence: 0, cartWideNegotiationActive: false });
       },
 
       // Get specific item
@@ -160,7 +194,8 @@ export const useCartStore = create<CartState>()(
         );
       },
 
-      // Apply negotiated price to item (matches web feature parity)
+      // Apply negotiated price to item (matches web feature parity).
+      // This is an individual-line negotiation, so the group flag is cleared.
       applyNegotiatedPrice: (id, negotiatedPrice) => {
         set((state) => ({
           items: state.items.map((item) =>
@@ -172,6 +207,7 @@ export const useCartStore = create<CartState>()(
                 }
               : item
           ),
+          cartWideNegotiationActive: false,
         }));
       },
 
@@ -195,6 +231,7 @@ export const useCartStore = create<CartState>()(
               negotiationStatus: 'accepted' as const,
             };
           }),
+          cartWideNegotiationActive: true,
         }));
       },
 
@@ -210,12 +247,61 @@ export const useCartStore = create<CartState>()(
                 }
               : item
           ),
+          cartWideNegotiationActive: false,
         }));
       },
 
       // Restore items directly (for rollback without generating new IDs)
       restoreItems: (items) => {
         set({ items });
+      },
+
+      // Reconcile line prices from live catalog values keyed by cart line id.
+      // When a base price actually changes, any prior negotiation was made
+      // against a stale basis and would be rejected at checkout, so it is
+      // cleared — the shopper re-negotiates against the current price.
+      repriceItems: (priceById) => {
+        set((state) => {
+          let changed = false;
+          let items = state.items.map((item) => {
+            const livePrice = priceById[item.id];
+            if (typeof livePrice !== 'number' || !Number.isFinite(livePrice)) {
+              return item;
+            }
+            if (livePrice === item.price) {
+              return item;
+            }
+            changed = true;
+            return {
+              ...item,
+              price: livePrice,
+              negotiatedPrice: undefined,
+              negotiationStatus: undefined,
+            };
+          });
+          if (!changed) {
+            return { items };
+          }
+          // A reprice that clears negotiations also breaks any group total.
+          // A cart-wide negotiation distributes one agreed total across every
+          // line, so clearing only the drifted lines would leave the rest with
+          // a stale group share (an inconsistent partial total). When the group
+          // was active, clear the negotiation on ALL lines — mirroring the
+          // reset done in removeItem / updateQuantity.
+          if (state.cartWideNegotiationActive) {
+            items = items.map((item) =>
+              item.negotiatedPrice === undefined &&
+              item.negotiationStatus === undefined
+                ? item
+                : {
+                    ...item,
+                    negotiatedPrice: undefined,
+                    negotiationStatus: undefined,
+                  }
+            );
+          }
+          return { items, cartWideNegotiationActive: false };
+        });
       },
 
       // Toggle device assurance for item
@@ -240,6 +326,7 @@ export const useCartStore = create<CartState>()(
       partialize: (state) => ({
         items: state.items,
         lineSequence: state.lineSequence,
+        cartWideNegotiationActive: state.cartWideNegotiationActive,
       }),
     }
   )
