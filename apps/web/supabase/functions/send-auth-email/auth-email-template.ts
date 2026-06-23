@@ -231,7 +231,7 @@ function renderLogo(branding: MerchantBranding, safeBrandName: string): string {
     return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
   }
 
-  return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;background:#ffffff;border-radius:10px;padding:8px 12px;line-height:0;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;height:24px;width:auto;max-width:220px;"></span>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display:inline-table;max-width:100%;"><tr><td class="a-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:10px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;outline:none;text-decoration:none;height:24px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;"></td></tr></table>`;
 }
 
 function renderTokenBlock(
@@ -280,9 +280,9 @@ function renderOgabasseyEmailHtml(
 <title>${escapeHtml(config.subject)}</title>
 <style>
 @media (prefers-color-scheme:dark){
-.a-bg{background:#0b0b0c!important}.a-card{background:#161618!important;border-color:#2a2a2e!important}.a-strong{color:#f4f4f5!important}.a-muted{color:#c3c5cc!important}.a-footer{background:#101012!important;border-color:#2a2a2e!important}
+.a-bg{background:#0b0b0c!important}.a-card{background:#161618!important;border-color:#2a2a2e!important}.a-logo-chip{background:#ffffff!important;background-color:#ffffff!important;border-color:#ffffff!important;color:#111827!important;color-scheme:light!important;forced-color-adjust:none!important}.a-strong{color:#f4f4f5!important}.a-muted{color:#c3c5cc!important}.a-footer{background:#101012!important;border-color:#2a2a2e!important}
 }
-@media only screen and (max-width:600px){.a-card{width:100%!important;border-radius:0!important}.a-pad{padding-left:24px!important;padding-right:24px!important}.a-cta{display:block!important;width:100%!important;box-sizing:border-box!important}.a-brand-cell,.a-badge-cell{display:block!important;width:100%!important;text-align:left!important}.a-badge-cell{padding-top:14px!important}.a-brand-logo img{height:auto!important;max-width:180px!important}.a-badge{display:inline-block!important;white-space:normal!important;max-width:100%!important}}
+@media only screen and (max-width:600px){.a-card{width:100%!important;border-radius:0!important}.a-pad{padding-left:24px!important;padding-right:24px!important}.a-cta{display:block!important;width:100%!important;box-sizing:border-box!important}.a-brand-cell,.a-badge-cell{display:block!important;width:100%!important;text-align:left!important}.a-badge-cell{padding-top:14px!important}.a-brand-logo img,.a-logo-chip img{height:auto!important;max-width:180px!important}.a-badge{display:inline-block!important;white-space:normal!important;max-width:100%!important}}
 </style>
 </head>
 <body class="a-bg" style="margin:0;padding:0;background:#f2f4f7;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">

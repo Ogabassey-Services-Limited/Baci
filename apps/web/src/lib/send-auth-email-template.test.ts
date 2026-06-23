@@ -74,6 +74,37 @@ describe('send-auth-email template helpers', () => {
     expect(html).not.toContain('linear-gradient');
   });
 
+  it('renders merchant logo images inside a fixed white email-table chip', () => {
+    const html = generateEmailHtml(
+      getEmailConfig('magiclink', 'Ogabassey'),
+      'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
+      {
+        businessName: 'Ogabassey',
+        customDomain: 'ogabassey.com',
+        emailSenderName: 'Ogabassey',
+        logoUrl:
+          'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png',
+        primaryColor: '#d62027',
+        buttonColor: '#d62027',
+        buttonTextColor: '#ffffff',
+        slug: 'ogabassey',
+        supportEmail: 'support@ogabassey.com',
+      },
+      '123456',
+      'https://ogabassey.com/account/verify'
+    );
+
+    expect(html).toContain(
+      '<img src="https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png"'
+    );
+    expect(html).toContain('class="a-logo-chip"');
+    expect(html).toContain('bgcolor="#ffffff"');
+    expect(html).toContain('background:#ffffff');
+    expect(html).toContain('background-color:#ffffff');
+    expect(html).toContain('color-scheme:light');
+    expect(html).toContain('forced-color-adjust:none');
+  });
+
   it('omits the Ogabassey CTA when the action URL is unsafe', () => {
     const config = getEmailConfig('magiclink', 'Ogabassey');
     const branding = {
