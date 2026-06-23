@@ -71,6 +71,63 @@ CREATE INDEX IF NOT EXISTS merchant_auth_recovery_attempts_ip_time_idx
   ON public.merchant_auth_recovery_attempts (ip_hash, created_at DESC)
   WHERE ip_hash IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS merchant_auth_recovery_attempts_lockout_idx
+  ON public.merchant_auth_recovery_attempts (user_id, code_set_id, ip_hash, created_at DESC)
+  WHERE succeeded = false;
+
+CREATE OR REPLACE FUNCTION public.claim_merchant_auth_recovery_code(
+  p_user_id uuid,
+  p_code_id uuid,
+  p_code_set_id uuid,
+  p_ip_hash text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  claimed_count integer;
+  claimed boolean;
+BEGIN
+  IF COALESCE((SELECT auth.role()), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'claim_merchant_auth_recovery_code requires service_role'
+      USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.merchant_auth_recovery_codes
+  SET used_at = now()
+  WHERE id = p_code_id
+    AND user_id = p_user_id
+    AND code_set_id = p_code_set_id
+    AND used_at IS NULL
+    AND revoked_at IS NULL;
+
+  GET DIAGNOSTICS claimed_count = ROW_COUNT;
+  claimed := claimed_count > 0;
+
+  INSERT INTO public.merchant_auth_recovery_attempts (
+    user_id,
+    ip_hash,
+    code_set_id,
+    succeeded
+  )
+  VALUES (
+    p_user_id,
+    p_ip_hash,
+    p_code_set_id,
+    claimed
+  );
+
+  RETURN claimed;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_merchant_auth_recovery_code(uuid, uuid, uuid, text)
+  TO service_role;
+
 -- ---------------------------------------------------------------------------
 -- RLS: server-only. Enable RLS with no permissive policy (deny-all to
 -- anon/authenticated) and revoke direct grants. The service-role client used by

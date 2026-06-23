@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFrom } = vi.hoisted(() => ({ mockFrom: vi.fn() }));
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
+}));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({ from: mockFrom }),
+  createAdminClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
 import { createRecoveryCodeStore } from './recovery-code-store';
@@ -41,11 +44,41 @@ describe('recovery-code-store (Supabase-backed)', () => {
     vi.clearAllMocks();
   });
 
-  it('listActiveCodes returns unused, non-revoked codes mapped to records', async () => {
+  it('getActiveCodeSetId returns the acknowledged code set', async () => {
     const readinessBuilder = queryReturning({
       data: { acknowledged_code_set_id: 'set-1' },
       error: null,
     });
+    mockFrom.mockReturnValueOnce(readinessBuilder);
+
+    await expect(
+      createRecoveryCodeStore().getActiveCodeSetId('user-1')
+    ).resolves.toBe('set-1');
+
+    expect(mockFrom).toHaveBeenCalledWith('merchant_auth_readiness');
+    expect(readinessBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+  });
+
+  it('getActiveCodeSetId returns null when no set is acknowledged', async () => {
+    mockFrom.mockReturnValueOnce(
+      queryReturning({ data: { acknowledged_code_set_id: null }, error: null })
+    );
+
+    await expect(
+      createRecoveryCodeStore().getActiveCodeSetId('u')
+    ).resolves.toBeNull();
+  });
+
+  it('getActiveCodeSetId throws on a readiness query error (fail closed)', async () => {
+    mockFrom.mockReturnValueOnce(
+      queryReturning({ data: null, error: { message: 'boom' } })
+    );
+    await expect(
+      createRecoveryCodeStore().getActiveCodeSetId('u')
+    ).rejects.toThrow('Failed to load recovery readiness');
+  });
+
+  it('listActiveCodes returns unused, non-revoked codes mapped to records', async () => {
     const codesBuilder = queryReturning({
       data: [
         { id: 'c1', code_hash: 'h1' },
@@ -53,15 +86,14 @@ describe('recovery-code-store (Supabase-backed)', () => {
       ],
       error: null,
     });
-    mockFrom
-      .mockReturnValueOnce(readinessBuilder)
-      .mockReturnValueOnce(codesBuilder);
+    mockFrom.mockReturnValueOnce(codesBuilder);
 
-    const codes = await createRecoveryCodeStore().listActiveCodes('user-1');
+    const codes = await createRecoveryCodeStore().listActiveCodes(
+      'user-1',
+      'set-1'
+    );
 
-    expect(mockFrom).toHaveBeenCalledWith('merchant_auth_readiness');
     expect(mockFrom).toHaveBeenCalledWith('merchant_auth_recovery_codes');
-    expect(readinessBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(codesBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(codesBuilder.eq).toHaveBeenCalledWith('code_set_id', 'set-1');
     expect(codesBuilder.is).toHaveBeenCalledWith('used_at', null);
@@ -72,75 +104,58 @@ describe('recovery-code-store (Supabase-backed)', () => {
     ]);
   });
 
-  it('listActiveCodes returns no codes when no set is acknowledged', async () => {
-    mockFrom.mockReturnValueOnce(
-      queryReturning({ data: { acknowledged_code_set_id: null }, error: null })
-    );
-
-    await expect(
-      createRecoveryCodeStore().listActiveCodes('u')
-    ).resolves.toEqual([]);
-    expect(mockFrom).toHaveBeenCalledTimes(1);
-  });
-
-  it('listActiveCodes throws on a readiness query error (fail closed)', async () => {
+  it('listActiveCodes throws on a codes query error (fail closed)', async () => {
     mockFrom.mockReturnValueOnce(
       queryReturning({ data: null, error: { message: 'boom' } })
     );
     await expect(
-      createRecoveryCodeStore().listActiveCodes('u')
-    ).rejects.toThrow('Failed to load recovery readiness');
-  });
-
-  it('listActiveCodes throws on a codes query error (fail closed)', async () => {
-    mockFrom
-      .mockReturnValueOnce(
-        queryReturning({
-          data: { acknowledged_code_set_id: 'set-1' },
-          error: null,
-        })
-      )
-      .mockReturnValueOnce(
-        queryReturning({ data: null, error: { message: 'boom' } })
-      );
-    await expect(
-      createRecoveryCodeStore().listActiveCodes('u')
+      createRecoveryCodeStore().listActiveCodes('u', 'set-1')
     ).rejects.toThrow('Failed to load recovery codes');
   });
 
-  it('markCodeUsed returns true after atomically claiming an unused code', async () => {
-    const builder = queryReturning({ data: [{ id: 'c1' }], error: null });
-    mockFrom.mockReturnValueOnce(builder);
+  it('claimCode returns true after atomically claiming and logging an unused code', async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
 
-    const claimed = await createRecoveryCodeStore().markCodeUsed('c1');
+    const claimed = await createRecoveryCodeStore().claimCode({
+      userId: 'user-1',
+      codeSetId: 'set-1',
+      codeId: 'c1',
+      ipHash: 'ip',
+    });
 
     expect(claimed).toBe(true);
-    expect(mockFrom).toHaveBeenCalledWith('merchant_auth_recovery_codes');
-    expect(builder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ used_at: expect.any(String) })
-    );
-    expect(builder.eq).toHaveBeenCalledWith('id', 'c1');
-    expect(builder.is).toHaveBeenCalledWith('used_at', null);
-    expect(builder.is).toHaveBeenCalledWith('revoked_at', null);
-    expect(builder.select).toHaveBeenCalledWith('id');
+    expect(mockRpc).toHaveBeenCalledWith('claim_merchant_auth_recovery_code', {
+      p_code_id: 'c1',
+      p_code_set_id: 'set-1',
+      p_ip_hash: 'ip',
+      p_user_id: 'user-1',
+    });
   });
 
-  it('markCodeUsed throws on query error (fail closed)', async () => {
-    mockFrom.mockReturnValueOnce(
-      queryReturning({ data: null, error: { message: 'denied' } })
-    );
+  it('claimCode throws on query error (fail closed)', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
 
-    await expect(createRecoveryCodeStore().markCodeUsed('c1')).rejects.toThrow(
-      'Failed to consume recovery code'
-    );
+    await expect(
+      createRecoveryCodeStore().claimCode({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        codeId: 'c1',
+        ipHash: 'ip',
+      })
+    ).rejects.toThrow('Failed to consume recovery code');
   });
 
-  it('markCodeUsed returns false when no unused row was claimed', async () => {
-    mockFrom.mockReturnValueOnce(queryReturning({ data: [], error: null }));
+  it('claimCode returns false when no unused row was claimed', async () => {
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
 
-    await expect(createRecoveryCodeStore().markCodeUsed('c1')).resolves.toBe(
-      false
-    );
+    await expect(
+      createRecoveryCodeStore().claimCode({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        codeId: 'c1',
+        ipHash: 'ip',
+      })
+    ).resolves.toBe(false);
   });
 
   it('countRecentFailures throws on query error (fail closed)', async () => {
@@ -149,7 +164,11 @@ describe('recovery-code-store (Supabase-backed)', () => {
     );
 
     await expect(
-      createRecoveryCodeStore().countRecentFailures('user-1')
+      createRecoveryCodeStore().countRecentFailures({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        ipHash: 'ip',
+      })
     ).rejects.toThrow('Failed to count recovery attempts');
   });
 
@@ -157,7 +176,11 @@ describe('recovery-code-store (Supabase-backed)', () => {
     const builder = queryReturning({ count: 3, error: null });
     mockFrom.mockReturnValueOnce(builder);
 
-    const n = await createRecoveryCodeStore().countRecentFailures('user-1');
+    const n = await createRecoveryCodeStore().countRecentFailures({
+      userId: 'user-1',
+      codeSetId: 'set-1',
+      ipHash: 'ip',
+    });
 
     expect(mockFrom).toHaveBeenCalledWith('merchant_auth_recovery_attempts');
     expect(builder.select).toHaveBeenCalledWith('id', {
@@ -165,6 +188,8 @@ describe('recovery-code-store (Supabase-backed)', () => {
       head: true,
     });
     expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(builder.eq).toHaveBeenCalledWith('code_set_id', 'set-1');
+    expect(builder.eq).toHaveBeenCalledWith('ip_hash', 'ip');
     expect(builder.eq).toHaveBeenCalledWith('succeeded', false);
     expect(builder.gte).toHaveBeenCalledWith('created_at', expect.any(String));
     expect(n).toBe(3);
@@ -172,7 +197,13 @@ describe('recovery-code-store (Supabase-backed)', () => {
 
   it('countRecentFailures treats a null count as 0', async () => {
     mockFrom.mockReturnValueOnce(queryReturning({ count: null, error: null }));
-    expect(await createRecoveryCodeStore().countRecentFailures('u')).toBe(0);
+    expect(
+      await createRecoveryCodeStore().countRecentFailures({
+        userId: 'u',
+        codeSetId: 'set-1',
+        ipHash: 'ip',
+      })
+    ).toBe(0);
   });
 
   it('recordAttempt inserts an attempt row', async () => {
@@ -182,6 +213,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
     await createRecoveryCodeStore().recordAttempt({
       userId: 'user-1',
       ipHash: 'ip',
+      codeSetId: 'set-1',
       succeeded: false,
     });
 
@@ -190,6 +222,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
       expect.objectContaining({
         user_id: 'user-1',
         ip_hash: 'ip',
+        code_set_id: 'set-1',
         succeeded: false,
       })
     );
@@ -203,6 +236,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
       createRecoveryCodeStore().recordAttempt({
         userId: 'u',
         ipHash: 'i',
+        codeSetId: null,
         succeeded: true,
       })
     ).rejects.toThrow();

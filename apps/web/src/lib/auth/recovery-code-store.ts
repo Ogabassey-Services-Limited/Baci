@@ -3,13 +3,16 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   RecoveryAttempt,
+  RecoveryCodeClaim,
   RecoveryCodeRecord,
   RecoveryCodeStore,
+  RecoveryFailureScope,
 } from './recovery-code-redemption';
 
 const RECOVERY_CODES_TABLE = 'merchant_auth_recovery_codes';
 const RECOVERY_ATTEMPTS_TABLE = 'merchant_auth_recovery_attempts';
 const RECOVERY_READINESS_TABLE = 'merchant_auth_readiness';
+const CLAIM_RECOVERY_CODE_RPC = 'claim_merchant_auth_recovery_code';
 
 /** Failed recovery attempts within this window count toward lockout. */
 export const RECOVERY_FAILURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -24,7 +27,7 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
   const supabase = createAdminClient();
 
   return {
-    async listActiveCodes(userId: string): Promise<RecoveryCodeRecord[]> {
+    async getActiveCodeSetId(userId: string): Promise<string | null> {
       const { data: readiness, error: readinessError } = await supabase
         .from(RECOVERY_READINESS_TABLE)
         .select('acknowledged_code_set_id')
@@ -36,18 +39,21 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
         );
       }
 
-      const activeCodeSetId = (
-        readiness as { acknowledged_code_set_id?: string | null } | null
-      )?.acknowledged_code_set_id;
-      if (!activeCodeSetId) {
-        return [];
-      }
+      return (
+        (readiness as { acknowledged_code_set_id?: string | null } | null)
+          ?.acknowledged_code_set_id ?? null
+      );
+    },
 
+    async listActiveCodes(
+      userId: string,
+      codeSetId: string
+    ): Promise<RecoveryCodeRecord[]> {
       const { data, error } = await supabase
         .from(RECOVERY_CODES_TABLE)
         .select('id, code_hash')
         .eq('user_id', userId)
-        .eq('code_set_id', activeCodeSetId)
+        .eq('code_set_id', codeSetId)
         .is('used_at', null)
         .is('revoked_at', null);
       if (error) {
@@ -57,24 +63,32 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
       return rows.map((row) => ({ id: row.id, codeHash: row.code_hash }));
     },
 
-    async markCodeUsed(codeId: string): Promise<boolean> {
-      // `is('used_at', null)` makes consumption atomic: a concurrent redeem of
-      // the same code updates zero rows. Supabase update() returns no rows by
-      // default, so select the id back and treat an empty result as not claimed.
-      const { data, error } = await supabase
-        .from(RECOVERY_CODES_TABLE)
-        .update({ used_at: new Date().toISOString() })
-        .eq('id', codeId)
-        .is('used_at', null)
-        .is('revoked_at', null)
-        .select('id');
+    async claimCode({
+      userId,
+      codeId,
+      codeSetId,
+      ipHash,
+    }: RecoveryCodeClaim): Promise<boolean> {
+      // The RPC runs the code claim and attempt ledger insert in one database
+      // transaction. This avoids burning a code if attempt logging fails after
+      // a successful claim.
+      const { data, error } = await supabase.rpc(CLAIM_RECOVERY_CODE_RPC, {
+        p_code_id: codeId,
+        p_code_set_id: codeSetId,
+        p_ip_hash: ipHash,
+        p_user_id: userId,
+      });
       if (error) {
         throw new Error(`Failed to consume recovery code: ${error.message}`);
       }
-      return Array.isArray(data) && data.length > 0;
+      return data === true;
     },
 
-    async countRecentFailures(userId: string): Promise<number> {
+    async countRecentFailures({
+      userId,
+      ipHash,
+      codeSetId,
+    }: RecoveryFailureScope): Promise<number> {
       const cutoff = new Date(
         Date.now() - RECOVERY_FAILURE_WINDOW_MS
       ).toISOString();
@@ -82,6 +96,8 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
         .from(RECOVERY_ATTEMPTS_TABLE)
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
+        .eq('code_set_id', codeSetId)
+        .eq('ip_hash', ipHash)
         .eq('succeeded', false)
         .gte('created_at', cutoff);
       if (error) {
@@ -93,11 +109,13 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
     async recordAttempt({
       userId,
       ipHash,
+      codeSetId,
       succeeded,
     }: RecoveryAttempt): Promise<void> {
       const { error } = await supabase.from(RECOVERY_ATTEMPTS_TABLE).insert({
         user_id: userId,
         ip_hash: ipHash,
+        code_set_id: codeSetId,
         succeeded,
       });
       if (error) {
