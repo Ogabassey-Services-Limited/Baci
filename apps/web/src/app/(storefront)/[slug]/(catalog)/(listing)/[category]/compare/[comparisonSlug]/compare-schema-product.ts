@@ -128,6 +128,13 @@ export function getStructuredDataAvailability(
     return 'InStock';
   }
 
+  if (
+    !('manage_stock' in product) &&
+    ('stock_quantity' in product || 'stock' in product)
+  ) {
+    return 'InStock';
+  }
+
   const stockQuantity =
     toOptionalNumber(product.stock_quantity) ?? toOptionalNumber(product.stock);
   if (stockQuantity !== null) {

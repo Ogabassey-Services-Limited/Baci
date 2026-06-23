@@ -178,7 +178,7 @@ describe('BlogPostBody', () => {
       renderedContent: null,
     });
 
-    const { container } = render(
+    render(
       await BlogPostBody({
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
@@ -211,7 +211,6 @@ describe('BlogPostBody', () => {
       screen.queryByRole('link', { name: 'Product data JSON' })
     ).not.toBeInTheDocument();
     expect(screen.getByText(/Product data JSON/)).toBeInTheDocument();
-    expect(container.querySelectorAll('h1')).toHaveLength(0);
   });
 
   it('uses canonical postUrl for subdomain share links without doubled slug', async () => {

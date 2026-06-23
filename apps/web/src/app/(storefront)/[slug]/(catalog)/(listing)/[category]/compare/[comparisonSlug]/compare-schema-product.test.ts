@@ -82,6 +82,8 @@ describe('compare schema product helpers', () => {
     [{ status: 'sold_out', manage_stock: false }, 'OutOfStock'],
     [{ manage_stock: false, stock_quantity: '0' }, 'InStock'],
     [{ manage_stock: null, stock_quantity: '0' }, 'InStock'],
+    [{ stock_quantity: '0' }, 'InStock'],
+    [{ stock: 0 }, 'InStock'],
     [{ manage_stock: true, stock_quantity: '0' }, 'OutOfStock'],
     [{ manage_stock: true, stock: 3 }, 'InStock'],
     [{}, undefined],
