@@ -7,6 +7,7 @@ import {
   hasVariantConditionAxis,
   normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
+  resolveLowestPricedVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
   resolveVariantSelectionParamResolution,
@@ -115,9 +116,13 @@ export function useProductDetailsState(serverProduct: Product) {
     manage_stock: productData.manage_stock,
     variants: variantResolutionVariants,
   };
-  const defaultVariantSelection = resolveDefaultVariantSelection({
-    ...variantResolutionProduct,
-  });
+  // The PDP opens on the cheapest buyable variant (price-first, ignoring
+  // condition preference) so e.g. a cheaper "Used" leads over a pricier "Open
+  // Box". Falls back to the shared condition-first default when nothing is
+  // purchasable. This is PDP-only — feeds/cart keep the shared resolver.
+  const defaultVariantSelection =
+    resolveLowestPricedVariantSelection({ ...variantResolutionProduct }) ??
+    resolveDefaultVariantSelection({ ...variantResolutionProduct });
   const usesVariantConditions = hasVariantConditionAxis({
     ...variantResolutionProduct,
   });
