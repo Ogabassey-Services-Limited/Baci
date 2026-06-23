@@ -103,15 +103,14 @@ describe('initializePostHogBrowser', () => {
         loaded: expect.any(Function),
       })
     );
-    expect(mocks.posthogInit.mock.calls[0]?.[1]).toHaveProperty(
-      'advanced_disable_flags',
-      false
+    expect(mocks.posthogInit.mock.calls[0]?.[1]).not.toHaveProperty(
+      'advanced_disable_flags'
     );
     expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
   });
 
-  it('requests the lightweight config on public blog surfaces at init time', async () => {
+  it('requests the lightweight config on public blog surfaces without locking init-time flag config', async () => {
     const env = {
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
     };
@@ -131,11 +130,13 @@ describe('initializePostHogBrowser', () => {
       { lightweight: true }
     );
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
-    expect(mocks.posthogInit.mock.calls[0]?.[1]).toHaveProperty(
-      'advanced_disable_flags',
-      true
+    expect(mocks.posthogInit.mock.calls[0]?.[1]).not.toHaveProperty(
+      'advanced_disable_flags'
     );
-    expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
+    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
+    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
+      advanced_disable_flags: true,
+    });
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
@@ -201,8 +202,11 @@ describe('initializePostHogBrowser', () => {
       'ph_project_token',
       { lightweight: false }
     );
-    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
-    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
+    expect(mocks.posthogSetConfig).toHaveBeenCalledTimes(2);
+    expect(mocks.posthogSetConfig).toHaveBeenNthCalledWith(1, {
+      advanced_disable_flags: true,
+    });
+    expect(mocks.posthogSetConfig).toHaveBeenNthCalledWith(2, {
       advanced_disable_flags: false,
       api_host: '/baci-relay',
     });

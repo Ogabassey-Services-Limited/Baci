@@ -57,6 +57,23 @@ function isLightweightPostHogSurface(
   });
 }
 
+type PostHogBrowserClientConfig = ReturnType<typeof buildPostHogClientConfig>;
+
+function splitPostHogInitConfig(clientConfig: PostHogBrowserClientConfig) {
+  const { advanced_disable_flags: advancedDisableFlags, ...initConfig } =
+    clientConfig;
+
+  return { advancedDisableFlags, initConfig };
+}
+
+function applyPostHogFlagDisableConfig(
+  advancedDisableFlags: PostHogBrowserClientConfig['advanced_disable_flags']
+) {
+  if (advancedDisableFlags === true) {
+    posthog.set_config({ advanced_disable_flags: true });
+  }
+}
+
 function maybeReloadPostHogFeatureFlags(
   previousLightweight: boolean | undefined,
   nextLightweight: boolean
@@ -105,11 +122,13 @@ export function initializePostHogBrowser(
   const clientConfig = buildPostHogClientConfig(env, projectToken, {
     lightweight,
   });
+  const { advancedDisableFlags, initConfig } =
+    splitPostHogInitConfig(clientConfig);
   const clientLoaded = clientConfig.loaded;
 
   try {
     posthog.init(projectToken, {
-      ...clientConfig,
+      ...initConfig,
       loaded(posthogInstance) {
         try {
           clientLoaded?.(posthogInstance);
@@ -122,6 +141,7 @@ export function initializePostHogBrowser(
         markPostHogReadyAndFlush();
       },
     });
+    applyPostHogFlagDisableConfig(advancedDisableFlags);
     hasInitializedPostHogBrowser = true;
     lastConfiguredPostHogLightweight = lightweight;
     postHogLoadedStateCheckAttempts = 0;
