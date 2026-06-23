@@ -7,7 +7,11 @@ import {
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { getProductUrl } from '@/lib/seo-utils';
-import { isValidMerchantIdentifier } from '@/lib/validation';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
+import { StorefrontRouteNotFoundContent } from '../../../../storefront-route-not-found-content';
 import { buildProductRedirectPath } from '../../products/[productSlug]/build-product-redirect-path';
 
 // Intentional page-level metadata for this redirect-only legacy route: keep it noindex so crawlers do not treat the transitional URL as canonical.
@@ -87,7 +91,22 @@ export default async function LegacyProductPage({ params }: PageProps) {
   const redirectPath = await resolveLegacyProductPath(slug, productSlug);
 
   if (!redirectPath) {
-    notFound();
+    const merchant = await getMerchantByIdentifier(slug);
+
+    if (!merchant) {
+      notFound();
+    }
+
+    // Metadata keeps this legacy route noindex; this stable body only handles
+    // missing products for valid storefronts without throwing inside the
+    // streamed page render.
+    return (
+      <StorefrontRouteNotFoundContent
+        backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
+        message="This product is unavailable or has moved."
+        title="Product not found"
+      />
+    );
   }
 
   permanentRedirect(buildProductRedirectPath(slug, redirectPath));

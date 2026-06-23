@@ -85,4 +85,178 @@ describe('V2SavedProvider', () => {
 
     expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
   });
+
+  it('ignores malformed saved items loaded from localStorage', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      JSON.stringify({ id: 'not-an-array' })
+    );
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Saved items storage returned invalid data'
+    );
+  });
+
+  it('ignores incomplete saved products loaded from localStorage', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      JSON.stringify([{ id: 'product-1' }])
+    );
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Saved items storage returned invalid data'
+    );
+  });
+
+  it('keeps valid saved products when mixed localStorage entries include invalid products', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      JSON.stringify([baseProduct, { id: 'missing-required-fields' }])
+    );
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('1');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Saved items storage returned invalid data'
+    );
+  });
+
+  it('keeps saved products that only have an empty description', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      JSON.stringify([{ ...baseProduct, description: '' }])
+    );
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('1');
+  });
+
+  it('ignores unparseable saved items loaded from localStorage', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+      '{"id":"unterminated"'
+    );
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to parse saved items',
+      expect.any(SyntaxError)
+    );
+  });
+
+  it('keeps the storefront usable when localStorage reads are blocked', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage access blocked', 'SecurityError');
+    });
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    expect(() => {
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+    }).not.toThrow();
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Saved items storage is unavailable',
+      expect.any(DOMException)
+    );
+  });
+
+  it('keeps in-memory saved state when localStorage writes are blocked', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Storage access blocked', 'SecurityError');
+    });
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    render(
+      <V2SavedProvider>
+        <SavedConsumer />
+      </V2SavedProvider>
+    );
+
+    expect(() => {
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+    }).not.toThrow();
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle saved' }));
+    }).not.toThrow();
+
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('1');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Saved items storage is unavailable',
+      expect.any(DOMException)
+    );
+  });
 });

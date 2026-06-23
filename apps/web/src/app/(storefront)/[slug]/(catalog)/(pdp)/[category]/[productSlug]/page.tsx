@@ -8,6 +8,7 @@ import {
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
+import { StorefrontRouteNotFoundContent } from '@/app/(storefront)/[slug]/storefront-route-not-found-content';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
@@ -88,6 +89,19 @@ const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
 };
 
 const priceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function renderCategoryProductNotFoundContent(slug: string) {
+  // generateMetadata keeps missing PDPs noindex/hard-not-found before render.
+  // This stable body only covers render-time races after the storefront shell
+  // is already streaming.
+  return (
+    <StorefrontRouteNotFoundContent
+      backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
+      message="This product is unavailable or has moved."
+      title="Product not found"
+    />
+  );
+}
 
 function getPriceFormatter(currency: string): Intl.NumberFormat {
   let formatter = priceFormatterCache.get(currency);
@@ -1624,7 +1638,13 @@ export default async function CategoryProductPage({
   );
 
   if (!routeControl) {
-    notFound();
+    const merchant = await getRequestScopedMerchant(slug);
+
+    if (!merchant) {
+      notFound();
+    }
+
+    return renderCategoryProductNotFoundContent(slug);
   }
 
   const {

@@ -22,6 +22,84 @@ const V2SavedContext = createContext<V2SavedContextType | undefined>(undefined);
 const SAVED_STORAGE_KEY = 'ogabassey_v2_saved';
 const STORAGE_HYDRATION_TIMEOUT_MS = 1200;
 
+function warnSavedStorageUnavailable(error: unknown) {
+  console.warn('Saved items storage is unavailable', error);
+}
+
+function hasRequiredStoredString(
+  value: Record<string, unknown>,
+  key: 'image' | 'name' | 'price'
+) {
+  const fieldValue = value[key];
+  return typeof fieldValue === 'string' && fieldValue.trim().length > 0;
+}
+
+function isStoredSavedProduct(value: unknown): value is Product {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const product = value as Record<string, unknown>;
+  const hasValidId =
+    (typeof product.id === 'string' && product.id.trim().length > 0) ||
+    typeof product.id === 'number';
+
+  return (
+    hasValidId &&
+    hasRequiredStoredString(product, 'name') &&
+    hasRequiredStoredString(product, 'price') &&
+    hasRequiredStoredString(product, 'image') &&
+    typeof product.description === 'string'
+  );
+}
+
+function warnInvalidSavedStorageData() {
+  console.warn('Saved items storage returned invalid data');
+}
+
+function readSavedItemsFromStorage(): Product[] {
+  let stored: string | null = null;
+
+  try {
+    stored = window.localStorage.getItem(SAVED_STORAGE_KEY);
+  } catch (error) {
+    warnSavedStorageUnavailable(error);
+    return [];
+  }
+
+  if (!stored) {
+    return [];
+  }
+
+  try {
+    const parsedSavedItems: unknown = JSON.parse(stored);
+
+    if (Array.isArray(parsedSavedItems)) {
+      const validSavedItems = parsedSavedItems.filter(isStoredSavedProduct);
+
+      if (validSavedItems.length !== parsedSavedItems.length) {
+        warnInvalidSavedStorageData();
+      }
+
+      return validSavedItems;
+    }
+
+    warnInvalidSavedStorageData();
+    return [];
+  } catch (error) {
+    console.error('Failed to parse saved items', error);
+    return [];
+  }
+}
+
+function writeSavedItemsToStorage(savedItems: Product[]) {
+  try {
+    window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItems));
+  } catch (error) {
+    warnSavedStorageUnavailable(error);
+  }
+}
+
 export const useV2Saved = () => {
   const context = use(V2SavedContext);
   if (!context) {
@@ -47,15 +125,7 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
       return null;
     }
 
-    let nextSavedItems: Product[] = [];
-    const stored = localStorage.getItem(SAVED_STORAGE_KEY);
-    if (stored) {
-      try {
-        nextSavedItems = JSON.parse(stored);
-      } catch (error) {
-        console.error('Failed to parse saved items', error);
-      }
-    }
+    const nextSavedItems = readSavedItemsFromStorage();
 
     hasHydratedStorageRef.current = true;
     setHasHydratedStorage(true);
@@ -108,7 +178,7 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     if (typeof window !== 'undefined' && hasHydratedStorage) {
-      localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItems));
+      writeSavedItemsToStorage(savedItems);
     }
   }, [hasHydratedStorage, savedItems]);
 
@@ -116,6 +186,9 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
     const hydratedSavedItems = hydrateSavedItems();
 
     setSavedItems((prev) => {
+      // First interaction may synchronously hydrate storage and enqueue that
+      // state update in the same React batch; prefer the freshly-read storage
+      // snapshot, otherwise use the already-hydrated state.
       const source = hydratedSavedItems ?? prev;
       // Ensure we compare IDs correctly (handle string/number mismatch if any)
       const exists = source.some((p) => String(p.id) === String(product.id));

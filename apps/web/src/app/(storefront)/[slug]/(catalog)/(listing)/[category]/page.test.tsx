@@ -1143,17 +1143,24 @@ describe('category page route', () => {
     );
   });
 
-  it('returns notFound for out-of-range category pages', async () => {
-    const outOfRangePage = actualCategoryPageContentModule.CategoryPageContent({
-      params: Promise.resolve({
-        slug: 'test-store',
-        category: 'smartphones',
-      }),
-      searchParams: Promise.resolve({ page: '3' }),
-    });
+  it('renders stable noindex soft-not-found content for out-of-range category pages', async () => {
+    render(
+      await actualCategoryPageContentModule.CategoryPageContent({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    );
 
-    await expect(outOfRangePage).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(notFound).toHaveBeenCalled();
+    expect(
+      screen.getByRole('heading', { name: 'Category page not found' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Continue shopping' })
+    ).toHaveAttribute('href', '/test-store');
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('falls back to the normalized placeholder image when the category page has no product media', async () => {
