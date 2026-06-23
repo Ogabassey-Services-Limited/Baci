@@ -187,6 +187,9 @@ describe('OgabasseyLayout', () => {
     expect(metadata.title).toBe('OgaBassey - Official Online Store');
     expect(metadata.description).toContain('Buy Gadgets Pay Later');
     expect(metadata.manifest).toBeNull();
+    expect(metadata.other).toMatchObject({
+      'apple-itunes-app': 'app-id=6472735367',
+    });
     expect(metadata.icons).toBeDefined();
     expect(metadata.openGraph).toBeDefined();
     expect(metadata.twitter).toBeDefined();
@@ -205,6 +208,9 @@ describe('OgabasseyLayout', () => {
       title: 'OgaBassey - Official Online Store',
       description: 'OgaBassey Storefront',
       manifest: null,
+      other: {
+        'apple-itunes-app': 'app-id=6472735367',
+      },
     });
   });
 });

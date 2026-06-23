@@ -1,6 +1,7 @@
 import { getImageProps } from 'next/image';
 import Image from 'next/image';
 import Link from 'next/link';
+import imageLoader from '@/lib/image-loader';
 import { asRoute } from '@/lib/routes';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import type { LaunchProductSlide } from './LaunchCarousel';
@@ -23,6 +24,19 @@ const BIG_IMAGE_HEIGHT = 800;
 // whole grid is `display:none` and the mobile carousel owns the LCP slot.
 const BIG_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
 const BIG_IMAGE_SIZES = '(min-width: 768px) 480px, 1px';
+const HERO_IMAGE_QUALITY = 70;
+
+function ogabasseyHeroImageLoader({
+  quality = HERO_IMAGE_QUALITY,
+  src,
+  width,
+}: {
+  quality?: number;
+  src: string;
+  width: number;
+}) {
+  return imageLoader({ quality, src, width });
+}
 
 /** Media-scoped, eager, high-priority desktop LCP image. On mobile no `<source>`
  *  matches, so the `<img>` falls back to a transparent pixel (zero network). */
@@ -34,10 +48,11 @@ function HeroBigImage({ alt, src }: { alt: string; src: string }) {
     decoding: 'sync',
     fetchPriority: 'high',
     height: BIG_IMAGE_HEIGHT,
+    loader: ogabasseyHeroImageLoader,
     loading: 'eager',
+    quality: HERO_IMAGE_QUALITY,
     sizes: BIG_IMAGE_SIZES,
     src,
-    unoptimized: true,
     width: BIG_IMAGE_WIDTH,
   });
 
@@ -60,13 +75,19 @@ function HeroBigImage({ alt, src }: { alt: string; src: string }) {
 
 /** The large left hero card — a single, static launch product (best for a
  *  stable LCP element). Light surface, brand red used only as an accent. */
-function HeroBigCard({ slide }: { slide: LaunchProductSlide }) {
+function HeroBigCard({
+  hasSideCards,
+  slide,
+}: {
+  hasSideCards: boolean;
+  slide: LaunchProductSlide;
+}) {
   return (
     <Link
       href={asRoute(slide.href)}
       prefetch={false}
       aria-label={`${slide.name} — ${slide.ctaLabel}`}
-      className={`group relative lg:col-span-3 h-[400px] lg:h-full overflow-hidden rounded-2xl ring-1 ring-store-border/70 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-5 ${CARD_SURFACE}`}
+      className={`group relative ${hasSideCards ? 'lg:col-span-3' : 'lg:col-span-5'} h-[400px] lg:h-full overflow-hidden rounded-2xl ring-1 ring-store-border/70 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-5 ${CARD_SURFACE}`}
     >
       <div className="col-span-3 flex flex-col justify-center gap-3 px-10 lg:px-16 py-8">
         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-store-primary">
@@ -117,8 +138,7 @@ function HeroSideCard({ slide }: { slide: LaunchProductSlide }) {
           sizes="(max-width: 1024px) 25vw, 160px"
           className="object-contain p-2 transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
-          quality={70}
-          unoptimized
+          quality={HERO_IMAGE_QUALITY}
         />
       </div>
     </Link>
@@ -135,7 +155,7 @@ export function HeroDesktopGrid({ slides }: HeroDesktopGridProps) {
 
   return (
     <div className="hidden md:grid grid-cols-1 lg:grid-cols-5 gap-4 h-auto lg:h-[540px] order-2">
-      <HeroBigCard slide={big} />
+      <HeroBigCard hasSideCards={sideCards.length > 0} slide={big} />
 
       {sideCards.length > 0 ? (
         <div className="flex flex-col gap-4 h-full lg:col-span-2">

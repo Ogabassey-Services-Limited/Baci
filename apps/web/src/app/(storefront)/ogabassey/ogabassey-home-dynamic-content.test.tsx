@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
+import {
+  getCachedStorefrontHomeProducts,
+  getCachedStorefrontLaunchProducts,
+} from '@/lib/cached-data';
 import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 
 const mockMerchant = {
@@ -43,6 +46,7 @@ vi.mock('@/lib/cached-data', async (importOriginal) => {
   return {
     ...actual,
     getCachedStorefrontHomeProducts: vi.fn(() => Promise.resolve([])),
+    getCachedStorefrontLaunchProducts: vi.fn(() => Promise.resolve([])),
   };
 });
 
@@ -143,6 +147,7 @@ describe('OgabasseyHomeDynamicContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([]);
+    vi.mocked(getCachedStorefrontLaunchProducts).mockResolvedValue([]);
     vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([]);
   });
 
@@ -182,6 +187,17 @@ describe('OgabasseyHomeDynamicContent', () => {
     expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
       'merchant-1',
       'recent'
+    );
+  });
+
+  it('requests a created-at launch window for the product hero', async () => {
+    await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    expect(getCachedStorefrontLaunchProducts).toHaveBeenCalledWith(
+      'merchant-1'
     );
   });
 

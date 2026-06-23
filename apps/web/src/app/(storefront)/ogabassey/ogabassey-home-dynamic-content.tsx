@@ -18,6 +18,7 @@ import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home'
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   getCachedStorefrontHomeProducts,
+  getCachedStorefrontLaunchProducts,
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
@@ -118,31 +119,37 @@ function buildOrganizationGraphSchema(merchant: OgabasseyMerchant) {
 function sortByNewestCreated<T>(rows: readonly T[]): T[] {
   const createdAt = (row: T): string =>
     String((row as { created_at?: string | null }).created_at ?? '');
-  return [...rows].sort((a, b) => createdAt(b).localeCompare(createdAt(a)));
+  return [...rows].sort((a, b) => {
+    const first = createdAt(a);
+    const second = createdAt(b);
+    return first === second ? 0 : first > second ? -1 : 1;
+  });
 }
 
 export async function OgabasseyHomeDynamicContent({
   merchant,
   pathPrefix,
 }: OgabasseyHomeDynamicContentProps) {
-  const [products, categories, pinnedProductRows] = await Promise.all([
-    // OgaBassey surfaces the most recently updated devices first (smartphones
-    // are still pinned to the front downstream via prioritizeSmartphoneProducts).
-    getCachedStorefrontHomeProducts(merchant.id, 'recent'),
-    getCachedNavigationCategories(merchant.id),
-    // Deterministic fetch for the launch carousel pins: the recent window is
-    // capped, so explicitly-pinned launches (e.g. the Samsung A27 preorder) can
-    // fall outside it. Fetched by slug so they always appear. This lookup is
-    // optional — a failure must only drop the pins, never take down the
-    // homepage — so it falls back to [] on error.
-    getCachedStorefrontProductsBySlugs(
-      merchant.id,
-      OGABASSEY_PINNED_LAUNCH_SLUGS
-    ).catch((error) => {
-      console.error('Failed to load pinned launch products', { error });
-      return [];
-    }),
-  ]);
+  const [products, launchCandidateRows, categories, pinnedProductRows] =
+    await Promise.all([
+      // OgaBassey surfaces the most recently updated devices first (smartphones
+      // are still pinned to the front downstream via prioritizeSmartphoneProducts).
+      getCachedStorefrontHomeProducts(merchant.id, 'recent'),
+      getCachedStorefrontLaunchProducts(merchant.id),
+      getCachedNavigationCategories(merchant.id),
+      // Deterministic fetch for the launch carousel pins: the recent window is
+      // capped, so explicitly-pinned launches (e.g. the Samsung A27 preorder) can
+      // fall outside it. Fetched by slug so they always appear. This lookup is
+      // optional — a failure must only drop the pins, never take down the
+      // homepage — so it falls back to [] on error.
+      getCachedStorefrontProductsBySlugs(
+        merchant.id,
+        OGABASSEY_PINNED_LAUNCH_SLUGS
+      ).catch((error) => {
+        console.error('Failed to load pinned launch products', { error });
+        return [];
+      }),
+    ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
   const pinnedProducts = mapHomeProductsToTemplateProducts(
     pinnedProductRows || []
@@ -151,12 +158,12 @@ export async function OgabasseyHomeDynamicContent({
   // product never reshuffles it. The home product grid keeps its own
   // recently-updated order via `merchantProducts`.
   const carouselProducts = mapHomeProductsToTemplateProducts(
-    sortByNewestCreated(products || [])
+    sortByNewestCreated(launchCandidateRows || [])
   );
   // New arrivals (added after the pins were configured) lead the carousel and
   // push the pins back; once a pin is shoved past the visible cap it drops off.
   const launchPins = effectiveLaunchPins(
-    products || [],
+    launchCandidateRows || [],
     OGABASSEY_PINNED_LAUNCH_SLUGS,
     OGABASSEY_LAUNCH_PINS_SINCE
   );

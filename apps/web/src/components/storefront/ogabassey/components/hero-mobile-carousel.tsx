@@ -74,7 +74,6 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
                     className="object-contain p-2"
                     loading="lazy"
                     quality={MOBILE_HERO_IMAGE_QUALITY}
-                    unoptimized
                   />
                 )}
               </div>

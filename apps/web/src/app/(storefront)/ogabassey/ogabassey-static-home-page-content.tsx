@@ -6,6 +6,7 @@ import {
   OGABASSEY_TITLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
+import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
@@ -31,11 +32,9 @@ export function OgabasseyStaticHomePageContent() {
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* The hero is now product-driven and renders inside the dynamic home
-          content (where launch products are available). The layout's static
-          loading shell paints the baked mobile hero banner so mobile LCP is
-          still served from the first flush while this streams in. */}
-      <Suspense fallback={null}>
+      {/* The hero is product-driven, but the Suspense fallback preserves the
+          mobile and desktop hero geometry while merchant/product data streams. */}
+      <Suspense fallback={<OgabasseyHomeHeroFallback />}>
         <OgabasseyHomePageContent />
       </Suspense>
     </>

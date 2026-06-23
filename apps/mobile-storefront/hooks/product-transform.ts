@@ -198,6 +198,7 @@ export function transformProduct(item: unknown): Product | null {
     description: product.description as string | undefined,
     price: Number(product.price ?? 0),
     compare_at_price: product.compare_at_price as number | undefined,
+    created_at: product.created_at ?? undefined,
     image: galleryImages[0] ?? getPrimaryProductImage(product.images),
     images: galleryImages,
     brand: product.brand as string | undefined,

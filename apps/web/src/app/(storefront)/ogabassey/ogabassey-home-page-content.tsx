@@ -7,6 +7,7 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { OgabasseyHomeDynamicContent } from './ogabassey-home-dynamic-content';
+import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 
 function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
   return resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
@@ -35,7 +36,7 @@ export async function OgabasseyHomePageContent() {
       : `/${merchant.slug}`;
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<OgabasseyHomeHeroFallback />}>
       <OgabasseyHomeDynamicContent
         merchant={merchant}
         pathPrefix={pathPrefix}

@@ -51,6 +51,27 @@ describe('Ogabassey Footer', () => {
     vi.clearAllMocks();
   });
 
+
+  it('uses a footer background fallback and contrast text independent of primary text', () => {
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+
+    const { container } = render(
+      <Footer storeSlug="ogabassey" merchant={merchantFixture} />
+    );
+    const footer = container.querySelector('footer');
+
+    expect(footer?.className).toContain(
+      'var(--store-background-text,#111827)'
+    );
+    expect(footer?.className).toContain(
+      'text-[color:var(--store-background,#ffffff)]'
+    );
+    expect(footer?.className).not.toContain('text-store-primary-text');
+  });
+
   it('adds trust policy links to the support section when available', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
       returnPolicy: {

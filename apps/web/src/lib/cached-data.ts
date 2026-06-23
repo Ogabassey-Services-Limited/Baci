@@ -3116,6 +3116,73 @@ function allowsRelationBackedHomePhonePriority(
  */
 export type StorefrontHomeProductSort = 'price' | 'recent';
 
+const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
+const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
+const STOREFRONT_HOME_PRODUCT_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    product_categories(categories(name, slug))
+  `;
+const STOREFRONT_HOME_PRODUCT_RECENT_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at, updated_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    categories:category_id(id, name, slug, parent_id),
+    product_categories(categories(name, slug))
+  `;
+const STOREFRONT_HOME_PRODUCT_DIRECT_CATEGORY_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at, updated_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    categories:category_id!inner(id, name, slug, parent_id),
+    product_categories(categories(name, slug))
+  `;
+const STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at, updated_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    categories:category_id(id, name, slug, parent_id),
+    product_categories!inner(categories!inner(name, slug))
+  `;
+
+/**
+ * Cached launch-carousel candidate window ordered by creation time, not edits.
+ * OgaBassey uses this for the product-driven hero so an old product update can
+ * never eject a genuinely new launch before the carousel pin/cap logic runs.
+ */
+export async function getCachedStorefrontLaunchProducts(
+  merchantId: string
+): Promise<StorefrontHomeProduct[]> {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag(
+    'products',
+    `products-${merchantId}`,
+    `products-launch-${merchantId}-created`
+  );
+
+  const supabase = getPublicSupabaseClient();
+  const productsTable = storefrontHomeProductsTable(supabase);
+  const { data, error } = await productsTable
+    .select(STOREFRONT_HOME_PRODUCT_RECENT_SELECT)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('price', { ascending: false })
+    .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
+
+  if (error) {
+    console.error('Failed to load storefront launch products', {
+      merchantId,
+      error,
+    });
+    throw error;
+  }
+
+  return hydrateAndSanitizeProducts(supabase, merchantId, data ?? []);
+}
+
 /**
  * Cached storefront homepage products.
  * Uses the products cacheLife profile plus shared and sort-specific product
@@ -3132,38 +3199,9 @@ export async function getCachedStorefrontHomeProducts(
     `products-${merchantId}`,
     `products-home-${merchantId}-${sort}`
   );
-  const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
-  const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
 
   const supabase = getPublicSupabaseClient();
   const productsTable = storefrontHomeProductsTable(supabase);
-  const homeProductSelect = `
-      id, name, slug, description, price, compare_at_price, created_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      product_categories(categories(name, slug))
-    `;
-  const homeProductRecentSelect = `
-      id, name, slug, description, price, compare_at_price, created_at, updated_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      categories:category_id(id, name, slug, parent_id),
-      product_categories(categories(name, slug))
-    `;
-  const homeProductDirectCategorySelect = `
-      id, name, slug, description, price, compare_at_price, created_at, updated_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      categories:category_id!inner(id, name, slug, parent_id),
-      product_categories(categories(name, slug))
-    `;
-  const homeProductRelationCategorySelect = `
-      id, name, slug, description, price, compare_at_price, created_at, updated_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      categories:category_id(id, name, slug, parent_id),
-      product_categories!inner(categories!inner(name, slug))
-    `;
   const buildHandsetCategoryClause = (
     column: 'name' | 'slug',
     keyword: string
@@ -3188,7 +3226,7 @@ export async function getCachedStorefrontHomeProducts(
   // the database LIMIT.
   if (sort === 'recent') {
     let phoneCandidatesQuery = productsTable
-      .select(homeProductRecentSelect)
+      .select(STOREFRONT_HOME_PRODUCT_RECENT_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(
@@ -3207,7 +3245,7 @@ export async function getCachedStorefrontHomeProducts(
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
     const directCategoryPhoneCandidatesQuery = productsTable
-      .select(homeProductDirectCategorySelect)
+      .select(STOREFRONT_HOME_PRODUCT_DIRECT_CATEGORY_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(handsetCategoryClauses, { referencedTable: 'categories' })
@@ -3216,7 +3254,7 @@ export async function getCachedStorefrontHomeProducts(
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
     const relationPhoneCandidatesQuery = productsTable
-      .select(homeProductRelationCategorySelect)
+      .select(STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(handsetCategoryClauses, {
@@ -3227,7 +3265,7 @@ export async function getCachedStorefrontHomeProducts(
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
     const recentProductsQuery = productsTable
-      .select(homeProductRecentSelect)
+      .select(STOREFRONT_HOME_PRODUCT_RECENT_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('updated_at', { ascending: false, nullsFirst: false })
@@ -3309,7 +3347,7 @@ export async function getCachedStorefrontHomeProducts(
   // 'price' (the default for all other storefronts) keeps the original
   // highest-price-first ordering.
   const { data, error } = await productsTable
-    .select(homeProductSelect)
+    .select(STOREFRONT_HOME_PRODUCT_SELECT)
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .order('price', { ascending: false })

@@ -109,6 +109,7 @@ export interface Product {
   description?: string;
   price: number;
   compare_at_price?: number;
+  created_at?: string;
   image: string;
   images?: string[];
   brand?: string;

@@ -1,31 +1,43 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { HERO_MOBILE_LCP_FALLBACK_SRC } from './hero-data';
 import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
-// MobileLcpHeroImage now takes an arbitrary product image `src` (and optional
-// inline AVIF), so these are plain test fixtures rather than the retired
-// hardcoded hero-image constants.
+// MobileLcpHeroImage takes arbitrary launch product images, so these are plain
+// product fixtures rather than the retired hardcoded hero-image constants.
 const HERO_MOBILE_LCP_SRC = 'https://cdn.ogabassey.com/products/a27.avif';
 const HERO_MOBILE_LCP_INLINE_SRC =
   'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUI=';
 
 const mockGetImageProps = vi.hoisted(() =>
   vi.fn(
-    (props: Record<string, unknown>): { props: Record<string, unknown> } => ({
-      props: {
-        alt: props.alt,
-        decoding: props.decoding,
-        fetchPriority: props.fetchPriority,
-        height: props.height,
-        loading: props.loading,
-        sizes: props.sizes,
-        src: props.src,
-        srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
-        width: props.width,
-      },
-    })
+    (props: Record<string, unknown>): { props: Record<string, unknown> } => {
+      const loader = props.loader as
+        | ((input: { src: string; width: number; quality?: number }) => string)
+        | undefined;
+      const src = String(props.src);
+      const quality = Number(props.quality ?? 70);
+      const candidate640 = loader
+        ? loader({ src, width: 640, quality })
+        : `${src}?w=640&q=${quality}`;
+      const candidate960 = loader
+        ? loader({ src, width: 960, quality })
+        : `${src}?w=960&q=${quality}`;
+
+      return {
+        props: {
+          alt: props.alt,
+          decoding: props.decoding,
+          fetchPriority: props.fetchPriority,
+          height: props.height,
+          loading: props.loading,
+          sizes: props.sizes,
+          src: candidate960,
+          srcSet: `${candidate640} 640w, ${candidate960} 960w`,
+          width: props.width,
+        },
+      };
+    }
   )
 );
 
@@ -38,32 +50,27 @@ describe('MobileLcpHeroImage', () => {
     mockGetImageProps.mockClear();
   });
 
-  it('renders viewport-scoped AVIF and JPEG sources without adding a head preload', () => {
+  it('renders a viewport-scoped product image source without a stale static fallback', () => {
     document.head.replaceChildren();
 
     const { container } = render(
       <MobileLcpHeroImage
-        alt="iPhone 17 Pro Max"
+        alt="Samsung Galaxy A27 5G"
         imageFit="contain"
         shouldPrioritizeImage={true}
         src={HERO_MOBILE_LCP_SRC}
       />
     );
 
+    expect(mockGetImageProps).toHaveBeenCalledTimes(1);
     expect(mockGetImageProps).toHaveBeenCalledWith(
       expect.objectContaining({
         decoding: 'sync',
         fetchPriority: 'high',
+        loader: expect.any(Function),
         loading: 'eager',
+        quality: 70,
         src: HERO_MOBILE_LCP_SRC,
-        unoptimized: true,
-      })
-    );
-    expect(mockGetImageProps).toHaveBeenCalledWith(
-      expect.objectContaining({
-        loading: 'lazy',
-        src: HERO_MOBILE_LCP_FALLBACK_SRC,
-        unoptimized: true,
       })
     );
     expect(
@@ -73,7 +80,7 @@ describe('MobileLcpHeroImage', () => {
     ).toBeNull();
 
     const lcpImage = screen.getByRole('img', {
-      name: 'iPhone 17 Pro Max',
+      name: 'Samsung Galaxy A27 5G',
     });
     expect(lcpImage).toHaveAttribute('loading', 'eager');
     expect(lcpImage).toHaveAttribute('decoding', 'sync');
@@ -81,31 +88,29 @@ describe('MobileLcpHeroImage', () => {
     expect(lcpImage).toHaveAttribute('fetchpriority', 'high');
     expect(lcpImage).not.toHaveAttribute('srcset');
 
-    const mobileAvifSource = container.querySelector(
-      'source[type="image/avif"][media="(max-width: 767px)"]'
+    const mobileSource = container.querySelector(
+      'source[media="(max-width: 767px)"]'
     );
-    expect(mobileAvifSource).toHaveAttribute(
+    expect(mobileSource).not.toHaveAttribute('type');
+    expect(mobileSource).toHaveAttribute(
       'srcset',
-      expect.stringContaining(HERO_MOBILE_LCP_SRC)
+      expect.stringContaining('format=auto')
     );
-    expect(mobileAvifSource).toHaveAttribute(
+    expect(mobileSource).toHaveAttribute(
+      'srcset',
+      expect.stringContaining('/core-assets/products/a27.avif')
+    );
+    expect(mobileSource).toHaveAttribute(
       'sizes',
       '(max-width: 767px) 100vw, 50vw'
     );
-    expect(
-      container.querySelector(
-        'source[type="image/jpeg"][media="(max-width: 767px)"]'
-      )
-    ).toHaveAttribute(
-      'srcset',
-      expect.stringContaining(HERO_MOBILE_LCP_FALLBACK_SRC)
-    );
+    expect(container.querySelector('source[type="image/jpeg"]')).toBeNull();
   });
 
-  it('uses the inline AVIF source for the mobile LCP candidate when provided', () => {
+  it('uses the inline source for the mobile LCP candidate when provided', () => {
     const { container } = render(
       <MobileLcpHeroImage
-        alt="iPhone 17 Pro Max"
+        alt="Samsung Galaxy A27 5G"
         imageFit="contain"
         inlineSrc={HERO_MOBILE_LCP_INLINE_SRC}
         shouldPrioritizeImage={true}
@@ -113,68 +118,49 @@ describe('MobileLcpHeroImage', () => {
       />
     );
 
-    expect(
-      container.querySelector('source[type="image/avif"]')
-    ).toHaveAttribute('srcset', HERO_MOBILE_LCP_INLINE_SRC);
-    expect(
-      container.querySelector('source[type="image/avif"]')
-    ).not.toHaveAttribute('sizes');
-    expect(screen.getByRole('img', { name: 'iPhone 17 Pro Max' })).toHaveAttribute(
-      'src',
-      TRANSPARENT_PIXEL_SRC
+    expect(container.querySelector('source')).toHaveAttribute(
+      'srcset',
+      HERO_MOBILE_LCP_INLINE_SRC
     );
+    expect(container.querySelector('source')).not.toHaveAttribute('sizes');
+    expect(
+      screen.getByRole('img', { name: 'Samsung Galaxy A27 5G' })
+    ).toHaveAttribute('src', TRANSPARENT_PIXEL_SRC);
   });
 
-  it('omits sizes when unoptimized image props return a single srcSet candidate', () => {
-    mockGetImageProps
-      .mockImplementationOnce((props: Record<string, unknown>) => ({
-        props: {
-          alt: props.alt,
-          decoding: props.decoding,
-          fetchPriority: props.fetchPriority,
-          height: props.height,
-          loading: props.loading,
-          sizes: props.sizes,
-          src: props.src,
-          width: props.width,
-        },
-      }))
-      .mockImplementationOnce((props: Record<string, unknown>) => ({
-        props: {
-          alt: props.alt,
-          decoding: props.decoding,
-          height: props.height,
-          loading: props.loading,
-          sizes: props.sizes,
-          src: props.src,
-          width: props.width,
-        },
-      }));
+  it('omits sizes when image props return a single source candidate', () => {
+    mockGetImageProps.mockImplementationOnce((props: Record<string, unknown>) => ({
+      props: {
+        alt: props.alt,
+        decoding: props.decoding,
+        fetchPriority: props.fetchPriority,
+        height: props.height,
+        loading: props.loading,
+        sizes: props.sizes,
+        src: props.src,
+        width: props.width,
+      },
+    }));
 
     const { container } = render(
       <MobileLcpHeroImage
-        alt="iPhone 17 Pro Max"
+        alt="Samsung Galaxy A27 5G"
         imageFit="contain"
         shouldPrioritizeImage={true}
         src={HERO_MOBILE_LCP_SRC}
       />
     );
 
+    expect(container.querySelector('source')).not.toHaveAttribute('sizes');
     expect(
-      container.querySelector('source[type="image/avif"]')
-    ).not.toHaveAttribute('sizes');
-    expect(
-      container.querySelector('source[type="image/jpeg"]')
-    ).not.toHaveAttribute('sizes');
-    expect(
-      screen.getByRole('img', { name: 'iPhone 17 Pro Max' })
+      screen.getByRole('img', { name: 'Samsung Galaxy A27 5G' })
     ).not.toHaveAttribute('sizes');
   });
 
-  it('keeps the fallback image transparent and lets picture sources select the asset', () => {
+  it('keeps the img fallback transparent so desktop does not fetch the mobile source', () => {
     render(
       <MobileLcpHeroImage
-        alt="iPhone 17 Pro Max"
+        alt="Samsung Galaxy A27 5G"
         imageFit="contain"
         shouldPrioritizeImage={false}
         src={HERO_MOBILE_LCP_SRC}
@@ -182,7 +168,7 @@ describe('MobileLcpHeroImage', () => {
     );
 
     const lcpImage = screen.getByRole('img', {
-      name: 'iPhone 17 Pro Max',
+      name: 'Samsung Galaxy A27 5G',
     });
     expect(lcpImage).toHaveAttribute(
       'src',

@@ -5,9 +5,8 @@
  *
  * Ordering contract: pinned slugs first (in the given pin order), then the
  * remaining input in its existing order, deduped by slug. The caller is
- * responsible for supplying input that is already "newest-first" — this helper
- * deliberately does NOT sort by date (web orders by `updated_at`, mobile by
- * `created_at`; neither field is guaranteed on the input rows).
+ * responsible for supplying input that is already in the desired fallback order;
+ * `effectiveLaunchPins` below handles the shared newest-created pin override.
  */
 
 /**
@@ -15,7 +14,9 @@
  * are OgaBassey-specific catalog content; they live here (alongside the generic
  * selection logic) as the single source of truth shared by the OgaBassey web
  * storefront and the OgaBassey mobile app. The `OGABASSEY_` prefix keeps the
- * merchant scope explicit within the otherwise-generic shared package.
+ * merchant scope explicit within the otherwise-generic shared package. When
+ * updating this list, also bump OGABASSEY_LAUNCH_PINS_SINCE to just after the
+ * catalog's newest product at the time of re-curation.
  */
 export const OGABASSEY_PINNED_LAUNCH_SLUGS = [
   'samsung-galaxy-a27-5g',
@@ -155,8 +156,10 @@ export function effectiveLaunchPins(
         typeof row.created_at === 'string' &&
         row.created_at > pinsSince
     )
-    // Newest-created first.
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    // Newest-created first; ISO 8601 timestamps sort lexically.
+    .sort((a, b) =>
+      a.created_at === b.created_at ? 0 : a.created_at > b.created_at ? -1 : 1
+    )
     .filter((row) => {
       if (seen.has(row.slug)) {
         return false;

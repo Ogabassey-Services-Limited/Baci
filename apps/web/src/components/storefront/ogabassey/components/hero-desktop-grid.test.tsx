@@ -40,9 +40,28 @@ vi.mock('next/image', () => ({
     decoding,
     width,
     height,
-  }: Record<string, unknown>) => ({
-    props: { src, srcSet: src, sizes, alt, loading, fetchPriority, decoding, width, height },
-  }),
+    loader,
+    quality,
+  }: Record<string, unknown>) => {
+    const imageSrc = String(src);
+    const resolvedSrc =
+      typeof loader === 'function'
+        ? loader({ src: imageSrc, width: Number(width), quality: Number(quality) })
+        : imageSrc;
+    return {
+      props: {
+        src: resolvedSrc,
+        srcSet: `${resolvedSrc} ${String(width)}w`,
+        sizes,
+        alt,
+        loading,
+        fetchPriority,
+        decoding,
+        width,
+        height,
+      },
+    };
+  },
 }));
 
 import { HeroDesktopGrid } from './hero-desktop-grid';
@@ -107,7 +126,7 @@ describe('HeroDesktopGrid', () => {
     );
     expect(source).toHaveAttribute(
       'srcset',
-      'https://cdn.ogabassey.com/products/product-1.avif'
+      'https://cdn.ogabassey.com/image/width=800,quality=70,format=auto/core-assets/products/product-1.avif 800w'
     );
 
     const img = container.querySelector('picture img');
@@ -133,6 +152,20 @@ describe('HeroDesktopGrid', () => {
     expect(
       screen.queryByRole('heading', { name: 'Should Not Render' })
     ).not.toBeInTheDocument();
+  });
+
+  it('lets the big card fill the desktop grid when there are no side cards', () => {
+    const { container } = render(<HeroDesktopGrid slides={[SLIDES[0] as LaunchProductSlide]} />);
+
+    const bigLink = screen.getByRole('link', {
+      name: 'Samsung Galaxy A27 5G — Pre-order now',
+    });
+    expect(bigLink.className).toContain('lg:col-span-5');
+    expect(
+      Array.from(container.querySelectorAll('[class]')).some((node) =>
+        (node.getAttribute('class') ?? '').includes('lg:col-span-2')
+      )
+    ).toBe(false);
   });
 
   it('renders nothing when there are no launch products', () => {

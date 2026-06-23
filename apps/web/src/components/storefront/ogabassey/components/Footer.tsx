@@ -37,7 +37,7 @@ type SocialPlatform =
 // Monochrome at rest (clean on the dark footer); the merchant accent appears
 // on hover so the row stays theme-driven instead of hardcoding platform colors.
 const SOCIAL_LINK_CLASS =
-  'text-store-primary-text/65 hover:text-store-primary transition-colors';
+  'text-current/65 hover:text-store-primary transition-colors';
 
 interface FooterProps {
   merchant?: MerchantData;
@@ -115,13 +115,13 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   };
 
   return (
-    <footer className="bg-[color:color-mix(in_srgb,var(--store-background-text)_94%,black)] text-store-primary-text pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-store-border/40">
+    <footer className="bg-[color:color-mix(in_srgb,var(--store-background-text,#111827)_94%,black)] text-[color:var(--store-background,#ffffff)] pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-store-border/40">
       {/* Pattern Overlay - Same as Navbar */}
       <div
         className="absolute inset-0 opacity-10 pointer-events-none"
         style={{
           backgroundImage:
-            'radial-gradient(color-mix(in srgb, var(--store-primary-text) 22%, transparent) 1px, transparent 1px)',
+            'radial-gradient(color-mix(in srgb, var(--store-background,#ffffff) 22%, transparent) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
         }}
       />
@@ -136,7 +136,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
             >
               <Logo className="h-8 w-auto" />
             </Link>
-            <p className="text-store-primary-text/65 text-xs leading-relaxed max-w-xs">
+            <p className="text-current/65 text-xs leading-relaxed max-w-xs">
               Making Smartphones Accessible and Affordable
             </p>
             <div className="flex items-center gap-4 flex-wrap">
@@ -184,20 +184,20 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           {/* Column 2: Quick Links (Unified) */}
           <nav className="flex justify-between md:justify-start gap-12" aria-label="Footer navigation">
             <div>
-              <h3 className="text-sm font-bold mb-4 text-store-primary-text uppercase tracking-wider">
+              <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
                 Menu
               </h3>
-              <ul className="space-y-2 text-xs text-store-primary-text/65">
+              <ul className="space-y-2 text-xs text-current/65">
                 <li><Link href={asRoute(`${basePath}/about`)} className="hover:text-store-primary">About Us</Link></li>
                 <li><Link href={asRoute(`${basePath}/blog`)} className="hover:text-store-primary">Blog</Link></li>
                 <li><Link href={asRoute(`${basePath}/repairs`)} className="hover:text-store-primary">Repairs</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-bold mb-4 text-store-primary-text uppercase tracking-wider">
+              <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
                 Support
               </h3>
-              <ul className="space-y-2 text-xs text-store-primary-text/65">
+              <ul className="space-y-2 text-xs text-current/65">
                 <li><Link href={asRoute(`${basePath}/track-order`)} className="hover:text-store-primary">Track Order</Link></li>
                 <li><Link href={asRoute(`${basePath}/faq`)} className="hover:text-store-primary">Help Center</Link></li>
                 <li><Link href={asRoute(`${basePath}/contact`)} className="hover:text-store-primary">Contact Us</Link></li>
@@ -216,10 +216,10 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
 
           {/* Column 3: Contact (Compact) */}
           <address className="not-italic">
-            <h3 className="text-sm font-bold mb-4 text-store-primary-text uppercase tracking-wider">
+            <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
               Contact
             </h3>
-            <ul className="space-y-3 text-xs text-store-primary-text/65">
+            <ul className="space-y-3 text-xs text-current/65">
               <li className="flex items-start gap-2">
                 <MapPin className="shrink-0 text-store-primary" size={16} />
                 <a
@@ -227,14 +227,14 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`Open ${contactAddress} in Google Maps`}
-                  className="hover:text-store-primary-text transition-colors"
+                  className="hover:text-current transition-colors"
                 >
                   {contactAddress}
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="shrink-0 text-store-primary" size={16} />
-                <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="hover:text-store-primary-text transition-colors">
+                <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="hover:text-current transition-colors">
                   {contactPhone}
                 </a>
               </li>
@@ -242,7 +242,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 <Mail className="shrink-0 text-store-primary" size={16} />
                 <a
                   href={`mailto:${contactEmail}`}
-                  className="hover:text-store-primary-text transition-colors"
+                  className="hover:text-current transition-colors"
                 >
                   {contactEmail}
                 </a>
@@ -252,7 +252,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
 
           {/* Column 4: App & Payment (Horizontal) */}
           <div>
-            <h3 className="text-sm font-bold mb-4 text-store-primary-text uppercase tracking-wider">
+            <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
               Download App
             </h3>
             <div className="flex gap-2 mb-6">
@@ -287,7 +287,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
             </div>
 
             <div className="flex items-center gap-3 mt-1">
-              <span className="text-[10px] text-store-primary-text/50 font-medium">Secured by:</span>
+              <span className="text-[10px] text-current/50 font-medium">Secured by:</span>
               {/* Paystack Logo Badge */}
               <div className="flex items-center gap-1 bg-store-background px-2 py-1 rounded border border-store-border shadow-sm opacity-90 hover:opacity-100 transition-opacity">
                 <svg viewBox="0 0 24 24" className="size-4 text-store-primary fill-current">
@@ -307,7 +307,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           </div>
         </div>
 
-        <div className="mt-8 pt-4 border-t border-store-border/40 text-center text-[10px] text-store-primary-text/50">
+        <div className="mt-8 pt-4 border-t border-store-border/40 text-center text-[10px] text-current/50">
           <span suppressHydrationWarning>&copy; {new Date().getFullYear()} Ogabassey Ltd. All rights reserved.</span>
         </div>
       </div>

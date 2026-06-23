@@ -2,40 +2,42 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockHeaders, mockPublishedMerchant } = vi.hoisted(() => ({
-  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
-  mockPublishedMerchant: {
-    id: 'merchant-1',
-    business_name: 'OgaBassey',
-    business_type: 'electronics',
-    email: 'hello@ogabassey.com',
-    phone: '+2341234567',
-    logo_url: '',
-    brand_colors: undefined,
-    country: 'NG',
-    pages: undefined,
-    slug: 'ogabassey',
-    custom_domain: 'ogabassey.com',
-    favicon_svg_url: undefined,
-    favicon_png_32_url: undefined,
-    favicon_apple_touch_url: undefined,
-    social_media: undefined,
-    business_address: '',
-    is_published: true,
-    feature_settings: undefined,
-    template_id: 'ogabassey',
-    vat_registration_status: undefined,
-    vat_rate: undefined,
-    hero_slides: undefined,
-    mobile_hero_slides: undefined,
-    site_title: '',
-    site_tagline: '',
-    site_description: '',
-    payout_currency: 'NGN',
-    plan_tier: 'free',
-    premium_features: undefined,
-  },
-}));
+const { mockDynamicContentShouldSuspend, mockHeaders, mockPublishedMerchant } =
+  vi.hoisted(() => ({
+    mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
+    mockDynamicContentShouldSuspend: vi.fn(() => false),
+    mockPublishedMerchant: {
+      id: 'merchant-1',
+      business_name: 'OgaBassey',
+      business_type: 'electronics',
+      email: 'hello@ogabassey.com',
+      phone: '+2341234567',
+      logo_url: '',
+      brand_colors: undefined,
+      country: 'NG',
+      pages: undefined,
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+      favicon_svg_url: undefined,
+      favicon_png_32_url: undefined,
+      favicon_apple_touch_url: undefined,
+      social_media: undefined,
+      business_address: '',
+      is_published: true,
+      feature_settings: undefined,
+      template_id: 'ogabassey',
+      vat_registration_status: undefined,
+      vat_rate: undefined,
+      hero_slides: undefined,
+      mobile_hero_slides: undefined,
+      site_title: '',
+      site_tagline: '',
+      site_description: '',
+      payout_currency: 'NGN',
+      plan_tier: 'free',
+      premium_features: undefined,
+    },
+  }));
 
 vi.mock('@/lib/cached-data', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -62,8 +64,17 @@ vi.mock('next/server', () => ({
 }));
 
 vi.mock('./ogabassey-home-dynamic-content', () => ({
-  OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => (
-    <div data-testid="dynamic-content">{pathPrefix}</div>
+  OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => {
+    if (mockDynamicContentShouldSuspend()) {
+      throw new Promise(() => undefined);
+    }
+    return <div data-testid="dynamic-content">{pathPrefix}</div>;
+  },
+}));
+
+vi.mock('./ogabassey-home-hero-fallback', () => ({
+  OgabasseyHomeHeroFallback: () => (
+    <section data-testid="home-hero-fallback">Hero fallback</section>
   ),
 }));
 
@@ -97,6 +108,7 @@ describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
+    mockDynamicContentShouldSuspend.mockReturnValue(false);
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       mockPublishedMerchant
     );
@@ -111,6 +123,16 @@ describe('OgabasseyHomePageContent', () => {
       '/ogabassey'
     );
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+  });
+
+  it('keeps a hero-sized fallback visible while dynamic content streams', async () => {
+    mockDynamicContentShouldSuspend.mockReturnValue(true);
+
+    const result = await OgabasseyHomePageContent();
+
+    render(result as ReactElement);
+
+    expect(screen.getByTestId('home-hero-fallback')).toBeInTheDocument();
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {

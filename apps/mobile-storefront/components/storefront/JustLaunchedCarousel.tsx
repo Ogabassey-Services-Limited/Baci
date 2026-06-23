@@ -1,6 +1,8 @@
 import {
+  effectiveLaunchPins,
   LAUNCH_CAROUSEL_LIMIT,
   launchCtaLabel,
+  OGABASSEY_LAUNCH_PINS_SINCE,
   OGABASSEY_PINNED_LAUNCH_SLUGS,
   selectLaunchProducts,
 } from '@baci/shared/storefront';
@@ -43,10 +45,18 @@ export function JustLaunchedCarousel() {
 
   // Drop any slug-less rows up front so a slide can never deep-link to
   // /product/undefined (selectLaunchProducts intentionally passes them through).
-  const launchProducts = selectLaunchProducts(
-    [...(pinned ?? []), ...newest].filter((product) => Boolean(product.slug)),
-    { pinned: OGABASSEY_PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
+  const launchCandidates = [...(pinned ?? []), ...newest].filter((product) =>
+    Boolean(product.slug)
   );
+  const launchPins = effectiveLaunchPins(
+    launchCandidates,
+    OGABASSEY_PINNED_LAUNCH_SLUGS,
+    OGABASSEY_LAUNCH_PINS_SINCE
+  );
+  const launchProducts = selectLaunchProducts(launchCandidates, {
+    pinned: launchPins,
+    limit: LAUNCH_CAROUSEL_LIMIT,
+  });
 
   if (isError) {
     return null;
