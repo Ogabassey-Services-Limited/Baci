@@ -21,6 +21,8 @@ import type {
 } from './price-intent-classifier-types';
 import { productSupportsPriceIntentModifiers } from './price-intent-modifiers';
 
+type HubMatch = { kind: 'brand' | 'category' | 'shared-token'; token: string };
+
 function isOptionalExactToken(
   entry: PreparedPriceIntentCatalogProduct,
   token: string
@@ -45,9 +47,7 @@ function matchesExactProduct(
   return (
     requiredTokens.length > 0 &&
     requiredTokens.every((token) => keywordTokens.has(token)) &&
-    keywordExactTokens.every(
-      (token) => entry.tokenSet.has(token) || isOptionalExactToken(entry, token)
-    )
+    keywordExactTokens.every((token) => entry.tokenSet.has(token))
   );
 }
 
@@ -58,14 +58,14 @@ function getProductMatchScore(
   return entry.coreTokens.filter((token) => keywordTokens.has(token)).length;
 }
 
-function getBroadHubToken(
+function getBroadHubMatch(
   keywordTokens: Set<string>,
   preparedCatalog: PreparedPriceIntentCatalog,
   requestedCategorySlug: string | null
-) {
+): HubMatch | null {
   for (const token of keywordTokens) {
     if (preparedCatalog.brandTokenSet.has(token)) {
-      return token;
+      return { kind: 'brand', token };
     }
   }
 
@@ -74,16 +74,13 @@ function getBroadHubToken(
       !GENERIC_HUB_TOKENS.has(token) &&
       (preparedCatalog.tokenCounts.get(token) ?? 0) >= 2
     ) {
-      return token;
+      return { kind: 'shared-token', token };
     }
   }
 
-  const hasGenericHubToken = Array.from(keywordTokens).some((token) =>
-    GENERIC_HUB_TOKENS.has(token)
-  );
-
-  return requestedCategorySlug && !hasGenericHubToken
-    ? requestedCategorySlug
+  return requestedCategorySlug &&
+    !Array.from(keywordTokens).some((token) => GENERIC_HUB_TOKENS.has(token))
+    ? { kind: 'category', token: requestedCategorySlug }
     : null;
 }
 
@@ -95,10 +92,28 @@ function getHubCategorySlug(
     return requestedCategorySlug;
   }
 
-  return (
-    entries.find(({ product }) => product.categorySlug)?.product.categorySlug ??
-    'products'
-  );
+  const categoryCounts = new Map<string, number>();
+
+  for (const { product } of entries) {
+    if (product.categorySlug) {
+      categoryCounts.set(
+        product.categorySlug,
+        (categoryCounts.get(product.categorySlug) ?? 0) + 1
+      );
+    }
+  }
+
+  let bestCategory = 'products';
+  let bestCount = 0;
+
+  for (const [categorySlug, count] of categoryCounts) {
+    if (count > bestCount) {
+      bestCategory = categorySlug;
+      bestCount = count;
+    }
+  }
+
+  return bestCategory;
 }
 
 function slugify(value: string) {
@@ -141,10 +156,16 @@ function getPreparedCatalog(input: ClassifyPriceIntentKeywordInput) {
 function getExactMatches(
   preparedCatalog: PreparedPriceIntentCatalogProduct[],
   keywordTokens: Set<string>,
-  stopTokens: Set<string>
+  stopTokens: Set<string>,
+  requestedCategorySlug: string | null
 ) {
   return preparedCatalog
-    .filter((entry) => matchesExactProduct(entry, keywordTokens, stopTokens))
+    .filter(
+      (entry) =>
+        (!requestedCategorySlug ||
+          entry.product.categorySlug === requestedCategorySlug) &&
+        matchesExactProduct(entry, keywordTokens, stopTokens)
+    )
     .sort(
       (left, right) =>
         getProductMatchScore(right, keywordTokens) -
@@ -153,25 +174,41 @@ function getExactMatches(
     );
 }
 
+function matchesHub(
+  entry: PreparedPriceIntentCatalogProduct,
+  hubMatch: HubMatch
+) {
+  if (hubMatch.kind === 'category') {
+    return entry.product.categorySlug === hubMatch.token;
+  }
+
+  if (hubMatch.kind === 'brand') {
+    return entry.brandTokens.includes(hubMatch.token);
+  }
+
+  return entry.tokenSet.has(hubMatch.token);
+}
+
 function getHubProducts(
   preparedCatalog: PreparedPriceIntentCatalogProduct[],
-  hubToken: string,
+  hubMatch: HubMatch,
   requestedCategorySlug: string | null,
   modifiers: string[]
 ) {
-  return preparedCatalog.filter((entry) => {
-    const categoryMatches =
-      !requestedCategorySlug ||
-      entry.product.categorySlug === requestedCategorySlug;
-    const hubMatches =
-      hubToken === requestedCategorySlug || entry.tokenSet.has(hubToken);
-
-    return (
-      categoryMatches &&
-      hubMatches &&
+  const hubCandidates = preparedCatalog.filter(
+    (entry) =>
+      matchesHub(entry, hubMatch) &&
+      (!requestedCategorySlug ||
+        entry.product.categorySlug === requestedCategorySlug) &&
       productSupportsPriceIntentModifiers(entry.product, modifiers)
-    );
-  });
+  );
+  const categorySlug = getHubCategorySlug(requestedCategorySlug, hubCandidates);
+  const products = hubCandidates.filter(
+    ({ product }) =>
+      categorySlug === 'products' || product.categorySlug === categorySlug
+  );
+
+  return { categorySlug, products };
 }
 
 export function classifyPriceIntentKeyword(
@@ -194,7 +231,8 @@ export function classifyPriceIntentKeyword(
   const exactMatches = getExactMatches(
     preparedCatalog.entries,
     keywordTokens,
-    stopTokens
+    stopTokens,
+    requestedCategorySlug
   );
   const supportedExactMatch = exactMatches.find(({ product }) =>
     productSupportsPriceIntentModifiers(product, modifiers)
@@ -222,32 +260,27 @@ export function classifyPriceIntentKeyword(
     });
   }
 
-  const hubToken = getBroadHubToken(
+  const hubMatch = getBroadHubMatch(
     keywordTokens,
     preparedCatalog,
     requestedCategorySlug
   );
 
-  if (hubToken) {
-    const matchedProducts = getHubProducts(
+  if (hubMatch) {
+    const { categorySlug, products: matchedProducts } = getHubProducts(
       preparedCatalog.entries,
-      hubToken,
+      hubMatch,
       requestedCategorySlug,
       modifiers
     );
     const minHubProducts = Math.max(1, input.minHubProducts ?? 2);
 
     if (matchedProducts.length >= minHubProducts) {
-      const categorySlug = getHubCategorySlug(
-        requestedCategorySlug,
-        matchedProducts
-      );
-
       return buildResult(input, {
         assetKind: 'price-hub',
         reason: 'broad_cluster_price_intent',
         categorySlug,
-        hubSlug: buildHubSlug(hubToken, categorySlug, input.marketPhrase),
+        hubSlug: buildHubSlug(hubMatch.token, categorySlug, input.marketPhrase),
         matchedProductSlugs: matchedProducts.map(({ product }) => product.slug),
         modifiers,
       });

@@ -4,6 +4,7 @@ import {
   GENERIC_HUB_TOKENS,
   getStoragePattern,
   HUB_CATEGORY_WORDS,
+  SPEC_LABEL_TOKENS,
   STORAGE_TOKEN_PATTERN,
   UK_USED_PATTERN,
   USED_PATTERN,
@@ -50,6 +51,8 @@ export function getPriceIntentStopTokens(
 ) {
   return new Set([
     ...BASE_STOP_TOKENS,
+    ...HUB_CATEGORY_WORDS.keys(),
+    ...SPEC_LABEL_TOKENS,
     ...tokenizePriceIntentText(marketPhrase ?? ''),
   ]);
 }
@@ -68,10 +71,12 @@ export function getRequestedCategorySlug(keywordTokens: Set<string>) {
 
 function getCoreProductTokens(
   product: PriceIntentCatalogProduct,
-  stopTokens: Set<string>
+  stopTokens: Set<string>,
+  brandTokenSet: Set<string>
 ) {
   return tokenizePriceIntentText(product.name).filter(
     (token) =>
+      !brandTokenSet.has(token) &&
       !stopTokens.has(token) &&
       !CONDITION_TOKENS.has(token) &&
       !STORAGE_TOKEN_PATTERN.test(token)
@@ -116,10 +121,11 @@ export function preparePriceIntentCatalog(
 ): PreparedPriceIntentCatalog {
   const stopTokens = getPriceIntentStopTokens(marketPhrase);
   const entries = catalog.map((product) => {
-    const coreTokens = getCoreProductTokens(product, stopTokens);
     const brandTokens = product.brand?.trim()
       ? tokenizePriceIntentText(product.brand)
       : [];
+    const brandTokenSet = new Set(brandTokens);
+    const coreTokens = getCoreProductTokens(product, stopTokens, brandTokenSet);
     const tokenSet = new Set([...coreTokens, ...brandTokens]);
 
     return { brandTokens, coreTokens, product, tokenSet };
