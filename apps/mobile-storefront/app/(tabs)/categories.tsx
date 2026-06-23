@@ -148,7 +148,7 @@ export default function CategoriesScreen() {
         source={{
           uri:
             item.image_url ||
-            'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image',
+            'https://placehold.co/400x400/transparent/94a3b8/png?text=No+Image',
         }}
         style={[styles.categoryImage, { backgroundColor: colors.muted }]}
         contentFit="cover"
