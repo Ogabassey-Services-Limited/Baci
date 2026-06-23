@@ -14,7 +14,7 @@ This guide walks you through testing the `20251123120000_apply_2025_best_practic
 
 ## Prerequisites
 
-- [ ] Supabase CLI installed (`npx supabase`)
+- [ ] Supabase CLI installed (`pnpm dlx supabase`)
 - [ ] Access to your Supabase project and its ID
 - [ ] Database backup created
 
@@ -27,13 +27,13 @@ This guide walks you through testing the `20251123120000_apply_2025_best_practic
 #### Step 1: Start Local Supabase
 ```bash
 # From your project root
-npx supabase start
+pnpm dlx supabase start
 ```
 
 #### Step 2: Apply Existing Migrations
 ```bash
 # Apply all migrations up to but NOT including the new one
-npx supabase db reset
+pnpm dlx supabase db reset
 ```
 
 #### Step 3: Run Pre-Migration Checks
@@ -47,7 +47,7 @@ The `pre_migration_check.sql` script is designed for `psql` and may not run corr
 #### Step 4: Apply the Migration
 ```bash
 # Apply just this migration
-npx supabase migration up --version 20251123120000
+pnpm dlx supabase migration up --version 20251123120000
 ```
 Watch for errors. If any occur, note them and proceed to troubleshooting.
 
@@ -109,13 +109,13 @@ pnpm turbo dev
 If using Supabase branching:
 ```bash
 # Create a preview branch
-npx supabase branches create test-migration
+pnpm dlx supabase branches create test-migration
 
 # Link to the branch
-npx supabase link --project-ref <branch-ref>
+pnpm dlx supabase link --project-ref <branch-ref>
 
 # Apply migrations
-npx supabase db push
+pnpm dlx supabase db push
 ```
 Then, run the validation tests as described in Step 5 of Method 1.
 
@@ -170,7 +170,7 @@ Restore the database from the backup you created.
 ### Option 2: Supabase Reset (Local Only)
 ```bash
 # Removes this migration from history and resets the local DB
-npx supabase db reset
+pnpm dlx supabase db reset
 ```
 
 ---
@@ -189,7 +189,7 @@ Only proceed after ALL tests pass in staging:
 1. **Create Production Backup.**
 2. **Apply During Low-Traffic Window** using the Supabase Dashboard or the CLI:
    ```bash
-   npx supabase db push --linked
+   pnpm dlx supabase db push --linked
    ```
 3. **Monitor Immediately After** for errors and performance issues.
 

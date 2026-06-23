@@ -122,7 +122,7 @@ This section provides quick navigation and critical information for AI assistant
 |------|--------|
 | 1 | Read `/src/ai/flows/_AI_README.md` for flow details |
 | 2 | Locate flow file in `/src/ai/flows/` |
-| 3 | Test in Genkit Dev UI: `npm run genkit:dev` → http://localhost:4000 |
+| 3 | Validate AI behavior with `pnpm --filter @baci/web test src/ai` |
 | 4 | Search for callers: `grep -r "flowName" src/` |
 | 5 | Update callers if schema changed |
 | 6 | Test with all business types |
@@ -189,7 +189,7 @@ This section provides quick navigation and critical information for AI assistant
 **⚠️ When changing AI flows:**
 - DO NOT change input/output schemas without updating ALL callers
 - Use `grep -r "flowName" src/` to find callers
-- Test in Genkit Dev UI first: `npm run genkit:dev`
+- Validate AI behavior with `pnpm --filter @baci/web test src/ai`
 - Update TypeScript types if schema changes
 - Test error handling paths
 
@@ -355,13 +355,13 @@ User Navigates to /dashboard/products/add
 
 ```bash
 # Type check
-npm run typecheck
+pnpm --filter @baci/web typecheck
 
 # Dev server
-npm run dev  # http://localhost:9002
+pnpm --filter @baci/web dev  # http://localhost:9002
 
-# Genkit Dev UI (test AI flows)
-npm run genkit:dev  # http://localhost:4000
+# AI flow tests
+pnpm --filter @baci/web test src/ai
 ```
 
 #### What to Test
@@ -381,7 +381,7 @@ npm run genkit:dev  # http://localhost:4000
 - ✅ Submit works
 
 **After AI Flow Changes:**
-- ✅ Test in Genkit Dev UI with sample data
+- ✅ Run targeted AI tests with sample data
 - ✅ Test with all business types
 - ✅ Test error handling (network issues)
 - ✅ Verify output schema matches TypeScript types
@@ -429,9 +429,9 @@ npm run genkit:dev  # http://localhost:4000
    ```
 
 3. **Test your changes:**
-   - Use Genkit Dev UI for AI flows
-   - Run `npm run typecheck` for type errors
-   - Test in browser: `npm run dev`
+   - Run AI-related tests with `pnpm --filter @baci/web test src/ai`
+   - Run `pnpm --filter @baci/web typecheck` for type errors
+   - Test in browser: `pnpm --filter @baci/web dev`
 
 4. **Ask the user:**
    - If documentation is unclear
