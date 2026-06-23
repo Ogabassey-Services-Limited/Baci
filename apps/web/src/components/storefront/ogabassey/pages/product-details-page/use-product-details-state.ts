@@ -105,7 +105,12 @@ function getSelectionImageIndex(
     ? productData.colorImages[selectionColor]?.[0]
     : undefined;
   const variantImage = selection?.variant.images?.find(Boolean);
-  const image = colorImage || variantImage;
+  // Prefer the selected variant's own photo over the first image in its color
+  // bucket. When several variants share a color but have different photos
+  // (e.g. condition-specific used/open-box), the price-first default could
+  // otherwise open the gallery on a different SKU's image and disagree with
+  // the server preload, which uses the exact variant image.
+  const image = variantImage || colorImage;
 
   if (!image) {
     return 0;
