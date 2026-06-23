@@ -84,6 +84,22 @@ export function toOptionalNumber(value: unknown): number | null {
   return null;
 }
 
+function hasStockField(product: Record<string, unknown>): boolean {
+  return 'stock_quantity' in product || 'stock' in product;
+}
+
+function isUnmanagedStructuredDataStock(
+  product: Record<string, unknown>
+): boolean {
+  if ('manage_stock' in product) {
+    return product.manage_stock == null || product.manage_stock === false;
+  }
+
+  // Storefront read contract: legacy rows with stock columns but no
+  // manage_stock flag are unmanaged, not tracked zero-stock products.
+  return hasStockField(product);
+}
+
 export function getStructuredDataAvailability(
   product: Record<string, unknown>
 ): ProductCompareSchemaProduct['availability'] {
@@ -121,17 +137,7 @@ export function getStructuredDataAvailability(
     return product.in_stock ? 'InStock' : 'OutOfStock';
   }
 
-  if (
-    'manage_stock' in product &&
-    (product.manage_stock == null || product.manage_stock === false)
-  ) {
-    return 'InStock';
-  }
-
-  if (
-    !('manage_stock' in product) &&
-    ('stock_quantity' in product || 'stock' in product)
-  ) {
+  if (isUnmanagedStructuredDataStock(product)) {
     return 'InStock';
   }
 

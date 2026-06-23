@@ -53,4 +53,27 @@ describe('TableOfContents', () => {
       'pl-8'
     );
   });
+
+  it('does not render without a blog content container', () => {
+    render(<TableOfContents />);
+
+    expect(
+      screen.queryByRole('navigation', { name: 'Table of contents' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not render when fewer than three headings are collected', () => {
+    document.body.innerHTML = `
+      <article class="blog-content-renderer">
+        <h2 id="overview">Overview</h2>
+        <h3 id="camera">Camera</h3>
+      </article>
+    `;
+
+    render(<TableOfContents />);
+
+    expect(
+      screen.queryByRole('navigation', { name: 'Table of contents' })
+    ).not.toBeInTheDocument();
+  });
 });

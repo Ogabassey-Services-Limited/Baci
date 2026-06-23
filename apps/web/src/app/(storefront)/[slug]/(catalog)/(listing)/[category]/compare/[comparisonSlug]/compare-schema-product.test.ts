@@ -91,6 +91,37 @@ describe('compare schema product helpers', () => {
     expect(getStructuredDataAvailability(product)).toBe(availability);
   });
 
+  it('treats omitted manage_stock with stock columns as unmanaged inventory', () => {
+    expect(getStructuredDataAvailability({ stock_quantity: '0' })).toBe(
+      'InStock'
+    );
+    expect(getStructuredDataAvailability({ stock: 0 })).toBe('InStock');
+  });
+
+  it('treats explicit false or null manage_stock as unmanaged inventory', () => {
+    expect(
+      getStructuredDataAvailability({ manage_stock: false, stock: 0 })
+    ).toBe('InStock');
+    expect(
+      getStructuredDataAvailability({ manage_stock: null, stock: 0 })
+    ).toBe('InStock');
+  });
+
+  it('treats explicit true manage_stock as managed inventory', () => {
+    expect(
+      getStructuredDataAvailability({ manage_stock: true, stock: 0 })
+    ).toBe('OutOfStock');
+    expect(
+      getStructuredDataAvailability({ manage_stock: true, stock: 5 })
+    ).toBe('InStock');
+  });
+
+  it('does not treat malformed numeric manage_stock as unmanaged inventory', () => {
+    expect(getStructuredDataAvailability({ manage_stock: 0, stock: 0 })).toBe(
+      'OutOfStock'
+    );
+  });
+
   it('builds product schema input when required fields are present', () => {
     expect(
       toProductCompareSchemaProduct(
