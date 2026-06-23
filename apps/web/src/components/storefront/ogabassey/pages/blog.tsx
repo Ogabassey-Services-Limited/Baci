@@ -18,6 +18,8 @@ const OGABASSEY_BLOG_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
+const BLOG_IMAGE_FALLBACK_SRC = '/placeholder.png';
+
 const OGABASSEY_BLOG_CATEGORIES = [
   'All',
   'Mobile Gadgets',
@@ -30,6 +32,30 @@ const OGABASSEY_BLOG_CATEGORIES = [
   'Smartphone Comparisons',
   'Product Guides',
 ] as const;
+
+
+function getBlogListingImageSrc(imageUrl: string | null | undefined): string {
+  const candidate = imageUrl?.trim();
+
+  if (!candidate) {
+    return BLOG_IMAGE_FALLBACK_SRC;
+  }
+
+  if (candidate.startsWith('/') && !candidate.startsWith('//')) {
+    return candidate;
+  }
+
+  try {
+    const parsedUrl = new URL(candidate);
+    if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+      return candidate;
+    }
+  } catch {
+    return BLOG_IMAGE_FALLBACK_SRC;
+  }
+
+  return BLOG_IMAGE_FALLBACK_SRC;
+}
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -117,7 +143,7 @@ export function OgabasseyV2Blog({
           >
             <div className="absolute inset-0 bg-gray-900">
               <Image
-                src={featuredPost.featured_image_url || '/placeholder.png'}
+                src={getBlogListingImageSrc(featuredPost.featured_image_url)}
                 alt={featuredPost.title}
                 className="object-cover opacity-90 transition-transform duration-1000 group-hover:scale-105"
                 fill
@@ -215,7 +241,7 @@ export function OgabasseyV2Blog({
                 <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                   <div className="relative h-64 overflow-hidden">
                     <Image
-                      src={post.featured_image_url || '/placeholder.png'}
+                      src={getBlogListingImageSrc(post.featured_image_url)}
                       alt={post.title}
                       className="object-cover transition-transform duration-700 group-hover:scale-110"
                       fill

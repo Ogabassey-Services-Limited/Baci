@@ -114,6 +114,33 @@ describe('OgabasseyV2Blog', () => {
     );
   });
 
+  it('falls back before rendering Next Image when blog image URLs are malformed', () => {
+    render(
+      <OgabasseyV2Blog
+        posts={[
+          {
+            ...mockPosts[0],
+            featured_image_url: 'legacy-featured.jpg',
+          },
+          {
+            ...mockPosts[1],
+            featured_image_url: 'javascript:alert(1)',
+          },
+        ]}
+        storeSlug="/test-store"
+      />
+    );
+
+    expect(screen.getByRole('img', { name: 'Featured Post' })).toHaveAttribute(
+      'src',
+      '/placeholder.png'
+    );
+    expect(screen.getByRole('img', { name: 'Regular Post' })).toHaveAttribute(
+      'src',
+      '/placeholder.png'
+    );
+  });
+
   it('uses crawlable category links instead of client-only filter state', () => {
     render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
 
