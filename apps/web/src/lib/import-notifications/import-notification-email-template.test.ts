@@ -15,8 +15,14 @@ describe('hexToRgb', () => {
     expect(hexToRgb('#fff')).toBe('255,255,255');
   });
 
-  it('rejects malformed hex input', () => {
-    expect(() => hexToRgb('#zzzzzz')).toThrow(RangeError);
+  it.each([
+    '#zzzzzz',
+    '#12',
+    '#12345g',
+    'rgba(214,32,39,0.32)',
+  ])('rejects malformed hex input %s', (hex) => {
+    expect(() => hexToRgb(hex)).toThrow(RangeError);
+    expect(() => hexToRgb(hex)).toThrow('Expected a 3- or 6-digit hex color.');
   });
 });
 
