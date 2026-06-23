@@ -2056,7 +2056,7 @@ describe('generateCollectionPageSchema', () => {
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
   });
 
-  it('omits placeholder product images from collection-page Product JSON-LD', () => {
+  it('omits placeholder-only products from collection-page Product JSON-LD', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',
       description: 'Shop smartphones',
@@ -2074,15 +2074,53 @@ describe('generateCollectionPageSchema', () => {
       ],
     });
 
-    const listItem = (
-      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
-        string,
-        unknown
-      >[]
-    )[0];
-    const product = listItem.item as Record<string, unknown>;
+    const itemList = schema.mainEntity as Record<string, unknown>;
 
-    expect(product.image).toBeUndefined();
+    expect(itemList.numberOfItems).toBe(0);
+    expect(itemList.itemListElement).toEqual([]);
+  });
+
+  it('keeps contiguous positions when placeholder products are filtered from collection-page JSON-LD', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          id: 'placeholder-product',
+          name: 'No Image Phone',
+          slug: 'no-image-phone',
+          category: 'Smartphones',
+          image: '/placeholder.svg',
+          imageLarge: '/placeholder.svg',
+        }),
+        makeProduct({
+          id: 'real-image-product',
+          name: 'Phone With Image',
+          slug: 'phone-with-image',
+          category: 'Smartphones',
+          image: '/images/phone-with-image.jpg',
+          imageLarge: '/images/phone-with-image-large.jpg',
+        }),
+      ],
+    });
+
+    const itemList = schema.mainEntity as Record<string, unknown>;
+    const itemListElement = itemList.itemListElement as Record<
+      string,
+      unknown
+    >[];
+    const product = itemListElement[0]?.item as Record<string, unknown>;
+
+    expect(itemList.numberOfItems).toBe(1);
+    expect(itemListElement).toHaveLength(1);
+    expect(itemListElement[0]?.position).toBe(1);
+    expect(product.name).toBe('Phone With Image');
+    expect(product.image).toBe(
+      'https://ogabassey.com/images/phone-with-image-large.jpg'
+    );
   });
 
   it('falls back to a real image when imageLarge is the local placeholder', () => {

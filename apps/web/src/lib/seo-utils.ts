@@ -2074,7 +2074,15 @@ function toAbsoluteSchemaImageUrl(
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): CollectionPageJsonLdSchema {
-  const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
+  const safeProducts = data.products.slice(0, 20).flatMap((product) => {
+    const productImage = toAbsoluteSchemaImageUrl(
+      data.url,
+      product.imageLarge,
+      product.image
+    );
+
+    return productImage ? [{ product, productImage }] : [];
+  });
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
   const currency = data.currency || 'NGN';
   const country = data.country || 'NG';
@@ -2096,16 +2104,11 @@ export function generateCollectionPageSchema(
     ...(absolutePageUrl && { url: absolutePageUrl }),
     mainEntity: {
       '@type': 'ItemList',
-      numberOfItems: data.products.length,
-      itemListElement: safeProducts.map((product, index) => {
+      numberOfItems: safeProducts.length,
+      itemListElement: safeProducts.map(({ product, productImage }, index) => {
         const productUrl = toAbsoluteSchemaUrl(
           data.url,
           getProductUrl(product)
-        );
-        const productImage = toAbsoluteSchemaImageUrl(
-          data.url,
-          product.imageLarge,
-          product.image
         );
 
         return {
