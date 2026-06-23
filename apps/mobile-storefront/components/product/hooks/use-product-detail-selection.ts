@@ -124,9 +124,7 @@ export function useProductDetailSelection({
         !shouldForceRouteSeed &&
         !shouldRepairInvalidSelection &&
         lastSelectionSyncSignature !== selectionSyncSignature;
-      // Seed the on-open selection: honor an explicit route condition when one
-      // is present, otherwise open on the cheapest buyable variant (price-first,
-      // PDP-only). Falls back to the shared condition-first default.
+      // Seed on open: an explicit route condition wins, else open on the cheapest buyable variant (price-first, PDP-only), else the shared condition-first default.
       const seededSelection =
         resolveVariantDisplaySelection(product, {
           condition: routeCondition,
@@ -172,11 +170,7 @@ export function useProductDetailSelection({
       };
       const resolvedLegacyColor =
         nextSelection?.attributes?.colour?.trim() || undefined;
-      // Preserve a user-selected image-driven color: one that exists in
-      // color_images but is NOT a variant axis (e.g. a phone whose variants
-      // differ by storage only). Without this, the repair below would revert
-      // the color to the product default and snap the gallery image back,
-      // making such colors unselectable.
+      // Preserve a user-selected image-driven color (exists in color_images but is not a variant axis); without this the repair reverts it to the default, making such colors unselectable.
       const imageDrivenSelectedColor =
         selectedColor &&
         Object.keys(resolvedColorImages ?? {}).includes(selectedColor)
@@ -193,10 +187,7 @@ export function useProductDetailSelection({
         shouldRepairInvalidSelection ||
         shouldReapplyAutoSeed
       ) {
-        // Guard every setter behind value equality: a repair that cannot
-        // resolve a variant must settle on the second render pass instead of
-        // re-queueing fresh state (fresh object identities here would
-        // otherwise loop "Too many re-renders").
+        // Guard every setter behind value equality so a repair that can't resolve a variant settles on the next render instead of looping "Too many re-renders".
         const nextVariant = nextSelection?.variant.id ?? null;
         const nextStorage = nextSelection?.storage ?? fallbackSelection.storage;
         const nextColor = syncedColor ?? null;
