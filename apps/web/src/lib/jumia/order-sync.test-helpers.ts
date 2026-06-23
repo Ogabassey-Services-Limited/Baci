@@ -241,7 +241,7 @@ export function createDuplicateNotificationSyncMock({
     { error: null },
     { terminalUpsert: true }
   );
-  const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+  const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
 
   return {
     duplicateCacheQuery,

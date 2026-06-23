@@ -96,11 +96,11 @@ describe('Jumia order sync cursor persistence', () => {
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
     const failedCursorQuery = createQuery(
       { error: { message: 'cursor write denied' } },
-      { terminalEqCall: 1 }
+      { terminalEqCall: 2 }
     );
     const retryCursorQuery = createQuery(
       { error: null },
-      { terminalEqCall: 1 }
+      { terminalEqCall: 2 }
     );
     const supabase = createSupabaseMock(
       {
@@ -144,6 +144,11 @@ describe('Jumia order sync cursor persistence', () => {
         sync_error: 'Failed to update Jumia sync cursor: cursor write denied',
         sync_config: { orders: true },
       })
+    );
+    expect(retryCursorQuery.eq).toHaveBeenCalledWith('id', 'integration-1');
+    expect(retryCursorQuery.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
     );
   });
 });

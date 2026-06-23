@@ -110,7 +110,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       data: { jumia_order_id: order.id },
       error: null,
     });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
@@ -197,7 +197,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     );
     const existingJumiaQuery = createQuery({ data: [], error: null });
     const existingCanonicalQuery = createQuery({ data: [], error: null });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
     const supabase = createSupabaseMock({
       marketplace_integrations: [marketplaceQuery, syncCursorQuery],
       jumia_orders: [existingJumiaQuery],
@@ -294,7 +294,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
@@ -381,7 +381,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       data: { jumia_order_id: order.id },
       error: null,
     });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],

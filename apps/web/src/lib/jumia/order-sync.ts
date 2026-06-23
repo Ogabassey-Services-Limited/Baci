@@ -249,7 +249,8 @@ export async function syncJumiaOrdersForActiveIntegrations(
       const { error: syncErrorUpdateError } = await supabase
         .from('marketplace_integrations')
         .update(syncErrorPatch)
-        .eq('id', integration.id);
+        .eq('id', integration.id)
+        .eq('merchant_id', integration.merchant_id);
       if (syncErrorUpdateError) {
         const syncErrorMessage = `Failed to persist Jumia sync error for ${integration.merchant_id}: ${syncErrorUpdateError.message}`;
         result.errors.push(syncErrorMessage);
