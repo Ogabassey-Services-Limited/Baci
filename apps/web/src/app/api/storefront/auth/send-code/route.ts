@@ -1,17 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import z from 'zod';
+import { logger } from '@/lib/logger';
+import { checkStorefrontOtpSendLimit } from '@/lib/storefront-auth-abuse';
 import { createClient } from '@/lib/supabase/server';
+import { sendCodeSchema } from '@/schemas/auth';
 import {
   resolveStorefrontAuthMerchant,
   type StorefrontAuthMerchant,
 } from '../resolve-storefront-auth-merchant';
-
-// Zod schema for email validation (2026 best practice: use Zod instead of custom validation)
-const SendCodeSchema = z.object({
-  email: z.email({ error: 'Invalid email format' }).max(254, 'Email too long'),
-  merchantSlug: z.string().min(1, 'Merchant slug is required'),
-});
 
 function normalizeOrigin(value: string | null): string | null {
   if (!value) return null;
@@ -118,7 +114,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Validate input using Zod schema
-    const parseResult = SendCodeSchema.safeParse(body);
+    const parseResult = sendCodeSchema.safeParse(body);
     if (!parseResult.success) {
       const firstError = parseResult.error.issues[0];
       return NextResponse.json(
@@ -127,7 +123,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, merchantSlug } = parseResult.data;
+    const { captchaToken, email, merchantSlug } = parseResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -150,24 +146,56 @@ export async function POST(request: Request) {
 
     // Keep auth redirects on the storefront origin the customer is using.
     const redirectUrl = resolveOtpRedirectUrl(request, merchant);
+    const sendLimit = await checkStorefrontOtpSendLimit({
+      captchaToken,
+      email,
+      merchantId: merchant.id,
+    });
+
+    if (sendLimit.captchaRequired) {
+      return NextResponse.json(
+        {
+          code: 'CAPTCHA_REQUIRED',
+          error: 'Please complete the verification challenge and try again.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!sendLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please wait a moment and try again.',
+        },
+        { status: 429 }
+      );
+    }
 
     // Send OTP using Supabase's built-in magic link/OTP system
     // We use signInWithOtp which sends a 6-digit code
+    const otpOptions: Parameters<
+      typeof supabase.auth.signInWithOtp
+    >[0]['options'] = {
+      shouldCreateUser: true,
+      emailRedirectTo: redirectUrl,
+      data: {
+        role: 'customer',
+        // Store merchant context for post-verification
+        pending_merchant_id: merchant.id,
+      },
+    };
+
+    if (captchaToken) {
+      otpOptions.captchaToken = captchaToken;
+    }
+
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: redirectUrl,
-        data: {
-          role: 'customer',
-          // Store merchant context for post-verification
-          pending_merchant_id: merchant.id,
-        },
-      },
+      options: otpOptions,
     });
 
     if (otpError) {
-      console.error('OTP send error:', otpError);
+      logger.error({ message: 'OTP send error', error: otpError });
 
       // Handle Supabase Auth rate limiting. Supabase exposes a stable
       // status/code pair; the human-readable message is not stable enough.
@@ -190,7 +218,10 @@ export async function POST(request: Request) {
       email,
     });
   } catch (error) {
-    console.error('Send code error:', error);
+    logger.error({
+      message: 'Send code error',
+      error: error instanceof Error ? error : 'Unknown error',
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -1,4 +1,6 @@
+import { jest } from '@jest/globals';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -16,18 +18,22 @@ function makeProps(
 ): LoginOtpStepProps {
   return {
     colors: Colors.light,
-    dismissAndNavigate: jest.fn(),
+    dismissAndNavigate: jest.fn<LoginOtpStepProps['dismissAndNavigate']>(),
     email: 'shopper@example.com',
     isLoading: false,
     isMountedRef: { current: true } as LoginOtpStepProps['isMountedRef'],
     isVerifyingRef: { current: false } as LoginOtpStepProps['isVerifyingRef'],
-    onResendOtp: jest.fn().mockResolvedValue(undefined),
+    onResendOtp: jest
+      .fn<LoginOtpStepProps['onResendOtp']>()
+      .mockResolvedValue(undefined),
     otp: '123456',
     otpError: null,
     otpInputRef: { current: null } as LoginOtpStepProps['otpInputRef'],
-    setOtp: jest.fn(),
-    setOtpError: jest.fn(),
-    verifyOtp: jest.fn().mockResolvedValue({ success: true }),
+    setOtp: jest.fn<LoginOtpStepProps['setOtp']>(),
+    setOtpError: jest.fn<LoginOtpStepProps['setOtpError']>(),
+    verifyOtp: jest
+      .fn<LoginOtpStepProps['verifyOtp']>()
+      .mockResolvedValue({ success: true }),
     ...overrides,
   };
 }
@@ -39,6 +45,7 @@ describe('LoginOtpStep', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -110,7 +117,7 @@ describe('LoginOtpStep', () => {
 
   it('alerts when verification fails', async () => {
     const props = makeProps({
-      verifyOtp: jest.fn().mockResolvedValue({
+      verifyOtp: jest.fn<LoginOtpStepProps['verifyOtp']>().mockResolvedValue({
         error: 'Invalid code',
         success: false,
       }),
@@ -126,14 +133,53 @@ describe('LoginOtpStep', () => {
     });
   });
 
-  it('resends OTP when requested', () => {
+  it('resends OTP only after the cooldown expires', async () => {
+    jest.useFakeTimers();
     const props = makeProps();
 
     render(<LoginOtpStep {...props} />);
 
-    fireEvent.press(screen.getByText('Resend'));
+    expect(
+      screen.getByRole('button', {
+        name: /resend code in 60 seconds/i,
+      })
+    ).toBeDisabled();
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Resend code' }));
+      await Promise.resolve();
+    });
 
     expect(props.onResendOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not restart the resend cooldown when resend returns false', async () => {
+    jest.useFakeTimers();
+    const props = makeProps({
+      onResendOtp: jest
+        .fn<LoginOtpStepProps['onResendOtp']>()
+        .mockResolvedValue(false),
+    });
+
+    render(<LoginOtpStep {...props} />);
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Resend code' }));
+      await Promise.resolve();
+    });
+
+    expect(props.onResendOtp).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('button', { name: 'Resend code' })
+    ).not.toBeDisabled();
   });
 
   it('marks the verify button disabled and busy while loading', () => {

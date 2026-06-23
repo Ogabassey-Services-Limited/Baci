@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClientOptions } from '@supabase/supabase-js';
 
 function getBrowserSupabaseUrl() {
   const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,9 +25,21 @@ export function createClient() {
   // Keep the browser client off the zod-backed server env module. Next.js
   // statically inlines NEXT_PUBLIC_* reads in client chunks, which prevents
   // storefront commerce drawers from downloading the full env validator.
+  const options: SupabaseClientOptions<'public'> | undefined =
+    process.env.NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED === 'true'
+      ? {
+          auth: {
+            experimental: {
+              passkey: true,
+            },
+          },
+        }
+      : undefined;
+
   return createBrowserClient(
     getBrowserSupabaseUrl(),
-    getBrowserSupabaseAnonKey()
+    getBrowserSupabaseAnonKey(),
+    options
   );
 }
 

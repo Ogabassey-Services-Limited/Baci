@@ -30,7 +30,27 @@ describe('browser Supabase client', () => {
     expect(client).toEqual({ auth: {} });
     expect(createBrowserClient).toHaveBeenCalledWith(
       'https://supabase.example.com',
-      'anon-key'
+      'anon-key',
+      undefined
+    );
+  });
+
+  it('opts into experimental passkeys only when the public feature flag is enabled', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED', 'true');
+    const { createClient } = await import('./client');
+
+    createClient();
+
+    expect(createBrowserClient).toHaveBeenCalledWith(
+      'https://supabase.example.com',
+      'anon-key',
+      {
+        auth: {
+          experimental: {
+            passkey: true,
+          },
+        },
+      }
     );
   });
 

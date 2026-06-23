@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
-import { TextInput, View } from 'react-native';
-import type Colors from '@/constants/Colors';
+import { type TextInput, View } from 'react-native';
 import { Logo } from '@/components/ui/Logo';
-import { LoginEmailStep, type LoginAuthMethod } from './LoginEmailStep';
+import type Colors from '@/constants/Colors';
+import { type LoginAuthMethod, LoginEmailStep } from './LoginEmailStep';
 import { LoginOtpStep } from './LoginOtpStep';
 import { LoginPasswordStep } from './LoginPasswordStep';
 import { loginScreenStyles as styles } from './LoginScreen.styles';
@@ -21,7 +21,7 @@ interface LoginScreenContentProps {
   handleContinue: () => void;
   handleGoogleSignIn: () => Promise<void>;
   handlePasswordSignIn: () => void;
-  handleResendOtp: () => Promise<void>;
+  handleResendOtp: () => Promise<boolean | undefined>;
   isAppleLoading: boolean;
   isGoogleLoading: boolean;
   isLoading: boolean;

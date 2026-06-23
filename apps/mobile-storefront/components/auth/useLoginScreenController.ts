@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, type TextInput } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import type { LoginAuthMethod } from '@/components/auth/LoginEmailStep';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -8,7 +9,6 @@ import { useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
 import {
   clearAuthLoginResumeState,
   getAuthLoginResumeState,
@@ -214,11 +214,13 @@ export function useLoginScreenController() {
         'Success',
         'A new verification code has been sent to your email'
       );
+      return true;
     } else {
       Alert.alert(
         'Error',
         result.error || 'Failed to resend verification code'
       );
+      return false;
     }
   };
 
