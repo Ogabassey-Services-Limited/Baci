@@ -66,11 +66,16 @@ function splitPostHogInitConfig(clientConfig: PostHogBrowserClientConfig) {
   return { advancedDisableFlags, initConfig };
 }
 
+type PostHogLoadedInstance = Parameters<
+  NonNullable<PostHogBrowserClientConfig['loaded']>
+>[0];
+
 function applyPostHogFlagDisableConfig(
+  posthogInstance: PostHogLoadedInstance,
   advancedDisableFlags: PostHogBrowserClientConfig['advanced_disable_flags']
 ) {
   if (advancedDisableFlags === true) {
-    posthog.set_config({ advanced_disable_flags: true });
+    posthogInstance.set_config({ advanced_disable_flags: true });
   }
 }
 
@@ -130,6 +135,8 @@ export function initializePostHogBrowser(
     posthog.init(projectToken, {
       ...initConfig,
       loaded(posthogInstance) {
+        applyPostHogFlagDisableConfig(posthogInstance, advancedDisableFlags);
+
         try {
           clientLoaded?.(posthogInstance);
         } catch (error) {
@@ -141,7 +148,6 @@ export function initializePostHogBrowser(
         markPostHogReadyAndFlush();
       },
     });
-    applyPostHogFlagDisableConfig(advancedDisableFlags);
     hasInitializedPostHogBrowser = true;
     lastConfiguredPostHogLightweight = lightweight;
     postHogLoadedStateCheckAttempts = 0;

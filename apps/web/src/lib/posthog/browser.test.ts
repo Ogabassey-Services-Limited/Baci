@@ -69,10 +69,11 @@ function loadPostHogClient() {
     throw new Error('PostHog init config did not include a loaded callback.');
   }
 
-  initConfig.loaded({});
+  initConfig.loaded(mocks.posthogClient);
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.useRealTimers();
   mocks.posthogClient.__loaded = false;
   vi.clearAllMocks();
@@ -133,10 +134,18 @@ describe('initializePostHogBrowser', () => {
     expect(mocks.posthogInit.mock.calls[0]?.[1]).not.toHaveProperty(
       'advanced_disable_flags'
     );
+    expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
+
+    loadPostHogClient();
+
     expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
     expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
       advanced_disable_flags: true,
     });
+    expect(mocks.posthogSetConfig.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.clientConfigLoaded.mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY
+    );
     expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
@@ -189,6 +198,7 @@ describe('initializePostHogBrowser', () => {
     const { initializePostHogBrowser } = await importBrowserInitializer();
 
     initializePostHogBrowser(env);
+    loadPostHogClient();
 
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',
