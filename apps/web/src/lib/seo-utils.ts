@@ -2074,17 +2074,22 @@ function toAbsoluteSchemaImageUrl(
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): CollectionPageJsonLdSchema {
-  const safeProducts = data.products.slice(0, 20).flatMap((product) => {
-    const imageCandidates = [product.imageLarge, product.image];
-    const productImage = toAbsoluteSchemaImageUrl(data.url, ...imageCandidates);
-    const hasImageCandidate = imageCandidates.some((value) =>
-      Boolean(value?.trim())
-    );
+  const safeProducts = data.products
+    .flatMap((product) => {
+      const imageCandidates = [product.imageLarge, product.image];
+      const productImage = toAbsoluteSchemaImageUrl(
+        data.url,
+        ...imageCandidates
+      );
+      const hasImageCandidate = imageCandidates.some((value) =>
+        Boolean(value?.trim())
+      );
 
-    return hasImageCandidate && !productImage
-      ? []
-      : [{ product, productImage }];
-  });
+      return hasImageCandidate && !productImage
+        ? []
+        : [{ product, productImage }];
+    })
+    .slice(0, 20);
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
   const currency = data.currency || 'NGN';
   const country = data.country || 'NG';

@@ -2156,6 +2156,64 @@ describe('generateCollectionPageSchema', () => {
     );
   });
 
+  it('filters invalid collection products before applying the Product JSON-LD cap', () => {
+    const products = [
+      ...Array.from({ length: 20 }, (_, index) =>
+        makeProduct({
+          id: `placeholder-product-${index}`,
+          name: `Placeholder Phone ${index + 1}`,
+          slug: `placeholder-phone-${index + 1}`,
+          category: 'Smartphones',
+          image: '/placeholder.svg',
+          imageLarge: '/placeholder.svg',
+        })
+      ),
+      ...Array.from({ length: 21 }, (_, index) =>
+        makeProduct({
+          id: `valid-product-${index}`,
+          name: `Valid Phone ${index + 1}`,
+          slug: `valid-phone-${index + 1}`,
+          category: 'Smartphones',
+          image: `/images/valid-phone-${index + 1}.jpg`,
+          imageLarge: `/images/valid-phone-${index + 1}-large.jpg`,
+        })
+      ),
+    ];
+
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products,
+    });
+
+    const itemList = schema.mainEntity as Record<string, unknown>;
+    const itemListElement = itemList.itemListElement as Record<
+      string,
+      unknown
+    >[];
+    const emittedProducts = itemListElement.map(
+      (listItem) => listItem.item as Record<string, unknown>
+    );
+
+    expect(itemList.numberOfItems).toBe(20);
+    expect(itemListElement).toHaveLength(20);
+    expect(itemListElement.map((listItem) => listItem.position)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1)
+    );
+    expect(emittedProducts.map((product) => product.name)).toEqual(
+      Array.from({ length: 20 }, (_, index) => `Valid Phone ${index + 1}`)
+    );
+    expect(emittedProducts[0]?.image).toBe(
+      'https://ogabassey.com/images/valid-phone-1-large.jpg'
+    );
+    expect(emittedProducts[19]?.image).toBe(
+      'https://ogabassey.com/images/valid-phone-20-large.jpg'
+    );
+  });
+
   it('falls back to a real image when imageLarge is the local placeholder', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',
