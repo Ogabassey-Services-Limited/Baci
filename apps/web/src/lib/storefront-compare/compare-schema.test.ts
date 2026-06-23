@@ -103,6 +103,40 @@ describe('buildProductCompareItemListSchema', () => {
     ).not.toHaveProperty('availability');
   });
 
+  it('uses canonical and joined-category routing fields for Product URLs', () => {
+    const schema = buildProductCompareItemListSchema({
+      pageName: 'Galaxy S25 vs Pixel 10',
+      pageUrl:
+        'https://ogabassey.com/smartphones/compare/galaxy-s25-vs-pixel-10',
+      currency: 'NGN',
+      products: [
+        {
+          id: 'product-a',
+          slug: 'galaxy-s25',
+          name: 'Galaxy S25',
+          canonical_url: 'https://ogabassey.com/smartphones/galaxy-s25',
+        },
+        {
+          id: 'product-b',
+          slug: 'pixel-10',
+          name: 'Pixel 10',
+          categories: { name: 'Smartphones', slug: 'smartphones' },
+        },
+      ],
+    });
+
+    const products = schema.itemListElement as Array<{
+      item: { url: string };
+    }>;
+
+    expect(products[0]?.item.url).toBe(
+      'https://ogabassey.com/smartphones/galaxy-s25'
+    );
+    expect(products[1]?.item.url).toBe(
+      'https://ogabassey.com/smartphones/pixel-10'
+    );
+  });
+
   it('throws a clear error when the compare pageUrl is not absolute', () => {
     expect(() =>
       buildProductCompareItemListSchema({

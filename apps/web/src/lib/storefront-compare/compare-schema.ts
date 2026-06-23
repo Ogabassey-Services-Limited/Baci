@@ -17,7 +17,9 @@ interface ProductCompareSchemaProduct {
   name: string;
   slug?: string;
   category?: string | null;
+  categories?: { name?: string; slug?: string } | null;
   category_slug?: string | null;
+  canonical_url?: string | null;
   price?: number | null;
   availability?: 'InStock' | 'OutOfStock';
   image?: string | null;

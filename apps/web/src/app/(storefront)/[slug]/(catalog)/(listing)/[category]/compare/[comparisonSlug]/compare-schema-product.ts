@@ -144,6 +144,26 @@ export function getStructuredDataAvailability(
   return undefined;
 }
 
+function getStructuredDataCategories(
+  value: unknown
+): ProductCompareSchemaProduct['categories'] {
+  const category = getRecord(value);
+  if (!category) {
+    return null;
+  }
+
+  const name =
+    typeof category.name === 'string' && category.name.trim()
+      ? category.name.trim()
+      : undefined;
+  const slug =
+    typeof category.slug === 'string' && category.slug.trim()
+      ? category.slug.trim()
+      : undefined;
+
+  return name || slug ? { name, slug } : null;
+}
+
 export function toProductCompareSchemaProduct(
   product: unknown,
   baseUrl: string
@@ -157,6 +177,11 @@ export function toProductCompareSchemaProduct(
       : '';
   const name = typeof record.name === 'string' ? record.name.trim() : '';
   const image = getStructuredDataImage(record, baseUrl);
+  const canonicalUrl =
+    typeof record.canonical_url === 'string' && record.canonical_url.trim()
+      ? record.canonical_url.trim()
+      : null;
+  const categories = getStructuredDataCategories(record.categories);
 
   if (!id || !name || !image) {
     return null;
@@ -170,6 +195,8 @@ export function toProductCompareSchemaProduct(
     category: typeof record.category === 'string' ? record.category : null,
     category_slug:
       typeof record.category_slug === 'string' ? record.category_slug : null,
+    ...(canonicalUrl && { canonical_url: canonicalUrl }),
+    ...(categories && { categories }),
     description:
       typeof record.description === 'string' ? record.description : null,
     price: toOptionalNumber(record.price),

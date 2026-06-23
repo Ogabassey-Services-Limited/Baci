@@ -30,6 +30,23 @@ const HEADING_SIZE_CLASSES: Record<number, string> = {
   4: 'text-xl font-bold mt-6 mb-3',
 };
 
+function isTechnicalResourceHref(href: string): boolean {
+  const normalizedHref = href.trim().toLowerCase();
+  if (!normalizedHref) {
+    return false;
+  }
+
+  try {
+    const { pathname } = new URL(normalizedHref, 'https://example.invalid');
+    if (pathname === '/_next/image') {
+      return true;
+    }
+    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
+  } catch {
+    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
+  }
+}
+
 /**
  * Premium 2026 JSON-to-React Renderer for Baci
  * This component recursively renders TipTap JSON as native React components.
@@ -112,12 +129,21 @@ const TextRenderer = ({
           break;
         case 'link': {
           // 2026 Security Best Practice: Sanitize URLs but allow safe relative/anchor links
-          const rawHref = mark.attrs?.href ?? '';
+          const rawHref =
+            typeof mark.attrs?.href === 'string' ? mark.attrs.href : '';
           const normalizedHref = normalizeStorefrontContentHref(rawHref, {
             basePath,
             baseUrl,
             merchantSlug,
           });
+          if (
+            isTechnicalResourceHref(rawHref) ||
+            isTechnicalResourceHref(normalizedHref)
+          ) {
+            content = <span key={mark.type}>{content}</span>;
+            break;
+          }
+
           const isRelative =
             normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
           const isAnchor = normalizedHref.startsWith('#');

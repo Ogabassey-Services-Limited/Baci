@@ -390,6 +390,39 @@ describe('BlogContentRenderer', () => {
       );
     });
 
+    it('renders technical resource links as plain text for JSON posts', () => {
+      const json = doc(
+        paragraph(
+          textNode('Product data JSON', [
+            {
+              type: 'link',
+              attrs: { href: 'https://example.com/assets/specs.json' },
+            },
+          ]),
+          textNode(' and '),
+          textNode('Optimized image', [
+            {
+              type: 'link',
+              attrs: {
+                href: '/_next/image?url=https%3A%2F%2Fcdn.example.com%2Fphone.avif&w=640&q=75',
+              },
+            },
+          ])
+        )
+      );
+
+      render(<BlogContentRenderer json={json} />);
+
+      expect(screen.getByText('Product data JSON')).toBeInTheDocument();
+      expect(screen.getByText('Optimized image')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Product data JSON' })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Optimized image' })
+      ).not.toBeInTheDocument();
+    });
+
     it('rewrites javascript: URLs to a safe hash anchor', () => {
       const json = doc(
         paragraph(

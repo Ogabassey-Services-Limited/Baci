@@ -120,6 +120,32 @@ describe('compare schema product helpers', () => {
     });
   });
 
+  it('preserves canonical product routing fields for JSON-LD URLs', () => {
+    expect(
+      toProductCompareSchemaProduct(
+        {
+          id: 'phone-1',
+          name: 'Galaxy S25',
+          image: '/media/galaxy-s25.avif',
+          canonical_url: 'https://ogabassey.com/smartphones/galaxy-s25',
+          categories: {
+            name: 'Smartphones',
+            slug: 'smartphones',
+          },
+          price: 1_200_000,
+          slug: 'galaxy-s25',
+        },
+        BASE_URL
+      )
+    ).toMatchObject({
+      canonical_url: 'https://ogabassey.com/smartphones/galaxy-s25',
+      categories: {
+        name: 'Smartphones',
+        slug: 'smartphones',
+      },
+    });
+  });
+
   it.each([
     [null],
     [{ id: '', name: 'Phone', image: '/media/phone.avif' }],
