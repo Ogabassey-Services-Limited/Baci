@@ -19,6 +19,8 @@ const CATEGORY_BLUR_COLORS: Record<string, string> = {
   default: '#f4f4f5', // Neutral gray
 };
 
+export const PLACEHOLDER_IMAGE = '/placeholder.svg';
+
 /**
  * Generate a solid color blur data URL
  * Faster than image-based blur, good for product cards
@@ -95,10 +97,10 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
 }
 
 /**
- * Get fallback image URL based on product category
+ * Get the local fallback image URL.
  */
-export function getFallbackImage(_category?: string): string {
+export function getFallbackImage(): string {
   // Keep missing-image fallbacks local so crawlers do not depend on external
   // placeholder hosts that may be blocked or rate-limited.
-  return '/placeholder.svg';
+  return PLACEHOLDER_IMAGE;
 }

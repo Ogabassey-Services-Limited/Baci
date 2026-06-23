@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { BreadcrumbList, FAQPage, ItemList } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
+import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
 import {
   buildComparePageSchemas,
   buildProductCompareItemListSchema,
@@ -65,7 +66,7 @@ function normalizeStructuredDataImageUrl(
   baseUrl: string
 ): string {
   const trimmed = value.trim();
-  if (!trimmed || trimmed === '/placeholder.svg') {
+  if (!trimmed || trimmed === PLACEHOLDER_IMAGE) {
     return '';
   }
 

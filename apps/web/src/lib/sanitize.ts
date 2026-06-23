@@ -51,7 +51,7 @@ function createTrustedPriorityImageSourceSet(
   );
 }
 
-function isCrawlableResourceHref(href: string | undefined): boolean {
+function isTechnicalResourceHref(href: string | undefined): boolean {
   const normalizedHref = href?.trim().toLowerCase();
   if (!normalizedHref) {
     return false;
@@ -151,7 +151,7 @@ export function sanitizeHtml(
           if (!frame.text.trim()) {
             return frame.mediaChildren.length > 0 ? 'excludeTag' : true;
           }
-          if (isCrawlableResourceHref(frame.attribs.href)) {
+          if (isTechnicalResourceHref(frame.attribs.href)) {
             return 'excludeTag';
           }
           return false;

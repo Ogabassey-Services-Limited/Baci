@@ -11,10 +11,38 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
-export const metadata: Metadata = {
-  title: 'Book a Repair',
-  description: 'Schedule a repair for your device',
-};
+interface RepairsPageProps {
+  params: Promise<{ slug: string }>;
+}
+
+async function getRepairsMerchant(slug: string) {
+  if (!isValidMerchantIdentifier(slug)) {
+    return null;
+  }
+
+  const lookupKey = slug.toLowerCase();
+  return isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
+}
+
+export async function generateMetadata({
+  params,
+}: RepairsPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const merchant = await getRepairsMerchant(slug);
+
+  if (merchant?.template_id !== 'ogabassey') {
+    return {
+      title: 'Repair Service Not Found',
+    };
+  }
+
+  return {
+    title: `Book a Repair - ${merchant.business_name}`,
+    description: `Schedule a device repair with ${merchant.business_name}`,
+  };
+}
 
 function getRepairsBasePath(
   headersList: { get(name: string): string | null },
@@ -33,33 +61,16 @@ function getRepairsBasePath(
   return servedAtDomainRoot ? '' : `/${merchant.slug}`;
 }
 
-export default async function RepairsPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function RepairsPage({ params }: RepairsPageProps) {
   const { slug } = await params;
-
-  // Validate identifier
-  if (!isValidMerchantIdentifier(slug)) {
-    notFound();
-  }
-
-  // Get merchant data handling both slugs and domains
-  const lookupKey = slug.toLowerCase();
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(lookupKey)
-    : await getCachedMerchant(lookupKey);
+  const merchant = await getRepairsMerchant(slug);
 
   if (!merchant) {
     notFound();
   }
 
   // Only show for Ogabassey template (merchant-specific feature)
-  if (
-    (merchant as unknown as { template_id?: string }).template_id !==
-    'ogabassey'
-  ) {
+  if (merchant.template_id !== 'ogabassey') {
     notFound();
   }
 

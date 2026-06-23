@@ -45,7 +45,7 @@ const merchant = {
   template_id: 'ogabassey',
 } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>;
 
-const { default: RepairsPage } = await import('./page');
+const { default: RepairsPage, generateMetadata } = await import('./page');
 
 describe('RepairsPage', () => {
   beforeEach(() => {
@@ -100,6 +100,17 @@ describe('RepairsPage', () => {
     );
     expect(mockOgabasseyV2Repairs).toHaveBeenCalledWith({
       basePath: '/ogabassey',
+    });
+  });
+
+  it('generates merchant-branded metadata', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      })
+    ).resolves.toEqual({
+      title: 'Book a Repair - Ogabassey',
+      description: 'Schedule a device repair with Ogabassey',
     });
   });
 });

@@ -100,7 +100,7 @@ export function OptimizedImage({
   const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     if (!hasError) {
       setHasError(true);
-      const fallback = fallbackSrc || getFallbackImage(category);
+      const fallback = fallbackSrc || getFallbackImage();
       setImgSrc(fallback);
     }
     onError?.(e);
@@ -109,7 +109,7 @@ export function OptimizedImage({
   // Validate src
   const validSrc = isValidImageUrl(imgSrc as string)
     ? imgSrc
-    : getFallbackImage(category);
+    : getFallbackImage();
 
   return (
     <Image
