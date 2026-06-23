@@ -30,7 +30,8 @@ function hasRequiredStoredString(
   value: Record<string, unknown>,
   key: 'image' | 'name' | 'price'
 ) {
-  return typeof value[key] === 'string' && value[key].trim().length > 0;
+  const fieldValue = value[key];
+  return typeof fieldValue === 'string' && fieldValue.trim().length > 0;
 }
 
 function isStoredSavedProduct(value: unknown): value is Product {

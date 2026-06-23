@@ -19,6 +19,7 @@ describe('analytics_events idempotency schema', () => {
       .replace(/\s+/g, ' ')
       .toLowerCase();
 
+    expect(compactSql).toContain('-- disable-transaction');
     expect(compactSql).toContain(
       'partition by merchant_id, event_id, event_type'
     );
