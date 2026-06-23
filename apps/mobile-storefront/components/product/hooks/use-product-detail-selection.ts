@@ -197,6 +197,7 @@ export function useProductDetailSelection({
           colorImages: resolvedColorImages,
           images: productGalleryImages,
           variantImage:
+            nextSelection?.variant.primary_image ??
             nextSelection?.variant.image ??
             nextSelection?.variant.images?.find(Boolean),
         });
@@ -251,8 +252,7 @@ export function useProductDetailSelection({
         colorImages: resolvedColorImages,
         images: productGalleryImages,
       });
-      // Only update when the index actually moves: if the color has no matching
-      // image the resolver returns the current frame and an unconditional set loops.
+      // Only update when the index actually moves (an unconditional set loops).
       if (nextImageIndex !== selectedImageIndex) {
         setSelectedImageIndex(nextImageIndex);
       }
