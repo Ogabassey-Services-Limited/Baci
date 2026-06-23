@@ -1,7 +1,6 @@
 export type PriceIntentAssetKind =
   | 'pdp'
   | 'price-hub'
-  | 'article'
   | 'no-catalog'
   | 'ignore';
 
@@ -21,13 +20,21 @@ export interface PreparedPriceIntentCatalogProduct {
   tokenSet: Set<string>;
 }
 
-export interface ClassifyPriceIntentKeywordInput {
+interface BaseClassifyPriceIntentKeywordInput {
   keyword: string;
-  catalog: PriceIntentCatalogProduct[];
   marketPhrase?: string | null;
   minHubProducts?: number;
-  preparedCatalog?: PreparedPriceIntentCatalogProduct[];
 }
+
+export type ClassifyPriceIntentKeywordInput =
+  | (BaseClassifyPriceIntentKeywordInput & {
+      catalog: PriceIntentCatalogProduct[];
+      preparedCatalog?: PreparedPriceIntentCatalogProduct[];
+    })
+  | (BaseClassifyPriceIntentKeywordInput & {
+      catalog?: PriceIntentCatalogProduct[];
+      preparedCatalog: PreparedPriceIntentCatalogProduct[];
+    });
 
 export interface PriceIntentClassification {
   assetKind: PriceIntentAssetKind;
