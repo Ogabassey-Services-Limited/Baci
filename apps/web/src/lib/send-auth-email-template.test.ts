@@ -9,6 +9,11 @@ import {
 } from '../../../../supabase/functions/send-auth-email/auth-email-template';
 
 describe('send-auth-email template helpers', () => {
+  const ogabasseyMerchantLogoUrl =
+    'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png';
+  const ogabasseyEmailLogoUrl =
+    'https://ogabassey.com/email/ogabassey-logo-white-chip.png';
+
   it('detects Baci merchant subdomains from auth redirects', () => {
     expect(
       extractMerchantLookup('https://ogabassey.usebaci.com/account/verify')
@@ -82,8 +87,7 @@ describe('send-auth-email template helpers', () => {
         businessName: 'Ogabassey',
         customDomain: 'ogabassey.com',
         emailSenderName: 'Ogabassey',
-        logoUrl:
-          'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png',
+        logoUrl: ogabasseyMerchantLogoUrl,
         primaryColor: '#d62027',
         buttonColor: '#d62027',
         buttonTextColor: '#ffffff',
@@ -94,9 +98,8 @@ describe('send-auth-email template helpers', () => {
       'https://ogabassey.com/account/verify'
     );
 
-    expect(html).toContain(
-      '<img src="https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png"'
-    );
+    expect(html).toContain(`<img src="${ogabasseyEmailLogoUrl}"`);
+    expect(html).not.toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
     expect(html).toContain('class="a-logo-chip"');
     expect(html).toContain('bgcolor="#ffffff"');
     expect(html).toContain('background:#ffffff');
