@@ -15,6 +15,7 @@ import {
 import {
   getLastMockProps,
   mockProductDetailsBody,
+  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
@@ -62,7 +63,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: false,
         })
@@ -101,7 +102,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })
@@ -147,6 +148,10 @@ describe('ProductDetailScreen variant stock behavior', () => {
         expect.objectContaining({
           selectedCondition: secondaryVariant.condition,
           selectedStorage: '128GB',
+        })
+      );
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+        expect.objectContaining({
           canPurchase: true,
         })
       );
@@ -189,7 +194,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })
