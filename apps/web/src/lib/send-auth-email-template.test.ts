@@ -7,6 +7,7 @@ import {
   getCustomDomainCandidates,
   getEmailConfig,
 } from '../../../../supabase/functions/send-auth-email/auth-email-template';
+import { generateEmailHtml as generateAppLocalEmailHtml } from '../../supabase/functions/send-auth-email/auth-email-template';
 
 describe('send-auth-email template helpers', () => {
   const ogabasseyMerchantLogoUrl =
@@ -109,6 +110,72 @@ describe('send-auth-email template helpers', () => {
     expect(html).toContain('mso-table-lspace:0pt');
     expect(html).toContain('mso-table-rspace:0pt');
     expect(html).not.toContain('display:inline-table');
+  });
+
+  it('centers table-based logos in default auth emails', () => {
+    const baciLogoUrl = 'https://usebaci.com/baci-logo.png';
+
+    const html = generateEmailHtml(
+      getEmailConfig('magiclink', 'Baci'),
+      'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
+      {
+        businessName: 'Baci',
+        customDomain: null,
+        emailSenderName: 'Baci',
+        logoUrl: baciLogoUrl,
+        primaryColor: '#111827',
+        buttonColor: '#111827',
+        buttonTextColor: '#ffffff',
+        slug: null,
+        supportEmail: null,
+      },
+      '123456',
+      'https://usebaci.com/auth/confirm'
+    );
+
+    expect(html).toContain(`<img src="${baciLogoUrl}"`);
+    expect(html).toContain('<table role="presentation" align="center"');
+    expect(html).toContain('style="margin:0 auto;max-width:100%');
+  });
+
+  it('keeps the app-local auth template copy in sync for logo rendering', () => {
+    const config = getEmailConfig('magiclink', 'Ogabassey');
+    const confirmationUrl =
+      'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink';
+    const branding = {
+      businessName: 'Ogabassey',
+      customDomain: 'ogabassey.com',
+      emailSenderName: 'Ogabassey',
+      logoUrl: ogabasseyMerchantLogoUrl,
+      primaryColor: '#d62027',
+      buttonColor: '#d62027',
+      buttonTextColor: '#ffffff',
+      slug: 'ogabassey',
+      supportEmail: 'support@ogabassey.com',
+    };
+    const token = '123456';
+    const actionUrl = 'https://ogabassey.com/account/verify';
+
+    const rootHtml = generateEmailHtml(
+      config,
+      confirmationUrl,
+      branding,
+      token,
+      actionUrl
+    );
+    const appLocalHtml = generateAppLocalEmailHtml(
+      config,
+      confirmationUrl,
+      branding,
+      token,
+      actionUrl
+    );
+
+    expect(appLocalHtml).toBe(rootHtml);
+    expect(appLocalHtml).toContain(`<img src="${ogabasseyEmailLogoUrl}"`);
+    expect(appLocalHtml).not.toContain(
+      `<img src="${ogabasseyMerchantLogoUrl}"`
+    );
   });
 
   it('does not use the Ogabassey logo for merchants with similar names', () => {

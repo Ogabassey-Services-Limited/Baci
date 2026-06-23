@@ -224,7 +224,11 @@ function isOgabasseyBrand(branding: MerchantBranding): boolean {
   return slug === 'ogabassey' || customDomain === 'ogabassey.com';
 }
 
-function renderLogo(branding: MerchantBranding, safeBrandName: string): string {
+function renderLogo(
+  branding: MerchantBranding,
+  safeBrandName: string,
+  align: 'left' | 'center' = 'left'
+): string {
   const safeLogoUrl = isOgabasseyBrand(branding)
     ? OGABASSEY_EMAIL_LOGO_URL
     : sanitizeUrl(branding.logoUrl ?? '');
@@ -232,7 +236,10 @@ function renderLogo(branding: MerchantBranding, safeBrandName: string): string {
     return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
   }
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt;"><tr><td class="a-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:10px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;outline:none;text-decoration:none;height:24px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;"></td></tr></table>`;
+  const centerAttributes = align === 'center' ? ' align="center"' : '';
+  const centerStyles = align === 'center' ? 'margin:0 auto;' : '';
+
+  return `<table role="presentation"${centerAttributes} cellpadding="0" cellspacing="0" border="0" style="${centerStyles}max-width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt;"><tr><td class="a-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:10px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;outline:none;text-decoration:none;height:24px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;"></td></tr></table>`;
 }
 
 function renderTokenBlock(
@@ -341,7 +348,7 @@ function renderDefaultEmailHtml(
     branding.buttonTextColor,
     BACI_BUTTON_TEXT_COLOR
   );
-  const headerContent = renderLogo(branding, safeBrandName);
+  const headerContent = renderLogo(branding, safeBrandName, 'center');
   const tokenHtml = renderTokenBlock(token, primaryColor);
   const isMerchantBranded = branding.businessName !== 'Baci';
   const footerText = isMerchantBranded
