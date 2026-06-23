@@ -188,6 +188,17 @@ describe('BrandProducts', () => {
     );
   });
 
+  it('links the brand rail to the category shopping page', () => {
+    render(<BrandProducts product={product} />);
+
+    expect(
+      screen.getByRole('heading', { name: 'More Sony Accessories' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Shop more Accessories' })
+    ).toHaveAttribute('href', '/ogabassey/accessories');
+  });
+
   it('filters mismatched brands locally for normal brand names', async () => {
     apiGetMock.mockResolvedValue({
       products: [

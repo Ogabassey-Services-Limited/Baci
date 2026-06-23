@@ -62,7 +62,7 @@ export function ProductDetailsTabs({
             <SafeHtml
               html={productData.description || ''}
               headingLevelOffset={1}
-              className="ogabassey-pdp-tabs__rich-text prose prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
+              className="ogabassey-pdp-tabs__rich-text prose max-w-none prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm"
             />
             <div className="ogabassey-pdp-tabs__summary-card">
               <h2 className="ogabassey-pdp-tabs__summary-title">

@@ -23,7 +23,13 @@ function getSupportCopy(categorySlug: string) {
 }
 
 function toTitleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  // Humanize machine values like "open_box" / "like-new" into "Open Box" /
+  // "Like New" by splitting on whitespace, underscores, and hyphens.
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 function isInStock(product: ProductSemanticCandidate) {

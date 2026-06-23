@@ -22,6 +22,7 @@ import {
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
+import { SemanticSectionsErrorBoundary } from '@/components/storefront/ogabassey/seo/semantic-sections-error-boundary';
 import {
   normalizeProductCondition,
   type Product as OgabasseyProduct,
@@ -266,39 +267,6 @@ function toOgabasseyProduct(
       })
     ),
   };
-}
-
-function buildTrustBulletsFromProfile(
-  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
-): string[] {
-  const bullets: string[] = [];
-  const returnPolicy = trustProfile.returnPolicy;
-  if (returnPolicy?.windowDays != null) {
-    bullets.push(
-      returnPolicy.returnFees === 'free'
-        ? `Free returns within ${returnPolicy.windowDays} days`
-        : `Returns within ${returnPolicy.windowDays} days`
-    );
-  }
-
-  const shippingPolicy = trustProfile.shippingPolicy;
-  const regions = shippingPolicy?.regions ?? [];
-  const regionsText = regions.join(' ').toLowerCase();
-  if (
-    regions.some(
-      (region) => region.toUpperCase() === 'NG' || /nigeria/i.test(region)
-    ) ||
-    /nationwide/.test(shippingPolicy?.summary ?? '') ||
-    /nigeria/.test(regionsText)
-  ) {
-    bullets.push('Ships across Nigeria');
-  }
-
-  if (trustProfile.whatsappNumber) {
-    bullets.push('WhatsApp support available');
-  }
-
-  return bullets;
 }
 
 function getFirstViewportVariantAxes(
@@ -1514,22 +1482,23 @@ async function CategoryProductPageContent({
   const plainProductDescription = stripHtmlTags(renderableProduct.description)
     .replace(/\s+/g, ' ')
     .trim();
-  const trustBullets = [
-    priceSeoCopy.answer,
-    ...buildTrustBulletsFromProfile(trustProfile),
-  ];
   const semanticSections = (
-    <Suspense fallback={null}>
-      <OgabasseyPdpSemanticSections
-        categoryName={renderableProduct.category || 'All Products'}
-        categorySlug={resolvedCategorySlug}
-        merchant={merchant}
-        product={renderableProduct}
-        storeSlug={slug}
-        storeUrl={baseUrl}
-        trustBullets={trustBullets}
-      />
-    </Suspense>
+    // Error boundary degrades to no semantic links if the strict SEO-data unit
+    // throws with a cold cache (transient failure, no last-good to serve), so a
+    // Supabase blip never fails the whole PDP. A warm cache serves last-good via
+    // stale-while-revalidate and never reaches this boundary.
+    <SemanticSectionsErrorBoundary fallback={null}>
+      <Suspense fallback={null}>
+        <OgabasseyPdpSemanticSections
+          categoryName={renderableProduct.category || 'All Products'}
+          categorySlug={resolvedCategorySlug}
+          merchant={merchant}
+          product={renderableProduct}
+          storeSlug={slug}
+          storeUrl={baseUrl}
+        />
+      </Suspense>
+    </SemanticSectionsErrorBoundary>
   );
   const derivedSpecData = buildOgabasseyProductSpecData(renderableProduct);
   const schemaProduct =

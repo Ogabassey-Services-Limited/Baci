@@ -14,31 +14,36 @@ export function ProductSemanticSections({
   );
   const hasGuideLinks = model.guideLinks.length > 0;
 
-  if (
-    !model.trustBullets.length &&
-    !model.supportLinks.length &&
-    !hasGuideLinks &&
-    !hasCards
-  ) {
+  if (!model.supportLinks.length && !hasGuideLinks && !hasCards) {
     return null;
   }
 
   return (
     <section className="ogabassey-pdp-semantic-sections">
-      {model.trustBullets.length > 0 ? (
+      {hasGuideLinks ? (
         <section
-          aria-labelledby="product-buying-context"
+          aria-labelledby="product-guide-links"
           className="ogabassey-pdp-semantic-card"
         >
           <h2
-            id="product-buying-context"
+            id="product-guide-links"
             className="ogabassey-pdp-semantic-card__title"
           >
-            Buying context
+            Buyer guides
           </h2>
-          <ul className="ogabassey-pdp-semantic-card__list">
-            {model.trustBullets.map((bullet) => (
-              <li key={bullet}>{bullet}</li>
+          <ul className="ogabassey-pdp-semantic-card__link-list">
+            {model.guideLinks.map((link) => (
+              <li key={link.href}>
+                <a
+                  className="ogabassey-pdp-semantic-card__link"
+                  href={link.href}
+                >
+                  {link.title}
+                </a>
+                <p className="ogabassey-pdp-semantic-card__description">
+                  {link.description}
+                </p>
+              </li>
             ))}
           </ul>
         </section>
@@ -69,35 +74,6 @@ export function ProductSemanticSections({
         heading="Compare and Buying Guides"
         links={model.supportLinks}
       />
-
-      {hasGuideLinks ? (
-        <section
-          aria-labelledby="product-guide-links"
-          className="ogabassey-pdp-semantic-card"
-        >
-          <h2
-            id="product-guide-links"
-            className="ogabassey-pdp-semantic-card__title"
-          >
-            Buyer guides and support articles
-          </h2>
-          <ul className="ogabassey-pdp-semantic-card__link-list">
-            {model.guideLinks.map((link) => (
-              <li key={link.href}>
-                <a
-                  className="ogabassey-pdp-semantic-card__link"
-                  href={link.href}
-                >
-                  {link.title}
-                </a>
-                <p className="ogabassey-pdp-semantic-card__description">
-                  {link.description}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </section>
   );
 }

@@ -1,9 +1,7 @@
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
-import { getCachedCategoryPageData } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
-import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
-import type { ProductSemanticCandidate } from '@/lib/storefront-product/product-semantic-types';
+import { getCachedProductSeoLinkData } from '@/lib/storefront-product/get-cached-product-seo-link-data';
 
 interface OgabasseyPdpSemanticMerchant {
   business_name?: string | null;
@@ -18,7 +16,6 @@ interface OgabasseyPdpSemanticSectionsProps {
   product: Product;
   storeSlug: string;
   storeUrl: string;
-  trustBullets: string[];
 }
 
 export async function OgabasseyPdpSemanticSections({
@@ -28,17 +25,16 @@ export async function OgabasseyPdpSemanticSections({
   product,
   storeSlug,
   storeUrl,
-  trustBullets,
 }: OgabasseyPdpSemanticSectionsProps) {
-  const [categoryPageData, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(merchant.id, categorySlug, storeSlug),
-    getPublishedClusterPosts(merchant.id),
-  ]);
-  const inventory = (
-    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
-  )
-    .filter(isProductSemanticCandidate)
-    .map(toProductSemanticCandidate);
+  // Strict, cache-isolated fetch: throws on a transient inventory failure so a
+  // link-poor result is never cached (stale-while-revalidate serves last-good).
+  // Rendered behind a Suspense + error boundary by the caller. `inventory` is
+  // already normalized to ProductSemanticCandidate[] inside the cached unit.
+  const { inventory, guidePosts } = await getCachedProductSeoLinkData(
+    merchant.id,
+    categorySlug,
+    storeSlug
+  );
   const semanticModel = buildProductSemanticModel({
     storeUrl,
     merchantBusinessName: merchant?.business_name || 'Baci Store',
@@ -59,42 +55,5 @@ export async function OgabasseyPdpSemanticSections({
     guidePosts,
   });
 
-  return (
-    <ProductSemanticSections
-      model={{
-        ...semanticModel,
-        trustBullets: [...trustBullets, ...semanticModel.trustBullets],
-      }}
-    />
-  );
-}
-
-function isProductSemanticCandidate(
-  candidate: unknown
-): candidate is ProductSemanticCandidate {
-  if (!candidate || typeof candidate !== 'object') {
-    return false;
-  }
-
-  const product = candidate as Record<string, unknown>;
-  return (
-    typeof product.slug === 'string' &&
-    typeof product.name === 'string' &&
-    typeof product.price === 'number'
-  );
-}
-
-function toProductSemanticCandidate(
-  product: ProductSemanticCandidate
-): ProductSemanticCandidate {
-  return {
-    slug: product.slug,
-    name: product.name,
-    brand: product.brand,
-    condition: product.condition,
-    price: product.price,
-    stock: product.stock,
-    category_slug: product.category_slug,
-    product_key_specs: product.product_key_specs,
-  };
+  return <ProductSemanticSections model={semanticModel} />;
 }

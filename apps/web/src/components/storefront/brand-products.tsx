@@ -180,14 +180,26 @@ export function BrandProducts({
     p.manage_stock !== false && getEffectiveStock(p) <= 0;
 
   const title = `More ${productBrand} ${productCategory}`;
+  const categoryHref = categorySlug ? `${basePath}/${categorySlug}` : null;
 
   return (
     <section ref={sectionRef} className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-            {title}
-          </h2>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+              {title}
+            </h2>
+            {categoryHref ? (
+              <Link
+                href={categoryHref as '/'}
+                prefetch={false}
+                className="mt-2 inline-flex text-sm font-semibold transition-colors hover:text-store-primary"
+              >
+                Shop more {productCategory}
+              </Link>
+            ) : null}
+          </div>
 
           {brandProducts.length > 3 && (
             <div className="hidden sm:flex items-center gap-2">
