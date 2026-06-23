@@ -9,6 +9,7 @@ import type {
 
 const RECOVERY_CODES_TABLE = 'merchant_auth_recovery_codes';
 const RECOVERY_ATTEMPTS_TABLE = 'merchant_auth_recovery_attempts';
+const RECOVERY_READINESS_TABLE = 'merchant_auth_readiness';
 
 /** Failed recovery attempts within this window count toward lockout. */
 export const RECOVERY_FAILURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -24,10 +25,29 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
 
   return {
     async listActiveCodes(userId: string): Promise<RecoveryCodeRecord[]> {
+      const { data: readiness, error: readinessError } = await supabase
+        .from(RECOVERY_READINESS_TABLE)
+        .select('acknowledged_code_set_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (readinessError) {
+        throw new Error(
+          `Failed to load recovery readiness: ${readinessError.message}`
+        );
+      }
+
+      const activeCodeSetId = (
+        readiness as { acknowledged_code_set_id?: string | null } | null
+      )?.acknowledged_code_set_id;
+      if (!activeCodeSetId) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from(RECOVERY_CODES_TABLE)
         .select('id, code_hash')
         .eq('user_id', userId)
+        .eq('code_set_id', activeCodeSetId)
         .is('used_at', null)
         .is('revoked_at', null);
       if (error) {
@@ -46,6 +66,7 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
         .update({ used_at: new Date().toISOString() })
         .eq('id', codeId)
         .is('used_at', null)
+        .is('revoked_at', null)
         .select('id');
       if (error) {
         throw new Error(`Failed to consume recovery code: ${error.message}`);

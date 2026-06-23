@@ -5,11 +5,25 @@ import {
   type RecoveryCodeStore,
   redeemRecoveryCode,
 } from './recovery-code-redemption';
-import { generateRecoveryCodes, hashRecoveryCode } from './recovery-codes';
+import { hashRecoveryCode } from './recovery-codes';
 
 const PEPPER = 'test-pepper';
 const USER = 'user-1';
 const IP = 'ip-hash-1';
+
+const FIXED_RECOVERY_CODES = [
+  '0123-4567-89AB-CDEF-GHJK-MNPQ',
+  'RSTV-WXYZ-0123-4567-89AB-CDEF',
+  'GHJK-MNPQ-RSTV-WXYZ-0123-4567',
+  '89AB-CDEF-GHJK-MNPQ-RSTV-WXYZ',
+  '2345-6789-ABCD-EFGH-JKMQ-RSTV',
+  'WXYZ-2345-6789-ABCD-EFGH-JKMQ',
+  'CDEF-GHJK-MNPQ-RSTV-WXYZ-0123',
+  'MNPQ-RSTV-WXYZ-0123-4567-89AB',
+  '4567-89AB-CDEF-GHJK-MNPQ-RSTV',
+  'WXYZ-RSTV-MNPQ-GHJK-CDEF-89AB',
+] as const;
+const UNKNOWN_RECOVERY_CODE = 'ZZZZ-YYYY-XXXX-WWWW-VVVV-TTTT';
 
 type Attempt = { userId: string; ipHash: string; succeeded: boolean };
 
@@ -59,7 +73,7 @@ function makeStore(plaintextCodes: string[]) {
 describe('redeemRecoveryCode', () => {
   let codes: string[];
   beforeEach(() => {
-    codes = generateRecoveryCodes();
+    codes = [...FIXED_RECOVERY_CODES];
   });
 
   it('accepts a valid code, consumes it, and records success', async () => {
@@ -95,11 +109,10 @@ describe('redeemRecoveryCode', () => {
 
   it('rejects an unknown code and records a failure', async () => {
     const store = makeStore(codes);
-    const [other] = generateRecoveryCodes(1);
     const result = await redeemRecoveryCode({
       userId: USER,
       ipHash: IP,
-      input: other,
+      input: UNKNOWN_RECOVERY_CODE,
       pepper: PEPPER,
       store,
     });
@@ -174,12 +187,11 @@ describe('redeemRecoveryCode', () => {
 
   it('eventually locks after repeated wrong codes (no-match attempts count)', async () => {
     const store = makeStore(codes);
-    const [wrong] = generateRecoveryCodes(1);
     for (let i = 0; i < RECOVERY_MAX_FAILURES; i += 1) {
       await redeemRecoveryCode({
         userId: USER,
         ipHash: IP,
-        input: wrong,
+        input: UNKNOWN_RECOVERY_CODE,
         pepper: PEPPER,
         store,
       });

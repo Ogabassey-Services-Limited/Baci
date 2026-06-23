@@ -27,11 +27,15 @@ CREATE TABLE IF NOT EXISTS public.merchant_auth_recovery_codes (
 
 -- Active (usable) codes = not used, not revoked. Backs listActiveCodes().
 CREATE INDEX IF NOT EXISTS merchant_auth_recovery_codes_active_idx
-  ON public.merchant_auth_recovery_codes (user_id)
+  ON public.merchant_auth_recovery_codes (user_id, code_set_id)
   WHERE used_at IS NULL AND revoked_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS merchant_auth_recovery_codes_code_set_idx
   ON public.merchant_auth_recovery_codes (code_set_id);
+
+-- Backs ON DELETE CASCADE from auth.users and all-rows lookups by user.
+CREATE INDEX IF NOT EXISTS merchant_auth_recovery_codes_user_idx
+  ON public.merchant_auth_recovery_codes (user_id);
 
 -- ---------------------------------------------------------------------------
 -- Readiness: cached passkey_ready inputs (recomputed from joined tables).
