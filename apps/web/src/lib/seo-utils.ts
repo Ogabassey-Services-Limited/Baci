@@ -20,6 +20,7 @@ import {
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
+import { PLACEHOLDER_IMAGE } from './image-utils';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -2038,6 +2039,34 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
   }
 }
 
+function toAbsoluteSchemaImageUrl(
+  baseUrl: string,
+  ...values: Array<string | null | undefined>
+): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    try {
+      const url = new URL(trimmed, baseUrl);
+      const isHttpImage = url.protocol === 'http:' || url.protocol === 'https:';
+      const isPlaceholder =
+        url.pathname === PLACEHOLDER_IMAGE ||
+        url.pathname.endsWith(PLACEHOLDER_IMAGE);
+
+      if (isHttpImage && !isPlaceholder) {
+        return url.toString();
+      }
+    } catch {
+      // Ignore malformed image candidates and continue to the next fallback.
+    }
+  }
+
+  return '';
+}
+
 /**
  * Generates CollectionPage schema for product listing pages (categories, collections).
  * @see https://schema.org/CollectionPage
@@ -2073,9 +2102,10 @@ export function generateCollectionPageSchema(
           data.url,
           getProductUrl(product)
         );
-        const productImage = toAbsoluteSchemaUrl(
+        const productImage = toAbsoluteSchemaImageUrl(
           data.url,
-          product.imageLarge || product.image
+          product.imageLarge,
+          product.image
         );
 
         return {

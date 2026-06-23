@@ -2056,6 +2056,66 @@ describe('generateCollectionPageSchema', () => {
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
   });
 
+  it('omits placeholder product images from collection-page Product JSON-LD', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'No Image Phone',
+          slug: 'no-image-phone',
+          category: 'Smartphones',
+          image: '/placeholder.svg',
+          imageLarge: '/placeholder.svg',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(product.image).toBeUndefined();
+  });
+
+  it('falls back to a real image when imageLarge is the local placeholder', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'Phone With Image',
+          slug: 'phone-with-image',
+          category: 'Smartphones',
+          image: '/images/phone-with-image.jpg',
+          imageLarge: 'https://ogabassey.com/placeholder.svg?cache=1',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(product.image).toBe(
+      'https://ogabassey.com/images/phone-with-image.jpg'
+    );
+  });
+
   it('omits the page url when the collection URL cannot be normalized', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',
