@@ -138,50 +138,50 @@ export function useCheckoutSubmit({
       return;
     }
 
-    // Freeze step: reconcile against the live catalog before charging. If a
-    // price drifted, update the cart, tell the shopper, and abort so they
-    // re-confirm the new total — instead of being charged a stale price or
-    // hitting a server-side floor rejection (e.g. negotiated_price_below_floor).
-    // Runs AFTER validation so a double-tap / in-flight submit is rejected
-    // before we spend a reprice round-trip or mutate the cart, and BEFORE
-    // setIsProcessing(true) so an abort here never leaves checkout stuck in a
-    // processing state.
-    if (itemsSnapshot.length > 0) {
-      const reprice = await repriceCartItems(
-        itemsSnapshot,
-        CHECKOUT_MERCHANT_ID
-      );
-      if (reprice.changes.length > 0) {
-        useCartStore.getState().repriceItems(reprice.priceById);
-        Alert.alert(
-          'Prices updated',
-          'Some prices changed since you added these items. Your cart has been updated to the latest prices — please review the new total and tap checkout again.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-    }
-
     isOrderInFlight.current = true;
     setIsProcessing(true);
     const cartSnapshot = [...itemsSnapshot];
-    const snapshot = createCheckoutSnapshot(
-      itemsSnapshot,
-      deliveryFee,
-      orderTotals?.taxAmount ?? 0
-    );
-    const { liveSavingsSelection, liveWalletSelection } =
-      resolveCheckoutStoreCreditSelections({
-        getLiveSavingsSelection,
-        itemsSnapshot,
-        paymentTab,
-        selectedPayment,
-        snapshotTotal: snapshot.total,
-        walletBalance,
-        walletSelection,
-      });
 
     try {
+      // Freeze step: reconcile against the live catalog before charging. If a
+      // price drifted, update the cart, tell the shopper, and abort so they
+      // re-confirm the new total — instead of being charged a stale price or
+      // hitting a server-side floor rejection (e.g. negotiated_price_below_floor).
+      // The in-flight lock is already engaged before this async round trip, so
+      // double taps cannot start another submit while repricing is pending; the
+      // finally block below releases the lock for price-drift aborts and errors.
+      if (itemsSnapshot.length > 0) {
+        const reprice = await repriceCartItems(
+          itemsSnapshot,
+          CHECKOUT_MERCHANT_ID
+        );
+        if (reprice.changes.length > 0) {
+          useCartStore.getState().repriceItems(reprice.priceById);
+          Alert.alert(
+            'Prices updated',
+            'Some prices changed since you added these items. Your cart has been updated to the latest prices — please review the new total and tap checkout again.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+
+      const snapshot = createCheckoutSnapshot(
+        itemsSnapshot,
+        deliveryFee,
+        orderTotals?.taxAmount ?? 0
+      );
+      const { liveSavingsSelection, liveWalletSelection } =
+        resolveCheckoutStoreCreditSelections({
+          getLiveSavingsSelection,
+          itemsSnapshot,
+          paymentTab,
+          selectedPayment,
+          snapshotTotal: snapshot.total,
+          walletBalance,
+          walletSelection,
+        });
+
       trackCheckoutStep('review');
       const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
