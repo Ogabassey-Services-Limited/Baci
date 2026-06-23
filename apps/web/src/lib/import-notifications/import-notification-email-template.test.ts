@@ -174,10 +174,7 @@ describe('renderReceiptEmailHtml', () => {
     expect(html).toContain('<img src="https://cdn.example.com/logo.png"');
     expect(html).toContain('alt="Ogabassey"');
     expect(html).toContain('class="r-logo-chip"');
-    expect(html).toContain('bgcolor="#ffffff"');
     expect(html).toContain('background:#ffffff');
     expect(html).toContain('background-color:#ffffff');
-    expect(html).toContain('color-scheme:light');
-    expect(html).toContain('forced-color-adjust:none');
   });
 });

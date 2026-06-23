@@ -7,7 +7,7 @@ const CTA_FALLBACK_HTML = `<span style="display:inline-block;color:#b51920;font-
 const DARK_MODE_STYLES = `@media (prefers-color-scheme:dark){
 .r-bg{background-color:#0b0b0c!important;}
 .r-card{background-color:#161618!important;border-color:#2a2a2e!important;}
-.r-logo-chip{background:#ffffff!important;background-color:#ffffff!important;border-color:#ffffff!important;color:#111827!important;color-scheme:light!important;forced-color-adjust:none!important;}
+.r-logo-chip{background:#ffffff!important;background-color:#ffffff!important;border-color:#ffffff!important;color:#111827!important;}
 .r-strong{color:#f4f4f5!important;}
 .r-muted{color:#c3c5cc!important;}
 .r-faint{color:#8a8d94!important;}
@@ -121,8 +121,8 @@ function renderBrandLockup(brandWordmark: string, logoUrl?: string): string {
   if (logoUrl) {
     return `<td valign="middle">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="r-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:9px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;">
-<img src="${logoUrl}" alt="${brandWordmark}" height="22" style="display:block;border:0;outline:none;text-decoration:none;height:22px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;">
+<td class="r-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:9px;padding:8px 12px;line-height:0;color:#111827;">
+<img src="${logoUrl}" alt="${brandWordmark}" height="22" style="display:block;border:0;outline:none;text-decoration:none;height:22px;width:auto;max-width:220px;background-color:#ffffff;">
 </td>
 </tr></table>
 </td>`;
