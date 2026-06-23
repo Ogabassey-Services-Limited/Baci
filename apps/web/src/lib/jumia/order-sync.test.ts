@@ -158,6 +158,21 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     expect(notificationClaimQuery.update).toHaveBeenCalledWith({
       notification_claimed_at: expect.any(String),
     });
+    const cacheUpsertPayload = cacheQuery.upsert.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(cacheUpsertPayload).toEqual(
+      expect.objectContaining({
+        baci_order_id: 'baci-order-1',
+        jumia_order_id: order.id,
+      })
+    );
+    expect(cacheUpsertPayload).not.toHaveProperty('notification_sent');
+    expect(cacheQuery.upsert).toHaveBeenCalledWith(expect.any(Object), {
+      defaultToNull: false,
+      onConflict: 'jumia_order_id',
+    });
     expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
       notification_claimed_at: null,
       notification_sent: true,

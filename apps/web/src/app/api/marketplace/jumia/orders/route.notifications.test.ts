@@ -106,7 +106,7 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
     );
   });
 
-  it('does not mark notification_sent when no pushes are accepted', async () => {
+  it('does not mark notification_sent when push delivery reports failures', async () => {
     harness.mocks.getAllOrders.mockResolvedValue([
       harness.createOrder('order-1'),
     ]);
@@ -138,7 +138,7 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
     ]);
     expect(harness.mocks.loggerError).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'No Jumia order push notifications were accepted',
+        message: 'Jumia order push notification delivery failed',
         orderId: 'order-1',
       })
     );
@@ -147,6 +147,49 @@ describe('POST /api/marketplace/jumia/orders notification markers', () => {
         (mutation) => mutation.table === 'marketplace_integrations'
       )
     ).toBe(false);
+  });
+
+  it('keeps manual sync successful when no push recipients exist', async () => {
+    harness.mocks.getAllOrders.mockResolvedValue([
+      harness.createOrder('order-1'),
+    ]);
+    harness.mocks.notifyJumiaOrder.mockResolvedValueOnce({
+      errors: [],
+      failed: 0,
+      sent: 0,
+    });
+
+    const response = await POST(harness.createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.newOrders).toBe(1);
+    expect(
+      harness.mocks.mutations.some(
+        (mutation) => mutation.payload.notification_sent === true
+      )
+    ).toBe(false);
+    const claimMutation = harness.mocks.mutations.find(
+      (mutation) => typeof mutation.payload.notification_claimed_at === 'string'
+    );
+    const releaseMutation = harness.mocks.mutations.find(
+      (mutation) => mutation.payload.notification_claimed_at === null
+    );
+    expect(releaseMutation?.filters).toContainEqual([
+      'notification_claimed_at',
+      claimMutation?.payload.notification_claimed_at,
+    ]);
+    expect(harness.mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'No Jumia order push notification recipients available',
+        orderId: 'order-1',
+      })
+    );
+    expect(
+      harness.mocks.mutations.some(
+        (mutation) => mutation.table === 'marketplace_integrations'
+      )
+    ).toBe(true);
   });
 
   it('fails the manual sync when another sync holds the notification claim without a sent marker', async () => {

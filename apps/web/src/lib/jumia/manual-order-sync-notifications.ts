@@ -168,19 +168,28 @@ export async function sendManualJumiaNotifications(
         write.currency
       );
       if (deliveryResult.sent <= 0) {
-        markerFailed = true;
-        await releaseManualJumiaNotificationClaim({
+        const releaseError = await releaseManualJumiaNotificationClaim({
           claimedAt: claim.claimedAt,
           orderId: write.orderId,
           merchantId,
           supabase,
         });
-        logger.error({
-          message: 'No Jumia order push notifications were accepted',
-          orderId: write.orderId,
-          orderNumber: write.orderNumber,
-          deliveryResult,
-        });
+        if (releaseError) markerFailed = true;
+        if (deliveryResult.failed > 0 || deliveryResult.errors.length > 0) {
+          markerFailed = true;
+          logger.error({
+            message: 'Jumia order push notification delivery failed',
+            orderId: write.orderId,
+            orderNumber: write.orderNumber,
+            deliveryResult,
+          });
+        } else {
+          logger.warn({
+            message: 'No Jumia order push notification recipients available',
+            orderId: write.orderId,
+            orderNumber: write.orderNumber,
+          });
+        }
         continue;
       }
     } catch (pushError) {

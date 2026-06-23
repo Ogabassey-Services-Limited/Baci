@@ -277,12 +277,17 @@ describe('Jumia order sync notification markers', () => {
 
     expect(notifyMerchant).not.toHaveBeenCalled();
     expect(alreadySentQuery.eq).toHaveBeenCalledWith('notification_sent', true);
-    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+    const duplicateUpsertPayload = duplicateCacheQuery.upsert.mock
+      .calls[0]?.[0] as Record<string, unknown>;
+    expect(duplicateUpsertPayload).toEqual(
       expect.objectContaining({
-        notification_sent: true,
         baci_order_id: 'baci-order-1',
-      }),
-      { onConflict: 'jumia_order_id' }
+      })
+    );
+    expect(duplicateUpsertPayload).not.toHaveProperty('notification_sent');
+    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+      expect.any(Object),
+      { defaultToNull: false, onConflict: 'jumia_order_id' }
     );
     expect(result).toEqual(
       expect.objectContaining({
@@ -293,7 +298,7 @@ describe('Jumia order sync notification markers', () => {
     );
   });
 
-  it('parks the sync cursor when no merchant push delivery is accepted', async () => {
+  it('advances the sync cursor when no merchant push recipients exist', async () => {
     const notificationClaimQuery = createQuery({
       data: { jumia_order_id: order.id },
       error: null,
@@ -326,24 +331,21 @@ describe('Jumia order sync notification markers', () => {
     });
     expect(result).toEqual(
       expect.objectContaining({
-        synced: 0,
+        synced: 1,
         notified: 0,
-        orderErrors: 1,
+        orderErrors: 0,
       })
     );
-    expect(result.errors).toEqual([
-      'merchant-1/jumia-order-1: No merchant push notification delivery was accepted for the Jumia order',
-    ]);
+    expect(result.errors).toEqual([]);
     const updatePayload = syncCursorQuery.update.mock.calls[0]?.[0] as
       | Record<string, unknown>
       | undefined;
     expect(updatePayload).toEqual(
       expect.objectContaining({
-        last_sync_at: order.updatedAt,
-        sync_error: expect.stringContaining('cursor parked'),
+        last_sync_at: expect.any(String),
+        sync_error: null,
       })
     );
-    expect(updatePayload?.sync_config).not.toHaveProperty('jumia_full_failure');
   });
 
   it('skips duplicate Jumia notifications after a marker retry failure in one run', async () => {
@@ -394,12 +396,17 @@ describe('Jumia order sync notification markers', () => {
         orderErrors: 1,
       })
     );
-    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+    const duplicateUpsertPayload = duplicateCacheQuery.upsert.mock
+      .calls[0]?.[0] as Record<string, unknown>;
+    expect(duplicateUpsertPayload).toEqual(
       expect.objectContaining({
-        notification_sent: true,
         baci_order_id: 'baci-order-1',
-      }),
-      { onConflict: 'jumia_order_id' }
+      })
+    );
+    expect(duplicateUpsertPayload).not.toHaveProperty('notification_sent');
+    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+      expect.any(Object),
+      { defaultToNull: false, onConflict: 'jumia_order_id' }
     );
     expect(result.errors).toEqual([
       'merchant-1/jumia-order-1: Failed to mark Jumia notification as sent: write timeout',
@@ -440,12 +447,17 @@ describe('Jumia order sync notification markers', () => {
     expect(notificationClaimQuery.update).toHaveBeenCalledWith({
       notification_claimed_at: expect.any(String),
     });
-    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+    const duplicateUpsertPayload = duplicateCacheQuery.upsert.mock
+      .calls[0]?.[0] as Record<string, unknown>;
+    expect(duplicateUpsertPayload).toEqual(
       expect.objectContaining({
-        notification_sent: true,
         baci_order_id: 'baci-order-1',
-      }),
-      { onConflict: 'jumia_order_id' }
+      })
+    );
+    expect(duplicateUpsertPayload).not.toHaveProperty('notification_sent');
+    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+      expect.any(Object),
+      { defaultToNull: false, onConflict: 'jumia_order_id' }
     );
     expect(result).toEqual(
       expect.objectContaining({
@@ -517,13 +529,20 @@ describe('Jumia order sync notification markers', () => {
     const result = await syncJumiaOrdersForActiveIntegrations(supabase);
 
     expect(notifyMerchant).not.toHaveBeenCalled();
-    expect(cacheQuery.upsert).toHaveBeenCalledWith(
+    const cacheUpsertPayload = cacheQuery.upsert.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(cacheUpsertPayload).toEqual(
       expect.objectContaining({
-        notification_sent: true,
         baci_order_id: 'baci-order-1',
-      }),
-      { onConflict: 'jumia_order_id' }
+      })
     );
+    expect(cacheUpsertPayload).not.toHaveProperty('notification_sent');
+    expect(cacheQuery.upsert).toHaveBeenCalledWith(expect.any(Object), {
+      defaultToNull: false,
+      onConflict: 'jumia_order_id',
+    });
     expect(result).toEqual(
       expect.objectContaining({
         synced: 1,

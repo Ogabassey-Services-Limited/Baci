@@ -91,15 +91,24 @@ async function syncIntegration(
         existingJumia,
         canonicalOrder.id
       );
+      const { notification_sent: notificationSent, ...cacheRowForUpsert } =
+        cacheRow;
       const { error: cacheError } = await supabase
         .from('jumia_orders')
-        .upsert(cacheRow, { onConflict: 'jumia_order_id' });
+        .upsert(cacheRowForUpsert, {
+          defaultToNull: false,
+          onConflict: 'jumia_order_id',
+        });
       if (cacheError) {
         throw new Error(`Failed to cache Jumia order: ${cacheError.message}`);
       }
       existingJumiaOrders.set(
         order.id,
-        cacheEntry(order.id, cacheRow.notification_sent, canonicalOrder.id)
+        cacheEntry(
+          order.id,
+          existingJumia?.notification_sent ?? notificationSent,
+          canonicalOrder.id
+        )
       );
       // The canonical order and Jumia cache row are durable at this point.
       // Notification-only retry misses should park the cursor in the partial

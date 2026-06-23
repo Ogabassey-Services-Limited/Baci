@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   inQueries: [] as Array<{ column: string; values: string[] }>,
   loggerError: vi.fn(),
+  loggerWarn: vi.fn(),
   notificationAlreadySentRows: null as ExistingJumiaOrder[] | null,
   notificationStates: null as ExistingJumiaOrder[] | null,
   mutations: [] as MutationRecord[],
@@ -87,6 +88,7 @@ vi.mock('@/lib/jumia/orders', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: (...args: unknown[]) => mocks.loggerError(...args),
+    warn: (...args: unknown[]) => mocks.loggerWarn(...args),
   },
 }));
 

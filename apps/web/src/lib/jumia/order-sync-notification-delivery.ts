@@ -139,10 +139,6 @@ export async function deliverSyncedJumiaOrderNotification({
     });
     const result: SyncedJumiaNotificationDeliveryResult = {
       ...notificationResult,
-      retryableMessage:
-        notificationResult.failed > 0 || notificationResult.errors.length > 0
-          ? undefined
-          : 'No merchant push notification delivery was accepted for the Jumia order',
     };
     if (releaseError) {
       result.markerErrorMessage = `Failed to release Jumia notification delivery lease: ${releaseError.message}`;

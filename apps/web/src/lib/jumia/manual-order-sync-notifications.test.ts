@@ -14,8 +14,12 @@ vi.mock('@/lib/expo-push', () => ({
 }));
 
 const loggerError = vi.fn();
+const loggerWarn = vi.fn();
 vi.mock('@/lib/logger', () => ({
-  logger: { error: (...args: unknown[]) => loggerError(...args) },
+  logger: {
+    error: (...args: unknown[]) => loggerError(...args),
+    warn: (...args: unknown[]) => loggerWarn(...args),
+  },
 }));
 
 vi.mock('./order-sync-notifications', () => ({
@@ -149,7 +153,7 @@ describe('sendManualJumiaNotifications', () => {
     );
   });
 
-  it('releases the claim and fails closed when no push delivery is accepted', async () => {
+  it('releases the claim and keeps manual sync successful when no push recipients exist', async () => {
     vi.mocked(notifyJumiaOrder).mockResolvedValueOnce({
       sent: 0,
       failed: 0,
@@ -162,12 +166,19 @@ describe('sendManualJumiaNotifications', () => {
       [createWrite()]
     );
 
-    expect(result).toEqual({ markerFailed: true, newOrders: 1 });
+    expect(result).toEqual({ markerFailed: false, newOrders: 1 });
     expect(releaseJumiaNotificationDeliveryClaim).toHaveBeenCalledWith(
       expect.anything(),
       'merchant-1',
       'order-1',
       '2026-06-22T12:00:00.000Z'
+    );
+    expect(loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'No Jumia order push notification recipients available',
+        orderId: 'order-1',
+        orderNumber: 'NO-1',
+      })
     );
   });
 
@@ -193,6 +204,35 @@ describe('sendManualJumiaNotifications', () => {
         message: 'Failed to release Jumia notification delivery lease',
         orderId: 'order-1',
         error: { message: 'release timeout' },
+      })
+    );
+  });
+
+  it('fails closed when push delivery reports provider failures', async () => {
+    vi.mocked(notifyJumiaOrder).mockResolvedValueOnce({
+      sent: 0,
+      failed: 1,
+      errors: ['Expo outage'],
+    });
+
+    const result = await sendManualJumiaNotifications(
+      createSupabaseWithNotificationRows([]),
+      'merchant-1',
+      [createWrite()]
+    );
+
+    expect(result).toEqual({ markerFailed: true, newOrders: 1 });
+    expect(releaseJumiaNotificationDeliveryClaim).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      'order-1',
+      '2026-06-22T12:00:00.000Z'
+    );
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Jumia order push notification delivery failed',
+        orderId: 'order-1',
+        orderNumber: 'NO-1',
       })
     );
   });

@@ -103,7 +103,7 @@ describe('deliverSyncedJumiaOrderNotification', () => {
     );
   });
 
-  it('releases the claim and returns retryable state when no push is accepted', async () => {
+  it('releases the claim and treats zero-token delivery as skipped', async () => {
     vi.mocked(notifySyncedJumiaOrder).mockResolvedValueOnce({
       sent: 0,
       failed: 0,
@@ -114,8 +114,6 @@ describe('deliverSyncedJumiaOrderNotification', () => {
       sent: 0,
       failed: 0,
       errors: [],
-      retryableMessage:
-        'No merchant push notification delivery was accepted for the Jumia order',
     });
     expect(releaseJumiaNotificationDeliveryClaim).toHaveBeenCalledWith(
       supabase,
@@ -125,7 +123,7 @@ describe('deliverSyncedJumiaOrderNotification', () => {
     );
   });
 
-  it('surfaces release failures when no push is accepted', async () => {
+  it('surfaces release failures when zero-token delivery is skipped', async () => {
     vi.mocked(notifySyncedJumiaOrder).mockResolvedValueOnce({
       sent: 0,
       failed: 0,
@@ -141,14 +139,32 @@ describe('deliverSyncedJumiaOrderNotification', () => {
       errors: [],
       markerErrorMessage:
         'Failed to release Jumia notification delivery lease: release timeout',
-      retryableMessage:
-        'No merchant push notification delivery was accepted for the Jumia order',
     });
     expect(loggerError).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Failed to release Jumia notification delivery lease',
         jumiaOrderId: 'jumia-order-1',
       })
+    );
+  });
+
+  it('releases the claim and returns failed push delivery details', async () => {
+    vi.mocked(notifySyncedJumiaOrder).mockResolvedValueOnce({
+      sent: 0,
+      failed: 1,
+      errors: ['Expo outage'],
+    });
+
+    await expect(callDelivery()).resolves.toEqual({
+      sent: 0,
+      failed: 1,
+      errors: ['Expo outage'],
+    });
+    expect(releaseJumiaNotificationDeliveryClaim).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'jumia-order-1',
+      '2026-06-22T12:00:00.000Z'
     );
   });
 
