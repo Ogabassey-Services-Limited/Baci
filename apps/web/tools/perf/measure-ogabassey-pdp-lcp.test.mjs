@@ -49,4 +49,31 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
       ])
     );
   });
+
+  it('preserves the legacy raw output directory and PDP default URL', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-pdp-raw-test-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-pdp-lcp.mjs'
+    );
+    const env = wrapperEnv(outputDir);
+    delete env.OGABASSEY_AUDIT_OUTPUT_DIR;
+    env.DEBUGBEAR_RAW_DIR = outputDir;
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env,
+    });
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(
+      await readFile(join(outputDir, 'summary.json'), 'utf8')
+    );
+    expect(summary.targets).toEqual([
+      {
+        label: 'pdp-dell',
+        url: 'https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090',
+      },
+    ]);
+  });
 });

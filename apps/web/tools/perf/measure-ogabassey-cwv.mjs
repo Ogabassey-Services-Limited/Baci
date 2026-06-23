@@ -24,7 +24,8 @@ const appRoot = fileURLToPath(new URL('../..', import.meta.url));
 await loadEnvFile(join(repoRoot, '.env.local'));
 await loadEnvFile(join(appRoot, '.env.local'));
 const auditId = new Date().toISOString().replace(/[:.]/g, '-');
-const customOutputDir = process.env.OGABASSEY_AUDIT_OUTPUT_DIR || '';
+const customOutputDir =
+  process.env.OGABASSEY_AUDIT_OUTPUT_DIR || process.env.DEBUGBEAR_RAW_DIR || '';
 const outputDir =
   customOutputDir ||
   join(repoRoot, 'output/audits', `ogabassey-cwv-${auditId}`);
@@ -53,7 +54,18 @@ const isDebugBearExplicitlyEnabled = ['1', 'true', 'yes', 'on'].includes(
 const isDebugBearDisabled = ['0', 'false', 'no', 'off'].includes(
   debugBearSetting
 );
-const shouldRunDebugBear = !isDebugBearDisabled && Boolean(debugBearApiKey);
+const hasDebugBearCredentials = Boolean(debugBearApiKey);
+const hasDiscoverableDebugBearProject = Boolean(
+  debugBearProjectId || debugBearAdminApiKey
+);
+const hasInvalidDebugBearDiscoveryConfig =
+  !isDebugBearDisabled &&
+  hasDebugBearCredentials &&
+  !hasDiscoverableDebugBearProject;
+const shouldRunDebugBear =
+  !isDebugBearDisabled &&
+  hasDebugBearCredentials &&
+  hasDiscoverableDebugBearProject;
 const shouldRunPsi = process.env.OGABASSEY_CWV_PSI !== '0';
 const shouldRunExternalProbes = shouldRunPsi || shouldRunDebugBear;
 const targetLabelFilter = process.env.OGABASSEY_CWV_TARGET_LABELS || '';
@@ -119,9 +131,12 @@ const requestedPdpUrl =
   process.env.OGABASSEY_PDP_LCP_URL ||
   process.env.OGABASSEY_PDP_URL ||
   DEFAULT_OGABASSEY_CWV_TARGETS.pdp;
-const pdpUrl = shouldRunExternalProbes
-  ? await resolveCanonicalUrl(requestedPdpUrl)
-  : requestedPdpUrl;
+const shouldResolvePdpCanonical =
+  process.env.OGABASSEY_CWV_RESOLVE_PDP_CANONICAL !== '0';
+const pdpUrl =
+  shouldRunExternalProbes && shouldResolvePdpCanonical
+    ? await resolveCanonicalUrl(requestedPdpUrl)
+    : requestedPdpUrl;
 const targets = filterOgaBasseyCwvTargets(
   buildOgaBasseyCwvTargets({
     blogPostUrl,
@@ -145,12 +160,12 @@ const failures = [
         },
       ]
     : []),
-  ...(shouldRunDebugBear && !debugBearProjectId && !debugBearAdminApiKey
+  ...(hasInvalidDebugBearDiscoveryConfig
     ? [
         {
           label: 'debugbear-projects',
           message:
-            'DebugBear is enabled without DEBUGBEAR_PROJECT_ID, but DEBUGBEAR_ADMIN_API_KEY is not configured for project discovery.',
+            'DebugBear requires DEBUGBEAR_PROJECT_ID or DEBUGBEAR_ADMIN_API_KEY before scheduling quick tests.',
           source: 'configuration',
         },
       ]
@@ -160,7 +175,7 @@ const failures = [
         {
           label: 'measurement',
           message:
-            'No CWV provider is scheduled. Enable PageSpeed Insights or configure DebugBear with an API key.',
+            'No CWV provider is scheduled. Enable PageSpeed Insights or configure DebugBear with an API key and project discovery.',
           source: 'configuration',
         },
       ]
@@ -237,14 +252,15 @@ if (shouldRunDebugBear) {
       const debugBearResult = await debugBearRunner.run(target, projects);
       const artifact = `${target.label}-debugbear.json`;
       await writeArtifact(artifact, debugBearResult.payload);
+      if (debugBearResult.summary) {
+        summaries.push(debugBearResult.summary);
+      }
       if (debugBearResult.failure) {
         failures.push({
           label: target.label,
           message: debugBearResult.failure,
           source: 'debugbear',
         });
-      } else {
-        summaries.push(debugBearResult.summary);
       }
     } catch (error) {
       failures.push({

@@ -104,19 +104,20 @@ export function createDebugBearRunner({
 
     const failureMessage = getDebugBearFailureMessage(result);
     const payload = { created, result };
-    if (failureMessage) return { failure: failureMessage, payload };
+    const summary = summarizeDebugBearResult({
+      body: result,
+      device,
+      label: target.label,
+      projectId: resolvedProjectId,
+      quickTestId,
+      region,
+      url: target.url,
+    });
 
     return {
+      ...(failureMessage ? { failure: failureMessage } : {}),
       payload,
-      summary: summarizeDebugBearResult({
-        body: result,
-        device,
-        label: target.label,
-        projectId: resolvedProjectId,
-        quickTestId,
-        region,
-        url: target.url,
-      }),
+      summary,
     };
   }
 

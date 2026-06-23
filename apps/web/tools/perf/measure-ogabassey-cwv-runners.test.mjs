@@ -80,6 +80,12 @@ describe('createDebugBearRunner', () => {
     expect(requests[0].init.headers).toMatchObject({
       'x-api-key': 'project-key',
     });
-    expect(result).toMatchObject({ failure: 'Synthetic failure' });
+    expect(result).toMatchObject({
+      failure: 'Synthetic failure',
+      summary: expect.objectContaining({
+        label: 'home',
+        source: 'debugbear',
+      }),
+    });
   });
 });

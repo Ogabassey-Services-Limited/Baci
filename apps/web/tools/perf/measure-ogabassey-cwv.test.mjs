@@ -55,4 +55,36 @@ describe('measure-ogabassey-cwv CLI', () => {
       'blog-index',
     ]);
   });
+
+  it('fails before scheduling DebugBear when project discovery is unavailable', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-test-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-cwv.mjs'
+    );
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env: {
+        ...scriptEnv(outputDir),
+        DEBUGBEAR_API_KEY: 'project-key-without-project-id',
+        OGABASSEY_CWV_DEBUGBEAR: '1',
+        OGABASSEY_CWV_PSI: '0',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(
+      await readFile(join(outputDir, 'summary.json'), 'utf8')
+    );
+    expect(summary.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'debugbear-projects',
+          message: expect.stringContaining('DEBUGBEAR_PROJECT_ID'),
+          source: 'configuration',
+        }),
+      ])
+    );
+  });
 });
