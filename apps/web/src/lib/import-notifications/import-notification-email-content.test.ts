@@ -176,6 +176,33 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('alt="Ogabassey"');
   });
 
+  it('does not use the Ogabassey logo for merchants with similar names', () => {
+    const merchantLogoUrl =
+      'https://cdn.example.com/media/ogabassey-reseller-logo.png';
+    const resellerMerchant: MerchantNotificationContext = {
+      ...merchant,
+      slug: 'ogabassey-reseller',
+      business_name: 'Ogabassey Reseller',
+      custom_domain: 'shop-ogabassey.example.com',
+      logo_url: merchantLogoUrl,
+    };
+    const delivery = appFirstDelivery(resellerMerchant);
+
+    const content = buildReceiptNotificationEmailContent({
+      merchant: resellerMerchant,
+      recipientName: 'Ada',
+      delivery,
+      claimUrl: 'https://shop-ogabassey.example.com/receipts/claim/token',
+      devices: ['iPhone 16 Pro Max'],
+    });
+
+    expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
+    expect(content.htmlContent).not.toContain(
+      `<img src="${OGABASSEY_EMAIL_LOGO_URL}"`
+    );
+    expect(content.htmlContent).toContain('alt="Ogabassey Reseller"');
+  });
+
   it('falls back to the wordmark when the logo is an SVG (email-unsafe)', () => {
     const futureMerchant: MerchantNotificationContext = {
       ...merchant,

@@ -216,15 +216,12 @@ function hexToRgb(hex: string): string {
 }
 
 function isOgabasseyBrand(branding: MerchantBranding): boolean {
-  const identity = [
-    branding.businessName,
-    branding.slug ?? '',
-    branding.customDomain ?? '',
-  ]
-    .join(' ')
-    .toLowerCase();
+  const slug = branding.slug?.toLowerCase();
+  const customDomain = branding.customDomain
+    ?.toLowerCase()
+    .replace(/^www\./, '');
 
-  return identity.includes('ogabassey');
+  return slug === 'ogabassey' || customDomain === 'ogabassey.com';
 }
 
 function renderLogo(branding: MerchantBranding, safeBrandName: string): string {

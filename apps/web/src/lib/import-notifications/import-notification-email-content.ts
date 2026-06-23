@@ -71,11 +71,12 @@ function getReceiptBrandColor(merchant: MerchantNotificationContext) {
  * SVGs, so those fall back to the text wordmark.
  */
 function isOgabasseyMerchant(merchant: MerchantNotificationContext): boolean {
-  return [merchant.slug, merchant.business_name, merchant.custom_domain]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-    .includes('ogabassey');
+  const slug = merchant.slug?.toLowerCase();
+  const customDomain = merchant.custom_domain
+    ?.toLowerCase()
+    .replace(/^www\./, '');
+
+  return slug === 'ogabassey' || customDomain === 'ogabassey.com';
 }
 
 function emailSafeLogoUrl(merchant: MerchantNotificationContext): string {

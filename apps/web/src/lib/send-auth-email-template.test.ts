@@ -111,6 +111,32 @@ describe('send-auth-email template helpers', () => {
     expect(html).not.toContain('display:inline-table');
   });
 
+  it('does not use the Ogabassey logo for merchants with similar names', () => {
+    const resellerLogoUrl =
+      'https://cdn.example.com/media/ogabassey-reseller-logo.png';
+
+    const html = generateEmailHtml(
+      getEmailConfig('magiclink', 'Ogabassey Reseller'),
+      'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
+      {
+        businessName: 'Ogabassey Reseller',
+        customDomain: 'shop-ogabassey.example.com',
+        emailSenderName: 'Ogabassey Reseller',
+        logoUrl: resellerLogoUrl,
+        primaryColor: '#d62027',
+        buttonColor: '#d62027',
+        buttonTextColor: '#ffffff',
+        slug: 'ogabassey-reseller',
+        supportEmail: 'support@example.com',
+      },
+      '123456',
+      'https://shop-ogabassey.example.com/account/verify'
+    );
+
+    expect(html).toContain(`<img src="${resellerLogoUrl}"`);
+    expect(html).not.toContain(`<img src="${ogabasseyEmailLogoUrl}"`);
+  });
+
   it('omits the Ogabassey CTA when the action URL is unsafe', () => {
     const config = getEmailConfig('magiclink', 'Ogabassey');
     const branding = {
