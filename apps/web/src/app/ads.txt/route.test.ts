@@ -7,8 +7,8 @@ function requestForHost(host: string): Request {
   });
 }
 
-describe('storefront ads.txt route', () => {
-  it('serves plain text with caching headers without rendering the storefront page', () => {
+describe('platform ads.txt route', () => {
+  it('serves plain text with host-scoped caching headers', () => {
     const response = GET(requestForHost('unknown-merchant.com'));
 
     expect(response.headers.get('content-type')).toBe(
@@ -20,15 +20,7 @@ describe('storefront ads.txt route', () => {
     expect(response.headers.get('vary')).toBe('Host');
   });
 
-  it('returns the no-sellers stub for an unrecognized custom domain', async () => {
-    const response = GET(requestForHost('some-third-party-store.com'));
-
-    await expect(response.text()).resolves.toContain(
-      'No authorized digital sellers'
-    );
-  });
-
-  it('authorizes the platform AdSense account on the usebaci.com apex', async () => {
+  it('authorizes the usebaci.com platform apex', async () => {
     const response = GET(requestForHost('usebaci.com'));
 
     await expect(response.text()).resolves.toBe(
@@ -44,20 +36,13 @@ describe('storefront ads.txt route', () => {
     );
   });
 
-  it('authorizes the owned ogabassey.com flagship domain', async () => {
-    const response = GET(requestForHost('ogabassey.com'));
-
-    await expect(response.text()).resolves.toContain(
-      'pub-9332275663101466, DIRECT'
-    );
-  });
-
-  it('authorizes the www. subdomain of the owned flagship domain', async () => {
-    const response = GET(requestForHost('www.ogabassey.com'));
-
-    await expect(response.text()).resolves.toContain(
-      'pub-9332275663101466, DIRECT'
-    );
+  it('authorizes the owned ogabassey.com flagship and its www host', async () => {
+    for (const host of ['ogabassey.com', 'www.ogabassey.com']) {
+      const response = GET(requestForHost(host));
+      await expect(response.text()).resolves.toContain(
+        'pub-9332275663101466, DIRECT'
+      );
+    }
   });
 
   it('ignores port suffixes and casing when matching owned hosts', async () => {
@@ -65,6 +50,14 @@ describe('storefront ads.txt route', () => {
 
     await expect(response.text()).resolves.toContain(
       'pub-9332275663101466, DIRECT'
+    );
+  });
+
+  it('returns the no-sellers stub for unrecognized third-party domains', async () => {
+    const response = GET(requestForHost('some-third-party-store.com'));
+
+    await expect(response.text()).resolves.toContain(
+      'No authorized digital sellers'
     );
   });
 });
