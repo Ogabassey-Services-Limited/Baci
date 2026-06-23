@@ -47,6 +47,18 @@ const CURRENCY_FALLBACK_LOCALES: Record<string, string> = {
   ZAR: 'en-ZA',
 };
 
+function isValidCurrencyCode(currencyCode: string): boolean {
+  try {
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getCurrencySymbolForCode(
   currencyCode: string,
   locale: string
@@ -77,7 +89,9 @@ function getPayoutCurrencyConfig(
   payoutCurrency?: string | null
 ): CurrencyConfig | null {
   const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
-  if (!normalizedCurrency) return null;
+  if (!normalizedCurrency || !isValidCurrencyCode(normalizedCurrency)) {
+    return null;
+  }
 
   const locale = CURRENCY_FALLBACK_LOCALES[normalizedCurrency] || 'en-US';
   return {
@@ -100,8 +114,8 @@ export const COMPACT_OPTIONS = {
  * Get currency configuration for a country
  * Defaults to USD if country not found
  *
- * @param countryCode - The country code. Takes precedence when provided.
- * @param payoutCurrency - Fallback currency code used when countryCode is absent.
+ * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
+ * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
  */
 export function getCurrencyConfig(
   countryCode?: string | null,
@@ -109,14 +123,18 @@ export function getCurrencyConfig(
 ): CurrencyConfig {
   const payoutConfig = getPayoutCurrencyConfig(payoutCurrency);
 
+  if (payoutConfig) {
+    return payoutConfig;
+  }
+
   if (!countryCode) {
-    return payoutConfig ?? DEFAULT_CURRENCY_CONFIG;
+    return DEFAULT_CURRENCY_CONFIG;
   }
 
   const country = getCountryByCode(countryCode);
 
   if (!country) {
-    return payoutConfig ?? DEFAULT_CURRENCY_CONFIG;
+    return DEFAULT_CURRENCY_CONFIG;
   }
 
   return {
@@ -227,8 +245,8 @@ export function formatCurrencyCompact(
 /**
  * Get just the currency symbol for a country
  *
- * @param countryCode - The country code. Takes precedence when provided.
- * @param payoutCurrency - Fallback currency code used when countryCode is absent.
+ * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
+ * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
  *
  * @example
  * getCurrencySymbol('NG') // "₦"
@@ -245,8 +263,8 @@ export function getCurrencySymbol(
 /**
  * Get the currency code for a country
  *
- * @param countryCode - The country code. Takes precedence when provided.
- * @param payoutCurrency - Fallback currency code used when countryCode is absent.
+ * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
+ * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
  *
  * @example
  * getCurrencyCode('NG') // "NGN"

@@ -47,8 +47,17 @@ describe('Currency Utils', () => {
       });
     });
 
-    it('prioritizes country currency over payout currency', () => {
+    it('prioritizes valid payout currency over country currency', () => {
       const config = getCurrencyConfig('US', 'NGN');
+      expect(config).toEqual({
+        code: 'NGN',
+        symbol: '₦',
+        locale: 'en-NG',
+      });
+    });
+
+    it('falls back to country currency when payout currency is invalid', () => {
+      const config = getCurrencyConfig('US', 'INVALID');
       expect(config).toEqual({
         code: 'USD',
         symbol: '$',
@@ -69,6 +78,14 @@ describe('Currency Utils', () => {
         code: 'GHS',
         symbol: 'GH₵',
         locale: 'en-GH',
+      });
+    });
+
+    it('uses default currency when country and payout currency are invalid', () => {
+      expect(getCurrencyConfig('ZZ', 'INVALID')).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
       });
     });
   });
@@ -121,6 +138,10 @@ describe('Currency Utils', () => {
     it('uses payout currency when country is missing', () => {
       expect(formatCurrency(1000, null, undefined, 'NGN')).toBe('₦1,000.00');
     });
+
+    it('uses payout currency when country is also set', () => {
+      expect(formatCurrency(1000, 'US', undefined, 'NGN')).toBe('₦1,000.00');
+    });
   });
 
   describe('formatCurrencyCompact', () => {
@@ -145,8 +166,13 @@ describe('Currency Utils', () => {
       expect(getCurrencySymbol(null, null)).toBe('$');
       expect(getCurrencyCode(null, undefined)).toBe('USD');
       expect(getCurrencySymbol(null, undefined)).toBe('$');
-      expect(getCurrencyCode(null, 'INVALID')).toBe('INVALID');
-      expect(getCurrencySymbol(null, 'INVALID')).toBe('INVALID');
+      expect(getCurrencyCode(null, 'INVALID')).toBe('USD');
+      expect(getCurrencySymbol(null, 'INVALID')).toBe('$');
+    });
+
+    it('uses payout currency for symbol and code when country is also set', () => {
+      expect(getCurrencyCode('US', 'NGN')).toBe('NGN');
+      expect(getCurrencySymbol('US', 'NGN')).toBe('₦');
     });
   });
 });
