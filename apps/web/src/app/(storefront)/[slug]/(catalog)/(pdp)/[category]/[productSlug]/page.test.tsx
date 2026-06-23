@@ -1772,13 +1772,20 @@ describe('[category]/[productSlug] page render', () => {
     const semanticSections = deferredDetailProps?.semanticSections;
 
     expect(isValidElement(semanticSections)).toBe(true);
+    const semanticBoundaryChildren = isValidElement(semanticSections)
+      ? (semanticSections as ReactElement<{ children?: ReactNode }>).props
+          .children
+      : undefined;
+    expect(isValidElement(semanticBoundaryChildren)).toBe(true);
     expect(
-      isValidElement(semanticSections) ? semanticSections.type : null
+      isValidElement(semanticBoundaryChildren)
+        ? semanticBoundaryChildren.type
+        : null
     ).toBe(Suspense);
     expect(
-      isValidElement(semanticSections)
-        ? (semanticSections as ReactElement<{ fallback?: ReactNode }>).props
-            .fallback
+      isValidElement(semanticBoundaryChildren)
+        ? (semanticBoundaryChildren as ReactElement<{ fallback?: ReactNode }>)
+            .props.fallback
         : undefined
     ).toBeNull();
     expect(

@@ -95,6 +95,7 @@ describe('OgabasseyPdpSemanticSections', () => {
         product,
         storeSlug: 'ogabassey',
         storeUrl: 'https://ogabassey.com',
+        trustBullets: ['Ships across Nigeria'],
       })
     );
 
@@ -121,10 +122,10 @@ describe('OgabasseyPdpSemanticSections', () => {
         storeUrl: 'https://ogabassey.com',
       })
     );
-    // The merchant trust-bullet merge was removed; the model is passed through
-    // as built (the "Before you buy" section no longer renders).
+    // Page-level trust bullets are merged outside the strict cached SEO-link
+    // data fetch so the cache boundary stays focused on inventory and guides.
     expect(screen.getByLabelText('semantic sections')).toHaveTextContent(
-      'Model trust bullet'
+      'Ships across Nigeria | Model trust bullet'
     );
   });
 });

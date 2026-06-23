@@ -26,6 +26,7 @@ import {
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { buildTrustBulletsFromProfile } from '@/lib/storefront-trust/build-trust-bullets-from-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 import type { ProductPageRuntimeProps } from './product-page-types';
@@ -39,39 +40,6 @@ interface SemanticInventoryCandidateProduct {
   stock?: number | null;
   category_slug?: string | null;
   product_key_specs?: Record<string, unknown> | null;
-}
-
-function buildTrustBulletsFromProfile(
-  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
-): string[] {
-  const bullets: string[] = [];
-  const returnPolicy = trustProfile.returnPolicy;
-  if (returnPolicy?.windowDays != null) {
-    bullets.push(
-      returnPolicy.returnFees === 'free'
-        ? `Free returns within ${returnPolicy.windowDays} days`
-        : `Returns within ${returnPolicy.windowDays} days`
-    );
-  }
-
-  const shippingPolicy = trustProfile.shippingPolicy;
-  const regions = shippingPolicy?.regions ?? [];
-  const regionsText = regions.join(' ').toLowerCase();
-  if (
-    regions.some(
-      (region) => region.toUpperCase() === 'NG' || /nigeria/i.test(region)
-    ) ||
-    /nationwide/.test(shippingPolicy?.summary ?? '') ||
-    /nigeria/.test(regionsText)
-  ) {
-    bullets.push('Ships across Nigeria');
-  }
-
-  if (trustProfile.whatsappNumber) {
-    bullets.push('WhatsApp support available');
-  }
-
-  return bullets;
 }
 
 export async function ProductPageRuntime({

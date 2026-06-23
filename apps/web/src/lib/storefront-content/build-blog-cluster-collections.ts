@@ -90,8 +90,14 @@ export function buildBlogClusterCollections(input: {
   posts: PublishedClusterPost[];
 }): BlogClusterCollection[] {
   const grouped = new Map<SupportedClusterCategory, InformationalGuideLink[]>();
+  const publishedTimestampsByHref = new Map<string, number>();
 
   for (const post of input.posts) {
+    publishedTimestampsByHref.set(
+      `${input.storeUrl}/blog/${post.slug}`,
+      toPublishedTimestamp(post.published_at)
+    );
+
     const inferred = inferContentClusterContext(post);
 
     if (!inferred.categorySlug || !inferred.kind) {
@@ -107,16 +113,8 @@ export function buildBlogClusterCollections(input: {
     const guides = (grouped.get(categorySlug) ?? [])
       .slice()
       .sort((left, right) => {
-        const leftPublished = toPublishedTimestamp(
-          input.posts.find(
-            (post) => `${input.storeUrl}/blog/${post.slug}` === left.href
-          )?.published_at ?? null
-        );
-        const rightPublished = toPublishedTimestamp(
-          input.posts.find(
-            (post) => `${input.storeUrl}/blog/${post.slug}` === right.href
-          )?.published_at ?? null
-        );
+        const leftPublished = publishedTimestampsByHref.get(left.href) ?? 0;
+        const rightPublished = publishedTimestampsByHref.get(right.href) ?? 0;
 
         return (
           rightPublished - leftPublished || left.href.localeCompare(right.href)

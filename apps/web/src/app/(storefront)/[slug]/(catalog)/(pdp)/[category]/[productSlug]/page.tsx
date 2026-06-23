@@ -77,6 +77,7 @@ import {
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { buildTrustBulletsFromProfile } from '@/lib/storefront-trust/build-trust-bullets-from-profile';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -1496,6 +1497,10 @@ async function CategoryProductPageContent({
           product={renderableProduct}
           storeSlug={slug}
           storeUrl={baseUrl}
+          trustBullets={[
+            priceSeoCopy.answer,
+            ...buildTrustBulletsFromProfile(trustProfile),
+          ]}
         />
       </Suspense>
     </SemanticSectionsErrorBoundary>

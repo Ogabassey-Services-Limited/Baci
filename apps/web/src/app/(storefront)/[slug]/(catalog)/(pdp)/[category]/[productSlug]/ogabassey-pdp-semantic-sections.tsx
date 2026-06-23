@@ -16,6 +16,7 @@ interface OgabasseyPdpSemanticSectionsProps {
   product: Product;
   storeSlug: string;
   storeUrl: string;
+  trustBullets: string[];
 }
 
 export async function OgabasseyPdpSemanticSections({
@@ -25,6 +26,7 @@ export async function OgabasseyPdpSemanticSections({
   product,
   storeSlug,
   storeUrl,
+  trustBullets,
 }: OgabasseyPdpSemanticSectionsProps) {
   // Strict, cache-isolated fetch: throws on a transient inventory failure so a
   // link-poor result is never cached (stale-while-revalidate serves last-good).
@@ -57,5 +59,12 @@ export async function OgabasseyPdpSemanticSections({
     guidePosts,
   });
 
-  return <ProductSemanticSections model={semanticModel} />;
+  return (
+    <ProductSemanticSections
+      model={{
+        ...semanticModel,
+        trustBullets: [...trustBullets, ...semanticModel.trustBullets],
+      }}
+    />
+  );
 }

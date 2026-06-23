@@ -94,4 +94,45 @@ describe('buildBlogClusterCollections', () => {
       'smartphones',
     ]);
   });
+
+  it('keeps each collection sorted by newest guide and capped at three links', () => {
+    const collections = buildBlogClusterCollections({
+      storeUrl: 'https://ogabassey.com',
+      posts: [
+        ...publishedGuidePosts,
+        {
+          slug: 'android-phone-buying-guide',
+          title: 'Android Phone Buying Guide',
+          excerpt: 'Android options by budget.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'android'],
+          keywords: ['battery', 'camera'],
+          featured_image_url: null,
+          published_at: '2026-04-11T09:00:00.000Z',
+          reading_time_minutes: 6,
+        },
+        {
+          slug: 'used-iphone-buying-guide',
+          title: 'Used iPhone Buying Guide',
+          excerpt: 'Used iPhone checks.',
+          category: 'Smartphones',
+          tags: ['smartphones', 'iphone'],
+          keywords: ['used', 'battery health'],
+          featured_image_url: null,
+          published_at: '2026-04-12T09:00:00.000Z',
+          reading_time_minutes: 5,
+        },
+      ],
+    });
+
+    expect(
+      collections
+        .find((section) => section.categorySlug === 'smartphones')
+        ?.guides.map((guide) => guide.href)
+    ).toEqual([
+      'https://ogabassey.com/blog/used-iphone-buying-guide',
+      'https://ogabassey.com/blog/android-phone-buying-guide',
+      'https://ogabassey.com/blog/best-phones-in-nigeria',
+    ]);
+  });
 });
