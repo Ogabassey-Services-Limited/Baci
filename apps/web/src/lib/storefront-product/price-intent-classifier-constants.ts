@@ -4,6 +4,9 @@ export const RATE_SPEC_PATTERN =
   /\b(?:refresh|sampling|touch|frame)\s+rates?\b/i;
 export const STORAGE_PATTERN = /\b\d{1,4}\s?(?:gb|tb|mb)\b/gi;
 export const STORAGE_TOKEN_PATTERN = /^\d{1,4}(?:gb|tb|mb)$/;
+export const SPEC_LABEL_TOKENS = new Set(
+  'capacity memory ram rom storage'.split(' ')
+);
 export const UK_USED_PATTERN = /\b(?:uk\s*used|uk-used|tokunbo)\b/i;
 export const USED_PATTERN = /\bused\b/i;
 
