@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
+import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
 
@@ -13,7 +14,7 @@ export function PostHogPageviewTracker() {
   useEffect(() => {
     const currentPathname = pathname ?? globalThis.location?.pathname;
 
-    if (!currentPathname) {
+    if (!currentPathname || isPublicBlogPathname(currentPathname)) {
       return;
     }
 

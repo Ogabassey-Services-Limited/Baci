@@ -18,7 +18,10 @@ export function PostHogClientBootstrap() {
       return;
     }
 
-    const isPublicBlog = isPublicBlogPathname(currentPathname);
+    if (isPublicBlogPathname(currentPathname)) {
+      return;
+    }
+
     let cancelled = false;
 
     async function initialize() {
@@ -32,10 +35,6 @@ export function PostHogClientBootstrap() {
         }
 
         initializePostHogBrowser(postHogBrowserEnv);
-
-        if (isPublicBlog) {
-          return;
-        }
 
         const { initializePostHogInstrumentationIfAllowed } = await import(
           '@/instrumentation-client'

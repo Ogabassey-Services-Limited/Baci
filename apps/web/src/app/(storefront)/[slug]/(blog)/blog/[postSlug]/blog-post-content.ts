@@ -460,17 +460,23 @@ function isInsidePictureTag(html: string, innerStart: number): boolean {
  * they survive SafeHtml's re-sanitization. External, non-inline, and legacy
  * inline images without the generated-sibling filename marker are left untouched.
  */
-export function wrapTrustedCdnInlineImagesInPicture(
+type WrappedTrustedCdnInlineImages = {
+  html: string;
+  priorityImageSources: string[];
+};
+
+function wrapTrustedCdnInlineImagesInPictureWithMetadata(
   html: string,
   {
     prioritizeFirstBodyImage = true,
   }: { prioritizeFirstBodyImage?: boolean } = {}
-): string {
+): WrappedTrustedCdnInlineImages {
   // Quote-aware <img> match: tolerate a literal `>` inside a quoted attribute
   // value (e.g. alt text) instead of truncating on the first `>`.
   let bodyImageIndex = 0;
+  const priorityImageSources: string[] = [];
 
-  return html.replace(
+  const wrappedHtml = html.replace(
     /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
     (imgTag, offset: number) => {
       const src = readHtmlTagAttribute(imgTag, 'src');
@@ -493,9 +499,16 @@ export function wrapTrustedCdnInlineImagesInPicture(
         src,
         readInlineImageDimensions(imgTag)
       );
+      const isFirstPriorityBodyImage =
+        prioritizeFirstBodyImage && bodyImageIndex === 1;
       const fallbackImg = buildResponsiveInlineImageTag(imgTag, siblings, {
-        isFirstBodyImage: prioritizeFirstBodyImage && bodyImageIndex === 1,
+        isFirstBodyImage: isFirstPriorityBodyImage,
       });
+
+      if (isFirstPriorityBodyImage) {
+        priorityImageSources.push(siblings.fallback);
+      }
+
       return (
         '<picture>' +
         `<source srcset="${siblings.avifSrcSet}" sizes="${siblings.sizes}" type="image/avif" />` +
@@ -504,6 +517,15 @@ export function wrapTrustedCdnInlineImagesInPicture(
       );
     }
   );
+
+  return { html: wrappedHtml, priorityImageSources };
+}
+
+export function wrapTrustedCdnInlineImagesInPicture(
+  html: string,
+  options: { prioritizeFirstBodyImage?: boolean } = {}
+): string {
+  return wrapTrustedCdnInlineImagesInPictureWithMetadata(html, options).html;
 }
 
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
@@ -537,6 +559,7 @@ export async function resolveBlogPostContent(
   const isHtml = trimmedContent.startsWith('<');
 
   let legacyHtml = '';
+  let legacyPriorityImageSources: string[] = [];
   if (!isJson) {
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
@@ -546,15 +569,21 @@ export async function resolveBlogPostContent(
       captionedHtml,
       options.fallbackImageAlt
     );
-    legacyHtml = wrapTrustedCdnInlineImagesInPicture(altedHtml, {
-      prioritizeFirstBodyImage: !options.hasPreloadedHeroImage,
-    });
+    const wrappedContent = wrapTrustedCdnInlineImagesInPictureWithMetadata(
+      altedHtml,
+      {
+        prioritizeFirstBodyImage: !options.hasPreloadedHeroImage,
+      }
+    );
+    legacyHtml = wrappedContent.html;
+    legacyPriorityImageSources = wrappedContent.priorityImageSources;
   }
 
   return {
     contentStr,
     isJson,
     legacyHtml,
+    legacyPriorityImageSources,
     renderedContent,
   };
 }

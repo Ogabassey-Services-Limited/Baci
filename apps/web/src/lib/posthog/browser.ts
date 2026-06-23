@@ -1,7 +1,6 @@
 import posthog from 'posthog-js';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
-import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const MISSING_TOKEN_WARNING =
   '[PostHog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is missing; web analytics and error capture are disabled.';
@@ -11,7 +10,6 @@ const POSTHOG_LOADED_STATE_CHECK_INTERVAL_MS = 250;
 const POSTHOG_LOADED_STATE_CHECK_ATTEMPTS = 40;
 
 let hasInitializedPostHogBrowser = false;
-let lastConfiguredPostHogLightweight: boolean | undefined;
 let isPostHogReadyForCapture = false;
 let isPostHogBrowserDisabled = false;
 let lastCapturedPostHogPageviewUrl: string | undefined;
@@ -23,16 +21,6 @@ const pendingPostHogPageviewUrls: string[] = [];
 
 function isPostHogDevelopmentMode(env: PostHogEnv): boolean {
   return (env.NODE_ENV ?? POSTHOG_NODE_ENV) === 'development';
-}
-
-function isLightweightPostHogSurface(): boolean {
-  if (typeof globalThis.location === 'undefined') {
-    return false;
-  }
-
-  return isPublicBlogPathname(globalThis.location.pathname, {
-    hostname: globalThis.location.hostname,
-  });
 }
 
 export function initializePostHogBrowser(
@@ -54,19 +42,13 @@ export function initializePostHogBrowser(
 
   isPostHogBrowserDisabled = false;
 
-  const lightweight = isLightweightPostHogSurface();
-  const clientConfig = buildPostHogClientConfig(env, projectToken, {
-    lightweight,
-  });
   if (hasInitializedPostHogBrowser) {
-    if (lastConfiguredPostHogLightweight !== lightweight) {
-      const { loaded: _loaded, ...runtimeConfig } = clientConfig;
-      posthog.set_config(runtimeConfig);
-      lastConfiguredPostHogLightweight = lightweight;
-    }
     return;
   }
 
+  const clientConfig = buildPostHogClientConfig(env, projectToken, {
+    lightweight: false,
+  });
   const clientLoaded = clientConfig.loaded;
 
   try {
@@ -85,7 +67,6 @@ export function initializePostHogBrowser(
       },
     });
     hasInitializedPostHogBrowser = true;
-    lastConfiguredPostHogLightweight = lightweight;
     postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
     schedulePostHogLoadedStateCheck();

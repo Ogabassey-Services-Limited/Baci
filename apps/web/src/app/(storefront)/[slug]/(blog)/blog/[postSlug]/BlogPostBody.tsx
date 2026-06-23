@@ -64,16 +64,14 @@ export async function BlogPostBody({
   // image. Keep body images lazy so the page never emits two high-priority image
   // candidates for the same viewport.
   const hasPreloadedHeroImage = true;
-  const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
-    content,
-    {
+  const { isJson, legacyHtml, legacyPriorityImageSources, renderedContent } =
+    await resolveBlogPostContent(content, {
       basePath,
       baseUrl,
       fallbackImageAlt: post.title,
       hasPreloadedHeroImage,
       merchantSlug,
-    }
-  );
+    });
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
   const safeRelatedProducts = relatedProducts.flatMap((product) => {
     const name = typeof product.name === 'string' ? product.name.trim() : '';
@@ -117,6 +115,7 @@ export async function BlogPostBody({
               legacyHtml,
               post.featured_image_url
             )}
+            trustedPriorityImageSources={legacyPriorityImageSources}
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600!"
           />
         )}

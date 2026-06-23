@@ -18,6 +18,11 @@ vi.mock('@/lib/posthog/browser', () => ({
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
 
+async function flushPostHogEffects() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('PostHogPageviewTracker', () => {
   beforeEach(() => {
     pathname = '/';
@@ -54,17 +59,15 @@ describe('PostHogPageviewTracker', () => {
     });
   });
 
-  it('captures public blog pageviews with lightweight browser initialization', async () => {
+  it('skips public blog pageviews', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     window.history.replaceState(null, '', pathname);
 
     render(<PostHogPageviewTracker />);
-    await waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
-    expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
-      'http://localhost:3000/ogabassey/blog/phone-guide'
-    );
+    await flushPostHogEffects();
+
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 
   it('captures after a client navigation from blog to a non-blog page', async () => {
@@ -72,11 +75,10 @@ describe('PostHogPageviewTracker', () => {
     window.history.replaceState(null, '', pathname);
     const { rerender } = render(<PostHogPageviewTracker />);
 
-    await waitFor(() => {
-      expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
-        'http://localhost:3000/ogabassey/blog/phone-guide'
-      );
-    });
+    await flushPostHogEffects();
+
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
 
     pathname = '/ogabassey/laptops/macbook-pro';
     window.history.pushState(null, '', pathname);
@@ -86,7 +88,7 @@ describe('PostHogPageviewTracker', () => {
       expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
         'http://localhost:3000/ogabassey/laptops/macbook-pro'
       );
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
   });
 });

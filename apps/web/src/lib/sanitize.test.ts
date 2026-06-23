@@ -85,12 +85,25 @@ describe('sanitize', () => {
     expect(output).not.toContain('fetchpriority=');
   });
 
-  it('keeps fetchpriority only for rewritten priority blog images', () => {
+  it('keeps fetchpriority only for internally trusted priority blog images', () => {
+    const priorityImageSource =
+      'https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png';
+
+    const output = sanitizeHtml(
+      `<img src="${priorityImageSource}" alt="Hero" data-baci-priority-image="true" fetchpriority="high">`,
+      { trustedPriorityImageSources: [priorityImageSource] }
+    );
+
+    expect(output).toContain('fetchpriority="high"');
+    expect(output).not.toContain('data-baci-priority-image');
+  });
+
+  it('strips user-supplied priority markers from dirty images', () => {
     const output = sanitizeHtml(
       '<img src="https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png" alt="Hero" data-baci-priority-image="true" fetchpriority="high">'
     );
 
-    expect(output).toContain('fetchpriority="high"');
+    expect(output).not.toContain('fetchpriority=');
     expect(output).not.toContain('data-baci-priority-image');
   });
 
@@ -157,7 +170,9 @@ describe('sanitize', () => {
     const input =
       '<picture><source srcset="https://cdn.ogabassey.com/x/inline-1.png.avif" type="image/avif" /><source srcset="https://cdn.ogabassey.com/x/inline-1.png.webp" type="image/webp" /><img src="https://cdn.ogabassey.com/x/inline-1.png" srcset="https://cdn.ogabassey.com/x/inline-1.png 384w" sizes="(max-width: 768px) 100vw, 800px" data-baci-priority-image="true" fetchpriority="high" alt="speaker" /></picture>';
 
-    const output = sanitizeHtml(input);
+    const output = sanitizeHtml(input, {
+      trustedPriorityImageSources: ['https://cdn.ogabassey.com/x/inline-1.png'],
+    });
 
     expect(output).toContain('<picture>');
     expect(output).toContain('type="image/avif"');
