@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCookies = vi.fn();
 const mockRpc = vi.fn();
@@ -33,6 +33,10 @@ describe('POST /api/orders/update-payment-ref', () => {
     vi.clearAllMocks();
     mockCookies.mockResolvedValue({ get: vi.fn(), set: vi.fn() });
     mockCreateClient.mockReturnValue({ rpc: mockRpc });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('updates the payment reference through the scoped RPC', async () => {
@@ -101,6 +105,37 @@ describe('POST /api/orders/update-payment-ref', () => {
       code: 'P0001',
       message: 'unauthorized',
       status: 403,
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 and logs a warning when the RPC cannot find the order', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST116', message: 'order_not_found' },
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'credit_direct',
+        orderId: VALID_ORDER_ID,
+        paymentRef: 'CD-404',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Order not found' });
+    expect(warnSpy).toHaveBeenCalledWith('Rejected order payment ref update:', {
+      code: 'PGRST116',
+      message: 'order_not_found',
+      status: 404,
     });
     expect(errorSpy).not.toHaveBeenCalled();
   });
