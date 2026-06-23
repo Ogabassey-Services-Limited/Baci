@@ -103,6 +103,7 @@ describe('storefront auth abuse controls', () => {
       }),
       del: vi.fn(),
       get: vi.fn(async () => '10'),
+      pttl: vi.fn(async () => 3_600_000),
     });
 
     const input = { email: 'customer@example.com', merchantId: 'merchant-1' };

@@ -169,14 +169,6 @@ describe('verifyCodeSchema', () => {
   it('rejects invalid storefront OTP verification inputs', () => {
     expect(
       verifyCodeSchema.safeParse({
-        captchaToken: 'x'.repeat(4097),
-        email: 'customer@example.com',
-        merchantSlug: 'ogabassey',
-        token: '123456',
-      }).success
-    ).toBe(false);
-    expect(
-      verifyCodeSchema.safeParse({
         email: 'customer@example.com',
         merchantSlug: '',
         token: '123456',

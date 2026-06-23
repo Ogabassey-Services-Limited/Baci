@@ -348,4 +348,50 @@ describe('POST /api/storefront/auth/verify-code', () => {
       error: 'Authentication failed. Please try again.',
     });
   });
+
+  it('ignores a spoofed audience=native from a browser origin and returns a web session', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'access-token',
+          expires_at: 1_900_000_000,
+          expires_in: 3600,
+          refresh_token: 'refresh-token',
+          token_type: 'bearer',
+        },
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+          user_metadata: { role: 'customer' },
+        },
+      },
+      error: null,
+    });
+
+    const request = new Request(
+      'https://example.com/api/storefront/auth/verify-code',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          origin: 'https://ogabassey.usebaci.com',
+        },
+        body: JSON.stringify({
+          audience: 'native',
+          email: 'customer@example.com',
+          token: '123456',
+          merchantSlug: 'ogabassey',
+        }),
+      }
+    );
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.session).toEqual({
+      access_token: 'access-token',
+      expires_at: 1_900_000_000,
+    });
+    expect(body.session.refresh_token).toBeUndefined();
+  });
 });

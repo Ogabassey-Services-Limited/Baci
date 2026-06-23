@@ -120,6 +120,15 @@ export function PasskeySecurityCard() {
   };
 
   const deletePasskey = async (passkeyId: string) => {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        'Remove this passkey? If it is your only remaining authenticator, you may lose passwordless sign-in access.'
+      )
+    ) {
+      return;
+    }
+
     setIsMutating(true);
     const passkeyApi = getPasskeyApi();
 

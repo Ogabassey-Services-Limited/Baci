@@ -169,8 +169,16 @@ export async function POST(request: Request) {
       .eq('user_id', authData.user.id)
       .single();
 
+    // Defense-in-depth: only honor audience='native' (which returns the
+    // refresh_token in the JSON body) when the request is not from a browser
+    // origin. In-page scripts could otherwise spoof audience='native' to read
+    // the refresh_token; native fetch sends no http(s) Origin header.
+    const requestOrigin = request.headers.get('origin');
+    const isBrowserOrigin = !!requestOrigin && /^https?:/i.test(requestOrigin);
+    const resolvedAudience = isBrowserOrigin ? 'storefront-web' : audience;
+
     if (
-      audience === 'native' &&
+      resolvedAudience === 'native' &&
       (!authData.session?.access_token || !authData.session.refresh_token)
     ) {
       logger.error({
@@ -185,7 +193,7 @@ export async function POST(request: Request) {
     }
 
     const session =
-      audience === 'native'
+      resolvedAudience === 'native'
         ? {
             access_token: authData.session?.access_token,
             refresh_token: authData.session?.refresh_token,

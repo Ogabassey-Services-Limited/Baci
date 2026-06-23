@@ -63,6 +63,21 @@ describe('PasskeySecurityCard', () => {
       error: null,
     });
     mockDeletePasskey.mockResolvedValue({ data: null, error: null });
+    window.confirm = vi.fn(() => true);
+  });
+
+  it('skips passkey deletion when the confirmation is dismissed', async () => {
+    window.confirm = vi.fn(() => false);
+    render(<PasskeySecurityCard />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /remove passkey/i })
+    );
+
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalled();
+    });
+    expect(mockDeletePasskey).not.toHaveBeenCalled();
   });
 
   it('loads existing passkeys and warns until two authenticators are registered', async () => {

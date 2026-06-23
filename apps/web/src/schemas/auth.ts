@@ -37,7 +37,6 @@ export const sendCodeSchema = z.object({
 
 export const verifyCodeSchema = z.object({
   audience: storefrontAuthAudienceSchema,
-  captchaToken: z.string().trim().min(1).max(4096).optional(),
   email: z
     .email({ error: 'Please enter a valid email address.' })
     .max(254, 'Email too long'),

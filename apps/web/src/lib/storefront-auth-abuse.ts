@@ -95,8 +95,10 @@ async function incrementWindowCounter(
       );
       return { count, resetTime: Date.now() + windowMs };
     } catch {
-      // Fall through to local memory. CI/dev without Redis still gets the same
-      // route behavior, while production normally uses the durable store.
+      // Fall through to per-instance memory. Keeps CI/dev (no Redis) working,
+      // but in a horizontally scaled deployment each instance keeps its own
+      // counter — if Redis is down in production, limiting is per-instance,
+      // not global. Redis is the durable, shared store.
     }
   }
 
@@ -110,10 +112,15 @@ async function getWindowCounter(
   const redis = getRedis();
   if (redis) {
     try {
-      const rawCount = await redis.get<unknown>(key);
+      const [rawCount, pttl] = await Promise.all([
+        redis.get<unknown>(key),
+        redis.pttl(key),
+      ]);
+      const msRemaining =
+        typeof pttl === 'number' && pttl > 0 ? pttl : windowMs;
       return {
         count: parseCounter(rawCount),
-        resetTime: Date.now() + windowMs,
+        resetTime: Date.now() + msRemaining,
       };
     } catch {
       // Fall through to local memory.
