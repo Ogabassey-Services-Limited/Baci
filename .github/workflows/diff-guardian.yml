@@ -17,9 +17,9 @@
 # statuses, so it's cheap and can't itself hallucinate.
 #
 # HOW TO ADOPT (branch protection, main):
-#   1. Let this run on a few PRs first and confirm the `Diff Guardian` status
-#      appears and matches your expectation.
-#   2. Then in main's required status checks: ADD `Diff Guardian`, and REMOVE the
+#   1. Let this run on a few PRs first and confirm the `Diff Guardian / quorum`
+#      status appears and matches your expectation.
+#   2. Then in main's required status checks: ADD `Diff Guardian / quorum`, and REMOVE the
 #      individual `Gemini review` / `Jules review` from *required* (they keep
 #      running + commenting, just no longer block on their own). Diff Guardian
 #      becomes the single AI gate. Keep `Build` + `Quality Gate` (tests) required.
@@ -39,7 +39,10 @@
 name: Diff Guardian
 
 on:
-  pull_request:
+  # This workflow never checks out or executes pull-request code. Run in the
+  # base-repo context so fork PRs can get the statuses:write token GitHub
+  # withholds from pull_request runs.
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   issue_comment:
     types: [created]
@@ -59,15 +62,19 @@ concurrency:
 
 jobs:
   guardian:
-    name: Diff Guardian
+    name: AI Review Quorum
     if: >-
-      github.event_name == 'pull_request' ||
+      github.event_name == 'pull_request_target' ||
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
         (
           contains(github.event.comment.body, '@gemini-cli /review') ||
-          contains(github.event.comment.body, '/jules deep review')
+          contains(github.event.comment.body, '/jules deep review') ||
+          contains(github.event.comment.body, '@jules review') ||
+          contains(github.event.comment.body, '@codex review') ||
+          contains(github.event.comment.body, '@claude review') ||
+          contains(github.event.comment.body, '@coderabbitai review')
         ) &&
         (
           github.event.comment.author_association == 'OWNER' ||
@@ -101,7 +108,7 @@ jobs:
           set_status() { # state, description
             gh api -X POST "repos/$REPO/statuses/$SHA" \
               -f state="$1" \
-              -f context='Diff Guardian' \
+              -f context='Diff Guardian / quorum' \
               -f description="$2" \
               -f target_url="https://github.com/$REPO/actions/runs/${GITHUB_RUN_ID}" >/dev/null
           }
@@ -154,11 +161,18 @@ jobs:
             exit 1
           fi
 
-          # On fresh PR/head events, mark the gate pending and let reviewer
-          # workflow_run / trusted review-comment events wake this workflow for
-          # a single tally pass. This avoids long CI polling loops and GitHub API
-          # rate-limit pressure while preserving a visible merge gate.
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          # On fresh same-repo PR/head events, mark the gate pending and let
+          # reviewer workflow_run / trusted review-comment events wake this
+          # workflow for a single tally pass. Fork PR reviewers intentionally do
+          # not auto-run with trusted tokens, so fail closed until an owner,
+          # member, or collaborator triggers a manual reviewer that produces a
+          # voter result for this exact head SHA.
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
+            if [ "$is_fork_pr" = "true" ]; then
+              set_status failure "Fork PR needs trusted manual AI review"
+              echo "::error::Diff Guardian: fork PRs require a trusted manual AI reviewer result before this gate can pass."
+              exit 1
+            fi
             set_status pending "Waiting for AI reviewer completion"
             echo "Diff Guardian pending on PR event; reviewer completions will re-tally."
             exit 0
