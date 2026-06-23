@@ -7,6 +7,10 @@ import {
 describe('storefront metadata cache bot classifier', () => {
   it.each([
     ['Googlebot/2.1'],
+    [
+      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    ],
+    ['Googlebot-Image/1.0'],
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
     ['GPTBot/1.1 (+https://openai.com/gptbot)'],
@@ -51,5 +55,14 @@ describe('storefront metadata cache bot classifier', () => {
       false
     );
     expect(getStorefrontMetadataCacheBucket('')).toBe('streaming');
+  });
+
+  it('keeps the Googlebot branch compatible with Vercel PPR cache bypass matching', () => {
+    expect(STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.source).toContain(
+      'Googlebot'
+    );
+    expect(
+      STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.source
+    ).not.toMatch(/\(\?!/);
   });
 });

@@ -3,8 +3,11 @@ export const STOREFRONT_METADATA_CACHE_BUCKET_HEADER =
 export const STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM =
   '__baci_metadata_cache_bucket';
 
-// Mirrors Next 16.2's DOM bot branch for PPR metadata rendering.
-const NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN = 'Googlebot(?!-)|Googlebot$';
+// Mirrors Next 16.2's DOM bot branch for PPR metadata rendering. Keep this
+// branch lookaround-free: Vercel serializes `htmlLimitedBots` into routing
+// bypass rules for PPR caches, and live Googlebot/2.1 requests were not
+// bypassing the static shell cache when this used `Googlebot(?!-)`.
+const NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN = 'Googlebot';
 
 // Mirrors Next 16.2's HTML-limited bot list. Keep this in the same module as
 // the proxy bucket classifier so future Next upgrades cannot silently desync
