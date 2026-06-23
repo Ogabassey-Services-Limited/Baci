@@ -21,6 +21,8 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
+import { isDomainIdentifier } from '@/lib/validation';
+import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import {
   buildCategoryPageHubModel,
   normalizeCategoryPageProducts,
@@ -34,6 +36,24 @@ interface PageProps {
     category: string;
   }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function renderCategoryNotFoundContent({
+  slug,
+  title = 'Category not found',
+  message = 'This category is unavailable or has moved.',
+}: {
+  slug: string;
+  title?: string;
+  message?: string;
+}) {
+  return (
+    <StorefrontRouteNotFoundContent
+      backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
+      message={message}
+      title={title}
+    />
+  );
 }
 
 function toCollectionSchemaProduct(
@@ -74,16 +94,20 @@ function toCollectionSchemaProduct(
 export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const { slug, category } = await params;
   const { page } = await searchParams;
-  const currentPage = parseStorefrontPageParam(page);
-
-  if (!currentPage) {
-    notFound();
-  }
-
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();
+  }
+
+  const currentPage = parseStorefrontPageParam(page);
+
+  if (!currentPage) {
+    return renderCategoryNotFoundContent({
+      slug,
+      title: 'Category page not found',
+      message: 'This category page is unavailable or has moved.',
+    });
   }
 
   const [data, guidePosts] = await Promise.all([
@@ -92,7 +116,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   ]);
 
   if (!data.isCollection && data.isInactiveCategory) {
-    notFound();
+    return renderCategoryNotFoundContent({ slug });
   }
 
   // Doorway-trap stopgap (crawl-budget) — keep in lockstep with generateMetadata
@@ -105,7 +129,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     !data.productsQueryFailed &&
     !data.categoryQueryFailed
   ) {
-    notFound();
+    return renderCategoryNotFoundContent({ slug });
   }
 
   const products = data.products as unknown as RawDbProduct[];
@@ -116,7 +140,11 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
 
   if (currentPage > totalPages) {
-    notFound();
+    return renderCategoryNotFoundContent({
+      slug,
+      title: 'Category page not found',
+      message: 'This category page is unavailable or has moved.',
+    });
   }
 
   const categoryName = resolveCategoryPageName(data, category);

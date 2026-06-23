@@ -2049,7 +2049,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('triggers notFound without rendering a body marker when the product is missing', async () => {
+  it('renders stable noindex soft-not-found content when the product is missing', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -2057,20 +2057,24 @@ describe('[category]/[productSlug] page render', () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValueOnce(null);
 
     try {
-      const page = await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      render(
+        (await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })) as ReactElement
+      );
 
-      render(page as ReactElement);
-      throw new Error('CategoryProductPage should throw notFound()');
-    } catch (error) {
-      expect(error).toEqual(new Error('NEXT_NOT_FOUND'));
-      expect(mockNotFound).toHaveBeenCalled();
+      expect(
+        screen.getByRole('heading', { name: 'Product not found' })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Continue shopping' })
+      ).toHaveAttribute('href', '/teststore');
+      expect(mockNotFound).not.toHaveBeenCalled();
       expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
         baseMerchant.id,
         'missing-product'

@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotFound = vi.fn(() => {
@@ -30,6 +31,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('@/lib/validation', () => ({
+  isDomainIdentifier: (value: string) => value.includes('.'),
   isValidMerchantIdentifier: (value: string) => value !== 'images',
 }));
 
@@ -105,21 +107,60 @@ describe('legacy singular product route', () => {
     expect(mockConnection).toHaveBeenCalledOnce();
   });
 
-  it('throws notFound before returning streamed body markup for missing legacy products', async () => {
+  it('returns hard notFound for valid-looking legacy product routes when the merchant is missing', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
     await expect(
       LegacyProductPage({
         params: Promise.resolve({
-          slug: 'ogabassey',
+          slug: 'missing-store',
           productSlug: 'missing-product',
         }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+    expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
+  });
+
+  it('renders stable noindex soft-not-found content for missing legacy products', async () => {
+    render(
+      await LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'missing-product',
+        }),
+      })
+    );
+
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'missing-product'
     );
-    expect(mockNotFound).toHaveBeenCalled();
+    expect(
+      screen.getByRole('heading', { name: 'Product not found' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Continue shopping' })
+    ).toHaveAttribute('href', '/ogabassey');
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('links domain-routed missing legacy products back to the domain root', async () => {
+    render(
+      await LegacyProductPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          productSlug: 'missing-product',
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Continue shopping' })
+    ).toHaveAttribute('href', '/');
+    expect(mockNotFound).not.toHaveBeenCalled();
   });
 
   it('surfaces request-time rendering failures before resolving redirects', async () => {

@@ -2,7 +2,7 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound, permanentRedirect } from 'next/navigation';
+import { permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import { isDomainIdentifier } from '@/lib/validation';
+import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import { getBlogStorefrontPathPrefix } from '../blog-storefront-path-prefix';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
@@ -70,7 +71,16 @@ async function renderBlogPostContent({
       );
     }
 
-    notFound();
+    const blogHref = isDomainIdentifier(slug) ? '/blog' : `/${slug}/blog`;
+
+    return (
+      <StorefrontRouteNotFoundContent
+        backHref={asRoute(blogHref)}
+        backLabel="Back to blog"
+        message="This article is unavailable or has moved."
+        title="Blog post not found"
+      />
+    );
   }
 
   const { merchant, post, relatedPosts, relatedProducts } = data;
