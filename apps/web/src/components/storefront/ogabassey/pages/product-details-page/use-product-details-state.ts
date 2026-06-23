@@ -36,6 +36,7 @@ import {
 } from './product-details-helpers';
 import { resolveCurrentOffer } from './offer-resolution';
 import { shareProductLink } from './product-share';
+import { resolveVariantColorAxisKey } from './resolve-variant-color-axis-key';
 
 export type ProductDetailsActiveTab =
   | 'compare'
@@ -291,11 +292,31 @@ export function useProductDetailsState(serverProduct: Product) {
     selectedColor !== null
       ? productData.colors[selectedColor]?.name
       : routeSelectionAttributes.color;
-  const variantSelectionAttributes = {
+  // Emit the selected color under the single axis key the variants actually use
+  // (canonical `color` or a legacy `Colour`/`colour` alias), dropping the other
+  // aliases. Otherwise a reseeded legacy attribute (e.g. `Colour`) plus the
+  // canonical `color` would force the resolver to match two color keys on one
+  // variant — which legacy catalogs never have — making the SKU unpurchasable.
+  const variantColorAxisKey = selectedColorName
+    ? resolveVariantColorAxisKey(variantResolutionVariants, selectedColorName)
+    : null;
+  const variantSelectionAttributes: Record<string, string> = {};
+  for (const [axis, value] of Object.entries({
     ...routeSelectionAttributes,
     ...selectedAttributes,
-    ...(selectedColorName ? { color: selectedColorName } : {}),
-  };
+  })) {
+    if (
+      selectedColorName &&
+      (axis === 'color' || axis === 'Colour' || axis === 'colour')
+    ) {
+      continue;
+    }
+    variantSelectionAttributes[axis] = value;
+  }
+  if (selectedColorName) {
+    variantSelectionAttributes[variantColorAxisKey ?? 'color'] =
+      selectedColorName;
+  }
   const currentVariantDisplaySelection = resolveVariantDisplaySelection(
     variantResolutionProduct,
     {
