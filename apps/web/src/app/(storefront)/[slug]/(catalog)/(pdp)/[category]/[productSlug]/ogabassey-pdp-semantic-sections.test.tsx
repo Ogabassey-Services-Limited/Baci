@@ -14,6 +14,7 @@ type SemanticModel = {
 
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
+const mockGetPublishedProductGuidePosts = vi.fn();
 const mockBuildProductSemanticModel =
   vi.fn<(input: unknown) => SemanticModel>();
 const mockProductSemanticSections = vi.fn(
@@ -32,6 +33,11 @@ vi.mock('@/lib/cached-data', () => ({
 vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
     mockGetPublishedClusterPosts(...args),
+}));
+
+vi.mock('@/lib/storefront-content/get-published-product-guide-posts', () => ({
+  getPublishedProductGuidePosts: (...args: unknown[]) =>
+    mockGetPublishedProductGuidePosts(...args),
 }));
 
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
@@ -79,6 +85,10 @@ describe('OgabasseyPdpSemanticSections', () => {
     mockGetPublishedClusterPosts.mockResolvedValue([
       { slug: 'best-laptops', title: 'Best laptops' },
     ]);
+    mockGetPublishedProductGuidePosts.mockResolvedValue([
+      { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+      { slug: 'best-laptops', title: 'Best laptops' },
+    ]);
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: ['Model trust bullet'],
       supportLinks: [],
@@ -111,11 +121,18 @@ describe('OgabasseyPdpSemanticSections', () => {
       'ogabassey'
     );
     expect(mockGetPublishedClusterPosts).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetPublishedProductGuidePosts).toHaveBeenCalledWith(
+      'merchant-1',
+      'prod-1'
+    );
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({
         categorySlug: 'laptops',
         currentProduct: expect.objectContaining({ slug: 'lenovo-legion' }),
-        guidePosts: [{ slug: 'best-laptops', title: 'Best laptops' }],
+        guidePosts: [
+          { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+          { slug: 'best-laptops', title: 'Best laptops' },
+        ],
         inventory: [
           expect.objectContaining({
             slug: 'macbook-pro',
