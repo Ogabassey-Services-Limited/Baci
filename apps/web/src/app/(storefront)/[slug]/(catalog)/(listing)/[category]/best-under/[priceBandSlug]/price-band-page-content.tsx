@@ -85,17 +85,18 @@ export async function PriceBandPageContent({
       />
       <JsonLd data={schemas.itemList as unknown as JsonLdData<ItemList>} />
       {/*
-        Establish a light surface so light-theme shadcn text tokens are readable
-        on the dark storefront shell (the PDP does the same via
-        bg-store-background). Without this the content is dark-on-dark.
+        Multi-tenant theming: this route is shared across all merchants, so it
+        uses the merchant-scoped store tokens (var(--store-background) etc.) — NOT
+        the global shadcn tokens — and establishes its own light surface so the
+        content is readable on the dark storefront shell (matching the PDP).
       */}
-      <div className="min-h-[70vh] bg-background text-foreground">
+      <div className="min-h-[70vh] bg-store-background text-store-background-text">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <header className="space-y-3">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               {page.heading}
             </h1>
-            <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">
+            <p className="max-w-3xl text-base text-store-background-text/70 sm:text-lg">
               {page.intro}
             </p>
           </header>
@@ -121,15 +122,15 @@ export async function PriceBandPageContent({
                 {page.guideLinks.map((link) => (
                   <li
                     key={link.href}
-                    className="space-y-1 rounded-2xl border p-4"
+                    className="space-y-1 rounded-2xl border border-store-border p-4"
                   >
                     <a
                       href={link.href}
-                      className="text-base font-semibold text-primary underline-offset-4 hover:underline"
+                      className="text-base font-semibold text-store-primary underline-offset-4 hover:underline"
                     >
                       {link.title}
                     </a>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-store-background-text/70">
                       {link.description}
                     </p>
                   </li>

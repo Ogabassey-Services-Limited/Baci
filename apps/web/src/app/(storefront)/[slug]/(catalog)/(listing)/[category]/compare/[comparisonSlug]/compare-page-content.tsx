@@ -94,56 +94,56 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
         <JsonLd data={itemListSchema as unknown as JsonLdData<ItemList>} />
       )}
       {/*
-        The storefront shell renders on a dark background, but this page uses
-        light-theme shadcn tokens (text-foreground / text-muted-foreground).
-        Establish a matching light surface so the content is readable instead of
-        dark-on-dark. (The PDP does the equivalent via bg-store-background.)
+        Multi-tenant theming: this route is shared across all merchants, so it
+        uses the merchant-scoped store tokens (var(--store-background) etc.) — NOT
+        the global shadcn tokens — and establishes its own light surface so the
+        content is readable on the dark storefront shell (matching the PDP).
       */}
-      <div className="min-h-[70vh] bg-background text-foreground">
+      <div className="min-h-[70vh] bg-store-background text-store-background-text">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <header className="space-y-4">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               {page.heading}
             </h1>
-            <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">
+            <p className="max-w-3xl text-base text-store-background-text/70 sm:text-lg">
               {page.summaryVerdict}
             </p>
           </header>
 
           <section className="mt-8">
             <h2 className="text-xl font-semibold">Key Differences</h2>
-            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground sm:text-base">
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-store-background-text/70 sm:text-base">
               {page.keyDifferences.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
           </section>
 
-          <section className="mt-10 overflow-x-auto rounded-2xl border bg-background shadow-sm">
+          <section className="mt-10 overflow-x-auto rounded-2xl border border-store-border bg-store-background shadow-sm">
             <table
               aria-label="Product comparison table"
               className="min-w-full border-collapse text-left"
             >
-              <thead className="bg-muted/40">
+              <thead className="bg-store-background-text/10">
                 <tr>
-                  <th className="px-4 py-3 text-sm font-semibold text-foreground">
+                  <th className="px-4 py-3 text-sm font-semibold text-store-background-text">
                     Spec
                   </th>
-                  <th className="px-4 py-3 text-sm font-semibold text-foreground">
+                  <th className="px-4 py-3 text-sm font-semibold text-store-background-text">
                     {leftColumnLabel}
                   </th>
-                  <th className="px-4 py-3 text-sm font-semibold text-foreground">
+                  <th className="px-4 py-3 text-sm font-semibold text-store-background-text">
                     {rightColumnLabel}
                   </th>
                 </tr>
               </thead>
               {comparisonRowGroups.map((group) => (
                 <tbody key={group.category}>
-                  <tr className="border-t align-top">
+                  <tr className="border-t border-store-background-text/10 align-top">
                     <th
                       scope="rowgroup"
                       colSpan={3}
-                      className="bg-muted/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      className="bg-store-background-text/5 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-store-background-text/70"
                     >
                       {group.category}
                     </th>
@@ -151,18 +151,18 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
                   {group.rows.map((row) => (
                     <tr
                       key={`${group.category}-${row.label}`}
-                      className="border-t align-top"
+                      className="border-t border-store-background-text/10 align-top"
                     >
                       <th
                         scope="row"
-                        className="px-4 py-3 text-sm font-medium text-foreground"
+                        className="px-4 py-3 text-sm font-medium text-store-background-text"
                       >
                         {row.label}
                       </th>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                      <td className="px-4 py-3 text-sm text-store-background-text/70">
                         {row.leftValue}
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                      <td className="px-4 py-3 text-sm text-store-background-text/70">
                         {row.rightValue}
                       </td>
                     </tr>
@@ -179,12 +179,12 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
                 {page.faqItems.map((item) => (
                   <article
                     key={item.question}
-                    className="rounded-2xl border p-4"
+                    className="rounded-2xl border border-store-border p-4"
                   >
-                    <h3 className="text-base font-medium text-foreground">
+                    <h3 className="text-base font-medium text-store-background-text">
                       {item.question}
                     </h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <p className="mt-2 text-sm text-store-background-text/70">
                       {item.answer}
                     </p>
                   </article>
@@ -202,15 +202,15 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
                 {page.guideLinks.map((link) => (
                   <li
                     key={link.href}
-                    className="space-y-1 rounded-2xl border p-4"
+                    className="space-y-1 rounded-2xl border border-store-border p-4"
                   >
                     <a
                       href={link.href}
-                      className="text-base font-semibold text-primary underline-offset-4 hover:underline"
+                      className="text-base font-semibold text-store-primary underline-offset-4 hover:underline"
                     >
                       {link.title}
                     </a>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-store-background-text/70">
                       {link.description}
                     </p>
                   </li>

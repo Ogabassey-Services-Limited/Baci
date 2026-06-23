@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredRailsIsland } from './deferred-rails-island.client';
@@ -62,12 +62,14 @@ describe('OgabasseyPdpDeferredRailsIsland', () => {
       />
     );
 
-    // The activation effect rejects; the island stays empty (no rails, no crash).
-    await Promise.resolve();
+    // The activation effect rejects across several microtasks; wait for the
+    // island to settle empty (no rails, no crash) rather than a single tick.
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-ogabassey-pdp-deferred-rails]')
+      ).toBeEmptyDOMElement();
+    });
     expect(mockDeferredProductRails).not.toHaveBeenCalled();
-    expect(
-      container.querySelector('[data-ogabassey-pdp-deferred-rails]')
-    ).toBeEmptyDOMElement();
   });
 
   it('lazy-loads + renders the rails after viewport activation', async () => {
