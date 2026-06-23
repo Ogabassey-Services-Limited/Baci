@@ -103,6 +103,9 @@ describe('send-auth-email template helpers', () => {
     expect(html).toContain('background-color:#ffffff');
     expect(html).toContain('color-scheme:light');
     expect(html).toContain('forced-color-adjust:none');
+    expect(html).toContain('mso-table-lspace:0pt');
+    expect(html).toContain('mso-table-rspace:0pt');
+    expect(html).not.toContain('display:inline-table');
   });
 
   it('omits the Ogabassey CTA when the action URL is unsafe', () => {

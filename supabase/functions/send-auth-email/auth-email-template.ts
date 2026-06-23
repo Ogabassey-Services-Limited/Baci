@@ -231,7 +231,7 @@ function renderLogo(branding: MerchantBranding, safeBrandName: string): string {
     return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
   }
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display:inline-table;max-width:100%;"><tr><td class="a-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:10px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;outline:none;text-decoration:none;height:24px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;"></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt;"><tr><td class="a-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:10px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;outline:none;text-decoration:none;height:24px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;"></td></tr></table>`;
 }
 
 function renderTokenBlock(
