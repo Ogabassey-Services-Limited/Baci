@@ -50,6 +50,7 @@ export async function getCachedProductSeoLinkData(
     cacheLife('products');
     cacheTag(
       'products',
+      `products-${merchantId}`,
       'blog-posts',
       `seo-links-${merchantId}-${categorySlug}-${productId || 'category'}`
     );

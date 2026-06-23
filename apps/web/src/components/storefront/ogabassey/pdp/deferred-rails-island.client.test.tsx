@@ -43,6 +43,9 @@ describe('OgabasseyPdpDeferredRailsIsland', () => {
 
     render(<OgabasseyPdpDeferredRailsIsland product={product} />);
 
+    expect(mockUseViewportActivation).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: 0 })
+    );
     expect(mockDeferredProductRails).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('region', { name: /related product rails/i })
