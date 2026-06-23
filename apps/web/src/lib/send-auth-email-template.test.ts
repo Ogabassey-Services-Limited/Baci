@@ -170,9 +170,10 @@ describe('send-auth-email template helpers', () => {
 
     expect(appLocalHtml).toBe(rootHtml);
     expect(appLocalHtml).toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
+    expect(appLocalHtml).toContain('class="a-logo-chip"');
   });
 
-  it('does not use the Ogabassey logo for merchants with similar names', () => {
+  it('keeps configured logos for merchants with similar names', () => {
     const resellerLogoUrl =
       'https://cdn.example.com/media/ogabassey-reseller-logo.png';
 
@@ -195,6 +196,7 @@ describe('send-auth-email template helpers', () => {
     );
 
     expect(html).toContain(`<img src="${resellerLogoUrl}"`);
+    expect(html).toContain('class="a-logo-chip"');
   });
 
   it('omits the Ogabassey CTA when the action URL is unsafe', () => {

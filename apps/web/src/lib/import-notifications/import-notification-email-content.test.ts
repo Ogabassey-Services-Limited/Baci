@@ -168,10 +168,11 @@ describe('import notification email content', () => {
     });
 
     expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
+    expect(content.htmlContent).toContain('class="r-logo-chip"');
     expect(content.htmlContent).toContain('alt="Ogabassey"');
   });
 
-  it('does not use the Ogabassey logo for merchants with similar names', () => {
+  it('keeps configured logos for merchants with similar names', () => {
     const merchantLogoUrl =
       'https://cdn.example.com/media/ogabassey-reseller-logo.png';
     const resellerMerchant: MerchantNotificationContext = {
@@ -192,6 +193,7 @@ describe('import notification email content', () => {
     });
 
     expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
+    expect(content.htmlContent).toContain('class="r-logo-chip"');
     expect(content.htmlContent).toContain('alt="Ogabassey Reseller"');
   });
 
