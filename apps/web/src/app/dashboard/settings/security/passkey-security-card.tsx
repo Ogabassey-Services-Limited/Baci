@@ -50,6 +50,7 @@ async function loadPasskeys({
   setPasskeys: (value: PasskeyMetadata[]) => void;
   toast: ToastFn;
 }) {
+  setIsLoading(true);
   const passkeyApi = getPasskeyApi();
   if (!passkeyApi.passkey?.list) {
     setIsLoading(false);

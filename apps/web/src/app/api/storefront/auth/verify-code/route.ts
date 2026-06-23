@@ -192,18 +192,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // The native guard above already 500s when the session/tokens are absent,
+    // so narrowing on `baseSession` here keeps the native fields typed as
+    // strings (no spurious `| undefined`) without a non-null assertion.
+    const baseSession = authData.session;
     const session =
-      resolvedAudience === 'native'
+      resolvedAudience === 'native' && baseSession
         ? {
-            access_token: authData.session?.access_token,
-            refresh_token: authData.session?.refresh_token,
-            token_type: authData.session?.token_type,
-            expires_in: authData.session?.expires_in,
-            expires_at: authData.session?.expires_at,
+            access_token: baseSession.access_token,
+            refresh_token: baseSession.refresh_token,
+            token_type: baseSession.token_type,
+            expires_in: baseSession.expires_in,
+            expires_at: baseSession.expires_at,
           }
         : {
-            access_token: authData.session?.access_token,
-            expires_at: authData.session?.expires_at,
+            access_token: baseSession?.access_token,
+            expires_at: baseSession?.expires_at,
           };
 
     return NextResponse.json({
