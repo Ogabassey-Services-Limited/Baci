@@ -6,6 +6,10 @@ import {
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
 import imageLoader from '@/lib/image-loader';
+import {
+  buildOgabasseyCdnImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+} from '@/lib/ogabassey-cdn-image-url';
 import { ogabasseyPdpLcpImageRequestSchema } from '@/schemas/ogabassey-pdp-lcp-image';
 
 const PRELOAD_IMAGE_CACHE_CONTROL =
@@ -78,11 +82,17 @@ export async function buildOgabasseyPdpLcpImageResponse({
     });
   }
 
-  const preloadUrl = imageLoader({
-    quality: parsed.data.quality,
-    src: primaryImage,
-    width: parsed.data.width,
-  });
+  const preloadUrl = isOgabasseyCdnImageUrl(primaryImage)
+    ? buildOgabasseyCdnImageLoaderUrl(
+        primaryImage,
+        parsed.data.width,
+        parsed.data.quality
+      )
+    : imageLoader({
+        quality: parsed.data.quality,
+        src: primaryImage,
+        width: parsed.data.width,
+      });
 
   return createRedirectResponse(preloadUrl, PRELOAD_IMAGE_CACHE_CONTROL);
 }

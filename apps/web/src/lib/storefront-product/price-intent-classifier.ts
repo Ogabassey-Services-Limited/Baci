@@ -234,9 +234,13 @@ export function classifyPriceIntentKeyword(
     stopTokens,
     requestedCategorySlug
   );
-  const supportedExactMatch = exactMatches.find(({ product }) =>
-    productSupportsPriceIntentModifiers(product, modifiers)
-  );
+  const isAmbiguousExactMatch =
+    modifiers.length === 0 && exactMatches.length > 1;
+  const supportedExactMatch = isAmbiguousExactMatch
+    ? undefined
+    : exactMatches.find(({ product }) =>
+        productSupportsPriceIntentModifiers(product, modifiers)
+      );
 
   if (supportedExactMatch) {
     return buildResult(input, {

@@ -34,7 +34,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     mockWarn.mockClear();
     mockGetBaciCdnOriginFetchSecret.mockReturnValue(undefined);
     mockImageLoader.mockReturnValue(
-      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
     mockFetch.mockResolvedValue(
       new Response('image-bytes', {
@@ -72,14 +72,10 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       { includeVariants: false }
     );
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(mockImageLoader).toHaveBeenCalledWith({
-      quality: 30,
-      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      width: 750,
-    });
+    expect(mockImageLoader).not.toHaveBeenCalled();
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(response.headers.get('cache-control')).toBe(
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
@@ -150,7 +146,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -173,7 +169,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif'
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
     );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(mockWarn).not.toHaveBeenCalledWith(

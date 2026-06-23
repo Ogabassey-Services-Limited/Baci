@@ -22,6 +22,38 @@ export function normalizeOgabasseyCdnImageUrl(src: string): string {
   );
 }
 
+export function buildOgabasseyCdnImageLoaderUrl(
+  src: string,
+  width: number,
+  quality: number
+): string {
+  const normalizedSrc = normalizeOgabasseyCdnImageUrl(src);
+  let url: URL;
+
+  try {
+    url = new URL(normalizedSrc);
+  } catch {
+    return normalizedSrc;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    !isTransformableOgabasseyAssetPath(url.pathname)
+  ) {
+    return normalizedSrc;
+  }
+
+  return `${url.origin}${OGABASSEY_IMAGE_TRANSFORM_PREFIX}width=${width},quality=${quality},format=auto${url.pathname}${url.search}${url.hash}`;
+}
+
+function isTransformableOgabasseyAssetPath(pathname: string): boolean {
+  return (
+    (pathname.startsWith(OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX) ||
+      pathname.startsWith('/core-assets/blog/')) &&
+    TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(pathname)
+  );
+}
+
 function unwrapOgabasseyTransformUrl(src: string): string | null {
   let url: URL;
   try {
