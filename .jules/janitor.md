@@ -8,3 +8,7 @@
 ## 2026-06-12 - Removed redundant eslint-disable comment in mobile-admin negotiations
 **Learning:** Biome is the exclusive linter in the Baci monorepo. The `// eslint-disable` comments are dead code/deprecated anti-patterns that add noise and have no effect. In `negotiations.tsx`, the exhaustive-deps rule was already properly disabled using the correct `// biome-ignore` syntax, making the legacy eslint-disable comment completely redundant and confusing.
 **Action:** Removed useless `// eslint-disable-next-line react-hooks/exhaustive-deps` comment in `@baci/mobile-admin`'s `negotiations.tsx`. When migrating to Biome, always ensure legacy eslint directives are completely stripped, especially when their equivalent Biome suppressions have already been added.
+## 2024-10-24 — [Removed Unused `checkAuth` Middleware Helper]
+**Learning:** The routing and session redirection logic (auth vs. protected routes) natively operates inside Next.js 16's middleware (`apps/web/src/proxy.ts`). An older or duplicate helper `checkAuth` in `lib/supabase/middleware.ts` was entirely unreferenced.
+**Action:** When inspecting unused exports near authentication flows, verify if the middleware directly handles that logic before assuming it's mistakenly disconnected.
+**Source:** `pnpm knip` + clean `grep -rn "checkAuth" .`
