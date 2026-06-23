@@ -3869,12 +3869,6 @@ describe('[category]/[productSlug] page render', () => {
         product: expect.objectContaining({
           slug: 'samsung-galaxy-z-trifold',
         }),
-        trustBullets: expect.arrayContaining([
-          'The Samsung Galaxy Z TriFold price in Nigeria on TestStore is ₦645,600. Check specs, condition, warranty, delivery, and payment options before you buy.',
-          'Free returns within 7 days',
-          'Ships across Nigeria',
-          'WhatsApp support available',
-        ]),
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(

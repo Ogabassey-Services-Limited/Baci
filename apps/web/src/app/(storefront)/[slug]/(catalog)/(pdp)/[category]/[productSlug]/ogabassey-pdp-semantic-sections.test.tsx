@@ -96,7 +96,6 @@ describe('OgabasseyPdpSemanticSections', () => {
         product,
         storeSlug: 'ogabassey',
         storeUrl: 'https://ogabassey.com',
-        trustBullets: ['Ships across Nigeria'],
       })
     );
 
@@ -124,10 +123,10 @@ describe('OgabasseyPdpSemanticSections', () => {
         storeUrl: 'https://ogabassey.com',
       })
     );
-    // Page-level trust bullets are merged outside the strict cached SEO-link
-    // data fetch so the cache boundary stays focused on inventory and guides.
+    // Trust bullets ("Buying context") were removed from the PDP; the model is
+    // passed through as built, with no merchant-trust-bullet merge.
     expect(screen.getByLabelText('semantic sections')).toHaveTextContent(
-      'Ships across Nigeria | Model trust bullet'
+      'Model trust bullet'
     );
   });
 
@@ -149,7 +148,6 @@ describe('OgabasseyPdpSemanticSections', () => {
       product,
       storeSlug: 'ogabassey',
       storeUrl: 'https://ogabassey.com',
-      trustBullets: ['Ships across Nigeria'],
     });
 
     expect(result).toBeNull();
