@@ -2080,6 +2080,39 @@ describe('generateCollectionPageSchema', () => {
     expect(itemList.itemListElement).toEqual([]);
   });
 
+  it('keeps products without image candidates in collection-page Product JSON-LD', () => {
+    const productWithoutImageCandidates = makeProduct({
+      id: 'no-image-candidates-product',
+      name: 'No Candidate Phone',
+      slug: 'no-candidate-phone',
+      category: 'Smartphones',
+    });
+    delete (productWithoutImageCandidates as Partial<Product>).image;
+    delete (productWithoutImageCandidates as Partial<Product>).imageLarge;
+
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [productWithoutImageCandidates],
+    });
+
+    const itemList = schema.mainEntity as Record<string, unknown>;
+    const itemListElement = itemList.itemListElement as Record<
+      string,
+      unknown
+    >[];
+    const product = itemListElement[0]?.item as Record<string, unknown>;
+
+    expect(itemList.numberOfItems).toBe(1);
+    expect(itemListElement).toHaveLength(1);
+    expect(itemListElement[0]?.position).toBe(1);
+    expect(product.name).toBe('No Candidate Phone');
+    expect(product.image).toBeUndefined();
+  });
+
   it('keeps contiguous positions when placeholder products are filtered from collection-page JSON-LD', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',
