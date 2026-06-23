@@ -137,6 +137,7 @@ export interface ProductVariant {
   condition?: ProductCondition;
   price_override?: number;
   price_modifier?: number;
+  primary_image?: string | null;
   stock?: number;
   stock_quantity?: number;
   images?: string[];

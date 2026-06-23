@@ -129,7 +129,11 @@ export function OgabasseyPdpCriticalProductImage({
       ? preferredImage
       : fallbackImage && !brokenImages.has(fallbackImage)
         ? fallbackImage
-        : preferredImage;
+        : null;
+
+  if (!image) {
+    return null;
+  }
 
   return (
     <Image

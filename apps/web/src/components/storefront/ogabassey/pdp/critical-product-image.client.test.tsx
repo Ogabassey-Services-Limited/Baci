@@ -49,6 +49,26 @@ describe('OgabasseyPdpCriticalProductImage', () => {
     );
   });
 
+  it('removes the image instead of reusing a known-broken source when all candidates fail', () => {
+    commerce.value = { productForCart: { image: VARIANT_IMAGE } };
+
+    render(
+      <OgabasseyPdpCriticalProductImage
+        alt="Test phone"
+        fallbackImage={BASE_IMAGE}
+      />
+    );
+
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test phone'));
+    });
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test phone'));
+    });
+
+    expect(screen.queryByAltText('Test phone')).not.toBeInTheDocument();
+  });
+
   it('falls back to the base image when the above-the-fold image 404s', () => {
     commerce.value = { productForCart: { image: VARIANT_IMAGE } };
 
