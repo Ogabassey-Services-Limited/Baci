@@ -2446,6 +2446,14 @@ describe('[category]/[productSlug] page render', () => {
 
     render(await resolveRsc(resolvedPage));
 
+    expect(screen.getByAltText('HP Laptop 14-ep0063nia')).toHaveAttribute(
+      'src',
+      expect.stringContaining('domain-lcp-hint.avif')
+    );
+    expect(screen.getByAltText('HP Laptop 14-ep0063nia')).not.toHaveAttribute(
+      'src',
+      expect.stringContaining('domain-lcp-variant.avif')
+    );
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
@@ -3673,6 +3681,7 @@ describe('[category]/[productSlug] page render', () => {
           sim_type: 'eSIM Only',
         },
         images: [],
+        primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
         price_override: 829000,
         sku: 'IPHONE15-USED-128-BLK-ESIM',
         stock_quantity: 3,
@@ -3699,6 +3708,7 @@ describe('[category]/[productSlug] page render', () => {
           },
           condition: 'used',
           images: [],
+          primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
           price_override: 829000,
           sku: 'IPHONE15-USED-128-BLK-ESIM',
           stock_quantity: 3,
@@ -3739,6 +3749,7 @@ describe('[category]/[productSlug] page render', () => {
         }),
         condition: 'used',
         id: 'iphone15-used-esim',
+        primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
       })
     );
   });

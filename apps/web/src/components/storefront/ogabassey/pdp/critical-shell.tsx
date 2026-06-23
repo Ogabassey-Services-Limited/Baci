@@ -11,6 +11,7 @@ interface OgabasseyPdpCriticalShellProps {
   basePath?: string;
   basePathPromise?: Promise<string>;
   children?: ReactNode;
+  fallbackImage?: string | null;
   product: OgabasseyPdpCriticalProduct;
   summaryCommerce?: ReactNode;
 }
@@ -99,6 +100,7 @@ export function OgabasseyPdpCriticalShell({
   basePath = '',
   basePathPromise,
   children,
+  fallbackImage,
   product,
   summaryCommerce,
 }: OgabasseyPdpCriticalShellProps) {
@@ -144,7 +146,7 @@ export function OgabasseyPdpCriticalShell({
           <div data-ogabassey-pdp-image-frame>
             <OgabasseyPdpCriticalProductImage
               alt={product.name}
-              fallbackImage={product.image}
+              fallbackImage={fallbackImage || product.image}
             />
             <OgabasseyPdpCriticalConditionBadge
               fallbackCondition={product.condition}

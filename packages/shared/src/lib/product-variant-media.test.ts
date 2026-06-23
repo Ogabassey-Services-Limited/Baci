@@ -80,6 +80,54 @@ describe('resolveProductVariantMedia', () => {
     });
   });
 
+  it('adds storage-only variant photos to gallery images without color buckets', () => {
+    expect(
+      resolveProductVariantMedia({
+        productImages: ['https://cdn.example.com/base.jpg'],
+        variants: [
+          {
+            attributes: { storage: '512GB' },
+            primary_image: 'https://cdn.example.com/storage-512.jpg',
+          },
+          {
+            attributes: { storage: '1TB' },
+            images: ['https://cdn.example.com/storage-1tb.jpg'],
+          },
+        ],
+      })
+    ).toEqual({
+      colorImages: undefined,
+      colors: undefined,
+      galleryImages: [
+        'https://cdn.example.com/storage-512.jpg',
+        'https://cdn.example.com/storage-1tb.jpg',
+        'https://cdn.example.com/base.jpg',
+      ],
+      imageColorMap: {},
+    });
+  });
+
+  it('deduplicates variant photos that are already represented by color buckets', () => {
+    const result = resolveProductVariantMedia({
+      productImages: ['https://cdn.example.com/base.jpg'],
+      variants: [
+        {
+          attributes: { color: 'Jade', storage: '512GB' },
+          primary_image: 'https://cdn.example.com/jade-512.jpg',
+          images: ['https://cdn.example.com/jade-512.jpg'],
+        },
+      ],
+    });
+
+    expect(result.galleryImages).toEqual([
+      'https://cdn.example.com/jade-512.jpg',
+      'https://cdn.example.com/base.jpg',
+    ]);
+    expect(result.imageColorMap).toEqual({
+      'https://cdn.example.com/jade-512.jpg': 'Jade',
+    });
+  });
+
   it('keeps fallback product colors when variant images only cover some colors', () => {
     expect(
       resolveProductVariantMedia({

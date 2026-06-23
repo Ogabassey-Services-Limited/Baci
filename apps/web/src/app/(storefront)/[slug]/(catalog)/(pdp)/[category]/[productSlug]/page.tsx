@@ -226,6 +226,7 @@ function toOgabasseyProduct(
           condition?: string | null;
           price_override?: number;
           price_modifier?: number;
+          primary_image?: string | null;
           stock_quantity?: number;
           images?: string[];
         }) => {
@@ -245,6 +246,7 @@ function toOgabasseyProduct(
             attributes: v.attributes,
             price_override: v.price_override,
             price_modifier: v.price_modifier,
+            primary_image: v.primary_image,
             // Keep legacy `stock` and canonical `stock_quantity` consumers in sync.
             stock: v.stock_quantity,
             stock_quantity: v.stock_quantity,
@@ -393,6 +395,7 @@ type CategoryProductResult =
 
 interface LcpRouteProduct {
   base_price?: number | null;
+  baseImage?: string;
   brand: string;
   canonical_url?: string;
   categories?: { name?: string; slug?: string } | null;
@@ -632,9 +635,11 @@ function mapCachedProductLcpHintToRouteProduct(
   );
   const primaryImage =
     getCachedProductRoutePrimaryImage(cachedProduct, variants) || '';
+  const baseImage = getCachedProductLcpHintPrimaryImage(cachedProduct) || '';
 
   return {
     base_price: legacyPrices.basePrice,
+    baseImage,
     brand: cachedProduct.brand ?? '',
     canonical_url: cachedProduct.canonical_url ?? undefined,
     categories: primaryCategory,
@@ -1430,6 +1435,8 @@ export default async function CategoryProductPage({
   }
 
   const primaryProductImage = product.imageLarge || product.image || null;
+  const criticalFallbackProductImage =
+    (product as { baseImage?: string | null }).baseImage || primaryProductImage;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
@@ -1525,6 +1532,7 @@ export default async function CategoryProductPage({
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
+            fallbackImage={criticalFallbackProductImage}
             product={criticalCommerceContext.product}
             summaryCommerce={<OgabasseyPdpCriticalCommerceSummary />}
           >
