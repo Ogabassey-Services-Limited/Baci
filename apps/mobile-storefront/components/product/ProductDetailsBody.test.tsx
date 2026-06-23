@@ -49,7 +49,6 @@ function createProps(
     },
     effectivePrice: 552000,
     effectiveComparePrice: undefined,
-    canPurchase: true,
     selectedVariant: null,
     setSelectedVariant: jest.fn(),
     selectedCondition: null,

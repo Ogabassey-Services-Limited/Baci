@@ -23,6 +23,9 @@ export function useCartReprice() {
 
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
+  // Reprice once per mount. merchantId stays in the dependency array so the
+  // effect re-fires when it resolves on the first paint; the hasRunRef guard
+  // then ensures the actual reprice runs a single time (not on every change).
   useEffect(() => {
     if (hasRunRef.current || !merchantId) {
       return;

@@ -127,7 +127,6 @@ export function ProductDetailScreen({
       backButtonAnimatedStyle={animations.backButtonAnimatedStyle}
       bodyProps={{
         availableConditions: routeData.availableConditions,
-        canPurchase: purchaseState.canPurchase,
         colors,
         conditionOffers: purchaseState.conditionOffersForDisplay,
         effectiveComparePrice: purchaseState.effectiveComparePrice,

@@ -38,6 +38,34 @@ describe('PriceChangeModal', () => {
     expect(screen.getByText('₦970,000')).toBeTruthy();
   });
 
+  it('renders a single changed line without the others', () => {
+    render(
+      <PriceChangeModal
+        visible
+        changes={[priceChanges[0]]}
+        onClose={jest.fn()}
+        colors={Colors.light}
+      />
+    );
+
+    expect(screen.getByText('iPhone 15 Pro')).toBeTruthy();
+    expect(screen.queryByText('Samsung Galaxy S25')).toBeNull();
+  });
+
+  it('renders the header but no line rows when there are no changes', () => {
+    render(
+      <PriceChangeModal
+        visible
+        changes={[]}
+        onClose={jest.fn()}
+        colors={Colors.light}
+      />
+    );
+
+    expect(screen.getByText('Prices updated')).toBeTruthy();
+    expect(screen.queryByText('iPhone 15 Pro')).toBeNull();
+  });
+
   it('calls onClose from the backdrop, close button, and continue button', () => {
     const onClose = jest.fn();
 

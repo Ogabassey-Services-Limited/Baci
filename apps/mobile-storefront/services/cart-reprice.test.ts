@@ -81,8 +81,16 @@ describe('repriceCartItems', () => {
     mockRpc.mockResolvedValue({ data: [], error: null });
   });
 
-  it('skips catalog reads when cart items or merchant scope are missing', async () => {
+  it('skips catalog reads when the merchant scope is missing', async () => {
     const result = await repriceCartItems([createCartItem()], '');
+
+    expect(result).toEqual({ priceById: {}, changes: [] });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('skips catalog reads when the cart is empty even with a valid merchant', async () => {
+    const result = await repriceCartItems([], 'merchant-1');
 
     expect(result).toEqual({ priceById: {}, changes: [] });
     expect(mockFrom).not.toHaveBeenCalled();

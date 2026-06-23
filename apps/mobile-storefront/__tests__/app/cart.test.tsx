@@ -18,6 +18,19 @@ const mockUseColorScheme = jest.fn(() => 'dark');
 const mockQueryClient = { prefetchQuery: jest.fn() };
 const mockWarmCheckoutEntry = jest.fn();
 const mockDismissPriceChanges = jest.fn();
+type MockPriceChange = {
+  id: string;
+  name: string;
+  oldPrice: number;
+  newPrice: number;
+};
+let mockRepriceResult: {
+  priceChanges: MockPriceChange[];
+  dismissPriceChanges: typeof mockDismissPriceChanges;
+} = {
+  priceChanges: [],
+  dismissPriceChanges: mockDismissPriceChanges,
+};
 const mockRouterPrefetch = jest.fn();
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -55,10 +68,7 @@ jest.mock('@/components/checkout/checkout-entry-prefetch', () => ({
 }));
 
 jest.mock('@/components/cart/use-cart-reprice', () => ({
-  useCartReprice: () => ({
-    priceChanges: [],
-    dismissPriceChanges: mockDismissPriceChanges,
-  }),
+  useCartReprice: () => mockRepriceResult,
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -325,5 +335,57 @@ describe('CartScreen state', () => {
 
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
     expect(mockRouterReplace).not.toHaveBeenCalledWith('/');
+  });
+});
+
+describe('CartScreen price-change modal', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseColorScheme.mockReturnValue('light');
+    mockUseAuthStatus.mockReturnValue(buildAuthStatus());
+    mockRouterCanGoBack.mockReturnValue(false);
+    mockCartState = createMockCartState();
+    mockRepriceResult = {
+      priceChanges: [],
+      dismissPriceChanges: mockDismissPriceChanges,
+    };
+  });
+
+  it('surfaces the price-change modal when reprice reports a drift', () => {
+    mockRepriceResult = {
+      priceChanges: [
+        {
+          id: 'cart-1',
+          name: 'Lenovo ThinkPad E16 Gen 2',
+          oldPrice: 1428000,
+          newPrice: 1500000,
+        },
+      ],
+      dismissPriceChanges: mockDismissPriceChanges,
+    };
+
+    render(<CartScreen />);
+
+    expect(screen.getByText('Prices updated')).toBeTruthy();
+    expect(screen.getByLabelText('Continue with updated prices')).toBeTruthy();
+  });
+
+  it('dismisses the price-change modal when the shopper continues', () => {
+    mockRepriceResult = {
+      priceChanges: [
+        {
+          id: 'cart-1',
+          name: 'Lenovo ThinkPad E16 Gen 2',
+          oldPrice: 1428000,
+          newPrice: 1500000,
+        },
+      ],
+      dismissPriceChanges: mockDismissPriceChanges,
+    };
+
+    render(<CartScreen />);
+    fireEvent.press(screen.getByLabelText('Continue with updated prices'));
+
+    expect(mockDismissPriceChanges).toHaveBeenCalledTimes(1);
   });
 });

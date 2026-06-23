@@ -61,8 +61,9 @@ describe('useCartReprice', () => {
     mockMerchant = { id: 'merchant-1' };
     mockItems = [createItem()];
     mockedUseCartStore.mockImplementation(
-      (selector: (state: { repriceItems: typeof mockRepriceItems }) => unknown) =>
-        selector({ repriceItems: mockRepriceItems })
+      (
+        selector: (state: { repriceItems: typeof mockRepriceItems }) => unknown
+      ) => selector({ repriceItems: mockRepriceItems })
     );
     mockedUseCartStore.getState = () => ({ items: mockItems });
   });
@@ -118,10 +119,6 @@ describe('useCartReprice', () => {
 
   it('skips repricing when the cart is empty', () => {
     mockItems = [];
-    mockRepriceCartItems.mockResolvedValue({
-      priceById: {},
-      changes: [],
-    });
 
     const { result } = renderHook(() => useCartReprice());
 

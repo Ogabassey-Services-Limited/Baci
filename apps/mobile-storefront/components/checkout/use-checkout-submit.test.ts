@@ -3,6 +3,7 @@ import type { MutableRefObject } from 'react';
 import { Alert } from 'react-native';
 import type { CartPriceChange, RepriceResult } from '@/services/cart-reprice';
 import type { CartItem } from '@/stores/cart-store.types';
+import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import {
   type UseCheckoutSubmitParams,
   useCheckoutSubmit,
@@ -200,7 +201,7 @@ describe('useCheckoutSubmit', () => {
 
     expect(mockRepriceCartItems).toHaveBeenCalledWith(
       [cartItem],
-      expect.any(String)
+      CHECKOUT_MERCHANT_ID
     );
     expect(mockRepriceItems).toHaveBeenCalledWith({ 'line-1': 1250000 });
     expect(Alert.alert).toHaveBeenCalledWith(
@@ -239,7 +240,7 @@ describe('useCheckoutSubmit', () => {
     );
     expect(mockRepriceCartItems).toHaveBeenCalledWith(
       [cartItem],
-      expect.any(String)
+      CHECKOUT_MERCHANT_ID
     );
     // No drift → cart is not mutated and no alert; the submit advances into
     // the order path (processing state set, order marked in-flight).

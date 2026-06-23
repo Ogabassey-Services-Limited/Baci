@@ -18,10 +18,6 @@ export interface ProductDetailsBodyProps {
   product: Product;
   effectivePrice: number;
   effectiveComparePrice: number | undefined;
-  // Purchase gating computed by the screen. The body no longer renders an
-  // offer/purchase control itself (negotiation now lives in the cart), but the
-  // value is forwarded so the screen's gating stays observable to consumers.
-  canPurchase: boolean;
   selectedVariant: string | null;
   setSelectedVariant: (id: string) => void;
   selectedCondition: ProductCondition | null;
