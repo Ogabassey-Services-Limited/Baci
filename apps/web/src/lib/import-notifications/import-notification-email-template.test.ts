@@ -193,6 +193,10 @@ describe('renderReceiptEmailHtml', () => {
       '<img src="https://cdn.example.com/opaque-logo.png"'
     );
     expect(html).toContain('alt="Ogabassey"');
+    // Opaque-specific rendering: taller image, solid background, no chip border.
+    expect(html).toContain('height="28"');
+    expect(html).toContain('background-color:#ffffff');
+    expect(html).toContain('border-radius:8px');
     // The opaque plate is baked into the image, so no CSS chip is emitted.
     expect(html).not.toContain('class="r-logo-chip"');
   });
