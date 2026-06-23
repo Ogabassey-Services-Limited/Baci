@@ -14,6 +14,10 @@ describe('hexToRgb', () => {
     expect(hexToRgb('#d62027')).toBe('214,32,39');
     expect(hexToRgb('#fff')).toBe('255,255,255');
   });
+
+  it('rejects malformed hex input', () => {
+    expect(() => hexToRgb('#zzzzzz')).toThrow(RangeError);
+  });
 });
 
 function baseInput(
