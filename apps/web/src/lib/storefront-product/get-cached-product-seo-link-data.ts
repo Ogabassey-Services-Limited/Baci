@@ -46,12 +46,16 @@ export async function getCachedProductSeoLinkData(
   productId = ''
 ): Promise<ProductSeoLinkData> {
   'use cache: remote';
-  cacheLife('products');
-  cacheTag(
-    'products',
-    'blog-posts',
-    `seo-links-${merchantId}-${categorySlug}-${productId || 'category'}`
-  );
+  try {
+    cacheLife('products');
+    cacheTag(
+      'products',
+      'blog-posts',
+      `seo-links-${merchantId}-${categorySlug}-${productId || 'category'}`
+    );
+  } catch {
+    // Unit tests do not run with Next cacheComponents enabled.
+  }
 
   const [categoryPageData, clusterGuidePosts, productGuidePosts] =
     await Promise.all([

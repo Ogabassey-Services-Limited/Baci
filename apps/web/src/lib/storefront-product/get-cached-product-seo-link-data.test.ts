@@ -4,11 +4,12 @@ import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data'
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGetPublishedProductGuidePosts = vi.fn();
+const mockCacheLife = vi.fn();
 const mockCacheTag = vi.fn();
 
 // cacheLife/cacheTag throw outside Next's cacheComponents runtime; no-op them.
 vi.mock('next/cache', () => ({
-  cacheLife: vi.fn(),
+  cacheLife: (...args: string[]) => mockCacheLife(...args),
   cacheTag: (...args: string[]) => mockCacheTag(...args),
 }));
 
@@ -79,6 +80,26 @@ describe('getCachedProductSeoLinkData', () => {
       'blog-posts',
       'seo-links-merchant-1-laptops-prod-1'
     );
+  });
+
+  it('continues when Next cache APIs are unavailable in a unit-test runtime', async () => {
+    mockCacheLife.mockImplementationOnce(() => {
+      throw new Error('cache unavailable');
+    });
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products,
+      productsQueryFailed: false,
+    });
+
+    await expect(
+      getCachedProductSeoLinkData(
+        'merchant-1',
+        'laptops',
+        'ogabassey',
+        'prod-1'
+      )
+    ).resolves.toMatchObject({ inventory: products });
   });
 
   it('THROWS on a transient inventory failure so the degraded result is never cached', async () => {
