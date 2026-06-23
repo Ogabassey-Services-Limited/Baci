@@ -19,8 +19,6 @@ const merchant: MerchantNotificationContext = {
   email: 'hello@ogabassey.com',
   brand_colors: { primary: '#d62027' },
 };
-const OGABASSEY_EMAIL_LOGO_URL =
-  'https://ogabassey.com/email/ogabassey-logo-white-chip.png';
 
 function appFirstDelivery(
   context: MerchantNotificationContext,
@@ -153,7 +151,7 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('alt="Future Merchant"');
   });
 
-  it('uses the baked white-mat logo asset for Ogabassey receipt emails', () => {
+  it('preserves the configured Ogabassey raster logo in receipt emails', () => {
     const merchantLogoUrl =
       'https://cdn.ogabassey.com/media/ogabassey-logo.png';
     const delivery = appFirstDelivery(merchant);
@@ -169,10 +167,7 @@ describe('import notification email content', () => {
       devices: ['iPhone 16 Pro Max'],
     });
 
-    expect(content.htmlContent).toContain(
-      `<img src="${OGABASSEY_EMAIL_LOGO_URL}"`
-    );
-    expect(content.htmlContent).not.toContain(`<img src="${merchantLogoUrl}"`);
+    expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
     expect(content.htmlContent).toContain('alt="Ogabassey"');
   });
 
@@ -197,9 +192,6 @@ describe('import notification email content', () => {
     });
 
     expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
-    expect(content.htmlContent).not.toContain(
-      `<img src="${OGABASSEY_EMAIL_LOGO_URL}"`
-    );
     expect(content.htmlContent).toContain('alt="Ogabassey Reseller"');
   });
 

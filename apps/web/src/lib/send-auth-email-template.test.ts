@@ -12,8 +12,6 @@ import { generateEmailHtml as generateAppLocalEmailHtml } from '../../supabase/f
 describe('send-auth-email template helpers', () => {
   const ogabasseyMerchantLogoUrl =
     'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png';
-  const ogabasseyEmailLogoUrl =
-    'https://ogabassey.com/email/ogabassey-logo-white-chip.png';
 
   it('detects Baci merchant subdomains from auth redirects', () => {
     expect(
@@ -80,7 +78,7 @@ describe('send-auth-email template helpers', () => {
     expect(html).not.toContain('linear-gradient');
   });
 
-  it('renders merchant logo images inside a fixed white email-table chip', () => {
+  it('renders configured merchant logo images inside a fixed white email-table chip', () => {
     const html = generateEmailHtml(
       getEmailConfig('magiclink', 'Ogabassey'),
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
@@ -99,8 +97,7 @@ describe('send-auth-email template helpers', () => {
       'https://ogabassey.com/account/verify'
     );
 
-    expect(html).toContain(`<img src="${ogabasseyEmailLogoUrl}"`);
-    expect(html).not.toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
+    expect(html).toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
     expect(html).toContain('class="a-logo-chip"');
     expect(html).toContain('bgcolor="#ffffff"');
     expect(html).toContain('background:#ffffff');
@@ -172,10 +169,7 @@ describe('send-auth-email template helpers', () => {
     );
 
     expect(appLocalHtml).toBe(rootHtml);
-    expect(appLocalHtml).toContain(`<img src="${ogabasseyEmailLogoUrl}"`);
-    expect(appLocalHtml).not.toContain(
-      `<img src="${ogabasseyMerchantLogoUrl}"`
-    );
+    expect(appLocalHtml).toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
   });
 
   it('does not use the Ogabassey logo for merchants with similar names', () => {
@@ -201,7 +195,6 @@ describe('send-auth-email template helpers', () => {
     );
 
     expect(html).toContain(`<img src="${resellerLogoUrl}"`);
-    expect(html).not.toContain(`<img src="${ogabasseyEmailLogoUrl}"`);
   });
 
   it('omits the Ogabassey CTA when the action URL is unsafe', () => {

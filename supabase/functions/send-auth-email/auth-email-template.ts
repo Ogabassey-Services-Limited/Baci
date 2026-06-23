@@ -6,8 +6,6 @@ const BACI_PRIMARY_COLOR = '#1e40af';
 const BACI_BUTTON_COLOR = '#fbbf24';
 const BACI_BUTTON_TEXT_COLOR = '#1e1e1e';
 const OGABASSEY_COLOR = '#d62027';
-const OGABASSEY_EMAIL_LOGO_URL =
-  'https://ogabassey.com/email/ogabassey-logo-white-chip.png';
 const PLATFORM_DOMAIN = 'usebaci.com';
 const RESERVED_BACI_SUBDOMAINS = new Set(['app', 'dashboard', 'www']);
 
@@ -229,9 +227,7 @@ function renderLogo(
   safeBrandName: string,
   align: 'left' | 'center' = 'left'
 ): string {
-  const safeLogoUrl = isOgabasseyBrand(branding)
-    ? OGABASSEY_EMAIL_LOGO_URL
-    : sanitizeUrl(branding.logoUrl ?? '');
+  const safeLogoUrl = sanitizeUrl(branding.logoUrl ?? '');
   if (!safeLogoUrl) {
     return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
   }

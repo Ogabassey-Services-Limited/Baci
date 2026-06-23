@@ -49,8 +49,6 @@ const RECEIPT_CHANGED_SUBJECT = 'Your receipt has moved';
 const DEFAULT_RECEIPT_BRAND_COLOR = '#d62027';
 const RECEIPT_TAGLINE_MAX_LENGTH = 120;
 const RASTER_LOGO_PATTERN = /\.(png|jpe?g|gif|webp)$/;
-const OGABASSEY_EMAIL_LOGO_URL =
-  'https://ogabassey.com/email/ogabassey-logo-white-chip.png';
 
 function normalizeEmailHexColor(value: string | null | undefined) {
   if (!value || !/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(value)) {
@@ -70,24 +68,11 @@ function getReceiptBrandColor(merchant: MerchantNotificationContext) {
  * non-raster URLs — email clients (Gmail/Outlook/Apple Mail) do not render
  * SVGs, so those fall back to the text wordmark.
  */
-function isOgabasseyMerchant(merchant: MerchantNotificationContext): boolean {
-  const slug = merchant.slug?.toLowerCase();
-  const customDomain = merchant.custom_domain
-    ?.toLowerCase()
-    .replace(/^www\./, '');
-
-  return slug === 'ogabassey' || customDomain === 'ogabassey.com';
-}
-
-function emailSafeLogoUrl(merchant: MerchantNotificationContext): string {
-  if (isOgabasseyMerchant(merchant)) {
-    return OGABASSEY_EMAIL_LOGO_URL;
-  }
-
-  if (!merchant.logo_url) {
+function emailSafeLogoUrl(logoUrl: string | null | undefined): string {
+  if (!logoUrl) {
     return '';
   }
-  const safe = sanitizeUrl(merchant.logo_url);
+  const safe = sanitizeUrl(logoUrl);
   if (!safe) {
     return '';
   }
@@ -245,7 +230,7 @@ function buildAppFirstReceiptEmailContent({
       subhead:
         'A quicker, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant)),
+      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
       introHtml: `${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
@@ -318,7 +303,7 @@ function buildSiteReceiptEmailContent({
       subhead:
         'A simpler, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant)),
+      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
       introHtml: `${escapedMerchantName} has moved your receipt for the following item(s) to your online account.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
