@@ -168,4 +168,29 @@ describe('ProductMediaGallery', () => {
       screen.queryByRole('button', { name: 'View image 2' }),
     ).not.toBeInTheDocument();
   });
+
+  it('falls back to the first working image when the selected image fails to load', () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    const main = screen.getByAltText('Test Product');
+    expect(main).toHaveAttribute('src', 'https://example.com/img-1.jpg');
+
+    // The selected image 404s -> the main view falls back to the next image
+    // that still loads, never a broken image.
+    act(() => {
+      fireEvent.error(main);
+    });
+
+    expect(screen.getByAltText('Test Product')).toHaveAttribute(
+      'src',
+      'https://example.com/img-2.jpg',
+    );
+  });
 });

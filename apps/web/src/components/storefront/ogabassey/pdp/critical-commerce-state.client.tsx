@@ -3,6 +3,7 @@
 import {
   normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
+  resolveLowestPricedVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
 } from '@baci/shared/lib';
@@ -75,10 +76,14 @@ export function OgabasseyPdpCriticalCommerceProvider({
   const initialExplicitSelectedAxes = Object.keys(
     normalizedInitialSelectionAttributes
   );
+  // PDP opens on the cheapest buyable variant (price-first), so e.g. a cheaper
+  // "Used" leads over a pricier "Open Box". Falls back to the shared
+  // condition-first default (PDP-only — feeds/cart keep the shared resolver).
   const defaultVariantSelection = selectionCartProduct.has_variants
-    ? resolveDefaultVariantSelection(selectionCartProduct, {
+    ? (resolveLowestPricedVariantSelection(selectionCartProduct) ??
+      resolveDefaultVariantSelection(selectionCartProduct, {
         condition: explicitVariantCondition,
-      })
+      }))
     : null;
   const initialDisplayVariantSelection = selectionCartProduct.has_variants
     ? (resolveVariantDisplaySelection(selectionCartProduct, {
