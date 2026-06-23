@@ -263,13 +263,11 @@ describe('useProductDetailSelection', () => {
     });
   });
 
-  const fallbackConditionCases: Array<
-    [
-      label: 'null route condition' | 'unavailable route condition',
-      routeCondition: 'refurbished' | null,
-      expectedCondition: 'used',
-    ]
-  > = [
+  const fallbackConditionCases: [
+    label: 'null route condition' | 'unavailable route condition',
+    routeCondition: 'refurbished' | null,
+    expectedCondition: 'used',
+  ][] = [
     ['null route condition', null, 'used'],
     ['unavailable route condition', 'refurbished', 'used'],
   ];

@@ -35,8 +35,8 @@ describe('resolveProductDetailDefaultVariantSelection', () => {
       ],
     };
 
-    expect(resolveProductDetailDefaultVariantSelection(product)?.variant.id).toBe(
-      'open-box-128'
-    );
+    expect(
+      resolveProductDetailDefaultVariantSelection(product)?.variant.id
+    ).toBe('open-box-128');
   });
 });
