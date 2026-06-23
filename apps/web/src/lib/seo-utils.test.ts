@@ -2080,6 +2080,30 @@ describe('generateCollectionPageSchema', () => {
     expect(itemList.itemListElement).toEqual([]);
   });
 
+  it('omits external placeholder-only products from collection-page Product JSON-LD', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'External Placeholder Phone',
+          slug: 'external-placeholder-phone',
+          category: 'Smartphones',
+          image: 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image',
+          imageLarge: 'https://via.placeholder.com/800x800?text=No+Image',
+        }),
+      ],
+    });
+
+    const itemList = schema.mainEntity as Record<string, unknown>;
+
+    expect(itemList.numberOfItems).toBe(0);
+    expect(itemList.itemListElement).toEqual([]);
+  });
+
   it('normalizes OgaBassey CDN image URL shapes in collection-page Product JSON-LD', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',
@@ -2286,6 +2310,37 @@ describe('generateCollectionPageSchema', () => {
           category: 'Smartphones',
           image: '/images/phone-with-image.jpg',
           imageLarge: 'https://ogabassey.com/placeholder.svg?cache=1',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(product.image).toEqual([
+      'https://ogabassey.com/images/phone-with-image.jpg',
+    ]);
+  });
+
+  it('falls back to a real image when imageLarge is an external placeholder', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'Phone With Image',
+          slug: 'phone-with-image',
+          category: 'Smartphones',
+          image: '/images/phone-with-image.jpg',
+          imageLarge: 'https://placehold.it/800x800?text=No+Image',
         }),
       ],
     });

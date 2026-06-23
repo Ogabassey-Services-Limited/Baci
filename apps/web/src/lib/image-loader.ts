@@ -1,4 +1,7 @@
-import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
+import {
+  isExternalPlaceholderImageUrl,
+  PLACEHOLDER_IMAGE,
+} from '@/lib/image-utils';
 import {
   isOgabasseyCdnImageUrl,
   normalizeOgabasseyCdnImageUrl,
@@ -14,11 +17,6 @@ interface ImageLoaderParams {
 const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;
-const EXTERNAL_PLACEHOLDER_IMAGE_HOSTS = new Set([
-  'placehold.co',
-  'placehold.it',
-  'via.placeholder.com',
-]);
 
 /**
  * Custom image loader for next/image.
@@ -64,15 +62,6 @@ export default function imageLoader({
   // custom loader is configured. Returning /_next/image here would send them to
   // a route owned by the default loader, which this app intentionally bypasses.
   return appendLoaderParams(src, width, quality);
-}
-
-function isExternalPlaceholderImageUrl(src: string): boolean {
-  try {
-    const url = new URL(src);
-    return EXTERNAL_PLACEHOLDER_IMAGE_HOSTS.has(url.hostname.toLowerCase());
-  } catch {
-    return false;
-  }
 }
 
 function appendLoaderParams(src: string, width: number, quality?: number) {

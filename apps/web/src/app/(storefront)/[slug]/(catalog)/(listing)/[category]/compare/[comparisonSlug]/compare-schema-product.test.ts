@@ -37,6 +37,12 @@ describe('compare schema product helpers', () => {
       )
     ).toBe('');
     expect(
+      normalizeStructuredDataImageUrl(
+        'https://placehold.co/400x400?text=No+Image',
+        BASE_URL
+      )
+    ).toBe('');
+    expect(
       normalizeStructuredDataImageUrl('mailto:test@example.com', BASE_URL)
     ).toBe('');
   });
@@ -61,8 +67,9 @@ describe('compare schema product helpers', () => {
     expect(
       getStructuredDataImage(
         {
-          image: '/placeholder.svg',
+          image: 'https://placehold.co/400x400?text=No+Image',
           images: [
+            'https://via.placeholder.com/600x600?text=No+Image',
             '/media/fallback.avif',
             { url: 'https://cdn.example.com/ignored.avif' },
           ],

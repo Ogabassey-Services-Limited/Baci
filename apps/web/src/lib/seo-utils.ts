@@ -20,7 +20,10 @@ import {
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
-import { PLACEHOLDER_IMAGE } from './image-utils';
+import {
+  isExternalPlaceholderImageUrl,
+  PLACEHOLDER_IMAGE,
+} from './image-utils';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import type {
   Product,
@@ -2053,12 +2056,14 @@ function toAbsoluteSchemaImageUrl(
     try {
       const url = new URL(trimmed, baseUrl);
       const isHttpImage = url.protocol === 'http:' || url.protocol === 'https:';
+      const absoluteImageUrl = url.toString();
       const isPlaceholder =
         url.pathname === PLACEHOLDER_IMAGE ||
-        url.pathname.endsWith(PLACEHOLDER_IMAGE);
+        url.pathname.endsWith(PLACEHOLDER_IMAGE) ||
+        isExternalPlaceholderImageUrl(absoluteImageUrl);
 
       if (isHttpImage && !isPlaceholder) {
-        return normalizeOgabasseyCdnImageUrl(url.toString());
+        return normalizeOgabasseyCdnImageUrl(absoluteImageUrl);
       }
     } catch {
       // Ignore malformed image candidates and continue to the next fallback.

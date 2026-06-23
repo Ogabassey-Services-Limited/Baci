@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { OgabasseyV2Wallet } from '@/components/storefront/ogabassey/pages/wallet';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -10,6 +9,7 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
+import { WalletContentSection } from './wallet-content-section';
 
 export const metadata: Metadata = {
   title: 'Wallet Balance',
@@ -51,9 +51,5 @@ async function WalletContent({
     notFound();
   }
 
-  return (
-    <section aria-label="Wallet Balance">
-      <OgabasseyV2Wallet />
-    </section>
-  );
+  return <WalletContentSection />;
 }

@@ -1,4 +1,7 @@
-import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
+import {
+  isExternalPlaceholderImageUrl,
+  PLACEHOLDER_IMAGE,
+} from '@/lib/image-utils';
 import { normalizeOgabasseyCdnImageUrl } from '@/lib/ogabassey-cdn-image-url';
 import type { buildProductCompareItemListSchema } from '@/lib/storefront-compare/compare-schema';
 
@@ -24,12 +27,14 @@ export function normalizeStructuredDataImageUrl(
   try {
     const url = new URL(trimmed, baseUrl);
     const isHttpImage = url.protocol === 'http:' || url.protocol === 'https:';
+    const absoluteImageUrl = url.toString();
     const isPlaceholder =
       url.pathname === PLACEHOLDER_IMAGE ||
-      url.pathname.endsWith(PLACEHOLDER_IMAGE);
+      url.pathname.endsWith(PLACEHOLDER_IMAGE) ||
+      isExternalPlaceholderImageUrl(absoluteImageUrl);
 
     return isHttpImage && !isPlaceholder
-      ? normalizeOgabasseyCdnImageUrl(url.toString())
+      ? normalizeOgabasseyCdnImageUrl(absoluteImageUrl)
       : '';
   } catch {
     return '';

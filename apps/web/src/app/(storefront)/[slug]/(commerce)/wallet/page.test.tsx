@@ -31,6 +31,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { default: WalletPage } = await import('./page');
+const { WalletContentSection } = await import('./wallet-content-section');
 
 describe('WalletPage', () => {
   beforeEach(() => {
@@ -39,20 +40,15 @@ describe('WalletPage', () => {
     notFound.mockClear();
   });
 
-  it('does not render a wrapper H1 in the initial synchronous output', () => {
-    vi.mocked(getCachedMerchant).mockReturnValue(
-      new Promise(() => {
-        /* deferred: keep Suspense pending */
+  it('renders a server-owned H1 for crawler and no-JS output', () => {
+    render(<WalletContentSection />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Wallet Balance',
       })
-    );
-
-    render(
-      <Suspense fallback={null}>
-        <WalletPage params={Promise.resolve({ slug: 'test-store' })} />
-      </Suspense>
-    );
-
-    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    ).toBeInTheDocument();
   });
 
   it('does not render a page-owned loading fallback while content loads', () => {
