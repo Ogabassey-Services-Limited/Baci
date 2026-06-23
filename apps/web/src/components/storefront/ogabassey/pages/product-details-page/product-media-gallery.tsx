@@ -68,12 +68,13 @@ export function ProductMediaGallery({
   const hasMultipleImages = productData.images.length > 1;
 
   const selectedSrc = productData.images[selectedImage];
+  const fallbackMainImageSrc = productData.images.find(
+    (image) => image && !brokenImages.has(image)
+  );
   const mainImageSrc =
     selectedSrc && !brokenImages.has(selectedSrc)
       ? selectedSrc
-      : (productData.images.find(
-          (image) => image && !brokenImages.has(image)
-        ) ?? selectedSrc);
+      : (fallbackMainImageSrc ?? null);
 
   return (
     <div className="space-y-6 lg:col-span-5">
@@ -86,7 +87,7 @@ export function ProductMediaGallery({
             fill
             className="object-cover"
             sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-            priority
+            loading="eager"
             fetchPriority="high"
             decoding="sync"
             quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}

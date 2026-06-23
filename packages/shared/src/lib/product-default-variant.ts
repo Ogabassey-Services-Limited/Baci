@@ -262,7 +262,7 @@ export function resolveLowestPricedVariantSelection<
     return null;
   }
 
-  const [cheapest] = [...purchasableVariants].sort((left, right) => {
+  const [cheapest] = purchasableVariants.sort((left, right) => {
     const leftPrice = getVariantPrice(product.price, left.variant);
     const rightPrice = getVariantPrice(product.price, right.variant);
     if (leftPrice !== rightPrice) {

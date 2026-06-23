@@ -77,8 +77,12 @@ describe('ProductMediaGallery', () => {
       OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
-      'data-priority',
-      'true',
+      'loading',
+      'eager',
+    );
+    expect(screen.getByAltText('Test Product')).toHaveAttribute(
+      'fetchpriority',
+      'high',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
       'decoding',
@@ -193,4 +197,28 @@ describe('ProductMediaGallery', () => {
       'https://example.com/img-2.jpg',
     );
   });
+
+  it('removes the main image instead of reusing a broken source when every image fails', () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test Product'));
+    });
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test Product'));
+    });
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test Product'));
+    });
+
+    expect(screen.queryByAltText('Test Product')).not.toBeInTheDocument();
+  });
+
 });
