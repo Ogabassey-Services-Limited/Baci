@@ -350,6 +350,37 @@ describe('PostHog client config', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps delayed non-blog web-vitals captures after navigating to a blog page', () => {
+    vi.stubGlobal('location', {
+      hostname: 'usebaci.com',
+      pathname: '/ogabassey/blog/best-phones',
+      origin: 'https://usebaci.com',
+    });
+
+    expect(
+      sanitizePostHogCapture({
+        uuid: 'event-1',
+        event: '$web_vitals',
+        properties: {
+          $web_vitals_LCP_event: {
+            $current_url: 'https://usebaci.com/ogabassey/products/iphone',
+            name: 'LCP',
+            value: 1200,
+          },
+        },
+      })
+    ).toMatchObject({
+      event: '$web_vitals',
+      properties: {
+        $web_vitals_LCP_event: {
+          $current_url: 'https://usebaci.com/ogabassey/products/iphone',
+        },
+      },
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it('removes stale tenant context from capture payloads on platform routes', () => {
     vi.stubGlobal('location', {
       hostname: 'usebaci.com',

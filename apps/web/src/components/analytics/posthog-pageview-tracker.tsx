@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
@@ -10,6 +10,8 @@ const postHogBrowserEnv = getPostHogBrowserEnv();
 
 export function PostHogPageviewTracker() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamString = searchParams?.toString() ?? '';
 
   useEffect(() => {
     const currentPathname = pathname ?? globalThis.location?.pathname;
@@ -18,6 +20,11 @@ export function PostHogPageviewTracker() {
       return;
     }
 
+    const currentSearch = searchParamString ? `?${searchParamString}` : '';
+    const currentUrl =
+      typeof globalThis.location !== 'undefined'
+        ? globalThis.location.href
+        : `${currentPathname}${currentSearch}`;
     let cancelled = false;
 
     async function capturePageview() {
@@ -34,7 +41,7 @@ export function PostHogPageviewTracker() {
           pathname: currentPathname,
           hostname: globalThis.location?.hostname,
         });
-        capturePostHogPageview(window.location.href);
+        capturePostHogPageview(currentUrl);
       } catch (error) {
         if (!cancelled) {
           logger.warn({
@@ -50,7 +57,7 @@ export function PostHogPageviewTracker() {
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, searchParamString]);
 
   return null;
 }

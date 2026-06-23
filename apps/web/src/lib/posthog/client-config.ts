@@ -413,24 +413,31 @@ function isPublicBlogUrl(value: unknown): boolean {
   }
 }
 
+function getWebVitalsMetricUrls(properties: Properties): string[] {
+  return Object.entries(properties)
+    .filter(
+      ([key, value]) =>
+        key.startsWith('$web_vitals_') &&
+        key.endsWith('_event') &&
+        isRecord(value) &&
+        typeof value.$current_url === 'string'
+    )
+    .map(([, value]) => (value as { $current_url: string }).$current_url);
+}
+
 function isPublicBlogWebVitalsEvent(properties: Properties): boolean {
-  if (typeof globalThis.location !== 'undefined') {
-    if (
-      isPublicBlogPathname(globalThis.location.pathname, {
-        hostname: globalThis.location.hostname,
-      })
-    ) {
-      return true;
-    }
+  const metricUrls = getWebVitalsMetricUrls(properties);
+  if (metricUrls.length > 0) {
+    return metricUrls.some(isPublicBlogUrl);
   }
 
-  return Object.entries(properties).some(
-    ([key, value]) =>
-      key.startsWith('$web_vitals_') &&
-      key.endsWith('_event') &&
-      isRecord(value) &&
-      isPublicBlogUrl(value.$current_url)
-  );
+  if (typeof globalThis.location !== 'undefined') {
+    return isPublicBlogPathname(globalThis.location.pathname, {
+      hostname: globalThis.location.hostname,
+    });
+  }
+
+  return false;
 }
 
 export function sanitizePostHogProperties(

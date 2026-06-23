@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PostHogPageviewTracker } from './posthog-pageview-tracker';
 
 let pathname = '/';
+let searchParams = new URLSearchParams();
 
 const mocks = vi.hoisted(() => ({
   capturePostHogPageview: vi.fn(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
+  useSearchParams: () => searchParams,
 }));
 
 vi.mock('@/lib/posthog/browser', () => ({
@@ -21,6 +23,7 @@ vi.mock('@/lib/posthog/browser', () => ({
 describe('PostHogPageviewTracker', () => {
   beforeEach(() => {
     pathname = '/';
+    searchParams = new URLSearchParams();
     mocks.capturePostHogPageview.mockClear();
     mocks.initializePostHogBrowser.mockClear();
     window.history.replaceState(null, '', '/');
@@ -120,6 +123,41 @@ describe('PostHogPageviewTracker', () => {
       {
         lightweight: false,
         pathname: '/ogabassey/laptops/macbook-pro',
+        hostname: 'localhost',
+      }
+    );
+  });
+
+  it('captures a pageview when only public blog search params change', async () => {
+    pathname = '/ogabassey/blog';
+    searchParams = new URLSearchParams('page=1');
+    window.history.replaceState(null, '', `${pathname}?${searchParams}`);
+    const { rerender } = render(<PostHogPageviewTracker />);
+
+    await waitFor(() => {
+      expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
+        'http://localhost:3000/ogabassey/blog?page=1'
+      );
+    });
+
+    searchParams = new URLSearchParams('page=2');
+    window.history.pushState(null, '', `${pathname}?${searchParams}`);
+    rerender(<PostHogPageviewTracker />);
+
+    await waitFor(() => {
+      expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
+        'http://localhost:3000/ogabassey/blog?page=2'
+      );
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
+    });
+    expect(mocks.initializePostHogBrowser).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        NODE_ENV: expect.any(String),
+      }),
+      console,
+      {
+        lightweight: true,
+        pathname: '/ogabassey/blog',
         hostname: 'localhost',
       }
     );
