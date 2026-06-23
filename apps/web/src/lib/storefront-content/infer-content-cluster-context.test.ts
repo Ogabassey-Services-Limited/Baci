@@ -18,7 +18,7 @@ describe('inferContentClusterContext', () => {
     });
   });
 
-  it('infers expanded Ogabassey verticals from category and article terms', () => {
+  it('infers audio context from JBL and speaker terms', () => {
     expect(
       inferContentClusterContext({
         title: 'JBL Charge 6 vs Soundbar: Which Audio Device Fits Your Room?',
@@ -32,7 +32,9 @@ describe('inferContentClusterContext', () => {
       kind: 'decision-support',
       brands: ['jbl'],
     });
+  });
 
+  it('infers printer context from HP and toner terms', () => {
     expect(
       inferContentClusterContext({
         title: 'HP LaserJet Printer Setup and Toner Buying Guide',
@@ -46,7 +48,9 @@ describe('inferContentClusterContext', () => {
       kind: 'buyer-guide',
       brands: ['hp'],
     });
+  });
 
+  it('infers PlayStation 5 context from PS5 console terms', () => {
     expect(
       inferContentClusterContext({
         title: 'PlayStation 5 Disc Edition vs Digital Edition',

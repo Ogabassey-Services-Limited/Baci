@@ -1,8 +1,8 @@
+import type { ClusterSupport } from '@/config/storefront-content-cluster-shared';
+import { CORE_CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters-core';
+import { GAMING_CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters-gaming';
+import { MEDIA_CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters-media';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
-import type { ClusterSupport } from './storefront-content-cluster-shared';
-import { CORE_CONTENT_CLUSTER_SUPPORT } from './storefront-content-clusters-core';
-import { GAMING_CONTENT_CLUSTER_SUPPORT } from './storefront-content-clusters-gaming';
-import { MEDIA_CONTENT_CLUSTER_SUPPORT } from './storefront-content-clusters-media';
 
 export const CONTENT_CLUSTER_SUPPORT = {
   ...CORE_CONTENT_CLUSTER_SUPPORT,

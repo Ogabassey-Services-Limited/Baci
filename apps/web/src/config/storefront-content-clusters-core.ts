@@ -1,4 +1,4 @@
-import type { ClusterSupport } from './storefront-content-cluster-shared';
+import type { ClusterSupport } from '@/config/storefront-content-cluster-shared';
 
 const phoneBrands = {
   apple: ['apple', 'iphone', 'ios'],

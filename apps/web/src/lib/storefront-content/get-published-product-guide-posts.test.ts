@@ -90,4 +90,26 @@ describe('getPublishedProductGuidePosts', () => {
     ).resolves.toEqual([]);
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });
+
+  it('returns no posts when feature settings lookup fails', async () => {
+    mockGetCachedFeatureSettings.mockRejectedValue(
+      new Error('feature settings unavailable')
+    );
+
+    await expect(
+      getPublishedProductGuidePosts('merchant-1', 'product-1')
+    ).resolves.toEqual([]);
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it('returns no posts when the linked-post query fails', async () => {
+    mockQuery.limit.mockResolvedValue({
+      data: null,
+      error: new Error('linked posts unavailable'),
+    });
+
+    await expect(
+      getPublishedProductGuidePosts('merchant-1', 'product-1')
+    ).resolves.toEqual([]);
+  });
 });

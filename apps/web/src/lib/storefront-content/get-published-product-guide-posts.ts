@@ -55,7 +55,18 @@ export async function getPublishedProductGuidePosts(
     return [];
   }
 
-  const features = await getCachedFeatureSettings(merchantId);
+  let features: Awaited<ReturnType<typeof getCachedFeatureSettings>>;
+
+  try {
+    features = await getCachedFeatureSettings(merchantId);
+  } catch (error) {
+    console.error('Failed to load feature settings for product guide posts', {
+      merchantId,
+      productId,
+      error,
+    });
+    return [];
+  }
 
   if (!features?.blog_enabled) {
     return [];

@@ -1,4 +1,4 @@
-import type { ClusterSupport } from './storefront-content-cluster-shared';
+import type { ClusterSupport } from '@/config/storefront-content-cluster-shared';
 
 const gamingBrands = {
   playstation: ['playstation', 'ps5', 'ps4', 'sony'],
