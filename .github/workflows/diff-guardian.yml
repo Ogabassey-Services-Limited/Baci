@@ -57,7 +57,11 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: diff-guardian-${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || github.run_id }}
+  # Only collapse repeated pull_request_target runs for the same PR (newest push
+  # wins). issue_comment and workflow_run runs each get a unique group so an
+  # ordinary PR comment can never cancel an in-flight tally and leave the
+  # required status stuck pending.
+  group: diff-guardian-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.issue.number || github.run_id }}-${{ github.event_name == 'pull_request_target' && 'pr' || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -71,10 +75,7 @@ jobs:
         (
           contains(github.event.comment.body, '@gemini-cli /review') ||
           contains(github.event.comment.body, '/jules deep review') ||
-          contains(github.event.comment.body, '@jules review') ||
-          contains(github.event.comment.body, '@codex review') ||
-          contains(github.event.comment.body, '@claude review') ||
-          contains(github.event.comment.body, '@coderabbitai review')
+          contains(github.event.comment.body, '@jules review')
         ) &&
         (
           github.event.comment.author_association == 'OWNER' ||
@@ -92,7 +93,6 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || '' }}
           PR: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.issue.number }}
-          EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
           EVENT_LABEL: ${{ github.event.label.name }}
           # The reviewers to tally (commit-status context or check-run names), pipe-separated.
@@ -161,22 +161,11 @@ jobs:
             exit 1
           fi
 
-          # On fresh same-repo PR/head events, mark the gate pending and let
-          # reviewer workflow_run / trusted review-comment events wake this
-          # workflow for a single tally pass. Fork PR reviewers intentionally do
-          # not auto-run with trusted tokens, so fail closed until an owner,
-          # member, or collaborator triggers a manual reviewer that produces a
-          # voter result for this exact head SHA.
-          if [ "$EVENT_NAME" = "pull_request_target" ]; then
-            if [ "$is_fork_pr" = "true" ]; then
-              set_status failure "Fork PR needs trusted manual AI review"
-              echo "::error::Diff Guardian: fork PRs require a trusted manual AI reviewer result before this gate can pass."
-              exit 1
-            fi
-            set_status pending "Waiting for AI reviewer completion"
-            echo "Diff Guardian pending on PR event; reviewer completions will re-tally."
-            exit 0
-          fi
+          # Every event (pull_request_target incl. label changes, issue_comment
+          # review nudges, and reviewer workflow_run completions) flows into the
+          # single tally below. The tally is idempotent: with no voter results yet
+          # it posts `pending`; a label-only change therefore never clobbers an
+          # already-decided status, and a reviewer completion always re-tallies.
 
           # Pipe-separated -> newline list of voter contexts.
           voters="$(printf '%s\n' "$VOTERS" | tr '|' '\n' | sed '/^$/d')"
@@ -192,6 +181,9 @@ jobs:
               '([.statuses[] | select(.context==$c)] | sort_by(.updated_at) | last | .state) // "missing"'
           }
 
+          # A completed check that did not clearly pass or fail (timed_out,
+          # cancelled, action_required, skipped, stale, startup_failure, …) is an
+          # ABSTENTION, not a blocking vote — a reviewer outage must never block.
           check_state() {
             printf '%s' "$1" | jq -r --arg c "$2" '
               ([.check_runs[] | select(.name==$c)]
@@ -201,76 +193,80 @@ jobs:
                 elif $run.status != "completed" then "pending"
                 elif ($run.conclusion // "") == "success" then "success"
                 elif ($run.conclusion // "") == "neutral" then "success"
-                elif ($run.conclusion // "") == "skipped" then "missing"
                 elif ($run.conclusion // "") == "failure" then "failure"
-                elif ($run.conclusion // "") == "timed_out" then "missing"
-                elif ($run.conclusion // "") == "action_required" then "failure"
-                elif ($run.conclusion // "") == "cancelled" then "missing"
-                else "pending"
+                else "abstain"
                 end
             '
           }
 
+          # Combine the two surfaces into one vote. A real success/failure on
+          # either wins; otherwise pending (still running) outranks abstain (done,
+          # no verdict) outranks missing (never appeared). A commit-status "error"
+          # is treated as an abstention (infra failure), not a blocking vote.
           voter_state() {
-            local commit_status check_run
-            commit_status="$(status_state "$1" "$3")"
-            check_run="$(check_state "$2" "$3")"
-
-            case "$commit_status" in
-              failure|error|success) printf '%s' "$commit_status" ; return ;;
-            esac
-            case "$check_run" in
-              failure|success) printf '%s' "$check_run" ; return ;;
-            esac
-            if [ "$commit_status" = "pending" ]; then
-              printf 'pending'
-              return
-            fi
-            printf '%s' "$check_run"
+            local cs cr
+            cs="$(status_state "$1" "$3")"
+            cr="$(check_state "$2" "$3")"
+            case "$cs" in success|failure) printf '%s' "$cs" ; return ;; esac
+            case "$cr" in success|failure) printf '%s' "$cr" ; return ;; esac
+            if [ "$cs" = "pending" ] || [ "$cr" = "pending" ]; then printf 'pending' ; return ; fi
+            if [ "$cs" = "error" ] || [ "$cr" = "abstain" ]; then printf 'abstain' ; return ; fi
+            printf 'missing'
           }
 
           combined="$(gh api "repos/$REPO/commits/$SHA/status" 2>/dev/null || echo '{"statuses":[]}')"
           checks="$(gh api --paginate "repos/$REPO/commits/$SHA/check-runs?per_page=100" 2>/dev/null | jq -s '{"check_runs":[.[].check_runs[]?]}' 2>/dev/null || echo '{"check_runs":[]}')"
 
-          reported=0 ; blocking=0 ; active_pending=0 ; missing=0 ; summary=""
+          reported=0 ; blocking=0 ; active_pending=0 ; abstained=0 ; missing=0 ; summary=""
           while IFS= read -r ctx; do
             [ -z "$ctx" ] && continue
             st="$(voter_state "$combined" "$checks" "$ctx")"
             summary="${summary}${ctx}=${st}; "
             case "$st" in
-              failure|error) reported=$((reported+1)); blocking=$((blocking+1)) ;;
-              success)       reported=$((reported+1)) ;;
-              pending)       active_pending=$((active_pending+1)) ;;
-              missing)       missing=$((missing+1)) ;;
+              failure) reported=$((reported+1)); blocking=$((blocking+1)) ;;
+              success) reported=$((reported+1)) ;;
+              pending) active_pending=$((active_pending+1)) ;;
+              abstain) abstained=$((abstained+1)) ;;
+              *)       missing=$((missing+1)) ;;
             esac
           done <<< "$voters"
 
-          unknown="$active_pending"
-          echo "${summary}| reported=$reported blocking=$blocking active_pending=$active_pending missing=$missing unknown=$unknown"
+          # "Outstanding" = voters that have NOT reported a verdict yet but still
+          # could (running, or no check created yet). Abstentions (done, no
+          # verdict — timeout/outage) are final and excluded, so an outage can
+          # never keep the gate pending nor count toward the block quorum.
+          unknown=$((active_pending + missing))
+          echo "${summary}| reported=$reported blocking=$blocking pending=$active_pending abstained=$abstained missing=$missing outstanding=$unknown quorum=$BLOCK_QUORUM"
 
+          # BLOCK: a quorum of voters reported real, blocking failures.
           if [ "$blocking" -ge "$BLOCK_QUORUM" ]; then
-            echo "::error::Diff Guardian: $blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM). Review the failing reviewers, fix, or add 'bypass-ai-gate'."
+            echo "::error::Diff Guardian: $blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM). Fix the findings, or add 'bypass-ai-gate'."
             set_status failure "$blocking reviewers flagged blocking issues (quorum $BLOCK_QUORUM)"
             exit 1
           fi
 
-          if [ "$active_pending" -gt 0 ] && [ $((blocking + active_pending)) -ge "$BLOCK_QUORUM" ]; then
-            echo "Diff Guardian: active reviewer checks can still reach block quorum; leaving status pending."
-            set_status pending "Waiting for AI reviewer completion"
+          # Fork PRs never get automatic same-repo voters. Stay PENDING (not fail)
+          # until a trusted manual reviewer produces a result for this head SHA —
+          # a later voter workflow_run completion then re-tallies. Maintainers can
+          # add 'bypass-ai-gate' to merge a fork PR without an AI vote.
+          if [ "$is_fork_pr" = "true" ] && [ "$reported" -lt "$MIN_FORK_REPORTED" ]; then
+            echo "::notice::Diff Guardian: fork PR awaiting a trusted manual AI review (have $reported, need $MIN_FORK_REPORTED). Add 'bypass-ai-gate' to override."
+            set_status pending "Fork PR: waiting for a trusted manual AI review"
             exit 0
           fi
 
-          if [ "$is_fork_pr" = "true" ] && [ "$reported" -lt "$MIN_FORK_REPORTED" ]; then
-            echo "::error::Diff Guardian: fork PRs require at least $MIN_FORK_REPORTED trusted manual AI reviewer result before this gate can pass."
-            set_status failure "Fork PR needs trusted manual AI review"
-            exit 1
-          fi
-
+          # PASS: even if every still-outstanding voter were to fail, the block
+          # quorum is unreachable. Covers all-success, success+lone-failure, and
+          # one-real-failure+one-abstention (an outage never blocks).
           if [ $((blocking + unknown)) -lt "$BLOCK_QUORUM" ]; then
-            echo "Diff Guardian: quorum to block is unreachable — passing."
+            echo "Diff Guardian: block quorum unreachable ($blocking blocking + $unknown outstanding < $BLOCK_QUORUM) — passing."
             set_status success "No reviewer quorum on blocking issues ($blocking/$BLOCK_QUORUM)"
             exit 0
           fi
 
-          echo "Diff Guardian: no final decision yet; leaving status pending."
+          # Otherwise an outstanding voter could still reach the block quorum. Stay
+          # pending; a reviewer workflow_run completion re-tallies. There is no
+          # fixed poll window, so a slow voter (Jules can run for hours) is always
+          # awaited rather than declared green prematurely.
+          echo "Diff Guardian: outstanding voters could still reach block quorum; awaiting completion."
           set_status pending "Waiting for AI reviewer completion"
