@@ -1149,14 +1149,13 @@ describe('products/[productSlug] page', () => {
       'href',
       'https://teststore.usebaci.com/blog/best-phones-in-nigeria'
     );
-    expect(screen.getByText('Free returns within 7 days')).toBeInTheDocument();
-    expect(screen.getByText('Ships across Nigeria')).toBeInTheDocument();
-    expect(screen.getByText('WhatsApp support available')).toBeInTheDocument();
+    // Trust bullets ("Buying context": returns/shipping/support + price summary)
+    // were removed from the shared ProductSemanticSections, so they no longer
+    // render on this route either.
     expect(
-      screen.getByText(
-        'The iPhone 17 Pro Max price in Nigeria on TestStore is ₦500,000. Check specs, condition, warranty, delivery, and payment options before you buy.'
-      )
-    ).toBeInTheDocument();
+      screen.queryByText('Free returns within 7 days')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Ships across Nigeria')).not.toBeInTheDocument();
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({
         storeUrl: 'https://teststore.usebaci.com',
