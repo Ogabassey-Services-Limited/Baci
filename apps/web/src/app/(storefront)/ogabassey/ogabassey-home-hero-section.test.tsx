@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { cacheTag } from 'next/cache';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
@@ -55,6 +56,7 @@ describe('OgabasseyHomeHeroSection', () => {
     render(result as ReactElement);
 
     expect(loadOgabasseyLaunchProducts).toHaveBeenCalledWith('merchant-1');
+    expect(cacheTag).toHaveBeenCalledWith('products-merchant-1');
     expect(
       screen.getByRole('link', { name: 'Samsung Galaxy A27 5G' })
     ).toHaveAttribute('href', '/ogabassey/smartphones/samsung-galaxy-a27-5g');

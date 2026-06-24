@@ -63,6 +63,12 @@ vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock('./ogabassey-home-hero-section', () => ({
+  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
+    <section aria-label="Product hero" data-prefix={pathPrefix} />
+  ),
+}));
+
 vi.mock('./ogabassey-home-dynamic-content', () => ({
   OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => {
     if (mockDynamicContentShouldSuspend()) {
@@ -108,11 +114,14 @@ describe('OgabasseyHomePageContent', () => {
     );
   });
 
-  it('renders the dynamic home content with the supplied path prefix after the publication guard', async () => {
+  it('renders the final hero and dynamic home content with the path-mode prefix after the publication guard', async () => {
     const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
 
     render(result as ReactElement);
 
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '/ogabassey');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toHaveTextContent('/ogabassey');
@@ -129,6 +138,27 @@ describe('OgabasseyHomePageContent', () => {
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '');
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toBeEmptyDOMElement();
+  });
+
+  it('keeps subdomain rewrite links root-relative from the merchant header', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-merchant-slug', 'ogabassey']])
+    );
+
+    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+
+    render(result as ReactElement);
+
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toBeEmptyDOMElement();

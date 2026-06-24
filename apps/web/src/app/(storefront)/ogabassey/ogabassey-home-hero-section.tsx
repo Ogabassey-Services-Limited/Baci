@@ -1,4 +1,4 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { buildLaunchSlides } from '@/components/storefront/ogabassey/components/build-launch-slides';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
@@ -22,6 +22,7 @@ export async function OgabasseyHomeHeroSection({
 }: OgabasseyHomeHeroSectionProps) {
   'use cache';
   cacheLife('products');
+  cacheTag(`products-${merchantId}`);
 
   const launchProducts = await loadOgabasseyLaunchProducts(merchantId);
   const launchSlides = buildLaunchSlides(launchProducts, pathPrefix);

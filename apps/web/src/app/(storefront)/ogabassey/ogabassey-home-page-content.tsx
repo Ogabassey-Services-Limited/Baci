@@ -6,6 +6,7 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { OgabasseyHomeDynamicContent } from './ogabassey-home-dynamic-content';
+import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
 
 interface OgabasseyHomePageContentProps {
   /** Static per-route path prefix, supplied by the parent (which renders the
@@ -15,6 +16,13 @@ interface OgabasseyHomePageContentProps {
 
 function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
   return resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
+}
+
+export function resolveOgabasseyHomePathPrefix(
+  headersList: Headers,
+  staticPathPrefix: string
+): string {
+  return resolveMerchantContextIdentifier(headersList) ? '' : staticPathPrefix;
 }
 
 /**
@@ -31,6 +39,10 @@ export async function OgabasseyHomePageContent({
   const merchant = await getRequestScopedMerchant(
     resolveOgabasseyHomeMerchantIdentifier(headersList)
   );
+  const resolvedPathPrefix = resolveOgabasseyHomePathPrefix(
+    headersList,
+    pathPrefix
+  );
 
   if (!merchant) {
     notFound();
@@ -42,6 +54,15 @@ export async function OgabasseyHomePageContent({
   }
 
   return (
-    <OgabasseyHomeDynamicContent merchant={merchant} pathPrefix={pathPrefix} />
+    <>
+      <OgabasseyHomeHeroSection
+        merchantId={merchant.id}
+        pathPrefix={resolvedPathPrefix}
+      />
+      <OgabasseyHomeDynamicContent
+        merchant={merchant}
+        pathPrefix={resolvedPathPrefix}
+      />
+    </>
   );
 }

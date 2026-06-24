@@ -36,6 +36,12 @@ vi.mock('@/app/(storefront)/storefront-home.css', () => {
   return {};
 });
 
+vi.mock('@/app/(storefront)/ogabassey/ogabassey-home-hero-section', () => ({
+  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
+    <section aria-label="Product hero" data-prefix={pathPrefix} />
+  ),
+}));
+
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
   generateMetadata: mockGenerateStorefrontLayoutMetadata,
@@ -118,18 +124,10 @@ describe('OgabasseyDomainLayout', () => {
         '.storefront-shell-loading__chrome'
       )
     ).toBeInTheDocument();
-    const fallbackHero = fallbackRender.container.querySelector(
-      '.storefront-shell-loading__mobile-hero'
-    );
-    expect(fallbackHero).toBeTruthy();
-    // The static shell paints a full-width baked inline-AVIF banner so the hero
-    // is a large, first-flush LCP candidate (not a lone photo, not the navbar).
-    const fallbackHeroImg = fallbackHero?.querySelector('img');
-    expect(fallbackHeroImg).toBeTruthy();
-    expect(fallbackHeroImg?.getAttribute('src')).toMatch(
-      /^data:image\/avif;base64,/
-    );
-    expect(fallbackHeroImg?.getAttribute('fetchpriority')).toBe('high');
+    const fallbackHero = fallbackRender.getByRole('region', {
+      name: /product hero/i,
+    });
+    expect(fallbackHero).toHaveAttribute('data-prefix', '');
     fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });

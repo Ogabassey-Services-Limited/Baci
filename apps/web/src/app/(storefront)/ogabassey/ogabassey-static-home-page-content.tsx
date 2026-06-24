@@ -2,12 +2,10 @@ import { Suspense } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import {
   OGABASSEY_DESCRIPTION,
-  OGABASSEY_MERCHANT_ID,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
-import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
@@ -42,15 +40,9 @@ export function OgabasseyStaticHomePageContent({
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* Hero renders in the PPR static shell from cached data + the known
-          OgaBassey merchant id + a static pathPrefix, so the real product hero
-          is in the first byte (edge-served) — no Suspense placeholder, no swap. */}
-      <OgabasseyHomeHeroSection
-        merchantId={OGABASSEY_MERCHANT_ID}
-        pathPrefix={pathPrefix}
-      />
-      {/* Below-the-fold commerce content (product grid, analytics, full JSON-LD)
-          needs the request-scoped merchant, so it streams as the dynamic hole. */}
+      {/* The first-flush product hero lives in the route layout's static PPR
+          fallback. The dynamic content below re-renders the final hero after it
+          can resolve request headers for path-mode vs subdomain links. */}
       <Suspense>
         <OgabasseyHomePageContent pathPrefix={pathPrefix} />
       </Suspense>
