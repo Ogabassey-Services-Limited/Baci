@@ -123,12 +123,10 @@ export function useProductDetailCartActions(
     }
     const conditionDisplay = cartState.getConditionDisplay();
     if (conditionDisplay) variantAttrs.condition = conditionDisplay;
-    const selectedVariantForCartImage =
-      routeData.currentVariantDisplaySelection?.variant;
-    const selectedVariantImage =
-      selectedVariantForCartImage?.image ||
-      selectedVariantForCartImage?.primary_image ||
-      selectedVariantForCartImage?.images?.find(Boolean);
+    // Color is carried into the cart by the image: prefer the selected color's
+    // own image so the cart always depicts the chosen color, even when the
+    // gallery is still showing a non-color default frame (e.g. an open-box
+    // hero shot). Falls back to the displayed frame when no color image exists.
     const selectedColorImage = routeData.effectiveSelectedColor
       ? routeData.resolvedColorImages?.[routeData.effectiveSelectedColor]?.find(
           Boolean
@@ -147,7 +145,6 @@ export function useProductDetailCartActions(
       quantity: 1,
       image_url: resolveCartItemImageUrl({
         displayedImageUrl:
-          selectedVariantImage ||
           selectedColorImage ||
           routeData.productGalleryImages[routeData.selectedImageIndex] ||
           routeData.productGalleryImages[0],
