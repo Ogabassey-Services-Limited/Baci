@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 
 /**
@@ -7,7 +7,7 @@ import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
  * This bypasses RLS and must never be imported by client-side code or used for
  * user-facing operations that should respect merchant/customer authorization.
  */
-export function createAdminClient() {
+export function createClient() {
   const url = getSupabaseUrl();
   const key = getSupabaseServiceRoleKey();
 
@@ -17,10 +17,12 @@ export function createAdminClient() {
     );
   }
 
-  return createClient(url, key, {
+  return createSupabaseClient(url, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
 }
+
+export const createAdminClient = createClient;
