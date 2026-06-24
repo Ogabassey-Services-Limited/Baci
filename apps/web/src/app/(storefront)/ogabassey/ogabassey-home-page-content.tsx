@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
+import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -59,10 +60,12 @@ export async function OgabasseyHomePageContent({
         merchantId={merchant.id}
         pathPrefix={resolvedPathPrefix}
       />
-      <OgabasseyHomeDynamicContent
-        merchant={merchant}
-        pathPrefix={resolvedPathPrefix}
-      />
+      <Suspense fallback={null}>
+        <OgabasseyHomeDynamicContent
+          merchant={merchant}
+          pathPrefix={resolvedPathPrefix}
+        />
+      </Suspense>
     </>
   );
 }

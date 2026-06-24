@@ -10,7 +10,7 @@ export function OgabasseyHomeShellFallback() {
       data-ogabassey-static-shell-fallback="true"
       style={ogabasseyStaticShellStyle}
     >
-      <ShellChromeLoading showChromeFrame />
+      <ShellChromeLoading showChromeFrame showLoadingBar={false} />
       <OgabasseyHomeHeroFallback />
     </div>
   );

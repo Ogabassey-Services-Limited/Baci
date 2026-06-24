@@ -128,6 +128,21 @@ describe('OgabasseyHomePageContent', () => {
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
+  it('keeps the final hero visible when below-fold dynamic content suspends', async () => {
+    mockDynamicContentShouldSuspend.mockReturnValue(true);
+
+    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+
+    render(result as ReactElement);
+
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '/ogabassey');
+    expect(
+      screen.queryByRole('region', { name: /dynamic home content/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('resolves the homepage merchant from custom-domain request context', async () => {
     mockHeaders.mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])

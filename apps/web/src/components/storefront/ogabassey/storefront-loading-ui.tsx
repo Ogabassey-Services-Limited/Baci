@@ -14,6 +14,7 @@ interface ShellChromeLoadingProps {
   // decoupled from any one storefront's hero markup.
   mobileHero?: ReactNode;
   showChromeFrame?: boolean;
+  showLoadingBar?: boolean;
 }
 
 const shellChromeLoadingStyle = {
@@ -111,6 +112,7 @@ function LoadingStatus({
 export function ShellChromeLoading({
   mobileHero,
   showChromeFrame = false,
+  showLoadingBar = true,
 }: ShellChromeLoadingProps = {}) {
   return (
     <LoadingStatus label="Loading storefront chrome">
@@ -145,10 +147,12 @@ export function ShellChromeLoading({
             {mobileHero}
           </div>
         ) : null}
-        <div
-          className="storefront-shell-loading__bar"
-          style={shellChromeLoadingBarStyle}
-        />
+        {showLoadingBar ? (
+          <div
+            className="storefront-shell-loading__bar"
+            style={shellChromeLoadingBarStyle}
+          />
+        ) : null}
       </div>
     </LoadingStatus>
   );

@@ -24,6 +24,9 @@ describe('OgabasseyHomeShellFallback', () => {
       'aria-hidden',
       'true'
     );
+    expect(
+      container.querySelector('.storefront-shell-loading__bar')
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 });
