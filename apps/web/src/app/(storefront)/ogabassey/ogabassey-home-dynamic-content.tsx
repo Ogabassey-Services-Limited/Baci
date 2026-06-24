@@ -113,9 +113,9 @@ function buildOrganizationGraphSchema(merchant: OgabasseyMerchant) {
 
 /** Newest-created first. ISO timestamps compare lexically by time; missing
  *  timestamps sort last. Used only for the launch carousel so its order is
- *  driven by product additions, not edits. `created_at` is present on the
- *  fetched rows at runtime (selected in the query) but not in the loose row
- *  type, so it is read defensively. */
+ *  driven by product additions, not edits. `created_at` is optional/nullable
+ *  in the row type, so it is read defensively even though the query always
+ *  selects it at runtime. */
 function sortByNewestCreated<T>(rows: readonly T[]): T[] {
   const createdAt = (row: T): string =>
     String((row as { created_at?: string | null }).created_at ?? '');

@@ -74,6 +74,20 @@ describe('Hero', () => {
     );
   });
 
+
+  it('preserves hero geometry when launch slides are empty', () => {
+    const { container } = render(<Hero slides={[]} />);
+
+    expect(mockMobileCarousel).not.toHaveBeenCalled();
+    expect(mockDesktopGrid).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('[data-ogabassey-empty-mobile-hero="true"]')
+    ).toHaveClass('h-48');
+    expect(
+      container.querySelector('[data-ogabassey-empty-desktop-hero="true"]')
+    ).toHaveClass('lg:h-[540px]');
+  });
+
   it('extends the patterned mobile shell behind the carousel', () => {
     const { container } = render(<Hero slides={SLIDES} />);
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -110,6 +110,21 @@ describe('HeroMobileCarousel', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /go to hero slide 2/i })
+    ).toBeInTheDocument();
+  });
+
+
+  it('defers inactive non-LCP slide images until their slide is selected', () => {
+    render(<HeroMobileCarousel slides={SLIDES} />);
+
+    expect(
+      screen.queryByRole('img', { name: 'Itel Power 80' })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /go to hero slide 2/i }));
+
+    expect(
+      screen.getByRole('img', { name: 'Itel Power 80' })
     ).toBeInTheDocument();
   });
 

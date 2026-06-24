@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Footer } from './Footer';
 
 vi.mock('next/link', () => ({
@@ -72,7 +72,6 @@ describe('Ogabassey Footer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
 
   it('uses a footer background fallback and contrast text independent of primary text', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
@@ -244,24 +243,4 @@ describe('Ogabassey Footer', () => {
     expect(screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')).toBeVisible();
   });
 
-  it('renders optimized store badges with explicit intrinsic dimensions', () => {
-    mockBuildMerchantTrustProfile.mockReturnValue({
-      socialLinks: {},
-      derivedLinks: {},
-    });
-
-    render(<Footer storeSlug="ogabassey" merchant={merchantFixture} />);
-
-    const appStoreBadge = screen.getByRole('img', {
-      name: 'Download on the App Store',
-    });
-    const googlePlayBadge = screen.getByRole('img', {
-      name: 'Get it on Google Play',
-    });
-
-    expect(appStoreBadge).toHaveAttribute('data-width', '120');
-    expect(appStoreBadge).toHaveAttribute('data-height', '40');
-    expect(googlePlayBadge).toHaveAttribute('data-width', '135');
-    expect(googlePlayBadge).toHaveAttribute('data-height', '40');
-  });
 });

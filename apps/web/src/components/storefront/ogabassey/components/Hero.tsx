@@ -14,6 +14,30 @@ interface HeroProps {
   slides: LaunchProductSlide[];
 }
 
+
+function HeroEmptyGeometry() {
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="md:hidden mb-4 order-1 h-48 rounded-2xl shadow-2xl ring-1 ring-store-border/70 bg-store-secondary"
+        data-ogabassey-empty-mobile-hero="true"
+      />
+      <div
+        aria-hidden="true"
+        className="hidden md:grid grid-cols-1 lg:grid-cols-5 gap-4 h-auto lg:h-[540px] order-2"
+        data-ogabassey-empty-desktop-hero="true"
+      >
+        <div className="lg:col-span-3 h-[400px] lg:h-full rounded-2xl ring-1 ring-store-border/70 shadow-lg bg-store-secondary" />
+        <div className="hidden lg:flex flex-col gap-4 h-full lg:col-span-2">
+          <div className="flex-1 rounded-2xl shadow-lg ring-1 ring-store-border/70 bg-store-secondary" />
+          <div className="flex-1 rounded-2xl shadow-lg ring-1 ring-store-border/70 bg-store-secondary" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export const Hero: React.FC<HeroProps> = ({ slides }) => {
   return (
     <div className="w-full bg-store-background relative">
@@ -32,8 +56,14 @@ export const Hero: React.FC<HeroProps> = ({ slides }) => {
       </div>
 
       <section className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 pt-4 md:pt-6 flex flex-col">
-        <HeroMobileCarousel slides={slides} />
-        <HeroDesktopGrid slides={slides} />
+        {slides.length > 0 ? (
+          <>
+            <HeroMobileCarousel slides={slides} />
+            <HeroDesktopGrid slides={slides} />
+          </>
+        ) : (
+          <HeroEmptyGeometry />
+        )}
       </section>
 
       <HeroUtilityPanel />

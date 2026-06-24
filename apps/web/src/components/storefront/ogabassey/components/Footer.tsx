@@ -1,4 +1,3 @@
-import { MOBILE_APPS } from '@/config/platform';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { asRoute } from '@/lib/routes';
 import { normalizeSocialUrl } from '@/lib/social';
@@ -20,10 +19,10 @@ import {
   Twitter,
   Youtube,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 
+import { FooterAppPayments } from './FooterAppPayments';
 import { Logo } from './Logo';
 
 type SocialPlatform =
@@ -252,64 +251,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           </address>
 
           {/* Column 4: App & Payment (Horizontal) */}
-          <div>
-            <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
-              Download App
-            </h3>
-            <div className="flex gap-2 mb-6">
-              {MOBILE_APPS.storefront.appStoreUrl ? (
-                <a
-                  href={MOBILE_APPS.storefront.appStoreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Download on the App Store"
-                  className="inline-flex transition-opacity hover:opacity-90"
-                >
-                  <Image
-                    src="/badges/app-store-black.svg"
-                    alt="Download on the App Store"
-                    width={120}
-                    height={40}
-                    className="h-10 w-auto"
-                  />
-                </a>
-              ) : null}
-              <a
-                href={MOBILE_APPS.storefront.playStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Get it on Google Play"
-                className="inline-flex transition-opacity hover:opacity-90"
-              >
-                <Image
-                  src="/badges/google-play.svg"
-                  alt="Get it on Google Play"
-                  width={135}
-                  height={40}
-                  className="h-10 w-auto"
-                />
-              </a>
-            </div>
-
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-[10px] text-current/50 font-medium">Secured by:</span>
-              {/* Paystack Logo Badge */}
-              <div className="flex items-center gap-1 bg-store-background px-2 py-1 rounded border border-store-border shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="size-4 text-store-primary fill-current">
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                </svg>
-                <span className="text-[10px] font-bold text-store-background-text tracking-tight">Paystack</span>
-              </div>
-
-              {/* Flutterwave Logo Badge */}
-              <div className="flex items-center gap-1 bg-store-background px-2 py-1 rounded border border-store-border shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="size-4 text-store-primary fill-current">
-                  <path d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z" />
-                </svg>
-                <span className="text-[10px] font-bold text-store-background-text tracking-tight">Flutterwave</span>
-              </div>
-            </div>
-          </div>
+          <FooterAppPayments />
         </div>
 
         <div className="mt-8 pt-4 border-t border-store-border/40 text-center text-[10px] text-current/50">

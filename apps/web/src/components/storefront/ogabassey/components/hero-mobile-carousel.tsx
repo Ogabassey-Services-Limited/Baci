@@ -37,6 +37,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
         {slides.map((slide, index) => {
           const isCurrent = index === currentSlide;
           const isMobileLcpImage = index === 0;
+          const shouldRenderImage = isCurrent || isMobileLcpImage;
 
           return (
             <div
@@ -67,7 +68,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
                     shouldPrioritizeImage
                     src={slide.imageUrl}
                   />
-                ) : (
+                ) : shouldRenderImage ? (
                   <Image
                     src={slide.imageUrl}
                     alt={slide.imageAlt}
@@ -77,7 +78,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
                     loading="lazy"
                     quality={MOBILE_HERO_IMAGE_QUALITY}
                   />
-                )}
+                ) : null}
               </div>
               <Link
                 href={asRoute(slide.href)}
