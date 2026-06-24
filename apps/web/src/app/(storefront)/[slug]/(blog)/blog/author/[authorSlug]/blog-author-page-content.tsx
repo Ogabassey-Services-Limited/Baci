@@ -72,10 +72,9 @@ export async function BlogAuthorPageContent({
   const baseUrl = buildStoreUrl(merchant);
   // Header-aware prefix (mirrors the blog listing) so the proxy's /{slug}
   // rewrite is not doubled on subdomains.
-  const headersList = await headers();
   const basePath = isDomainIdentifier(slug)
     ? ''
-    : getBlogStorefrontPathPrefix(headersList, merchant);
+    : getBlogStorefrontPathPrefix(await headers(), merchant);
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
   const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
 

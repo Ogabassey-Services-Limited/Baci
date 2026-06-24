@@ -207,6 +207,17 @@ describe('BlogAuthorPageContent', () => {
     );
   });
 
+  it('does not read request headers for custom-domain author listings', async () => {
+    await BlogAuthorPageContent({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+    });
+
+    expect(mockHeaders).not.toHaveBeenCalled();
+  });
+
   it('redirects legacy author-prefixed post URLs before falling through to 404', async () => {
     mockGetBlogAuthorBySlug.mockReturnValue(null);
     mockResolveBlogCatchAllOutcome.mockResolvedValue({
