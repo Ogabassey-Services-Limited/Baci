@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 
+export const PASSKEY_STATE_CHANGED_EVENT = 'baci:passkey-state-changed';
+
 /**
  * Shared browser-side passkey helpers wrapping the Supabase Auth passkey SDK
  * (Beta). Centralises the loosely-typed `supabase.auth` passkey surface so the
@@ -27,6 +29,13 @@ type SupabaseAuthWithPasskeys = {
   registerPasskey?: () => Promise<PasskeyApiResult<PasskeyMetadata>>;
 };
 
+export function notifyPasskeyStateChanged(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(new Event(PASSKEY_STATE_CHANGED_EVENT));
+}
+
 function getPasskeyApi(): SupabaseAuthWithPasskeys {
   const supabase = createClient();
   return supabase.auth as typeof supabase.auth & SupabaseAuthWithPasskeys;
@@ -45,27 +54,37 @@ export function listPasskeys(): Promise<PasskeyApiResult<PasskeyMetadata[]>> {
 }
 
 /** Register a new passkey for the signed-in user. */
-export function registerPasskey(): Promise<PasskeyApiResult<PasskeyMetadata>> {
+export async function registerPasskey(): Promise<
+  PasskeyApiResult<PasskeyMetadata>
+> {
   const api = getPasskeyApi();
   if (!api.registerPasskey) {
-    return Promise.resolve({
+    return {
       data: null,
       error: { message: 'Passkey registration is not available.' },
-    });
+    };
   }
-  return api.registerPasskey();
+  const result = await api.registerPasskey();
+  if (!result.error) {
+    notifyPasskeyStateChanged();
+  }
+  return result;
 }
 
 /** Remove a registered passkey by id. */
-export function deletePasskey(
+export async function deletePasskey(
   passkeyId: string
 ): Promise<PasskeyApiResult<unknown>> {
   const api = getPasskeyApi();
   if (!api.passkey?.delete) {
-    return Promise.resolve({
+    return {
       data: null,
       error: { message: 'Passkey deletion is not available.' },
-    });
+    };
   }
-  return api.passkey.delete({ passkeyId });
+  const result = await api.passkey.delete({ passkeyId });
+  if (!result.error) {
+    notifyPasskeyStateChanged();
+  }
+  return result;
 }

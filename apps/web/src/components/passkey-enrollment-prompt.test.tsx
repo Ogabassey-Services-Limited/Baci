@@ -13,9 +13,19 @@ const { mockListPasskeys, mockRegisterPasskey, mockToast } = vi.hoisted(() => ({
   mockToast: vi.fn(),
 }));
 
+let mockPathname = '/dashboard';
+let mockUser: { id: string } | null = { id: 'user-1' };
+
 vi.mock('@/lib/auth/passkey-client', () => ({
   listPasskeys: mockListPasskeys,
+  PASSKEY_STATE_CHANGED_EVENT: 'baci:passkey-state-changed',
   registerPasskey: mockRegisterPasskey,
+}));
+vi.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+}));
+vi.mock('@/contexts/auth-context', () => ({
+  useAuth: () => ({ user: mockUser }),
 }));
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
@@ -24,11 +34,18 @@ vi.mock('@/hooks/use-toast', () => ({
 import { PasskeyEnrollmentPrompt } from './passkey-enrollment-prompt';
 
 const FLAG = 'NEXT_PUBLIC_SUPABASE_PASSKEY_AUTH_ENABLED';
-const DISMISS_KEY = 'baci.passkey-enroll-prompt.dismissed';
+const DISMISS_KEY_PREFIX = 'baci.passkey-enroll-prompt.dismissed';
+const PASSKEY_STATE_CHANGED_EVENT = 'baci:passkey-state-changed';
+
+function dismissKey(userId = 'user-1') {
+  return `${DISMISS_KEY_PREFIX}.${userId}`;
+}
 
 describe('PasskeyEnrollmentPrompt', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPathname = '/dashboard';
+    mockUser = { id: 'user-1' };
     window.localStorage.clear();
     vi.stubEnv(FLAG, 'true');
     mockListPasskeys.mockResolvedValue({ data: [], error: null });
@@ -37,6 +54,7 @@ describe('PasskeyEnrollmentPrompt', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it('prompts when the flag is on and the user has no passkeys', async () => {
@@ -54,7 +72,10 @@ describe('PasskeyEnrollmentPrompt', () => {
     });
 
     expect(prompt).toHaveClass('fixed');
-    expect(prompt).toHaveClass('z-50');
+    expect(prompt).toHaveClass(
+      'bottom-[calc(env(safe-area-inset-bottom)+5rem)]'
+    );
+    expect(prompt).toHaveClass('z-[60]');
   });
 
   it('renders nothing when the passkey flag is off', async () => {
@@ -75,10 +96,34 @@ describe('PasskeyEnrollmentPrompt', () => {
   });
 
   it('stays hidden when previously dismissed', async () => {
-    window.localStorage.setItem(DISMISS_KEY, '1');
+    window.localStorage.setItem(dismissKey(), '1');
     const { container } = render(<PasskeyEnrollmentPrompt />);
     await waitFor(() => expect(mockListPasskeys).not.toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('scopes dismissal to the signed-in user', async () => {
+    window.localStorage.setItem(dismissKey('user-1'), '1');
+    mockUser = { id: 'user-2' };
+
+    render(<PasskeyEnrollmentPrompt />);
+
+    expect(
+      await screen.findByRole('button', { name: /set up passkey/i })
+    ).toBeInTheDocument();
+    expect(mockListPasskeys).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues when localStorage reads are blocked', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+
+    render(<PasskeyEnrollmentPrompt />);
+
+    expect(
+      await screen.findByRole('button', { name: /set up passkey/i })
+    ).toBeInTheDocument();
   });
 
   it('stays hidden when the passkey lookup errors (fails quiet)', async () => {
@@ -103,9 +148,46 @@ describe('PasskeyEnrollmentPrompt', () => {
         screen.queryByRole('button', { name: /set up passkey/i })
       ).not.toBeInTheDocument()
     );
-    expect(window.localStorage.getItem(DISMISS_KEY)).toBe('1');
+    expect(window.localStorage.getItem(dismissKey())).toBe('1');
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Passkey ready' })
+    );
+  });
+
+  it('hides after passkey enrollment elsewhere in the dashboard', async () => {
+    mockListPasskeys
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({
+        data: [{ id: 'existing', created_at: '2026-01-01' }],
+        error: null,
+      });
+    render(<PasskeyEnrollmentPrompt />);
+    await screen.findByRole('button', { name: /set up passkey/i });
+
+    act(() => {
+      window.dispatchEvent(new Event(PASSKEY_STATE_CHANGED_EVENT));
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /set up passkey/i })
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it('dismisses even when localStorage writes are blocked', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    render(<PasskeyEnrollmentPrompt />);
+    await screen.findByRole('button', { name: /set up passkey/i });
+
+    fireEvent.click(screen.getByRole('button', { name: /dismiss passkey/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /set up passkey/i })
+      ).not.toBeInTheDocument()
     );
   });
 
@@ -127,7 +209,7 @@ describe('PasskeyEnrollmentPrompt', () => {
     expect(
       screen.getByRole('button', { name: /set up passkey/i })
     ).toBeInTheDocument();
-    expect(window.localStorage.getItem(DISMISS_KEY)).toBeNull();
+    expect(window.localStorage.getItem(dismissKey())).toBeNull();
   });
 
   it('ignores enrollment results after unmounting', async () => {
@@ -156,7 +238,7 @@ describe('PasskeyEnrollmentPrompt', () => {
       await registrationPromise;
     });
 
-    expect(window.localStorage.getItem(DISMISS_KEY)).toBeNull();
+    expect(window.localStorage.getItem(dismissKey())).toBeNull();
     expect(mockToast).not.toHaveBeenCalled();
   });
 
@@ -171,6 +253,6 @@ describe('PasskeyEnrollmentPrompt', () => {
         screen.queryByRole('button', { name: /set up passkey/i })
       ).not.toBeInTheDocument()
     );
-    expect(window.localStorage.getItem(DISMISS_KEY)).toBe('1');
+    expect(window.localStorage.getItem(dismissKey())).toBe('1');
   });
 });

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { notifyPasskeyStateChanged } from '@/lib/auth/passkey-client';
 import { createClient } from '@/lib/supabase/client';
 
 type PasskeyMetadata = {
@@ -102,6 +103,7 @@ export function PasskeySecurityCard() {
       }
 
       await loadPasskeys({ setIsLoading, setPasskeys, toast });
+      notifyPasskeyStateChanged();
       toast({
         title: 'Passkey Added',
         description: 'Your new authenticator is ready for sign-in.',
@@ -144,6 +146,7 @@ export function PasskeySecurityCard() {
       }
 
       await loadPasskeys({ setIsLoading, setPasskeys, toast });
+      notifyPasskeyStateChanged();
       toast({
         title: 'Passkey Removed',
         description: 'The authenticator was removed from your account.',

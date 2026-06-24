@@ -8,7 +8,12 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ auth: mockAuth }),
 }));
 
-import { deletePasskey, listPasskeys, registerPasskey } from './passkey-client';
+import {
+  deletePasskey,
+  listPasskeys,
+  PASSKEY_STATE_CHANGED_EVENT,
+  registerPasskey,
+} from './passkey-client';
 
 describe('passkey-client', () => {
   beforeEach(() => {
@@ -49,6 +54,19 @@ describe('passkey-client', () => {
       });
     });
 
+    it('notifies listeners after successful registration', async () => {
+      const listener = vi.fn();
+      window.addEventListener(PASSKEY_STATE_CHANGED_EVENT, listener);
+      mockAuth.registerPasskey = vi
+        .fn()
+        .mockResolvedValue({ data: { id: 'p2' }, error: null });
+
+      await registerPasskey();
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      window.removeEventListener(PASSKEY_STATE_CHANGED_EVENT, listener);
+    });
+
     it('returns a not-available error when registerPasskey() is missing', async () => {
       const result = await registerPasskey();
       expect(result.data).toBeNull();
@@ -64,6 +82,19 @@ describe('passkey-client', () => {
       await deletePasskey('p3');
 
       expect(del).toHaveBeenCalledWith({ passkeyId: 'p3' });
+    });
+
+    it('notifies listeners after successful deletion', async () => {
+      const listener = vi.fn();
+      window.addEventListener(PASSKEY_STATE_CHANGED_EVENT, listener);
+      mockAuth.passkey = {
+        delete: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+
+      await deletePasskey('p3');
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      window.removeEventListener(PASSKEY_STATE_CHANGED_EVENT, listener);
     });
 
     it('returns a not-available error when delete() is missing', async () => {
