@@ -59,7 +59,7 @@ describe('buildMerchantTrustProfile', () => {
       supportPhone: '+2348000000000',
       socialLinks: {
         instagram: 'https://instagram.com/ogabassey',
-        twitter: 'https://x.com/ogabasseyhq',
+        twitter: 'https://twitter.com/ogabasseyhq',
       },
       businessAddress: '12 Allen Avenue, Ikeja, Lagos',
       registeredAddress: {
@@ -120,6 +120,25 @@ describe('buildMerchantTrustProfile', () => {
       socialLinks: {},
       derivedLinks: {},
     });
+  });
+
+  it('normalizes supported social links and drops unsupported or blank entries', () => {
+    const result = buildMerchantTrustProfile({
+      social_media: {
+        twitter: 'https://x.com/ogabasseyy',
+        pinterest: '@ogabassey',
+        snapchat: '   ',
+        myspace: 'ogabassey',
+      },
+      trust_profile: {},
+    });
+
+    expect(result.socialLinks).toEqual({
+      twitter: 'https://twitter.com/ogabasseyy',
+      pinterest: 'https://pinterest.com/ogabassey',
+    });
+    expect(result.socialLinks).not.toHaveProperty('myspace');
+    expect(result.socialLinks).not.toHaveProperty('snapchat');
   });
 
   it('publishes derived returns links when only method and fee details exist', () => {

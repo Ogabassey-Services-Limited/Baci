@@ -210,7 +210,7 @@ describe('Storefront homepage structured data', () => {
       sameAs: expect.arrayContaining([
         'https://facebook.com/ogabasseyyy',
         'https://instagram.com/ogabasseyy',
-        'https://x.com/ogabasseyy',
+        'https://twitter.com/ogabasseyy',
         'https://youtube.com/@ogabassey',
       ]),
     });

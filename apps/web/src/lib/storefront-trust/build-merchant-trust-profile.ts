@@ -1,21 +1,26 @@
 import type { RegisteredAddress } from '@baci/shared';
 import { normalizeGooglePlaceId } from '@/lib/google-place-id-normalization';
+import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileRouteLinks,
   MerchantTrustProfileSource,
 } from './merchant-trust-profile-types';
 
-const SOCIAL_LINK_BUILDERS: Record<string, (handle: string) => string> = {
-  instagram: (handle) => `https://instagram.com/${handle}`,
-  facebook: (handle) => `https://facebook.com/${handle}`,
-  twitter: (handle) => `https://x.com/${handle}`,
-  tiktok: (handle) => `https://www.tiktok.com/@${handle}`,
-  youtube: (handle) => `https://youtube.com/@${handle}`,
-  linkedin: (handle) => `https://linkedin.com/company/${handle}`,
-  pinterest: (handle) => `https://pinterest.com/${handle}`,
-  snapchat: (handle) => `https://www.snapchat.com/@${handle}`,
-};
+const TRUST_SOCIAL_PLATFORMS = new Set<SocialPlatform>([
+  'instagram',
+  'facebook',
+  'twitter',
+  'tiktok',
+  'youtube',
+  'linkedin',
+  'pinterest',
+  'snapchat',
+]);
+
+function isTrustSocialPlatform(platform: string): platform is SocialPlatform {
+  return TRUST_SOCIAL_PLATFORMS.has(platform as SocialPlatform);
+}
 
 function normalizeString(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -121,17 +126,14 @@ function normalizeSocialLinks(
       continue;
     }
 
-    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
-      normalized[platform] = cleaned;
+    if (!isTrustSocialPlatform(platform)) {
       continue;
     }
 
-    const builder = SOCIAL_LINK_BUILDERS[platform];
-    if (!builder) {
-      continue;
+    const normalizedUrl = normalizeSocialUrl(cleaned, platform);
+    if (normalizedUrl) {
+      normalized[platform] = normalizedUrl;
     }
-
-    normalized[platform] = builder(cleaned.replace(/^@/, ''));
   }
 
   return normalized;
