@@ -26,9 +26,9 @@ export function resolveOgabasseyHomePathPrefix(
 }
 
 /**
- * Below-the-fold dynamic content (product grid, analytics, full JSON-LD). It
- * uses the request-scoped merchant (headers) and so is the streamed dynamic hole
- * under PPR — the above-the-fold hero renders statically in the parent shell.
+ * Request-scoped home content. The parent Suspense boundary prerenders the hero
+ * fallback into the PPR shell, then this component streams the final hero and
+ * below-the-fold content after request headers resolve.
  */
 export async function OgabasseyHomePageContent({
   pathPrefix,
