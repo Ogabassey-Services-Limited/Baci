@@ -116,7 +116,7 @@ export async function BlogPostBody({
               post.featured_image_url
             )}
             trustedPriorityImageSources={legacyPriorityImageSources}
-            headingLevelOffset={1}
+            normalizeHeadingHierarchy={true}
             normalizeSeoAnchors={true}
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600!"
           />

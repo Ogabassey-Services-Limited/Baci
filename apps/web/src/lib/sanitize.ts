@@ -8,6 +8,7 @@ import sanitizeLib from 'sanitize-html';
 
 interface SanitizeHtmlOptions {
   headingLevelOffset?: number;
+  normalizeHeadingHierarchy?: boolean;
   normalizeSeoAnchors?: boolean;
   trustedPriorityImageSources?: readonly string[];
 }
@@ -32,9 +33,32 @@ const HTML_ATTRIBUTE_ESCAPE_MAP: Record<string, string> = {
 };
 const DISALLOWED_RAW_TEXT_BLOCK_REGEX =
   /<(script|style|xmp|iframe|noembed|noframes|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+const HEADING_TAG_REGEX = /<\s*h([1-6])\b[^>]*>/gi;
 
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
+}
+
+function getNormalizedArticleBodyHeadingLevel(
+  level: number,
+  minimumBodyHeadingLevel: number
+) {
+  if (level === 1) {
+    return 2;
+  }
+
+  const offset = Math.max(0, minimumBodyHeadingLevel - 2);
+  return Math.min(3, Math.max(2, level - offset));
+}
+
+function getMinimumBodyHeadingLevel(html: string) {
+  const levels = Array.from(html.matchAll(HEADING_TAG_REGEX), (match) =>
+    Number(match[1])
+  )
+    .filter(Number.isFinite)
+    .map((level) => (level === 1 ? 2 : level));
+
+  return levels.length > 0 ? Math.min(...levels) : 2;
 }
 
 function normalizeTrustedPriorityImageSource(value: string): string {
@@ -183,6 +207,9 @@ export function sanitizeHtml(
   const headingLevelOffset = Number.isFinite(rawHeadingLevelOffset)
     ? Math.max(0, Math.trunc(rawHeadingLevelOffset))
     : 0;
+  const minimumBodyHeadingLevel = getMinimumBodyHeadingLevel(
+    dirtyWithoutRawTextBlocks
+  );
   const trustedPriorityImageSources = createTrustedPriorityImageSourceSet(
     options.trustedPriorityImageSources
   );
@@ -224,7 +251,21 @@ export function sanitizeHtml(
         }
       : undefined;
 
-  if (headingLevelOffset > 0) {
+  if (options.normalizeHeadingHierarchy) {
+    for (let level = 1; level <= 6; level += 1) {
+      transformTags[`h${level}`] = (_tagName, attribs) => {
+        const normalizedLevel = getNormalizedArticleBodyHeadingLevel(
+          level,
+          minimumBodyHeadingLevel
+        );
+
+        return {
+          tagName: `h${normalizedLevel}`,
+          attribs,
+        };
+      };
+    }
+  } else if (headingLevelOffset > 0) {
     for (let level = 1; level <= 6; level += 1) {
       transformTags[`h${level}`] = (_tagName, attribs) => ({
         tagName: `h${clampHeadingLevel(level + headingLevelOffset)}`,
