@@ -241,6 +241,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       return next;
     });
   };
+  const isPriceInputBlank = (index: number) =>
+    priceInputValues[index]?.trim() === '';
+  const hasSelectedBlankPrice = localChanges.some(
+    (_, index) => selectedIndices.has(index) && isPriceInputBlank(index)
+  );
 
   const handleEdit = (
     index: number,
@@ -400,7 +405,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <Button
             size="sm"
             onClick={handleApply}
-            disabled={selectedIndices.size === 0}
+            disabled={selectedIndices.size === 0 || hasSelectedBlankPrice}
           >
             Import & Publish
           </Button>
@@ -489,6 +494,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       </span>
                       <Input
                         aria-label="Price"
+                        aria-invalid={isPriceInputBlank(index)}
                         inputMode="decimal"
                         type="text"
                         value={
@@ -511,6 +517,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                             'border-green-500 text-green-700 dark:text-green-400'
                         )}
                       />
+                      {isPriceInputBlank(index) && (
+                        <span className="text-xs text-destructive pl-1">
+                          Price is required before import.
+                        </span>
+                      )}
                       {change.type === 'update' && (
                         <span className="text-xs text-muted-foreground line-through pl-1">
                           Stats:{' '}

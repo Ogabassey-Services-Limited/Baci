@@ -152,6 +152,25 @@ describe('ReviewChanges', () => {
     });
   });
 
+  it('blocks import when the required selling price input is cleared', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
+    fireEvent.change(priceInput, { target: { value: '' } });
+
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
+    });
+    expect(screen.getByText('Price is required before import.')).toBeVisible();
+    expect(priceInput).toHaveAttribute('aria-invalid', 'true');
+    expect(importButton).toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).not.toHaveBeenCalled();
+  });
+
   it('accepts currency-formatted cost price edits before saving', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);
