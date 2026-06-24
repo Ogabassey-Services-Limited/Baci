@@ -329,6 +329,7 @@ export async function parseCSVDirectly(
   const processedNames = new Set<string>();
   const matchedProductIds = new Set<string>();
   const seenNames = new Set<string>();
+  const seenSkus = new Set<string>();
   let skippedCount = 0;
 
   // Process data rows (start after header row)
@@ -346,6 +347,9 @@ export async function parseCSVDirectly(
 
     const rawPrice = row[priceIdx]?.trim() || '';
     const rawSku = skuIdx !== -1 ? row[skuIdx]?.trim() : undefined;
+    if (rawSku) {
+      seenSkus.add(rawSku.toLowerCase());
+    }
     const rawStock = stockIdx !== -1 ? row[stockIdx]?.trim() : undefined;
     const rawCategory =
       categoryIdx !== -1 ? row[categoryIdx]?.trim() : undefined;
@@ -452,7 +456,8 @@ export async function parseCSVDirectly(
     for (const product of validatedCurrentProducts) {
       if (
         !matchedProductIds.has(product.id) &&
-        !seenNames.has(normalizeName(product.name))
+        !seenNames.has(normalizeName(product.name)) &&
+        !(product.sku && seenSkus.has(product.sku.toLowerCase().trim()))
       ) {
         changes.push({
           type: 'remove',
@@ -545,19 +550,43 @@ function isCostPriceHeader(header: string): boolean {
       word
     )
   );
-  const hasMonetarySignal = words.some((word) =>
+  const hasCurrencySignal = words.some((word) =>
     [
-      'amount',
-      'buying',
-      'landed',
-      'price',
-      'purchase',
-      'rate',
-      'unit',
-      'value',
-      'wholesale',
+      'aed',
+      'aud',
+      'brl',
+      'cad',
+      'chf',
+      'cny',
+      'eur',
+      'gbp',
+      'ghs',
+      'inr',
+      'jpy',
+      'kes',
+      'naira',
+      'ngn',
+      'usd',
+      'xaf',
+      'xof',
+      'zar',
     ].includes(word)
   );
+  const hasMonetarySignal =
+    hasCurrencySignal ||
+    words.some((word) =>
+      [
+        'amount',
+        'buying',
+        'landed',
+        'price',
+        'purchase',
+        'rate',
+        'unit',
+        'value',
+        'wholesale',
+      ].includes(word)
+    );
   const hasSupplier = words.includes('supplier');
   const isCustomerFacingPrice = words.some((word) =>
     ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)

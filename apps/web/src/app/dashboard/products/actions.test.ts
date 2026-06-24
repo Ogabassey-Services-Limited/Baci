@@ -785,6 +785,26 @@ describe('product import actions', () => {
     expect(result.summary).toContain('Skipped 1 rows');
   });
 
+  it('does not archive SKU-present aliases that have invalid prices', async () => {
+    const result = await parseCSVDirectly(
+      [
+        ...existingProducts,
+        {
+          id: 'product-2',
+          name: 'Keep Phone',
+          price: 2000,
+          sku: 'KEEP-1',
+          stock: 3,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,SKU\nVendor Alias,not-a-price,OLD-1\nKeep Phone,2000,KEEP-1'
+    );
+
+    expect(result.changes).toEqual([]);
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.summary).toContain('Skipped 1 rows');
+  });
+
   it('skips rows with non-finite selling prices', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
@@ -1112,6 +1132,37 @@ describe('product import actions', () => {
       changes: [],
       summary:
         'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+  });
+
+  it('does not use currency-labeled cost columns as the selling price', async () => {
+    for (const costHeader of ['Cost NGN', 'Cost Naira']) {
+      const result = await parseCSVDirectly(
+        existingProducts,
+        `Name,${costHeader},SKU\nNew Phone,1500,NEW-1`
+      );
+
+      expect(result).toEqual({
+        changes: [],
+        summary:
+          'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+      });
+    }
+  });
+
+  it('imports currency-labeled cost columns when a selling price column exists', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Price,Cost NGN,SKU\nNew Phone,2000,1500,NEW-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1500,
+        price: 2000,
+      },
+      type: 'new',
     });
   });
 

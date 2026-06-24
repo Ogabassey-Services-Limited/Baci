@@ -275,6 +275,40 @@ describe('dashboard product import action schemas', () => {
     ).toBe(true);
   });
 
+  it('rejects invalid selling prices and update prices at bulk boundaries', () => {
+    for (const price of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        BulkUpdateChangesSchema.safeParse({
+          changes: [
+            {
+              type: 'new',
+              details: {
+                name: 'New Phone',
+                price,
+              },
+            },
+          ],
+        }).success
+      ).toBe(false);
+
+      expect(
+        BulkUpdateChangesSchema.safeParse({
+          changes: [
+            {
+              type: 'update',
+              newPrice: price,
+              productId: 'product-1',
+              details: {
+                name: 'Updated Phone',
+                price: 1000,
+              },
+            },
+          ],
+        }).success
+      ).toBe(false);
+    }
+  });
+
   it('allows explicit cost-price edit markers on bulk changes', () => {
     expect(
       BulkUpdateChangesSchema.safeParse({
@@ -312,6 +346,40 @@ describe('dashboard product import action schemas', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('rejects negative AI-generated selling prices and update prices', () => {
+    expect(
+      AIResponseSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'New Phone',
+              price: -1,
+            },
+          },
+        ],
+        summary: 'New product',
+      }).success
+    ).toBe(false);
+
+    expect(
+      AIResponseSchema.safeParse({
+        changes: [
+          {
+            type: 'update',
+            newPrice: -1,
+            productId: 'product-1',
+            details: {
+              name: 'Updated Phone',
+              price: 1000,
+            },
+          },
+        ],
+        summary: 'Updated product',
+      }).success
+    ).toBe(false);
   });
 
   it('rejects unexpected root keys in AI responses', () => {

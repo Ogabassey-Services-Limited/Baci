@@ -80,7 +80,7 @@ export const FetchGoogleSheetInputSchema = z.object({
 
 const SharedChangeDetailsShape = {
   name: z.string(),
-  price: z.number(),
+  price: z.number().finite().nonnegative(),
   cost_price: z.number().finite().nonnegative().nullable().optional(),
   sku: z.string().optional(),
   description: z.string().optional(),
@@ -109,6 +109,8 @@ export const ChangeSchema = z.object({
     .describe('SKU or ID of the product to update or remove'),
   newPrice: z
     .number()
+    .finite()
+    .nonnegative()
     .optional()
     .describe('The new price for a product update'),
   details: ChangeDetailsSchema,
@@ -144,6 +146,8 @@ const AIChangeSchema = z.strictObject({
     .describe('SKU or ID of the product to update or remove'),
   newPrice: z
     .number()
+    .finite()
+    .nonnegative()
     .optional()
     .describe('The new price for a product update'),
   details: AIChangeDetailsSchema,
