@@ -364,6 +364,7 @@ export async function saveBuilderDraft(
         updated_at: updatedAt,
       })
       .eq('id', currentConfig.id)
+      .eq('merchant_id', merchantId)
       .eq('updated_at', currentConfig.updated_at)
       .select(
         'id, merchant_id, page_slug, draft_config, draft_seo, draft_store_settings, draft_setup_settings, updated_at'
@@ -472,6 +473,7 @@ export async function publishBuilderDraft(
       updated_at: publishedAt,
     })
     .eq('id', currentConfig.id)
+    .eq('merchant_id', merchantId)
     .eq('updated_at', currentConfig.updated_at)
     .select('id, updated_at')
     .maybeSingle();

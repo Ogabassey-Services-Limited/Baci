@@ -36,3 +36,7 @@ Source: Zod 4 documentation, Warden persona rules
 Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks if not explicitly constrained with `.eq('merchant_id', merchantId)`.
 Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
 Source: Baci Monorepo Context Guidelines
+2026-06-25 — [Builder Drafts Update Scope Fix]
+Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks if not explicitly constrained with `.eq('merchant_id', merchantId)`.
+Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
+Source: Baci Monorepo Context Guidelines
