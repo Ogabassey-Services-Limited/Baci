@@ -1,12 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDebugBearHeaders,
+  buildOgaBasseyCwvConfigurationFailures,
   buildOgaBasseyCwvTargets,
   filterOgaBasseyCwvTargets,
   findDebugBearProjectIdForUrl,
+  isFalseyEnvValue,
+  isTruthyEnvValue,
   loadEnvFile,
   normalizeDebugBearProjects,
 } from './measure-ogabassey-cwv-utils.mjs';
+
+describe('env flag helpers', () => {
+  it('normalizes common truthy and falsey env values', () => {
+    expect(isTruthyEnvValue('YES')).toBe(true);
+    expect(isTruthyEnvValue(' on ')).toBe(true);
+    expect(isFalseyEnvValue('false')).toBe(true);
+    expect(isFalseyEnvValue('off')).toBe(true);
+  });
+});
 
 describe('buildDebugBearHeaders', () => {
   it('sends a stable user agent with DebugBear API requests', () => {
@@ -170,6 +182,47 @@ describe('filterOgaBasseyCwvTargets', () => {
   });
 });
 
+describe('buildOgaBasseyCwvConfigurationFailures', () => {
+  it('keeps target resolution failures and reports missing providers', () => {
+    const failures = buildOgaBasseyCwvConfigurationFailures({
+      shouldRunDebugBear: false,
+      shouldRunPsi: false,
+      targetResolutionFailures: [
+        {
+          label: 'blog-post-latest',
+          message: 'missing blog post',
+          source: 'target-resolution',
+        },
+      ],
+      targets: [],
+    });
+
+    expect(failures.map((failure) => failure.label)).toEqual([
+      'blog-post-latest',
+      'measurement',
+      'targets',
+    ]);
+    expect(failures[0]).toMatchObject({ message: 'missing blog post' });
+  });
+
+  it('reports explicit DebugBear configuration gaps', () => {
+    const failures = buildOgaBasseyCwvConfigurationFailures({
+      isDebugBearExplicitlyEnabled: true,
+      shouldRunDebugBear: false,
+      shouldRunPsi: true,
+      targets: [{ label: 'home', url: 'https://ogabassey.com/' }],
+    });
+
+    expect(failures.map((failure) => failure.label)).toEqual([
+      'debugbear',
+      'debugbear-projects',
+    ]);
+    expect(failures.every(({ source }) => source === 'configuration')).toBe(
+      true
+    );
+  });
+});
+
 describe('loadEnvFile', () => {
   it('loads quoted env values without overwriting existing keys', async () => {
     const env = { EXISTING: 'kept' };
@@ -189,6 +242,28 @@ describe('loadEnvFile', () => {
       DEBUGBEAR_PROJECT_ID: '101919',
       EXISTING: 'kept',
       OGABASSEY_CWV_PSI: '0',
+    });
+  });
+
+  it('can override root env-file values without replacing shell-owned keys', async () => {
+    const shellOwned = new Set(['DEBUGBEAR_API_KEY']);
+    const env = {
+      DEBUGBEAR_API_KEY: 'shell-key',
+      DEBUGBEAR_PROJECT_ID: 'root-project',
+    };
+    const loaded = await loadEnvFile('/apps/web/.env.local', {
+      env,
+      override: (key) => !shellOwned.has(key),
+      readText: async () =>
+        ['DEBUGBEAR_API_KEY=app-key', 'DEBUGBEAR_PROJECT_ID=app-project'].join(
+          '\n'
+        ),
+    });
+
+    expect(loaded).toBe(true);
+    expect(env).toEqual({
+      DEBUGBEAR_API_KEY: 'shell-key',
+      DEBUGBEAR_PROJECT_ID: 'app-project',
     });
   });
 

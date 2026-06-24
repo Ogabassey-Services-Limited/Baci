@@ -12,17 +12,24 @@ import {
 } from './measure-ogabassey-cwv-runners.mjs';
 import { printCwvSummaryTable } from './measure-ogabassey-cwv-summary-utils.mjs';
 import {
+  buildOgaBasseyCwvConfigurationFailures,
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
   filterOgaBasseyCwvTargets,
+  isFalseyEnvValue,
+  isTruthyEnvValue,
   loadEnvFile,
+  normalizeEnvFlag,
 } from './measure-ogabassey-cwv-utils.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const appRoot = fileURLToPath(new URL('../..', import.meta.url));
 
+const envKeysBeforeAuditFileLoad = new Set(Object.keys(process.env));
 await loadEnvFile(join(repoRoot, '.env.local'));
-await loadEnvFile(join(appRoot, '.env.local'));
+await loadEnvFile(join(appRoot, '.env.local'), {
+  override: (key) => !envKeysBeforeAuditFileLoad.has(key),
+});
 const auditId = new Date().toISOString().replace(/[:.]/g, '-');
 const customOutputDir =
   process.env.OGABASSEY_AUDIT_OUTPUT_DIR || process.env.DEBUGBEAR_RAW_DIR || '';
@@ -34,39 +41,37 @@ const artifactFileName = (name) =>
 const psiApiKey =
   process.env.PAGESPEED_INSIGHTS_API_KEY || process.env.PSI_API_KEY || '';
 const debugBearProjectId = process.env.DEBUGBEAR_PROJECT_ID?.trim() || '';
-const debugBearProjectApiKey = process.env.DEBUGBEAR_API_KEY || '';
-const debugBearAdminApiKey = process.env.DEBUGBEAR_ADMIN_API_KEY || '';
+const debugBearProjectApiKey = process.env.DEBUGBEAR_API_KEY?.trim() || '';
+const debugBearAdminApiKey = process.env.DEBUGBEAR_ADMIN_API_KEY?.trim() || '';
+const debugBearSetting = normalizeEnvFlag(process.env.OGABASSEY_CWV_DEBUGBEAR);
+const isDebugBearExplicitlyEnabled = isTruthyEnvValue(debugBearSetting);
+const isDebugBearDisabled = isFalseyEnvValue(debugBearSetting);
+const debugBearDiscoveryApiKey =
+  debugBearAdminApiKey ||
+  (!debugBearProjectId && isDebugBearExplicitlyEnabled
+    ? debugBearProjectApiKey
+    : '');
 const debugBearApiKey = debugBearProjectId
   ? debugBearProjectApiKey || debugBearAdminApiKey
-  : debugBearAdminApiKey || debugBearProjectApiKey;
+  : debugBearDiscoveryApiKey;
 const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
 const debugBearRegion = process.env.DEBUGBEAR_REGION || 'us-east';
 const debugBearMaxPollAttempts =
   Number(process.env.DEBUGBEAR_MAX_POLL_ATTEMPTS) || 90;
 const debugBearPollIntervalMs =
   Number(process.env.DEBUGBEAR_POLL_INTERVAL_MS) || 5000;
-const debugBearSetting = `${process.env.OGABASSEY_CWV_DEBUGBEAR ?? ''}`
-  .trim()
-  .toLowerCase();
-const isDebugBearExplicitlyEnabled = ['1', 'true', 'yes', 'on'].includes(
-  debugBearSetting
-);
-const isDebugBearDisabled = ['0', 'false', 'no', 'off'].includes(
-  debugBearSetting
-);
-const hasDebugBearCredentials = Boolean(debugBearApiKey);
 const hasDiscoverableDebugBearProject = Boolean(
-  debugBearProjectId || debugBearAdminApiKey
+  debugBearProjectId || debugBearDiscoveryApiKey
 );
-const hasInvalidDebugBearDiscoveryConfig =
-  !isDebugBearDisabled &&
-  hasDebugBearCredentials &&
-  !hasDiscoverableDebugBearProject;
+const shouldAttemptDebugBear =
+  isDebugBearExplicitlyEnabled ||
+  Boolean(debugBearProjectId || debugBearAdminApiKey);
 const shouldRunDebugBear =
   !isDebugBearDisabled &&
-  hasDebugBearCredentials &&
+  shouldAttemptDebugBear &&
+  Boolean(debugBearApiKey) &&
   hasDiscoverableDebugBearProject;
-const shouldRunPsi = process.env.OGABASSEY_CWV_PSI !== '0';
+const shouldRunPsi = !isFalseyEnvValue(process.env.OGABASSEY_CWV_PSI);
 const shouldRunExternalProbes = shouldRunPsi || shouldRunDebugBear;
 const targetLabelFilter = process.env.OGABASSEY_CWV_TARGET_LABELS || '';
 const requestedTargetLabels = targetLabelFilter
@@ -84,7 +89,7 @@ const strategies = (process.env.OGABASSEY_CWV_STRATEGIES || 'mobile,desktop')
   .filter(Boolean);
 const runPsi = createPsiRunner({ apiKey: psiApiKey });
 const debugBearRunner = createDebugBearRunner({
-  adminApiKey: debugBearAdminApiKey,
+  adminApiKey: debugBearDiscoveryApiKey,
   apiKey: debugBearApiKey,
   device: debugBearDevice,
   maxPollAttempts: debugBearMaxPollAttempts,
@@ -127,12 +132,16 @@ const targetResolutionFailures =
         },
       ]
     : [];
+const shouldUsePdpLcpUrl = !isFalseyEnvValue(
+  process.env.OGABASSEY_CWV_USE_PDP_LCP_URL
+);
 const requestedPdpUrl =
-  process.env.OGABASSEY_PDP_LCP_URL ||
+  (shouldUsePdpLcpUrl ? process.env.OGABASSEY_PDP_LCP_URL : '') ||
   process.env.OGABASSEY_PDP_URL ||
   DEFAULT_OGABASSEY_CWV_TARGETS.pdp;
-const shouldResolvePdpCanonical =
-  process.env.OGABASSEY_CWV_RESOLVE_PDP_CANONICAL !== '0';
+const shouldResolvePdpCanonical = !isFalseyEnvValue(
+  process.env.OGABASSEY_CWV_RESOLVE_PDP_CANONICAL
+);
 const pdpUrl =
   shouldRunExternalProbes && shouldResolvePdpCanonical
     ? await resolveCanonicalUrl(requestedPdpUrl)
@@ -148,49 +157,15 @@ const targets = filterOgaBasseyCwvTargets(
 );
 
 const summaries = [];
-const failures = [
-  ...targetResolutionFailures,
-  ...(isDebugBearExplicitlyEnabled && !debugBearApiKey
-    ? [
-        {
-          label: 'debugbear',
-          message:
-            'OGABASSEY_CWV_DEBUGBEAR explicitly enabled DebugBear, but DEBUGBEAR_API_KEY/DEBUGBEAR_ADMIN_API_KEY is not configured.',
-          source: 'configuration',
-        },
-      ]
-    : []),
-  ...(hasInvalidDebugBearDiscoveryConfig
-    ? [
-        {
-          label: 'debugbear-projects',
-          message:
-            'DebugBear requires DEBUGBEAR_PROJECT_ID or DEBUGBEAR_ADMIN_API_KEY before scheduling quick tests.',
-          source: 'configuration',
-        },
-      ]
-    : []),
-  ...(!shouldRunPsi && !shouldRunDebugBear
-    ? [
-        {
-          label: 'measurement',
-          message:
-            'No CWV provider is scheduled. Enable PageSpeed Insights or configure DebugBear with an API key and project discovery.',
-          source: 'configuration',
-        },
-      ]
-    : []),
-  ...(targets.length === 0
-    ? [
-        {
-          label: 'targets',
-          message:
-            'No CWV targets matched OGABASSEY_CWV_TARGET_LABELS. Use home, pdp-dell, blog-index, or blog-post-latest.',
-          source: 'configuration',
-        },
-      ]
-    : []),
-];
+const failures = buildOgaBasseyCwvConfigurationFailures({
+  debugBearApiKey,
+  hasDiscoverableDebugBearProject,
+  isDebugBearExplicitlyEnabled,
+  shouldRunDebugBear,
+  shouldRunPsi,
+  targetResolutionFailures,
+  targets,
+});
 
 function logProgress(message) {
   console.error(`[ogabassey-cwv] ${message}`);
@@ -288,11 +263,38 @@ await writeArtifact('summary.json', {
   targets,
 });
 
-printCwvSummaryTable(summaries);
+const shouldPrintLegacyPdpJson = isTruthyEnvValue(
+  process.env.OGABASSEY_CWV_LEGACY_PDP_LCP_JSON
+);
+const shouldPrintSummaryTable =
+  !shouldPrintLegacyPdpJson &&
+  !isFalseyEnvValue(process.env.OGABASSEY_CWV_SUMMARY_TABLE);
+
+if (shouldPrintSummaryTable) {
+  printCwvSummaryTable(summaries);
+}
 if (failures.length) {
   console.error('Failures:');
   console.error(JSON.stringify(failures, null, 2));
   process.exitCode = 1;
 }
-console.log(`Saved CWV audit artifacts to ${outputDir}`);
-console.log(`Audit id: ${auditId}`);
+
+if (shouldPrintLegacyPdpJson) {
+  const summary =
+    summaries.find((row) => row.label === 'pdp-dell') ?? summaries[0];
+  if (summary) {
+    console.log(
+      JSON.stringify({
+        cls: summary.cls ?? null,
+        fcpMs: summary.fcpMs ?? null,
+        lcpMs: summary.lcpMs ?? null,
+        resultUrl: summary.resultUrl ?? null,
+        tbtMs: summary.tbtMs ?? null,
+      })
+    );
+  }
+}
+
+const finalLog = shouldPrintLegacyPdpJson ? console.error : console.log;
+finalLog(`Saved CWV audit artifacts to ${outputDir}`);
+finalLog(`Audit id: ${auditId}`);

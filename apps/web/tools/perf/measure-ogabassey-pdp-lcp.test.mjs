@@ -29,15 +29,20 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
       'tools/perf/measure-ogabassey-pdp-lcp.mjs'
     );
 
+    const env = wrapperEnv(outputDir);
+    env.OGABASSEY_CWV_TARGET_LABELS = '';
+    env.OGABASSEY_PDP_LCP_URL = '';
+
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: 'utf8',
-      env: wrapperEnv(outputDir),
+      env,
     });
 
     expect(result.status).toBe(1);
     const summary = JSON.parse(
       await readFile(join(outputDir, 'summary.json'), 'utf8')
     );
+    expect(result.stdout).not.toContain('┌');
     expect(summary.targets.map((target) => target.label)).toEqual(['pdp-dell']);
     expect(summary.failures).toEqual(
       expect.arrayContaining([
@@ -75,5 +80,24 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
         url: 'https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090',
       },
     ]);
+  });
+
+  it('preserves /tmp as the legacy raw output directory when no raw dir is set', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-pdp-unused-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-pdp-lcp.mjs'
+    );
+    const env = wrapperEnv(outputDir);
+    delete env.OGABASSEY_AUDIT_OUTPUT_DIR;
+    delete env.DEBUGBEAR_RAW_DIR;
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Saved CWV audit artifacts to /tmp');
   });
 });

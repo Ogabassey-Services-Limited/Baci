@@ -122,6 +122,22 @@ describe('resolveLatestBlogPostUrl', () => {
     ).resolves.toBe('https://usebaci.com/ogabassey/blog/post');
   });
 
+  it('rejects cross-tenant path-mode blog links before selecting latest post', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          '<a href="/blog/wrong"></a><a href="/other/blog/wrong"></a><a href="/ogabassey/blog/right"></a>',
+      }))
+    );
+
+    await expect(
+      resolveLatestBlogPostUrl('https://usebaci.com/ogabassey/blog')
+    ).resolves.toBe('https://usebaci.com/ogabassey/blog/right');
+  });
+
   it('ignores feed, API, and sitemap blog links before selecting an article', async () => {
     vi.stubGlobal(
       'fetch',
@@ -162,23 +178,56 @@ describe('resolveCanonicalUrl', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses same-origin canonical URLs without query strings', async () => {
+  it('keeps same-path canonical URLs without query strings', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
         ok: true,
         status: 200,
         text: async () =>
-          '<link rel="canonical" href="/products/canonical?utm=1#top">',
+          '<link rel="canonical" href="/products/source?utm=1#top">',
+        url: 'https://ogabassey.com/products/source',
+      }))
+    );
+
+    await expect(
+      resolveCanonicalUrl('https://ogabassey.com/products/source?ref=old')
+    ).resolves.toBe('https://ogabassey.com/products/source');
+  });
+
+  it('fails PDP resolution on non-OK responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 404,
+        text: async () => 'missing',
+        url: 'https://ogabassey.com/products/source',
       }))
     );
 
     await expect(
       resolveCanonicalUrl('https://ogabassey.com/products/source')
-    ).resolves.toBe('https://ogabassey.com/products/canonical');
+    ).rejects.toThrow('PDP canonical resolution failed');
   });
 
-  it('keeps the input URL when canonical points off origin', async () => {
+  it('rejects redirects before auditing the PDP target', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () => '<html></html>',
+        url: 'https://ogabassey.com/',
+      }))
+    );
+
+    await expect(
+      resolveCanonicalUrl('https://ogabassey.com/products/source')
+    ).rejects.toThrow('changed path from /products/source to /');
+  });
+
+  it('rejects canonical tags that point at another path or origin', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -186,11 +235,12 @@ describe('resolveCanonicalUrl', () => {
         status: 200,
         text: async () =>
           '<link rel="canonical" href="https://evil.example/products/canonical">',
+        url: 'https://ogabassey.com/products/source',
       }))
     );
 
     await expect(
       resolveCanonicalUrl('https://ogabassey.com/products/source')
-    ).resolves.toBe('https://ogabassey.com/products/source');
+    ).rejects.toThrow('changed origin');
   });
 });

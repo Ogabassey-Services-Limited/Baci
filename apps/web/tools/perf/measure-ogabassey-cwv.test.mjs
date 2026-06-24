@@ -56,7 +56,7 @@ describe('measure-ogabassey-cwv CLI', () => {
     ]);
   });
 
-  it('fails before scheduling DebugBear when project discovery is unavailable', async () => {
+  it('does not fail PSI-disabled offline runs for an unused ambient DebugBear key', async () => {
     const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-test-'));
     const scriptPath = join(
       process.cwd(),
@@ -67,9 +67,9 @@ describe('measure-ogabassey-cwv CLI', () => {
       encoding: 'utf8',
       env: {
         ...scriptEnv(outputDir),
-        DEBUGBEAR_API_KEY: 'project-key-without-project-id',
-        OGABASSEY_CWV_DEBUGBEAR: '1',
-        OGABASSEY_CWV_PSI: '0',
+        DEBUGBEAR_API_KEY: 'ambient-project-key-without-project-id',
+        OGABASSEY_CWV_DEBUGBEAR: '',
+        OGABASSEY_CWV_PSI: 'false',
       },
     });
 
@@ -78,12 +78,44 @@ describe('measure-ogabassey-cwv CLI', () => {
       await readFile(join(outputDir, 'summary.json'), 'utf8')
     );
     expect(summary.failures).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({ label: 'debugbear-projects' }),
+      ])
+    );
+    expect(summary.failures).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          label: 'debugbear-projects',
-          message: expect.stringContaining('DEBUGBEAR_PROJECT_ID'),
+          label: 'measurement',
+          message: expect.stringContaining('No CWV provider is scheduled'),
           source: 'configuration',
         }),
+      ])
+    );
+  });
+
+  it('honors common falsey PSI disable values', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-test-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-cwv.mjs'
+    );
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env: {
+        ...scriptEnv(outputDir),
+        OGABASSEY_CWV_PSI: 'off',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).not.toContain('PSI mobile');
+    const summary = JSON.parse(
+      await readFile(join(outputDir, 'summary.json'), 'utf8')
+    );
+    expect(summary.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'measurement' }),
       ])
     );
   });

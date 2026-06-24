@@ -29,13 +29,27 @@ export async function fetchJson(url, init = {}) {
   return text ? JSON.parse(text) : {};
 }
 
-function isBlogArticlePath(pathname) {
-  const segments = pathname.split('/').filter(Boolean);
-  const blogIndex = segments.indexOf('blog');
-  if (blogIndex < 0 || blogIndex > 1) return false;
+function getPathSegments(pathname) {
+  return pathname.split('/').filter(Boolean);
+}
+
+function isBlogArticlePathForIndex(pathname, blogIndexPathname) {
+  const blogIndexSegments = getPathSegments(blogIndexPathname);
+  const blogIndex = blogIndexSegments.indexOf('blog');
+  if (blogIndex < 0) return false;
+
+  const storefrontPrefix = blogIndexSegments.slice(0, blogIndex);
+  const segments = getPathSegments(pathname);
   if (segments[0] === 'api') return false;
 
-  const slug = segments[blogIndex + 1];
+  if (
+    storefrontPrefix.some((segment, index) => segments[index] !== segment) ||
+    segments[storefrontPrefix.length] !== 'blog'
+  ) {
+    return false;
+  }
+
+  const slug = segments[storefrontPrefix.length + 1];
   if (!slug) return false;
 
   const nonArticleSegments = new Set([
@@ -71,7 +85,10 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
     for (const href of matches) {
       try {
         const url = new URL(href, blogUrl);
-        if (url.origin === origin && isBlogArticlePath(url.pathname)) {
+        if (
+          url.origin === origin &&
+          isBlogArticlePathForIndex(url.pathname, new URL(blogUrl).pathname)
+        ) {
           url.hash = '';
           url.search = '';
           return url.toString();
@@ -87,27 +104,60 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
   return null;
 }
 
-export async function resolveCanonicalUrl(url) {
-  try {
-    const response = await fetch(url, {
-      headers: { 'user-agent': DEBUGBEAR_USER_AGENT },
-    });
-    if (!response.ok) return url;
-
-    const html = await response.text();
-    const canonicalTag = html.match(
-      /<link\b[^>]*rel=["'][^"']*\bcanonical\b[^"']*["'][^>]*>/i
-    )?.[0];
-    const href = canonicalTag?.match(/\bhref=["']([^"']+)["']/i)?.[1];
-    if (!href) return url;
-
-    const canonical = new URL(href, url);
-    const original = new URL(url);
-    if (canonical.origin !== original.origin) return url;
-    canonical.hash = '';
-    canonical.search = '';
-    return canonical.toString();
-  } catch {
-    return url;
+function normalizeUrlForStrictTarget(value) {
+  const target = new URL(value);
+  target.hash = '';
+  target.search = '';
+  if (target.pathname !== '/') {
+    target.pathname = target.pathname.replace(/\/+$/, '');
   }
+  return target;
+}
+
+function assertSamePdpTarget(candidate, requested, reason) {
+  const candidateUrl = normalizeUrlForStrictTarget(candidate);
+  const requestedUrl = normalizeUrlForStrictTarget(requested);
+
+  if (candidateUrl.origin !== requestedUrl.origin) {
+    throw new Error(
+      `PDP canonical resolution changed origin from ${requestedUrl.origin} to ${candidateUrl.origin}`
+    );
+  }
+
+  if (candidateUrl.pathname !== requestedUrl.pathname) {
+    throw new Error(
+      `PDP canonical resolution ${reason} changed path from ${requestedUrl.pathname} to ${candidateUrl.pathname}`
+    );
+  }
+
+  return candidateUrl.toString();
+}
+
+export async function resolveCanonicalUrl(url) {
+  const requested = normalizeUrlForStrictTarget(url).toString();
+
+  const response = await fetch(requested, {
+    headers: { 'user-agent': DEBUGBEAR_USER_AGENT },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `PDP canonical resolution failed for ${requested} with ${response.status}`
+    );
+  }
+
+  const finalUrl = response.url ? response.url : requested;
+  assertSamePdpTarget(finalUrl, requested, 'redirect');
+
+  const html = await response.text();
+  const canonicalTag = html.match(
+    /<link\b[^>]*rel=["'][^"']*\bcanonical\b[^"']*["'][^>]*>/i
+  )?.[0];
+  const href = canonicalTag?.match(/\bhref=["']([^"']+)["']/i)?.[1];
+  if (!href) return requested;
+
+  return assertSamePdpTarget(
+    new URL(href, requested).toString(),
+    requested,
+    'canonical'
+  );
 }

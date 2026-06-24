@@ -23,6 +23,22 @@ describe('getFieldMetric', () => {
     ).toEqual({ category: undefined, p75: 3200, scope: 'url' });
   });
 
+  it('honors PageSpeed origin_fallback on loadingExperience', () => {
+    expect(
+      getFieldMetric(
+        {
+          loadingExperience: {
+            id: 'https://ogabassey.com/',
+            origin_fallback: true,
+            metrics: { LARGEST_CONTENTFUL_PAINT_MS: { percentile: 4400 } },
+          },
+        },
+        'https://ogabassey.com/',
+        'LARGEST_CONTENTFUL_PAINT_MS'
+      )
+    ).toEqual({ category: undefined, p75: 4400, scope: 'origin' });
+  });
+
   it('labels origin fallback field data explicitly', () => {
     expect(
       getFieldMetric(
@@ -145,6 +161,7 @@ describe('summarizeDebugBearResult', () => {
             'bestPractices.score': 1,
             'performance.firstContentfulPaint': 1385,
             'performance.largestContentfulPaint': 2587,
+            'crux.inp.p75': 171,
             'performance.totalBlockingTime': 382,
             'performance.cumulativeLayoutShift': 0,
             'performance.speedIndex': 2354,
@@ -161,6 +178,7 @@ describe('summarizeDebugBearResult', () => {
       device: 'Mobile',
       fcpMs: 1385,
       label: 'pdp',
+      inpMs: 171,
       lcpMs: 2587,
       pageWeightKb: 750.6,
       performance: 88,
@@ -172,6 +190,20 @@ describe('summarizeDebugBearResult', () => {
       speedIndexMs: 2354,
       tbtMs: 382,
     });
+  });
+
+  it('builds a DebugBear overview URL before falling back to the measured page URL', () => {
+    expect(
+      summarizeDebugBearResult({
+        label: 'pdp',
+        url: 'https://ogabassey.com/pdp',
+        device: 'Mobile',
+        projectId: '102065',
+        quickTestId: '1431',
+        region: 'uk',
+        body: { url: 'https://ogabassey.com/pdp', metrics: {} },
+      }).resultUrl
+    ).toBe('https://www.debugbear.com/project/102065/quickTest/1431/overview');
   });
 });
 

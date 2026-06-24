@@ -59,7 +59,7 @@ export function createDebugBearRunner({
   async function getProjects() {
     if (!adminApiKey) {
       throw new Error(
-        'Set DEBUGBEAR_ADMIN_API_KEY for project discovery or DEBUGBEAR_PROJECT_ID to skip discovery'
+        'Set DEBUGBEAR_ADMIN_API_KEY (or an admin key in DEBUGBEAR_API_KEY) for project discovery or DEBUGBEAR_PROJECT_ID to skip discovery'
       );
     }
     const body = await request('/projects', {}, adminApiKey);
@@ -91,18 +91,18 @@ export function createDebugBearRunner({
       quickTestId,
     });
     let result = created;
+    let pollError = null;
     for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
-      result = await request(pollPath);
+      try {
+        result = await request(pollPath);
+      } catch (error) {
+        pollError = error;
+        break;
+      }
       if (isDebugBearComplete(result)) break;
       await sleep(pollIntervalMs);
     }
-    if (!isDebugBearComplete(result)) {
-      throw new Error(
-        `DebugBear poll timed out for ${target.label} after ${maxPollAttempts} attempts`
-      );
-    }
 
-    const failureMessage = getDebugBearFailureMessage(result);
     const payload = { created, result };
     const summary = summarizeDebugBearResult({
       body: result,
@@ -113,9 +113,14 @@ export function createDebugBearRunner({
       region,
       url: target.url,
     });
+    const failureMessage =
+      (pollError instanceof Error ? pollError.message : pollError) ||
+      (!isDebugBearComplete(result)
+        ? `DebugBear poll timed out for ${target.label} after ${maxPollAttempts} attempts`
+        : getDebugBearFailureMessage(result));
 
     return {
-      ...(failureMessage ? { failure: failureMessage } : {}),
+      ...(failureMessage ? { failure: String(failureMessage) } : {}),
       payload,
       summary,
     };

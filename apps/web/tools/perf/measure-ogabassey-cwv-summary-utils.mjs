@@ -60,7 +60,11 @@ export function getFieldMetric(payload, requestedUrl, metricName) {
       p75: normalizeFieldPercentile(metricName, metric.percentile),
       scope:
         candidateEntry.scope ??
-        (normalizeFieldId(candidate.id) === requested ? 'url' : 'origin'),
+        (candidate.origin_fallback === true || candidate.originFallback === true
+          ? 'origin'
+          : normalizeFieldId(candidate.id) === requested
+            ? 'url'
+            : 'origin'),
     };
   }
 
@@ -92,6 +96,7 @@ export function printCwvSummaryTable(rows) {
       fcp: formatMetricMs(row.fcpMs) ?? '-',
       tbt: formatMetricMs(row.tbtMs) ?? '-',
       cls: row.cls ?? '-',
+      inp: formatMetricMs(row.inpMs) ?? '-',
       fieldLcp: row.fieldLcp?.p75 ?? '-',
       fieldScope: row.fieldLcp?.scope ?? '-',
       result: row.resultUrl ?? '-',
@@ -229,6 +234,13 @@ export function summarizeDebugBearResult({
       'lcp',
       'largest-contentful-paint',
     ]),
+    inpMs: getDebugBearMetric(body, [
+      'crux.inp.p75',
+      'crux.interactionToNextPaint.p75',
+      'performance.interactionToNextPaint',
+      'interactionToNextPaint',
+      'inp',
+    ]),
     pageWeightKb: toKilobytes(
       getDebugBearMetric(body, [
         'pageWeight.total',
@@ -242,7 +254,9 @@ export function summarizeDebugBearResult({
     region,
     resultUrl:
       body?.resultUrl ??
-      body?.url ??
+      body?.dashboardUrl ??
+      body?.links?.result ??
+      body?.links?.overview ??
       (projectId && quickTestId
         ? `https://www.debugbear.com/project/${projectId}/quickTest/${quickTestId}/overview`
         : null),

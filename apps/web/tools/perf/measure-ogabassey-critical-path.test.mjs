@@ -42,4 +42,31 @@ describe('measure-ogabassey-critical-path CLI', () => {
       'pdp-dell',
     ]);
   });
+
+  it('keeps critical-path mobile-only and ignores PDP-LCP URL overrides', async () => {
+    const outputDir = await mkdtemp(
+      join(tmpdir(), 'ogabassey-critical-path-test-')
+    );
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-critical-path.mjs'
+    );
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env: {
+        ...criticalPathEnv(outputDir),
+        OGABASSEY_PDP_LCP_URL: 'https://ogabassey.com/wrong-lcp',
+        OGABASSEY_PDP_URL: 'https://ogabassey.com/right-pdp',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(
+      await readFile(join(outputDir, 'summary.json'), 'utf8')
+    );
+    expect(summary.targets).toEqual([
+      { label: 'home', url: 'https://ogabassey.com/' },
+      { label: 'pdp-dell', url: 'https://ogabassey.com/right-pdp' },
+    ]);
+  });
 });

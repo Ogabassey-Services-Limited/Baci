@@ -6,7 +6,10 @@ export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
   blog: 'https://ogabassey.com/blog',
 });
 
-export async function loadEnvFile(path, { env = process.env, readText } = {}) {
+export async function loadEnvFile(
+  path,
+  { env = process.env, override = false, readText } = {}
+) {
   const reader = readText ?? (await import('node:fs/promises')).readFile;
   let text = '';
   try {
@@ -29,10 +32,29 @@ export async function loadEnvFile(path, { env = process.env, readText } = {}) {
     const index = trimmed.indexOf('=');
     const key = trimmed.slice(0, index).trim();
     const raw = trimmed.slice(index + 1).trim();
-    if (!key || env[key] !== undefined) continue;
+    const shouldOverride =
+      typeof override === 'function' ? override(key, env[key]) : override;
+    if (!key || (!shouldOverride && env[key] !== undefined)) continue;
     env[key] = raw.replace(/^["']|["']$/g, '');
   }
   return true;
+}
+
+export function normalizeEnvFlag(value) {
+  return `${value ?? ''}`.trim().toLowerCase();
+}
+
+export function isTruthyEnvValue(value) {
+  return ['1', 'true', 'yes', 'on'].includes(normalizeEnvFlag(value));
+}
+
+export function isFalseyEnvValue(value) {
+  return ['0', 'false', 'no', 'off'].includes(normalizeEnvFlag(value));
+}
+
+export function setDefaultEnv(env, key, value) {
+  if (`${env[key] ?? ''}`.trim()) return;
+  env[key] = value;
 }
 
 export function buildDebugBearHeaders(apiKey) {
@@ -184,4 +206,54 @@ export function filterOgaBasseyCwvTargets(targets, requestedLabels) {
 
   const labelSet = new Set(labels);
   return targets.filter((target) => labelSet.has(target.label));
+}
+
+export function buildOgaBasseyCwvConfigurationFailures({
+  debugBearApiKey,
+  hasDiscoverableDebugBearProject,
+  isDebugBearExplicitlyEnabled,
+  shouldRunDebugBear,
+  shouldRunPsi,
+  targetResolutionFailures = [],
+  targets = [],
+} = {}) {
+  const failures = [...targetResolutionFailures];
+
+  if (isDebugBearExplicitlyEnabled && !debugBearApiKey) {
+    failures.push({
+      label: 'debugbear',
+      message:
+        'OGABASSEY_CWV_DEBUGBEAR explicitly enabled DebugBear, but DEBUGBEAR_API_KEY/DEBUGBEAR_ADMIN_API_KEY is not configured.',
+      source: 'configuration',
+    });
+  }
+
+  if (isDebugBearExplicitlyEnabled && !hasDiscoverableDebugBearProject) {
+    failures.push({
+      label: 'debugbear-projects',
+      message:
+        'DebugBear requires DEBUGBEAR_PROJECT_ID, DEBUGBEAR_ADMIN_API_KEY, or an admin key in DEBUGBEAR_API_KEY before scheduling quick tests.',
+      source: 'configuration',
+    });
+  }
+
+  if (!shouldRunPsi && !shouldRunDebugBear) {
+    failures.push({
+      label: 'measurement',
+      message:
+        'No CWV provider is scheduled. Enable PageSpeed Insights or configure DebugBear with an API key and project discovery.',
+      source: 'configuration',
+    });
+  }
+
+  if (targets.length === 0) {
+    failures.push({
+      label: 'targets',
+      message:
+        'No CWV targets matched OGABASSEY_CWV_TARGET_LABELS. Use home, pdp-dell, blog-index, or blog-post-latest.',
+      source: 'configuration',
+    });
+  }
+
+  return failures;
 }

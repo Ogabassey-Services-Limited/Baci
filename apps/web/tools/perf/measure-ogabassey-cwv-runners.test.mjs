@@ -43,8 +43,40 @@ describe('createDebugBearRunner', () => {
     const runner = createDebugBearRunner({ apiKey: 'project-key' });
 
     await expect(runner.getProjects()).rejects.toThrow(
-      'Set DEBUGBEAR_ADMIN_API_KEY for project discovery'
+      'Set DEBUGBEAR_ADMIN_API_KEY (or an admin key in DEBUGBEAR_API_KEY) for project discovery'
     );
+  });
+
+  it('returns DebugBear artifacts when polling times out', async () => {
+    const runner = createDebugBearRunner({
+      apiKey: 'project-key',
+      fetchJsonImpl: (_url, init = {}) => {
+        if (init.method === 'POST') return { quickTests: [{ id: 'qt-1' }] };
+        return { status: 'running' };
+      },
+      maxPollAttempts: 1,
+      pollIntervalMs: 0,
+      projectId: '101919',
+      sleep: () => undefined,
+    });
+
+    const result = await runner.run(
+      { label: 'home', url: 'https://ogabassey.com/' },
+      []
+    );
+
+    expect(result).toMatchObject({
+      failure: 'DebugBear poll timed out for home after 1 attempts',
+      payload: {
+        created: { quickTests: [{ id: 'qt-1' }] },
+        result: { status: 'running' },
+      },
+      summary: expect.objectContaining({
+        quickTestId: 'qt-1',
+        resultUrl:
+          'https://www.debugbear.com/project/101919/quickTest/qt-1/overview',
+      }),
+    });
   });
 
   it('runs quick tests with the configured project, device, and us-east default region', async () => {
