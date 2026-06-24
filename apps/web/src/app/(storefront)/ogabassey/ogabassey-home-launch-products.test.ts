@@ -112,4 +112,33 @@ describe('ogabassey home launch products', () => {
     );
     expect(products.map((product) => product.name)).toEqual(['Launch Device']);
   });
+
+  it('degrades to an empty list when the launch candidate feed rejects', async () => {
+    // The candidate leg drives the visible hero; a Supabase/cache failure must
+    // not reject (it would crash the awaiting hero section + homepage).
+    vi.mocked(getCachedStorefrontLaunchProducts).mockRejectedValue(
+      new Error('launch feed down')
+    );
+    vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([
+      createRow({ id: 'pin', name: 'Pinned A27' }),
+    ]);
+
+    const products = await loadOgabasseyLaunchProducts('merchant-1');
+
+    // Only the pinned rows survive; the function resolves instead of throwing.
+    expect(products.map((product) => product.name)).toEqual(['Pinned A27']);
+  });
+
+  it('resolves to an empty list when both launch feeds reject', async () => {
+    vi.mocked(getCachedStorefrontLaunchProducts).mockRejectedValue(
+      new Error('launch feed down')
+    );
+    vi.mocked(getCachedStorefrontProductsBySlugs).mockRejectedValue(
+      new Error('pinned feed down')
+    );
+
+    await expect(loadOgabasseyLaunchProducts('merchant-1')).resolves.toEqual(
+      []
+    );
+  });
 });

@@ -52,4 +52,22 @@ describe('OgabasseyHomeHeroSection', () => {
       screen.getByRole('link', { name: 'Samsung Galaxy A27 5G' })
     ).toHaveAttribute('href', '/ogabassey/smartphones/samsung-galaxy-a27-5g');
   });
+
+  it('renders the hero with no slides when the launch feed degrades to empty', async () => {
+    // loadOgabasseyLaunchProducts is best-effort and resolves [] on feed failure;
+    // the hero section must render (Hero falls back to empty geometry), not throw.
+    vi.mocked(loadOgabasseyLaunchProducts).mockResolvedValue([]);
+
+    const result = await OgabasseyHomeHeroSection({
+      merchantId: 'merchant-1',
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    expect(
+      screen.getByRole('region', { name: 'Streamed product hero' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
 });
