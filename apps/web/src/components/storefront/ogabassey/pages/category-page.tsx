@@ -8,7 +8,10 @@ import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
-import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
+import {
+  STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
+  STOREFRONT_PRODUCTS_PER_PAGE,
+} from '@/lib/storefront-pagination';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import {
@@ -505,6 +508,11 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   <StorefrontPagination
                     ariaLabel={`${pageTitle} pagination`}
                     basePath={categoryPath}
+                    crawlDiscoveryAllPagesThreshold={
+                      STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT
+                    }
+                    crawlDiscoveryLabel={`Browse more ${pageTitle} pages`}
+                    crawlDiscoveryPageLabel={`${pageTitle} page`}
                     currentPage={currentPageNumber}
                     totalPages={totalPages}
                   />

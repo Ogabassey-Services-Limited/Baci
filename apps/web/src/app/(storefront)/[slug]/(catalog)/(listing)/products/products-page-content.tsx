@@ -19,6 +19,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import {
   parseStorefrontPageParam,
+  STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
 import { isValidMerchantIdentifier } from '@/lib/validation';
@@ -266,6 +267,11 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
               <StorefrontPagination
                 ariaLabel="Products pagination"
                 basePath={`${pathPrefix}/products`}
+                crawlDiscoveryAllPagesThreshold={
+                  STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT
+                }
+                crawlDiscoveryLabel="Browse product index pages"
+                crawlDiscoveryPageLabel="Products page"
                 currentPage={currentPage}
                 totalPages={totalPages}
               />

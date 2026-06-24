@@ -160,6 +160,9 @@ describe('CategoryPage', () => {
       'href',
       '/test-store/electronics?page=2'
     );
+    expect(
+      screen.getByRole('link', { name: 'Electronics page 2' })
+    ).toHaveAttribute('href', '/test-store/electronics?page=2');
   });
 
   it('falls back to the default storefront page size when itemsPerPage is invalid', () => {
