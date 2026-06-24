@@ -1,22 +1,17 @@
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
-import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
+import { getOgabasseyLayoutStyle } from '@/components/storefront/ogabassey/storefront-layout-utils';
+import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 
-interface OgabasseyHomeShellFallbackProps {
-  /** Root-relative by default so subdomain rewrites never leak /ogabassey into visible hrefs. */
-  pathPrefix?: string;
-}
+const ogabasseyStaticShellStyle = getOgabasseyLayoutStyle();
 
-export function OgabasseyHomeShellFallback({
-  pathPrefix = '',
-}: OgabasseyHomeShellFallbackProps) {
+export function OgabasseyHomeShellFallback() {
   return (
-    <>
+    <div
+      data-ogabassey-static-shell-fallback="true"
+      style={ogabasseyStaticShellStyle}
+    >
       <ShellChromeLoading showChromeFrame />
-      <OgabasseyHomeHeroSection
-        merchantId={OGABASSEY_MERCHANT_ID}
-        pathPrefix={pathPrefix}
-      />
-    </>
+      <OgabasseyHomeHeroFallback />
+    </div>
   );
 }

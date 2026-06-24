@@ -75,9 +75,9 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: mockGetRequestScopedMerchant,
 }));
 
-vi.mock('./ogabassey-home-hero-section', () => ({
-  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
-    <section aria-label="Product hero" data-prefix={pathPrefix} />
+vi.mock('./ogabassey-home-hero-fallback', () => ({
+  OgabasseyHomeHeroFallback: () => (
+    <section aria-hidden="true" data-testid="hero-fallback" />
   ),
 }));
 
@@ -163,10 +163,15 @@ describe('OgabasseyLayout', () => {
         '.storefront-shell-loading__chrome'
       )
     ).toBeInTheDocument();
-    const fallbackHero = fallbackRender.getByRole('region', {
-      name: /product hero/i,
-    });
-    expect(fallbackHero).toHaveAttribute('data-prefix', '');
+    const staticFallback = fallbackRender.container.querySelector(
+      '[data-ogabassey-static-shell-fallback="true"]'
+    );
+    expect(staticFallback).toHaveStyle({ '--store-primary': '#d62027' });
+    expect(fallbackRender.getByTestId('hero-fallback')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
+    expect(fallbackRender.queryByRole('link')).not.toBeInTheDocument();
     fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({
       slug: OGABASSEY_TEMPLATE_ID,

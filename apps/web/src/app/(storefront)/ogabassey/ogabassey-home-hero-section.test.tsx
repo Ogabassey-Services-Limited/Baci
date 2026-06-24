@@ -1,17 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import { cacheTag } from 'next/cache';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
 import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
-
-// The hero is a `'use cache'` component (rendered in the PPR static shell); the
-// cacheLife runtime needs the Next server cache context, so stub it under test.
-vi.mock('next/cache', () => ({
-  cacheLife: vi.fn(),
-  cacheTag: vi.fn(),
-}));
 
 vi.mock('./ogabassey-home-launch-products', () => ({
   loadOgabasseyLaunchProducts: vi.fn(),
@@ -47,7 +39,7 @@ describe('OgabasseyHomeHeroSection', () => {
     vi.mocked(loadOgabasseyLaunchProducts).mockResolvedValue([launchProduct]);
   });
 
-  it('loads launch products in its own streamed boundary and renders hero links', async () => {
+  it('loads launch products and renders hero links inside the published storefront boundary', async () => {
     const result = await OgabasseyHomeHeroSection({
       merchantId: 'merchant-1',
       pathPrefix: '/ogabassey',
@@ -56,7 +48,6 @@ describe('OgabasseyHomeHeroSection', () => {
     render(result as ReactElement);
 
     expect(loadOgabasseyLaunchProducts).toHaveBeenCalledWith('merchant-1');
-    expect(cacheTag).toHaveBeenCalledWith('products-merchant-1');
     expect(
       screen.getByRole('link', { name: 'Samsung Galaxy A27 5G' })
     ).toHaveAttribute('href', '/ogabassey/smartphones/samsung-galaxy-a27-5g');
@@ -64,7 +55,8 @@ describe('OgabasseyHomeHeroSection', () => {
 
   it('renders the hero with no slides when the launch feed degrades to empty', async () => {
     // loadOgabasseyLaunchProducts is best-effort and resolves [] on feed failure;
-    // the hero section must render (Hero falls back to empty geometry), not throw.
+    // the uncached wrapper must render (Hero falls back to empty geometry), not
+    // cache the transient empty state.
     vi.mocked(loadOgabasseyLaunchProducts).mockResolvedValue([]);
 
     const result = await OgabasseyHomeHeroSection({
