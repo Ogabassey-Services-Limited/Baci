@@ -298,20 +298,16 @@ Deno.serve(async (req) => {
   confirmationUrl.searchParams.set('token_hash', emailData.token_hash);
   confirmationUrl.searchParams.set('type', emailType);
 
-  let actionUrlOverride: string | undefined;
-
   if (emailData.redirect_to) {
     if (/^https?:\/\//i.test(emailData.redirect_to)) {
       try {
         const nextUrl = new URL(emailData.redirect_to);
         const siteUrl = new URL(emailData.site_url);
 
+        // Carry a same-origin `next` so /auth/confirm redirects back into the
+        // app after it verifies the token.
         if (nextUrl.origin === siteUrl.origin) {
           confirmationUrl.searchParams.set('next', nextUrl.toString());
-        }
-
-        if (emailType === 'magiclink') {
-          actionUrlOverride = nextUrl.toString();
         }
       } catch (error) {
         console.warn(
@@ -325,12 +321,14 @@ Deno.serve(async (req) => {
     }
   }
 
+  // The CTA points at /auth/confirm (token_hash), so clicking it verifies the
+  // token and signs the user in directly — the 6-digit code stays as a manual
+  // fallback for forwarded mail or a different browser/device.
   const htmlBody = generateEmailHtml(
     config,
     confirmationUrl.toString(),
     branding,
-    emailData.token,
-    actionUrlOverride
+    emailData.token
   );
 
   // Sender name: merchant name for merchant emails, "Baci" for platform emails.
@@ -350,7 +348,7 @@ Deno.serve(async (req) => {
     config.subject,
     '',
     emailData.token ? `Your code: ${emailData.token}` : '',
-    `Continue: ${actionUrlOverride || confirmationUrl.toString()}`,
+    `Continue: ${confirmationUrl.toString()}`,
     '',
     'If you did not request this email, you can safely ignore it.',
   ]
