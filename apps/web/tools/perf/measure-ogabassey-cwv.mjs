@@ -64,7 +64,14 @@ export async function runOgaBasseyCwv() {
   const debugBearApiKey = debugBearProjectId
     ? debugBearProjectApiKey || debugBearAdminApiKey
     : debugBearDiscoveryApiKey;
-  const debugBearDevice = process.env.DEBUGBEAR_DEVICE || 'Mobile';
+  const debugBearDeviceOverride = process.env.DEBUGBEAR_DEVICE?.trim() || '';
+  const debugBearDevice = debugBearDeviceOverride || 'Mobile';
+  const debugBearRequiresConfiguredDeviceUserAgent = !isFalseyEnvValue(
+    process.env.OGABASSEY_CWV_REQUIRE_DEBUGBEAR_DEVICE_UA
+  );
+  const hasConfiguredDebugBearDeviceUserAgent = Boolean(
+    debugBearDeviceOverride
+  );
   const debugBearRegion = process.env.DEBUGBEAR_REGION || 'us-east';
   const debugBearMaxPollAttempts =
     Number(process.env.DEBUGBEAR_MAX_POLL_ATTEMPTS) || 90;
@@ -76,11 +83,15 @@ export async function runOgaBasseyCwv() {
   const shouldAttemptDebugBear =
     isDebugBearExplicitlyEnabled ||
     Boolean(debugBearProjectId || debugBearAdminApiKey);
+  const canRunDebugBearWithStableUserAgent =
+    !debugBearRequiresConfiguredDeviceUserAgent ||
+    hasConfiguredDebugBearDeviceUserAgent;
   const shouldRunDebugBear =
     !isDebugBearDisabled &&
     shouldAttemptDebugBear &&
     Boolean(debugBearApiKey) &&
-    hasDiscoverableDebugBearProject;
+    hasDiscoverableDebugBearProject &&
+    canRunDebugBearWithStableUserAgent;
   const shouldRunPsi = !isFalseyEnvValue(process.env.OGABASSEY_CWV_PSI);
   const shouldRunExternalProbes = shouldRunPsi || shouldRunDebugBear;
   const targetLabelFilter = process.env.OGABASSEY_CWV_TARGET_LABELS || '';
@@ -177,8 +188,12 @@ export async function runOgaBasseyCwv() {
   const summaries = [];
   const failures = buildOgaBasseyCwvConfigurationFailures({
     debugBearApiKey,
+    debugBearRequiresConfiguredDeviceUserAgent,
+    hasConfiguredDebugBearDeviceUserAgent,
     hasDiscoverableDebugBearProject,
+    isDebugBearDisabled,
     isDebugBearExplicitlyEnabled,
+    shouldAttemptDebugBear,
     shouldRunDebugBear,
     shouldRunPsi,
     targetResolutionFailures,

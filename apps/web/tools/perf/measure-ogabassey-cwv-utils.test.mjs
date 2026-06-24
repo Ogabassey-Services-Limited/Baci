@@ -288,4 +288,28 @@ describe('buildOgaBasseyCwvConfigurationFailures', () => {
       true
     );
   });
+
+  it('requires an explicit DebugBear device when stable browser UA tagging is required', () => {
+    const failures = buildOgaBasseyCwvConfigurationFailures({
+      debugBearApiKey: 'project-key',
+      debugBearRequiresConfiguredDeviceUserAgent: true,
+      hasConfiguredDebugBearDeviceUserAgent: false,
+      hasDiscoverableDebugBearProject: true,
+      isDebugBearExplicitlyEnabled: true,
+      shouldAttemptDebugBear: true,
+      shouldRunDebugBear: false,
+      shouldRunPsi: true,
+      targets: [{ label: 'home', url: 'https://ogabassey.com/' }],
+    });
+
+    expect(failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'debugbear-device-user-agent',
+          message: expect.stringContaining('cannot set a browser user-agent'),
+          source: 'configuration',
+        }),
+      ])
+    );
+  });
 });

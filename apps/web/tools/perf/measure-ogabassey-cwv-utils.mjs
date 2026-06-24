@@ -215,8 +215,12 @@ export function buildLegacyPdpLcpJson(summary) {
 
 export function buildOgaBasseyCwvConfigurationFailures({
   debugBearApiKey,
+  debugBearRequiresConfiguredDeviceUserAgent = false,
+  hasConfiguredDebugBearDeviceUserAgent = false,
   hasDiscoverableDebugBearProject,
+  isDebugBearDisabled = false,
   isDebugBearExplicitlyEnabled,
+  shouldAttemptDebugBear = false,
   shouldRunDebugBear,
   shouldRunPsi,
   targetResolutionFailures = [],
@@ -238,6 +242,20 @@ export function buildOgaBasseyCwvConfigurationFailures({
       label: 'debugbear-projects',
       message:
         'DebugBear requires DEBUGBEAR_PROJECT_ID, DEBUGBEAR_ADMIN_API_KEY, or an admin key in DEBUGBEAR_API_KEY before scheduling quick tests.',
+      source: 'configuration',
+    });
+  }
+
+  if (
+    !isDebugBearDisabled &&
+    shouldAttemptDebugBear &&
+    debugBearRequiresConfiguredDeviceUserAgent &&
+    !hasConfiguredDebugBearDeviceUserAgent
+  ) {
+    failures.push({
+      label: 'debugbear-device-user-agent',
+      message:
+        'DebugBear Quick Tests cannot set a browser user-agent per request. Set DEBUGBEAR_DEVICE to a DebugBear device configured with Baci-CWV-measurement/1.0, or set OGABASSEY_CWV_REQUIRE_DEBUGBEAR_DEVICE_UA=0 to opt out.',
       source: 'configuration',
     });
   }
