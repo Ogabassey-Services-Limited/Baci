@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { CartItem } from '@/stores/cart-store';
 
 type ProductsResponse = {
-  data: Array<{ id: string; price: number | string }> | null;
+  data: Array<{
+    id: string;
+    price: number | string;
+    has_condition_offers?: boolean;
+  }> | null;
   error: { message: string } | null;
 };
 
@@ -129,7 +133,9 @@ describe('repriceCartItems', () => {
     const result = await repriceCartItems(items, 'merchant-1');
 
     expect(mockFrom).toHaveBeenCalledWith('products');
-    expect(productQuery.select).toHaveBeenCalledWith('id, price');
+    expect(productQuery.select).toHaveBeenCalledWith(
+      'id, price, has_condition_offers'
+    );
     expect(productQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(productQuery.eq).toHaveBeenCalledWith('status', 'active');
     expect(productQuery.in).toHaveBeenCalledWith('id', [
@@ -281,5 +287,63 @@ describe('repriceCartItems', () => {
 
     // The voucher award stays out of repricing; the paid line reprices normally.
     expect(result.priceById).toEqual({ 'paid-line': 430000 });
+  });
+
+  it('skips non-variant lines on products that carry condition offers', async () => {
+    // Condition offers (open_box/used) are priced from product_offers, so the
+    // base products.price would corrupt the stored offer price.
+    const conditionOfferLine = createCartItem({
+      id: 'offer-line',
+      product_id: 'offer-product',
+      condition: 'Open Box',
+      price: 300000,
+    });
+    const baseLine = createCartItem({ id: 'base-line', price: 390000 });
+    productQuery.in.mockResolvedValue({
+      data: [
+        { id: 'offer-product', price: 430000, has_condition_offers: true },
+        { id: 'product-1', price: 410000, has_condition_offers: false },
+      ],
+      error: null,
+    });
+
+    const result = await repriceCartItems(
+      [conditionOfferLine, baseLine],
+      'merchant-1'
+    );
+
+    // The offer line is left untouched; the base line reprices to live price.
+    expect(result.priceById).toEqual({ 'base-line': 410000 });
+    expect(result.changes.map((change) => change.id)).toEqual(['base-line']);
+  });
+
+  it('still reprices a variant line even when its product has condition offers', async () => {
+    const variantLine = createCartItem({
+      id: 'variant-line',
+      product_id: 'offer-product',
+      variant_id: 'variant-1',
+      price: 300000,
+    });
+    productQuery.in.mockResolvedValue({
+      data: [
+        { id: 'offer-product', price: 430000, has_condition_offers: true },
+      ],
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: 'variant-1',
+          product_id: 'offer-product',
+          price_override: 360000,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await repriceCartItems([variantLine], 'merchant-1');
+
+    // Variant lines are resolved via the override RPC, not condition offers.
+    expect(result.priceById).toEqual({ 'variant-line': 360000 });
   });
 });

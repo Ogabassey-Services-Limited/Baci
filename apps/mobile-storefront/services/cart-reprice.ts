@@ -67,9 +67,11 @@ export async function repriceCartItems(
     );
 
     // Base prices (active products only — mirrors the order RPC's catalog read).
+    // `has_condition_offers` flags products whose non-variant lines are priced
+    // from `product_offers` (open_box/used) instead of `products.price`.
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, price')
+      .select('id, price, has_condition_offers')
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .in('id', productIds);
@@ -83,8 +85,12 @@ export async function repriceCartItems(
     }
 
     const productPrice = new Map<string, number>();
+    const conditionOfferProducts = new Set<string>();
     for (const product of products) {
       productPrice.set(product.id, Number(product.price));
+      if (product.has_condition_offers) {
+        conditionOfferProducts.add(product.id);
+      }
     }
 
     // Variant overrides via the same RLS-safe RPC the order validation uses.
@@ -140,6 +146,15 @@ export async function repriceCartItems(
       // repricing them against the base product price (wrong for any variant
       // carrying a price_override). Non-variant lines still reprice safely.
       if (item.variant_id && variantLookupFailed) {
+        continue;
+      }
+
+      // Non-variant lines on products with condition offers (open_box/used) are
+      // priced from `product_offers`, not `products.price`. We cannot resolve
+      // that offer price here, so skip them — repricing to the base price would
+      // corrupt a valid offer price and raise a bogus drift alert. Checkout
+      // still validates these lines against the live offer separately.
+      if (!item.variant_id && conditionOfferProducts.has(item.product_id)) {
         continue;
       }
 

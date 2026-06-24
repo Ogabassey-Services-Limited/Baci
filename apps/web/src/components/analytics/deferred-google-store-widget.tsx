@@ -131,6 +131,23 @@ export function DeferredGoogleStoreWidget(
   // it can't cover checkout/payment UI; restore it when leaving the route.
   useEffect(() => {
     setMerchantWidgetFrameHidden(suppressed);
+
+    if (!suppressed || typeof MutationObserver === 'undefined') {
+      return;
+    }
+
+    // The script can append (or re-append) the badge iframe AFTER this effect
+    // runs. A one-shot lookup would miss it, leaving a late frame covering the
+    // payment UI — so keep hiding any inserted frame while the route stays
+    // suppressed.
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.addedNodes.length > 0)) {
+        setMerchantWidgetFrameHidden(true);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
   }, [suppressed]);
 
   if (props.enabled === false || suppressed || !Widget) {

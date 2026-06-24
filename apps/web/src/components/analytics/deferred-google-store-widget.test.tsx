@@ -385,4 +385,24 @@ describe('DeferredGoogleStoreWidget', () => {
     expect(loadWidgetModule).not.toHaveBeenCalled();
     expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
   });
+
+  it('hides a badge iframe injected after landing on a suppressed route', async () => {
+    mockPathname = '/checkout';
+    render(
+      <DeferredGoogleStoreWidget merchantCustomDomain="ogabassey.com" enabled />
+    );
+
+    // The external script appends the fixed badge iframe AFTER the suppression
+    // effect already ran — the observer must still hide it.
+    const frame = document.createElement('iframe');
+    frame.id = 'merchantwidgetiframe';
+    await act(async () => {
+      document.body.appendChild(frame);
+      await Promise.resolve();
+    });
+
+    expect(frame.style.display).toBe('none');
+
+    frame.remove();
+  });
 });
