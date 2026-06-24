@@ -204,6 +204,33 @@ describe('CategoryPage', () => {
     );
   });
 
+  it('keeps pagination reachable when a pre-paginated detail slice is empty', () => {
+    mockMatchMedia(true);
+
+    render(
+      <CategoryPage
+        currentPage={2}
+        products={[]}
+        productsArePrePaginated={true}
+        totalProductCount={25}
+      />
+    );
+
+    expect(screen.queryByText('No products found')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Products on this page are temporarily unavailable.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics'
+    );
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics?page=2'
+    );
+  });
+
   it('falls back to the default storefront page size when itemsPerPage is invalid', () => {
     mockMatchMedia(true);
 

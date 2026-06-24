@@ -294,6 +294,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     : usesPrePaginatedProducts
       ? filteredProducts
       : filteredProducts.slice(pageStartIndex, pageEndIndex);
+  const hasKnownProducts = paginationProductCount > 0;
+  const hasVisibleProducts = visibleProducts.length > 0;
   const visibleProductEndIndex = usesPrePaginatedProducts
     ? Math.min(pageStartIndex + visibleProducts.length, paginationProductCount)
     : Math.min(pageEndIndex, paginationProductCount);
@@ -453,7 +455,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
           {/* Product Grid */}
           <div className="lg:col-span-3">
-            {filteredProducts.length === 0 ? (
+            {!hasKnownProducts ? (
               <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
                 <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Filter
@@ -475,7 +477,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   Clear all filters
                 </button>
               </div>
-            ) : (
+            ) : hasVisibleProducts ? (
               <div
                 className={
                   viewMode === 'grid'
@@ -508,15 +510,31 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   );
                 })}
               </div>
+            ) : (
+              <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
+                <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Filter
+                    className="text-store-background-text/40"
+                    size={32}
+                  />
+                </div>
+                <h3 className="text-lg font-bold text-store-background-text mb-1">
+                  Products on this page are temporarily unavailable.
+                </h3>
+                <p className="text-store-background-text/50 text-sm">
+                  Use the pagination links below to keep browsing available
+                  pages.
+                </p>
+              </div>
             )}
 
-            {filteredProducts.length > 0 && (
+            {hasKnownProducts && (
               <div className="mt-8 space-y-3">
                 {!hasActiveFilters && (
                   <p className="text-center text-sm text-store-background-text/50">
-                    Showing {pageStartIndex + 1}-
-                    {visibleProductEndIndex} of {paginationProductCount}{' '}
-                    products
+                    {hasVisibleProducts
+                      ? `Showing ${pageStartIndex + 1}-${visibleProductEndIndex} of ${paginationProductCount} products`
+                      : `Page ${currentPageNumber} of ${totalPages}`}
                   </p>
                 )}
 
