@@ -1,30 +1,13 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { INSURANCE_COLORS, styles } from './OrderDetailsInsuranceCard.styles';
+import type {
+  OrderDetailsInsuranceCardColors,
+  OrderDetailsInsurancePolicy,
+} from './OrderDetailsInsuranceCard.types';
 
-export interface OrderDetailsInsurancePolicy {
-  certificate_url: string | null;
-  claim_comment: string | null;
-  claim_link: string | null;
-  claim_stage: string | null;
-  claim_status: string | null;
-  coverage_amount: number;
-  inspection_link: string | null;
-  inspection_status: string | null;
-  mycover_policy_number: string | null;
-  policy_expiry_date: string | null;
-  policy_start_date: string | null;
-  policy_type: string | null;
-  premium_amount: number;
-  provider_name: string | null;
-  status: string;
-}
-
-interface OrderDetailsInsuranceCardColors {
-  card: string;
-  text: string;
-  textSecondary: string;
-}
+export type { OrderDetailsInsurancePolicy } from './OrderDetailsInsuranceCard.types';
 
 interface OrderDetailsInsuranceCardProps {
   colors: OrderDetailsInsuranceCardColors;
@@ -36,17 +19,6 @@ interface OrderDetailsInsuranceCardProps {
   onFileClaim?: (claimUrl: string) => void;
   onOpenCertificate: (certificateUrl: string) => void;
 }
-
-const INSURANCE_COLORS = {
-  active: {
-    background: '#DCFCE7',
-    foreground: '#059669',
-  },
-  pending: {
-    background: '#FEF3C7',
-    foreground: '#D97706',
-  },
-} as const;
 
 export function OrderDetailsInsuranceCard({
   colors,
@@ -295,73 +267,3 @@ export function OrderDetailsInsuranceCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  trackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 16,
-  },
-  fileClaimButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  trackButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  insuranceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  insuranceContent: {
-    marginTop: 12,
-    gap: 10,
-  },
-  insuranceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  insuranceLabel: {
-    fontSize: 14,
-  },
-  insuranceValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  insuranceStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  insuranceStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  insuranceProvider: {
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-});
