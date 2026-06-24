@@ -173,6 +173,8 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     ? paginatedNormalizedProducts
     : normalizedProducts;
   const categoryPageCurrentPage = data.productIdsQueryFailed ? 1 : currentPage;
+  const productsArePrePaginated =
+    data.productsQueryFailed && !data.productIdsQueryFailed;
   const collectionSchemaProducts = paginatedNormalizedProducts.map(
     toCollectionSchemaProduct
   );
@@ -248,11 +250,15 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           seoFaqs={hubContent.faqItems}
           hubContent={hubContent}
           currentPage={categoryPageCurrentPage}
+          productsArePrePaginated={productsArePrePaginated}
           categoryImage={
             !data.isCollection ? data.category?.image_url : undefined
           }
           itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
           products={categoryPageProducts}
+          totalProductCount={
+            productsArePrePaginated ? productSlots.length : undefined
+          }
         />
       </V2ComparisonScope>
     </>

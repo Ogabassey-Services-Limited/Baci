@@ -257,6 +257,49 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     expect(detailSelect).toContain('product_categories!inner');
   });
 
+  it('drops missing detail rows from known pagination slots when the ID list is stale', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-parent',
+        name: 'Phones',
+        slug: 'phones',
+        description: 'Phones',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    const productIds = Array.from({ length: 21 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    const returnedProducts = productIds.slice(0, 20).map(({ id }) => ({
+      id,
+      name: `Product ${id}`,
+      slug: id,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-parent' }], error: null },
+      { data: productIds, error: null },
+      { data: returnedProducts, error: null }
+    );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'phones',
+      'test-store'
+    );
+
+    expect(result.productsQueryFailed).toBe(false);
+    expect(result.products).toHaveLength(20);
+    expect(result.productSlots).toBeUndefined();
+  });
+
   it('Scenario 3: flags categoryQueryFailed (fail open) when the category .single() lookup hits a transient error, not a normal "no rows"', async () => {
     // A non-PGRST116 error means we could not confirm the slug is unknown — the
     // doorway-trap guard must fail open rather than noindex a possibly-live page.

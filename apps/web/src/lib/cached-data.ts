@@ -2485,9 +2485,9 @@ async function getCategoryPageProductDetailsChunk({
   );
 
   return {
-    productSlots: productIds.map(
-      (productId) => productsById.get(productId) ?? null
-    ),
+    productSlots: productIds
+      .map((productId) => productsById.get(productId) ?? null)
+      .filter((product): product is { id?: string | null } => product !== null),
     productsQueryFailed: false,
   };
 }

@@ -43,14 +43,20 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
   CategoryPage: ({
     currentPage,
+    productsArePrePaginated,
+    totalProductCount,
     products,
   }: {
     currentPage?: number;
+    productsArePrePaginated?: boolean;
+    totalProductCount?: number;
     products?: Array<{ id: string; name: string; price: string }>;
   }) => (
     <div data-testid="category-page">
       Category page
       {currentPage ? <div>Page: {currentPage}</div> : null}
+      {totalProductCount ? <div>Total: {totalProductCount}</div> : null}
+      {productsArePrePaginated ? <div>Prepaginated</div> : null}
       {products?.map((product) => (
         <div key={product.id}>
           {product.name}: {product.price}
@@ -450,6 +456,8 @@ describe('CategoryPageContent', () => {
     expect(
       screen.getByText((_, node) => node?.textContent === 'Page: 2')
     ).toBeInTheDocument();
+    expect(screen.getByText('Total: 25')).toBeInTheDocument();
+    expect(screen.getByText('Prepaginated')).toBeInTheDocument();
     expect(screen.getByText('Recovered Phone: ₦250,000')).toBeInTheDocument();
   });
 

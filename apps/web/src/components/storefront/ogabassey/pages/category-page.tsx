@@ -36,6 +36,8 @@ export interface CategorySEOProps {
   categoryImage?: string | null;
   currentPage?: number;
   itemsPerPage?: number;
+  productsArePrePaginated?: boolean;
+  totalProductCount?: number;
 }
 
 type CategoryPageColor =
@@ -71,6 +73,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   categoryImage,
   currentPage = 1,
   itemsPerPage = STOREFRONT_PRODUCTS_PER_PAGE,
+  productsArePrePaginated = false,
+  totalProductCount,
 }) => {
   const [_showMobileIntro, _setShowMobileIntro] = useState(false);
   const params = useParams();
@@ -264,9 +268,21 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
     filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice;
 
+  const explicitTotalProductCount =
+    productsArePrePaginated &&
+    typeof totalProductCount === 'number' &&
+    Number.isInteger(totalProductCount) &&
+    totalProductCount > filteredProducts.length
+      ? totalProductCount
+      : null;
+  const usesPrePaginatedProducts =
+    !hasActiveFilters && explicitTotalProductCount !== null;
+  const paginationProductCount = usesPrePaginatedProducts
+    ? explicitTotalProductCount
+    : filteredProducts.length;
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredProducts.length / safeItemsPerPage)
+    Math.ceil(paginationProductCount / safeItemsPerPage)
   );
   const currentPageNumber = hasActiveFilters
     ? 1
@@ -275,7 +291,12 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const pageEndIndex = pageStartIndex + safeItemsPerPage;
   const visibleProducts = hasActiveFilters
     ? filteredProducts
-    : filteredProducts.slice(pageStartIndex, pageEndIndex);
+    : usesPrePaginatedProducts
+      ? filteredProducts
+      : filteredProducts.slice(pageStartIndex, pageEndIndex);
+  const visibleProductEndIndex = usesPrePaginatedProducts
+    ? Math.min(pageStartIndex + visibleProducts.length, paginationProductCount)
+    : Math.min(pageEndIndex, paginationProductCount);
 
   const handleFilterChange = (
     section: keyof FilterState,
@@ -379,7 +400,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               {displayTitle}
             </h1>
             <p className="text-store-background-text/50 text-sm mt-1">
-              {filteredProducts.length} results found
+              {paginationProductCount} results found
             </p>
           </div>
 
@@ -494,8 +515,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 {!hasActiveFilters && (
                   <p className="text-center text-sm text-store-background-text/50">
                     Showing {pageStartIndex + 1}-
-                    {Math.min(pageEndIndex, filteredProducts.length)} of{' '}
-                    {filteredProducts.length} products
+                    {visibleProductEndIndex} of {paginationProductCount}{' '}
+                    products
                   </p>
                 )}
 
@@ -574,7 +595,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 onClick={() => setIsMobileFilterOpen(false)}
                 className="w-full rounded-xl bg-store-primary py-3 font-bold text-store-primary-text shadow-lg active:scale-95"
               >
-                Show {filteredProducts.length} Results
+                Show {paginationProductCount} Results
               </button>
             </div>
           </div>

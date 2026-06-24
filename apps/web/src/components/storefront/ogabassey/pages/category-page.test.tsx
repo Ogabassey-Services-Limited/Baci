@@ -165,6 +165,45 @@ describe('CategoryPage', () => {
     ).toHaveAttribute('href', '/test-store/electronics?page=2');
   });
 
+  it('uses explicit total product count when server sends only the current page slice', () => {
+    mockMatchMedia(true);
+
+    const products = [
+      {
+        id: '25',
+        name: 'Recovered Product',
+        slug: 'recovered-product',
+        description: 'Recovered detail row',
+        price: '₦25',
+        rawPrice: 25,
+        image: '',
+        condition: 'New' as const,
+      },
+    ];
+    const prePaginatedProps = {
+      currentPage: 2,
+      products,
+      productsArePrePaginated: true,
+      totalProductCount: 25,
+    } as unknown as React.ComponentProps<typeof CategoryPage>;
+
+    render(<CategoryPage {...prePaginatedProps} />);
+
+    expect(screen.getByRole('article', { name: 'Recovered Product' }))
+      .toBeInTheDocument();
+    expect(
+      screen.getByText('Showing 21-21 of 25 products')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics'
+    );
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics?page=2'
+    );
+  });
+
   it('falls back to the default storefront page size when itemsPerPage is invalid', () => {
     mockMatchMedia(true);
 
