@@ -2541,7 +2541,7 @@ export async function getCachedBlogPost(
   includeDrafts: boolean = false
 ) {
   'use cache';
-  cacheLife('merchant');
+  cacheLife('blog');
   cacheTag('blog-posts', getBlogCacheTag(identifier, postSlug));
 
   const lookupKey = identifier.toLowerCase();
@@ -2716,6 +2716,11 @@ export async function getCachedBlogListing(
   const category = options?.category;
   const page = options?.page || 1;
   const searchQuery = options?.searchQuery;
+  // A `'use cache'` function takes a single static cache profile, so the
+  // listing stays on the short `merchant` profile: it takes user-supplied
+  // search/category args, and keeping it short avoids retaining unbounded
+  // one-off filter permutations. The high-cost blog POST renders are what move
+  // to the long-lived `blog` profile (see getCachedBlogPost).
   cacheLife('merchant');
   cacheTag(
     'blog-posts',
