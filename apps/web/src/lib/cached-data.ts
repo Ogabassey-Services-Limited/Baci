@@ -422,7 +422,9 @@ export type CachedCategoryPageData =
       isCollection: true;
       isInactiveCategory?: false;
       name: string;
+      productIdsQueryFailed?: boolean;
       products: unknown[];
+      productSlots?: unknown[];
       productsQueryFailed?: boolean;
       seo: CachedCategorySeo;
     }
@@ -433,7 +435,9 @@ export type CachedCategoryPageData =
       isCollection: false;
       isInactiveCategory: boolean;
       name?: string;
+      productIdsQueryFailed?: boolean;
       products: unknown[];
+      productSlots?: unknown[];
       // True when the products fallback query errored (vs a genuinely empty
       // result) — consumers must fail open instead of 404ing.
       productsQueryFailed?: boolean;
@@ -2062,6 +2066,7 @@ export async function getCachedPageConfig(
 }
 
 const CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE = 48;
+const CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY = 3;
 const SPECIAL_COLLECTIONS = [
   'new-arrivals',
   'best-sellers',
@@ -2106,7 +2111,9 @@ type CachedCategoryPageShellData =
     };
 
 interface CachedCategoryPageProductsResult {
+  productIdsQueryFailed: boolean;
   products: unknown[];
+  productSlots: unknown[];
   productsQueryFailed: boolean;
 }
 
@@ -2116,7 +2123,7 @@ interface CachedCategoryPageProductIdsResult {
 }
 
 interface CategoryPageProductDetailsResult {
-  products: unknown[];
+  productSlots: Array<unknown | null>;
   productsQueryFailed: boolean;
 }
 
@@ -2132,6 +2139,8 @@ const CATEGORY_PAGE_PRODUCT_SELECT = `
           brand,
           condition,
           stock,
+          stock_quantity,
+          manage_stock,
           ${PRODUCT_KEY_SPECS_RELATION_SELECT},
           product_categories(categories(name, slug))
         `;
@@ -2426,26 +2435,38 @@ async function getCachedCategoryPageProductIds({
  * ID list carries membership/order; detail rows are bounded, live reads.
  */
 async function getCategoryPageProductDetailsChunk({
+  categoryIds,
   merchantId,
   productIds,
 }: {
+  categoryIds?: string[];
   merchantId: string;
   productIds: string[];
 }): Promise<CategoryPageProductDetailsResult> {
   if (productIds.length === 0) {
-    return { products: [], productsQueryFailed: false };
+    return { productSlots: [], productsQueryFailed: false };
   }
 
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('products')
     .select(CATEGORY_PAGE_PRODUCT_SELECT)
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .in('id', productIds);
 
+  if (categoryIds && categoryIds.length > 0) {
+    query = query.in('product_categories.category_id', categoryIds);
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     console.error('Product detail query error:', error);
+    return {
+      productSlots: productIds.map(() => null),
+      productsQueryFailed: true,
+    };
   }
 
   const productsById = new Map(
@@ -2456,14 +2477,37 @@ async function getCategoryPageProductDetailsChunk({
   );
 
   return {
-    products: productIds
-      .map((productId) => productsById.get(productId))
-      .filter(Boolean),
-    productsQueryFailed: Boolean(error),
+    productSlots: productIds.map(
+      (productId) => productsById.get(productId) ?? null
+    ),
+    productsQueryFailed: false,
   };
 }
 
-async function getCachedCategoryPageProducts({
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  );
+
+  return results;
+}
+
+async function getCachedCategoryPageProductsUncached({
   merchantId,
   scope,
 }: {
@@ -2477,35 +2521,53 @@ async function getCachedCategoryPageProducts({
 
   if (idResult.productIds.length === 0) {
     return {
+      productIdsQueryFailed: idResult.productsQueryFailed,
       products: [],
+      productSlots: [],
       productsQueryFailed: idResult.productsQueryFailed,
     };
   }
 
-  const detailChunks = await Promise.all(
-    Array.from(
-      {
-        length: Math.ceil(
-          idResult.productIds.length / CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
-        ),
-      },
-      (_, chunkIndex) =>
-        idResult.productIds.slice(
-          chunkIndex * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE,
-          (chunkIndex + 1) * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
-        )
-    ).map((productIds) =>
-      getCategoryPageProductDetailsChunk({ merchantId, productIds })
-    )
+  const idChunks = Array.from(
+    {
+      length: Math.ceil(
+        idResult.productIds.length / CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
+      ),
+    },
+    (_, chunkIndex) =>
+      idResult.productIds.slice(
+        chunkIndex * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE,
+        (chunkIndex + 1) * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
+      )
   );
+  const detailChunks = await mapWithConcurrency(
+    idChunks,
+    CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY,
+    (productIds) =>
+      getCategoryPageProductDetailsChunk({
+        categoryIds: scope.kind === 'category' ? scope.categoryIds : undefined,
+        merchantId,
+        productIds,
+      })
+  );
+  const productSlots = detailChunks.flatMap((chunk) => chunk.productSlots);
 
   return {
-    products: detailChunks.flatMap((chunk) => chunk.products),
+    productIdsQueryFailed: idResult.productsQueryFailed,
+    products: productSlots.filter(
+      (product): product is unknown => product !== null
+    ),
+    productSlots,
     productsQueryFailed:
       idResult.productsQueryFailed ||
       detailChunks.some((chunk) => chunk.productsQueryFailed),
   };
 }
+
+const getCachedCategoryPageProducts = cache(
+  (merchantId: string, scope: CachedCategoryPageProductScope) =>
+    getCachedCategoryPageProductsUncached({ merchantId, scope })
+);
 
 /**
  * Cache-friendly data fetcher for Category/Collection pages.
@@ -2524,10 +2586,10 @@ export async function getCachedCategoryPageData(
     categorySlug,
     storeSlug
   );
-  const productResult = await getCachedCategoryPageProducts({
+  const productResult = await getCachedCategoryPageProducts(
     merchantId,
-    scope: shell.productScope,
-  });
+    shell.productScope
+  );
 
   if (shell.isCollection) {
     return {
@@ -2537,7 +2599,13 @@ export async function getCachedCategoryPageData(
       fallbackName: shell.fallbackName,
       fallbackDescription: shell.fallbackDescription,
       seo: shell.seo,
+      ...(productResult.productIdsQueryFailed
+        ? { productIdsQueryFailed: true }
+        : {}),
       products: productResult.products,
+      ...(productResult.productSlots.length !== productResult.products.length
+        ? { productSlots: productResult.productSlots }
+        : {}),
       productsQueryFailed: productResult.productsQueryFailed,
     };
   }
@@ -2549,7 +2617,13 @@ export async function getCachedCategoryPageData(
     fallbackDescription: shell.fallbackDescription,
     isInactiveCategory: shell.isInactiveCategory,
     categoryQueryFailed: shell.categoryQueryFailed,
+    ...(productResult.productIdsQueryFailed
+      ? { productIdsQueryFailed: true }
+      : {}),
     products: productResult.products,
+    ...(productResult.productSlots.length !== productResult.products.length
+      ? { productSlots: productResult.productSlots }
+      : {}),
     productsQueryFailed: productResult.productsQueryFailed,
   };
 }

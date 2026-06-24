@@ -88,6 +88,23 @@ describe('cached-data cache directives', () => {
     expect(source).not.toContain("cacheLife('storefront-page');");
   });
 
+  it('keeps category detail chunk reads bounded and inventory-safe', () => {
+    const detailsSource = getFunctionSource(
+      'getCategoryPageProductDetailsChunk'
+    );
+    const aggregateSource = getFunctionSource(
+      'getCachedCategoryPageProductsUncached'
+    );
+
+    expect(CACHED_DATA_SOURCE).toContain('stock_quantity');
+    expect(CACHED_DATA_SOURCE).toContain('manage_stock');
+    expect(detailsSource).toContain('product_categories.category_id');
+    expect(aggregateSource).toContain('mapWithConcurrency');
+    expect(aggregateSource).toContain(
+      'CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY'
+    );
+  });
+
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
     for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
       const source = getFunctionSource(functionName);

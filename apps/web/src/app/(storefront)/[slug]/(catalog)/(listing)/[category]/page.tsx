@@ -28,6 +28,8 @@ import { isDomainIdentifier } from '@/lib/validation';
 import { CategoryPageContent } from './category-page-content';
 import {
   buildCategoryPageHubModel,
+  getCategoryPageProductSlots,
+  isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
 } from './category-page-content-helpers';
@@ -109,6 +111,7 @@ export async function generateMetadata({
   }
 
   const categoryName = resolveCategoryPageName(data, category);
+  const productSlots = getCategoryPageProductSlots(data);
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[],
     undefined,
@@ -116,13 +119,17 @@ export async function generateMetadata({
   );
   const computedTotalPages = Math.max(
     1,
-    Math.ceil(normalizedProducts.length / STOREFRONT_PRODUCTS_PER_PAGE)
+    Math.ceil(productSlots.length / STOREFRONT_PRODUCTS_PER_PAGE)
   );
-  const totalPages = data.productsQueryFailed
+  const totalPages = data.productIdsQueryFailed
     ? Math.max(computedTotalPages, currentPage)
     : computedTotalPages;
 
-  if (!data.productsQueryFailed && currentPage > totalPages) {
+  if (
+    !data.productIdsQueryFailed &&
+    (data.isCollection || !data.categoryQueryFailed) &&
+    currentPage > totalPages
+  ) {
     return buildCategoryNotFoundMetadata(
       'Category page not found',
       'This category page is unavailable or has moved.'
@@ -130,9 +137,12 @@ export async function generateMetadata({
   }
 
   const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
-  const paginatedProducts = normalizedProducts.slice(
-    productOffset,
-    productOffset + STOREFRONT_PRODUCTS_PER_PAGE
+  const paginatedProducts = normalizeCategoryPageProducts(
+    productSlots
+      .slice(productOffset, productOffset + STOREFRONT_PRODUCTS_PER_PAGE)
+      .filter(isCategoryPageProductSlot),
+    undefined,
+    merchant.country
   );
 
   const baseUrl = buildStoreUrl(merchant);
@@ -185,7 +195,9 @@ export async function generateMetadata({
     alternates: {
       canonical: paginatedCategoryUrl,
     },
-    robots: getIndexableRobotsMetadata(resolvedSearchParams),
+    robots: data.productsQueryFailed
+      ? { index: false, follow: true }
+      : getIndexableRobotsMetadata(resolvedSearchParams),
     openGraph: {
       title,
       description,

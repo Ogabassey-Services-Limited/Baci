@@ -156,6 +156,99 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     });
   });
 
+  it('preserves ID slots when an early detail chunk fails and a later chunk succeeds', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    const productIds = Array.from({ length: 49 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: productIds, error: null },
+      { data: [], error: { message: 'detail timeout' } },
+      {
+        data: [
+          {
+            id: 'product-49',
+            name: 'Recovered Product',
+            slug: 'recovered-product',
+          },
+        ],
+        error: null,
+      }
+    );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    expect(result.productsQueryFailed).toBe(true);
+    expect(result.products).toEqual([
+      expect.objectContaining({ id: 'product-49' }),
+    ]);
+    expect(result.productSlots).toHaveLength(49);
+    expect(result.productSlots?.slice(0, 48)).toEqual(
+      Array.from({ length: 48 }, () => null)
+    );
+    expect(result.productSlots?.[48]).toEqual(
+      expect.objectContaining({ id: 'product-49' })
+    );
+  });
+
+  it('filters detail relations to the scoped category IDs', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-parent',
+        name: 'Phones',
+        slug: 'phones',
+        description: 'Phones',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-parent' }, { id: 'cat-child' }], error: null },
+      { data: [{ id: 'product-1' }], error: null },
+      { data: [{ id: 'product-1', name: 'Scoped Product' }], error: null }
+    );
+
+    await getCachedCategoryPageData('merchant-123', 'phones', 'test-store');
+
+    expect(harness.mockIn).toHaveBeenCalledWith(
+      'product_categories.category_id',
+      ['cat-parent', 'cat-child']
+    );
+    expect(
+      harness.mockIn.mock.calls.filter(
+        ([column]) => column === 'product_categories.category_id'
+      )
+    ).toHaveLength(2);
+  });
+
   it('Scenario 3: flags categoryQueryFailed (fail open) when the category .single() lookup hits a transient error, not a normal "no rows"', async () => {
     // A non-PGRST116 error means we could not confirm the slug is unknown — the
     // doorway-trap guard must fail open rather than noindex a possibly-live page.

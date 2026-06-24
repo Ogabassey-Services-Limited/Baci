@@ -25,6 +25,8 @@ import { isDomainIdentifier } from '@/lib/validation';
 import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import {
   buildCategoryPageHubModel,
+  getCategoryPageProductSlots,
+  isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
   type StorefrontCategoryProduct,
@@ -135,17 +137,22 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     return renderCategoryNotFoundContent({ slug });
   }
 
+  const productSlots = getCategoryPageProductSlots(data);
   const products = data.products as unknown as RawDbProduct[];
   const computedTotalPages = Math.max(
     1,
-    Math.ceil(products.length / STOREFRONT_PRODUCTS_PER_PAGE)
+    Math.ceil(productSlots.length / STOREFRONT_PRODUCTS_PER_PAGE)
   );
-  const totalPages = data.productsQueryFailed
+  const totalPages = data.productIdsQueryFailed
     ? Math.max(computedTotalPages, currentPage)
     : computedTotalPages;
   const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
 
-  if (!data.productsQueryFailed && currentPage > totalPages) {
+  if (
+    !data.productIdsQueryFailed &&
+    (data.isCollection || !data.categoryQueryFailed) &&
+    currentPage > totalPages
+  ) {
     return renderCategoryNotFoundContent({
       slug,
       title: 'Category page not found',
@@ -159,10 +166,17 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     category,
     merchant.country
   );
-  const paginatedNormalizedProducts = normalizedProducts.slice(
-    pageStartIndex,
-    pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE
+  const paginatedNormalizedProducts = normalizeCategoryPageProducts(
+    productSlots
+      .slice(pageStartIndex, pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE)
+      .filter(isCategoryPageProductSlot),
+    category,
+    merchant.country
   );
+  const categoryPageProducts = data.productsQueryFailed
+    ? paginatedNormalizedProducts
+    : normalizedProducts;
+  const categoryPageCurrentPage = data.productsQueryFailed ? 1 : currentPage;
   const collectionSchemaProducts = paginatedNormalizedProducts.map(
     toCollectionSchemaProduct
   );
@@ -237,12 +251,12 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           seoFeatures={hubContent.trustFeatures}
           seoFaqs={hubContent.faqItems}
           hubContent={hubContent}
-          currentPage={currentPage}
+          currentPage={categoryPageCurrentPage}
           categoryImage={
             !data.isCollection ? data.category?.image_url : undefined
           }
           itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
-          products={normalizedProducts}
+          products={categoryPageProducts}
         />
       </V2ComparisonScope>
     </>

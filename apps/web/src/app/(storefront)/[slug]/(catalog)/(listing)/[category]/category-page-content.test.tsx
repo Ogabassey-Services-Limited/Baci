@@ -117,6 +117,11 @@ vi.mock('./category-page-content-helpers', () => ({
   STOREFRONT_PRODUCTS_PER_PAGE: 24,
   buildCategoryPageHubModel: (...args: unknown[]) =>
     mockBuildCategoryPageHubModel(...args),
+  getCategoryPageProductSlots: (data: {
+    productSlots?: unknown[];
+    products: unknown[];
+  }) => data.productSlots ?? data.products,
+  isCategoryPageProductSlot: (product: unknown) => product !== null,
   normalizeCategoryPageProducts: (...args: unknown[]) =>
     mockNormalizeCategoryPageProducts(...args),
   resolveCategoryPageName: (...args: unknown[]) =>
@@ -360,7 +365,7 @@ describe('CategoryPageContent', () => {
     expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
   });
 
-  it('fails open for out-of-range content pages when product pagination data is partial', async () => {
+  it('fails open for out-of-range content pages when product ID pagination is unknown', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       business_name: 'Demo Store',
@@ -375,6 +380,7 @@ describe('CategoryPageContent', () => {
       fallbackName: 'Phones',
       fallbackDescription: 'Phones',
       isInactiveCategory: false,
+      productIdsQueryFailed: true,
       productsQueryFailed: true,
     });
     mockNormalizeCategoryPageProducts.mockReturnValue([]);

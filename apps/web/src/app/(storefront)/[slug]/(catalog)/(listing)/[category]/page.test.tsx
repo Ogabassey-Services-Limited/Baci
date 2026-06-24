@@ -1018,6 +1018,7 @@ describe('category page route', () => {
       fallbackName: 'Maybe Real',
       fallbackDescription: 'Maybe real',
       isInactiveCategory: false,
+      productIdsQueryFailed: true,
       productsQueryFailed: true,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
@@ -1116,7 +1117,7 @@ describe('category page route', () => {
     });
   });
 
-  it('fails open for out-of-range metadata pages when product pagination data is partial', async () => {
+  it('fails open but noindexes out-of-range metadata pages when product ID pagination is unknown', async () => {
     vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
       isCollection: false,
       category: { id: 'cat-1', name: 'Smartphones', slug: 'smartphones' },
@@ -1124,6 +1125,7 @@ describe('category page route', () => {
       fallbackName: 'Smartphones',
       fallbackDescription: 'Smartphones',
       isInactiveCategory: false,
+      productIdsQueryFailed: true,
       productsQueryFailed: true,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
@@ -1136,7 +1138,7 @@ describe('category page route', () => {
     });
 
     expect(metadata.title).not.toBe('Category page not found');
-    expect(metadata.robots).not.toMatchObject({ index: false });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates).not.toBeNull();
     expect(notFound).not.toHaveBeenCalled();
   });
