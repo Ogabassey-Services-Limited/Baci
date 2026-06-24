@@ -1,3 +1,7 @@
+import {
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import type React from 'react';
 import { Alert } from 'react-native';
@@ -21,6 +25,11 @@ export const mockUseMerchantPaymentSettings = jest.fn<
   { data: PaymentSettings | null },
   []
 >(() => ({ data: mockPaymentSettings }));
+export const mockUseMerchant = jest.fn(() => ({
+  data: {
+    id: 'merchant-ogabassey',
+  },
+}));
 export const mockCryptoRandomUUID = jest.fn();
 let mockCryptoUuidCounter = 0;
 
@@ -220,6 +229,10 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
   };
 });
 
+jest.mock('@/hooks/use-merchant', () => ({
+  useMerchant: () => mockUseMerchant(),
+}));
+
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: jest.fn(
     (
@@ -338,6 +351,11 @@ export function setupCheckoutTest() {
   mockUseMerchantPaymentSettings.mockReturnValue({
     data: mockPaymentSettings,
   });
+  mockUseMerchant.mockReturnValue({
+    data: {
+      id: 'merchant-ogabassey',
+    },
+  });
   mockCreateOrder.mockResolvedValue({
     amountDueToGateway: 1000,
     order: {
@@ -397,6 +415,22 @@ export function teardownCheckoutTest() {
   jest.useRealTimers();
 }
 
+function createCheckoutQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+}
+
 export function renderCheckoutScreen() {
-  return render(<CheckoutScreen />);
+  const queryClient = createCheckoutQueryClient();
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <CheckoutScreen />
+    </QueryClientProvider>
+  );
 }
