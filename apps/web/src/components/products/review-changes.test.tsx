@@ -279,24 +279,45 @@ describe('ReviewChanges', () => {
     });
   });
 
-  it('rejects negative and non-finite cost price edits before applying', async () => {
+  it('blocks invalid cost price edits before applying stale values', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);
 
     const costPriceInput = screen.getByDisplayValue('700');
-    fireEvent.change(costPriceInput, { target: { value: '-5' } });
-    fireEvent.change(costPriceInput, { target: { value: '1e9999' } });
-    await user.click(screen.getByRole('button', { name: /import & publish/i }));
+    fireEvent.change(costPriceInput, { target: { value: '800' } });
+    fireEvent.change(costPriceInput, { target: { value: 'abc' } });
 
-    await waitFor(() => {
-      expect(mocks.applyChanges).toHaveBeenCalledWith([
-        expect.objectContaining({
-          details: expect.objectContaining({
-            cost_price: 700,
-          }),
-          type: 'new',
-        }),
-      ]);
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
     });
+    expect(
+      screen.getByText('Enter a valid non-negative cost price before import.')
+    ).toBeVisible();
+    expect(costPriceInput).toHaveAttribute('aria-invalid', 'true');
+    expect(importButton).toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('keeps cleared cost price optional but blocks a later invalid edit', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '' } });
+    expect(costPriceInput).toHaveAttribute('aria-invalid', 'false');
+
+    fireEvent.change(costPriceInput, { target: { value: '-5' } });
+
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
+    });
+    expect(importButton).toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 });

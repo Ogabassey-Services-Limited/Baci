@@ -100,6 +100,19 @@ function getPriceInputValidationState(
     : 'valid';
 }
 
+function getCostPriceInputValidationState(
+  rawValue: string | undefined,
+  locale: string
+): 'valid' | 'invalid' {
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return 'valid';
+  }
+
+  return parseEditableCostPrice(rawValue, locale) === undefined
+    ? 'invalid'
+    : 'valid';
+}
+
 interface EnrichmentRunArgs {
   targets: EnrichmentTarget[];
   stopGenerationRef: RefObject<boolean>;
@@ -290,9 +303,19 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       priceInputValues[index],
       currencyConfig.locale
     );
+  const getCostPriceValidationState = (index: number) =>
+    getCostPriceInputValidationState(
+      costPriceInputValues[index],
+      currencyConfig.locale
+    );
   const hasSelectedInvalidPrice = localChanges.some(
     (_, index) =>
       selectedIndices.has(index) && getPriceValidationState(index) !== 'valid'
+  );
+  const hasSelectedInvalidCostPrice = localChanges.some(
+    (_, index) =>
+      selectedIndices.has(index) &&
+      getCostPriceValidationState(index) !== 'valid'
   );
 
   const handlePriceInputChange = (
@@ -427,7 +450,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <Button
             size="sm"
             onClick={handleApply}
-            disabled={selectedIndices.size === 0 || hasSelectedInvalidPrice}
+            disabled={
+              selectedIndices.size === 0 ||
+              hasSelectedInvalidPrice ||
+              hasSelectedInvalidCostPrice
+            }
           >
             Import & Publish
           </Button>
@@ -567,6 +594,9 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                         {currencySymbol}
                       </span>
                       <Input
+                        aria-invalid={
+                          getCostPriceValidationState(index) === 'invalid'
+                        }
                         aria-label="Cost Price"
                         inputMode="decimal"
                         type="text"
@@ -582,8 +612,17 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                             e.currentTarget.value
                           )
                         }
-                        className="h-8 pl-7"
+                        className={cn(
+                          'h-8 pl-7',
+                          getCostPriceValidationState(index) === 'invalid' &&
+                            'border-destructive focus-visible:ring-destructive'
+                        )}
                       />
+                      {getCostPriceValidationState(index) === 'invalid' && (
+                        <span className="text-xs text-destructive">
+                          Enter a valid non-negative cost price before import.
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

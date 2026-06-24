@@ -1182,6 +1182,24 @@ describe('product import actions', () => {
     });
   });
 
+  it('treats dashes between currency labels and amounts as separators', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,"NGN - 1,000","₦ - 700",NEW-1'
+    );
+
+    expect(result.changes).toContainEqual(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          cost_price: 700,
+          price: 1000,
+          sku: 'NEW-1',
+        }),
+        type: 'new',
+      })
+    );
+  });
+
   it('preserves negative signs before currency symbols', async () => {
     const result = await parseCSVDirectly(
       existingProducts,

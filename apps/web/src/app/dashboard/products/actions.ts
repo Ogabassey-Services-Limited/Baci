@@ -703,8 +703,6 @@ function findSellingPriceColumnIndex(headers: string[]): number {
   );
 }
 
-const PRICE_CURRENCY_CODE_PATTERN =
-  /\b(?:aed|aud|brl|cad|chf|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi;
 const PRIMARY_PRICE_TOKEN_PATTERN =
   /[-+]?(?:(?:\d[\d,.]*|[,.]\d+)(?:[\s\u00a0\u202f]\d{3})*(?:[,.]\d+)?(?:[eE][-+]?\d+)?)/;
 
@@ -750,20 +748,16 @@ function normalizeLocalizedNumericToken(token: string): string {
 }
 
 function normalizeLocalizedNumericString(value: string): string {
-  const currencylessValue = value
-    .replace(/\u2212/g, '-')
-    .replace(PRICE_CURRENCY_CODE_PATTERN, '');
-  const primaryTokenMatch = currencylessValue.match(
-    PRIMARY_PRICE_TOKEN_PATTERN
-  );
+  const normalizedValue = value.replace(/\u2212/g, '-');
+  const primaryTokenMatch = normalizedValue.match(PRIMARY_PRICE_TOKEN_PATTERN);
   let primaryToken = primaryTokenMatch?.[0];
 
   if (!primaryToken) {
     return '';
   }
 
-  const tokenPrefix = currencylessValue.slice(0, primaryTokenMatch?.index ?? 0);
-  if (!/^[+-]/.test(primaryToken) && tokenPrefix.includes('-')) {
+  const tokenPrefix = normalizedValue.slice(0, primaryTokenMatch?.index ?? 0);
+  if (!/^[+-]/.test(primaryToken) && tokenPrefix.trim().startsWith('-')) {
     primaryToken = `-${primaryToken}`;
   }
 
