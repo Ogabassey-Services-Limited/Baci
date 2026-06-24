@@ -48,6 +48,8 @@ alter table public.merchant_email_domains enable row level security;
 
 -- Merchant owners may read their own sending-domain config (status, records).
 -- Writes are performed by service-role API routes only.
+drop policy if exists "merchant_email_domains_owner_select"
+  on public.merchant_email_domains;
 create policy "merchant_email_domains_owner_select"
   on public.merchant_email_domains
   for select
@@ -75,6 +77,8 @@ begin
 end;
 $$;
 
+drop trigger if exists merchant_email_domains_touch_updated_at
+  on public.merchant_email_domains;
 create trigger merchant_email_domains_touch_updated_at
   before update on public.merchant_email_domains
   for each row
