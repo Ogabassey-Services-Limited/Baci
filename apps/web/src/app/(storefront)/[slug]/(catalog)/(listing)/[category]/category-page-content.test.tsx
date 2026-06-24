@@ -360,6 +360,38 @@ describe('CategoryPageContent', () => {
     expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
   });
 
+  it('fails open for out-of-range content pages when product pagination data is partial', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      category: { id: 'cat-1', name: 'Phones', slug: 'phones' },
+      products: [],
+      fallbackName: 'Phones',
+      fallbackDescription: 'Phones',
+      isInactiveCategory: false,
+      productsQueryFailed: true,
+    });
+    mockNormalizeCategoryPageProducts.mockReturnValue([]);
+
+    const ui = await CategoryPageContent({
+      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
+
+    render(ui);
+
+    expect(screen.getByTestId('category-page')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Category page not found' })
+    ).not.toBeInTheDocument();
+  });
+
   it('wraps category products in the comparison scope required by product cards', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',

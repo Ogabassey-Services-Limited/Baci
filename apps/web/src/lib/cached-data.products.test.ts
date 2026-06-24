@@ -679,6 +679,10 @@ describe('cached-data product query projections', () => {
       { id: 'cat-smartphones' },
       { id: 'cat-iphone' },
     ];
+    const productIdsResult = {
+      data: [{ id: 'product-1' }, { id: 'product-2' }],
+      error: null,
+    };
     const productQueryResult = {
       data: [
         { id: 'product-1', name: 'iPhone 15', brand: 'Apple' },
@@ -688,6 +692,7 @@ describe('cached-data product query projections', () => {
     };
     harness.mockQueryExecution
       .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
+      .mockImplementationOnce(() => Promise.resolve(productIdsResult))
       .mockImplementationOnce(() => Promise.resolve(productQueryResult));
 
     const result = await getCachedCategoryPageData(
@@ -712,9 +717,10 @@ describe('cached-data product query projections', () => {
     expect(harness.mockOrder).toHaveBeenCalledWith('id', {
       ascending: true,
     });
+    expect(harness.mockRange).not.toHaveBeenCalled();
   });
 
-  it('getCachedCategoryPageData applies deterministic ordering to ranged collection chunks', async () => {
+  it('getCachedCategoryPageData applies deterministic ordering to collection ID lists', async () => {
     const collectionCases = [
       {
         slug: 'new-arrivals',
@@ -743,7 +749,7 @@ describe('cached-data product query projections', () => {
       expect(harness.mockOrder).toHaveBeenCalledWith('id', {
         ascending: true,
       });
-      expect(harness.mockRange).toHaveBeenCalledWith(0, 47);
+      expect(harness.mockRange).not.toHaveBeenCalled();
 
       if (slug === 'on-sale') {
         expect(harness.mockNot).toHaveBeenCalledWith(
@@ -761,11 +767,17 @@ describe('cached-data product query projections', () => {
       error: { code: 'PGRST116', message: 'No rows found' },
     });
     harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    const legacyProductIds = [{ id: 'legacy-product-1' }];
     const legacyProducts = [{ id: 'legacy-product-1', name: 'Laptop Pro' }];
-    harness.mockQueryExecution.mockResolvedValueOnce({
-      data: legacyProducts,
-      error: null,
-    });
+    harness.mockQueryExecution
+      .mockResolvedValueOnce({
+        data: legacyProductIds,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: legacyProducts,
+        error: null,
+      });
 
     const result = await getCachedCategoryPageData(
       'merchant-123',
@@ -783,7 +795,7 @@ describe('cached-data product query projections', () => {
     expect(harness.mockOrder).toHaveBeenCalledWith('id', {
       ascending: true,
     });
-    expect(harness.mockRange).toHaveBeenCalledWith(0, 47);
+    expect(harness.mockRange).not.toHaveBeenCalled();
     expect(result.isCollection).toBe(false);
     expect(result.products).toEqual(legacyProducts);
     if (!result.isCollection) {

@@ -114,12 +114,15 @@ export async function generateMetadata({
     undefined,
     merchant.country
   );
-  const totalPages = Math.max(
+  const computedTotalPages = Math.max(
     1,
     Math.ceil(normalizedProducts.length / STOREFRONT_PRODUCTS_PER_PAGE)
   );
+  const totalPages = data.productsQueryFailed
+    ? Math.max(computedTotalPages, currentPage)
+    : computedTotalPages;
 
-  if (currentPage > totalPages) {
+  if (!data.productsQueryFailed && currentPage > totalPages) {
     return buildCategoryNotFoundMetadata(
       'Category page not found',
       'This category page is unavailable or has moved.'

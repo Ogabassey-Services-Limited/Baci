@@ -136,13 +136,16 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   }
 
   const products = data.products as unknown as RawDbProduct[];
-  const totalPages = Math.max(
+  const computedTotalPages = Math.max(
     1,
     Math.ceil(products.length / STOREFRONT_PRODUCTS_PER_PAGE)
   );
+  const totalPages = data.productsQueryFailed
+    ? Math.max(computedTotalPages, currentPage)
+    : computedTotalPages;
   const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
 
-  if (currentPage > totalPages) {
+  if (!data.productsQueryFailed && currentPage > totalPages) {
     return renderCategoryNotFoundContent({
       slug,
       title: 'Category page not found',

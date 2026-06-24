@@ -1116,6 +1116,31 @@ describe('category page route', () => {
     });
   });
 
+  it('fails open for out-of-range metadata pages when product pagination data is partial', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: { id: 'cat-1', name: 'Smartphones', slug: 'smartphones' },
+      products: [],
+      fallbackName: 'Smartphones',
+      fallbackDescription: 'Smartphones',
+      isInactiveCategory: false,
+      productsQueryFailed: true,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
+
+    expect(metadata.title).not.toBe('Category page not found');
+    expect(metadata.robots).not.toMatchObject({ index: false });
+    expect(metadata.alternates).not.toBeNull();
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
   it('uses hub faq items for FAQ JSON-LD', async () => {
     const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),

@@ -423,6 +423,7 @@ export type CachedCategoryPageData =
       isInactiveCategory?: false;
       name: string;
       products: unknown[];
+      productsQueryFailed?: boolean;
       seo: CachedCategorySeo;
     }
   | {
@@ -2060,7 +2061,7 @@ export async function getCachedPageConfig(
   return data?.published_config;
 }
 
-const CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE = 48;
+const CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE = 48;
 const SPECIAL_COLLECTIONS = [
   'new-arrivals',
   'best-sellers',
@@ -2071,7 +2072,12 @@ const SPECIAL_COLLECTIONS = [
 type SpecialCollectionSlug = (typeof SPECIAL_COLLECTIONS)[number];
 
 type CachedCategoryPageProductScope =
-  | { kind: 'category'; categoryId: string }
+  | {
+      categoryId: string;
+      categoryIds: string[];
+      kind: 'category';
+      scopeQueryFailed?: boolean;
+    }
   | { kind: 'collection'; collectionSlug: SpecialCollectionSlug }
   | { categoryName: string; kind: 'legacy' }
   | { kind: 'none' };
@@ -2099,12 +2105,17 @@ type CachedCategoryPageShellData =
       seo?: null;
     };
 
-interface CachedCategoryPageProductChunk {
+interface CachedCategoryPageProductsResult {
   products: unknown[];
   productsQueryFailed: boolean;
 }
 
-interface CachedCategoryPageProductsResult {
+interface CachedCategoryPageProductIdsResult {
+  productIds: string[];
+  productsQueryFailed: boolean;
+}
+
+interface CategoryPageProductDetailsResult {
   products: unknown[];
   productsQueryFailed: boolean;
 }
@@ -2123,22 +2134,6 @@ const CATEGORY_PAGE_PRODUCT_SELECT = `
           stock,
           ${PRODUCT_KEY_SPECS_RELATION_SELECT},
           product_categories(categories(name, slug))
-        `;
-
-const CATEGORY_PAGE_CANONICAL_PRODUCT_SELECT = `
-          id,
-          name,
-          slug,
-          description,
-          price,
-          compare_at_price,
-          images,
-          category,
-          brand,
-          condition,
-          stock,
-          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-          product_categories!inner(category_id, categories(name, slug))
         `;
 
 function isSpecialCollectionSlug(
@@ -2267,11 +2262,40 @@ async function getCachedCategoryPageShellData(
     categoryRow?.description ||
     `Browse our collection of ${categoryName} products.`;
 
-  const productScope: CachedCategoryPageProductScope = category?.id
-    ? { kind: 'category', categoryId: category.id }
-    : isInactiveCategory
-      ? { kind: 'none' }
-      : { kind: 'legacy', categoryName };
+  let productScope: CachedCategoryPageProductScope = isInactiveCategory
+    ? { kind: 'none' }
+    : { kind: 'legacy', categoryName };
+
+  if (category?.id) {
+    const { data: categoryScope, error: categoryScopeError } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('merchant_id', merchantId)
+      .eq('is_active', true)
+      .or(`id.eq.${category.id},parent_id.eq.${category.id}`);
+
+    if (categoryScopeError) {
+      console.error('Category scope query error:', categoryScopeError);
+    }
+
+    const categoryIds = Array.from(
+      new Set(
+        [
+          category.id,
+          ...((categoryScope || []) as Array<{ id?: string | null }>).map(
+            (item) => item.id
+          ),
+        ].filter((id): id is string => typeof id === 'string' && id.length > 0)
+      )
+    );
+
+    productScope = {
+      kind: 'category',
+      categoryId: category.id,
+      categoryIds,
+      scopeQueryFailed: Boolean(categoryScopeError),
+    };
+  }
 
   return {
     isCollection: false,
@@ -2285,40 +2309,34 @@ async function getCachedCategoryPageShellData(
 }
 
 /**
- * Remote-cached bounded product chunk for category/collection pages.
- * Splitting the product aggregate keeps every remote item below Vercel's cache
- * item limit while preserving shared cross-instance tag invalidation.
+ * Remote-cached ordered product IDs for category/collection pages.
+ * IDs are compact enough for a single shared cache entry and make the product
+ * detail fetch snapshot-safe: detail chunks are keyed by stable ID slices, not
+ * shifting offset windows.
  */
-async function getCachedCategoryPageProductChunk({
+async function getCachedCategoryPageProductIds({
   merchantId,
   scope,
-  offset,
-  limit,
 }: {
   merchantId: string;
   scope: CachedCategoryPageProductScope;
-  offset: number;
-  limit: number;
-}): Promise<CachedCategoryPageProductChunk> {
+}): Promise<CachedCategoryPageProductIdsResult> {
   'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
 
   if (scope.kind === 'none') {
-    return { products: [], productsQueryFailed: false };
+    return { productIds: [], productsQueryFailed: false };
   }
 
   const supabase = getPublicSupabaseClient();
-  const rangeTo = offset + limit - 1;
-  let products: unknown[] = [];
+  let productIds: string[] = [];
   let productsError: unknown = null;
 
   if (scope.kind === 'collection') {
     let query = supabase
       .from('products')
-      .select(
-        `id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, ${PRODUCT_KEY_SPECS_RELATION_SELECT}, created_at, updated_at`
-      )
+      .select('id')
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
@@ -2346,42 +2364,27 @@ async function getCachedCategoryPageProductChunk({
         break;
     }
 
-    const { data, error } = await query.range(offset, rangeTo);
-    products = data || [];
+    const { data, error } = await query;
+    productIds = ((data || []) as Array<{ id?: string | null }>)
+      .map((product) => product.id)
+      .filter((id): id is string => Boolean(id));
     productsError = error;
   }
 
   if (scope.kind === 'category') {
-    const { data: categoryScope } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('merchant_id', merchantId)
-      .eq('is_active', true)
-      .or(`id.eq.${scope.categoryId},parent_id.eq.${scope.categoryId}`);
-
-    const categoryIds = Array.from(
-      new Set(
-        [
-          scope.categoryId,
-          ...((categoryScope || []) as Array<{ id?: string | null }>).map(
-            (item) => item.id
-          ),
-        ].filter(Boolean)
-      )
-    );
-
     const { data, error } = await supabase
       .from('products')
-      .select(CATEGORY_PAGE_CANONICAL_PRODUCT_SELECT)
+      .select('id, product_categories!inner(category_id)')
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
-      .in('product_categories.category_id', categoryIds)
+      .in('product_categories.category_id', scope.categoryIds)
       .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(offset, rangeTo);
+      .order('id', { ascending: true });
 
-    products = data || [];
-    productsError = error;
+    productIds = ((data || []) as Array<{ id?: string | null }>)
+      .map((product) => product.id)
+      .filter((id): id is string => Boolean(id));
+    productsError = error || (scope.scopeQueryFailed ? true : null);
   }
 
   if (scope.kind === 'legacy') {
@@ -2389,27 +2392,74 @@ async function getCachedCategoryPageProductChunk({
     const sanitizedCategoryName = scope.categoryName.replace(/[,().]/g, '');
     const { data, error } = await supabase
       .from('products')
-      .select(CATEGORY_PAGE_PRODUCT_SELECT)
+      .select('id')
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(
         `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
       )
       .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(offset, rangeTo);
+      .order('id', { ascending: true });
 
-    products = data || [];
+    productIds = ((data || []) as Array<{ id?: string | null }>)
+      .map((product) => product.id)
+      .filter((id): id is string => Boolean(id));
     productsError = error;
   }
 
   if (productsError) {
-    console.error('Products query error:', productsError);
+    console.error('Product ID query error:', productsError);
   }
 
   return {
-    products,
+    productIds,
     productsQueryFailed: Boolean(productsError),
+  };
+}
+
+/**
+ * Direct product detail fetch for an ordered ID slice.
+ *
+ * This is deliberately not a remote cached function. Rich category-card
+ * payloads include descriptions, images, and key specs, so writing them to
+ * Vercel's remote cache can still trip per-item byte limits. The shared remote
+ * ID list carries membership/order; detail rows are bounded, live reads.
+ */
+async function getCategoryPageProductDetailsChunk({
+  merchantId,
+  productIds,
+}: {
+  merchantId: string;
+  productIds: string[];
+}): Promise<CategoryPageProductDetailsResult> {
+  if (productIds.length === 0) {
+    return { products: [], productsQueryFailed: false };
+  }
+
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await supabase
+    .from('products')
+    .select(CATEGORY_PAGE_PRODUCT_SELECT)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .in('id', productIds);
+
+  if (error) {
+    console.error('Product detail query error:', error);
+  }
+
+  const productsById = new Map(
+    ((data || []) as Array<{ id?: string | null }>).map((product) => [
+      product.id,
+      product,
+    ])
+  );
+
+  return {
+    products: productIds
+      .map((productId) => productsById.get(productId))
+      .filter(Boolean),
+    productsQueryFailed: Boolean(error),
   };
 }
 
@@ -2420,31 +2470,41 @@ async function getCachedCategoryPageProducts({
   merchantId: string;
   scope: CachedCategoryPageProductScope;
 }): Promise<CachedCategoryPageProductsResult> {
-  const products: unknown[] = [];
-  let productsQueryFailed = false;
-  let offset = 0;
+  const idResult = await getCachedCategoryPageProductIds({
+    merchantId,
+    scope,
+  });
 
-  while (true) {
-    const chunk = await getCachedCategoryPageProductChunk({
-      merchantId,
-      scope,
-      offset,
-      limit: CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE,
-    });
-    products.push(...chunk.products);
-    productsQueryFailed ||= chunk.productsQueryFailed;
-
-    if (
-      chunk.productsQueryFailed ||
-      chunk.products.length < CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE
-    ) {
-      break;
-    }
-
-    offset += CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE;
+  if (idResult.productIds.length === 0) {
+    return {
+      products: [],
+      productsQueryFailed: idResult.productsQueryFailed,
+    };
   }
 
-  return { products, productsQueryFailed };
+  const detailChunks = await Promise.all(
+    Array.from(
+      {
+        length: Math.ceil(
+          idResult.productIds.length / CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
+        ),
+      },
+      (_, chunkIndex) =>
+        idResult.productIds.slice(
+          chunkIndex * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE,
+          (chunkIndex + 1) * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
+        )
+    ).map((productIds) =>
+      getCategoryPageProductDetailsChunk({ merchantId, productIds })
+    )
+  );
+
+  return {
+    products: detailChunks.flatMap((chunk) => chunk.products),
+    productsQueryFailed:
+      idResult.productsQueryFailed ||
+      detailChunks.some((chunk) => chunk.productsQueryFailed),
+  };
 }
 
 /**
@@ -2478,6 +2538,7 @@ export async function getCachedCategoryPageData(
       fallbackDescription: shell.fallbackDescription,
       seo: shell.seo,
       products: productResult.products,
+      productsQueryFailed: productResult.productsQueryFailed,
     };
   }
 

@@ -66,10 +66,10 @@ describe('cached-data cache directives', () => {
     expect(source).toContain('getCachedCategoryPageProducts');
   });
 
-  it('keeps category shell and product chunks in the shared remote cache', () => {
+  it('keeps category shell and product IDs in the shared remote cache', () => {
     for (const functionName of [
       'getCachedCategoryPageShellData',
-      'getCachedCategoryPageProductChunk',
+      'getCachedCategoryPageProductIds',
     ]) {
       const source = getFunctionSource(functionName);
       expect(source, functionName).toContain("'use cache: remote';");
@@ -78,6 +78,14 @@ describe('cached-data cache directives', () => {
         "cacheTag('category-page-data', 'products', 'categories');"
       );
     }
+  });
+
+  it('keeps rich category product detail chunks out of the remote cache handler', () => {
+    const source = getFunctionSource('getCategoryPageProductDetailsChunk');
+
+    expect(source).not.toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).not.toContain("cacheLife('storefront-page');");
   });
 
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
