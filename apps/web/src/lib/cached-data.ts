@@ -2060,107 +2060,153 @@ export async function getCachedPageConfig(
   return data?.published_config;
 }
 
+const CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE = 48;
+const SPECIAL_COLLECTIONS = [
+  'new-arrivals',
+  'best-sellers',
+  'on-sale',
+  'featured',
+] as const;
+
+type SpecialCollectionSlug = (typeof SPECIAL_COLLECTIONS)[number];
+
+type CachedCategoryPageProductScope =
+  | { kind: 'category'; categoryId: string }
+  | { kind: 'collection'; collectionSlug: SpecialCollectionSlug }
+  | { categoryName: string; kind: 'legacy' }
+  | { kind: 'none' };
+
+type CachedCategoryPageShellData =
+  | {
+      description: string;
+      fallbackDescription?: string;
+      fallbackName?: string;
+      isCollection: true;
+      isInactiveCategory?: false;
+      name: string;
+      productScope: CachedCategoryPageProductScope;
+      seo: CachedCategorySeo;
+    }
+  | {
+      category: CachedCategoryRecord | null;
+      categoryQueryFailed?: boolean;
+      fallbackDescription: string;
+      fallbackName: string;
+      isCollection: false;
+      isInactiveCategory: boolean;
+      name?: string;
+      productScope: CachedCategoryPageProductScope;
+      seo?: null;
+    };
+
+interface CachedCategoryPageProductChunk {
+  products: unknown[];
+  productsQueryFailed: boolean;
+}
+
+interface CachedCategoryPageProductsResult {
+  products: unknown[];
+  productsQueryFailed: boolean;
+}
+
+const CATEGORY_PAGE_PRODUCT_SELECT = `
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          images,
+          category,
+          brand,
+          condition,
+          stock,
+          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
+          product_categories(categories(name, slug))
+        `;
+
+const CATEGORY_PAGE_CANONICAL_PRODUCT_SELECT = `
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          images,
+          category,
+          brand,
+          condition,
+          stock,
+          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
+          product_categories!inner(category_id, categories(name, slug))
+        `;
+
+function isSpecialCollectionSlug(
+  categorySlug: string
+): categorySlug is SpecialCollectionSlug {
+  return SPECIAL_COLLECTIONS.includes(categorySlug as SpecialCollectionSlug);
+}
+
+function getSpecialCollectionCopy(collectionSlug: SpecialCollectionSlug) {
+  switch (collectionSlug) {
+    case 'new-arrivals':
+      return {
+        description: 'Check out the latest additions to our store.',
+        name: 'New Arrivals',
+      };
+    case 'best-sellers':
+      return {
+        description: 'Our most popular products loved by customers.',
+        name: 'Best Sellers',
+      };
+    case 'on-sale':
+      return {
+        description: 'Great deals and discounts on top products.',
+        name: 'On Sale',
+      };
+    case 'featured':
+      return {
+        description: 'Hand-picked highlights just for you.',
+        name: 'Featured',
+      };
+  }
+}
+
 /**
- * Cache-friendly data fetcher for Category/Collection pages.
- * Consolidates multiple DB queries into a single cached operation.
- * Uses 'storefront-page' cacheLife profile (stale 1min, revalidate 5min, expire 1hr)
+ * Remote-cached category shell/status data. This output stays intentionally
+ * small so it remains suitable for Vercel's shared remote cache and keeps
+ * category/product mutation tag invalidation cross-instance.
  */
-export async function getCachedCategoryPageData(
+async function getCachedCategoryPageShellData(
   merchantId: string,
   categorySlug: string,
   _storeSlug: string
-): Promise<CachedCategoryPageData> {
-  'use cache';
-  /*
-    This intentionally uses the in-memory Cache Components layer, not
-    `use cache: remote`. Category pages can include an unbounded product array
-    with descriptions, images, and key specs; Vercel's remote/data cache stores
-    whole function outputs and has a 2 MB item limit. Remote writes for large
-    categories have produced production `RemoteCacheHandler.set` 503s after the
-    HTML response, causing noisy Node process exits. Keep remote caching for
-    smaller bounded records, but do not put this large aggregate payload in the
-    remote cache.
-  */
+): Promise<CachedCategoryPageShellData> {
+  'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
 
-  // Added storeSlug for logic if needed
-  // Use public client (no cookies)
-  const supabase = getPublicSupabaseClient();
-
-  // 1. Get Merchant (Optimization: We already have merchantId, but we need the object for consistency if the caller needs it)
-  // Actually, the caller usually has the merchant. But let's fetch it if we want to be self-contained.
-  // However, to keep it efficient, we'll assume the caller passes the ID.
-  // ... logic ...
-
-  // 2. Special Collection Handling (Smart Collections)
-  const SPECIAL_COLLECTIONS = [
-    'new-arrivals',
-    'best-sellers',
-    'on-sale',
-    'featured',
-  ];
-
-  if (SPECIAL_COLLECTIONS.includes(categorySlug)) {
-    let query = supabase
-      .from('products')
-      .select(
-        `id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, ${PRODUCT_KEY_SPECS_RELATION_SELECT}, created_at, updated_at`
-      )
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active');
-
-    let collectionName = 'Collection';
-    let collectionDesc = 'Browse our collection.';
-
-    // Apply specific logic based on collection type
-    switch (categorySlug) {
-      case 'new-arrivals':
-        collectionName = 'New Arrivals';
-        collectionDesc = 'Check out the latest additions to our store.';
-        query = query.order('created_at', { ascending: false });
-        break;
-      case 'best-sellers':
-        collectionName = 'Best Sellers';
-        collectionDesc = 'Our most popular products loved by customers.';
-        // robust fallback: sort by rating desc
-        query = query.order('rating', { ascending: false });
-        break;
-      case 'on-sale':
-        collectionName = 'On Sale';
-        collectionDesc = 'Great deals and discounts on top products.';
-        // Filter for products with a compare_at_price set
-        query = query.not('compare_at_price', 'is', null);
-        break;
-      case 'featured':
-        collectionName = 'Featured';
-        collectionDesc = 'Hand-picked highlights just for you.';
-        // For now, sort by price desc as a proxy for "premium/featured"
-        query = query.order('price', { ascending: false });
-        break;
-    }
-
-    const { data: productsData, error: productsError } = await query;
-
-    if (productsError) {
-      console.error('Smart Collection Error:', productsError);
-    }
+  if (isSpecialCollectionSlug(categorySlug)) {
+    const collection = getSpecialCollectionCopy(categorySlug);
 
     return {
       isCollection: true,
-      name: collectionName,
-      description: collectionDesc,
-      products: productsData || [],
+      name: collection.name,
+      description: collection.description,
+      fallbackName: collection.name,
+      fallbackDescription: collection.description,
+      productScope: { kind: 'collection', collectionSlug: categorySlug },
       seo: {
-        heading: collectionName,
-        description: collectionDesc,
+        heading: collection.name,
+        description: collection.description,
         features: [],
         faqs: [],
       },
     };
   }
 
-  // 3. Try to find category by slug
+  const supabase = getPublicSupabaseClient();
+
   const categoryQuery = supabase
     .from('categories')
     .select(
@@ -2210,104 +2256,140 @@ export async function getCachedCategoryPageData(
         } as CachedCategoryRecord)
       : null;
 
-  // Fallback: decode the slug to get category name and Title Case it
+  // Fallback: decode the slug to get category name and Title Case it.
   const categoryName =
     categoryRow?.name ||
     decodeURIComponent(categorySlug)
       .replace(/-/g, ' ')
-      .replace(/\b\w/g, (l) => l.toUpperCase());
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   const categoryDescription =
     categoryRow?.description ||
     `Browse our collection of ${categoryName} products.`;
 
-  // Note: We need CATEGORY_SEO_DEFAULTS here.
-  // Since this file is in lib, we need to import it.
-  // I will add the import in a separate edit or assume it's available.
-  // For now, I'll return the raw data and let the page handle SEO defaults merging if possible,
-  // or better, handle it here to ensure it's cached.
+  const productScope: CachedCategoryPageProductScope = category?.id
+    ? { kind: 'category', categoryId: category.id }
+    : isInactiveCategory
+      ? { kind: 'none' }
+      : { kind: 'legacy', categoryName };
 
-  // I'll skip the import for now and handle "effectiveConfig" logic in the function if I can,
-  // or just return the category object and let the page do the merging.
-  // BUT the goal is to cache the RESULT.
+  return {
+    isCollection: false,
+    category,
+    fallbackName: categoryName,
+    fallbackDescription: categoryDescription,
+    isInactiveCategory,
+    categoryQueryFailed,
+    productScope,
+  };
+}
 
-  // Let's keep it simple: Return the category object + products.
+/**
+ * Remote-cached bounded product chunk for category/collection pages.
+ * Splitting the product aggregate keeps every remote item below Vercel's cache
+ * item limit while preserving shared cross-instance tag invalidation.
+ */
+async function getCachedCategoryPageProductChunk({
+  merchantId,
+  scope,
+  offset,
+  limit,
+}: {
+  merchantId: string;
+  scope: CachedCategoryPageProductScope;
+  offset: number;
+  limit: number;
+}): Promise<CachedCategoryPageProductChunk> {
+  'use cache: remote';
+  cacheLife('storefront-page');
+  cacheTag('category-page-data', 'products', 'categories');
 
-  // 4. Get products
+  if (scope.kind === 'none') {
+    return { products: [], productsQueryFailed: false };
+  }
+
+  const supabase = getPublicSupabaseClient();
+  const rangeTo = offset + limit - 1;
   let products: unknown[] = [];
-  let productsError = null;
+  let productsError: unknown = null;
 
-  if (category?.id) {
+  if (scope.kind === 'collection') {
+    let query = supabase
+      .from('products')
+      .select(
+        `id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, ${PRODUCT_KEY_SPECS_RELATION_SELECT}, created_at, updated_at`
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active');
+
+    switch (scope.collectionSlug) {
+      case 'new-arrivals':
+        query = query.order('created_at', { ascending: false });
+        break;
+      case 'best-sellers':
+        query = query.order('rating', { ascending: false });
+        break;
+      case 'on-sale':
+        query = query.not('compare_at_price', 'is', null);
+        break;
+      case 'featured':
+        query = query.order('price', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query.range(offset, rangeTo);
+    products = data || [];
+    productsError = error;
+  }
+
+  if (scope.kind === 'category') {
     const { data: categoryScope } = await supabase
       .from('categories')
       .select('id')
       .eq('merchant_id', merchantId)
       .eq('is_active', true)
-      .or(`id.eq.${category.id},parent_id.eq.${category.id}`);
+      .or(`id.eq.${scope.categoryId},parent_id.eq.${scope.categoryId}`);
 
     const categoryIds = Array.from(
       new Set(
-        [category.id, ...(categoryScope || []).map((item) => item.id)].filter(
-          Boolean
-        )
+        [
+          scope.categoryId,
+          ...((categoryScope || []) as Array<{ id?: string | null }>).map(
+            (item) => item.id
+          ),
+        ].filter(Boolean)
       )
     );
 
-    const { data: productData, error: err } = await supabase
+    const { data, error } = await supabase
       .from('products')
-      .select(`
-          id,
-          name,
-          slug,
-          description,
-          price,
-          compare_at_price,
-          images,
-          category,
-          brand,
-          condition,
-          stock,
-          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-          product_categories!inner(category_id, categories(name, slug))
-        `)
+      .select(CATEGORY_PAGE_CANONICAL_PRODUCT_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .in('product_categories.category_id', categoryIds)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, rangeTo);
 
-    products = productData || [];
-    productsError = err;
+    products = data || [];
+    productsError = error;
   }
 
-  if (!category?.id && !isInactiveCategory) {
+  if (scope.kind === 'legacy') {
     // Legacy fallback for category URLs that predate canonical category rows.
-    const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
-    const { data: productData, error: err } = await supabase
+    const sanitizedCategoryName = scope.categoryName.replace(/[,().]/g, '');
+    const { data, error } = await supabase
       .from('products')
-      .select(`
-          id,
-          name,
-          slug,
-          description,
-          price,
-          compare_at_price,
-          images,
-          category,
-          brand,
-          condition,
-          stock,
-          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-          product_categories(categories(name, slug))
-        `)
+      .select(CATEGORY_PAGE_PRODUCT_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(
         `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
       )
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, rangeTo);
 
-    products = productData || [];
-    productsError = err;
+    products = data || [];
+    productsError = error;
   }
 
   if (productsError) {
@@ -2315,19 +2397,88 @@ export async function getCachedCategoryPageData(
   }
 
   return {
-    isCollection: false,
-    category,
-    products: products || [],
-    fallbackName: categoryName,
-    fallbackDescription: categoryDescription,
-    isInactiveCategory,
-    // Distinguish a transient products-query failure from a genuinely unknown
-    // slug so the doorway-trap notFound() guard can fail open instead of
-    // noindex-ing a live legacy category/brand listing on a transient error.
+    products,
     productsQueryFailed: Boolean(productsError),
-    // Same fail-open contract for a transient error on the category `.single()`
-    // lookup itself (a "no rows" result is excluded above and is NOT a failure).
-    categoryQueryFailed,
+  };
+}
+
+async function getCachedCategoryPageProducts({
+  merchantId,
+  scope,
+}: {
+  merchantId: string;
+  scope: CachedCategoryPageProductScope;
+}): Promise<CachedCategoryPageProductsResult> {
+  const products: unknown[] = [];
+  let productsQueryFailed = false;
+  let offset = 0;
+
+  while (true) {
+    const chunk = await getCachedCategoryPageProductChunk({
+      merchantId,
+      scope,
+      offset,
+      limit: CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE,
+    });
+    products.push(...chunk.products);
+    productsQueryFailed ||= chunk.productsQueryFailed;
+
+    if (
+      chunk.productsQueryFailed ||
+      chunk.products.length < CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE
+    ) {
+      break;
+    }
+
+    offset += CATEGORY_PAGE_REMOTE_PRODUCT_CHUNK_SIZE;
+  }
+
+  return { products, productsQueryFailed };
+}
+
+/**
+ * Cache-friendly data fetcher for Category/Collection pages.
+ * The unbounded aggregate wrapper itself is intentionally not remote-cached.
+ * Instead, its shell and product chunks are cached remotely as bounded records
+ * so category/product revalidation stays shared across Vercel instances without
+ * putting the entire product array into one 2 MB-limited cache item.
+ */
+export async function getCachedCategoryPageData(
+  merchantId: string,
+  categorySlug: string,
+  storeSlug: string
+): Promise<CachedCategoryPageData> {
+  const shell = await getCachedCategoryPageShellData(
+    merchantId,
+    categorySlug,
+    storeSlug
+  );
+  const productResult = await getCachedCategoryPageProducts({
+    merchantId,
+    scope: shell.productScope,
+  });
+
+  if (shell.isCollection) {
+    return {
+      isCollection: true,
+      name: shell.name,
+      description: shell.description,
+      fallbackName: shell.fallbackName,
+      fallbackDescription: shell.fallbackDescription,
+      seo: shell.seo,
+      products: productResult.products,
+    };
+  }
+
+  return {
+    isCollection: false,
+    category: shell.category,
+    fallbackName: shell.fallbackName,
+    fallbackDescription: shell.fallbackDescription,
+    isInactiveCategory: shell.isInactiveCategory,
+    categoryQueryFailed: shell.categoryQueryFailed,
+    products: productResult.products,
+    productsQueryFailed: productResult.productsQueryFailed,
   };
 }
 

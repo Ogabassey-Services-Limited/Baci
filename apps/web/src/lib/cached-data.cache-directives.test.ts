@@ -53,19 +53,31 @@ describe('cached-data cache directives', () => {
     }
   });
 
-  it('keeps category page aggregate payloads off the remote cache handler', () => {
+  it('keeps the category aggregate wrapper off the remote cache handler', () => {
     const source = getFunctionSource('getCachedCategoryPageData');
 
-    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache';");
     expect(source).not.toContain("'use cache: remote';");
+    expect(source).not.toContain("cacheLife('storefront-page');");
 
-    // Category pages can serialize large product aggregates; keep them out of
-    // Vercel Runtime Cache's remote item-size limit while preserving Next 16
-    // Cache Components lifetime/tag invalidation behavior.
-    expect(source).toContain("cacheLife('storefront-page');");
-    expect(source).toContain(
-      "cacheTag('category-page-data', 'products', 'categories');"
-    );
+    // The full category payload can include an unbounded product array, so the
+    // wrapper must not write that whole aggregate into one remote cache item.
+    expect(source).toContain('getCachedCategoryPageShellData');
+    expect(source).toContain('getCachedCategoryPageProducts');
+  });
+
+  it('keeps category shell and product chunks in the shared remote cache', () => {
+    for (const functionName of [
+      'getCachedCategoryPageShellData',
+      'getCachedCategoryPageProductChunk',
+    ]) {
+      const source = getFunctionSource(functionName);
+      expect(source, functionName).toContain("'use cache: remote';");
+      expect(source, functionName).toContain("cacheLife('storefront-page');");
+      expect(source, functionName).toContain(
+        "cacheTag('category-page-data', 'products', 'categories');"
+      );
+    }
   });
 
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
