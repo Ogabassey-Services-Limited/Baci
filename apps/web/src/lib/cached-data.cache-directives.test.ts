@@ -62,8 +62,36 @@ describe('cached-data cache directives', () => {
       // Next 16's local `use cache` API explicitly supports cacheLife/cacheTag.
       // Keep these so blog metadata/content stays tag-revalidatable and has an
       // intentional cache lifetime without reintroducing RemoteCacheHandler.
-      expect(source, functionName).toContain("cacheLife('merchant');");
+      // Blog content is near-static and is invalidated on edit via cacheTag
+      // (see cache-revalidation.ts), so it uses the long-lived `blog` profile
+      // instead of the hot `merchant` profile to avoid needless re-renders
+      // under crawler load.
+      expect(source, functionName).toContain("cacheLife('blog');");
       expect(source, functionName).toContain('cacheTag(');
     }
+  });
+});
+
+describe('next.config cacheLife profiles', () => {
+  const NEXT_CONFIG_SOURCE = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'next.config.ts'),
+    'utf8'
+  );
+
+  it('defines a long-lived `blog` profile so near-static blog pages are not re-rendered every minute', () => {
+    const match = NEXT_CONFIG_SOURCE.match(
+      /blog:\s*\{\s*stale:\s*(\d+),\s*revalidate:\s*(\d+),\s*expire:\s*(\d+)\s*\}/
+    );
+    expect(
+      match,
+      'blog cacheLife profile must be declared in next.config.ts'
+    ).not.toBeNull();
+
+    const [, stale, revalidate, expire] = match as RegExpMatchArray;
+    // Blog edits invalidate by cacheTag, so time-based revalidation should be
+    // far less frequent than the hot `merchant` profile (revalidate: 60).
+    expect(Number(revalidate)).toBeGreaterThanOrEqual(86400); // >= 1 day
+    expect(Number(stale)).toBeGreaterThanOrEqual(600);
+    expect(Number(expire)).toBeGreaterThanOrEqual(Number(revalidate));
   });
 });

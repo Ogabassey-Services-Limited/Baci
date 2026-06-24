@@ -2541,7 +2541,7 @@ export async function getCachedBlogPost(
   includeDrafts: boolean = false
 ) {
   'use cache';
-  cacheLife('merchant');
+  cacheLife('blog');
   cacheTag('blog-posts', getBlogCacheTag(identifier, postSlug));
 
   const lookupKey = identifier.toLowerCase();
@@ -2716,7 +2716,7 @@ export async function getCachedBlogListing(
   const category = options?.category;
   const page = options?.page || 1;
   const searchQuery = options?.searchQuery;
-  cacheLife('merchant');
+  cacheLife('blog');
   cacheTag(
     'blog-posts',
     `blog-list-${identifier.toLowerCase()}-${category || 'all'}-${page}`

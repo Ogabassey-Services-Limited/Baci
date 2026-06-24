@@ -141,6 +141,12 @@ const nextConfig: NextConfig = {
     'storefront-page': { stale: 60, revalidate: 300, expire: 3600 },
     // Categories: rarely change, revalidate every 1hr, expire after 24hr
     categories: { stale: 300, revalidate: 3600, expire: 86400 },
+    // Blog posts/listings: near-static content that is invalidated on edit via
+    // cacheTag (see lib/cache-revalidation.ts), so time-based revalidation can
+    // be infrequent: serve stale up to 1hr, revalidate daily, expire weekly.
+    // Avoids re-rendering unchanged posts every 60s (the merchant profile)
+    // under heavy crawler load.
+    blog: { stale: 3600, revalidate: 86400, expire: 604800 },
   },
 
   // Fix Vercel middleware tracing issue with Next.js 16
