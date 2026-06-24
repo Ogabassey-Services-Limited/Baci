@@ -450,9 +450,19 @@ export function StorefrontCartProvider({
         quantity:
           quantity < minimumOrderQuantity ? minimumOrderQuantity : quantity,
       };
+      // A quantity change alters the cart total, so an active cart-wide
+      // negotiation no longer represents the agreed total — clear the group
+      // deal on every line (not only when the line is removed).
+      if (cartWideNegotiationActive) {
+        return nextCart.map((line) => ({
+          ...line,
+          negotiatedPrice: undefined,
+          negotiationStatus: undefined,
+        }));
+      }
       return nextCart;
     });
-    if (quantity <= 0 && cartWideNegotiationActive) {
+    if (cartWideNegotiationActive) {
       setCartWideNegotiationActive(false);
     }
   };

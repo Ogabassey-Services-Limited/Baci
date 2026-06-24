@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { withAlpha } from '@/constants/Colors';
 import type { CartPriceChange } from '@/services/cart-reprice';
@@ -70,7 +70,7 @@ export default function PriceChangeModal({
             longer want.
           </Text>
 
-          <View style={styles.priceChangeList}>
+          <ScrollView style={[styles.priceChangeList, { maxHeight: 260 }]}>
             {changes.map((change) => (
               <View
                 key={change.id}
@@ -106,7 +106,7 @@ export default function PriceChangeModal({
                 </View>
               </View>
             ))}
-          </View>
+          </ScrollView>
 
           <View style={styles.warningButtons}>
             <View

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
+import { setMerchantWidgetFrameHidden } from './google-store-widget-utils';
 
 interface DeferredGoogleStoreWidgetProps {
   merchant?: Pick<MerchantData, 'custom_domain' | 'feature_settings'>;
@@ -123,6 +124,14 @@ export function DeferredGoogleStoreWidget(
       removeDeferredWidgetListeners();
     };
   }, [Widget, props.enabled, props.loadWidgetModule, suppressed]);
+
+  // The widget script injects a fixed badge iframe outside React. If it already
+  // loaded on a browse/PDP route, returning null after a client-side navigation
+  // to a suppressed route does NOT remove that existing frame — hide it here so
+  // it can't cover checkout/payment UI; restore it when leaving the route.
+  useEffect(() => {
+    setMerchantWidgetFrameHidden(suppressed);
+  }, [suppressed]);
 
   if (props.enabled === false || suppressed || !Widget) {
     return null;

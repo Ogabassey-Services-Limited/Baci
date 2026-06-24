@@ -1,6 +1,38 @@
 import type { MerchantData } from '@/hooks/merchant/types';
 
 export const GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING = 'google_merchant_id';
+
+const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
+
+/**
+ * Finds the Google merchant store-rating iframe that the widget script injects
+ * outside React (by id, or by its merchantverse src as a fallback).
+ */
+function resolveMerchantWidgetFrame(): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+
+  const byId = document.getElementById(MERCHANT_WIDGET_IFRAME_ID);
+  if (byId) return byId;
+
+  return document.querySelector<HTMLElement>(
+    'iframe[src*="google.com/shopping/merchantverse"], iframe[src*="googleusercontent.com/shopping/merchantverse"]'
+  );
+}
+
+/**
+ * Hides or restores the already-injected merchant widget badge. The widget
+ * script inserts a fixed iframe outside React, so unmounting the wrapper does
+ * NOT remove it — on suppressed (checkout/payment) routes we must hide the
+ * existing frame too, not just stop mounting new ones. Toggling `display` is
+ * reversible (restored when navigating back to a browse/PDP route) and a no-op
+ * when the frame hasn't been injected yet.
+ */
+export function setMerchantWidgetFrameHidden(hidden: boolean): void {
+  const frame = resolveMerchantWidgetFrame();
+  if (!frame) return;
+
+  frame.style.display = hidden ? 'none' : '';
+}
 const GOOGLE_STORE_WIDGET_ENABLED_CUSTOM_SETTING =
   'google_store_widget_enabled';
 

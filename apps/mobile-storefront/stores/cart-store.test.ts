@@ -390,6 +390,27 @@ describe('cart-store', () => {
     expect(item.negotiationStatus).toBe('accepted');
   });
 
+  it('keeps a negotiated price when the live price drifts within ±₦1 tolerance', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'product-1',
+      slug: 'iphone-xr',
+      name: 'iPhone XR',
+      price: 205000,
+      quantity: 1,
+    });
+    const lineId = useCartStore.getState().items[0].id;
+    useCartStore.getState().applyNegotiatedPrice(lineId, 201000);
+
+    // A one-naira rounding difference must not silently clear the negotiation.
+    useCartStore.getState().repriceItems({ [lineId]: 205001 });
+
+    const item = useCartStore.getState().items[0];
+    expect(item.price).toBe(205000);
+    expect(item.negotiatedPrice).toBe(201000);
+    expect(item.negotiationStatus).toBe('accepted');
+  });
+
   it('resets the group negotiation when an item is removed', () => {
     const { addItem } = useCartStore.getState();
     addItem({

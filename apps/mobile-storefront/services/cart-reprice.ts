@@ -129,6 +129,13 @@ export async function repriceCartItems(
 
     const result: RepriceResult = { priceById: {}, changes: [] };
     for (const item of items) {
+      // Voucher reward lines (quiz awards, price 0) are validated by the
+      // voucher flow, not the catalog — never reprice them, or a free award
+      // would be turned into a paid line / trigger a bogus price-change alert.
+      if (item.voucher_token || item.voucher_award_id) {
+        continue;
+      }
+
       // When the override lookup failed, skip variant lines instead of
       // repricing them against the base product price (wrong for any variant
       // carrying a price_override). Non-variant lines still reprice safely.

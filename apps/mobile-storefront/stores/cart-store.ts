@@ -254,7 +254,10 @@ export const useCartStore = create<CartState>()(
             if (typeof livePrice !== 'number' || !Number.isFinite(livePrice)) {
               return item;
             }
-            if (livePrice === item.price) {
+            // Within the ±₦1 catalog parity tolerance (matching the reprice
+            // service): treat as unchanged so an accepted negotiated price is
+            // never silently cleared for one-naira rounding noise.
+            if (Math.abs(livePrice - item.price) <= 1) {
               return item;
             }
             changed = true;

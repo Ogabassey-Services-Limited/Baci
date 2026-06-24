@@ -139,6 +139,47 @@ describe('StorefrontCartProvider', () => {
     expect(result.current.cart[0]?.negotiationStatus).toBeUndefined();
   });
 
+  it('resets a cart-wide negotiation on a positive quantity change', async () => {
+    const product2 = {
+      ...mockProduct,
+      id: 'prod-2',
+      slug: 'prod-2',
+      sku: 'SKU-2',
+      price: 200,
+    };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey" enableSmartCartPro>
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(mockProduct, 1);
+      result.current.addToCart(product2, 1);
+    });
+    act(() => {
+      result.current.applyCartWideNegotiation?.(270);
+    });
+    expect(result.current.cartWideNegotiationActive).toBe(true);
+
+    // A positive quantity change (not removal) must also reset the group deal.
+    const targetId = result.current.cart[0]?.cartItemId;
+    act(() => {
+      result.current.updateQuantity(targetId as string, 3);
+    });
+
+    expect(result.current.cartWideNegotiationActive).toBe(false);
+    expect(
+      result.current.cart.every((item) => item.negotiatedPrice === undefined)
+    ).toBe(true);
+    expect(
+      result.current.cart.find((item) => item.cartItemId === targetId)?.quantity
+    ).toBe(3);
+  });
+
   it('defers validation until interaction when requested', async () => {
     vi.useFakeTimers();
 

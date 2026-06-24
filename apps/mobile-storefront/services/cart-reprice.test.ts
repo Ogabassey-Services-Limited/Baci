@@ -261,4 +261,25 @@ describe('repriceCartItems', () => {
 
     expect(result.priceById).toEqual({ 'variant-line': 430000 });
   });
+
+  it('skips voucher reward lines (free awards are not repriced)', async () => {
+    const voucherLine = createCartItem({
+      id: 'voucher-line',
+      price: 0,
+      voucher_award_id: 'award-1',
+    });
+    const paidLine = createCartItem({ id: 'paid-line', price: 390000 });
+    productQuery.in.mockResolvedValue({
+      data: [{ id: 'product-1', price: 430000 }],
+      error: null,
+    });
+
+    const result = await repriceCartItems(
+      [voucherLine, paidLine],
+      'merchant-1'
+    );
+
+    // The voucher award stays out of repricing; the paid line reprices normally.
+    expect(result.priceById).toEqual({ 'paid-line': 430000 });
+  });
 });

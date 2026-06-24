@@ -10,16 +10,28 @@
 -- INSERT events ship the full new row, so the default replica identity (primary
 -- key) is sufficient; no REPLICA IDENTITY FULL change is required.
 --
--- Idempotent: skip if the table is already in the publication.
+-- Idempotent AND safe on fresh/local databases where the `supabase_realtime`
+-- publication has not been created yet (Postgres has no
+-- `CREATE PUBLICATION IF NOT EXISTS`, and `ALTER PUBLICATION` errors if the
+-- publication is missing). Guard on the publication's existence first.
 do $$
 begin
-  if not exists (
-    select 1
-    from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'negotiation_requests'
+  if exists (
+    select 1 from pg_publication where pubname = 'supabase_realtime'
   ) then
-    alter publication supabase_realtime add table public.negotiation_requests;
+    -- Publication exists (hosted Supabase): add the table if not already in it.
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'negotiation_requests'
+    ) then
+      alter publication supabase_realtime add table public.negotiation_requests;
+    end if;
+  else
+    -- Fresh/local DB without the realtime publication yet: create it with this
+    -- table so the migration still applies cleanly.
+    create publication supabase_realtime for table public.negotiation_requests;
   end if;
 end $$;
