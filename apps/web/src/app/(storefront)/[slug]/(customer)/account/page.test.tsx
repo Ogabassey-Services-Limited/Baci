@@ -134,7 +134,10 @@ describe('AccountPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /sign in to your account/i })
-    ).toHaveAttribute('href', '/ogabassey/account/login');
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/account/login?redirect=%2Fogabassey%2Faccount'
+    );
   });
 
   it('shows a loading state while customer auth is loading', () => {
