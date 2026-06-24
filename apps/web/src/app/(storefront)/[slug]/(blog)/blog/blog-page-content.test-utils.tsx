@@ -39,6 +39,7 @@ const hoistedMocks = vi.hoisted(() => ({
   )),
   mockGetTemplate: vi.fn<(...args: unknown[]) => unknown>(() => null),
   mockHeaders: vi.fn(() => new Headers()),
+  mockPreloadBlogListingFeaturedImage: vi.fn(),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
@@ -56,6 +57,7 @@ export const {
   mockGetTemplate,
   mockHeaders,
   mockNotFound,
+  mockPreloadBlogListingFeaturedImage,
   mockRedirect,
   mockTemplateBlogRenderer,
 } = hoistedMocks;
@@ -145,6 +147,11 @@ vi.mock('@/lib/storefront-content/build-blog-cluster-collections', () => ({
 
 vi.mock('@/templates/registry', () => ({
   getTemplate: (templateId: unknown) => mockGetTemplate(templateId),
+}));
+
+vi.mock('./blog-listing-featured-image-preload', () => ({
+  preloadBlogListingFeaturedImage: (src: string | null | undefined) =>
+    mockPreloadBlogListingFeaturedImage(src),
 }));
 
 vi.mock('./default-blog-ui', () => ({
@@ -259,6 +266,7 @@ export const mockGetCachedBlogListing = vi.mocked(getCachedBlogListing);
 export function resetBlogPageContentMocks() {
   mockGetCachedBlogListing.mockReset();
   mockGetCachedBlogListing.mockResolvedValue(buildListingResult());
+  mockPreloadBlogListingFeaturedImage.mockClear();
   mockNotFound.mockClear();
   mockRedirect.mockClear();
   mockHeaders.mockReset();

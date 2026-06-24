@@ -1,0 +1,50 @@
+import { preload } from 'react-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { preloadBlogListingFeaturedImage } from './blog-listing-featured-image-preload';
+
+vi.mock('react-dom', () => ({
+  preload: vi.fn(),
+}));
+
+vi.mock('next/image', () => ({
+  getImageProps: vi.fn(({ sizes, src }) => ({
+    props: {
+      sizes,
+      srcSet: `${src}?w=640&q=75 640w, ${src}?w=750&q=75 750w`,
+    },
+  })),
+}));
+
+describe('preloadBlogListingFeaturedImage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('emits an early high-priority responsive preload for valid blog images', () => {
+    preloadBlogListingFeaturedImage(
+      'https://cdn.ogabassey.com/core-assets/blog/post/hero.jpg'
+    );
+
+    expect(preload).toHaveBeenCalledWith(
+      'https://cdn.ogabassey.com/image/width=750,quality=75,format=auto/core-assets/blog/post/hero.jpg',
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes: '100vw',
+        imageSrcSet: expect.stringContaining('640w'),
+      })
+    );
+    expect(vi.mocked(preload).mock.calls[0]?.[1]?.imageSrcSet).toContain(
+      '750w'
+    );
+  });
+
+  it('skips invalid or local fallback image sources', () => {
+    preloadBlogListingFeaturedImage('javascript:alert(1)');
+    preloadBlogListingFeaturedImage('//cdn.example.com/image.jpg');
+    preloadBlogListingFeaturedImage('/placeholder.png');
+    preloadBlogListingFeaturedImage(undefined);
+
+    expect(preload).not.toHaveBeenCalled();
+  });
+});

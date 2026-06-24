@@ -90,8 +90,9 @@ describe('OgabasseyV2Blog', () => {
       .find((img) => img.getAttribute('src') === 'https://example.com/featured.jpg');
 
     expect(featuredImage).toBeInTheDocument();
-    expect(featuredImage).toHaveAttribute('data-preload', 'true');
-    expect(featuredImage).not.toHaveAttribute('data-fetchpriority');
+    expect(featuredImage).toHaveAttribute('data-preload', 'false');
+    expect(featuredImage).toHaveAttribute('data-loading', 'eager');
+    expect(featuredImage).toHaveAttribute('data-fetchpriority', 'high');
     expect(featuredImage).toHaveAttribute('data-priority', 'false');
     expect(featuredImage).toHaveAttribute('data-fill', 'true');
     expect(featuredImage).toHaveAttribute('data-sizes', '100vw');

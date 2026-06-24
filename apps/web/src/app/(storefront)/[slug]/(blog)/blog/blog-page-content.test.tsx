@@ -8,8 +8,10 @@ import {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
+  mockGetTemplate,
   mockHeaders,
   mockNotFound,
+  mockPreloadBlogListingFeaturedImage,
   mockRedirect,
   postsPayload,
   resetBlogPageContentMocks,
@@ -64,6 +66,91 @@ describe('BlogPageContent', () => {
         }),
       ])
     );
+  });
+
+  it('preloads the root listing featured image before rendering the blog UI', async () => {
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockPreloadBlogListingFeaturedImage).toHaveBeenCalledWith(
+      'https://cdn.example.com/blog-cover.png'
+    );
+  });
+
+  it('preloads the same promoted post image used by the OgaBassey hero story', async () => {
+    const regularPost = {
+      ...postsPayload[0],
+      id: 'post-regular',
+      title: 'Regular Post',
+      slug: 'regular-post',
+      featured_image_url: 'https://cdn.example.com/regular.png',
+      featured: false,
+    };
+    const promotedPost = {
+      ...postsPayload[0],
+      id: 'post-featured',
+      title: 'Featured Post',
+      slug: 'featured-post',
+      featured_image_url: 'https://cdn.example.com/promoted.png',
+      featured: true,
+    };
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        posts: [regularPost, promotedPost],
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockPreloadBlogListingFeaturedImage).toHaveBeenCalledWith(
+      'https://cdn.example.com/promoted.png'
+    );
+  });
+
+  it('does not preload a template-specific hero image for non-Ogabassey templates', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          template_id: 'modern',
+        },
+      })
+    );
+    mockGetTemplate.mockReturnValueOnce({
+      getComponents: async () => ({
+        Blog: () => <div>Custom blog component</div>,
+      }),
+    });
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(screen.getByText('Template blog')).toBeInTheDocument();
+    expect(mockPreloadBlogListingFeaturedImage).not.toHaveBeenCalled();
+  });
+
+  it('does not preload a featured image for filtered listings without a hero story', async () => {
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ category: 'News' }),
+      })
+    );
+
+    expect(mockPreloadBlogListingFeaturedImage).not.toHaveBeenCalled();
   });
 
   it('renders guide collections after the blog listing', async () => {
