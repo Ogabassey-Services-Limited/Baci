@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
 import CategoriesScreen from '@/app/(tabs)/categories';
+import Colors, { BRAND } from '@/constants/Colors';
+import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 
 interface MockStorefrontScreenShellProps {
   children?: React.ReactNode;
@@ -77,9 +79,6 @@ jest.mock('@/components/OfflineNotice', () => ({
     return React.createElement(Text, null, 'Offline notice');
   },
 }));
-
-import Colors, { BRAND } from '@/constants/Colors';
-import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 
 describe('CategoriesScreen', () => {
   beforeEach(() => {
