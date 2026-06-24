@@ -864,6 +864,19 @@ describe('product import actions', () => {
     expect(result.changes[0]?.details).not.toHaveProperty('cost_price');
   });
 
+  it('does not use concatenated cost headers as the selling price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,CostPrice,SKU\nNew Phone,1500,NEW-1'
+    );
+
+    expect(result).toEqual({
+      changes: [],
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    });
+  });
+
   it('imports unit cost headers as product cost price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
@@ -991,10 +1004,10 @@ describe('product import actions', () => {
   it('parses only the primary price token from annotated price cells', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
-      'Name,Selling Price,Cost Price,SKU\nDiscount Phone,"₦2,000 (10% off)","₦1,000 - ₦1,500",DISC-1\nPack Phone,"₦2,000 / 2 pack",500,PACK-1'
+      'Name,Selling Price,Cost Price,SKU\nDiscount Phone,"₦2,000 (10% off)","₦1,000 - ₦1,500",DISC-1\nPack Phone,"₦2,000 / 2 pack",500,PACK-1\nPromo Phone,"₦2,000 10% off",700,PROMO-1'
     );
 
-    expect(result.summary).toContain('Parsed 2 products from CSV');
+    expect(result.summary).toContain('Parsed 3 products from CSV');
     expect(result.changes[0]).toMatchObject({
       details: {
         cost_price: 1000,
@@ -1005,6 +1018,13 @@ describe('product import actions', () => {
     expect(result.changes[1]).toMatchObject({
       details: {
         cost_price: 500,
+        price: 2000,
+      },
+      type: 'new',
+    });
+    expect(result.changes[2]).toMatchObject({
+      details: {
+        cost_price: 700,
         price: 2000,
       },
       type: 'new',
@@ -1054,6 +1074,16 @@ describe('product import actions', () => {
       productId: 'product-1',
       type: 'update',
     });
+  });
+
+  it('preserves negative signs before currency symbols', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,"-₦2,000","-₦1,000",NEW-1'
+    );
+
+    expect(result.changes).toHaveLength(0);
+    expect(result.summary).toContain('Skipped 1 rows');
   });
 
   it('does not fetch Google Sheets for unauthenticated callers', async () => {

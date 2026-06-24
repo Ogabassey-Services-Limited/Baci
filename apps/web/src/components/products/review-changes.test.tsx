@@ -67,8 +67,8 @@ describe('ReviewChanges', () => {
     expect(screen.getAllByText('₦').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Cost Price')).toBeInTheDocument();
     expect(
-      screen.getByRole('spinbutton', { name: /cost price/i })
-    ).toHaveAttribute('min', '0');
+      screen.getByRole('textbox', { name: /cost price/i })
+    ).toHaveAttribute('inputmode', 'decimal');
 
     const costPriceInput = screen.getByDisplayValue('700');
     fireEvent.change(costPriceInput, { target: { value: '800' } });
@@ -116,8 +116,36 @@ describe('ReviewChanges', () => {
     const costPriceInput = screen.getByDisplayValue('700');
     fireEvent.change(costPriceInput, { target: { value: '800.5' } });
 
-    expect(costPriceInput).toHaveValue(800.5);
+    expect(costPriceInput).toHaveValue('800.5');
     expect(screen.queryByDisplayValue('800.50')).not.toBeInTheDocument();
+  });
+
+  it('parses comma-decimal cost price edits before saving', async () => {
+    const user = userEvent.setup();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        country: 'BR',
+        payout_currency: 'BRL',
+        plan_tier: 'free',
+      },
+    });
+    render(<ReviewChanges />);
+
+    fireEvent.change(screen.getByDisplayValue('700'), {
+      target: { value: '800,5' },
+    });
+    await user.click(screen.getByRole('button', { name: /import & publish/i }));
+
+    await waitFor(() => {
+      expect(mocks.applyChanges).toHaveBeenCalledWith([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            cost_price: 800.5,
+            cost_price_was_edited: true,
+          }),
+        }),
+      ]);
+    });
   });
 
   it('sends null when the cost price input is cleared', async () => {
@@ -147,10 +175,6 @@ describe('ReviewChanges', () => {
 
     const costPriceInput = screen.getByDisplayValue('700');
     fireEvent.change(costPriceInput, { target: { value: '-5' } });
-    Object.defineProperty(costPriceInput, 'valueAsNumber', {
-      configurable: true,
-      value: Number.POSITIVE_INFINITY,
-    });
     fireEvent.change(costPriceInput, { target: { value: '1e9999' } });
     await user.click(screen.getByRole('button', { name: /import & publish/i }));
 

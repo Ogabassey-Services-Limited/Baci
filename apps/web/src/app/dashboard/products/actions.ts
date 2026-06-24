@@ -500,7 +500,19 @@ function normalizeName(name: string): string {
 
 function isCostPriceHeader(header: string): boolean {
   const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  const compactHeader = header.replace(/[^a-z0-9]/g, '');
   const hasCost = words.includes('cost');
+  const hasConcatenatedCostPriceSignal = [
+    'buyingprice',
+    'costamount',
+    'costprice',
+    'costvalue',
+    'landedcost',
+    'purchaseprice',
+    'supplierprice',
+    'unitcost',
+    'wholesaleprice',
+  ].some((signal) => compactHeader.includes(signal));
   const isLogisticsCost = words.some((word) =>
     [
       'courier',
@@ -511,6 +523,14 @@ function isCostPriceHeader(header: string): boolean {
       'shipping',
     ].includes(word)
   );
+  const isConcatenatedLogisticsCost = [
+    'couriercost',
+    'deliverycost',
+    'freightcost',
+    'logisticscost',
+    'postagecost',
+    'shippingcost',
+  ].some((signal) => compactHeader.includes(signal));
   const hasAmountSignal = words.some((word) =>
     ['amount', 'cost', 'price', 'rate', 'unit', 'value', 'wholesale'].includes(
       word
@@ -533,8 +553,18 @@ function isCostPriceHeader(header: string): boolean {
   const isCustomerFacingPrice = words.some((word) =>
     ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
   );
+  const isConcatenatedCustomerFacingPrice = [
+    'customerprice',
+    'listprice',
+    'retailprice',
+    'saleprice',
+    'sellingprice',
+  ].some((signal) => compactHeader.includes(signal));
 
   return (
+    (hasConcatenatedCostPriceSignal &&
+      !isConcatenatedCustomerFacingPrice &&
+      !isConcatenatedLogisticsCost) ||
     (hasCost &&
       !isCustomerFacingPrice &&
       !isLogisticsCost &&
@@ -638,7 +668,7 @@ function findSellingPriceColumnIndex(headers: string[]): number {
 const PRICE_CURRENCY_CODE_PATTERN =
   /\b(?:aed|aud|brl|cad|chf|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi;
 const PRIMARY_PRICE_TOKEN_PATTERN =
-  /[-+]?(?:(?:\d[\d,.\s\u00a0\u202f]*|[,.]\d+)(?:[eE][-+]?\d+)?)/;
+  /[-+]?(?:(?:\d[\d,.]*|[,.]\d+)(?:[\s\u00a0\u202f]\d{3})*(?:[,.]\d+)?(?:[eE][-+]?\d+)?)/;
 
 function normalizeLocalizedNumericToken(token: string): string {
   const numeric = token.replace(/[^\d,.\-+]/g, '');
@@ -682,13 +712,21 @@ function normalizeLocalizedNumericToken(token: string): string {
 }
 
 function normalizeLocalizedNumericString(value: string): string {
-  const currencylessValue = value.replace(PRICE_CURRENCY_CODE_PATTERN, '');
-  const primaryToken = currencylessValue.match(
+  const currencylessValue = value
+    .replace(/\u2212/g, '-')
+    .replace(PRICE_CURRENCY_CODE_PATTERN, '');
+  const primaryTokenMatch = currencylessValue.match(
     PRIMARY_PRICE_TOKEN_PATTERN
-  )?.[0];
+  );
+  let primaryToken = primaryTokenMatch?.[0];
 
   if (!primaryToken) {
     return '';
+  }
+
+  const tokenPrefix = currencylessValue.slice(0, primaryTokenMatch?.index ?? 0);
+  if (!/^[+-]/.test(primaryToken) && tokenPrefix.includes('-')) {
+    primaryToken = `-${primaryToken}`;
   }
 
   const exponentMatch = primaryToken.match(/^(.*?)[eE]([-+]?\d+)$/);

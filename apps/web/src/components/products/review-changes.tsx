@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { Change } from '@/app/dashboard/products/actions';
 import { enrichProductsBatch } from '@/app/dashboard/products/generation-actions';
+import { parsePriceInput } from '@/components/products/product-currency-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,15 +44,17 @@ type EnrichmentTarget = Change & { originalIndex: number };
 
 function parseEditableCostPrice(
   rawValue: string,
-  numericValue: number
+  locale: string
 ): number | null | undefined {
   if (rawValue.trim() === '') {
-    return Number.isNaN(numericValue) ? null : undefined;
+    return null;
   }
 
-  const value = Number.isNaN(numericValue)
-    ? Number.parseFloat(rawValue)
-    : numericValue;
+  if (/[a-z]/i.test(rawValue)) {
+    return undefined;
+  }
+
+  const value = parsePriceInput(rawValue, locale);
   return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
@@ -455,15 +458,14 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       </span>
                       <Input
                         aria-label="Cost Price"
-                        min="0"
-                        type="number"
-                        step="any"
+                        inputMode="decimal"
+                        type="text"
                         value={change.details.cost_price ?? ''}
                         placeholder="0.00"
                         onChange={(e) => {
                           const costPrice = parseEditableCostPrice(
                             e.currentTarget.value,
-                            e.currentTarget.valueAsNumber
+                            currencyConfig.locale
                           );
                           if (costPrice === undefined) {
                             return;
