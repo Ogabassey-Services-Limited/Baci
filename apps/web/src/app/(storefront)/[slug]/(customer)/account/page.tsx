@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getStorefrontAccountInitialCustomer } from '@/lib/storefront-account-initial-session';
 import { AccountPageClient } from './account-client';
 
 export const metadata: Metadata = {
@@ -7,11 +8,18 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default function AccountPage() {
+export default async function AccountPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const initialCustomer = await getStorefrontAccountInitialCustomer(slug);
+
   return (
     <>
       <h1 className="sr-only">Your Account</h1>
-      <AccountPageClient />
+      <AccountPageClient initialCustomer={initialCustomer} />
     </>
   );
 }

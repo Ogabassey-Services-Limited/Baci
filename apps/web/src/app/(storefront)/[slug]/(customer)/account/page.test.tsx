@@ -5,6 +5,7 @@ import AccountPage from '@/app/(storefront)/[slug]/(customer)/account/page';
 import type { Customer, CustomerUser } from '@/contexts/customer-auth-context';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
+import { getStorefrontAccountInitialCustomer } from '@/lib/storefront-account-initial-session';
 
 const push = vi.fn();
 const defaultCustomer: Customer = {
@@ -75,10 +76,15 @@ vi.mock('@/hooks/use-currency', () => ({
   })),
 }));
 
+vi.mock('@/lib/storefront-account-initial-session', () => ({
+  getStorefrontAccountInitialCustomer: vi.fn(() => Promise.resolve(null)),
+}));
+
 describe('AccountPage', () => {
   beforeEach(() => {
     push.mockReset();
     vi.mocked(useCustomerAuth).mockReturnValue(createCustomerAuthValue());
+    vi.mocked(getStorefrontAccountInitialCustomer).mockResolvedValue(null);
     vi.mocked(useMerchant).mockReturnValue({
       merchant: { business_name: 'Ogabassey' },
       loading: false,
@@ -86,14 +92,16 @@ describe('AccountPage', () => {
     } as ReturnType<typeof useMerchant>);
   });
 
-  it('includes a receipts and invoices quick link', () => {
-    render(<AccountPage />);
+  it('includes a receipts and invoices quick link', async () => {
+    render(
+      await AccountPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
 
     const link = screen.getByRole('link', { name: /receipts & invoices/i });
     expect(link).toHaveAttribute('href', '/ogabassey/receipts');
   });
 
-  it('does not redirect while auth or merchant data is still loading', () => {
+  it('does not redirect while auth or merchant data is still loading', async () => {
     vi.mocked(useCustomerAuth).mockReturnValue(
       createCustomerAuthValue({
         user: null,
@@ -108,7 +116,9 @@ describe('AccountPage', () => {
       basePath: '/ogabassey',
     } as ReturnType<typeof useMerchant>);
 
-    render(<AccountPage />);
+    render(
+      await AccountPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
 
     expect(push).not.toHaveBeenCalled();
     expect(
@@ -116,7 +126,7 @@ describe('AccountPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders a sign-in prompt for unauthenticated users without a client redirect', () => {
+  it('renders a sign-in prompt for unauthenticated users without a client redirect', async () => {
     vi.mocked(useCustomerAuth).mockReturnValue(
       createCustomerAuthValue({
         user: null,
@@ -126,7 +136,9 @@ describe('AccountPage', () => {
       })
     );
 
-    render(<AccountPage />);
+    render(
+      await AccountPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
 
     expect(push).not.toHaveBeenCalled();
     expect(
@@ -140,7 +152,7 @@ describe('AccountPage', () => {
     );
   });
 
-  it('renders the sign-in prompt while only customer auth is loading', () => {
+  it('renders the sign-in prompt while only customer auth is loading', async () => {
     vi.mocked(useCustomerAuth).mockReturnValue(
       createCustomerAuthValue({
         user: null,
@@ -150,7 +162,9 @@ describe('AccountPage', () => {
       })
     );
 
-    render(<AccountPage />);
+    render(
+      await AccountPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
 
     expect(push).not.toHaveBeenCalled();
     expect(
@@ -158,6 +172,33 @@ describe('AccountPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('status', { name: /loading account/i })
+    ).not.toBeInTheDocument();
+  });
+  it('uses the server initial customer while client auth hydration is pending', async () => {
+    vi.mocked(getStorefrontAccountInitialCustomer).mockResolvedValue(
+      defaultCustomer
+    );
+    vi.mocked(useCustomerAuth).mockReturnValue(
+      createCustomerAuthValue({
+        user: null,
+        customer: null,
+        isAuthenticated: false,
+        isLoading: true,
+      })
+    );
+
+    render(
+      await AccountPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
+
+    expect(getStorefrontAccountInitialCustomer).toHaveBeenCalledWith(
+      'ogabassey'
+    );
+    expect(
+      screen.getByRole('heading', { name: /welcome back, oga/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /sign in to view your account/i })
     ).not.toBeInTheDocument();
   });
 });

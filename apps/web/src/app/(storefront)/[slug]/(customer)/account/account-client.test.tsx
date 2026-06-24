@@ -143,6 +143,26 @@ describe('AccountPageClient', () => {
     expect(screen.queryByLabelText(/loading account/i)).not.toBeInTheDocument();
   });
 
+  it('uses the server initial customer while auth is hydrating', () => {
+    vi.mocked(useCustomerAuth).mockReturnValue(
+      createCustomerAuthValue({
+        user: null,
+        customer: null,
+        isAuthenticated: false,
+        isLoading: true,
+      })
+    );
+
+    render(<AccountPageClient initialCustomer={defaultCustomer} />);
+
+    expect(
+      screen.getByRole('heading', { name: /welcome back, oga/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /sign in to view your account/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows account quick links for an authenticated customer', () => {
     render(<AccountPageClient />);
 
