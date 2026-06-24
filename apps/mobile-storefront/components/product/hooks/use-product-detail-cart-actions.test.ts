@@ -92,6 +92,37 @@ describe('useProductDetailCartActions add-to-cart image', () => {
     );
   });
 
+  it("uses the exact selected variant's image before color-level fallbacks", () => {
+    const selectedVariantImage =
+      'https://cdn.example.com/iphone-15-black-256.avif';
+    const { addItem, args } = buildArgs({
+      routeData: {
+        currentVariantDisplaySelection: {
+          variant: {
+            image: selectedVariantImage,
+            primary_image:
+              'https://cdn.example.com/iphone-15-black-primary.avif',
+            images: ['https://cdn.example.com/iphone-15-black-gallery.avif'],
+          },
+        },
+        effectiveSelectedStorage: '256GB',
+      },
+    });
+    const { result } = renderHook(() => useProductDetailCartActions(...args));
+
+    act(() => {
+      result.current.handleAddToCart();
+    });
+
+    expect(addItem).toHaveBeenCalledTimes(1);
+    expect(addItem.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        image_url: selectedVariantImage,
+        storage: '256GB',
+      })
+    );
+  });
+
   it('falls back to the displayed gallery frame when the color has no image', () => {
     const { addItem, args } = buildArgs({
       routeData: { resolvedColorImages: {} },
