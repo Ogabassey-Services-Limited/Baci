@@ -222,6 +222,37 @@ describe('PasskeyEnrollmentPrompt', () => {
     );
   });
 
+  it('does not re-show after dismissal when a refresh resolves late', async () => {
+    let resolveRefresh: (value: { data: unknown[]; error: null }) => void =
+      () => undefined;
+    const refreshPromise = new Promise<{ data: unknown[]; error: null }>(
+      (resolve) => {
+        resolveRefresh = resolve;
+      }
+    );
+    mockListPasskeys
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockReturnValueOnce(refreshPromise);
+    render(<PasskeyEnrollmentPrompt />);
+    await screen.findByRole('button', { name: /set up passkey/i });
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await waitFor(() => expect(mockListPasskeys).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: /dismiss passkey/i }));
+
+    await act(async () => {
+      resolveRefresh({ data: [], error: null });
+      await refreshPromise;
+    });
+
+    expect(window.localStorage.getItem(dismissKey())).toBe('1');
+    expect(
+      screen.queryByRole('button', { name: /set up passkey/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('surfaces a destructive toast and keeps the prompt on enrollment error', async () => {
     mockRegisterPasskey.mockResolvedValue({
       data: null,

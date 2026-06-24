@@ -86,6 +86,10 @@ export function PasskeyEnrollmentPrompt() {
         // Fail quiet — a passkey lookup must never block the dashboard.
         return;
       }
+      if (isDismissed(dismissKey)) {
+        setVisible(false);
+        return;
+      }
       setVisible((data ?? []).length === 0);
     };
     const refreshWhenVisible = () => {
