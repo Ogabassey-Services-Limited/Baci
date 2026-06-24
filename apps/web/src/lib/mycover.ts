@@ -363,6 +363,7 @@ export class MyCoverClient {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.secretKey}` },
       body: form,
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {

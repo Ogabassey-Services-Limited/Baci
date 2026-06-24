@@ -145,17 +145,16 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient();
 
     // Idempotency: MyCover retries a delivery up to ~10 times with a stable
-    // `event_id`. Record-then-skip so replays don't re-mutate state.
+    // `event_id`. Check first; we only record it AFTER successful processing
+    // (below) so a transient failure can still be retried.
     if (payload.event_id) {
-      const { error: dedupError } = await supabase
+      const { data: alreadyProcessed } = await supabase
         .from('mycover_webhook_events')
-        .insert({ event_id: payload.event_id, event: payload.event });
-      if (dedupError) {
-        if (dedupError.code === '23505') {
-          return NextResponse.json({ received: true, duplicate: true });
-        }
-        // Non-unique error: log but still process (don't drop a real event).
-        console.error('[MyCover Webhook] Dedup insert error:', dedupError);
+        .select('event_id')
+        .eq('event_id', payload.event_id)
+        .maybeSingle();
+      if (alreadyProcessed) {
+        return NextResponse.json({ received: true, duplicate: true });
       }
     }
 
@@ -213,6 +212,20 @@ export async function POST(request: NextRequest) {
 
       default:
         console.log('[MyCover Webhook] Unhandled event:', safeEvent);
+    }
+
+    // Processing succeeded — persist the event_id so retries are deduplicated.
+    // A unique-violation here just means a concurrent delivery won the race.
+    if (payload.event_id) {
+      const { error: recordError } = await supabase
+        .from('mycover_webhook_events')
+        .insert({ event_id: payload.event_id, event: payload.event });
+      if (recordError && recordError.code !== '23505') {
+        console.error(
+          '[MyCover Webhook] Failed to record event_id:',
+          recordError
+        );
+      }
     }
 
     return NextResponse.json({ received: true });
@@ -293,13 +306,15 @@ async function handleInspectionCompleted(
     return;
   }
 
-  const { error } = await supabase
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       inspection_status: 'completed',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', policyId);
+    .eq('mycover_policy_id', policyId)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error(
@@ -310,6 +325,17 @@ async function handleInspectionCompleted(
   }
 
   const safeIdentifier = policyId.replace(/[\r\n]/g, '');
+
+  // No-op (not an error): the same MyCover account also emits inspection
+  // webhooks for policies we don't store (test account, other channels).
+  if (!updatedPolicy) {
+    console.warn(
+      '[MyCover Webhook] inspection.completed matched no stored policy:',
+      safeIdentifier
+    );
+    return;
+  }
+
   console.log(
     '[MyCover Webhook] Pre-loss inspection completed:',
     safeIdentifier
@@ -584,7 +610,7 @@ async function handleClaimUpdate(
     claim_status: token,
     claim_stage: stage,
     claim_progress: data.meta?.progress ?? null,
-    claim_comment: data.essential?.comment ?? null,
+    claim_comment: data.essential?.comment ?? data.meta?.comment ?? null,
     updated_at: new Date().toISOString(),
   };
   if (data.claim_id) updateData.claim_id = data.claim_id;

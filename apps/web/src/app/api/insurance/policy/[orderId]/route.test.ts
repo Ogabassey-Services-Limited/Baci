@@ -39,6 +39,7 @@ function mockDb({
   policies = [] as unknown[],
   policiesError = null as unknown,
   shippingStatus = 'delivered' as string | null,
+  ordersError = null as unknown,
 }) {
   mockFrom.mockImplementation((table: string) => {
     if (table === 'orders') {
@@ -51,7 +52,7 @@ function mockDb({
                   shippingStatus === null
                     ? null
                     : { shipping_status: shippingStatus },
-                error: null,
+                error: ordersError,
               }),
           }),
         }),
@@ -373,6 +374,20 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       const body = await response.json();
 
       expect(body.policies[0].orderDelivered).toBe(false);
+    });
+
+    it('returns 500 when the orders delivery lookup fails', async () => {
+      mockDb({
+        policies: [mockPolicyRow],
+        ordersError: { message: 'orders read failed' },
+      });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+
+      expect(response.status).toBe(500);
     });
   });
 

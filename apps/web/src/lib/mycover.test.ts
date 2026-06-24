@@ -481,4 +481,22 @@ describe('MyCoverClient capability endpoints (v2)', () => {
     expect(spy.mock.calls[0][1]).toMatchObject({ method: 'POST' });
     expect(result).toEqual({ upload_id: 'up_123' });
   });
+
+  it('propagates non-2xx errors from a read endpoint', async () => {
+    mockFetchError({ responseText: 'Not found' }, 404);
+    await expect(client.getCustomerPolicies('c1')).rejects.toThrow();
+  });
+
+  it('throws when file upload fails', async () => {
+    mockFetchError({ responseText: 'Upload failed' }, 500);
+    await expect(
+      client.uploadFile(new Blob(['x']), 'about.png')
+    ).rejects.toThrow();
+  });
+
+  it('omits empty query params when listing purchases', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.listPurchases({ page: 1, status: '' });
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/purchases?page=1');
+  });
 });

@@ -52,7 +52,16 @@ export function resolveInsuranceCta(
 function normalizeLink(link: string | null | undefined): string | null {
   if (typeof link !== 'string') return null;
   const trimmed = link.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  if (trimmed.length === 0) return null;
+  // Only allow http(s) — these links are opened with window.open, so reject
+  // unsafe schemes (javascript:, data:) and malformed URLs as defense in depth.
+  try {
+    const { protocol } = new URL(trimmed);
+    if (protocol !== 'https:' && protocol !== 'http:') return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
 }
 
 /** Hosted URL to file a claim, or null when only the SDK fallback is available. */

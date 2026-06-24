@@ -63,6 +63,25 @@ export default function ConfirmInsuranceDialog({
   const isAssuranceOrder = assuranceItems.length > 0;
 
   const handleConfirm = async () => {
+    // Validate required fields BEFORE any upload side-effect (no orphan uploads).
+    if (isAssuranceOrder) {
+      if (
+        !imei ||
+        !serialNumber ||
+        aboutFiles.length === 0 ||
+        !gender ||
+        !dateOfBirth
+      ) {
+        toast({
+          variant: 'destructive',
+          title: 'Missing Details',
+          description:
+            'IMEI, Serial Number, Device Photo, Gender and Date of Birth are required for insurance.',
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       let devicePhotoUrl = '';
@@ -80,24 +99,14 @@ export default function ConfirmInsuranceDialog({
         }
       }
 
-      // Basic validation for assurance orders
-      if (isAssuranceOrder) {
-        if (
-          !imei ||
-          !serialNumber ||
-          !devicePhotoUrl ||
-          !gender ||
-          !dateOfBirth
-        ) {
-          toast({
-            variant: 'destructive',
-            title: 'Missing Details',
-            description:
-              'IMEI, Serial Number, Device Photo, Gender and Date of Birth are required for insurance.',
-          });
-          setLoading(false);
-          return;
-        }
+      if (isAssuranceOrder && !devicePhotoUrl) {
+        toast({
+          variant: 'destructive',
+          title: 'Upload Failed',
+          description: 'Could not upload the device photo. Please try again.',
+        });
+        setLoading(false);
+        return;
       }
 
       const payload = {

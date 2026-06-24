@@ -85,6 +85,8 @@ function createInsuranceDetails(overrides: Record<string, unknown> = {}) {
     deviceValue: 1_200_000,
     purchaseDate: '2026-06-15',
     devicePhotos: { about: 'https://cdn.usebaci.com/orders/device.jpg' },
+    gender: 'Male',
+    dateOfBirth: '1995-04-12',
     ...overrides,
   };
 }
@@ -154,6 +156,29 @@ describe('POST /api/orders/[id]/confirm', () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Invalid insurance details' });
     expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with missing KYC (gender / date of birth)', async () => {
+    const {
+      gender: _g,
+      dateOfBirth: _d,
+      ...withoutKyc
+    } = createInsuranceDetails();
+
+    const response = await POST(createRequest(withoutKyc), createParams());
+
+    expect(response.status).toBe(400);
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with a future date of birth', async () => {
+    const response = await POST(
+      createRequest(createInsuranceDetails({ dateOfBirth: '3000-01-01' })),
+      createParams()
+    );
+
+    expect(response.status).toBe(400);
     expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
   });
 

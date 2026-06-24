@@ -23,6 +23,14 @@ describe('resolveClaimUrl', () => {
     expect(resolveClaimUrl({ claimLink: null })).toBeNull();
     expect(resolveClaimUrl({ claimLink: '   ' })).toBeNull();
   });
+
+  it('returns null for unsafe schemes or malformed URLs', () => {
+    expect(resolveClaimUrl({ claimLink: 'javascript:alert(1)' })).toBeNull();
+    expect(
+      resolveClaimUrl({ claimLink: 'data:text/html,<script/>' })
+    ).toBeNull();
+    expect(resolveClaimUrl({ claimLink: 'not-a-url' })).toBeNull();
+  });
 });
 
 describe('resolveInspectionUrl', () => {

@@ -28,11 +28,19 @@ const deviceInsuranceDetailsSchema = z.object({
     about: z.url(),
   }),
   customerPhoto: z.url().optional(),
-  gender: z.enum(['Male', 'Female']).optional(),
+  // Real policyholder KYC is required for insurance — no placeholder data may
+  // reach the insurer.
+  gender: z.enum(['Male', 'Female']),
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+    .refine(
+      (value) => {
+        const dob = new Date(value);
+        return !Number.isNaN(dob.getTime()) && dob < new Date();
+      },
+      { message: 'dateOfBirth must be a valid past date' }
+    ),
 });
 
 export async function POST(

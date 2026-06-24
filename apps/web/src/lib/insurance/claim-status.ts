@@ -29,8 +29,10 @@ export function normalizeClaimStatus(
 
   if (s) {
     if (s.includes('paid')) return 'paid';
-    if (s.includes('approved')) return 'approved';
+    // "Disapproved"/"Declined" must be checked before "approved" because
+    // "disapproved" contains the substring "approved".
     if (s.includes('declined') || s.includes('disapprov')) return 'declined';
+    if (s.includes('approved')) return 'approved';
     if (s.includes('offer') && s.includes('reject')) return 'offer_rejected';
     if (s.includes('offer') && s.includes('accept')) return 'offer_accepted';
     if (s.includes('offer')) return 'offer_sent';
@@ -41,7 +43,7 @@ export function normalizeClaimStatus(
     if (s.includes('pending')) return 'pending';
   }
 
-  switch (event) {
+  switch ((event ?? '').toLowerCase().trim()) {
     case 'claim.approved':
       return 'approved';
     case 'claim.disapproved':
@@ -49,8 +51,12 @@ export function normalizeClaimStatus(
       return 'declined';
     case 'claim.offer_sent':
       return 'offer_sent';
+    case 'claim.offer_accepted':
+      return 'offer_accepted';
     case 'claim.offer_rejected':
       return 'offer_rejected';
+    case 'claim.paid':
+      return 'paid';
     default:
       return 'pending';
   }

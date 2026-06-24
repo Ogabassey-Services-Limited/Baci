@@ -69,6 +69,7 @@ export const myCoverWebhookSchema = z.object({
         .object({
           policy_id: z.string().optional(),
           progress: z.string().optional(),
+          comment: z.string().optional(),
         })
         .passthrough()
         .optional(),

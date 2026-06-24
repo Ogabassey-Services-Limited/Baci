@@ -100,6 +100,14 @@ export async function purchaseOrderInsurance(
     );
   }
 
+  // KYC is validated as required at the API boundary — never fabricate it.
+  const { gender, dateOfBirth } = deviceDetails;
+  if (!gender || !dateOfBirth) {
+    throw new Error(
+      'Insurance purchase requires policyholder gender and date_of_birth'
+    );
+  }
+
   const productId = DEFAULT_GADGET_PRODUCT_ID;
   const productConfig = MYCOVER_PRODUCTS[productId];
   const results = [];
@@ -115,8 +123,8 @@ export async function purchaseOrderInsurance(
         email: typedOrder.customer_email,
         phone_number: formatPhoneForMyCover(typedOrder.customer_phone),
         address: typedOrder.shipping_address?.address || 'Lagos, Nigeria',
-        gender: deviceDetails.gender ?? 'Male',
-        date_of_birth: deviceDetails.dateOfBirth ?? '1990-01-01',
+        gender,
+        date_of_birth: dateOfBirth,
         device_type: deviceDetails.deviceType,
         device_make: deviceDetails.deviceMake,
         device_model: deviceDetails.deviceModel,
@@ -212,7 +220,9 @@ export async function syncClaimsStatus() {
 
       const { data: localPolicy } = await supabase
         .from('order_insurance_policies')
-        .select('id, status, claim_status')
+        .select(
+          'id, status, claim_status, claim_stage, claim_progress, claim_comment'
+        )
         .eq('mycover_policy_id', policyId)
         .single();
 
@@ -229,7 +239,15 @@ export async function syncClaimsStatus() {
         ((claim.meta as { progress?: string } | undefined)?.progress || null);
       const claimComment = (claim.comment as string | undefined) ?? null;
 
-      if (localPolicy.claim_status !== newClaimStatus) {
+      // Update when ANY of the tracked claim fields changed, not just the
+      // coarse status token (offer/progress/comment can move while status holds).
+      const changed =
+        localPolicy.claim_status !== newClaimStatus ||
+        localPolicy.claim_stage !== claimStage ||
+        localPolicy.claim_progress !== claimProgress ||
+        localPolicy.claim_comment !== claimComment;
+
+      if (changed) {
         const { error: updateError } = await supabase
           .from('order_insurance_policies')
           .update({

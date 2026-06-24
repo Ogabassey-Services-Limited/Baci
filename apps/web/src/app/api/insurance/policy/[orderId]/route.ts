@@ -37,11 +37,19 @@ export async function GET(
     // Pre-loss inspection (which activates protection) can only happen once the
     // device is in the customer's hands, so the activation CTA is gated on
     // delivery.
-    const { data: order } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('shipping_status')
       .eq('id', orderId)
       .maybeSingle();
+
+    if (orderError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch order delivery status' },
+        { status: 500 }
+      );
+    }
+
     const orderDelivered =
       order?.shipping_status === 'delivered' ||
       order?.shipping_status === 'completed';

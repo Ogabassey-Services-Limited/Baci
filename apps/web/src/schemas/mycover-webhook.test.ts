@@ -158,6 +158,31 @@ describe('myCoverWebhookSchema', () => {
       }
     });
 
+    it('parses top-level event_id and status', () => {
+      const payload = {
+        event_id: 'evt_abc',
+        event: 'purchase.successful',
+        status: 'processed',
+        data: { essential: { policy_id: 'pol-1' } },
+      };
+
+      const result = myCoverWebhookSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.event_id).toBe('evt_abc');
+        expect(result.data.status).toBe('processed');
+      }
+    });
+
+    it('rejects a non-string claim_link in data.sdk', () => {
+      const payload = {
+        event: 'purchase.successful',
+        data: { sdk: { claim_link: 123 } },
+      };
+
+      expect(myCoverWebhookSchema.safeParse(payload).success).toBe(false);
+    });
+
     it('accepts hosted claim_link and inspection_link under data.sdk', () => {
       const payload = {
         event: 'purchase.successful',

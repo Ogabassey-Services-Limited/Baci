@@ -296,7 +296,8 @@ export default function InsurancePolicyPage() {
             </div>
           </div>
 
-          {policy.claimStatus && policy.claimStatus !== 'None' && (
+          {(policy.claimStage ||
+            (policy.claimStatus && policy.claimStatus !== 'None')) && (
             <>
               <Separator className="my-2" />
               <div>
@@ -305,7 +306,8 @@ export default function InsurancePolicyPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-sm capitalize">
-                    {policy.claimStage || policy.claimStatus.replace(/_/g, ' ')}
+                    {policy.claimStage ||
+                      (policy.claimStatus ?? '').replace(/_/g, ' ')}
                   </Badge>
                 </div>
                 {policy.claimComment && (

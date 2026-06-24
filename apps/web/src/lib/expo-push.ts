@@ -899,12 +899,12 @@ export async function notifyOrderStatusChange(
  * activate, and that can only happen once the device is delivered. This is the
  * delivery-triggered nudge to complete it.
  */
-export async function notifyActivateProtection(
+export function notifyActivateProtection(
   userId: string,
   orderId: string,
   orderNumber: string
-): Promise<void> {
-  await notifyCustomer(
+): Promise<NotificationSendResult> {
+  return notifyCustomer(
     userId,
     '🛡️ Activate your protection',
     `Your order #${orderNumber} was delivered. Complete a quick device inspection to activate your insurance cover.`,
