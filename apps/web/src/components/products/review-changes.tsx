@@ -10,7 +10,10 @@ import {
 } from 'react';
 import type { Change } from '@/app/dashboard/products/actions';
 import { enrichProductsBatch } from '@/app/dashboard/products/generation-actions';
-import { parsePriceInput } from '@/components/products/product-currency-input';
+import {
+  formatPriceInput,
+  parsePriceInput,
+} from '@/components/products/product-currency-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,6 +45,10 @@ const ENRICHMENT_BATCH_SIZE = 5;
 
 type EnrichmentTarget = Change & { originalIndex: number };
 
+function hasScientificNotation(rawValue: string): boolean {
+  return /\d\s*e\s*[+-]?\s*\d/i.test(rawValue);
+}
+
 function parseEditableCostPrice(
   rawValue: string,
   locale: string
@@ -50,7 +57,23 @@ function parseEditableCostPrice(
     return null;
   }
 
-  if (/[a-z]/i.test(rawValue)) {
+  if (hasScientificNotation(rawValue)) {
+    return undefined;
+  }
+
+  const value = parsePriceInput(rawValue, locale);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function parseEditablePrice(
+  rawValue: string,
+  locale: string
+): number | undefined {
+  if (rawValue.trim() === '') {
+    return undefined;
+  }
+
+  if (hasScientificNotation(rawValue)) {
     return undefined;
   }
 
@@ -157,6 +180,12 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   const [localChanges, setLocalChanges] = useState<Change[]>(
     () => aiResponse?.changes ?? []
   );
+  const [priceInputValues, setPriceInputValues] = useState<
+    Record<number, string>
+  >({});
+  const [costPriceInputValues, setCostPriceInputValues] = useState<
+    Record<number, string>
+  >({});
   // Default select all
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
     () => new Set((aiResponse?.changes ?? []).map((_, i) => i))
@@ -176,6 +205,8 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     setPrevAiResponse(aiResponse);
     if (aiResponse?.changes) {
       setLocalChanges(aiResponse.changes);
+      setPriceInputValues({});
+      setCostPriceInputValues({});
       setSelectedIndices(new Set(aiResponse.changes.map((_, i) => i)));
     }
   }
@@ -236,6 +267,53 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     merchant?.payout_currency
   );
   const currencySymbol = currencyConfig.symbol;
+
+  const handlePriceInputChange = (
+    index: number,
+    change: Change,
+    rawValue: string
+  ) => {
+    setPriceInputValues((prev) => ({ ...prev, [index]: rawValue }));
+    const price = parseEditablePrice(rawValue, currencyConfig.locale);
+    if (price === undefined) {
+      return;
+    }
+
+    if (change.type === 'update') {
+      setLocalChanges((prev) => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          newPrice: price,
+        };
+        return next;
+      });
+      return;
+    }
+
+    handleEdit(index, 'price', price);
+  };
+
+  const handleCostPriceInputChange = (index: number, rawValue: string) => {
+    setCostPriceInputValues((prev) => ({ ...prev, [index]: rawValue }));
+    const costPrice = parseEditableCostPrice(rawValue, currencyConfig.locale);
+    if (costPrice === undefined) {
+      return;
+    }
+
+    setLocalChanges((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        details: {
+          ...next[index].details,
+          cost_price: costPrice,
+          cost_price_was_edited: true,
+        },
+      };
+      return next;
+    });
+  };
 
   const handleGenerateDescriptions = async () => {
     if (!isPro) {
@@ -410,30 +488,23 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                         {currencySymbol}
                       </span>
                       <Input
+                        aria-label="Price"
+                        inputMode="decimal"
                         type="text"
-                        value={(
-                          change.newPrice ?? change.details.price
-                        ).toLocaleString('en-US', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                        onChange={(e) => {
-                          // Strip formatting to get raw number
-                          const rawVal = e.target.value.replace(/[^0-9.]/g, '');
-                          const val = Number.parseFloat(rawVal);
-
-                          if (Number.isNaN(val)) return; // Handle empty/invalid better in real app, but safe for now
-
-                          if (change.type === 'update') {
-                            setLocalChanges((prev) => {
-                              const next = [...prev];
-                              next[index].newPrice = val;
-                              return next;
-                            });
-                          } else {
-                            handleEdit(index, 'price', val);
-                          }
-                        }}
+                        value={
+                          priceInputValues[index] ??
+                          formatPriceInput(
+                            change.newPrice ?? change.details.price,
+                            currencyConfig.locale
+                          )
+                        }
+                        onChange={(e) =>
+                          handlePriceInputChange(
+                            index,
+                            change,
+                            e.currentTarget.value
+                          )
+                        }
                         className={cn(
                           'h-8 pl-7',
                           change.type === 'update' &&
@@ -460,30 +531,18 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                         aria-label="Cost Price"
                         inputMode="decimal"
                         type="text"
-                        value={change.details.cost_price ?? ''}
+                        value={
+                          costPriceInputValues[index] ??
+                          change.details.cost_price ??
+                          ''
+                        }
                         placeholder="0.00"
-                        onChange={(e) => {
-                          const costPrice = parseEditableCostPrice(
-                            e.currentTarget.value,
-                            currencyConfig.locale
-                          );
-                          if (costPrice === undefined) {
-                            return;
-                          }
-
-                          setLocalChanges((prev) => {
-                            const next = [...prev];
-                            next[index] = {
-                              ...next[index],
-                              details: {
-                                ...next[index].details,
-                                cost_price: costPrice,
-                                cost_price_was_edited: true,
-                              },
-                            };
-                            return next;
-                          });
-                        }}
+                        onChange={(e) =>
+                          handleCostPriceInputChange(
+                            index,
+                            e.currentTarget.value
+                          )
+                        }
                         className="h-8 pl-7"
                       />
                     </div>

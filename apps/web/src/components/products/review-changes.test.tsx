@@ -110,14 +110,67 @@ describe('ReviewChanges', () => {
     expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 
-  it('keeps cost price input unformatted while typing decimals', () => {
+  it('keeps cost price input raw while typing decimal separators', () => {
     render(<ReviewChanges />);
 
     const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '800.' } });
+    expect(costPriceInput).toHaveValue('800.');
+
     fireEvent.change(costPriceInput, { target: { value: '800.5' } });
 
     expect(costPriceInput).toHaveValue('800.5');
     expect(screen.queryByDisplayValue('800.50')).not.toBeInTheDocument();
+  });
+
+  it('keeps selling price input raw and parses comma-decimal edits before saving', async () => {
+    const user = userEvent.setup();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        country: 'BR',
+        payout_currency: 'BRL',
+        plan_tier: 'free',
+      },
+    });
+    render(<ReviewChanges />);
+
+    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
+    fireEvent.change(priceInput, { target: { value: '800,' } });
+    expect(priceInput).toHaveValue('800,');
+
+    fireEvent.change(priceInput, { target: { value: '800,5' } });
+    await user.click(screen.getByRole('button', { name: /import & publish/i }));
+
+    await waitFor(() => {
+      expect(mocks.applyChanges).toHaveBeenCalledWith([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            price: 800.5,
+          }),
+        }),
+      ]);
+    });
+  });
+
+  it('accepts currency-formatted cost price edits before saving', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    fireEvent.change(screen.getByDisplayValue('700'), {
+      target: { value: 'NGN2,000' },
+    });
+    await user.click(screen.getByRole('button', { name: /import & publish/i }));
+
+    await waitFor(() => {
+      expect(mocks.applyChanges).toHaveBeenCalledWith([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            cost_price: 2000,
+            cost_price_was_edited: true,
+          }),
+        }),
+      ]);
+    });
   });
 
   it('parses comma-decimal cost price edits before saving', async () => {

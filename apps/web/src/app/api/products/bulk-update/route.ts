@@ -103,8 +103,10 @@ export async function POST(request: NextRequest) {
           const updates: Record<string, unknown> = {
             price: change.newPrice ?? change.details.price,
             category: change.details.category,
-            name: change.details.name,
           };
+          if (name) {
+            updates.name = name;
+          }
           if (typeof change.details.cost_price === 'number') {
             updates.cost_price = change.details.cost_price;
           } else if (

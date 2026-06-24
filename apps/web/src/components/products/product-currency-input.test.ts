@@ -19,4 +19,10 @@ describe('product currency input parsing', () => {
   it('keeps single three-digit dots as grouping separators in comma-decimal locales', () => {
     expect(parsePriceInput('1.234', 'pt-BR')).toBe(1234);
   });
+
+  it('accepts pasted currency-code prices and non-breaking spaces', () => {
+    expect(parsePriceInput('NGN2,000', 'en-NG')).toBe(2000);
+    expect(parsePriceInput('GH₵2,000', 'en-GH')).toBe(2000);
+    expect(parsePriceInput('₦1 234,56', 'pt-BR')).toBe(1234.56);
+  });
 });

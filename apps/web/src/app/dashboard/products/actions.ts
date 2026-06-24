@@ -327,6 +327,7 @@ export async function parseCSVDirectly(
 
   const changes: Change[] = [];
   const processedNames = new Set<string>();
+  const matchedProductIds = new Set<string>();
   const seenNames = new Set<string>();
   let skippedCount = 0;
 
@@ -380,6 +381,7 @@ export async function parseCSVDirectly(
     }
 
     if (existingProduct) {
+      matchedProductIds.add(existingProduct.id);
       // Check if price changed
       const costPriceChanged =
         typeof costPrice === 'number' &&
@@ -444,7 +446,10 @@ export async function parseCSVDirectly(
   // Only suggest removals if CSV has at least 50% of catalog size (likely a full update)
   if (csvProductCount >= catalogCount * 0.5) {
     for (const product of validatedCurrentProducts) {
-      if (!seenNames.has(normalizeName(product.name))) {
+      if (
+        !matchedProductIds.has(product.id) &&
+        !seenNames.has(normalizeName(product.name))
+      ) {
         changes.push({
           type: 'remove',
           productId: product.id,

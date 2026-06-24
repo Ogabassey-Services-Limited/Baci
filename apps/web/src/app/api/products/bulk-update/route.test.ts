@@ -338,6 +338,36 @@ describe('POST /api/products/bulk-update', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
+  it('does not persist whitespace-only product names during targeted updates', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              name: '   ',
+              price: 150,
+              category: 'Electronics',
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      category: 'Electronics',
+      price: 150,
+    });
+    expect(productUpdates[0]).not.toHaveProperty('name');
+  });
+
   it('skips update changes without a safe product selector', async () => {
     const { POST } = await import('./route');
 

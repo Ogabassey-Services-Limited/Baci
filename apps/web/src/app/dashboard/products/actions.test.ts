@@ -393,6 +393,16 @@ describe('product import actions', () => {
     ]);
   });
 
+  it('does not remove a SKU-matched product when the CSV display name differs', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,SKU\nVendor Alias,1000,OLD-1'
+    );
+
+    expect(result.changes).toEqual([]);
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+  });
+
   it('parses cost price from CSV without treating it as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
