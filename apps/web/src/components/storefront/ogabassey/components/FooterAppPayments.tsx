@@ -1,6 +1,6 @@
 import {
-  MOBILE_APPS,
   OGABASSEY_STOREFRONT_APP_STORE_URL,
+  OGABASSEY_STOREFRONT_PLAY_STORE_URL,
 } from '@/config/platform';
 import Image from 'next/image';
 
@@ -32,7 +32,7 @@ export function FooterAppPayments() {
           </a>
         ) : null}
         <a
-          href={MOBILE_APPS.storefront.playStoreUrl}
+          href={OGABASSEY_STOREFRONT_PLAY_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Get it on Google Play"

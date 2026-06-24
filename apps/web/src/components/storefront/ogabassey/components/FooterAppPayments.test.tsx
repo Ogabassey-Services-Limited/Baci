@@ -1,12 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The OgaBassey footer links to OgaBassey's own App Store listing
-// (OGABASSEY_STOREFRONT_APP_STORE_URL), NOT the global MOBILE_APPS.storefront
-// fallback (which is empty so other merchants don't inherit the CTA). A getter
-// lets each test drive the App Store URL's presence.
+// The OgaBassey footer links to OgaBassey's own store listings
+// (OGABASSEY_STOREFRONT_APP_STORE_URL / OGABASSEY_STOREFRONT_PLAY_STORE_URL),
+// NOT the global MOBILE_APPS.storefront fallbacks (which are empty so other
+// merchants don't inherit the CTAs). Getters let each test drive the URLs.
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.ogabassey.store';
 const mockPlatform = vi.hoisted(() => ({
   appStoreUrl: 'https://apps.apple.com/app/id6472735367',
+  playStoreUrl:
+    'https://play.google.com/store/apps/details?id=com.ogabassey.store',
 }));
 
 vi.mock('@/config/platform', async (importOriginal) => {
@@ -15,6 +19,9 @@ vi.mock('@/config/platform', async (importOriginal) => {
     ...actual,
     get OGABASSEY_STOREFRONT_APP_STORE_URL() {
       return mockPlatform.appStoreUrl;
+    },
+    get OGABASSEY_STOREFRONT_PLAY_STORE_URL() {
+      return mockPlatform.playStoreUrl;
     },
   };
 });
@@ -46,6 +53,18 @@ import { FooterAppPayments } from './FooterAppPayments';
 describe('FooterAppPayments', () => {
   beforeEach(() => {
     mockPlatform.appStoreUrl = 'https://apps.apple.com/app/id6472735367';
+    mockPlatform.playStoreUrl = PLAY_STORE_URL;
+  });
+
+  it('links the store badges to OgaBassey-scoped listings, not the global fallback', () => {
+    render(<FooterAppPayments />);
+
+    expect(
+      screen.getByRole('link', { name: 'Download on the App Store' })
+    ).toHaveAttribute('href', 'https://apps.apple.com/app/id6472735367');
+    expect(
+      screen.getByRole('link', { name: 'Get it on Google Play' })
+    ).toHaveAttribute('href', PLAY_STORE_URL);
   });
 
   it('renders optimized store badges with explicit intrinsic dimensions', () => {
