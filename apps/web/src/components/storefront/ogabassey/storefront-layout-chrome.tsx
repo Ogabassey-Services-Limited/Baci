@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { lazy, Suspense } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { DeferredShellFeature } from './components/deferred-shell-feature';
+import { Footer } from './components/Footer';
 import { GoogleAdManager } from './components/GoogleAdManager';
 import { MobileFooter } from './components/MobileFooter';
 import { OgabasseyNavbar as Navbar } from './layout/navbar';
@@ -73,6 +74,7 @@ export function OgabasseyLayoutChrome({
     return (
       <>
         {!resolvedHideMobileFooter && <MobileFooter storeSlug={basePath} />}
+        <Footer merchant={merchant} storeSlug={basePath} />
 
         <DeferredShellFeature
           timeoutMs={1600}
@@ -80,10 +82,7 @@ export function OgabasseyLayoutChrome({
           deferInteractionActivationUntilNextPaint
         >
           <Suspense fallback={null}>
-            <StorefrontDeferredFooterChrome
-              basePath={basePath}
-              merchant={merchant}
-            />
+            <StorefrontDeferredFooterChrome basePath={basePath} />
           </Suspense>
         </DeferredShellFeature>
       </>

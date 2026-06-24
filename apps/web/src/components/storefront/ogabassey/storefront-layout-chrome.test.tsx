@@ -58,9 +58,17 @@ vi.mock('./components/GoogleAdManager', () => ({
   ),
 }));
 
+vi.mock('./components/Footer', () => ({
+  Footer: ({ storeSlug }: { storeSlug: string }) => (
+    <footer aria-label="Semantic storefront footer">
+      <a href={`${storeSlug}/about`}>About Us</a>
+    </footer>
+  ),
+}));
+
 vi.mock('./components/MobileFooter', () => ({
   MobileFooter: ({ storeSlug }: { storeSlug: string }) => (
-    <footer>{storeSlug}</footer>
+    <nav aria-label="Mobile footer">{storeSlug}</nav>
   ),
 }));
 
@@ -120,10 +128,17 @@ describe('OgabasseyLayoutChrome', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders mobile footer immediately and defers footer commerce chrome', () => {
+  it('renders mobile and semantic footer links immediately while deferring commerce widgets', () => {
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
 
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('/ogabassey');
+    expect(
+      screen.getByRole('navigation', { name: /mobile footer/i })
+    ).toHaveTextContent('/ogabassey');
+    expect(
+      screen.getByRole('contentinfo', {
+        name: /semantic storefront footer/i,
+      })
+    ).toContainElement(screen.getByRole('link', { name: /about us/i }));
     expect(
       screen.queryByRole('complementary', { name: 'FOOTER_BANNER' })
     ).not.toBeInTheDocument();
@@ -275,7 +290,12 @@ describe('OgabasseyLayoutChrome', () => {
 
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
 
-    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: /mobile footer/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('contentinfo', { name: /semantic storefront footer/i })
+    ).toBeInTheDocument();
     expect(
       await screen.findByRole('region', {
         name: /deferred footer commerce/i,

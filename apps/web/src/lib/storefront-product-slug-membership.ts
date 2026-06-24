@@ -51,7 +51,7 @@ function isLoopbackOrigin(origin: string): boolean {
  * to a request-derived custom domain. Any other origin returns `null`, so the
  * caller fails open without ever leaking the secret off-platform.
  */
-function resolveInternalBaseUrl(origin: string): string | null {
+export function resolveInternalBaseUrl(origin: string): string | null {
   const platformHost = process.env.VERCEL_URL;
   if (platformHost) {
     return `https://${platformHost}`;

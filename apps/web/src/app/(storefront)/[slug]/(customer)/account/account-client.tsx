@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -74,13 +73,6 @@ export function AccountPageClient() {
   const resolvedBasePath = basePath || '';
   const getHref = (path: string) => `${resolvedBasePath}${path}`;
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!merchantLoading && !authLoading && !isAuthenticated) {
-      router.push(asRoute(`${resolvedBasePath}/account/login`));
-    }
-  }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
-
   const handleLogout = async () => {
     try {
       await logout();
@@ -110,7 +102,24 @@ export function AccountPageClient() {
   }
 
   if (!isAuthenticated || !customer) {
-    return null;
+    return (
+      <main className="min-h-screen bg-linear-to-b from-background to-muted/20">
+        <div className="container mx-auto max-w-xl px-4 py-16 text-center">
+          <h1 className="mb-4 text-3xl font-bold">
+            Sign in to view your account
+          </h1>
+          <p className="mb-8 text-muted-foreground">
+            Access your orders, receipts, saved addresses and account
+            preferences after signing in.
+          </p>
+          <Button asChild>
+            <Link href={asRoute(`${resolvedBasePath}/account/login`)}>
+              Sign in to your account
+            </Link>
+          </Button>
+        </div>
+      </main>
+    );
   }
 
   return (

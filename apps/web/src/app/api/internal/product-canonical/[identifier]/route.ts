@@ -1,0 +1,152 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { getInternalApiSecret } from '@/env';
+import {
+  getCachedLegacyProductRedirectTarget,
+  getCachedProductWithDetails,
+  getMerchantSafe,
+} from '@/lib/cached-data';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { getProductUrl } from '@/lib/seo-utils';
+import {
+  internalProductCanonicalRedirectQuerySchema,
+  internalSlugSetParamsSchema,
+} from '@/schemas/internal-slug-set-route';
+
+const NO_STORE = { 'Cache-Control': 'no-store' } as const;
+const FAIL_OPEN = { hasError: true, redirectPath: null };
+const NO_REDIRECT = { hasError: false, redirectPath: null };
+
+interface ProductUrlSource {
+  canonical_url?: string | null;
+  category?: string | null;
+  category_slug?: string | null;
+  categories?:
+    | { name?: string | null; slug?: string | null }
+    | { name?: string | null; slug?: string | null }[]
+    | null;
+  condition?: string | null;
+  condition_detail?: string | null;
+  id: string;
+  name: string;
+  slug?: string | null;
+  status?: string | null;
+}
+
+function normalizePath(path: string) {
+  const withoutTrailingSlash = path.replace(/\/+$/g, '');
+  return (withoutTrailingSlash || '/').toLowerCase();
+}
+
+function asProductUrlSource(value: ProductUrlSource) {
+  const category = Array.isArray(value.categories)
+    ? (value.categories[0] ?? null)
+    : (value.categories ?? null);
+
+  return {
+    canonical_url: value.canonical_url,
+    category: value.category,
+    category_slug: value.category_slug,
+    categories: category?.slug
+      ? {
+          name: category.name ?? undefined,
+          slug: category.slug,
+        }
+      : null,
+    condition: value.condition ?? undefined,
+    condition_detail: value.condition_detail ?? undefined,
+    id: value.id,
+    name: value.name,
+    slug: value.slug ?? undefined,
+  };
+}
+
+function getRedirectResponseForTarget(
+  requestedCategory: string,
+  requestedSlug: string,
+  target: ProductUrlSource
+) {
+  const targetPath = getProductUrl(asProductUrlSource(target));
+  const requestedPath = `/${requestedCategory}/${requestedSlug}`;
+
+  if (normalizePath(targetPath) === normalizePath(requestedPath)) {
+    return NO_REDIRECT;
+  }
+
+  return { hasError: false, redirectPath: targetPath };
+}
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ identifier: string }> }
+): Promise<NextResponse> {
+  const expectedSecret = getInternalApiSecret();
+  if (!expectedSecret) {
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500, headers: NO_STORE }
+    );
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (
+    !authHeader ||
+    !constantTimeEqual(authHeader, `Bearer ${expectedSecret}`)
+  ) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: NO_STORE }
+    );
+  }
+
+  const params = internalSlugSetParamsSchema.safeParse(await context.params);
+  const query = internalProductCanonicalRedirectQuerySchema.safeParse({
+    category: request.nextUrl.searchParams.get('category'),
+    slug: request.nextUrl.searchParams.get('slug'),
+  });
+  if (!params.success || !query.success) {
+    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+  }
+
+  try {
+    const merchant = await getMerchantSafe(params.data.identifier);
+    if (!merchant?.is_published) {
+      return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+    }
+
+    const product = (await getCachedProductWithDetails(
+      merchant.id,
+      query.data.slug
+    )) as ProductUrlSource | null;
+
+    if (product?.status === 'active') {
+      return NextResponse.json(
+        getRedirectResponseForTarget(
+          query.data.category,
+          query.data.slug,
+          product
+        ),
+        { status: 200, headers: NO_STORE }
+      );
+    }
+
+    const legacyTarget = await getCachedLegacyProductRedirectTarget(
+      merchant.id,
+      query.data.slug
+    );
+
+    if (legacyTarget) {
+      return NextResponse.json(
+        getRedirectResponseForTarget(
+          query.data.category,
+          query.data.slug,
+          legacyTarget
+        ),
+        { status: 200, headers: NO_STORE }
+      );
+    }
+
+    return NextResponse.json(NO_REDIRECT, { status: 200, headers: NO_STORE });
+  } catch {
+    return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+  }
+}
