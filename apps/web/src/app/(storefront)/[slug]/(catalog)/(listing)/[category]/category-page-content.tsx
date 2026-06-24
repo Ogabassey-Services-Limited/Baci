@@ -181,11 +181,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const categoryPageProducts = data.productsQueryFailed
     ? paginatedNormalizedProducts
     : normalizedProducts;
-  const categoryPageCurrentPage = data.productsArePrePaginated
-    ? currentPage
-    : data.productIdsQueryFailed
-      ? 1
-      : currentPage;
+  const categoryPageCurrentPage = currentPage;
   const productsArePrePaginated =
     data.productsArePrePaginated ||
     (data.productsQueryFailed && !data.productIdsQueryFailed);

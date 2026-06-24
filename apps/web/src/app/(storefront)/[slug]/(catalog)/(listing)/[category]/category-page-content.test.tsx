@@ -52,7 +52,7 @@ vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
     totalProductCount?: number;
     products?: Array<{ id: string; name: string; price: string }>;
   }) => (
-    <div data-testid="category-page">
+    <section aria-label="Category page">
       Category page
       {currentPage ? <div>Page: {currentPage}</div> : null}
       {totalProductCount ? <div>Total: {totalProductCount}</div> : null}
@@ -62,7 +62,7 @@ vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
           {product.name}: {product.price}
         </div>
       ))}
-    </div>
+    </section>
   ),
 }));
 
@@ -401,7 +401,12 @@ describe('CategoryPageContent', () => {
 
     render(ui);
 
-    expect(screen.getByTestId('category-page')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Category page' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === 'Page: 3')
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Category page not found' })
     ).not.toBeInTheDocument();
@@ -485,7 +490,7 @@ describe('CategoryPageContent', () => {
     render(ui);
 
     expect(screen.getByTestId('comparison-scope')).toContainElement(
-      screen.getByTestId('category-page')
+      screen.getByRole('region', { name: 'Category page' })
     );
     expect(screen.getByTestId('comparison-scope')).toHaveAttribute(
       'data-storage-namespace',

@@ -63,6 +63,20 @@ const INITIAL_FILTER_STATE: FilterState = {
   maxPrice: 3000000,
 };
 
+const EMPTY_AVAILABLE_FILTER_OPTIONS: Record<
+  keyof Omit<FilterState, 'minPrice' | 'maxPrice'>,
+  string[]
+> = {
+  brand: [],
+  condition: [],
+  storage: [],
+  ram: [],
+  colors: [],
+  simType: [],
+  displayType: [],
+  displaySize: [],
+};
+
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
@@ -144,9 +158,19 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     // since server already filters by category_id or category TEXT field
     return products;
   })();
+  const hasPartialPrePaginatedProducts =
+    productsArePrePaginated &&
+    typeof totalProductCount === 'number' &&
+    Number.isInteger(totalProductCount) &&
+    totalProductCount > categoryProducts.length;
+  const canUseClientFilters = !hasPartialPrePaginatedProducts;
 
   // Derived Data: Available Options based on products in category
   const availableOptions = (() => {
+    if (!canUseClientFilters) {
+      return EMPTY_AVAILABLE_FILTER_OPTIONS;
+    }
+
     const options = {
       brand: new Set<string>(),
       condition: new Set<string>(),
@@ -198,6 +222,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   // Derived Data: Filtered Products based on user selection
   const filteredProducts = (() => {
+    if (!canUseClientFilters) {
+      return categoryProducts;
+    }
+
     return categoryProducts.filter((p) => {
       // Price
       if (
@@ -257,16 +285,17 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     });
   })();
   const hasActiveFilters =
-    filters.brand.length > 0 ||
-    filters.condition.length > 0 ||
-    filters.storage.length > 0 ||
-    filters.ram.length > 0 ||
-    filters.colors.length > 0 ||
-    filters.simType.length > 0 ||
-    filters.displayType.length > 0 ||
-    filters.displaySize.length > 0 ||
-    filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
-    filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice;
+    canUseClientFilters &&
+    (filters.brand.length > 0 ||
+      filters.condition.length > 0 ||
+      filters.storage.length > 0 ||
+      filters.ram.length > 0 ||
+      filters.colors.length > 0 ||
+      filters.simType.length > 0 ||
+      filters.displayType.length > 0 ||
+      filters.displaySize.length > 0 ||
+      filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
+      filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice);
 
   const explicitTotalProductCount =
     productsArePrePaginated &&
@@ -304,6 +333,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     section: keyof FilterState,
     value: string | number
   ) => {
+    if (!canUseClientFilters) return;
+
     if (section === 'minPrice' || section === 'maxPrice') {
       setFilters((prev) => ({ ...prev, [section]: value }));
     } else {
@@ -425,13 +456,15 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsMobileFilterOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-store-primary px-4 py-2.5 text-sm font-bold text-store-primary-text shadow-md active:scale-95 md:hidden"
-            >
-              <Filter size={16} /> Filters
-            </button>
+            {canUseClientFilters && (
+              <button
+                type="button"
+                onClick={() => setIsMobileFilterOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-store-primary px-4 py-2.5 text-sm font-bold text-store-primary-text shadow-md active:scale-95 md:hidden"
+              >
+                <Filter size={16} /> Filters
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -439,22 +472,28 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar Filters (Desktop) */}
-          <div className="hidden lg:block lg:col-span-1">
-            <div className="sticky top-24">
-              <CategoryFiltersSidebar
-                filters={filters}
-                availableOptions={availableOptions}
-                onFilterChange={handleFilterChange}
-                onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
-              />
-              <div className="mt-6">
-                <AdUnit placementKey="PRODUCT_SIDEBAR" />
+          {canUseClientFilters && (
+            <div className="hidden lg:block lg:col-span-1">
+              <div className="sticky top-24">
+                <CategoryFiltersSidebar
+                  filters={filters}
+                  availableOptions={availableOptions}
+                  onFilterChange={handleFilterChange}
+                  onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
+                />
+                <div className="mt-6">
+                  <AdUnit placementKey="PRODUCT_SIDEBAR" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Product Grid */}
-          <div className="lg:col-span-3">
+          <div
+            className={
+              canUseClientFilters ? 'lg:col-span-3' : 'lg:col-span-4'
+            }
+          >
             {!hasKnownProducts ? (
               <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
                 <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -565,7 +604,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       <CategoryHubSections hub={hubModel} />
 
       {/* Mobile Filter Drawer */}
-      {isMobileFilterOpen && (
+      {isMobileFilterOpen && canUseClientFilters && (
         <div className="fixed inset-0 z-60 flex justify-end">
           <button
             type="button"

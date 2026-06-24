@@ -194,6 +194,9 @@ describe('CategoryPage', () => {
     expect(
       screen.getByText('Showing 21-21 of 25 products')
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /filters/i })
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
       '/test-store/electronics'
