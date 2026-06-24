@@ -74,6 +74,10 @@ export function StorefrontCartProvider({
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setMerchantSlugState(slugToUse);
     setCart(getCartFromStorage(slugToUse));
+    // Re-read the group flag for the new merchant too, so it stays consistent
+    // with the freshly loaded cart (otherwise the previous merchant's flag
+    // leaks onto this cart).
+    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
   }
 
   // Hydrate cart + merchant slug from localStorage after mount (storage is
