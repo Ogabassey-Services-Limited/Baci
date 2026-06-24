@@ -50,6 +50,20 @@ export function parsePriceInput(value: string, locale: string): number {
 
   const trimmedValue = value.trim();
   const dotIndex = trimmedValue.lastIndexOf('.');
+  const commaIndex = trimmedValue.lastIndexOf(',');
+
+  if (dotIndex !== -1 && commaIndex !== -1) {
+    const inputDecimalSeparator = dotIndex > commaIndex ? '.' : ',';
+    const inputGroupSeparator = inputDecimalSeparator === '.' ? ',' : '.';
+    const mixedLocaleNormalized = trimmedValue
+      .replaceAll(inputGroupSeparator, '')
+      .replaceAll(inputDecimalSeparator, '.')
+      .replace(/\s/g, '')
+      .replace(/[^\d.+-]/g, '');
+
+    return Number.parseFloat(mixedLocaleNormalized);
+  }
+
   const hasLocaleDecimal = trimmedValue.includes(decimalSeparator);
 
   if (decimalSeparator !== '.' && dotIndex !== -1 && !hasLocaleDecimal) {

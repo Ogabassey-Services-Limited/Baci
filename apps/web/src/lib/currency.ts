@@ -151,16 +151,19 @@ export function getCurrencyConfig(
   payoutCurrency?: string | null
 ): CurrencyConfig {
   const payoutConfig = getPayoutCurrencyConfig(payoutCurrency);
+  const country = countryCode ? getCountryByCode(countryCode) : null;
+
+  if (country && payoutConfig?.code === country.currency) {
+    return {
+      code: country.currency,
+      symbol: country.currencySymbol,
+      locale: COUNTRY_LOCALES[country.code] || payoutConfig.locale,
+    };
+  }
 
   if (payoutConfig) {
     return payoutConfig;
   }
-
-  if (!countryCode) {
-    return DEFAULT_CURRENCY_CONFIG;
-  }
-
-  const country = getCountryByCode(countryCode);
 
   if (!country) {
     return DEFAULT_CURRENCY_CONFIG;

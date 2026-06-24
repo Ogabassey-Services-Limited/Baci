@@ -56,6 +56,15 @@ describe('Currency Utils', () => {
       });
     });
 
+    it('preserves country locale when payout currency matches the country currency', () => {
+      const config = getCurrencyConfig('FR', 'EUR');
+      expect(config).toEqual({
+        code: 'EUR',
+        symbol: '€',
+        locale: 'fr-FR',
+      });
+    });
+
     it('falls back to country currency when payout currency is invalid', () => {
       const config = getCurrencyConfig('US', 'INVALID');
       expect(config).toEqual({

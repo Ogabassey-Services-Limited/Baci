@@ -770,6 +770,22 @@ describe('product import actions', () => {
     });
   });
 
+  it('keeps space-grouped selling and cost prices together', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nSpace Phone,"₦1 234,56","1\u202f000",SPACE-1'
+    );
+
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1000,
+        price: 1234.56,
+      },
+      type: 'new',
+    });
+  });
+
   it('skips fee columns before selecting the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,

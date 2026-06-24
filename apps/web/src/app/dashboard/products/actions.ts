@@ -638,7 +638,7 @@ function findSellingPriceColumnIndex(headers: string[]): number {
 const PRICE_CURRENCY_CODE_PATTERN =
   /\b(?:aed|aud|brl|cad|chf|cny|eur|gbp|ghs|inr|jpy|kes|ngn|usd|xaf|xof|zar)\b/gi;
 const PRIMARY_PRICE_TOKEN_PATTERN =
-  /[-+]?(?:(?:\d[\d,.]*|[,.]\d+)(?:[eE][-+]?\d+)?)/;
+  /[-+]?(?:(?:\d[\d,.\s\u00a0\u202f]*|[,.]\d+)(?:[eE][-+]?\d+)?)/;
 
 function normalizeLocalizedNumericToken(token: string): string {
   const numeric = token.replace(/[^\d,.\-+]/g, '');
