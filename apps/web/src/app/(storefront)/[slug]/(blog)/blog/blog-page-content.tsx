@@ -72,10 +72,9 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
     typeof organizationSchema['@id'] === 'string'
       ? organizationSchema['@id']
       : buildBlogOrganizationId(baseUrl);
-  const headersList = await headers();
   const basePath = isDomainIdentifier(slug)
     ? ''
-    : getBlogStorefrontPathPrefix(headersList, merchant);
+    : getBlogStorefrontPathPrefix(await headers(), merchant);
 
   if (currentPage > totalPages) {
     redirect(
