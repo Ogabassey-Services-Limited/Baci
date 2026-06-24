@@ -1,4 +1,13 @@
 @import "tailwindcss" source(none);
+/*
+  Register the store color tokens in the render-blocking critical CSS so
+  above-the-fold store-token surfaces (the product hero cards, utility panel)
+  emit with their literal hex fallbacks and paint correctly on the first frame.
+  Without this, `store-*` colors are only registered in the deferred
+  storefront-home.css, so the critical CSS cannot generate `.bg-store-secondary`
+  et al. and the hero first-paints unstyled with the dark shell showing through.
+*/
+@import "./storefront-theme-tokens.css";
 
 /* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
 @config "../../../tailwind.storefront-home.config.mjs";

@@ -100,6 +100,25 @@ describe('storefront CSS partitioning', () => {
     );
   });
 
+  it('registers store color tokens in the render-blocking critical CSS so the hero paints styled on first frame', () => {
+    // Regression guard: the store-* colors are only registered via the shared
+    // @theme inline token block. If the home critical CSS does not import it, the
+    // critical layer cannot generate `.bg-store-secondary` et al. and the hero
+    // first-paints unstyled (dark shell shows through) until the deferred CSS.
+    const homeCriticalCss = readStorefrontFile('storefront-home-critical.css');
+    expect(homeCriticalCss).toMatch(
+      /@import\s+["']\.\/storefront-theme-tokens\.css["']/
+    );
+
+    const tokens = readStorefrontFile('storefront-theme-tokens.css');
+    // Tokens must use @theme inline + literal hex fallbacks so utilities emit a
+    // paintable color even before the per-merchant --store-* vars resolve.
+    expect(tokens).toMatch(/@theme inline/);
+    expect(tokens).toMatch(
+      /--color-store-secondary:\s*var\(--store-secondary,\s*#f3f4f6\)/
+    );
+  });
+
   it('keeps homepage product-card utilities deferred while retaining critical grid geometry selectors', () => {
     const homeCriticalCss = readStorefrontFile('storefront-home-critical.css');
     const homeCss = readStorefrontFile('storefront-home.css');
