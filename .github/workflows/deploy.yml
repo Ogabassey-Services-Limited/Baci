@@ -127,6 +127,12 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_CLI_VERSION: "52.0.0"
+      # Next/Vercel prebuilt Skew Protection needs a stable custom deployment ID
+      # at build time so old clients keep requesting assets/actions from the
+      # deployment that served their HTML. Include run attempt to keep reruns of
+      # the same commit unique; next.config.ts normalizes this to Vercel's
+      # 32-character custom deployment ID contract.
+      NEXT_DEPLOYMENT_ID: ${{ github.run_id }}_${{ github.run_attempt }}_${{ github.sha }}
       # Fix OOM error on runner
       NODE_OPTIONS: "--max_old_space_size=8192"
     steps:
