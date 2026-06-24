@@ -178,14 +178,14 @@ export async function resolveCanonicalUrl(url) {
 
 export async function resolveCanonicalUrlOrFailure(
   url,
-  { resolveCanonicalUrlImpl = resolveCanonicalUrl } = {}
+  { label = 'pdp-dell', resolveCanonicalUrlImpl = resolveCanonicalUrl } = {}
 ) {
   try {
     return { url: await resolveCanonicalUrlImpl(url) };
   } catch (error) {
     return {
       failure: {
-        label: 'pdp-dell',
+        label,
         message: error instanceof Error ? error.message : String(error),
         source: 'target-resolution',
       },

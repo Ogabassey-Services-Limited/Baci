@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 function scriptEnv(outputDir) {
@@ -116,6 +117,29 @@ describe('measure-ogabassey-cwv CLI', () => {
     expect(result.status).toBe(1);
     expect(result.stdout).not.toContain(ambientRawDir);
     expect(await readdir(ambientRawDir)).toEqual([]);
+  });
+
+  it('can be imported without running the CLI', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-import-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-cwv.mjs'
+    );
+    const importSpecifier = pathToFileURL(scriptPath).href;
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `const m = await import(${JSON.stringify(importSpecifier)}); console.log(typeof m.runOgaBasseyCwv);`,
+      ],
+      { encoding: 'utf8', env: scriptEnv(outputDir) }
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe('function');
+    expect(await readdir(outputDir)).toEqual([]);
   });
 
   it('honors common falsey PSI disable values', async () => {

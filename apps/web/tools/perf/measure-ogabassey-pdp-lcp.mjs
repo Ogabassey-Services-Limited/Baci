@@ -22,4 +22,5 @@ setWrapperDefaultEnv(
   'OGABASSEY_CWV_DEFAULT_OUTPUT_DIR',
   process.env.DEBUGBEAR_RAW_DIR?.trim() || '/tmp'
 );
-await import('./measure-ogabassey-cwv.mjs');
+const { runOgaBasseyCwv } = await import('./measure-ogabassey-cwv.mjs');
+await runOgaBasseyCwv();
