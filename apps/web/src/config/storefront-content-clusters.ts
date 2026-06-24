@@ -36,6 +36,13 @@ export const CONTENT_KIND_TOKENS = {
     'comparison',
     'difference',
     'which',
+    'alternative',
+    'alternatives',
+    'instead of',
+    'what to buy instead',
+    'what to buy next',
+    'upgrade from',
+    'moving on from',
   ],
 } as const;
 
