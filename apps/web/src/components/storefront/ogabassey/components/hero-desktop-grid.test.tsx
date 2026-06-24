@@ -154,8 +154,30 @@ describe('HeroDesktopGrid', () => {
     ).not.toBeInTheDocument();
   });
 
+
+  it('media-gates side-card images so mobile receives transparent fallbacks', () => {
+    const { container } = render(<HeroDesktopGrid slides={SLIDES} />);
+
+    const sources = Array.from(container.querySelectorAll('picture source'));
+    expect(sources).toHaveLength(3);
+    expect(sources[1]).toHaveAttribute('media', '(min-width: 768px)');
+    expect(sources[1]).toHaveAttribute(
+      'srcset',
+      'https://cdn.ogabassey.com/image/width=320,quality=70,format=auto/core-assets/products/product-2.avif 320w'
+    );
+
+    const images = Array.from(container.querySelectorAll('picture img'));
+    expect(images[1]).toHaveAttribute(
+      'src',
+      'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+    );
+    expect(images[1]).toHaveAttribute('loading', 'lazy');
+  });
+
   it('lets the big card fill the desktop grid when there are no side cards', () => {
-    const { container } = render(<HeroDesktopGrid slides={[SLIDES[0] as LaunchProductSlide]} />);
+    const { container } = render(
+      <HeroDesktopGrid slides={[SLIDES[0] as LaunchProductSlide]} />
+    );
 
     const bigLink = screen.getByRole('link', {
       name: 'Samsung Galaxy A27 5G — Pre-order now',

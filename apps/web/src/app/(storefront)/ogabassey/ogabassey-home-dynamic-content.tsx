@@ -1,27 +1,16 @@
-import {
-  effectiveLaunchPins,
-  LAUNCH_CAROUSEL_LIMIT,
-  OGABASSEY_LAUNCH_PINS_SINCE,
-  OGABASSEY_PINNED_LAUNCH_SLUGS,
-  selectLaunchProducts,
-} from '@baci/shared/storefront';
+import { selectLaunchProducts } from '@baci/shared/storefront';
 import Link from 'next/link';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
 import { buildMerchantAnalyticsSettings } from '@/components/analytics/analytics-merchant-settings';
 import { AnalyticsPixelProvider } from '@/components/analytics/analytics-pixel-provider';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
-import {
-  createOgabasseyHomeProductFeed,
-  mapStorefrontProductsToOgabasseyProducts,
-} from '@/components/storefront/ogabassey/home-product-feed';
+import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   getCachedStorefrontHomeProducts,
-  getCachedStorefrontLaunchProducts,
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
-import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -39,6 +28,7 @@ import { OGABASSEY_ENTITY } from '@/lib/storefront/ogabassey-entity';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import { buildStorefrontHomeSemanticGraph } from '@/lib/storefront-home-semantic-graph';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 
 type OgabasseyMerchant = NonNullable<
   Awaited<ReturnType<typeof getRequestScopedMerchant>>
@@ -111,76 +101,24 @@ function buildOrganizationGraphSchema(merchant: OgabasseyMerchant) {
   };
 }
 
-/** Newest-created first. ISO timestamps compare lexically by time; missing
- *  timestamps sort last. Used only for the launch carousel so its order is
- *  driven by product additions, not edits. `created_at` is optional/nullable
- *  in the row type, so it is read defensively even though the query always
- *  selects it at runtime. */
-function sortByNewestCreated<T>(rows: readonly T[]): T[] {
-  const createdAt = (row: T): string =>
-    String((row as { created_at?: string | null }).created_at ?? '');
-  return [...rows].sort((a, b) => {
-    const first = createdAt(a);
-    const second = createdAt(b);
-    return first === second ? 0 : first > second ? -1 : 1;
-  });
-}
-
 export async function OgabasseyHomeDynamicContent({
   merchant,
   pathPrefix,
 }: OgabasseyHomeDynamicContentProps) {
-  const [products, launchCandidateRows, categories, pinnedProductRows] =
-    await Promise.all([
-      // OgaBassey surfaces the most recently updated devices first (smartphones
-      // are still pinned to the front downstream via prioritizeSmartphoneProducts).
-      getCachedStorefrontHomeProducts(merchant.id, 'recent'),
-      getCachedStorefrontLaunchProducts(merchant.id),
-      getCachedNavigationCategories(merchant.id),
-      // Deterministic fetch for the launch carousel pins: the recent window is
-      // capped, so explicitly-pinned launches (e.g. the Samsung A27 preorder) can
-      // fall outside it. Fetched by slug so they always appear. This lookup is
-      // optional — a failure must only drop the pins, never take down the
-      // homepage — so it falls back to [] on error.
-      getCachedStorefrontProductsBySlugs(
-        merchant.id,
-        OGABASSEY_PINNED_LAUNCH_SLUGS
-      ).catch((error) => {
-        console.error('Failed to load pinned launch products', { error });
-        return [];
-      }),
-    ]);
+  const [products, categories, launchProducts] = await Promise.all([
+    // OgaBassey surfaces the most recently updated devices first (smartphones
+    // are still pinned to the front downstream via prioritizeSmartphoneProducts).
+    getCachedStorefrontHomeProducts(merchant.id, 'recent'),
+    getCachedNavigationCategories(merchant.id),
+    // Used for JSON-LD coverage only. The visible hero has its own streamed
+    // boundary so LCP discovery is not gated on product-grid/category queries.
+    loadOgabasseyLaunchProducts(merchant.id),
+  ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
-  const pinnedProducts = mapHomeProductsToTemplateProducts(
-    pinnedProductRows || []
-  );
-  // Launch carousel ranks by creation time (newest-added first) so editing a
-  // product never reshuffles it. The home product grid keeps its own
-  // recently-updated order via `merchantProducts`.
-  const carouselProducts = mapHomeProductsToTemplateProducts(
-    sortByNewestCreated(launchCandidateRows || [])
-  );
-  // New arrivals (added after the pins were configured) lead the carousel and
-  // push the pins back; once a pin is shoved past the visible cap it drops off.
-  const launchPins = effectiveLaunchPins(
-    launchCandidateRows || [],
-    OGABASSEY_PINNED_LAUNCH_SLUGS,
-    OGABASSEY_LAUNCH_PINS_SINCE
-  );
-  // Drop rows that can't render as a slide (no slug or image) BEFORE the cap,
-  // so unrenderable products don't consume launch slots and leave the carousel
-  // short while renderable products sit just past the limit (Codex P2).
-  const launchSubset = selectLaunchProducts(
-    [...pinnedProducts, ...carouselProducts].filter(
-      (product) => Boolean(product.slug) && Boolean(product.image)
-    ),
-    { pinned: launchPins, limit: LAUNCH_CAROUSEL_LIMIT }
-  );
-  const launchProducts = mapStorefrontProductsToOgabasseyProducts(launchSubset);
   // Schema product list: prepend the visible launch items (deduped) so every
   // carousel slide is represented even when it falls outside the top-8 window.
   const schemaProducts = selectLaunchProducts(
-    [...launchSubset, ...merchantProducts],
+    [...launchProducts, ...merchantProducts],
     { limit: OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT }
   );
   const baseUrl = buildStoreUrl(merchant);
@@ -195,7 +133,19 @@ export async function OgabasseyHomeDynamicContent({
           name: `${merchant.business_name} featured products`,
           description: homeDescription,
           url: baseUrl,
-          products: schemaProducts,
+          // The launch items are display-shaped (price as a formatted string);
+          // the schema needs a numeric price + string id, so normalize both
+          // union members before building the JSON-LD product list.
+          products: schemaProducts.map((product) => ({
+            ...product,
+            id: String(product.id),
+            price:
+              typeof product.price === 'number'
+                ? product.price
+                : 'rawPrice' in product && typeof product.rawPrice === 'number'
+                  ? product.rawPrice
+                  : 0,
+          })),
           merchantName: merchant.business_name,
           currency: merchant.payout_currency || 'NGN',
         })
@@ -253,13 +203,11 @@ export async function OgabasseyHomeDynamicContent({
       <AnalyticsPixelProvider
         merchant={buildMerchantAnalyticsSettings(merchant)}
       />
-      {/* The hero is now product-driven, so it renders here in the dynamic
-          content where launch products are available (the baked mobile shell
-          banner in the layout holds mobile LCP until this streams in). */}
       <OgabasseyHomePage
         basePath={pathPrefix}
         categories={categories || []}
         launchProducts={launchProducts}
+        renderHero={false}
         products={createOgabasseyHomeProductFeed(merchantProducts)}
         storeSlug={merchant.slug}
       />

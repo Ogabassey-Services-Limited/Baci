@@ -73,15 +73,20 @@ vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
     basePath,
+    launchProducts,
     products,
+    renderHero,
     storeSlug,
   }: {
     basePath?: string;
+    launchProducts?: unknown[];
     products?: unknown[];
+    renderHero?: boolean;
     storeSlug?: string;
   }) => (
     <section aria-label="OgaBassey home payload">
-      {storeSlug}:{basePath}:{products?.length ?? 0}
+      {storeSlug}:{basePath}:{products?.length ?? 0}:
+      {launchProducts?.length ?? 0}:{String(renderHero)}
     </section>
   ),
 }));
@@ -168,7 +173,7 @@ describe('OgabasseyHomeDynamicContent', () => {
     ).toHaveTextContent('G-OGABASSEY');
     expect(
       screen.getByRole('region', { name: 'OgaBassey home payload' })
-    ).toHaveTextContent('ogabassey:/ogabassey:1');
+    ).toHaveTextContent('ogabassey:/ogabassey:1:0:false');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
     );

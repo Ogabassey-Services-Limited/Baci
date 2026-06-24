@@ -2,42 +2,47 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockDynamicContentShouldSuspend, mockHeaders, mockPublishedMerchant } =
-  vi.hoisted(() => ({
-    mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
-    mockDynamicContentShouldSuspend: vi.fn(() => false),
-    mockPublishedMerchant: {
-      id: 'merchant-1',
-      business_name: 'OgaBassey',
-      business_type: 'electronics',
-      email: 'hello@ogabassey.com',
-      phone: '+2341234567',
-      logo_url: '',
-      brand_colors: undefined,
-      country: 'NG',
-      pages: undefined,
-      slug: 'ogabassey',
-      custom_domain: 'ogabassey.com',
-      favicon_svg_url: undefined,
-      favicon_png_32_url: undefined,
-      favicon_apple_touch_url: undefined,
-      social_media: undefined,
-      business_address: '',
-      is_published: true,
-      feature_settings: undefined,
-      template_id: 'ogabassey',
-      vat_registration_status: undefined,
-      vat_rate: undefined,
-      hero_slides: undefined,
-      mobile_hero_slides: undefined,
-      site_title: '',
-      site_tagline: '',
-      site_description: '',
-      payout_currency: 'NGN',
-      plan_tier: 'free',
-      premium_features: undefined,
-    },
-  }));
+const {
+  mockDynamicContentShouldSuspend,
+  mockHeaders,
+  mockHeroSectionShouldSuspend,
+  mockPublishedMerchant,
+} = vi.hoisted(() => ({
+  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
+  mockDynamicContentShouldSuspend: vi.fn(() => false),
+  mockHeroSectionShouldSuspend: vi.fn(() => false),
+  mockPublishedMerchant: {
+    id: 'merchant-1',
+    business_name: 'OgaBassey',
+    business_type: 'electronics',
+    email: 'hello@ogabassey.com',
+    phone: '+2341234567',
+    logo_url: '',
+    brand_colors: undefined,
+    country: 'NG',
+    pages: undefined,
+    slug: 'ogabassey',
+    custom_domain: 'ogabassey.com',
+    favicon_svg_url: undefined,
+    favicon_png_32_url: undefined,
+    favicon_apple_touch_url: undefined,
+    social_media: undefined,
+    business_address: '',
+    is_published: true,
+    feature_settings: undefined,
+    template_id: 'ogabassey',
+    vat_registration_status: undefined,
+    vat_rate: undefined,
+    hero_slides: undefined,
+    mobile_hero_slides: undefined,
+    site_title: '',
+    site_tagline: '',
+    site_description: '',
+    payout_currency: 'NGN',
+    plan_tier: 'free',
+    premium_features: undefined,
+  },
+}));
 
 vi.mock('@/lib/cached-data', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -61,6 +66,15 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('./ogabassey-home-hero-section', () => ({
+  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => {
+    if (mockHeroSectionShouldSuspend()) {
+      throw new Promise(() => undefined);
+    }
+    return <section aria-label="Streamed home hero">{pathPrefix}</section>;
+  },
 }));
 
 vi.mock('./ogabassey-home-dynamic-content', () => ({
@@ -109,6 +123,7 @@ describe('OgabasseyHomePageContent', () => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
     mockDynamicContentShouldSuspend.mockReturnValue(false);
+    mockHeroSectionShouldSuspend.mockReturnValue(false);
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       mockPublishedMerchant
     );
@@ -125,8 +140,8 @@ describe('OgabasseyHomePageContent', () => {
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('keeps a hero-sized fallback visible while dynamic content streams', async () => {
-    mockDynamicContentShouldSuspend.mockReturnValue(true);
+  it('keeps a hero-sized fallback visible while hero content streams', async () => {
+    mockHeroSectionShouldSuspend.mockReturnValue(true);
 
     const result = await OgabasseyHomePageContent();
 

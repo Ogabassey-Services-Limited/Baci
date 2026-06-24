@@ -1,5 +1,4 @@
 import { getImageProps } from 'next/image';
-import Image from 'next/image';
 import Link from 'next/link';
 import imageLoader from '@/lib/image-loader';
 import { asRoute } from '@/lib/routes';
@@ -24,6 +23,10 @@ const BIG_IMAGE_HEIGHT = 800;
 // whole grid is `display:none` and the mobile carousel owns the LCP slot.
 const BIG_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
 const BIG_IMAGE_SIZES = '(min-width: 768px) 480px, 1px';
+const SIDE_IMAGE_WIDTH = 320;
+const SIDE_IMAGE_HEIGHT = 320;
+const SIDE_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
+const SIDE_IMAGE_SIZES = '(min-width: 1024px) 160px, (min-width: 768px) 25vw, 1px';
 const HERO_IMAGE_QUALITY = 70;
 
 function ogabasseyHeroImageLoader({
@@ -109,6 +112,40 @@ function HeroBigCard({
   );
 }
 
+
+/** Desktop-only side-card image. The fallback `<img>` is a transparent pixel so
+ * hidden desktop cards do not add mobile hero image requests. */
+function HeroSideImage({ alt, src }: { alt: string; src: string }) {
+  const {
+    props: { sizes, src: imgSrc, srcSet, ...imgProps },
+  } = getImageProps({
+    alt,
+    height: SIDE_IMAGE_HEIGHT,
+    loader: ogabasseyHeroImageLoader,
+    loading: 'lazy',
+    quality: HERO_IMAGE_QUALITY,
+    sizes: SIDE_IMAGE_SIZES,
+    src,
+    width: SIDE_IMAGE_WIDTH,
+  });
+
+  return (
+    <picture className="absolute inset-0 block h-full w-full">
+      <source
+        media={SIDE_IMAGE_SOURCE_MEDIA}
+        sizes={sizes ?? SIDE_IMAGE_SIZES}
+        srcSet={srcSet ?? imgSrc}
+      />
+      <img
+        {...imgProps}
+        alt={alt}
+        src={TRANSPARENT_PIXEL_SRC}
+        className="h-full w-full object-contain p-2 transition-transform duration-700 group-hover:scale-105"
+      />
+    </picture>
+  );
+}
+
 /** A compact side card backed by a launch product. Image is lazy (not LCP). */
 function HeroSideCard({ slide }: { slide: LaunchProductSlide }) {
   return (
@@ -131,15 +168,7 @@ function HeroSideCard({ slide }: { slide: LaunchProductSlide }) {
         </span>
       </div>
       <div className="relative col-span-2">
-        <Image
-          src={slide.imageUrl}
-          alt={slide.imageAlt}
-          fill
-          sizes="(max-width: 1024px) 25vw, 160px"
-          className="object-contain p-2 transition-transform duration-700 group-hover:scale-105"
-          loading="lazy"
-          quality={HERO_IMAGE_QUALITY}
-        />
+        <HeroSideImage alt={slide.imageAlt} src={slide.imageUrl} />
       </div>
     </Link>
   );

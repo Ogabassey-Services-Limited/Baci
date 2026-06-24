@@ -5,7 +5,7 @@ const mockMobileApps = vi.hoisted(() => ({
   storefront: {
     appStoreUrl: 'https://apps.apple.com/app/id6472735367',
     playStoreUrl:
-      'https://play.google.com/store/apps/details?id=com.baci.storefront',
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store',
   },
 }));
 
@@ -46,7 +46,7 @@ describe('FooterAppPayments', () => {
     mockMobileApps.storefront.appStoreUrl =
       'https://apps.apple.com/app/id6472735367';
     mockMobileApps.storefront.playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.baci.storefront';
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store';
   });
 
   it('renders optimized store badges with explicit intrinsic dimensions', () => {
