@@ -15,6 +15,7 @@ import {
   getLastMockProps,
   mockProductDetailsBody,
   mockProductImageGallery,
+  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
@@ -125,6 +126,10 @@ describe('ProductDetailScreen image-driven variant behavior', () => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
           selectedColor: 'Gold',
+        })
+      );
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+        expect.objectContaining({
           canPurchase: true,
         })
       );

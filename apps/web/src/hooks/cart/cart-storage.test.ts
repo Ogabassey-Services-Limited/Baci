@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   generateCartItemId,
   getCartFromStorage,
+  getCartWideNegotiationFromStorage,
   getMerchantSlugFromStorage,
   getStorefrontCartStorageKey,
   saveCartToStorage,
+  saveCartWideNegotiationToStorage,
   saveMerchantSlugToStorage,
 } from './cart-storage';
 import type { CartItem } from './cart-types';
@@ -114,5 +116,48 @@ describe('cart-storage', () => {
     saveMerchantSlugToStorage(null);
 
     expect(getMerchantSlugFromStorage()).toBeNull();
+  });
+
+  it('persists and clears the cart-wide negotiation flag per merchant', () => {
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
+
+    saveCartWideNegotiationToStorage(true, 'ogabassey');
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(true);
+    // Scoped per merchant — a different slug is unaffected.
+    expect(getCartWideNegotiationFromStorage('other')).toBe(false);
+
+    saveCartWideNegotiationToStorage(false, 'ogabassey');
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
+  });
+
+  it('logs and stays safe when persisting the group flag throws', () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('quota exceeded');
+      });
+
+    expect(() =>
+      saveCartWideNegotiationToStorage(true, 'ogabassey')
+    ).not.toThrow();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to save cart-wide negotiation flag',
+      })
+    );
+
+    setItem.mockRestore();
+  });
+
+  it('returns false when reading the group flag throws', () => {
+    const getItem = vi
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('storage unavailable');
+      });
+
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
+
+    getItem.mockRestore();
   });
 });

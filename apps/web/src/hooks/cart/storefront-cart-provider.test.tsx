@@ -96,6 +96,124 @@ describe('StorefrontCartProvider', () => {
     expect(result.current.cart[0]?.id).toBe('prod-1');
   });
 
+  it('resets a cart-wide negotiation when a line is removed', async () => {
+    const product2 = {
+      ...mockProduct,
+      id: 'prod-2',
+      slug: 'prod-2',
+      sku: 'SKU-2',
+      price: 200,
+    };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey" enableSmartCartPro>
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(mockProduct, 1);
+      result.current.addToCart(product2, 1);
+    });
+    expect(result.current.cart).toHaveLength(2);
+
+    act(() => {
+      result.current.applyCartWideNegotiation?.(270);
+    });
+    expect(result.current.cartWideNegotiationActive).toBe(true);
+    expect(
+      result.current.cart.every((item) => item.negotiationStatus === 'accepted')
+    ).toBe(true);
+
+    const removeId = result.current.cart[0]?.cartItemId;
+    expect(removeId).toBeDefined();
+    act(() => {
+      result.current.removeFromCart(removeId as string);
+    });
+
+    expect(result.current.cart).toHaveLength(1);
+    expect(result.current.cartWideNegotiationActive).toBe(false);
+    expect(result.current.cart[0]?.negotiatedPrice).toBeUndefined();
+    expect(result.current.cart[0]?.negotiationStatus).toBeUndefined();
+  });
+
+  it('clears persisted cart and group-negotiation state against the active merchant key', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey" enableSmartCartPro>
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(mockProduct, 1);
+    });
+    act(() => {
+      result.current.applyCartWideNegotiation?.(90);
+    });
+    await waitFor(() =>
+      expect(
+        localStorageMock.getItem('baci-cart-ogabassey-group-negotiation')
+      ).toBe('true')
+    );
+
+    act(() => {
+      result.current.clearCart();
+    });
+
+    // The merchant-scoped keys must be cleared (not left to rehydrate after a
+    // refresh on the same storefront). The group flag is removed when inactive.
+    expect(localStorageMock.getItem('baci-cart-ogabassey-guest')).toBe('[]');
+    expect(
+      localStorageMock.getItem('baci-cart-ogabassey-group-negotiation')
+    ).toBeNull();
+  });
+
+  it('resets a cart-wide negotiation on a positive quantity change', async () => {
+    const product2 = {
+      ...mockProduct,
+      id: 'prod-2',
+      slug: 'prod-2',
+      sku: 'SKU-2',
+      price: 200,
+    };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey" enableSmartCartPro>
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(mockProduct, 1);
+      result.current.addToCart(product2, 1);
+    });
+    act(() => {
+      result.current.applyCartWideNegotiation?.(270);
+    });
+    expect(result.current.cartWideNegotiationActive).toBe(true);
+
+    // A positive quantity change (not removal) must also reset the group deal.
+    const targetId = result.current.cart[0]?.cartItemId;
+    act(() => {
+      result.current.updateQuantity(targetId as string, 3);
+    });
+
+    expect(result.current.cartWideNegotiationActive).toBe(false);
+    expect(
+      result.current.cart.every((item) => item.negotiatedPrice === undefined)
+    ).toBe(true);
+    expect(
+      result.current.cart.find((item) => item.cartItemId === targetId)?.quantity
+    ).toBe(3);
+  });
+
   it('defers validation until interaction when requested', async () => {
     vi.useFakeTimers();
 

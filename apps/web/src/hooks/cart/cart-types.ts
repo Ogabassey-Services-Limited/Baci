@@ -59,6 +59,9 @@ export interface CartContextType {
   setIsCartOpen: (open: boolean) => void;
   applyNegotiatedPrice?: (cartItemId: string, newPrice: number) => void;
   applyCartWideNegotiation?: (newTotal: number) => void;
+  clearNegotiatedPrice?: (cartItemId: string) => void;
+  /** True while a cart-wide (group) negotiation is applied. */
+  cartWideNegotiationActive?: boolean;
   toggleAssurance?: (cartItemId: string) => void;
   lastAddedProduct: Product | null;
   showUpsell: boolean;

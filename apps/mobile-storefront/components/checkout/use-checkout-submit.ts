@@ -1,4 +1,5 @@
 import type { MutableRefObject } from 'react';
+import { Alert } from 'react-native';
 import type {
   PaymentMethodType,
   PaymentTab,
@@ -7,6 +8,7 @@ import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
+import { useMerchant } from '@/hooks/use-merchant';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import {
@@ -17,6 +19,10 @@ import {
   type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
 import { trackCheckoutStep } from '@/services/analytics';
+import {
+  pickChangedPriceById,
+  repriceCartItems,
+} from '@/services/cart-reprice';
 import { createOrder } from '@/services/orders';
 import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
 import { type CartItem, useCartStore } from '@/stores/cart-store';
@@ -28,6 +34,7 @@ import {
 import { finalizeCheckoutPayment } from './checkout-payment-finalization';
 import { runCheckoutPostOrderSideEffects } from './checkout-post-order-side-effects';
 import type { PendingCryptoOrder } from './checkout-screen.constants';
+import { CHECKOUT_MERCHANT_ID } from './checkout-screen.constants';
 import { resolveCheckoutStoreCreditSelections } from './checkout-store-credit';
 import { handleCheckoutSubmitError } from './checkout-submit-error';
 import { validateCheckoutSubmission } from './checkout-submit-validation';
@@ -114,8 +121,13 @@ export function useCheckoutSubmit({
   walletFundedBankTransferOptionEnabled,
   walletSelection,
 }: UseCheckoutSubmitParams) {
+  const { data: merchant } = useMerchant();
+  // `||` (not `??`) so a blank CONFIG.MERCHANT_ID placeholder falls back.
+  const merchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
+    const groupNegotiationSnapshot =
+      useCartStore.getState().cartWideNegotiationActive;
 
     if (
       !validateCheckoutSubmission({
@@ -137,24 +149,38 @@ export function useCheckoutSubmit({
 
     isOrderInFlight.current = true;
     setIsProcessing(true);
-    const cartSnapshot = [...itemsSnapshot];
-    const snapshot = createCheckoutSnapshot(
-      itemsSnapshot,
-      deliveryFee,
-      orderTotals?.taxAmount ?? 0
-    );
-    const { liveSavingsSelection, liveWalletSelection } =
-      resolveCheckoutStoreCreditSelections({
-        getLiveSavingsSelection,
-        itemsSnapshot,
-        paymentTab,
-        selectedPayment,
-        snapshotTotal: snapshot.total,
-        walletBalance,
-        walletSelection,
-      });
 
     try {
+      // Freeze step: reprice vs live catalog; on drift update+alert+abort. Lock is engaged (no double-submit); finally releases it.
+      if (itemsSnapshot.length > 0) {
+        const reprice = await repriceCartItems(itemsSnapshot, merchantId);
+        if (reprice.changes.length > 0) {
+          useCartStore.getState().repriceItems(pickChangedPriceById(reprice));
+          Alert.alert(
+            'Prices updated',
+            'Some prices changed since you added these items. Your cart has been updated to the latest prices — please review the new total and tap checkout again.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+
+      const snapshot = createCheckoutSnapshot(
+        itemsSnapshot,
+        deliveryFee,
+        orderTotals?.taxAmount ?? 0
+      );
+      const { liveSavingsSelection, liveWalletSelection } =
+        resolveCheckoutStoreCreditSelections({
+          getLiveSavingsSelection,
+          itemsSnapshot,
+          paymentTab,
+          selectedPayment,
+          snapshotTotal: snapshot.total,
+          walletBalance,
+          walletSelection,
+        });
+
       trackCheckoutStep('review');
       const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
@@ -260,8 +286,9 @@ export function useCheckoutSubmit({
           selectedPayment === 'bank_transfer',
       });
     } catch (error) {
-      if (useCartStore.getState().items.length === 0) {
-        useCartStore.getState().restoreItems(cartSnapshot);
+      const cartStore = useCartStore.getState();
+      if (cartStore.items.length === 0) {
+        cartStore.restoreItems(itemsSnapshot, groupNegotiationSnapshot);
       }
       handleCheckoutSubmitError(error, selectedPayment);
     } finally {

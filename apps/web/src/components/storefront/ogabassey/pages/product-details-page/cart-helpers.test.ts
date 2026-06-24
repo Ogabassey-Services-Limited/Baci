@@ -1,11 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   applySingleOptionAxisSelectionsToVariants,
+  buildCartProduct,
   getAxisOptions,
   getVariantBackedSelections,
   hasVariantBackedAxis,
 } from './cart-helpers';
 import type { NormalizedProductDetails } from './product-normalization';
+
+vi.mock('./related-product', () => ({
+  toRelatedProductsProduct: () => ({ id: 'prod-1', name: 'iPhone 15' }),
+}));
 
 function productFixture(
   overrides: Partial<NormalizedProductDetails>
@@ -13,6 +18,26 @@ function productFixture(
   return {
     platforms: [],
     storage: [],
+    ...overrides,
+  } as unknown as NormalizedProductDetails;
+}
+
+function makeProductData(
+  overrides: Partial<NormalizedProductDetails> = {}
+): NormalizedProductDetails {
+  return {
+    images: [
+      'https://cdn.example.com/iphone-15-open-box.avif',
+      'https://cdn.example.com/iphone-15-yellow.avif',
+    ],
+    colorImages: {
+      Black: ['https://cdn.example.com/iphone-15-black.avif'],
+      Yellow: ['https://cdn.example.com/iphone-15-yellow.avif'],
+    },
+    description: 'A phone',
+    rating: 4.8,
+    category: 'Phones',
+    categories: { name: 'Phones' },
     ...overrides,
   } as unknown as NormalizedProductDetails;
 }
@@ -145,5 +170,52 @@ describe('cart helpers', () => {
         stock_quantity: 2,
       },
     ]);
+  });
+});
+
+const offer = { rawPrice: 600000 } as Parameters<typeof buildCartProduct>[1];
+
+describe('buildCartProduct image resolution', () => {
+  it("uses the selected color's image even when the gallery frame is the default", () => {
+    const product = buildCartProduct(
+      makeProductData(),
+      offer,
+      0, // gallery still on the open-box default frame
+      'new',
+      {},
+      'Black'
+    );
+
+    expect(product.image).toBe('https://cdn.example.com/iphone-15-black.avif');
+    expect(product.imageLarge).toBe(
+      'https://cdn.example.com/iphone-15-black.avif'
+    );
+  });
+
+  it('falls back to the displayed gallery frame when the color has no image', () => {
+    const product = buildCartProduct(
+      makeProductData({ colorImages: {} }),
+      offer,
+      1,
+      'new',
+      {},
+      'Black'
+    );
+
+    expect(product.image).toBe('https://cdn.example.com/iphone-15-yellow.avif');
+  });
+
+  it('falls back to the displayed frame for single-image products with no color', () => {
+    const product = buildCartProduct(
+      makeProductData({ colorImages: {} }),
+      offer,
+      0,
+      'new',
+      {}
+    );
+
+    expect(product.image).toBe(
+      'https://cdn.example.com/iphone-15-open-box.avif'
+    );
   });
 });

@@ -33,6 +33,7 @@ vi.mock('@/contexts/auth-context', () => ({
 
 const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
+const mockClearNegotiatedPrice = vi.fn();
 
 type MockCartItem = {
   id: string;
@@ -71,6 +72,7 @@ vi.mock('@/hooks/cart', () => ({
     updateQuantity: vi.fn(),
     applyNegotiatedPrice: mockApplyNegotiatedPrice,
     applyCartWideNegotiation: mockApplyCartWideNegotiation,
+    clearNegotiatedPrice: mockClearNegotiatedPrice,
     toggleAssurance: vi.fn(),
     cartTotal: 20000,
     merchantSlug: 'test-store',
@@ -167,11 +169,17 @@ describe('CartPage', () => {
   });
 
   it('opens negotiation modal with correct type when negotiate total is clicked', () => {
+    // The fixture has an individual offer, so a whole-cart negotiation must
+    // confirm clearing it first before the modal opens.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<CartPage />);
     fireEvent.click(
       screen.getByRole('button', { name: /negotiate total/i })
     );
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockClearNegotiatedPrice).toHaveBeenCalledWith('ci-1');
     expect(screen.getByPlaceholderText('Enter amount...')).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   it('does not open negotiation modal when merchant is unavailable', () => {

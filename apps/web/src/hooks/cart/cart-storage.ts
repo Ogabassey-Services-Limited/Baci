@@ -104,6 +104,57 @@ export const saveCartToStorage = (cart: CartItem[], slug?: string | null) => {
   }
 };
 
+const GROUP_NEGOTIATION_SUFFIX = 'group-negotiation';
+
+export const getStorefrontGroupNegotiationStorageKey = (
+  slug?: string | null
+) =>
+  slug
+    ? `${CART_STORAGE_KEY}-${slug}-${GROUP_NEGOTIATION_SUFFIX}`
+    : `${CART_STORAGE_KEY}-${GROUP_NEGOTIATION_SUFFIX}`;
+
+// A cart-wide (group) negotiation is distributed across the persisted lines but
+// the "this is a group deal" flag lives only in React state. Persist it so a
+// reload can tell a group deal apart from individual line deals — otherwise the
+// rehydrated cart keeps every negotiatedPrice while the flag resets to false,
+// and remove/update/validation paths leave stale group shares behind.
+export const getCartWideNegotiationFromStorage = (
+  slug?: string | null
+): boolean => {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    return (
+      window.localStorage.getItem(
+        getStorefrontGroupNegotiationStorageKey(slug)
+      ) === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const saveCartWideNegotiationToStorage = (
+  active: boolean,
+  slug?: string | null
+) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const key = getStorefrontGroupNegotiationStorageKey(slug);
+    if (active) {
+      window.localStorage.setItem(key, 'true');
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch (error) {
+    logger.error({
+      message: 'Failed to save cart-wide negotiation flag',
+      error: error as Error,
+    });
+  }
+};
+
 export const getMerchantSlugFromStorage = (): string | null => {
   if (typeof window === 'undefined') return null;
 

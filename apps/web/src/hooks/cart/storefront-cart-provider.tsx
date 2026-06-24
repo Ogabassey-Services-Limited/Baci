@@ -11,8 +11,10 @@ import {
   DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS,
   generateCartItemId,
   getCartFromStorage,
+  getCartWideNegotiationFromStorage,
   getMerchantSlugFromStorage,
   saveCartToStorage,
+  saveCartWideNegotiationToStorage,
   saveMerchantSlugToStorage,
 } from './cart-storage';
 import type { AddToCartOptions, CartContextType, CartItem } from './cart-types';
@@ -38,6 +40,10 @@ export function StorefrontCartProvider({
   validationActivationTimeoutMs = DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS,
 }: StorefrontCartProviderProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  // True while a cart-wide (group) negotiation is applied. Removing a line
+  // invalidates the proportional group total, so it is reset on removal.
+  const [cartWideNegotiationActive, setCartWideNegotiationActive] =
+    useState(false);
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(
     initialMerchantSlug
   );
@@ -68,6 +74,10 @@ export function StorefrontCartProvider({
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setMerchantSlugState(slugToUse);
     setCart(getCartFromStorage(slugToUse));
+    // Re-read the group flag for the new merchant too, so it stays consistent
+    // with the freshly loaded cart (otherwise the previous merchant's flag
+    // leaks onto this cart).
+    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
   }
 
   // Hydrate cart + merchant slug from localStorage after mount (storage is
@@ -83,6 +93,7 @@ export function StorefrontCartProvider({
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setCart(getCartFromStorage(slugToUse));
+    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
     setMerchantSlugState(slugToUse);
     setIsHydrated(true);
   }, []);
@@ -189,11 +200,38 @@ export function StorefrontCartProvider({
           return;
         }
 
+        // A cart-wide negotiation distributes one agreed total across all
+        // lines, so any validated price drift voids the whole group deal — not
+        // just the changed line. Reset the flag and clear every line's
+        // negotiated price (applyValidationResults only clears the drifted one).
+        // A drifted price OR a removed (invalid) line both change the negotiated
+        // cart composition, so either voids the whole group deal.
+        const resetGroup =
+          cartWideNegotiationActive &&
+          ((validation.priceChanges?.length ?? 0) > 0 ||
+            (validation.invalidProductIds?.length ?? 0) > 0);
+
         setCart((previousCart) => {
-          const updatedCart = applyValidationResults(previousCart, validation);
+          let updatedCart = applyValidationResults(previousCart, validation);
+          if (resetGroup) {
+            updatedCart = updatedCart.map((item) =>
+              item.negotiatedPrice === undefined &&
+              item.negotiationStatus === undefined
+                ? item
+                : {
+                    ...item,
+                    negotiatedPrice: undefined,
+                    negotiationStatus: undefined,
+                  }
+            );
+          }
           lastValidatedCartHashRef.current = createCartHash(updatedCart);
           return updatedCart;
         });
+
+        if (resetGroup) {
+          setCartWideNegotiationActive(false);
+        }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
@@ -210,13 +248,14 @@ export function StorefrontCartProvider({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [cart, isHydrated, isValidationActivated]);
+  }, [cart, isHydrated, isValidationActivated, cartWideNegotiationActive]);
 
   useEffect(() => {
     if (isHydrated) {
       saveCartToStorage(cart, merchantSlug);
+      saveCartWideNegotiationToStorage(cartWideNegotiationActive, merchantSlug);
     }
-  }, [cart, isHydrated, merchantSlug]);
+  }, [cart, cartWideNegotiationActive, isHydrated, merchantSlug]);
 
   useEffect(() => {
     return () => {
@@ -278,6 +317,7 @@ export function StorefrontCartProvider({
       return;
     }
 
+    const wasGroupActive = cartWideNegotiationActive;
     setCart((previousCart) => {
       const cartItemId = generateCartItemId(
         productForCart.id,
@@ -292,6 +332,7 @@ export function StorefrontCartProvider({
         return !item.cartItemId;
       });
 
+      let result: CartItem[];
       if (existingIndex >= 0) {
         const nextCart = [...previousCart];
         const existingItem = nextCart[existingIndex];
@@ -300,36 +341,56 @@ export function StorefrontCartProvider({
           quantity: existingItem.quantity + quantity,
           cartItemId: existingItem.cartItemId || cartItemId,
         };
-        return nextCart;
+        result = nextCart;
+      } else {
+        result = [
+          ...previousCart,
+          {
+            ...productForCart,
+            cartItemId,
+            quantity,
+            variantId: normalizedOptions?.variantId,
+            variantAttributes: normalizedOptions?.variantAttributes,
+            selectedColor: normalizedOptions?.color,
+            selectedColorValue: normalizedOptions?.colorValue,
+            secondaryColor: normalizedOptions?.secondaryColor,
+            secondaryColorValue: normalizedOptions?.secondaryColorValue,
+            selectedStorage: normalizedOptions?.storage,
+            condition: normalizedOptions?.condition as
+              | 'new'
+              | 'used'
+              | 'open_box'
+              | 'refurbished'
+              | undefined,
+            quizAwardId: normalizedOptions?.quizAwardId,
+            quizVoucherToken: normalizedOptions?.quizVoucherToken,
+            negotiationStatus: 'none',
+            hasAssurance: false,
+            assuranceRate: DEFAULT_ASSURANCE_RATE,
+          },
+        ];
       }
 
-      return [
-        ...previousCart,
-        {
-          ...productForCart,
-          cartItemId,
-          quantity,
-          variantId: normalizedOptions?.variantId,
-          variantAttributes: normalizedOptions?.variantAttributes,
-          selectedColor: normalizedOptions?.color,
-          selectedColorValue: normalizedOptions?.colorValue,
-          secondaryColor: normalizedOptions?.secondaryColor,
-          secondaryColorValue: normalizedOptions?.secondaryColorValue,
-          selectedStorage: normalizedOptions?.storage,
-          condition: normalizedOptions?.condition as
-            | 'new'
-            | 'used'
-            | 'open_box'
-            | 'refurbished'
-            | undefined,
-          quizAwardId: normalizedOptions?.quizAwardId,
-          quizVoucherToken: normalizedOptions?.quizVoucherToken,
-          negotiationStatus: 'none',
-          hasAssurance: false,
-          assuranceRate: DEFAULT_ASSURANCE_RATE,
-        },
-      ];
+      // Adding/merging a line changes the cart composition, so an active
+      // cart-wide deal no longer represents the agreed total — reset it.
+      if (wasGroupActive) {
+        return result.map((item) =>
+          item.negotiatedPrice === undefined &&
+          item.negotiationStatus === undefined
+            ? item
+            : {
+                ...item,
+                negotiatedPrice: undefined,
+                negotiationStatus: undefined,
+              }
+        );
+      }
+      return result;
     });
+
+    if (wasGroupActive) {
+      setCartWideNegotiationActive(false);
+    }
 
     if (enableSmartCartPro) {
       setLastAddedProduct(productForCart);
@@ -343,8 +404,8 @@ export function StorefrontCartProvider({
     cartItemIdOrProductId: string,
     variantId?: string
   ) => {
-    setCart((previousCart) =>
-      previousCart.filter((item) => {
+    setCart((previousCart) => {
+      const filtered = previousCart.filter((item) => {
         if (variantId) {
           return !(
             item.id === cartItemIdOrProductId && item.variantId === variantId
@@ -356,8 +417,24 @@ export function StorefrontCartProvider({
         }
 
         return !(item.id === cartItemIdOrProductId && !item.variantId);
-      })
-    );
+      });
+
+      // A cart-wide (group) negotiation distributes one negotiated total across
+      // all lines; removing a line breaks that total, so reset the group deal
+      // and revert remaining lines to catalog price.
+      if (cartWideNegotiationActive) {
+        return filtered.map((item) => ({
+          ...item,
+          negotiatedPrice: undefined,
+          negotiationStatus: undefined,
+        }));
+      }
+
+      return filtered;
+    });
+    if (cartWideNegotiationActive) {
+      setCartWideNegotiationActive(false);
+    }
   };
 
   const updateQuantity = (
@@ -381,7 +458,17 @@ export function StorefrontCartProvider({
 
       if (targetIndex === -1) return previousCart;
       if (quantity <= 0) {
-        return previousCart.filter((_, index) => index !== targetIndex);
+        const filtered = previousCart.filter(
+          (_, index) => index !== targetIndex
+        );
+        if (cartWideNegotiationActive) {
+          return filtered.map((item) => ({
+            ...item,
+            negotiatedPrice: undefined,
+            negotiationStatus: undefined,
+          }));
+        }
+        return filtered;
       }
 
       const nextCart = [...previousCart];
@@ -392,14 +479,35 @@ export function StorefrontCartProvider({
         quantity:
           quantity < minimumOrderQuantity ? minimumOrderQuantity : quantity,
       };
+      // A quantity change alters the cart total, so an active cart-wide
+      // negotiation no longer represents the agreed total — clear the group
+      // deal on every line (not only when the line is removed).
+      if (cartWideNegotiationActive) {
+        return nextCart.map((line) => ({
+          ...line,
+          negotiatedPrice: undefined,
+          negotiationStatus: undefined,
+        }));
+      }
       return nextCart;
     });
+    if (cartWideNegotiationActive) {
+      setCartWideNegotiationActive(false);
+    }
   };
 
   const clearCart = () => {
+    // Clear persisted state against the active merchant slug first — the
+    // persistence effect runs after `merchantSlug` is nulled, so it would
+    // otherwise write the cleared cart against the default key and leave the
+    // merchant-scoped cart/group-negotiation state to rehydrate on refresh.
+    const slugToClear = merchantSlug;
+    saveCartToStorage([], slugToClear);
+    saveCartWideNegotiationToStorage(false, slugToClear);
     setCart([]);
     setMerchantSlugState(null);
     saveMerchantSlugToStorage(null);
+    setCartWideNegotiationActive(false);
     logger.info({ message: 'Cart cleared' });
   };
 
@@ -410,8 +518,23 @@ export function StorefrontCartProvider({
 
   const applyNegotiatedPrice = (cartItemId: string, newPrice: number) => {
     if (!enableSmartCartPro) return;
-    setCart((previousCart) =>
-      previousCart.map((item) =>
+    const wasGroupActive = cartWideNegotiationActive;
+    setCart((previousCart) => {
+      // If a cart-wide deal was active, clear the proportional group prices from
+      // the other lines first so only this line keeps a negotiation.
+      const base = wasGroupActive
+        ? previousCart.map((item) =>
+            item.negotiatedPrice === undefined &&
+            item.negotiationStatus === undefined
+              ? item
+              : {
+                  ...item,
+                  negotiatedPrice: undefined,
+                  negotiationStatus: undefined,
+                }
+          )
+        : previousCart;
+      return base.map((item) =>
         item.cartItemId === cartItemId
           ? {
               ...item,
@@ -419,8 +542,26 @@ export function StorefrontCartProvider({
               negotiationStatus: 'accepted',
             }
           : item
+      );
+    });
+    // Individual-line negotiation — not a group deal.
+    setCartWideNegotiationActive(false);
+  };
+
+  const clearNegotiatedPrice = (cartItemId: string) => {
+    if (!enableSmartCartPro) return;
+    setCart((previousCart) =>
+      previousCart.map((item) =>
+        item.cartItemId === cartItemId
+          ? {
+              ...item,
+              negotiatedPrice: undefined,
+              negotiationStatus: undefined,
+            }
+          : item
       )
     );
+    setCartWideNegotiationActive(false);
   };
 
   const applyCartWideNegotiation = (newTotal: number) => {
@@ -440,6 +581,7 @@ export function StorefrontCartProvider({
         negotiationStatus: 'accepted',
       }))
     );
+    setCartWideNegotiationActive(true);
   };
 
   const toggleAssurance = (cartItemId: string) => {
@@ -485,6 +627,8 @@ export function StorefrontCartProvider({
     applyCartWideNegotiation: enableSmartCartPro
       ? applyCartWideNegotiation
       : undefined,
+    clearNegotiatedPrice: enableSmartCartPro ? clearNegotiatedPrice : undefined,
+    cartWideNegotiationActive,
     toggleAssurance: enableSmartCartPro ? toggleAssurance : undefined,
     lastAddedProduct,
     showUpsell: enableSmartCartPro ? showUpsell : false,

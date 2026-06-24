@@ -29,6 +29,7 @@ const mockRemoveFromCart = vi.fn();
 const mockUpdateQuantity = vi.fn();
 const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
+const mockClearNegotiatedPrice = vi.fn();
 const mockToggleAssurance = vi.fn();
 
 type MockCartItem = {
@@ -70,6 +71,7 @@ vi.mock('@/hooks/cart', () => ({
     updateQuantity: mockUpdateQuantity,
     applyNegotiatedPrice: mockApplyNegotiatedPrice,
     applyCartWideNegotiation: mockApplyCartWideNegotiation,
+    clearNegotiatedPrice: mockClearNegotiatedPrice,
     toggleAssurance: mockToggleAssurance,
     cartTotal: 10000,
   }),
@@ -169,12 +171,18 @@ describe('CartSidebar', () => {
   });
 
   it('opens negotiation modal with type=total when Negotiate Total is clicked', () => {
+    // The fixture has an individual offer, so a whole-cart negotiation must
+    // confirm clearing it first before the modal opens.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<CartSidebar />);
     fireEvent.click(
       screen.getByRole('button', { name: /negotiate total amount/i })
     );
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockClearNegotiatedPrice).toHaveBeenCalled();
     // The NegotiationModal should now be visible
     expect(screen.getByPlaceholderText('Enter amount...')).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   it('closes sidebar when X button is clicked', () => {

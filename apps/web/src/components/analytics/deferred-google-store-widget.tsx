@@ -1,8 +1,10 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/merchant/types';
+import { setMerchantWidgetFrameHidden } from './google-store-widget-utils';
 
 interface DeferredGoogleStoreWidgetProps {
   merchant?: Pick<MerchantData, 'custom_domain' | 'feature_settings'>;
@@ -21,6 +23,17 @@ interface GoogleStoreWidgetModule {
 const GOOGLE_STORE_WIDGET_DELAY_MS = 20000;
 const MAX_DEFERRED_WIDGET_LOAD_RETRIES = 2;
 
+// The store-rating badge is fixed bottom-left and would cover critical UI on
+// payment/checkout flows — including the embedded Credit Direct (Mono) consent
+// checkbox shown in the mobile app's checkout WebView. Suppress it on those
+// routes; it stays on browse/PDP pages where it belongs.
+const SUPPRESSED_ROUTE_PATTERN =
+  /(?:^|\/)(checkout|payment|pay|credit-direct|bnpl)(?:\/|$)/i;
+
+function isSuppressedRoute(pathname: string | null): boolean {
+  return Boolean(pathname) && SUPPRESSED_ROUTE_PATTERN.test(pathname ?? '');
+}
+
 // Module-scope dynamic import keeps the `import()` expression out of the
 // component body — the React Compiler cannot lower import expressions, so
 // inlining it would opt the component out of automatic memoization.
@@ -31,12 +44,14 @@ function importGoogleStoreWidgetModule(): Promise<GoogleStoreWidgetModule> {
 export function DeferredGoogleStoreWidget(
   props: DeferredGoogleStoreWidgetProps
 ) {
+  const pathname = usePathname();
+  const suppressed = isSuppressedRoute(pathname);
   const [Widget, setWidget] = useState<
     GoogleStoreWidgetModule['GoogleStoreWidget'] | null
   >(null);
 
   useEffect(() => {
-    if (props.enabled === false || Widget) {
+    if (props.enabled === false || suppressed || Widget) {
       return;
     }
 
@@ -108,9 +123,34 @@ export function DeferredGoogleStoreWidget(
       clearLoadTimeout();
       removeDeferredWidgetListeners();
     };
-  }, [Widget, props.enabled, props.loadWidgetModule]);
+  }, [Widget, props.enabled, props.loadWidgetModule, suppressed]);
 
-  if (props.enabled === false || !Widget) {
+  // The widget script injects a fixed badge iframe outside React. If it already
+  // loaded on a browse/PDP route, returning null after a client-side navigation
+  // to a suppressed route does NOT remove that existing frame — hide it here so
+  // it can't cover checkout/payment UI; restore it when leaving the route.
+  useEffect(() => {
+    setMerchantWidgetFrameHidden(suppressed);
+
+    if (!suppressed || typeof MutationObserver === 'undefined') {
+      return;
+    }
+
+    // The script can append (or re-append) the badge iframe AFTER this effect
+    // runs. A one-shot lookup would miss it, leaving a late frame covering the
+    // payment UI — so keep hiding any inserted frame while the route stays
+    // suppressed.
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.addedNodes.length > 0)) {
+        setMerchantWidgetFrameHidden(true);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [suppressed]);
+
+  if (props.enabled === false || suppressed || !Widget) {
     return null;
   }
 

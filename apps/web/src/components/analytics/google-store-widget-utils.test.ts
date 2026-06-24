@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantData } from '@/hooks/merchant/types';
 import {
   GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING,
+  MERCHANT_WIDGET_IFRAME_ID,
   normalizeGoogleMerchantCenterId,
   normalizeHostname,
   resolveGoogleMerchantCenterId,
   resolveGoogleStoreWidgetPreference,
+  resolveMerchantWidgetFrame,
+  setMerchantWidgetFrameHidden,
 } from './google-store-widget-utils';
 
 const baseMerchant: MerchantData = {
@@ -178,5 +181,56 @@ describe('resolveGoogleStoreWidgetPreference', () => {
 
   it('returns undefined when no explicit preference is configured', () => {
     expect(resolveGoogleStoreWidgetPreference(baseMerchant)).toBeUndefined();
+  });
+});
+
+describe('setMerchantWidgetFrameHidden', () => {
+  afterEach(() => {
+    // Restore any stubbed `document` (SSR case) before touching the DOM.
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+  });
+
+  it('no-ops when no widget frame has been injected', () => {
+    expect(resolveMerchantWidgetFrame()).toBeNull();
+    expect(() => setMerchantWidgetFrameHidden(true)).not.toThrow();
+  });
+
+  it('hides and restores the injected widget frame matched by id', () => {
+    const frame = document.createElement('iframe');
+    frame.id = MERCHANT_WIDGET_IFRAME_ID;
+    document.body.appendChild(frame);
+
+    setMerchantWidgetFrameHidden(true);
+    expect(frame.style.display).toBe('none');
+
+    setMerchantWidgetFrameHidden(false);
+    expect(frame.style.display).toBe('');
+  });
+
+  it('ignores a non-iframe element sharing the widget id', () => {
+    const decoy = document.createElement('div');
+    decoy.id = MERCHANT_WIDGET_IFRAME_ID;
+    document.body.appendChild(decoy);
+
+    expect(resolveMerchantWidgetFrame()).toBeNull();
+    setMerchantWidgetFrameHidden(true);
+    expect(decoy.style.display).toBe('');
+  });
+
+  it('falls back to the merchantverse iframe when no id matches', () => {
+    const frame = document.createElement('iframe');
+    frame.src = 'https://www.google.com/shopping/merchantverse/badge';
+    document.body.appendChild(frame);
+
+    expect(resolveMerchantWidgetFrame()).toBe(frame);
+    setMerchantWidgetFrameHidden(true);
+    expect(frame.style.display).toBe('none');
+  });
+
+  it('no-ops during SSR when document is unavailable', () => {
+    vi.stubGlobal('document', undefined);
+    expect(resolveMerchantWidgetFrame()).toBeNull();
+    expect(() => setMerchantWidgetFrameHidden(true)).not.toThrow();
   });
 });

@@ -26,6 +26,7 @@ import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
+import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     updateQuantity,
     applyNegotiatedPrice,
     applyCartWideNegotiation,
+    clearNegotiatedPrice,
     toggleAssurance,
     cartTotal,
   } = useCart();
@@ -110,11 +112,21 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
       return;
     }
 
-    setNegotiationState({
-      isOpen: true,
-      type: 'total',
-      currentPrice: cartTotal,
-      name: 'Entire Cart',
+    runCartTotalNegotiation({
+      cart,
+      fallbackTotal: cartTotal,
+      clearNegotiatedPrice,
+      confirmReset: () =>
+        window.confirm(
+          'Negotiating your whole cart will clear the prices you negotiated on individual items. Reset them and continue?'
+        ),
+      openBulk: (currentPrice) =>
+        setNegotiationState({
+          isOpen: true,
+          type: 'total',
+          currentPrice,
+          name: 'Entire Cart',
+        }),
     });
   };
 

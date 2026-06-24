@@ -229,6 +229,33 @@ describe('storefront-cart-validation', () => {
     );
   });
 
+  it('clears a stale negotiation when the base price changes', () => {
+    const result = applyValidationResults(
+      [
+        makeCartItem({
+          id: 'cart-item-1',
+          cartItemId: 'cart-item-1',
+          price: 200,
+          negotiatedPrice: 196,
+          negotiationStatus: 'accepted',
+        }),
+      ],
+      {
+        invalidProductIds: [],
+        priceChanges: [{ id: 'cart-item-1', oldPrice: 200, newPrice: 250 }],
+      }
+    );
+
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        cartItemId: 'cart-item-1',
+        price: 250,
+        negotiatedPrice: undefined,
+        negotiationStatus: undefined,
+      })
+    );
+  });
+
   it('applies variant-specific price changes only to the matching cart line', () => {
     const result = applyValidationResults(
       [
