@@ -1,6 +1,6 @@
 import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { CONSTANT_MERCHANT_ID } from '@/hooks/product-utils';
+import { CHECKOUT_MERCHANT_ID } from '@/components/checkout/checkout-screen.constants';
 import { useMerchant } from '@/hooks/use-merchant';
 import {
   type CartPriceChange,
@@ -39,7 +39,12 @@ export function useCartReprice() {
   // shape, treat the cart as empty here rather than throwing on `items.length`
   // before the screen's recovery path can run.
   const items = Array.isArray(rawItems) ? rawItems : [];
-  const merchantId = merchant?.id ?? CONSTANT_MERCHANT_ID;
+  // `||` (not `??`) and CHECKOUT_MERCHANT_ID (not CONSTANT_MERCHANT_ID) to match
+  // the checkout reprice exactly: `merchant?.id` is seeded from CONFIG.MERCHANT_ID
+  // (which defaults to '') during the placeholder phase, and only
+  // CHECKOUT_MERCHANT_ID carries a hardcoded UUID fallback — so this never
+  // reprices against an empty merchant id.
+  const merchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   const cartRepriceKey = getCartRepriceKey(items);
 
   useEffect(() => {

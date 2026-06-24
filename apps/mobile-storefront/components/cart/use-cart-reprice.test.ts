@@ -8,8 +8,8 @@ let mockMerchant: { id: string } | null = { id: 'merchant-1' };
 let mockIsFocused = true;
 let mockItems: CartItem[] = [];
 
-jest.mock('@/hooks/product-utils', () => ({
-  CONSTANT_MERCHANT_ID: 'fallback-merchant',
+jest.mock('@/components/checkout/checkout-screen.constants', () => ({
+  CHECKOUT_MERCHANT_ID: 'fallback-merchant',
 }));
 
 jest.mock('@/hooks/use-merchant', () => ({
@@ -119,6 +119,25 @@ describe('useCartReprice', () => {
 
   it('uses the fallback merchant id when merchant data has not loaded', async () => {
     mockMerchant = null;
+    mockRepriceCartItems.mockResolvedValue({
+      priceById: {},
+      changes: [],
+    });
+
+    renderHook(() => useCartReprice());
+
+    await waitFor(() => {
+      expect(mockRepriceCartItems).toHaveBeenCalledWith(
+        mockItems,
+        'fallback-merchant'
+      );
+    });
+  });
+
+  it('falls back when the merchant id is a blank placeholder string', async () => {
+    // CONFIG.MERCHANT_ID defaults to '' and seeds the merchant placeholder, so
+    // `??` would reprice against an empty id — `||` must fall back instead.
+    mockMerchant = { id: '' };
     mockRepriceCartItems.mockResolvedValue({
       priceById: {},
       changes: [],
