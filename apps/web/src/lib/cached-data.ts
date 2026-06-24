@@ -2324,16 +2324,25 @@ async function getCachedCategoryPageProductChunk({
 
     switch (scope.collectionSlug) {
       case 'new-arrivals':
-        query = query.order('created_at', { ascending: false });
+        query = query
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true });
         break;
       case 'best-sellers':
-        query = query.order('rating', { ascending: false });
+        query = query
+          .order('rating', { ascending: false })
+          .order('id', { ascending: true });
         break;
       case 'on-sale':
-        query = query.not('compare_at_price', 'is', null);
+        query = query
+          .not('compare_at_price', 'is', null)
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true });
         break;
       case 'featured':
-        query = query.order('price', { ascending: false });
+        query = query
+          .order('price', { ascending: false })
+          .order('id', { ascending: true });
         break;
     }
 
@@ -2368,6 +2377,7 @@ async function getCachedCategoryPageProductChunk({
       .eq('status', 'active')
       .in('product_categories.category_id', categoryIds)
       .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(offset, rangeTo);
 
     products = data || [];
@@ -2386,6 +2396,7 @@ async function getCachedCategoryPageProductChunk({
         `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
       )
       .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(offset, rangeTo);
 
     products = data || [];
