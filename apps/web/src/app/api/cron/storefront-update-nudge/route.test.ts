@@ -11,6 +11,19 @@ vi.mock('@/lib/expo-push', () => ({
   notifyStorefrontUpdateAvailable: (...args: unknown[]) => mockNotify(...args),
 }));
 
+// Resolve the latest build from the LATEST_BUILD env var (the store's own
+// fallback) so these tests stay env-driven without Supabase or the store's
+// in-process cache leaking across cases.
+vi.mock('@/lib/mobile-release-gate-store', async () => {
+  const { parseBuildNumber, readMobilePlatformEnv } = await vi.importActual<
+    typeof import('@/lib/mobile-update-gate')
+  >('@/lib/mobile-update-gate');
+  return {
+    readLatestLiveBuild: async (platform: 'android' | 'ios') =>
+      parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
+  };
+});
+
 const SECRET = 'test-cron-secret';
 
 function cronRequest(authHeader?: string): NextRequest {
