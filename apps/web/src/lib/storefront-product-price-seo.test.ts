@@ -196,6 +196,22 @@ describe('buildProductPriceSeoCopy', () => {
     );
   });
 
+  it('spells plus-model titles with Plus to avoid crawler title normalization collisions', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'Samsung Galaxy Tab S9+',
+        slug: 'samsung-galaxy-tab-s9-plus',
+        price: 950000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Tablets',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe('Samsung Galaxy Tab S9 Plus Price in Nigeria');
+  });
+
   it('builds generic check-price copy when no price is available', () => {
     const copy = buildProductPriceSeoCopy({
       product: {

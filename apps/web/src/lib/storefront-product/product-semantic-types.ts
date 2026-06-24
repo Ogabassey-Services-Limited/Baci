@@ -29,6 +29,7 @@ export interface ProductSemanticSection {
 }
 
 export interface ProductSemanticModel {
+  contextParagraphs?: string[];
   trustBullets: string[];
   supportLinks: CommercialSupportLink[];
   guideLinks: InformationalGuideLink[];

@@ -201,6 +201,7 @@ describe('Storefront homepage structured data', () => {
       hasMerchantReturnPolicy: {
         '@type': 'MerchantReturnPolicy',
         applicableCountry: 'NG',
+        returnPolicyCountry: 'NG',
         merchantReturnDays: 7,
         returnMethod: 'https://schema.org/ReturnByMail',
         returnFees: 'https://schema.org/FreeReturn',
@@ -210,7 +211,7 @@ describe('Storefront homepage structured data', () => {
       sameAs: expect.arrayContaining([
         'https://facebook.com/ogabasseyyy',
         'https://instagram.com/ogabasseyy',
-        'https://x.com/ogabasseyy',
+        'https://twitter.com/ogabasseyy',
         'https://youtube.com/@ogabassey',
       ]),
     });
