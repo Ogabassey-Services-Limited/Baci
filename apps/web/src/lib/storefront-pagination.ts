@@ -1,7 +1,8 @@
 export const STOREFRONT_PRODUCTS_PER_PAGE = 20;
 export const STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT = 20;
 export const STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT = 100;
-export const STOREFRONT_CRAWL_DISCOVERY_MAX_LINKS = 60;
+// Only caps the overflow path after all-pages discovery exceeds the threshold.
+export const STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS = 60;
 
 interface StorefrontCrawlDiscoveryPagesOptions {
   totalPages: number;
@@ -130,7 +131,7 @@ export function getStorefrontCrawlDiscoveryPages({
   totalPages,
   currentPage = 1,
   allPagesThreshold = STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
-  maxPages = STOREFRONT_CRAWL_DISCOVERY_MAX_LINKS,
+  maxPages = STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS,
   requiredPages = [],
   currentWindow = 1,
   edgePageCount = 10,

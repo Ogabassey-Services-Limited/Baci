@@ -5,7 +5,7 @@ import {
   buildStorefrontPageHref,
   getStorefrontCrawlDiscoveryPages,
   STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
-  STOREFRONT_CRAWL_DISCOVERY_MAX_LINKS,
+  STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS,
 } from '@/lib/storefront-pagination';
 
 interface StorefrontPaginationProps {
@@ -65,7 +65,7 @@ export function StorefrontPagination({
   ariaLabel = 'Pagination',
   crawlDiscoveryAllPagesThreshold = STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
   crawlDiscoveryLabel,
-  crawlDiscoveryMaxLinks = STOREFRONT_CRAWL_DISCOVERY_MAX_LINKS,
+  crawlDiscoveryMaxLinks = STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS,
   crawlDiscoveryPageLabel = 'Page',
   crawlDiscoveryRequiredPages = [],
 }: StorefrontPaginationProps) {
@@ -165,7 +165,6 @@ export function StorefrontPagination({
             {discoveryPages.map((page) => (
               <Link
                 key={`crawl-discovery-${page}`}
-                aria-current={page === safeCurrentPage ? 'page' : undefined}
                 href={asRoute(buildStorefrontPageHref(basePath, page))}
                 prefetch={false}
                 className="text-xs font-medium text-store-primary underline-offset-4 hover:underline"

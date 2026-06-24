@@ -32,8 +32,8 @@ vi.mock('@/lib/storefront-pagination', async (importOriginal) => {
     ),
     STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT:
       actual.STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
-    STOREFRONT_CRAWL_DISCOVERY_MAX_LINKS:
-      actual.STOREFRONT_CRAWL_DISCOVERY_MAX_LINKS,
+    STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS:
+      actual.STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS,
   };
 });
 
@@ -261,9 +261,8 @@ describe('StorefrontPagination', () => {
   it('renders optional crawl discovery links without prefetching them', () => {
     render(
       <StorefrontPagination
-        ariaLabel="Product pages"
         basePath="/store/products"
-        currentPage={1}
+        currentPage={2}
         totalPages={64}
         crawlDiscoveryAllPagesThreshold={100}
         crawlDiscoveryLabel="Browse product index pages"
@@ -275,12 +274,18 @@ describe('StorefrontPagination', () => {
     const page64Link = screen.getByRole('link', { name: 'Products page 64' });
     expect(page64Link).toHaveAttribute('href', '/store/products?page=64');
     expect(page64Link).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(
+      screen.getByRole('link', { name: 'Products page 2' })
+    ).not.toHaveAttribute('aria-current');
   });
 
   it('does not render crawl discovery links without a discovery label', () => {
     render(
       <StorefrontPagination
-        ariaLabel="Product pages"
         basePath="/store/products"
         currentPage={1}
         totalPages={64}
