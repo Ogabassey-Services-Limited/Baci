@@ -207,7 +207,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           </Text>
         </View>
         <Pressable
-          accessibilityLabel="Save Order"
+          accessibilityLabel={isSubmitting ? "Saving..." : "Save Order"}
           accessibilityRole="button"
           accessibilityState={{
             disabled: isSubmitting || orderItems.length === 0,
@@ -216,12 +216,12 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
           style={({ pressed }) => [
-            pressed && { opacity: 0.7 },
             styles.payBtn,
             {
               backgroundColor: colors.primary,
               opacity: isSubmitting || orderItems.length === 0 ? 0.6 : 1,
             },
+            pressed && { opacity: 0.7 },
           ]}
         >
           {isSubmitting ? (

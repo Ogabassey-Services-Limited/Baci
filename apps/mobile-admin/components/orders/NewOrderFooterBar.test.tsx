@@ -168,4 +168,15 @@ describe('NewOrderFooterBar', () => {
     expect(controller.setPartialAmount).toHaveBeenCalledWith('');
     expect(controller.handleSubmit).toHaveBeenCalledTimes(1);
   });
+
+  it('shows saving state and disables interactions when isSubmitting is true', () => {
+    const controller = makeController({ isSubmitting: true });
+    render(<NewOrderFooterBar controller={controller} />);
+
+    const saveButton = screen.getByRole('button', { name: 'Saving...' });
+    expect(saveButton).toBeDisabled();
+    expect(saveButton).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Saving...')).toBeInTheDocument();
+    expect(screen.getByText('Loading...')).toBeInTheDocument(); // matches ActivityIndicator mock
+  });
 });
