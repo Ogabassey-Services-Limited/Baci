@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { getNextDeploymentId } from './next-deployment-id';
 
 describe('getNextDeploymentId', () => {
-  it('prefers an explicit Next deployment id', () => {
+  it('prefers the neutral prebuilt deployment id source', () => {
+    expect(
+      getNextDeploymentId({
+        BACI_NEXT_DEPLOYMENT_ID_SOURCE:
+          '28113940786_2_4ed230c08d512b42aed6824b19c2427710247cbf',
+        NEXT_DEPLOYMENT_ID: 'manual-release-123',
+        GITHUB_SHA: 'commit-sha',
+      })
+    ).toBe('28113940786_2_4ed230c08d512b42ae');
+  });
+
+  it('keeps explicit Next deployment id as a manual override fallback', () => {
     expect(
       getNextDeploymentId({
         NEXT_DEPLOYMENT_ID: 'manual-release-123',
@@ -31,7 +42,7 @@ describe('getNextDeploymentId', () => {
   it('uses a unique workflow deployment id before commit sha fallbacks', () => {
     expect(
       getNextDeploymentId({
-        NEXT_DEPLOYMENT_ID:
+        BACI_NEXT_DEPLOYMENT_ID_SOURCE:
           '28113940786_2_4ed230c08d512b42aed6824b19c2427710247cbf',
         GITHUB_SHA: 'e515baffe0b237f98ee5e2a6d0f116f04229e2af',
       })
