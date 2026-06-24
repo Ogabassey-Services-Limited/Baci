@@ -1,4 +1,13 @@
 @import "tailwindcss" source(none);
+/*
+  Register the store color tokens in the render-blocking critical CSS so
+  above-the-fold store-token surfaces (the product hero cards, utility panel)
+  emit with their literal hex fallbacks and paint correctly on the first frame.
+  Without this, `store-*` colors are only registered in the deferred
+  storefront-home.css, so the critical CSS cannot generate `.bg-store-secondary`
+  et al. and the hero first-paints unstyled with the dark shell showing through.
+*/
+@import "./storefront-theme-tokens.css";
 
 /* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
 @config "../../../tailwind.storefront-home.config.mjs";
@@ -28,17 +37,21 @@
   render-blocking path. The complete product-card utility surface is deferred
   through storefront-home.css.
 
-  hero-desktop-grid.tsx is sourced above: Hero.tsx now renders it directly in
-  the above-fold server output (it is no longer client-deferred), so its grid /
-  card utilities must be in this critical entrypoint or desktop users first-paint
-  the launch hero unstyled before the deferred homepage stylesheet loads.
+  hero-desktop-grid.tsx is sourced above: Hero.tsx renders it directly in the
+  final streamed above-fold server output (it is no longer client-deferred), so
+  its grid / card utilities must be in this critical entrypoint or desktop users
+  first-paint the launch hero unstyled before the deferred homepage stylesheet
+  loads.
 
-  ogabassey-home-hero-fallback.tsx + ogabassey-shell-mobile-hero.tsx are the
-  Suspense fallback that paints in the PPR static shell BEFORE the product hero
-  streams in. Their light card/skeleton backgrounds (bg-store-secondary,
-  bg-store-primary/35, bg-store-secondary-text/10, ...) must be critical, or the
-  fallback first-paints unstyled and the dark shell background shows through as a
-  black flash until the deferred homepage stylesheet loads.
+  ogabassey-home-hero-fallback.tsx is also sourced above because the static PPR
+  shell still renders this hero-shaped fallback while the uncached product hero
+  streams. Keep its utility classes critical; otherwise the fallback itself can
+  first-paint unstyled and reintroduce the dark flash.
+
+  ogabassey-shell-mobile-hero.tsx is the baked mobile hero used by the layout
+  ShellChromeLoading fallback (shown during client-side navigation to the home).
+  Its light card backgrounds must be critical so that loading state paints styled
+  rather than letting the dark shell show through.
 */
 /* stylelint-enable scss/at-rule-no-unknown */
 

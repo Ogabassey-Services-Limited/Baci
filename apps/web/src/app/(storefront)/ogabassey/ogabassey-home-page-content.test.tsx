@@ -2,47 +2,42 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockDynamicContentShouldSuspend,
-  mockHeaders,
-  mockHeroSectionShouldSuspend,
-  mockPublishedMerchant,
-} = vi.hoisted(() => ({
-  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
-  mockDynamicContentShouldSuspend: vi.fn(() => false),
-  mockHeroSectionShouldSuspend: vi.fn(() => false),
-  mockPublishedMerchant: {
-    id: 'merchant-1',
-    business_name: 'OgaBassey',
-    business_type: 'electronics',
-    email: 'hello@ogabassey.com',
-    phone: '+2341234567',
-    logo_url: '',
-    brand_colors: undefined,
-    country: 'NG',
-    pages: undefined,
-    slug: 'ogabassey',
-    custom_domain: 'ogabassey.com',
-    favicon_svg_url: undefined,
-    favicon_png_32_url: undefined,
-    favicon_apple_touch_url: undefined,
-    social_media: undefined,
-    business_address: '',
-    is_published: true,
-    feature_settings: undefined,
-    template_id: 'ogabassey',
-    vat_registration_status: undefined,
-    vat_rate: undefined,
-    hero_slides: undefined,
-    mobile_hero_slides: undefined,
-    site_title: '',
-    site_tagline: '',
-    site_description: '',
-    payout_currency: 'NGN',
-    plan_tier: 'free',
-    premium_features: undefined,
-  },
-}));
+const { mockDynamicContentShouldSuspend, mockHeaders, mockPublishedMerchant } =
+  vi.hoisted(() => ({
+    mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
+    mockDynamicContentShouldSuspend: vi.fn(() => false),
+    mockPublishedMerchant: {
+      id: 'merchant-1',
+      business_name: 'OgaBassey',
+      business_type: 'electronics',
+      email: 'hello@ogabassey.com',
+      phone: '+2341234567',
+      logo_url: '',
+      brand_colors: undefined,
+      country: 'NG',
+      pages: undefined,
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+      favicon_svg_url: undefined,
+      favicon_png_32_url: undefined,
+      favicon_apple_touch_url: undefined,
+      social_media: undefined,
+      business_address: '',
+      is_published: true,
+      feature_settings: undefined,
+      template_id: 'ogabassey',
+      vat_registration_status: undefined,
+      vat_rate: undefined,
+      hero_slides: undefined,
+      mobile_hero_slides: undefined,
+      site_title: '',
+      site_tagline: '',
+      site_description: '',
+      payout_currency: 'NGN',
+      plan_tier: 'free',
+      premium_features: undefined,
+    },
+  }));
 
 vi.mock('@/lib/cached-data', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -69,12 +64,9 @@ vi.mock('next/server', () => ({
 }));
 
 vi.mock('./ogabassey-home-hero-section', () => ({
-  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => {
-    if (mockHeroSectionShouldSuspend()) {
-      throw new Promise(() => undefined);
-    }
-    return <section aria-label="Streamed home hero">{pathPrefix}</section>;
-  },
+  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
+    <section aria-label="Product hero" data-prefix={pathPrefix} />
+  ),
 }));
 
 vi.mock('./ogabassey-home-dynamic-content', () => ({
@@ -84,12 +76,6 @@ vi.mock('./ogabassey-home-dynamic-content', () => ({
     }
     return <section aria-label="Dynamic home content">{pathPrefix}</section>;
   },
-}));
-
-vi.mock('./ogabassey-home-hero-fallback', () => ({
-  OgabasseyHomeHeroFallback: () => (
-    <section aria-label="Home hero fallback">Hero fallback</section>
-  ),
 }));
 
 vi.mock('@/components/storefront/store-not-published', () => ({
@@ -123,33 +109,38 @@ describe('OgabasseyHomePageContent', () => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
     mockDynamicContentShouldSuspend.mockReturnValue(false);
-    mockHeroSectionShouldSuspend.mockReturnValue(false);
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       mockPublishedMerchant
     );
   });
 
-  it('streams the dynamic home content after the publication guard', async () => {
-    const result = await OgabasseyHomePageContent();
+  it('renders the final hero and dynamic home content with the path-mode prefix after the publication guard', async () => {
+    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
 
     render(result as ReactElement);
 
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '/ogabassey');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toHaveTextContent('/ogabassey');
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('keeps a hero-sized fallback visible while hero content streams', async () => {
-    mockHeroSectionShouldSuspend.mockReturnValue(true);
+  it('keeps the final hero visible when below-fold dynamic content suspends', async () => {
+    mockDynamicContentShouldSuspend.mockReturnValue(true);
 
-    const result = await OgabasseyHomePageContent();
+    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
 
     render(result as ReactElement);
 
     expect(
-      screen.getByRole('region', { name: /home hero fallback/i })
-    ).toBeInTheDocument();
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '/ogabassey');
+    expect(
+      screen.queryByRole('region', { name: /dynamic home content/i })
+    ).not.toBeInTheDocument();
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {
@@ -157,11 +148,32 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 
-    const result = await OgabasseyHomePageContent();
+    const result = await OgabasseyHomePageContent({ pathPrefix: '' });
 
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '');
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toBeEmptyDOMElement();
+  });
+
+  it('keeps subdomain rewrite links root-relative from the merchant header', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-merchant-slug', 'ogabassey']])
+    );
+
+    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+
+    render(result as ReactElement);
+
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toBeEmptyDOMElement();
@@ -172,7 +184,7 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['host', 'baci-preview.vercel.app']])
     );
 
-    await OgabasseyHomePageContent();
+    await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
@@ -183,7 +195,7 @@ describe('OgabasseyHomePageContent', () => {
       is_published: false,
     });
 
-    const result = await OgabasseyHomePageContent();
+    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
 
     render(result as ReactElement);
 
@@ -191,14 +203,16 @@ describe('OgabasseyHomePageContent', () => {
       'OgaBassey'
     );
     expect(
-      screen.queryByRole('region', { name: 'OgaBassey hero' })
+      screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
   });
 
   it('returns 404 when merchant lookup is null', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 
-    await expect(OgabasseyHomePageContent()).rejects.toThrow('not-found');
+    await expect(
+      OgabasseyHomePageContent({ pathPrefix: '/ogabassey' })
+    ).rejects.toThrow('not-found');
 
     expect(notFound).toHaveBeenCalledOnce();
   });

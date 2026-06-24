@@ -7,19 +7,43 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { OgabasseyHomeDynamicContent } from './ogabassey-home-dynamic-content';
-import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
+
+interface OgabasseyHomePageContentProps {
+  /** Static per-route path prefix, supplied by the parent (which renders the
+   *  static hero with the same value). */
+  pathPrefix: string;
+}
 
 function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
   return resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
 }
 
-export async function OgabasseyHomePageContent() {
+export function resolveOgabasseyHomePathPrefix(
+  headersList: Headers,
+  staticPathPrefix: string
+): string {
+  return resolveMerchantContextIdentifier(headersList) ? '' : staticPathPrefix;
+}
+
+/**
+ * Request-scoped home content. The parent Suspense boundary prerenders the
+ * hero-shaped fallback into the PPR shell to avoid a blank/dark first frame;
+ * this component streams the final product hero and below-the-fold content
+ * after request headers resolve.
+ */
+export async function OgabasseyHomePageContent({
+  pathPrefix,
+}: OgabasseyHomePageContentProps) {
   await connection();
 
   const headersList = await headers();
   const merchant = await getRequestScopedMerchant(
     resolveOgabasseyHomeMerchantIdentifier(headersList)
+  );
+  const resolvedPathPrefix = resolveOgabasseyHomePathPrefix(
+    headersList,
+    pathPrefix
   );
 
   if (!merchant) {
@@ -31,23 +55,16 @@ export async function OgabasseyHomePageContent() {
     return <StoreNotPublished businessName={merchant.business_name} />;
   }
 
-  const pathPrefix =
-    headersList.has('x-custom-domain') || headersList.has('x-merchant-slug')
-      ? ''
-      : `/${merchant.slug}`;
-
   return (
     <>
-      <Suspense fallback={<OgabasseyHomeHeroFallback />}>
-        <OgabasseyHomeHeroSection
-          merchantId={merchant.id}
-          pathPrefix={pathPrefix}
-        />
-      </Suspense>
-      <Suspense>
+      <OgabasseyHomeHeroSection
+        merchantId={merchant.id}
+        pathPrefix={resolvedPathPrefix}
+      />
+      <Suspense fallback={null}>
         <OgabasseyHomeDynamicContent
           merchant={merchant}
-          pathPrefix={pathPrefix}
+          pathPrefix={resolvedPathPrefix}
         />
       </Suspense>
     </>

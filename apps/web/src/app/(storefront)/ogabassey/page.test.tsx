@@ -47,8 +47,11 @@ describe('OgabasseyStaticHomePage', () => {
 
     expect(screen.getByText('Deferred homepage styles')).toBeInTheDocument();
     expect(mockHomeStyleLoader).toHaveBeenCalledOnce();
-    // The hero is now product-driven and renders inside the dynamic home
-    // content, not in this static shell.
+    // The product-driven first-flush hero is now owned by the route layout's
+    // static fallback; this page only streams final dynamic home content.
+    expect(
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveTextContent('OgaBassey storefront');
     expect(mockOgabasseyHomePageContent).toHaveBeenCalled();
   });
