@@ -236,4 +236,34 @@ describe('sendManualJumiaNotifications', () => {
       })
     );
   });
+
+  it('fails closed without marking sent on partial provider failures', async () => {
+    vi.mocked(notifyJumiaOrder).mockResolvedValueOnce({
+      sent: 1,
+      failed: 1,
+      errors: ['DeviceNotRegistered'],
+    });
+
+    const result = await sendManualJumiaNotifications(
+      createSupabaseWithNotificationRows([]),
+      'merchant-1',
+      [createWrite()]
+    );
+
+    expect(result).toEqual({ markerFailed: true, newOrders: 1 });
+    expect(markJumiaNotificationSent).not.toHaveBeenCalled();
+    expect(releaseJumiaNotificationDeliveryClaim).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      'order-1',
+      '2026-06-22T12:00:00.000Z'
+    );
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Jumia order push notification delivery failed',
+        orderId: 'order-1',
+        orderNumber: 'NO-1',
+      })
+    );
+  });
 });

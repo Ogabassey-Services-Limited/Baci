@@ -130,7 +130,9 @@ export async function deliverSyncedJumiaOrderNotification({
       errors: [],
     };
 
-  if (notificationResult.sent <= 0) {
+  const hasProviderFailure =
+    notificationResult.failed > 0 || notificationResult.errors.length > 0;
+  if (notificationResult.sent <= 0 || hasProviderFailure) {
     const releaseError = await releaseSyncedJumiaNotificationClaim({
       claimedAt,
       jumiaOrderId: order.id,

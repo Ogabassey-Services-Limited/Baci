@@ -422,7 +422,6 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     });
     expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
       notification_claimed_at: null,
-      notification_sent: true,
     });
     expect(result.errors).toEqual(
       expect.arrayContaining([

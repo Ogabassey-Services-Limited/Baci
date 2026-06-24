@@ -1,13 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { mapWithBoundedConcurrency } from './manual-order-sync-concurrency';
 import type {
   ExistingJumiaOrderLookup,
   JumiaOrderWrite,
 } from './manual-order-sync-types';
-import {
-  chunkRecords,
-  mapWithBoundedConcurrency,
-} from './manual-order-sync-utils';
+import { chunkRecords } from './manual-order-sync-utils';
 import { chunkOrderIds } from './order-sync-operations';
 
 const JUMIA_ORDER_UPSERT_BATCH_SIZE = 100;

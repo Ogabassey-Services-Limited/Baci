@@ -168,6 +168,27 @@ describe('deliverSyncedJumiaOrderNotification', () => {
     );
   });
 
+  it('does not mark partial provider failures as sent', async () => {
+    vi.mocked(notifySyncedJumiaOrder).mockResolvedValueOnce({
+      sent: 1,
+      failed: 1,
+      errors: ['DeviceNotRegistered'],
+    });
+
+    await expect(callDelivery()).resolves.toEqual({
+      sent: 1,
+      failed: 1,
+      errors: ['DeviceNotRegistered'],
+    });
+    expect(markJumiaNotificationSent).not.toHaveBeenCalled();
+    expect(releaseJumiaNotificationDeliveryClaim).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'jumia-order-1',
+      '2026-06-22T12:00:00.000Z'
+    );
+  });
+
   it('logs release failures before rethrowing push errors', async () => {
     vi.mocked(notifySyncedJumiaOrder).mockRejectedValueOnce(
       new Error('push failed')

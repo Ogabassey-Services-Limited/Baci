@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { notifyJumiaOrder } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { mapWithBoundedConcurrency } from './manual-order-sync-concurrency';
 import type { JumiaOrderWrite } from './manual-order-sync-types';
-import { mapWithBoundedConcurrency } from './manual-order-sync-utils';
 import {
   claimJumiaNotificationDelivery,
   isJumiaNotificationAlreadySent,
@@ -167,7 +167,9 @@ export async function sendManualJumiaNotifications(
         write.totalAmount,
         write.currency
       );
-      if (deliveryResult.sent <= 0) {
+      const hasProviderFailure =
+        deliveryResult.failed > 0 || deliveryResult.errors.length > 0;
+      if (deliveryResult.sent <= 0 || hasProviderFailure) {
         const releaseError = await releaseManualJumiaNotificationClaim({
           claimedAt: claim.claimedAt,
           orderId: write.orderId,
@@ -175,7 +177,7 @@ export async function sendManualJumiaNotifications(
           supabase,
         });
         if (releaseError) markerFailed = true;
-        if (deliveryResult.failed > 0 || deliveryResult.errors.length > 0) {
+        if (hasProviderFailure) {
           markerFailed = true;
           logger.error({
             message: 'Jumia order push notification delivery failed',
