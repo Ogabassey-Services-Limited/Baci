@@ -247,6 +247,14 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
         ([column]) => column === 'product_categories.category_id'
       )
     ).toHaveLength(2);
+    const detailSelect = harness.mockSelect.mock.calls
+      .map(([select]) => String(select))
+      .find(
+        (select) =>
+          select.includes('manage_stock') &&
+          select.includes('categories(name, slug)')
+      );
+    expect(detailSelect).toContain('product_categories!inner');
   });
 
   it('Scenario 3: flags categoryQueryFailed (fail open) when the category .single() lookup hits a transient error, not a normal "no rows"', async () => {

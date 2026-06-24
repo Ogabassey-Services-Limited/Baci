@@ -42,12 +42,15 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
   CategoryPage: ({
+    currentPage,
     products,
   }: {
+    currentPage?: number;
     products?: Array<{ id: string; name: string; price: string }>;
   }) => (
     <div data-testid="category-page">
       Category page
+      {currentPage ? <div>Page: {currentPage}</div> : null}
       {products?.map((product) => (
         <div key={product.id}>
           {product.name}: {product.price}
@@ -396,6 +399,58 @@ describe('CategoryPageContent', () => {
     expect(
       screen.queryByRole('heading', { name: 'Category page not found' })
     ).not.toBeInTheDocument();
+  });
+
+  it('keeps the requested page when detail chunks fail but ID slots prove pagination', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+    const pageTwoProduct = {
+      id: 'product-25',
+      name: 'Recovered Phone',
+      price: 250000,
+    };
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      category: { id: 'cat-1', name: 'Phones', slug: 'phones' },
+      products: [pageTwoProduct],
+      productSlots: [...Array.from({ length: 24 }, () => null), pageTwoProduct],
+      fallbackName: 'Phones',
+      fallbackDescription: 'Phones',
+      isInactiveCategory: false,
+      productIdsQueryFailed: false,
+      productsQueryFailed: true,
+    });
+    mockNormalizeCategoryPageProducts.mockImplementation((products) =>
+      (products as (typeof pageTwoProduct)[]).map((product) => ({
+        id: product.id,
+        name: product.name,
+        price: '₦250,000',
+        rawPrice: product.price,
+        stock: 1,
+        image: '',
+        category: 'Phones',
+        category_slug: 'phones',
+        slug: product.id,
+        condition: 'new',
+      }))
+    );
+
+    const ui = await CategoryPageContent({
+      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    render(ui);
+
+    expect(
+      screen.getByText((_, node) => node?.textContent === 'Page: 2')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Recovered Phone: ₦250,000')).toBeInTheDocument();
   });
 
   it('wraps category products in the comparison scope required by product cards', async () => {

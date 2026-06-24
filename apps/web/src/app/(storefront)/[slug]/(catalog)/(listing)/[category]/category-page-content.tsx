@@ -148,11 +148,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     : computedTotalPages;
   const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
 
-  if (
-    !data.productIdsQueryFailed &&
-    (data.isCollection || !data.categoryQueryFailed) &&
-    currentPage > totalPages
-  ) {
+  if (!data.productIdsQueryFailed && currentPage > totalPages) {
     return renderCategoryNotFoundContent({
       slug,
       title: 'Category page not found',
@@ -176,7 +172,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const categoryPageProducts = data.productsQueryFailed
     ? paginatedNormalizedProducts
     : normalizedProducts;
-  const categoryPageCurrentPage = data.productsQueryFailed ? 1 : currentPage;
+  const categoryPageCurrentPage = data.productIdsQueryFailed ? 1 : currentPage;
   const collectionSchemaProducts = paginatedNormalizedProducts.map(
     toCollectionSchemaProduct
   );

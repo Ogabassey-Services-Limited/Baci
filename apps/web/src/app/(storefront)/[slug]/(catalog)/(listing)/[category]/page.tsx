@@ -125,11 +125,7 @@ export async function generateMetadata({
     ? Math.max(computedTotalPages, currentPage)
     : computedTotalPages;
 
-  if (
-    !data.productIdsQueryFailed &&
-    (data.isCollection || !data.categoryQueryFailed) &&
-    currentPage > totalPages
-  ) {
+  if (!data.productIdsQueryFailed && currentPage > totalPages) {
     return buildCategoryNotFoundMetadata(
       'Category page not found',
       'This category page is unavailable or has moved.'

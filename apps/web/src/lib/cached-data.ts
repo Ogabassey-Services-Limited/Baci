@@ -2127,7 +2127,7 @@ interface CategoryPageProductDetailsResult {
   productsQueryFailed: boolean;
 }
 
-const CATEGORY_PAGE_PRODUCT_SELECT = `
+const CATEGORY_PAGE_PRODUCT_BASE_SELECT = `
           id,
           name,
           slug,
@@ -2141,9 +2141,16 @@ const CATEGORY_PAGE_PRODUCT_SELECT = `
           stock,
           stock_quantity,
           manage_stock,
-          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
-          product_categories(categories(name, slug))
+          ${PRODUCT_KEY_SPECS_RELATION_SELECT}
         `;
+
+function getCategoryPageProductSelect(isCategoryScoped: boolean) {
+  const productCategoriesSelect = isCategoryScoped
+    ? 'product_categories!inner(categories(name, slug))'
+    : 'product_categories(categories(name, slug))';
+
+  return `${CATEGORY_PAGE_PRODUCT_BASE_SELECT}, ${productCategoriesSelect}`;
+}
 
 function isSpecialCollectionSlug(
   categorySlug: string
@@ -2448,14 +2455,15 @@ async function getCategoryPageProductDetailsChunk({
   }
 
   const supabase = getPublicSupabaseClient();
+  const isCategoryScoped = Boolean(categoryIds?.length);
   let query = supabase
     .from('products')
-    .select(CATEGORY_PAGE_PRODUCT_SELECT)
+    .select(getCategoryPageProductSelect(isCategoryScoped))
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .in('id', productIds);
 
-  if (categoryIds && categoryIds.length > 0) {
+  if (isCategoryScoped && categoryIds) {
     query = query.in('product_categories.category_id', categoryIds);
   }
 

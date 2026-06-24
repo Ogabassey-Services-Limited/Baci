@@ -1053,6 +1053,25 @@ describe('category page route', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
+  it('returns soft-not-found metadata for known out-of-range pages even when category lookup fails open', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      ...categoryPageData,
+      categoryQueryFailed: true,
+      productIdsQueryFailed: false,
+      products: smartphoneHubProducts.slice(0, 20),
+      productSlots: smartphoneHubProducts.slice(0, 20),
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.title).toBe('Category page not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
   it('drops focused storefront filters from category canonical metadata until listing results are filtered', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
