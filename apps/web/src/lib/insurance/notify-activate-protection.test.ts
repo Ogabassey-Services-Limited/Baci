@@ -44,15 +44,19 @@ beforeEach(() => {
 });
 
 const PENDING_POLICY = { id: 'policy-1' };
-const ORDER = { order_number: 'OG-1001', customer_id: 'cust-1' };
+const ORDER = {
+  order_number: 'OG-1001',
+  customer_id: 'cust-1',
+  shipping_status: 'delivered',
+};
 const CUSTOMER = { user_id: 'user-1' };
 
 describe('maybeNotifyActivateProtection', () => {
   it('sends the push once for a delivered order with a pending inspection', async () => {
     mockNotifyActivateProtection.mockResolvedValue(SENT_OK);
     resultQueue = [
-      { data: [PENDING_POLICY] }, // candidate policies
       { data: ORDER }, // order lookup
+      { data: [PENDING_POLICY] }, // candidate policies
       { data: CUSTOMER }, // customer lookup
       { data: { id: 'policy-1' } }, // claim succeeds
     ];
@@ -77,8 +81,8 @@ describe('maybeNotifyActivateProtection', () => {
       in: vi.fn(() => Promise.resolve({})),
     }));
     resultQueue = [
-      { data: [PENDING_POLICY] },
       { data: ORDER },
+      { data: [PENDING_POLICY] },
       { data: CUSTOMER },
       { data: { id: 'policy-1' } }, // claim succeeds
     ];
@@ -108,7 +112,7 @@ describe('maybeNotifyActivateProtection', () => {
   });
 
   it('does nothing when there is no pending, un-notified inspection policy', async () => {
-    resultQueue = [{ data: [] }];
+    resultQueue = [{ data: ORDER }, { data: [] }];
 
     await maybeNotifyActivateProtection('order-1');
 
@@ -117,8 +121,8 @@ describe('maybeNotifyActivateProtection', () => {
 
   it('does not send when the claim is lost to a concurrent delivery (idempotent)', async () => {
     resultQueue = [
-      { data: [PENDING_POLICY] },
       { data: ORDER },
+      { data: [PENDING_POLICY] },
       { data: CUSTOMER },
       { data: null }, // claim returns no row — already sent elsewhere
     ];
@@ -130,8 +134,8 @@ describe('maybeNotifyActivateProtection', () => {
 
   it('does not send when the customer has no app account (no user_id)', async () => {
     resultQueue = [
-      { data: [PENDING_POLICY] },
       { data: ORDER },
+      { data: [PENDING_POLICY] },
       { data: { user_id: null } },
     ];
 
@@ -142,12 +146,33 @@ describe('maybeNotifyActivateProtection', () => {
 
   it('does not send when the order has no customer', async () => {
     resultQueue = [
-      { data: [PENDING_POLICY] },
-      { data: { order_number: 'OG-1001', customer_id: null } },
+      {
+        data: {
+          order_number: 'OG-1001',
+          customer_id: null,
+          shipping_status: 'delivered',
+        },
+      },
     ];
 
     await maybeNotifyActivateProtection('order-1');
 
+    expect(mockNotifyActivateProtection).not.toHaveBeenCalled();
+  });
+
+  it('does not claim or notify before the order delivery state is persisted', async () => {
+    resultQueue = [
+      {
+        data: {
+          ...ORDER,
+          shipping_status: 'shipped',
+        },
+      },
+    ];
+
+    await maybeNotifyActivateProtection('order-1');
+
+    expect(mockFrom).toHaveBeenCalledTimes(1);
     expect(mockNotifyActivateProtection).not.toHaveBeenCalled();
   });
 });

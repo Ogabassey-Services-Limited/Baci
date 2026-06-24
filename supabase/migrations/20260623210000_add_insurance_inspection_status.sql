@@ -7,9 +7,11 @@
 -- the storefront switch the policy action from "Complete Inspection" to
 -- "File a Claim" once the inspection is done.
 --
--- Values: 'pending' (awaiting inspection) | 'completed'. Policies that never
--- carry an inspection link (non-inspectable products) ignore this column — the
--- UI gates on the presence of `inspection_link`.
+-- Values: 'pending' (awaiting inspection) | 'completed'. Existing policies are
+-- intentionally left NULL because historical rows may already have completed a
+-- MyCover inspection before we started storing the webhook state. Policies that
+-- never carry an inspection link (non-inspectable products) ignore this column
+-- — the UI gates on the presence of `inspection_link`.
 
 ALTER TABLE "public"."order_insurance_policies"
-  ADD COLUMN IF NOT EXISTS "inspection_status" "text" DEFAULT 'pending';
+  ADD COLUMN IF NOT EXISTS "inspection_status" "text";

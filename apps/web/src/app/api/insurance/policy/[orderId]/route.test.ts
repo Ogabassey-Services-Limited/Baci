@@ -8,8 +8,10 @@ vi.mock('next/headers', () => ({
 }));
 
 const mockFrom = vi.fn();
+const mockAuthGetUser = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
+    auth: { getUser: mockAuthGetUser },
     from: mockFrom,
   })),
 }));
@@ -109,6 +111,24 @@ const mockSecondPolicyRow = {
 describe('GET /api/insurance/policy/[orderId]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+  });
+
+  it('returns 401 before reading policy data when the customer is not authenticated', async () => {
+    mockAuthGetUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+
+    const response = await GET(createMockRequest(), createParams('order-123'));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   describe('v2 response contract: array format', () => {
@@ -373,7 +393,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       );
       const body = await response.json();
 
-      expect(body.policies[0].orderDelivered).toBe(false);
+      expect(body).toEqual({ found: false, policies: [] });
     });
 
     it('returns 500 when the orders delivery lookup fails', async () => {

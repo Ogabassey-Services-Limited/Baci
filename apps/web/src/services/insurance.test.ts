@@ -22,6 +22,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockServerSupabase),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => mockServerSupabase),
+}));
+
 const mockPurchaseGadgetInsurance = vi.fn();
 const mockGetClaims = vi.fn();
 const mockCreateMyCoverClient = vi.fn();
@@ -204,6 +208,22 @@ describe('purchaseOrderInsurance', () => {
       );
       const args = mockPurchaseGadgetInsurance.mock.calls[0][0];
       expect(args).not.toHaveProperty('device_about_image_url');
+    });
+
+    it('uses the first name as MyCover last_name fallback for single-word customer names', async () => {
+      orderSupabaseMock({
+        ...mockOrderWithInsurance,
+        customer_name: 'Emeka',
+      });
+
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
+        expect.objectContaining({
+          first_name: 'Emeka',
+          last_name: 'Emeka',
+        })
+      );
     });
   });
 
@@ -705,6 +725,57 @@ describe('syncClaimsStatus', () => {
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           claim_status: 'repair_estimate',
+        })
+      );
+    });
+
+    it('persists a newly discovered MyCover claim id even when visible status fields are unchanged', async () => {
+      const claims = [
+        {
+          id: 'claim-new',
+          policy_id: 'policy-1',
+          claim_status: 'Offer sent',
+          progress: 'offer',
+          comment: 'Review the offer',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: 'offer_sent',
+                      claim_stage: 'Offer sent',
+                      claim_progress: 'offer',
+                      claim_comment: 'Review the offer',
+                      claim_id: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_id: 'claim-new',
         })
       );
     });

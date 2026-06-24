@@ -158,6 +158,7 @@ export async function POST(
     // External side effects must not run until cancellation clamps/null updates
     // have been excluded.
     let insuranceResult = null;
+    let insuranceError: string | null = null;
 
     if (deviceDetailsResult?.success) {
       const deviceDetails: DeviceInsuranceDetails = deviceDetailsResult.data;
@@ -169,6 +170,8 @@ export async function POST(
           message: 'Insurance purchase error during confirm',
           error: err,
         });
+        insuranceError =
+          err instanceof Error ? err.message : 'Insurance purchase failed';
       }
     }
 
@@ -176,6 +179,7 @@ export async function POST(
       success: true,
       message: 'Order confirmed successfully',
       insurance: insuranceResult,
+      ...(insuranceError ? { insuranceError } : {}),
     });
   } catch (error: unknown) {
     logger.error({ message: 'Confirm Order API Error', error });

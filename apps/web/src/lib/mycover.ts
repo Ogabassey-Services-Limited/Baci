@@ -359,12 +359,19 @@ export class MyCoverClient {
     const form = new FormData();
     form.append('file', file, filename);
 
-    const response = await fetch(`${MYCOVER_BASE_URL}/utilities/files/upload`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${this.secretKey}` },
-      body: form,
-      signal: AbortSignal.timeout(30_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${MYCOVER_BASE_URL}/utilities/files/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.secretKey}` },
+        body: form,
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'File upload failed';
+      throw new MyCoverError(message, 0, { cause: error });
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

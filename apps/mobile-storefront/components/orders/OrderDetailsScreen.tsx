@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
 import {
+  Alert,
   Linking,
   ScrollView,
   Text,
@@ -115,6 +116,16 @@ export function OrderDetailsScreen() {
         insurancePolicy?.premium_amount
       ),
     });
+  const openExternalUrl = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(
+        'Unable to open link',
+        'Please try again or contact support if the issue continues.'
+      );
+    }
+  };
 
   return (
     <>
@@ -183,13 +194,9 @@ export function OrderDetailsScreen() {
               order.shipping_status === 'completed'
             }
             isPaid={order.payment_status === 'paid'}
-            onCompleteInspection={(inspectionUrl) =>
-              Linking.openURL(inspectionUrl)
-            }
-            onFileClaim={(claimUrl) => Linking.openURL(claimUrl)}
-            onOpenCertificate={(certificateUrl) =>
-              Linking.openURL(certificateUrl)
-            }
+            onCompleteInspection={openExternalUrl}
+            onFileClaim={openExternalUrl}
+            onOpenCertificate={openExternalUrl}
           />
 
           <OrderDetailsShippingAddressCard

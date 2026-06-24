@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/env', () => ({
+  getMyCoverSecretKey: () =>
+    process.env.MYCOVER_SECRET_KEY?.trim() || undefined,
   getMyCoverWebhookSecret: () => mocks.getMyCoverWebhookSecret(),
 }));
 
@@ -529,6 +531,7 @@ describe('POST /api/webhooks/mycover', () => {
           essential: {
             policy_id: 'pol-essential',
             policy_number: 'OG/AR/2026/1',
+            start_date: '2026-05-21T00:00:00.000Z',
             expiration_date: '2027-05-21T00:00:00.000Z',
           },
         },
@@ -543,6 +546,7 @@ describe('POST /api/webhooks/mycover', () => {
       expect(mocks.policyUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           mycover_policy_number: 'OG/AR/2026/1',
+          policy_start_date: '2026-05-21T00:00:00.000Z',
           policy_expiry_date: '2027-05-21T00:00:00.000Z',
           status: 'active',
         })
@@ -576,6 +580,58 @@ describe('POST /api/webhooks/mycover', () => {
         })
       );
       expect(mocks.policyEq).toHaveBeenCalledWith('mycover_policy_id', 'pol-1');
+    });
+
+    it('records accepted and paid claim lifecycle events', async () => {
+      const acceptedPayload = {
+        event: 'claim.offer_accepted',
+        data: {
+          essential: { policy_id: 'pol-1', status: 'Offer accepted' },
+          meta: { policy_id: 'pol-1', progress: 'accepted' },
+        },
+      };
+      const acceptedRawBody = JSON.stringify(acceptedPayload);
+
+      let response = await POST(
+        createRequest(
+          acceptedPayload,
+          signPayload(acceptedRawBody, 'MCASECK|secret')
+        )
+      );
+
+      expect(response.status).toBe(200);
+      expect(mocks.policyUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'offer_accepted',
+          claim_progress: 'accepted',
+        })
+      );
+
+      vi.clearAllMocks();
+      mocks.getMyCoverWebhookSecret.mockReturnValue('MCASECK|secret');
+      mocks.createServiceClient.mockReturnValue(createSupabaseMock());
+
+      const paidPayload = {
+        event: 'claim.paid',
+        data: {
+          essential: { policy_id: 'pol-1', status: 'Paid' },
+          meta: { policy_id: 'pol-1', progress: 'paid' },
+        },
+      };
+      const paidRawBody = JSON.stringify(paidPayload);
+
+      response = await POST(
+        createRequest(paidPayload, signPayload(paidRawBody, 'MCASECK|secret'))
+      );
+
+      expect(response.status).toBe(200);
+      expect(mocks.policyUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'paid',
+          claim_progress: 'paid',
+          status: 'claimed',
+        })
+      );
     });
 
     it('captures the decline reason from claim.disapproved', async () => {
@@ -624,6 +680,32 @@ describe('POST /api/webhooks/mycover', () => {
       expect(mocks.policyUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           certificate_url: 'https://s3.example.com/cert.pdf',
+        })
+      );
+    });
+
+    it('refreshes hosted links on policy.updated', async () => {
+      const payload = {
+        event: 'policy.updated',
+        data: {
+          essential: { policy_id: 'pol-1' },
+          sdk: {
+            claim_link: 'https://mycover.ai/purchase?q=claim-new',
+            inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
+          },
+        },
+      };
+      const rawBody = JSON.stringify(payload);
+
+      const response = await POST(
+        createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+      );
+
+      expect(response.status).toBe(200);
+      expect(mocks.policyUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_link: 'https://mycover.ai/purchase?q=claim-new',
+          inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
         })
       );
     });

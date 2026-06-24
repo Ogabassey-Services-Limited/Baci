@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -49,6 +49,22 @@ function shouldReleaseBookingLock(
 
 function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
   return value === 'paid' || value === 'bnpl_approved';
+}
+
+function runAfterResponse(task: () => Promise<void>) {
+  const run = async () => {
+    try {
+      await task();
+    } catch (err) {
+      console.error('Deferred order side-effect failed:', err);
+    }
+  };
+
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
 }
 
 // GET /api/orders/[id] - Get a single order
@@ -465,15 +481,14 @@ export async function PATCH(
         .single();
 
       if (customer?.user_id) {
-        // Fire and forget - don't block the response
-        notifyOrderStatusChange(
-          customer.user_id,
-          id,
-          existingOrder.order_number,
-          shipping_status
-        ).catch((err) => {
-          console.error('Failed to send order status push notification:', err);
-        });
+        runAfterResponse(() =>
+          notifyOrderStatusChange(
+            customer.user_id,
+            id,
+            existingOrder.order_number,
+            shipping_status
+          )
+        );
       }
     }
 
@@ -482,9 +497,7 @@ export async function PATCH(
       shipping_status === 'delivered' &&
       shipping_status !== existingOrder.shipping_status
     ) {
-      maybeNotifyActivateProtection(id).catch((err) => {
-        console.error('Failed to send activate-protection push:', err);
-      });
+      runAfterResponse(() => maybeNotifyActivateProtection(id));
     }
 
     return NextResponse.json({ order });

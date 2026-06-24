@@ -1,6 +1,8 @@
 import { notifyActivateProtection } from '@/lib/expo-push';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+const DELIVERED_SHIPPING_STATUSES = new Set(['delivered', 'completed']);
+
 /**
  * Send the one-time "Activate Protection" push for an order that has just been
  * delivered, when it carries gadget cover whose pre-loss inspection is still
@@ -16,6 +18,23 @@ export async function maybeNotifyActivateProtection(
 ): Promise<void> {
   const supabase = createAdminClient();
 
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('order_number, customer_id, shipping_status')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (orderError) {
+    console.error('[ActivateProtection] order lookup failed:', orderError);
+    return;
+  }
+  if (
+    !order?.customer_id ||
+    !DELIVERED_SHIPPING_STATUSES.has(String(order.shipping_status))
+  ) {
+    return;
+  }
+
   // Inspectable policies still awaiting activation that we haven't nudged yet.
   const { data: policies, error: policiesError } = await supabase
     .from('order_insurance_policies')
@@ -30,18 +49,6 @@ export async function maybeNotifyActivateProtection(
     return;
   }
   if (!policies || policies.length === 0) return;
-
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('order_number, customer_id')
-    .eq('id', orderId)
-    .maybeSingle();
-
-  if (orderError) {
-    console.error('[ActivateProtection] order lookup failed:', orderError);
-    return;
-  }
-  if (!order?.customer_id) return;
 
   const { data: customer, error: customerError } = await supabase
     .from('customers')
@@ -89,9 +96,15 @@ export async function maybeNotifyActivateProtection(
   // If nothing was actually delivered (no token / send failure), release the
   // claim so a later delivery can retry the reminder.
   if (result.sent === 0) {
-    await supabase
+    const { error: releaseError } = await supabase
       .from('order_insurance_policies')
       .update({ activation_reminder_sent_at: null })
       .in('id', claimedIds);
+    if (releaseError) {
+      console.error(
+        '[ActivateProtection] failed to release undelivered reminder claim:',
+        releaseError
+      );
+    }
   }
 }

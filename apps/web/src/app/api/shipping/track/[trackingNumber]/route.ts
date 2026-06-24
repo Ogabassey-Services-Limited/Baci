@@ -13,7 +13,6 @@ import type {
   ShippingProviderCode,
   TrackingResult,
 } from '@/lib/shipping/types';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { trackingParamsSchema } from '@/schemas/shipping-tracking';
 
@@ -191,11 +190,13 @@ async function persistTrackingResult({
     // Customer tracking should return the live carrier result even when RLS
     // denies opportunistic snapshot persistence for the request-scoped client.
     if (delivered) {
-      await persistDeliveredTransitionPrivileged({
+      const persisted = await persistDeliveredTransitionForCustomer({
         shipment,
-        shippingStatus,
         snapshot,
+        supabase,
       });
+      if (persisted)
+        await notifyDeliveredProtectionActivation(shipment.order_id);
     }
     return;
   }
@@ -211,11 +212,13 @@ async function persistTrackingResult({
       orderId: shipment.order_id,
     });
     if (delivered) {
-      await persistDeliveredTransitionPrivileged({
+      const persisted = await persistDeliveredTransitionForCustomer({
         shipment,
-        shippingStatus,
-        snapshot: null,
+        snapshot,
+        supabase,
       });
+      if (persisted)
+        await notifyDeliveredProtectionActivation(shipment.order_id);
     }
     return;
   }
@@ -236,43 +239,37 @@ function buildTrackingSnapshot(trackingResult: TrackingResult) {
   };
 }
 
-async function persistDeliveredTransitionPrivileged({
+async function persistDeliveredTransitionForCustomer({
   shipment,
-  shippingStatus,
   snapshot,
+  supabase,
 }: {
   shipment: ShipmentLookupResult;
-  shippingStatus: string;
-  snapshot: ReturnType<typeof buildTrackingSnapshot> | null;
-}) {
-  const admin = createAdminClient();
-
-  if (snapshot) {
-    const { error: shipmentError } = await admin
-      .from('shipments')
-      .update(snapshot)
-      .eq('id', shipment.id);
-    if (shipmentError) {
-      console.error('Error applying privileged delivered shipment snapshot:', {
-        error: shipmentError,
-        shipmentId: shipment.id,
-      });
+  snapshot: ReturnType<typeof buildTrackingSnapshot>;
+  supabase: SupabaseServerClient;
+}): Promise<boolean> {
+  const { data, error } = await supabase.rpc(
+    'persist_customer_delivered_tracking',
+    {
+      p_current_location: snapshot.current_location ?? null,
+      p_delivered_at: snapshot.delivered_at ?? null,
+      p_estimated_delivery_at: snapshot.estimated_delivery_at ?? null,
+      p_order_id: shipment.order_id,
+      p_shipment_id: shipment.id,
+      p_tracking_events: snapshot.tracking_events,
     }
-  }
+  );
 
-  const { error: orderError } = await admin
-    .from('orders')
-    .update({ shipping_status: shippingStatus })
-    .eq('id', shipment.order_id);
-  if (orderError) {
-    console.error('Error applying privileged delivered order status:', {
-      error: orderError,
+  if (error) {
+    console.error('Error applying customer delivered tracking transition:', {
+      error,
       orderId: shipment.order_id,
+      shipmentId: shipment.id,
     });
-    return;
+    return false;
   }
 
-  await notifyDeliveredProtectionActivation(shipment.order_id);
+  return data === true;
 }
 
 async function notifyDeliveredProtectionActivation(orderId: string) {

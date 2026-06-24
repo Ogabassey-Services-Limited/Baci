@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getMyCoverWebhookSecret } from '@/env';
+import { getMyCoverSecretKey, getMyCoverWebhookSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   claimStatusLabel,
@@ -200,7 +200,9 @@ export async function POST(request: NextRequest) {
       case 'claim.approved':
       case 'claim.disapproved':
       case 'claim.offer_sent':
+      case 'claim.offer_accepted':
       case 'claim.offer_rejected':
+      case 'claim.paid':
       case 'claim.updated':
       case 'claim.rejected':
         await handleClaimUpdate(supabase, payload);
@@ -433,8 +435,7 @@ async function resolveRenewalPolicyLookup(
   renewalId: string,
   configuredSecret: string
 ): Promise<MyCoverPolicyLookup | null> {
-  const secretKey =
-    process.env.MYCOVER_SECRET_KEY?.trim() || configuredSecret.trim();
+  const secretKey = getMyCoverSecretKey() || configuredSecret.trim();
   if (!secretKey) return null;
 
   const response = await fetch(
@@ -484,7 +485,9 @@ function getPolicyLookup(
 }
 
 function getPolicyStartDate(data: MyCoverWebhookPayload['data']) {
-  return data.start_date || data.policy_start_date;
+  return (
+    data.essential?.start_date || data.start_date || data.policy_start_date
+  );
 }
 
 function getPolicyExpiryDate(data: MyCoverWebhookPayload['data']) {
@@ -548,6 +551,7 @@ async function handlePolicyUpdated(
 
   const update: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
+    ...getHostedFlowLinks(data),
   };
   const certificateUrl = getCertificateUrl(data);
   const policyNumber = getPolicyNumber(data);
@@ -618,10 +622,12 @@ async function handleClaimUpdate(
     updateData.status = 'claimed';
   }
 
-  const { error } = await supabase
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update(updateData)
-    .eq('mycover_policy_id', policyId);
+    .eq('mycover_policy_id', policyId)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to update claim:', {
@@ -629,6 +635,13 @@ async function handleClaimUpdate(
       policyId,
     });
     throw error;
+  }
+
+  if (!updatedPolicy) {
+    const safePolicyId = policyId.replace(/[\r\n]/g, '');
+    console.warn('[MyCover Webhook] claim update matched no stored policy:', {
+      policyId: safePolicyId,
+    });
   }
 }
 

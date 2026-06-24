@@ -142,6 +142,35 @@ describe('POST /api/orders/[id]/confirm', () => {
     );
   });
 
+  it('surfaces insurance purchase failures after confirming the order', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return createOrdersTable({
+          id: ORDER_ID,
+          shipping_status: 'processing',
+          cancelled_at: null,
+        });
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mockPurchaseOrderInsurance.mockRejectedValueOnce(
+      new Error('MyCover wallet unavailable')
+    );
+
+    const response = await POST(
+      createRequest(createInsuranceDetails()),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      insurance: null,
+      insuranceError: 'MyCover wallet unavailable',
+    });
+  });
+
   it('rejects invalid insurance details before updating the order', async () => {
     const response = await POST(
       createRequest(

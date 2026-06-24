@@ -124,7 +124,9 @@ describe('getStorefrontNotificationNavigationTarget', () => {
 
   it('falls back to orders list when insurance activation lacks an order id', () => {
     expect(
-      getStorefrontNotificationNavigationTarget({ type: 'insurance_activation' })
+      getStorefrontNotificationNavigationTarget({
+        type: 'insurance_activation',
+      })
     ).toEqual({ screen: 'orders' });
   });
 

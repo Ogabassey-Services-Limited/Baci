@@ -24,6 +24,7 @@ describe('normalizeClaimStatus', () => {
     expect(normalizeClaimStatus('Offer rejected')).toBe('offer_rejected');
     expect(normalizeClaimStatus('Approved')).toBe('approved');
     expect(normalizeClaimStatus('Declined')).toBe('declined');
+    expect(normalizeClaimStatus('Rejected')).toBe('declined');
     // "Disapproved" contains the substring "approved" — must not misclassify.
     expect(normalizeClaimStatus('Disapproved')).toBe('declined');
     expect(normalizeClaimStatus('Offer accepted')).toBe('offer_accepted');

@@ -6,6 +6,7 @@ import {
 import { logger } from '@/lib/logger';
 import { createMyCoverClient, MYCOVER_PRODUCTS } from '@/lib/mycover';
 import { formatPhoneForMyCover } from '@/lib/phone';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 const DEFAULT_GADGET_PRODUCT_ID =
@@ -111,15 +112,17 @@ export async function purchaseOrderInsurance(
   const productId = DEFAULT_GADGET_PRODUCT_ID;
   const productConfig = MYCOVER_PRODUCTS[productId];
   const results = [];
+  const [firstName = typedOrder.customer_name, ...remainingNames] =
+    typedOrder.customer_name.trim().split(/\s+/);
+  const lastName = remainingNames.join(' ') || firstName;
 
   // 4. Process each insured item
   for (const item of insuredItems) {
     try {
       const policy = await myCover.purchaseGadgetInsurance({
         product_id: productId,
-        first_name: typedOrder.customer_name.split(' ')[0],
-        last_name:
-          typedOrder.customer_name.split(' ').slice(1).join(' ') || '.',
+        first_name: firstName,
+        last_name: lastName,
         email: typedOrder.customer_email,
         phone_number: formatPhoneForMyCover(typedOrder.customer_phone),
         address: typedOrder.shipping_address?.address || 'Lagos, Nigeria',
@@ -198,8 +201,7 @@ export async function purchaseOrderInsurance(
  * Sync status of pending claims from MyCover v2 API
  */
 export async function syncClaimsStatus() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = createAdminClient();
   const myCover = createMyCoverClient();
 
   if (!myCover)
@@ -221,7 +223,7 @@ export async function syncClaimsStatus() {
       const { data: localPolicy } = await supabase
         .from('order_insurance_policies')
         .select(
-          'id, status, claim_status, claim_stage, claim_progress, claim_comment'
+          'id, status, claim_status, claim_stage, claim_progress, claim_comment, claim_id'
         )
         .eq('mycover_policy_id', policyId)
         .single();
@@ -245,7 +247,8 @@ export async function syncClaimsStatus() {
         localPolicy.claim_status !== newClaimStatus ||
         localPolicy.claim_stage !== claimStage ||
         localPolicy.claim_progress !== claimProgress ||
-        localPolicy.claim_comment !== claimComment;
+        localPolicy.claim_comment !== claimComment ||
+        localPolicy.claim_id !== claim.id;
 
       if (changed) {
         const { error: updateError } = await supabase

@@ -324,6 +324,14 @@ describe('env validation', () => {
     expect(getMyCoverWebhookSecret()).toBe('MCASECK|secret');
   });
 
+  it('returns a trimmed MyCover API secret for server-side operational calls', async () => {
+    vi.stubEnv('MYCOVER_SECRET_KEY', '  mycover-api-secret  ');
+
+    const { getMyCoverSecretKey } = await loadEnvModule();
+
+    expect(getMyCoverSecretKey()).toBe('mycover-api-secret');
+  });
+
   it('allows overriding the terminal idempotency record window', async () => {
     vi.stubEnv('TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS', '3600000');
     const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();

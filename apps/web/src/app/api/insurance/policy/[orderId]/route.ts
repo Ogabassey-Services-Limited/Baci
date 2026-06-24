@@ -12,7 +12,38 @@ export async function GET(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Fetch all policies for this order (supports gadget + future shipping)
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify this session can read the order through RLS before returning any
+    // policy metadata or hosted claim/inspection links.
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('shipping_status')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch order delivery status' },
+        { status: 500 }
+      );
+    }
+
+    if (!order) {
+      return NextResponse.json({
+        found: false,
+        policies: [],
+      });
+    }
+
+    // Fetch all policies for this order (supports gadget + future shipping).
     const { data: policies, error } = await supabase
       .from('order_insurance_policies')
       .select(
@@ -37,19 +68,6 @@ export async function GET(
     // Pre-loss inspection (which activates protection) can only happen once the
     // device is in the customer's hands, so the activation CTA is gated on
     // delivery.
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select('shipping_status')
-      .eq('id', orderId)
-      .maybeSingle();
-
-    if (orderError) {
-      return NextResponse.json(
-        { error: 'Failed to fetch order delivery status' },
-        { status: 500 }
-      );
-    }
-
     const orderDelivered =
       order?.shipping_status === 'delivered' ||
       order?.shipping_status === 'completed';

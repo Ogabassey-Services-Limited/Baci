@@ -441,6 +441,20 @@ describe('MyCoverClient capability endpoints (v2)', () => {
     );
   });
 
+  it('GET /customers with query params', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.listCustomers({ page: 2, limit: 25 });
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/customers?page=2&limit=25'
+    );
+  });
+
+  it('GET /customers/:id', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: { id: 'cust 1' } });
+    await client.getCustomerById('cust 1');
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/customers/cust%201');
+  });
+
   it('GET /customers/:id/purchases', async () => {
     const spy = mockFetchJson({ responseCode: 1, data: [] });
     await client.getCustomerPurchases('c1');
@@ -453,6 +467,14 @@ describe('MyCoverClient capability endpoints (v2)', () => {
     const spy = mockFetchJson({ responseCode: 1, data: [] });
     await client.listPurchases({ page: 2 });
     expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/purchases?page=2');
+  });
+
+  it('GET /purchases/:id', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: { id: 'purchase 1' } });
+    await client.getPurchaseById('purchase 1');
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/purchases/purchase%201'
+    );
   });
 
   it('GET /utilities/genders', async () => {
@@ -492,6 +514,13 @@ describe('MyCoverClient capability endpoints (v2)', () => {
     await expect(
       client.uploadFile(new Blob(['x']), 'about.png')
     ).rejects.toThrow();
+  });
+
+  it('wraps file upload network failures as MyCoverError', async () => {
+    vi.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('timeout'));
+    await expect(
+      client.uploadFile(new Blob(['x']), 'about.png')
+    ).rejects.toMatchObject({ name: 'MyCoverError', status: 0 });
   });
 
   it('omits empty query params when listing purchases', async () => {

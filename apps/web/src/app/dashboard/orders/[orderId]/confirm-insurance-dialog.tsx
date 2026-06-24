@@ -30,6 +30,22 @@ export type ConfirmOrderPayload =
   | ConfirmInsurancePayload
   | Record<string, never>;
 
+function getMaxDateOfBirth() {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return yesterday.toISOString().slice(0, 10);
+}
+
+function isValidPastDateOnly(value: string, maxDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value &&
+    value <= maxDate
+  );
+}
+
 interface ConfirmInsuranceDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -65,6 +81,7 @@ export default function ConfirmInsuranceDialog({
 
   // If no assurance items, this shouldn't really be open, but helpful for generic confirm
   const isAssuranceOrder = assuranceItems.length > 0;
+  const maxDateOfBirth = getMaxDateOfBirth();
 
   const handleConfirm = async () => {
     if (!isAssuranceOrder) {
@@ -97,14 +114,23 @@ export default function ConfirmInsuranceDialog({
       });
       return;
     }
+    if (!isValidPastDateOnly(dateOfBirth, maxDateOfBirth)) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Date of Birth',
+        description:
+          'Enter a valid past date of birth before uploading the device photo.',
+      });
+      return;
+    }
 
     setLoading(true);
+    let objectUrl: string | null = null;
     try {
       // Create a temporary object URL to pass to our upload helper
       // (which expects a URI string and fetch-blobs it)
-      const objectUrl = URL.createObjectURL(aboutFile);
+      objectUrl = URL.createObjectURL(aboutFile);
       const uploadedUrl = await uploadImage(objectUrl, 'images');
-      URL.revokeObjectURL(objectUrl);
 
       if (!uploadedUrl) {
         toast({
@@ -112,7 +138,6 @@ export default function ConfirmInsuranceDialog({
           title: 'Upload Failed',
           description: 'Could not upload the device photo. Please try again.',
         });
-        setLoading(false);
         return;
       }
 
@@ -146,6 +171,7 @@ export default function ConfirmInsuranceDialog({
         description: 'Failed to confirm order. Please try again.',
       });
     } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       setLoading(false);
     }
   };
@@ -207,6 +233,7 @@ export default function ConfirmInsuranceDialog({
                   <Input
                     id="dob"
                     type="date"
+                    max={maxDateOfBirth}
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                   />
