@@ -133,7 +133,7 @@ describe('NewOrderFooterBar', () => {
 
     expect(screen.getByText('Total Amount')).toBeInTheDocument();
     expect(screen.getByText('₦5000.00')).toBeInTheDocument();
-    expect(screen.getByText('Save Order').closest('button')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save Order' })).toBeDisabled();
   });
 
   it('shows partial-payment controls and forwards payment method and amount changes', () => {
@@ -144,7 +144,7 @@ describe('NewOrderFooterBar', () => {
 
     render(<NewOrderFooterBar controller={controller} />);
 
-    fireEvent.click(screen.getByText('Cash').closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Payment method: Cash' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Enter amount...' }), {
       target: { value: '4250' },
     });
@@ -161,8 +161,8 @@ describe('NewOrderFooterBar', () => {
 
     render(<NewOrderFooterBar controller={controller} />);
 
-    fireEvent.click(screen.getByText('UNPAID').closest('button')!);
-    fireEvent.click(screen.getByText('Save Order').closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Payment status: unpaid' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Order' }));
 
     expect(controller.setPaymentStatus).toHaveBeenCalledWith('unpaid');
     expect(controller.setPartialAmount).toHaveBeenCalledWith('');

@@ -225,18 +225,17 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           ]}
         >
           {isSubmitting ? (
-            <ActivityIndicator color={colors.textOnPrimary} />
-          ) : (
-            <>
-              <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
-                Save Order
-              </Text>
-              <Ionicons
-                color={colors.textOnPrimary}
-                name="arrow-forward"
-                size={20}
-              />
-            </>
+            <ActivityIndicator color={colors.textOnPrimary} style={{ marginRight: 8 }} />
+          ) : null}
+          <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
+            {isSubmitting ? 'Saving...' : 'Save Order'}
+          </Text>
+          {!isSubmitting && (
+            <Ionicons
+              color={colors.textOnPrimary}
+              name="arrow-forward"
+              size={20}
+            />
           )}
         </Pressable>
       </View>
