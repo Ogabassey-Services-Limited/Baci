@@ -74,14 +74,23 @@ describe('resolveInsuranceCta', () => {
     });
   });
 
-  it('does not allow claims while a pending inspection has no hosted link yet', () => {
+  it('does not allow claims while a pending inspection has no hosted links yet', () => {
+    expect(
+      resolveInsuranceCta({
+        inspectionStatus: 'pending',
+        orderDelivered: true,
+      })
+    ).toEqual({ kind: 'activation_pending' });
+  });
+
+  it('does not treat a claim-only pending default as an inspection gate', () => {
     expect(
       resolveInsuranceCta({
         inspectionStatus: 'pending',
         claimLink: 'https://mycover.ai/purchase?q=claim',
         orderDelivered: true,
       })
-    ).toEqual({ kind: 'activation_pending' });
+    ).toEqual({ kind: 'claim', url: 'https://mycover.ai/purchase?q=claim' });
   });
 
   it('switches to claim once inspection is completed', () => {

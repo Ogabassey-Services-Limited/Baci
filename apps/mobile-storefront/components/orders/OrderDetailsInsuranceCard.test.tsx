@@ -178,7 +178,7 @@ describe('OrderDetailsInsuranceCard', () => {
     );
   });
 
-  it('shows claim directly when there is no inspection link', () => {
+  it('shows claim directly when a claim-only policy has no inspection link', () => {
     render(
       <OrderDetailsInsuranceCard
         colors={colors}
@@ -194,6 +194,30 @@ describe('OrderDetailsInsuranceCard', () => {
 
     expect(screen.queryByRole('button', { name: inspectionLabel })).toBeNull();
     expect(screen.getByRole('button', { name: claimLabel })).toBeTruthy();
+  });
+
+  it('holds mobile claims while pending inspection links have not arrived', () => {
+    render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_link: null,
+          inspection_link: null,
+          inspection_status: 'pending',
+        }}
+        isDelivered
+        isPaid
+        onCompleteInspection={jest.fn()}
+        onFileClaim={jest.fn()}
+        onOpenCertificate={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: inspectionLabel })).toBeNull();
+    expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
+    expect(screen.getByText(/Protection activation is pending/i)).toBeTruthy();
   });
 
   it('hides both actions when no hosted links exist', () => {

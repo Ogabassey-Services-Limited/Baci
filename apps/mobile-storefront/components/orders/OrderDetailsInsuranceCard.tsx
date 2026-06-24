@@ -71,13 +71,22 @@ export function OrderDetailsInsuranceCard({
   const certificateUrl = insurancePolicy.certificate_url;
   const claimUrl = insurancePolicy.claim_link;
   const inspectionUrl = insurancePolicy.inspection_link;
+  const inspectionStatus = insurancePolicy.inspection_status?.toLowerCase();
   // Pre-loss inspection ("Activate Protection") gates claims and can only
   // happen after delivery: show nothing actionable until delivered, then
   // "Activate Protection" until inspection is done, then "File a Claim".
+  // Claim-only policies can inherit the DB default `pending`; treat that as an
+  // inspection gate only while the hosted claim link is still absent.
   const inspectionPending =
-    !!inspectionUrl && insurancePolicy.inspection_status !== 'completed';
+    inspectionStatus !== 'completed' &&
+    (!!inspectionUrl || (inspectionStatus === 'pending' && !claimUrl));
   const showInspection =
-    inspectionPending && isDelivered && !!onCompleteInspection;
+    inspectionPending &&
+    isDelivered &&
+    !!inspectionUrl &&
+    !!onCompleteInspection;
+  const showActivationPending =
+    inspectionPending && isDelivered && !inspectionUrl;
   const showAwaitingDelivery = inspectionPending && !isDelivered;
   const showClaim = !inspectionPending && !!claimUrl && !!onFileClaim;
 
@@ -231,6 +240,17 @@ export function OrderDetailsInsuranceCard({
               Activate Protection
             </Text>
           </TouchableOpacity>
+        )}
+        {showActivationPending && (
+          <Text
+            style={[
+              styles.insuranceProvider,
+              { color: colors.textSecondary, marginTop: 12 },
+            ]}
+          >
+            Protection activation is pending while MyCover prepares your device
+            inspection link.
+          </Text>
         )}
         {showAwaitingDelivery && (
           <Text

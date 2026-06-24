@@ -502,6 +502,7 @@ describe('POST /api/webhooks/mycover', () => {
       expect.objectContaining({
         claim_link: 'https://mycover.ai/purchase?q=renewed-claim',
         inspection_link: 'https://mycover.ai/purchase?q=renewed-inspect',
+        inspection_status: 'pending',
         policy_expiry_date: '2028-05-21T00:00:00.000Z',
         status: 'active',
       })
@@ -580,7 +581,7 @@ describe('POST /api/webhooks/mycover', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ received: true });
     expect(mocks.fetch).toHaveBeenCalledWith(
-      'https://api.mycover.ai/v1/renewals/renewal-123',
+      'https://v2.api.mycover.ai/v2/purchases/renewal-123',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer mycover-api-secret',
@@ -599,9 +600,7 @@ describe('POST /api/webhooks/mycover', () => {
     mocks.fetch.mockResolvedValue({
       json: async () => ({
         data: {
-          purchase: {
-            id: 'purchase-123',
-          },
+          id: 'purchase-123',
         },
       }),
       ok: true,
@@ -623,7 +622,7 @@ describe('POST /api/webhooks/mycover', () => {
 
     expect(response.status).toBe(200);
     expect(mocks.fetch).toHaveBeenCalledWith(
-      'https://api.mycover.ai/v1/renewals/renewal-123',
+      'https://v2.api.mycover.ai/v2/purchases/renewal-123',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer webhook-only-secret',

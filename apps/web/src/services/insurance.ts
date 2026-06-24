@@ -238,10 +238,15 @@ export async function syncClaimsStatus() {
           ? 'paid'
           : normalizeClaimStatus(rawStatus);
       const claimStage = rawStatus.trim() || claimStatusLabel(newClaimStatus);
-      const claimProgress =
+      const incomingClaimProgress =
         (claim.progress as string | undefined) ??
-        ((claim.meta as { progress?: string } | undefined)?.progress || null);
-      const claimComment = (claim.comment as string | undefined) ?? null;
+        (claim.meta as { progress?: string } | undefined)?.progress;
+      const claimProgress =
+        incomingClaimProgress ?? localPolicy.claim_progress ?? null;
+      const claimComment =
+        (claim.comment as string | undefined) ??
+        localPolicy.claim_comment ??
+        null;
 
       // Update when ANY of the tracked claim fields changed, not just the
       // coarse status token (offer/progress/comment can move while status holds).

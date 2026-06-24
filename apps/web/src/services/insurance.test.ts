@@ -775,6 +775,57 @@ describe('syncClaimsStatus', () => {
       );
     });
 
+    it('preserves webhook-only claim details when Claims API omits progress and comment', async () => {
+      const claims = [
+        {
+          id: 'claim-1',
+          policy_id: 'policy-1',
+          claim_status: 'Approved',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: 'pending',
+                      claim_stage: 'Pending',
+                      claim_progress: 'webhook-progress',
+                      claim_comment: 'Webhook decline/offer detail',
+                      claim_id: 'claim-1',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'approved',
+          claim_progress: 'webhook-progress',
+          claim_comment: 'Webhook decline/offer detail',
+        })
+      );
+    });
+
     it('persists a newly discovered MyCover claim id even when visible status fields are unchanged', async () => {
       const claims = [
         {

@@ -37,11 +37,13 @@ export type InsuranceCta =
 export function resolveInsuranceCta(
   policy: InsuranceActionPolicy
 ): InsuranceCta {
+  const claimUrl = resolveClaimUrl(policy);
   const inspectionUrl = resolveInspectionUrl(policy);
   const inspectionStatus = policy.inspectionStatus?.trim().toLowerCase();
   const inspectionPending =
     inspectionStatus !== 'completed' &&
-    (inspectionStatus === 'pending' || inspectionUrl !== null);
+    (inspectionUrl !== null ||
+      (inspectionStatus === 'pending' && claimUrl === null));
 
   if (inspectionPending) {
     if (!policy.orderDelivered) {
@@ -53,7 +55,7 @@ export function resolveInsuranceCta(
     return { kind: 'inspect', url: inspectionUrl };
   }
 
-  return { kind: 'claim', url: resolveClaimUrl(policy) };
+  return { kind: 'claim', url: claimUrl };
 }
 
 function normalizeLink(link: string | null | undefined): string | null {

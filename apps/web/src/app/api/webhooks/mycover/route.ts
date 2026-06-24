@@ -23,7 +23,7 @@ type MyCoverUpdatedPolicy = {
   order_id?: string | null;
 };
 
-const MYCOVER_RENEWAL_DETAILS_URL = 'https://api.mycover.ai/v1/renewals';
+const MYCOVER_RENEWAL_DETAILS_URL = 'https://v2.api.mycover.ai/v2/purchases';
 
 async function verifyWebhookSignature(
   rawBody: string,
@@ -441,7 +441,7 @@ function getLookupFromRenewalDetails(
   }
 
   const purchaseId =
-    readString([data], ['purchase_id', 'mycover_purchase_id']) ??
+    readString([data], ['purchase_id', 'mycover_purchase_id', 'id']) ??
     readString([purchase], ['id', 'purchase_id']);
   if (purchaseId) {
     return { column: 'mycover_purchase_id', value: purchaseId };
@@ -544,6 +544,9 @@ async function handlePolicyRenewed(
       status: 'active',
       updated_at: new Date().toISOString(),
       ...hostedFlowLinks,
+      ...(hostedFlowLinks.inspection_link
+        ? { inspection_status: 'pending' }
+        : {}),
     })
     .eq(lookup.column, lookup.value)
     .select('id, order_id')
