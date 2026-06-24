@@ -95,6 +95,15 @@ describe('getSeoProductName', () => {
     ).toBe('Case for iPhone 15');
   });
 
+  it('falls back to slug identifiers when generic names do not overlap', () => {
+    expect(
+      getSeoProductName({
+        name: 'Laptop',
+        slug: 'hp-elitebook-840-g5',
+      })
+    ).toBe('Laptop Elitebook 840 G5');
+  });
+
   it('appends represented slug tokens when the product name has a mismatched currency symbol', () => {
     expect(
       getSeoProductName({

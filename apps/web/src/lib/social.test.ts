@@ -8,7 +8,7 @@ describe('normalizeSocialUrl', () => {
     );
   });
 
-  it('rewrites existing x.com URLs to twitter.com for Twitter links', () => {
+  it('rewrites existing x.com profile URLs to twitter.com for Twitter links', () => {
     expect(normalizeSocialUrl('https://x.com/ogabasseyy', 'twitter')).toBe(
       'https://twitter.com/ogabasseyy'
     );
@@ -18,10 +18,10 @@ describe('normalizeSocialUrl', () => {
     expect(normalizeSocialUrl('http://x.com/ogabasseyy', 'twitter')).toBe(
       'https://twitter.com/ogabasseyy'
     );
-    expect(normalizeSocialUrl('https://x.com', 'twitter')).toBe(
-      'https://twitter.com'
+    expect(normalizeSocialUrl('HTTPS://x.com/ogabasseyy', 'twitter')).toBe(
+      'https://twitter.com/ogabasseyy'
     );
-    expect(normalizeSocialUrl('https://www.x.com', 'twitter')).toBe(
+    expect(normalizeSocialUrl('https://x.com', 'twitter')).toBe(
       'https://twitter.com'
     );
     expect(normalizeSocialUrl('https://x.com?lang=en', 'twitter')).toBe(
@@ -29,6 +29,18 @@ describe('normalizeSocialUrl', () => {
     );
     expect(normalizeSocialUrl('https://www.x.com#profile', 'twitter')).toBe(
       'https://twitter.com#profile'
+    );
+  });
+
+  it('does not rewrite Twitter content or reserved routes as profile URLs', () => {
+    expect(normalizeSocialUrl('https://x.com/i/status/54321', 'twitter')).toBe(
+      'https://x.com/i/status/54321'
+    );
+    expect(
+      normalizeSocialUrl('https://x.com/ogabasseyy/status/54321', 'twitter')
+    ).toBe('https://x.com/ogabasseyy/status/54321');
+    expect(normalizeSocialUrl('https://x.com/hashtag', 'twitter')).toBe(
+      'https://x.com/hashtag'
     );
   });
 

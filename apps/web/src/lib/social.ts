@@ -15,6 +15,67 @@ export const SOCIAL_PLATFORMS = [
 
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
 
+const TWITTER_PROFILE_HOSTS = new Set([
+  'x.com',
+  'www.x.com',
+  'mobile.x.com',
+  'twitter.com',
+  'www.twitter.com',
+  'mobile.twitter.com',
+]);
+const TWITTER_RESERVED_PATHS = new Set([
+  'account',
+  'communities',
+  'compose',
+  'explore',
+  'hashtag',
+  'home',
+  'i',
+  'intent',
+  'login',
+  'logout',
+  'messages',
+  'notifications',
+  'search',
+  'settings',
+  'share',
+  'signup',
+  'topics',
+  'who_to_follow',
+]);
+
+function normalizeTwitterProfileUrl(input: string): string | undefined {
+  try {
+    const url = new URL(input);
+    const hostname = url.hostname.toLowerCase();
+    if (!TWITTER_PROFILE_HOSTS.has(hostname)) {
+      return undefined;
+    }
+
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    if (pathSegments.length === 0) {
+      return `https://twitter.com${url.search}${url.hash}`;
+    }
+
+    if (pathSegments.length !== 1) {
+      return undefined;
+    }
+
+    const [handle] = pathSegments;
+    if (
+      !handle ||
+      TWITTER_RESERVED_PATHS.has(handle.toLowerCase()) ||
+      !/^[A-Za-z0-9_]{1,15}$/.test(handle)
+    ) {
+      return undefined;
+    }
+
+    return `https://twitter.com/${handle}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function isSocialPlatform(platform: string): platform is SocialPlatform {
   return (SOCIAL_PLATFORMS as readonly string[]).includes(platform);
 }
@@ -27,13 +88,9 @@ export function normalizeSocialUrl(
 
   const cleanInput = input.trim();
 
-  // If it's already a URL, return it
-  if (cleanInput.startsWith('http://') || cleanInput.startsWith('https://')) {
+  if (/^https?:\/\//i.test(cleanInput)) {
     if (platform === 'twitter') {
-      return cleanInput.replace(
-        /^https?:\/\/(?:www\.)?x\.com(?=[/?#]|$)/i,
-        'https://twitter.com'
-      );
+      return normalizeTwitterProfileUrl(cleanInput) ?? cleanInput;
     }
     return cleanInput;
   }

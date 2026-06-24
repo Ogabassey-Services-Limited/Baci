@@ -114,10 +114,7 @@ export function getSeoProductName(product: {
     .filter((index) => index >= 0);
   const lastRepresentedSlugTokenIndex =
     representedSlugTokenIndexes.at(-1) ?? -1;
-
-  if (lastRepresentedSlugTokenIndex < 0) {
-    return productName;
-  }
+  const hasRepresentedSlugTokens = lastRepresentedSlugTokenIndex >= 0;
 
   const disambiguators: string[] = [];
   const seenDisambiguators = new Set<string>();
@@ -135,7 +132,11 @@ export function getSeoProductName(product: {
       CURRENCY_SLUG_DISAMBIGUATOR_TOKENS.has(token) &&
       representedSlugTokenIndexes.some((tokenIndex) => tokenIndex < index);
 
-    if (index <= lastRepresentedSlugTokenIndex && !isMismatchedCurrencyToken) {
+    if (
+      hasRepresentedSlugTokens &&
+      index <= lastRepresentedSlugTokenIndex &&
+      !isMismatchedCurrencyToken
+    ) {
       continue;
     }
 
