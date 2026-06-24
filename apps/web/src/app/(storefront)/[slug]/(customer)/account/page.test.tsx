@@ -140,7 +140,7 @@ describe('AccountPage', () => {
     );
   });
 
-  it('shows a loading state while customer auth is loading', () => {
+  it('renders the sign-in prompt while only customer auth is loading', () => {
     vi.mocked(useCustomerAuth).mockReturnValue(
       createCustomerAuthValue({
         user: null,
@@ -152,9 +152,12 @@ describe('AccountPage', () => {
 
     render(<AccountPage />);
 
-    expect(
-      screen.getByRole('status', { name: /loading account/i })
-    ).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('heading', { name: /sign in to view your account/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: /loading account/i })
+    ).not.toBeInTheDocument();
   });
 });

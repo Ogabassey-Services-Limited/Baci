@@ -17,6 +17,11 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
   });
 
   afterEach(() => {
+    if (originalVercelUrl === undefined) {
+      delete process.env.VERCEL_URL;
+      return;
+    }
+
     process.env.VERCEL_URL = originalVercelUrl;
   });
 
