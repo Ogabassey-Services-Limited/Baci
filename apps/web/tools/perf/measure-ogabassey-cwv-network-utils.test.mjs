@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchJson,
   resolveCanonicalUrl,
+  resolveCanonicalUrlOrFailure,
   resolveLatestBlogPostUrl,
 } from './measure-ogabassey-cwv-network-utils.mjs';
 
@@ -89,6 +90,22 @@ describe('resolveLatestBlogPostUrl', () => {
     await expect(
       resolveLatestBlogPostUrl('https://ogabassey.com/blog')
     ).resolves.toBe('https://ogabassey.com/blog/manual');
+  });
+
+  it('treats blank explicit blog post overrides as unset', async () => {
+    process.env.OGABASSEY_BLOG_POST_URL = '   ';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () => '<a href="/blog/post?utm=1#top"></a>',
+      }))
+    );
+
+    await expect(
+      resolveLatestBlogPostUrl('https://ogabassey.com/blog')
+    ).resolves.toBe('https://ogabassey.com/blog/post');
   });
 
   it('skips malformed hrefs and returns the first same-origin blog post', async () => {
@@ -242,5 +259,24 @@ describe('resolveCanonicalUrl', () => {
     await expect(
       resolveCanonicalUrl('https://ogabassey.com/products/source')
     ).rejects.toThrow('changed origin');
+  });
+});
+
+describe('resolveCanonicalUrlOrFailure', () => {
+  it('records canonical lookup failures without discarding the requested PDP URL', async () => {
+    await expect(
+      resolveCanonicalUrlOrFailure('https://ogabassey.com/products/source', {
+        resolveCanonicalUrlImpl: () => {
+          throw new Error('canonical lookup failed');
+        },
+      })
+    ).resolves.toEqual({
+      failure: {
+        label: 'pdp-dell',
+        message: 'canonical lookup failed',
+        source: 'target-resolution',
+      },
+      url: 'https://ogabassey.com/products/source',
+    });
   });
 });

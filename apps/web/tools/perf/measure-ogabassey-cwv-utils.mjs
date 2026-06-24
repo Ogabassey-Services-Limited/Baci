@@ -1,4 +1,20 @@
 export const DEBUGBEAR_USER_AGENT = 'Baci-CWV-measurement/1.0';
+export const WRAPPER_DEFAULT_ENV_KEYS = 'OGABASSEY_CWV_WRAPPER_DEFAULT_KEYS';
+
+export function getWrapperDefaultEnvKeys(env = process.env) {
+  return new Set(
+    `${env[WRAPPER_DEFAULT_ENV_KEYS] ?? ''}`
+      .split(',')
+      .map((key) => key.trim())
+      .filter(Boolean)
+  );
+}
+
+function rememberWrapperDefaultEnvKey(env, key) {
+  const keys = getWrapperDefaultEnvKeys(env);
+  keys.add(key);
+  env[WRAPPER_DEFAULT_ENV_KEYS] = [...keys].sort().join(',');
+}
 
 export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
   home: 'https://ogabassey.com/',
@@ -52,9 +68,12 @@ export function isFalseyEnvValue(value) {
   return ['0', 'false', 'no', 'off'].includes(normalizeEnvFlag(value));
 }
 
-export function setDefaultEnv(env, key, value) {
+export function setDefaultEnv(env, key, value, { track = false } = {}) {
   if (`${env[key] ?? ''}`.trim()) return;
   env[key] = value;
+  if (track) {
+    rememberWrapperDefaultEnvKey(env, key);
+  }
 }
 
 export function buildDebugBearHeaders(apiKey) {

@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  resolveCanonicalUrl,
+  resolveCanonicalUrlOrFailure,
   resolveLatestBlogPostUrl,
 } from './measure-ogabassey-cwv-network-utils.mjs';
 import {
@@ -17,6 +17,7 @@ import {
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
   filterOgaBasseyCwvTargets,
+  getWrapperDefaultEnvKeys,
   isFalseyEnvValue,
   isTruthyEnvValue,
   loadEnvFile,
@@ -26,14 +27,31 @@ import {
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const appRoot = fileURLToPath(new URL('../..', import.meta.url));
 
+const wrapperDefaultEnvKeys = getWrapperDefaultEnvKeys(process.env);
 const envKeysBeforeAuditFileLoad = new Set(Object.keys(process.env));
-await loadEnvFile(join(repoRoot, '.env.local'));
-await loadEnvFile(join(appRoot, '.env.local'), {
-  override: (key) => !envKeysBeforeAuditFileLoad.has(key),
+for (const key of wrapperDefaultEnvKeys) {
+  envKeysBeforeAuditFileLoad.delete(key);
+}
+const rootEnvFile =
+  process.env.OGABASSEY_CWV_ROOT_ENV_FILE || join(repoRoot, '.env.local');
+const appEnvFile =
+  process.env.OGABASSEY_CWV_APP_ENV_FILE || join(appRoot, '.env.local');
+await loadEnvFile(rootEnvFile, {
+  override: (key) => wrapperDefaultEnvKeys.has(key),
+});
+await loadEnvFile(appEnvFile, {
+  override: (key) =>
+    wrapperDefaultEnvKeys.has(key) || !envKeysBeforeAuditFileLoad.has(key),
 });
 const auditId = new Date().toISOString().replace(/[:.]/g, '-');
+const useDebugBearRawDir = isTruthyEnvValue(
+  process.env.OGABASSEY_CWV_USE_DEBUGBEAR_RAW_DIR
+);
 const customOutputDir =
-  process.env.OGABASSEY_AUDIT_OUTPUT_DIR || process.env.DEBUGBEAR_RAW_DIR || '';
+  process.env.OGABASSEY_AUDIT_OUTPUT_DIR?.trim() ||
+  (useDebugBearRawDir ? process.env.DEBUGBEAR_RAW_DIR?.trim() : '') ||
+  process.env.OGABASSEY_CWV_DEFAULT_OUTPUT_DIR?.trim() ||
+  '';
 const outputDir =
   customOutputDir ||
   join(repoRoot, 'output/audits', `ogabassey-cwv-${auditId}`);
@@ -156,7 +174,11 @@ const targets = filterOgaBasseyCwvTargets(
 );
 const pdpTarget = targets.find((target) => target.label === 'pdp-dell');
 if (pdpTarget && shouldRunExternalProbes && shouldResolvePdpCanonical) {
-  pdpTarget.url = await resolveCanonicalUrl(requestedPdpUrl);
+  const pdpResolution = await resolveCanonicalUrlOrFailure(requestedPdpUrl);
+  pdpTarget.url = pdpResolution.url;
+  if (pdpResolution.failure) {
+    targetResolutionFailures.push(pdpResolution.failure);
+  }
 }
 
 const summaries = [];

@@ -93,6 +93,31 @@ describe('measure-ogabassey-cwv CLI', () => {
     );
   });
 
+  it('ignores ambient DEBUGBEAR_RAW_DIR unless the PDP wrapper opts in', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-test-'));
+    const ambientRawDir = await mkdtemp(join(tmpdir(), 'ogabassey-raw-test-'));
+    const scriptPath = join(
+      process.cwd(),
+      'tools/perf/measure-ogabassey-cwv.mjs'
+    );
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf8',
+      env: {
+        ...scriptEnv(outputDir),
+        DEBUGBEAR_RAW_DIR: ambientRawDir,
+        OGABASSEY_AUDIT_OUTPUT_DIR: '',
+        OGABASSEY_CWV_DEBUGBEAR: '0',
+        OGABASSEY_CWV_PSI: '0',
+        OGABASSEY_CWV_USE_DEBUGBEAR_RAW_DIR: '0',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toContain(ambientRawDir);
+    expect(await readdir(ambientRawDir)).toEqual([]);
+  });
+
   it('honors common falsey PSI disable values', async () => {
     const outputDir = await mkdtemp(join(tmpdir(), 'ogabassey-cwv-test-'));
     const scriptPath = join(

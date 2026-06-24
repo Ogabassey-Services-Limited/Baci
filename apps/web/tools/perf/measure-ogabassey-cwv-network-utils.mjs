@@ -67,8 +67,9 @@ function isBlogArticlePathForIndex(pathname, blogIndexPathname) {
 }
 
 export async function resolveLatestBlogPostUrl(blogUrl) {
-  if (process.env.OGABASSEY_BLOG_POST_URL) {
-    return process.env.OGABASSEY_BLOG_POST_URL;
+  const explicitBlogPostUrl = process.env.OGABASSEY_BLOG_POST_URL?.trim() || '';
+  if (explicitBlogPostUrl) {
+    return explicitBlogPostUrl;
   }
 
   try {
@@ -160,4 +161,22 @@ export async function resolveCanonicalUrl(url) {
     requested,
     'canonical'
   );
+}
+
+export async function resolveCanonicalUrlOrFailure(
+  url,
+  { resolveCanonicalUrlImpl = resolveCanonicalUrl } = {}
+) {
+  try {
+    return { url: await resolveCanonicalUrlImpl(url) };
+  } catch (error) {
+    return {
+      failure: {
+        label: 'pdp-dell',
+        message: error instanceof Error ? error.message : String(error),
+        source: 'target-resolution',
+      },
+      url,
+    };
+  }
 }
