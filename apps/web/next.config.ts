@@ -141,13 +141,16 @@ const nextConfig: NextConfig = {
     'storefront-page': { stale: 60, revalidate: 300, expire: 3600 },
     // Categories: rarely change, revalidate every 1hr, expire after 24hr
     categories: { stale: 300, revalidate: 3600, expire: 86400 },
-    // Blog posts: near-static content that is invalidated on edit via cacheTag
-    // (see lib/cache-revalidation.ts), so the server only
-    // needs to re-render daily instead of every 60s (the merchant profile)
-    // under heavy crawler load. Keep `stale` short (the cost win comes from
-    // `revalidate`, not `stale`) so edited content still surfaces quickly for
-    // clients that already cached the page.
-    blog: { stale: 300, revalidate: 86400, expire: 604800 },
+    // Blog posts: near-static content invalidated on edit via cacheTag (see
+    // lib/cache-revalidation.ts). These use the LOCAL Cache Components handler
+    // (`'use cache'`, not remote), so cross-instance tag eviction isn't
+    // guaranteed — the revalidate window therefore also bounds how long an
+    // edited/deleted post (or a cached missing-slug lookup) can be served on a
+    // warm instance. Hourly revalidation kills the 60s re-render storm under
+    // crawler load (~60x fewer renders) while keeping that staleness bounded to
+    // an hour; `stale` stays short since the cost win is `revalidate`, not
+    // `stale`.
+    blog: { stale: 300, revalidate: 3600, expire: 86400 },
   },
 
   // Fix Vercel middleware tracing issue with Next.js 16

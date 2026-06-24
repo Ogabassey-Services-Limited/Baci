@@ -100,10 +100,13 @@ describe('next.config cacheLife profiles', () => {
     ).not.toBeNull();
 
     const [, stale, revalidate, expire] = match as RegExpMatchArray;
-    // The cost win comes from a long server `revalidate` (far fewer re-renders),
-    // not a long client `stale`. Blog edits invalidate by cacheTag, so server
-    // revalidation can be infrequent.
-    expect(Number(revalidate)).toBeGreaterThanOrEqual(86400); // >= 1 day server revalidation
+    // Server `revalidate` must be far less frequent than the hot merchant
+    // profile (60s) to stop the re-render storm — but bounded (not days),
+    // because blog posts use the LOCAL Cache Components handler where
+    // cross-instance tag eviction isn't guaranteed, so this window also caps
+    // edit/delete staleness and missing-slug negative caching (Codex review).
+    expect(Number(revalidate)).toBeGreaterThanOrEqual(1800); // >= 30 min
+    expect(Number(revalidate)).toBeLessThanOrEqual(14400); // <= 4 hr
     // Keep client-side staleness short so edited posts surface quickly for
     // visitors who already have the page in their router cache.
     expect(Number(stale)).toBeLessThanOrEqual(600);
