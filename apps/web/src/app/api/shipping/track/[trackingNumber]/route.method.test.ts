@@ -6,6 +6,8 @@ const mockTrackShipment = vi.fn();
 const mockOrderStatusEq = vi.fn();
 const mockOrderStatusUpdate = vi.fn();
 const mockShipmentStatusEq = vi.fn();
+const mockShipmentStatusMaybeSingle = vi.fn();
+const mockShipmentStatusSelect = vi.fn();
 const mockShipmentStatusUpdate = vi.fn();
 const mockAdminRpc = vi.fn();
 const mockAuthGetUser = vi.fn();
@@ -59,7 +61,14 @@ function mockShipmentLookup(data: unknown) {
 
   mockOrderStatusEq.mockResolvedValue({ error: null });
   mockOrderStatusUpdate.mockReturnValue({ eq: mockOrderStatusEq });
-  mockShipmentStatusEq.mockResolvedValue({ error: null });
+  mockShipmentStatusMaybeSingle.mockResolvedValue({
+    data: { id: 'shipment-1' },
+    error: null,
+  });
+  mockShipmentStatusSelect.mockReturnValue({
+    maybeSingle: mockShipmentStatusMaybeSingle,
+  });
+  mockShipmentStatusEq.mockReturnValue({ select: mockShipmentStatusSelect });
   mockShipmentStatusUpdate.mockReturnValue({ eq: mockShipmentStatusEq });
 
   mockFrom.mockImplementation((table: string) => {
@@ -196,7 +205,8 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       receiver_address: { city: 'Ikeja', state: 'Lagos' },
     });
-    mockShipmentStatusEq.mockResolvedValueOnce({
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'shipment write failed' },
     });
     mockTrackShipment.mockResolvedValue({
@@ -235,7 +245,8 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       receiver_address: { city: 'Ikeja', state: 'Lagos' },
     });
-    mockShipmentStatusEq.mockResolvedValueOnce({
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'shipment write denied by RLS' },
     });
     mockTrackShipment.mockResolvedValue({
@@ -289,7 +300,8 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       receiver_address: { city: 'Ikeja', state: 'Lagos' },
     });
-    mockShipmentStatusEq.mockResolvedValueOnce({
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'shipment write denied by RLS' },
     });
     mockAuthGetUser.mockResolvedValueOnce({
@@ -319,6 +331,48 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     }
   });
 
+  it('uses the delivered RPC when customer-scoped shipment update matches zero rows', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+
+      expect(response.status).toBe(200);
+      expect(mockAdminRpc).toHaveBeenCalledWith(
+        'persist_customer_delivered_tracking',
+        expect.objectContaining({
+          p_order_id: 'order-1',
+          p_shipment_id: 'shipment-1',
+        })
+      );
+      expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith('order-1');
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it('does not send activation notification when the delivered RPC refuses the customer transition', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
@@ -328,7 +382,8 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       receiver_address: { city: 'Ikeja', state: 'Lagos' },
     });
-    mockShipmentStatusEq.mockResolvedValueOnce({
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'shipment write denied by RLS' },
     });
     mockAdminRpc.mockResolvedValueOnce({ data: false, error: null });

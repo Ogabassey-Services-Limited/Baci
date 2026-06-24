@@ -62,9 +62,20 @@ BEGIN
 
   SELECT "shipping_status" INTO "v_order_status"
   FROM "public"."orders"
-  WHERE "id" = "p_order_id";
+  WHERE "id" = "p_order_id"
+  FOR UPDATE;
 
   IF "v_order_status" IN ('cancelled', 'canceled', 'returned', 'failed') THEN
+    RETURN FALSE;
+  END IF;
+
+  UPDATE "public"."orders"
+  SET "shipping_status" = 'delivered'
+  WHERE "id" = "p_order_id"
+    AND "shipping_status" NOT IN ('cancelled', 'canceled', 'returned', 'failed')
+  RETURNING "shipping_status" INTO "v_order_status";
+
+  IF "v_order_status" IS DISTINCT FROM 'delivered' THEN
     RETURN FALSE;
   END IF;
 
@@ -81,16 +92,10 @@ BEGIN
     AND "order_id" = "p_order_id";
 
   IF NOT FOUND THEN
-    RETURN FALSE;
+    RAISE EXCEPTION 'Shipment % for order % was not updated', "p_shipment_id", "p_order_id";
   END IF;
 
-  UPDATE "public"."orders"
-  SET "shipping_status" = 'delivered'
-  WHERE "id" = "p_order_id"
-    AND "shipping_status" NOT IN ('cancelled', 'canceled', 'returned', 'failed')
-  RETURNING "shipping_status" INTO "v_order_status";
-
-  RETURN "v_order_status" = 'delivered';
+  RETURN TRUE;
 END;
 $$;
 

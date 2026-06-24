@@ -191,10 +191,38 @@ describe('POST /api/webhooks/mycover', () => {
     expect(response.status).toBe(200);
     expect(mocks.policyUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
+        activation_reminder_sent_at: null,
         claim_link: 'https://mycover.ai/purchase?q=claim-token',
         inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+        inspection_status: 'pending',
       })
     );
+  });
+
+  it('drops non-HTTPS and non-MyCover hosted links before persisting', async () => {
+    const payload = {
+      data: {
+        id: 'policy-123',
+        sdk: {
+          claim_link: 'https://evil.test/purchase?q=claim-token',
+          inspection_link: 'http://mycover.ai/purchase?q=inspection-token',
+        },
+      },
+      event: 'purchase.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    const updatePayload = mocks.policyUpdate.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(updatePayload).not.toHaveProperty('claim_link');
+    expect(updatePayload).not.toHaveProperty('inspection_link');
   });
 
   it('rechecks delivered-order activation when an inspection link is stored on purchase', async () => {

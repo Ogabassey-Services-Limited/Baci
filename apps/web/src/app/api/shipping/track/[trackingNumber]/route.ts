@@ -178,14 +178,16 @@ async function persistTrackingResult({
   const delivered = shippingStatus === 'delivered';
   const snapshot = buildTrackingSnapshot(trackingResult);
 
-  const { error: shipmentUpdateError } = await supabase
+  const { data: updatedShipment, error: shipmentUpdateError } = await supabase
     .from('shipments')
     .update(snapshot)
-    .eq('id', shipment.id);
+    .eq('id', shipment.id)
+    .select('id')
+    .maybeSingle();
 
-  if (shipmentUpdateError) {
+  if (shipmentUpdateError || !updatedShipment) {
     console.error('Error updating shipment tracking snapshot:', {
-      error: shipmentUpdateError,
+      error: shipmentUpdateError ?? 'No shipment row updated',
       shipmentId: shipment.id,
     });
     // Customer tracking should return the live carrier result even when RLS

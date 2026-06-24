@@ -270,6 +270,12 @@ async function handlePolicyPurchased(
       updated_at: new Date().toISOString(),
       // Hosted flows for filing a claim / completing a device inspection.
       ...hostedFlowLinks,
+      ...(hostedFlowLinks.inspection_link
+        ? {
+            activation_reminder_sent_at: null,
+            inspection_status: 'pending',
+          }
+        : {}),
     })
     .eq(lookup.column, lookup.value)
     .select('id, order_id')
@@ -369,13 +375,29 @@ async function notifyActivateProtectionIfDelivered(orderId: string) {
  * Keys are only included when present so we never overwrite a previously
  * stored link with `undefined` on webhooks that omit `data.sdk`.
  */
+function normalizeMyCoverHostedLink(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    const hostname = url.hostname.toLowerCase();
+    const isMyCoverHost =
+      hostname === 'mycover.ai' || hostname.endsWith('.mycover.ai');
+    return url.protocol === 'https:' && isMyCoverHost ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function getHostedFlowLinks(data: MyCoverWebhookPayload['data']): {
   claim_link?: string;
   inspection_link?: string;
 } {
   const links: { claim_link?: string; inspection_link?: string } = {};
-  const claimLink = data.sdk?.claim_link;
-  const inspectionLink = data.sdk?.inspection_link;
+  const claimLink = normalizeMyCoverHostedLink(data.sdk?.claim_link);
+  const inspectionLink = normalizeMyCoverHostedLink(data.sdk?.inspection_link);
   if (claimLink) links.claim_link = claimLink;
   if (inspectionLink) links.inspection_link = inspectionLink;
   return links;
