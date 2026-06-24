@@ -153,6 +153,12 @@ export default function SettingsScreen() {
             subtitle="Pixels, CAPI, Setup"
             onPress={() => _router.push('/(admin)/analytics-config')}
           />
+          <SettingItem
+            icon="mail-outline"
+            title="Email Domain"
+            subtitle="Send emails from your own domain"
+            onPress={() => _router.push('/(admin)/email-domain-settings')}
+          />
         </View>
 
         {/* Notifications */}
