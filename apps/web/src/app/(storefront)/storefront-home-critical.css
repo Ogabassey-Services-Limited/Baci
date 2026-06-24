@@ -28,6 +28,7 @@
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
 @source "../../components/storefront/ogabassey/components/ogabassey-shell-mobile-hero.tsx";
+@source "./ogabassey/ogabassey-home-hero-fallback.tsx";
 @source "../../components/storefront/ogabassey/pages/home.tsx";
 /*
   PSI's mobile trace exposes the homepage strip plus the top edge of Featured

@@ -6,6 +6,7 @@ import {
   OGABASSEY_TITLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
+import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
@@ -43,7 +44,7 @@ export function OgabasseyStaticHomePageContent({
       {/* The first-flush product hero lives in the route layout's static PPR
           fallback. The dynamic content below re-renders the final hero after it
           can resolve request headers for path-mode vs subdomain links. */}
-      <Suspense>
+      <Suspense fallback={<OgabasseyHomeHeroFallback />}>
         <OgabasseyHomePageContent pathPrefix={pathPrefix} />
       </Suspense>
     </>

@@ -98,6 +98,9 @@ describe('storefront CSS partitioning', () => {
     expect(homeCriticalCss).toMatch(
       /@source\s+["'][^"']*hero-desktop-grid\.tsx["']/
     );
+    expect(homeCriticalCss).toMatch(
+      /@source\s+["'][^"']*ogabassey-home-hero-fallback\.tsx["']/
+    );
   });
 
   it('registers store color tokens in the render-blocking critical CSS so the hero paints styled on first frame', () => {
