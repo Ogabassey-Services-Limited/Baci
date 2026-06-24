@@ -371,6 +371,7 @@ describe('product-utils', () => {
       image: 'https://cdn.example.com/iphone-13-pro-blue.jpg',
       images: [
         'https://cdn.example.com/iphone-13-pro-blue.jpg',
+        'https://cdn.example.com/iphone-13-pro-128.jpg',
         'https://cdn.example.com/iphone-13-pro-front.jpg',
         'https://cdn.example.com/iphone-13-pro-back.jpg',
       ],

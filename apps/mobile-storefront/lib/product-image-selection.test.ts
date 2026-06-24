@@ -41,6 +41,26 @@ describe('resolveVariantSelectionFromImage', () => {
     ).toBeNull();
   });
 
+  it('matches a variant by its primary_image when image/images are absent', () => {
+    const result = resolveVariantSelectionFromImage({
+      imageUrl: 'https://cdn.example.com/i11pm-graphite.jpg',
+      variants: [
+        {
+          id: 'used-graphite-256',
+          condition: 'used',
+          price: 550000,
+          price_override: 550000,
+          stock_quantity: 2,
+          primary_image: 'https://cdn.example.com/i11pm-graphite.jpg',
+          attributes: { color: 'Graphite', storage: '256GB' },
+          name: '256GB Graphite',
+        },
+      ],
+    });
+
+    expect(result?.variantId).toBe('used-graphite-256');
+  });
+
   it('resolves the canonical color from the tapped image while preserving condition and storage', () => {
     expect(
       resolveVariantSelectionFromImage({
