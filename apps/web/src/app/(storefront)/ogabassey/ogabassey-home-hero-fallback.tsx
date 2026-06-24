@@ -51,7 +51,42 @@ export function OgabasseyHomeHeroFallback() {
           </div>
         </div>
       </section>
-      <div className="h-24 md:h-28" />
+      {/* Mirror HeroUtilityPanel's real geometry (mt/py + py-8 banner boxes and
+          the 5 utility buttons) so the cold-stream fallback reserves the panel's
+          full height — a shorter spacer let content below shift down on resolve. */}
+      <div className="w-full bg-store-background mt-3 md:mt-8 mb-6 border-y border-store-border/60 md:py-5">
+        <div className="md:hidden px-4">
+          <div className="bg-store-background rounded-3xl shadow-sm border border-store-border/60 p-2">
+            <div className="bg-store-primary/5 rounded-2xl py-3 px-4 mb-4 flex justify-center">
+              <div className="h-5 w-48 rounded-full bg-store-secondary-text/10" />
+            </div>
+            <div className="grid grid-cols-5 gap-2 px-1 pb-2">
+              {[0, 1, 2, 3, 4].map((key) => (
+                <div className="flex flex-col items-center gap-2" key={key}>
+                  <div className="w-12 h-12 rounded-full bg-store-secondary-text/10" />
+                  <div className="h-3 w-10 rounded-full bg-store-secondary-text/10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="hidden md:flex max-w-[1400px] mx-auto px-4 md:px-6 flex-row items-center justify-between">
+          <div className="bg-store-primary/5 px-10 py-8 rounded-lg min-w-[280px] flex justify-center">
+            <div className="h-7 w-40 rounded-full bg-store-secondary-text/10" />
+          </div>
+          <div className="flex justify-center gap-8 md:gap-12 flex-wrap">
+            {[0, 1, 2, 3, 4].map((key) => (
+              <div className="flex flex-col items-center gap-2" key={key}>
+                <div className="w-12 h-12 rounded-full bg-store-secondary-text/10" />
+                <div className="h-3 w-10 rounded-full bg-store-secondary-text/10" />
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:flex bg-store-primary/5 px-10 py-8 rounded-lg min-w-[280px] justify-center">
+            <div className="h-7 w-40 rounded-full bg-store-secondary-text/10" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

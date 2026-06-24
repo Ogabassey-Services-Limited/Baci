@@ -112,9 +112,20 @@ export async function OgabasseyHomeDynamicContent({
     getCachedNavigationCategories(merchant.id),
     // Used for JSON-LD coverage only. The visible hero has its own streamed
     // boundary so LCP discovery is not gated on product-grid/category queries.
+    // loadOgabasseyLaunchProducts is best-effort (never rejects), so a launch
+    // feed failure degrades to empty schema coverage instead of failing the page.
     loadOgabasseyLaunchProducts(merchant.id),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
+  // Inventory (manage_stock/stock) lives only on the template rows; the display
+  // -shaped launch items drop it. Map slug -> template row so the schema can
+  // still derive availability when a launch copy wins the slug dedupe below —
+  // otherwise an out-of-stock managed launch item would be emitted as InStock.
+  const merchantInventoryBySlug = new Map(
+    merchantProducts
+      .filter((product) => Boolean(product.slug))
+      .map((product) => [product.slug, product] as const)
+  );
   // Schema product list: prepend the visible launch items (deduped) so every
   // carousel slide is represented even when it falls outside the top-8 window.
   const schemaProducts = selectLaunchProducts(
@@ -135,17 +146,27 @@ export async function OgabasseyHomeDynamicContent({
           url: baseUrl,
           // The launch items are display-shaped (price as a formatted string);
           // the schema needs a numeric price + string id, so normalize both
-          // union members before building the JSON-LD product list.
-          products: schemaProducts.map((product) => ({
-            ...product,
-            id: String(product.id),
-            price:
-              typeof product.price === 'number'
-                ? product.price
-                : 'rawPrice' in product && typeof product.rawPrice === 'number'
-                  ? product.rawPrice
-                  : 0,
-          })),
+          // union members before building the JSON-LD product list. Restore
+          // inventory from the template row so availability is correct even when
+          // a display-shaped launch copy won the slug dedupe.
+          products: schemaProducts.map((product) => {
+            const inventory = product.slug
+              ? merchantInventoryBySlug.get(product.slug)
+              : undefined;
+            return {
+              ...product,
+              id: String(product.id),
+              price:
+                typeof product.price === 'number'
+                  ? product.price
+                  : 'rawPrice' in product &&
+                      typeof product.rawPrice === 'number'
+                    ? product.rawPrice
+                    : 0,
+              manage_stock: inventory?.manage_stock,
+              stock: inventory?.stock,
+            };
+          }),
           merchantName: merchant.business_name,
           currency: merchant.payout_currency || 'NGN',
         })

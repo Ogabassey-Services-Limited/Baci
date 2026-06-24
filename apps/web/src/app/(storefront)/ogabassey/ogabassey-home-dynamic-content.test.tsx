@@ -183,6 +183,28 @@ describe('OgabasseyHomeDynamicContent', () => {
     );
   });
 
+  it('still renders the homepage when the launch feed fails', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct(),
+    ]);
+    vi.mocked(getCachedStorefrontLaunchProducts).mockRejectedValue(
+      new Error('launch feed down')
+    );
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    // The launch products are JSON-LD-only; a feed failure must not take down
+    // the visible product grid/home payload.
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey home payload' })
+    ).toBeInTheDocument();
+  });
+
   it('requests home products ordered by most recently updated', async () => {
     await OgabasseyHomeDynamicContent({
       merchant: mockMerchant,
@@ -352,6 +374,45 @@ describe('OgabasseyHomeDynamicContent', () => {
     const elements = collectionPage?.mainEntity?.itemListElement ?? [];
     // Pinned-first: the A27 leads the featured-products ItemList.
     expect(JSON.stringify(elements[0])).toContain('samsung-galaxy-a27-5g');
+  });
+
+  it('emits OutOfStock for a managed, sold-out launch product (inventory survives the dedupe)', async () => {
+    // The same out-of-stock product is both a launch pin (display-shaped, no
+    // inventory) and in the recent window (template-shaped, has inventory). The
+    // launch copy wins the slug dedupe, so without restoring inventory the schema
+    // would wrongly emit InStock.
+    const soldOut = createProduct({
+      id: 'a27',
+      name: 'Samsung Galaxy A27 5G',
+      slug: 'samsung-galaxy-a27-5g',
+      category: 'Smartphones',
+      images: ['https://cdn.ogabassey.com/products/a27.avif'],
+      manage_stock: true,
+      stock_quantity: 0,
+      stock: 0,
+    });
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([soldOut]);
+    vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([soldOut]);
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    const { container } = render(result as ReactElement);
+    const json =
+      container.querySelector('script[type="application/ld+json"]')
+        ?.innerHTML || '{}';
+    const schema = JSON.parse(json) as { '@graph': Record<string, unknown>[] };
+    const collectionPage = schema['@graph'].find(
+      (node) => node['@type'] === 'CollectionPage'
+    ) as { mainEntity?: { itemListElement?: unknown[] } } | undefined;
+    const element = (collectionPage?.mainEntity?.itemListElement ?? []).find(
+      (node) => JSON.stringify(node).includes('samsung-galaxy-a27-5g')
+    );
+
+    expect(JSON.stringify(element)).toContain('OutOfStock');
+    expect(JSON.stringify(element)).not.toContain('InStock');
   });
 
   it('includes the blog hub in the semantic graph only when the visible blog link is enabled', async () => {

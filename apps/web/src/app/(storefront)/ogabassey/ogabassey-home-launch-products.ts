@@ -56,11 +56,20 @@ export function selectOgabasseyLaunchProducts({
   return mapStorefrontProductsToOgabasseyProducts(launchSubset);
 }
 
+/**
+ * Best-effort: launch products are optional (they drive the hero carousel and
+ * JSON-LD coverage), so a launch-feed failure must degrade to an empty list —
+ * Hero falls back to its empty geometry — and never take down the awaiting hero
+ * section or homepage. Both legs are caught so this function never rejects.
+ */
 export async function loadOgabasseyLaunchProducts(
   merchantId: string
 ): Promise<Product[]> {
   const [launchCandidateRows, pinnedProductRows] = await Promise.all([
-    getCachedStorefrontLaunchProducts(merchantId),
+    getCachedStorefrontLaunchProducts(merchantId).catch((error) => {
+      console.error('Failed to load launch candidate products', { error });
+      return [];
+    }),
     getCachedStorefrontProductsBySlugs(
       merchantId,
       OGABASSEY_PINNED_LAUNCH_SLUGS

@@ -35,6 +35,7 @@ jest.mock('@/components/ui/Skeleton', () => {
   };
 });
 
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/product-normalization';
 import { JustLaunchedCarousel } from './JustLaunchedCarousel';
 
 const a27 = {
@@ -126,6 +127,34 @@ describe('JustLaunchedCarousel', () => {
     render(<JustLaunchedCarousel />);
 
     expect(screen.queryByText('Image Missing Phone')).toBeNull();
+    expect(screen.getByText('Xiaomi 17T')).toBeTruthy();
+  });
+
+  it('skips placeholder-only rows even though their image is truthy', () => {
+    // transformProduct falls back to PRODUCT_PLACEHOLDER_IMAGE when a product has
+    // no uploaded images, so `image` is truthy. Such a "No Image" row must not be
+    // hoisted into a launch slot just because it is newer/pinned.
+    mockUsePinned.mockReturnValue({
+      data: [
+        {
+          id: 'placeholder-pin',
+          name: 'Placeholder Only Phone',
+          slug: 'placeholder-only-phone',
+          price: 500000,
+          image: PRODUCT_PLACEHOLDER_IMAGE,
+          images: [],
+        },
+      ],
+    });
+    mockUseProducts.mockReturnValue({
+      products: [xiaomi],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<JustLaunchedCarousel />);
+
+    expect(screen.queryByText('Placeholder Only Phone')).toBeNull();
     expect(screen.getByText('Xiaomi 17T')).toBeTruthy();
   });
 
