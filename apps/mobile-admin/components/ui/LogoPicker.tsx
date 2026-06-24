@@ -144,7 +144,7 @@ export function LogoPicker({
         <View
           style={[styles.logoPlaceholder, { backgroundColor: colors.primary }]}
         >
-          <Text style={styles.logoPlaceholderText}>
+          <Text style={[styles.logoPlaceholderText, { color: colors.textOnPrimary }]}>
             {businessName.charAt(0).toUpperCase() || 'S'}
           </Text>
         </View>
@@ -202,8 +202,7 @@ const styles = StyleSheet.create({
   logoPlaceholderText: {
     fontSize: 32,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFFFFF',
-  },
+    },
   changeLogoButton: {
     flexDirection: 'row',
     alignItems: 'center',
