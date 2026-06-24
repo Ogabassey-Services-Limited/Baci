@@ -62,5 +62,5 @@ export const metadata: Metadata = {
 };
 
 export default function OgabasseyStaticHomePage() {
-  return <OgabasseyStaticHomePageContent heroBasePath="/ogabassey" />;
+  return <OgabasseyStaticHomePageContent />;
 }

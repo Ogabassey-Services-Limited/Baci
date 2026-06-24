@@ -1,5 +1,4 @@
 import { DeferredGoogleStoreWidget } from '@/components/analytics/deferred-google-store-widget';
-import { HERO_DESKTOP_LCP_SRC } from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import { StorefrontChromeRuntime } from '@/components/storefront/ogabassey/storefront-chrome-runtime';
 import { ShellChromeLoading } from '@/components/storefront/ogabassey/storefront-loading-ui';
@@ -34,12 +33,11 @@ export function OgabasseyStorefrontLayout({
   ReactDOM.prefetchDNS(OGABASSEY_CDN_ORIGIN);
   ReactDOM.preconnect(OGABASSEY_CDN_ORIGIN);
   if (preloadHeroLcpImages) {
-    ReactDOM.preload(HERO_DESKTOP_LCP_SRC, {
-      as: 'image',
-      fetchPriority: 'high',
-      media: '(min-width: 768px)',
-      type: 'image/avif',
-    });
+    // The hero LCP image is now a dynamic launch-product image (rendered eager
+    // + fetchPriority="high" at the top of the tree, so it is discovered early),
+    // not a single static URL we can <link rel=preload>. Warming the CDN
+    // connection ahead of the streamed hero markup is the portable win here.
+    ReactDOM.preconnect(OGABASSEY_CDN_ORIGIN, { crossOrigin: 'anonymous' });
   }
 
   const basePath = getOgabasseyBasePath(merchant?.slug, routingMode);

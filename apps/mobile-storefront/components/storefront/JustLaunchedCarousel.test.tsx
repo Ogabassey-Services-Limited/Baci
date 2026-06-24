@@ -30,7 +30,9 @@ jest.mock('@/hooks/use-pinned-launch-products', () => ({
 jest.mock('@/components/ui/Skeleton', () => {
   const { View } =
     jest.requireActual<typeof import('react-native')>('react-native');
-  return { Skeleton: () => <View accessibilityRole="progressbar" accessible /> };
+  return {
+    Skeleton: () => <View accessibilityRole="progressbar" accessible />,
+  };
 });
 
 import { JustLaunchedCarousel } from './JustLaunchedCarousel';
@@ -80,6 +82,51 @@ describe('JustLaunchedCarousel', () => {
       screen.getByRole('button', { name: /Samsung Galaxy A27 5G Preorder/ })
     );
     expect(mockPush).toHaveBeenCalledWith('/product/samsung-galaxy-a27-5g');
+  });
+
+  it('uses the shared cutoff-adjusted launch order when newer arrivals exist', () => {
+    const newArrival = {
+      ...xiaomi,
+      id: 'new-xiaomi',
+      slug: 'xiaomi-18-ultra',
+      name: 'Xiaomi 18 Ultra',
+      created_at: '2026-06-24T08:00:00.000Z',
+    };
+    mockUsePinned.mockReturnValue({ data: [a27] });
+    mockUseProducts.mockReturnValue({
+      products: [newArrival, xiaomi, a27],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<JustLaunchedCarousel />);
+
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[0]?.props.accessibilityLabel).toContain('Xiaomi 18 Ultra');
+    expect(buttons[1]?.props.accessibilityLabel).toContain(
+      'Samsung Galaxy A27 5G Preorder'
+    );
+  });
+
+  it('skips launch rows that cannot render an image', () => {
+    mockUseProducts.mockReturnValue({
+      products: [
+        {
+          id: 'missing-image',
+          name: 'Image Missing Phone',
+          slug: 'image-missing-phone',
+          price: 500000,
+        },
+        xiaomi,
+      ],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<JustLaunchedCarousel />);
+
+    expect(screen.queryByText('Image Missing Phone')).toBeNull();
+    expect(screen.getByText('Xiaomi 17T')).toBeTruthy();
   });
 
   it('renders a loading skeleton (not a blank gap) while loading', () => {

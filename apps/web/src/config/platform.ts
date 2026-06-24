@@ -29,6 +29,8 @@ export const APPLE_TEAM_ID = '6QLNK7TXM3' as const;
  * `androidSha256Fingerprints` must match Play Console > App signing key.
  * `deepLinkPaths` define which URL paths the app handles.
  */
+export const OGABASSEY_STOREFRONT_IOS_APP_ID = '6472735367' as const;
+
 export const MOBILE_APPS = {
   admin: {
     name: 'Baci - The Ecommerce Builder',
@@ -45,7 +47,7 @@ export const MOBILE_APPS = {
   },
   storefront: {
     name: 'Ogabassey - Easybuy Gadgets',
-    // TODO: Add App Store ID once storefront iOS app is published
+    // Keep empty globally; OgaBassey-specific layouts emit the Smart App Banner.
     iosAppId: '',
     iosBundleId: 'com.ogabassey.app',
     androidPackage: 'com.ogabassey.store',
@@ -54,7 +56,7 @@ export const MOBILE_APPS = {
     ],
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-    appStoreUrl: '',
+    appStoreUrl: `https://apps.apple.com/app/id${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
     deepLinkPaths: [
       '/product/*',
       '/products/*',

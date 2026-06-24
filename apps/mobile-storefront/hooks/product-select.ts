@@ -1,5 +1,5 @@
 export const PRODUCT_SELECT = `
-  id, name, slug, description, price, compare_at_price,
+  id, name, slug, description, price, compare_at_price, created_at,
   images, brand, condition, has_condition_offers, variant_model, available_conditions, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
   variants:product_variants!product_variants_product_id_fkey (

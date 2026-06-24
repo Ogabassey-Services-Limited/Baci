@@ -1,4 +1,7 @@
-import { normalizeProductVariants, transformProduct } from './product-transform';
+import {
+  normalizeProductVariants,
+  transformProduct,
+} from './product-transform';
 
 const variantProductRow = {
   id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
@@ -7,6 +10,7 @@ const variantProductRow = {
   description: 'Preorder listing',
   price: 50000,
   compare_at_price: null,
+  created_at: '2026-06-24T08:00:00.000Z',
   images: [],
   brand: 'Samsung',
   condition: 'new',
@@ -85,6 +89,7 @@ describe('product-transform', () => {
     expect(product).toMatchObject({
       name: 'Samsung Galaxy A27 5G Preorder',
       slug: 'samsung-galaxy-a27-5g',
+      created_at: '2026-06-24T08:00:00.000Z',
       variants: [
         expect.objectContaining({
           attributes: {

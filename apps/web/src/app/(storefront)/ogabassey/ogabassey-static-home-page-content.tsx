@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
-import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {
   OGABASSEY_DESCRIPTION,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
   OGABASSEY_URL,
 } from '@/config/ogabassey';
+import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
@@ -27,19 +27,15 @@ const ogabasseyStaticHomepageSchema = {
   },
 } as const;
 
-export function OgabasseyStaticHomePageContent({
-  heroBasePath,
-}: {
-  heroBasePath: string;
-}) {
+export function OgabasseyStaticHomePageContent() {
   return (
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
-      {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
-      <Hero basePath={heroBasePath} />
       <OgabasseyHomeStyleLoader />
-      <Suspense fallback={null}>
-        <OgabasseyHomePageContent renderHero={false} />
+      {/* The hero is product-driven, but the Suspense fallback preserves the
+          mobile and desktop hero geometry while merchant/product data streams. */}
+      <Suspense fallback={<OgabasseyHomeHeroFallback />}>
+        <OgabasseyHomePageContent />
       </Suspense>
     </>
   );

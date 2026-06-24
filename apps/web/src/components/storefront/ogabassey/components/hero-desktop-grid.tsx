@@ -1,185 +1,198 @@
-'use client';
-
-import Image from 'next/image';
+import { getImageProps } from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import imageLoader from '@/lib/image-loader';
 import { asRoute } from '@/lib/routes';
-import {
-  DESKTOP_IPHONE_SLIDES,
-  FLASH_SALE_PROMO_IMAGE,
-  NEW_ARRIVALS_PROMO_IMAGE,
-} from './hero-data';
+import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
+import type { LaunchProductSlide } from './LaunchCarousel';
 
 interface HeroDesktopGridProps {
-  getHref: (path: string) => string;
+  /** Launch products, newest-first with pins applied. slides[0] is the big
+   *  hero (its image is the eager desktop LCP element); slides[1]/[2] fill the
+   *  two side cards. All deep-link to their PDP. */
+  slides: LaunchProductSlide[];
 }
 
-export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
-  const [currentIphoneSlide, setCurrentIphoneSlide] = useState(0);
+// Light, neutral card surface (matches the previous hero's restrained palette):
+// the merchant primary (`--store-primary`) is used only as an accent — the
+// eyebrow label, a thin rule, and the CTA button — never as a large fill.
+const CARD_SURFACE = 'bg-store-secondary';
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCurrentIphoneSlide(
-        (prev) => (prev + 1) % DESKTOP_IPHONE_SLIDES.length
-      );
-    }, 5000);
+const BIG_IMAGE_WIDTH = 800;
+const BIG_IMAGE_HEIGHT = 800;
+// Desktop-only so the eager LCP image never downloads on mobile, where this
+// whole grid is `display:none` and the mobile carousel owns the LCP slot.
+const BIG_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
+const BIG_IMAGE_SIZES = '(min-width: 768px) 480px, 1px';
+const SIDE_IMAGE_WIDTH = 320;
+const SIDE_IMAGE_HEIGHT = 320;
+const SIDE_IMAGE_SOURCE_MEDIA = '(min-width: 768px)';
+const SIDE_IMAGE_SIZES = '(min-width: 1024px) 160px, (min-width: 768px) 25vw, 1px';
+const HERO_IMAGE_QUALITY = 70;
 
-    return () => window.clearInterval(timer);
-  }, []);
+function ogabasseyHeroImageLoader({
+  quality = HERO_IMAGE_QUALITY,
+  src,
+  width,
+}: {
+  quality?: number;
+  src: string;
+  width: number;
+}) {
+  return imageLoader({ quality, src, width });
+}
+
+/** Media-scoped, eager, high-priority desktop LCP image. On mobile no `<source>`
+ *  matches, so the `<img>` falls back to a transparent pixel (zero network). */
+function HeroBigImage({ alt, src }: { alt: string; src: string }) {
+  const {
+    props: { sizes, src: imgSrc, srcSet, ...imgProps },
+  } = getImageProps({
+    alt,
+    decoding: 'sync',
+    fetchPriority: 'high',
+    height: BIG_IMAGE_HEIGHT,
+    loader: ogabasseyHeroImageLoader,
+    loading: 'eager',
+    quality: HERO_IMAGE_QUALITY,
+    sizes: BIG_IMAGE_SIZES,
+    src,
+    width: BIG_IMAGE_WIDTH,
+  });
 
   return (
-    <div className="hidden md:grid grid-cols-1 lg:grid-cols-4 gap-4 h-auto lg:h-[540px] order-2">
-      <div className="relative overflow-hidden rounded-2xl group cursor-pointer lg:col-span-3 h-[400px] lg:h-full bg-gray-50 flex flex-col shadow-lg hover:shadow-xl transition-all duration-300 ring-1 ring-black/5">
-        {DESKTOP_IPHONE_SLIDES.map((slide, idx) => (
-          <div
-            key={slide.id}
-            className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-          >
-            <div
-              className={`absolute inset-0 z-10 bg-linear-to-r ${slide.theme === 'dark'
-                ? 'from-black/90 via-black/40 to-transparent'
-                : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
-                }`}
-            />
+    <picture className="absolute inset-0 block h-full w-full">
+      <source
+        media={BIG_IMAGE_SOURCE_MEDIA}
+        sizes={sizes ?? BIG_IMAGE_SIZES}
+        srcSet={srcSet ?? imgSrc}
+      />
+      <img
+        {...imgProps}
+        alt={alt}
+        src={TRANSPARENT_PIXEL_SRC}
+        className="h-full w-full object-contain p-4 transition-transform duration-700 group-hover:scale-105"
+      />
+    </picture>
+  );
+}
 
-            <div
-              className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                }`}
-            >
-              <div className="max-w-lg space-y-4 transform translate-x-0 transition-transform duration-700">
-                <h2 className="text-6xl lg:text-8xl font-bold tracking-tighter leading-none">
-                  {slide.title}
-                </h2>
-                <p className="text-4xl lg:text-5xl font-light opacity-90 tracking-tight">
-                  {slide.subtitle}
-                </p>
+/** The large left hero card — a single, static launch product (best for a
+ *  stable LCP element). Light surface, brand red used only as an accent. */
+function HeroBigCard({
+  hasSideCards,
+  slide,
+}: {
+  hasSideCards: boolean;
+  slide: LaunchProductSlide;
+}) {
+  return (
+    <Link
+      href={asRoute(slide.href)}
+      prefetch={false}
+      aria-label={`${slide.name} — ${slide.ctaLabel}`}
+      className={`group relative ${hasSideCards ? 'lg:col-span-3' : 'lg:col-span-5'} h-[400px] lg:h-full overflow-hidden rounded-2xl ring-1 ring-store-border/70 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-5 ${CARD_SURFACE}`}
+    >
+      <div className="col-span-3 flex flex-col justify-center gap-3 px-10 lg:px-16 py-8">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-store-primary">
+          Just launched
+        </span>
+        <h2 className="line-clamp-3 text-4xl font-bold leading-tight text-store-secondary-text lg:text-5xl">
+          {slide.name}
+        </h2>
+        <p className="text-xl font-semibold text-store-secondary-text">{slide.priceLabel}</p>
+        <div className="mt-1 h-1.5 w-16 rounded-full bg-store-primary" />
+        <span className="mt-3 inline-flex w-fit items-center rounded-full bg-store-primary px-7 py-3 text-base font-bold text-store-on-primary shadow-sm transition-all group-hover:scale-105 group-hover:shadow-lg group-active:scale-95">
+          {slide.ctaLabel}
+        </span>
+      </div>
+      <div className="relative col-span-2">
+        <HeroBigImage alt={slide.imageAlt} src={slide.imageUrl} />
+      </div>
+    </Link>
+  );
+}
 
-                <div className="pt-8">
-                  <div className="h-1.5 w-20 bg-primary rounded-full mb-6" />
-                  <p className="text-2xl font-medium tracking-wide opacity-80 font-serif italic">
-                    {slide.headline}
-                    <span className="block font-sans font-black not-italic text-3xl lg:text-4xl uppercase tracking-widest mt-1">
-                      {slide.headlineSuffix}
-                    </span>
-                  </p>
-                </div>
 
-                <Link
-                  href={asRoute(getHref('/products'))}
-                  prefetch={false}
-                  className="mt-8 bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-full font-bold text-lg shadow-lg hover:shadow-primary/30 transition-all active:scale-95 inline-block"
-                >
-                  Shop Now
-                </Link>
-              </div>
-            </div>
+/** Desktop-only side-card image. The fallback `<img>` is a transparent pixel so
+ * hidden desktop cards do not add mobile hero image requests. */
+function HeroSideImage({ alt, src }: { alt: string; src: string }) {
+  const {
+    props: { sizes, src: imgSrc, srcSet, ...imgProps },
+  } = getImageProps({
+    alt,
+    height: SIDE_IMAGE_HEIGHT,
+    loader: ogabasseyHeroImageLoader,
+    loading: 'lazy',
+    quality: HERO_IMAGE_QUALITY,
+    sizes: SIDE_IMAGE_SIZES,
+    src,
+    width: SIDE_IMAGE_WIDTH,
+  });
 
-            <div className="absolute inset-0 w-full h-full z-0">
-              <picture className="absolute inset-0 block h-full w-full">
-                <source type="image/avif" srcSet={slide.image} />
-                <Image
-                  src={slide.fallbackImage}
-                  alt={`${slide.title} ${slide.subtitle}`}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 75vw"
-                  className="object-cover object-center transition-transform [transition-duration:3000ms] ease-out scale-100 group-hover:scale-105"
-                  loading={idx === 0 ? 'eager' : 'lazy'}
-                  fetchPriority={idx === 0 ? 'high' : undefined}
-                  unoptimized
-                />
-              </picture>
-            </div>
-          </div>
-        ))}
+  return (
+    <picture className="absolute inset-0 block h-full w-full">
+      <source
+        media={SIDE_IMAGE_SOURCE_MEDIA}
+        sizes={sizes ?? SIDE_IMAGE_SIZES}
+        srcSet={srcSet ?? imgSrc}
+      />
+      <img
+        {...imgProps}
+        alt={alt}
+        src={TRANSPARENT_PIXEL_SRC}
+        className="h-full w-full object-contain p-2 transition-transform duration-700 group-hover:scale-105"
+      />
+    </picture>
+  );
+}
 
-        <div className="absolute bottom-8 left-12 lg:left-20 flex gap-3 z-30">
-          {DESKTOP_IPHONE_SLIDES.map((slide, idx) => (
-            <button
-              key={slide.id}
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setCurrentIphoneSlide(idx);
-              }}
-              className={`h-2 rounded-full transition-all duration-300 backdrop-blur-xs ${idx === currentIphoneSlide
-                ? 'w-10 bg-primary'
-                : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
-                }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
+/** A compact side card backed by a launch product. Image is lazy (not LCP). */
+function HeroSideCard({ slide }: { slide: LaunchProductSlide }) {
+  return (
+    <Link
+      href={asRoute(slide.href)}
+      prefetch={false}
+      aria-label={`${slide.name} — ${slide.ctaLabel}`}
+      className={`group relative grid flex-1 grid-cols-5 overflow-hidden rounded-2xl shadow-lg ring-1 ring-store-border/70 transition-all duration-300 hover:shadow-xl ${CARD_SURFACE}`}
+    >
+      <div className="col-span-3 flex flex-col justify-center gap-1.5 px-5 py-4">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-store-primary">
+          Just launched
+        </span>
+        <h3 className="line-clamp-2 text-lg font-bold leading-tight text-store-secondary-text">
+          {slide.name}
+        </h3>
+        <p className="text-sm font-semibold text-store-secondary-text">{slide.priceLabel}</p>
+        <span className="mt-1 text-xs font-bold text-store-primary underline underline-offset-2">
+          {slide.ctaLabel}
+        </span>
+      </div>
+      <div className="relative col-span-2">
+        <HeroSideImage alt={slide.imageAlt} src={slide.imageUrl} />
+      </div>
+    </Link>
+  );
+}
+
+export function HeroDesktopGrid({ slides }: HeroDesktopGridProps) {
+  const [big, ...rest] = slides;
+  const sideCards = rest.slice(0, 2);
+
+  if (!big) {
+    return null;
+  }
+
+  return (
+    <div className="hidden md:grid grid-cols-1 lg:grid-cols-5 gap-4 h-auto lg:h-[540px] order-2">
+      <HeroBigCard hasSideCards={sideCards.length > 0} slide={big} />
+
+      {sideCards.length > 0 ? (
+        <div className="flex flex-col gap-4 h-full lg:col-span-2">
+          {sideCards.map((slide) => (
+            <HeroSideCard key={slide.id} slide={slide} />
           ))}
         </div>
-      </div>
-
-      <div className="flex flex-col gap-4 h-full lg:col-span-1">
-        <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-black">
-          <Image
-            src={NEW_ARRIVALS_PROMO_IMAGE}
-            alt="MacBook Pro"
-            fill
-            sizes="(max-width: 1024px) 100vw, 25vw"
-            className="object-cover transition-transform duration-700 group-hover:scale-105 z-0"
-            loading="lazy"
-            quality={60}
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent z-10" />
-
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[120px] font-bold text-white/5 pointer-events-none select-none leading-none z-10">
-            M4
-          </div>
-
-          <div className="relative z-20 flex flex-col items-center text-center p-6 h-full justify-between">
-            <div>
-              <p className="text-[9px] font-bold tracking-[0.2em] uppercase mb-1 text-gray-400">
-                WORKFLOW
-              </p>
-              <h2 className="text-3xl font-bold leading-tight text-white">
-                MacBook <span className="font-light block text-2xl">Pro</span>
-              </h2>
-            </div>
-
-            <div className="pb-1">
-              <Link
-                href={asRoute(getHref('/products'))}
-                prefetch={false}
-                className="inline-block px-4 py-1.5 border border-white/30 rounded-full text-white text-[10px] font-bold hover:bg-white hover:text-black transition-colors"
-              >
-                View Specs
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-[#2D0C7E]">
-          <Image
-            src={FLASH_SALE_PROMO_IMAGE}
-            alt="PS5 Controller"
-            fill
-            sizes="(max-width: 1024px) 100vw, 25vw"
-            className="object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
-            loading="lazy"
-            quality={60}
-          />
-          <div className="absolute inset-0 bg-linear-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
-
-          <div className="absolute left-[-20px] bottom-10 text-[80px] font-bold text-white/5 -rotate-90 pointer-events-none select-none z-10 tracking-widest">
-            PLAYSTATION
-          </div>
-
-          <div className="relative z-20 flex flex-col items-center text-center p-6 h-full justify-between">
-            <div>
-              <h2 className="text-3xl font-bold leading-tight text-white mb-1">
-                PS5 Pro
-              </h2>
-              <p className="text-white/70 text-sm font-light">Edition</p>
-            </div>
-
-            <p className="text-[10px] text-white/60 mb-2 uppercase tracking-widest">
-              Elevate Your Game
-            </p>
-          </div>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }

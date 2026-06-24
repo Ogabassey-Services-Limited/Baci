@@ -2,8 +2,15 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockHeaders, mockPublishedMerchant } = vi.hoisted(() => ({
+const {
+  mockDynamicContentShouldSuspend,
+  mockHeaders,
+  mockHeroSectionShouldSuspend,
+  mockPublishedMerchant,
+} = vi.hoisted(() => ({
   mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
+  mockDynamicContentShouldSuspend: vi.fn(() => false),
+  mockHeroSectionShouldSuspend: vi.fn(() => false),
   mockPublishedMerchant: {
     id: 'merchant-1',
     business_name: 'OgaBassey',
@@ -61,13 +68,27 @@ vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
-  Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
+vi.mock('./ogabassey-home-hero-section', () => ({
+  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => {
+    if (mockHeroSectionShouldSuspend()) {
+      throw new Promise(() => undefined);
+    }
+    return <section aria-label="Streamed home hero">{pathPrefix}</section>;
+  },
 }));
 
 vi.mock('./ogabassey-home-dynamic-content', () => ({
-  OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => (
-    <div data-testid="dynamic-content">{pathPrefix}</div>
+  OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => {
+    if (mockDynamicContentShouldSuspend()) {
+      throw new Promise(() => undefined);
+    }
+    return <section aria-label="Dynamic home content">{pathPrefix}</section>;
+  },
+}));
+
+vi.mock('./ogabassey-home-hero-fallback', () => ({
+  OgabasseyHomeHeroFallback: () => (
+    <section aria-label="Home hero fallback">Hero fallback</section>
   ),
 }));
 
@@ -101,36 +122,34 @@ describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
+    mockDynamicContentShouldSuspend.mockReturnValue(false);
+    mockHeroSectionShouldSuspend.mockReturnValue(false);
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       mockPublishedMerchant
     );
   });
 
-  it('renders the hero after the publication guard and streams dynamic content separately', async () => {
+  it('streams the dynamic home content after the publication guard', async () => {
     const result = await OgabasseyHomePageContent();
 
     render(result as ReactElement);
 
     expect(
-      screen.getByRole('region', { name: 'OgaBassey hero' })
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
-      '/ogabassey'
-    );
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toHaveTextContent('/ogabassey');
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('can omit the hero when another route shell renders it before dynamic content', async () => {
-    const result = await OgabasseyHomePageContent({ renderHero: false });
+  it('keeps a hero-sized fallback visible while hero content streams', async () => {
+    mockHeroSectionShouldSuspend.mockReturnValue(true);
+
+    const result = await OgabasseyHomePageContent();
 
     render(result as ReactElement);
 
     expect(
-      screen.queryByRole('region', { name: 'OgaBassey hero' })
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
-      '/ogabassey'
-    );
+      screen.getByRole('region', { name: /home hero fallback/i })
+    ).toBeInTheDocument();
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {
@@ -143,7 +162,9 @@ describe('OgabasseyHomePageContent', () => {
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
-    expect(screen.getByTestId('dynamic-content')).toBeEmptyDOMElement();
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toBeEmptyDOMElement();
   });
 
   it('falls back to the OgaBassey slug when only a deployment host is present', async () => {

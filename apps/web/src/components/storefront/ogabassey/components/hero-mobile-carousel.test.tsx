@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -51,108 +51,107 @@ vi.mock('next/image', () => ({
 }));
 
 import { HeroMobileCarousel } from './hero-mobile-carousel';
+import type { LaunchProductSlide } from './LaunchCarousel';
 
-const STORE_FALLBACK_PRIMARY = '#d62027';
-const STORE_FALLBACK_BORDER = 'rgba(214, 32, 39, 0.24)';
-const STORE_FALLBACK_ON_PRIMARY = '#ffffff';
-const HERO_CTA_EXPECTED_DECLARATIONS = [
-  `background-color: var(--store-primary, ${STORE_FALLBACK_PRIMARY});`,
-  `border-color: var(--store-border, ${STORE_FALLBACK_BORDER});`,
-  `color: var(--store-on-primary, ${STORE_FALLBACK_ON_PRIMARY});`,
+const SLIDES: LaunchProductSlide[] = [
+  {
+    kind: 'product',
+    id: '1',
+    name: 'Samsung Galaxy A27 5G',
+    priceLabel: '₦50,000',
+    href: '/ogabassey/smartphones/samsung-galaxy-a27-5g',
+    imageUrl: 'https://cdn.ogabassey.com/products/a27.avif',
+    imageAlt: 'Samsung Galaxy A27 5G',
+    ctaLabel: 'Pre-order now',
+  },
+  {
+    kind: 'product',
+    id: '2',
+    name: 'Itel Power 80',
+    priceLabel: '₦60,000',
+    href: '/ogabassey/smartphones/itel-power-80-128gb-4gb',
+    imageUrl: 'https://cdn.ogabassey.com/products/power80.avif',
+    imageAlt: 'Itel Power 80',
+    ctaLabel: 'Shop now',
+  },
 ];
 
-/**
- * Asserts that a serialized style string contains the expected declarations.
- * A missing style is treated as an empty string, so it still fails normally.
- * Matching remains sensitive to CSS whitespace and semicolon formatting.
- */
-function expectStyleDeclarations(
-  style: string | null,
-  declarations: string[]
-) {
-  const serializedStyle = style ?? '';
-  for (const declaration of declarations) {
-    expect(serializedStyle).toContain(declaration);
-  }
-}
-
-function renderHero() {
-  return render(
-    <HeroMobileCarousel
-      getHref={(path) => `/ogabassey${path}`}
-      hasResolvedViewport={true}
-      isDesktopViewport={false}
-    />
-  );
-}
-
 describe('HeroMobileCarousel', () => {
-  it('renders a single product slide with no demo video or sponsored ad', () => {
-    const { container } = renderHero();
+  it('renders the first product slide deep-linked to its PDP with prefetch disabled', () => {
+    render(<HeroMobileCarousel slides={SLIDES} />);
 
     expect(
-      screen.getByRole('heading', { name: 'iPhone 17 Pro Max' })
+      screen.getByRole('heading', { name: 'Samsung Galaxy A27 5G' })
     ).toBeInTheDocument();
-    // The Google sample video + hero ad slides were removed.
-    expect(container.querySelector('video')).toBeNull();
+    expect(screen.getByText('₦50,000')).toBeInTheDocument();
+
+    const link = screen.getByRole('link', {
+      name: 'Samsung Galaxy A27 5G — Pre-order now',
+    });
+    expect(link).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/samsung-galaxy-a27-5g'
+    );
+    expect(link).toHaveAttribute('data-prefetch', 'false');
+  });
+
+  it('serves the first slide image as the eager, high-priority LCP picture', () => {
+    const { container } = render(<HeroMobileCarousel slides={SLIDES} />);
+
+    const lcpImg = container.querySelector('picture img');
+    expect(lcpImg).toHaveAttribute('fetchpriority', 'high');
+  });
+
+  it('shows slide-control dots when there are multiple slides', () => {
+    render(<HeroMobileCarousel slides={SLIDES} />);
+
     expect(
-      screen.queryByTestId('ad-HEADER_LEADERBOARD')
+      screen.getByRole('group', { name: /hero carousel slide controls/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /go to hero slide 2/i })
+    ).toBeInTheDocument();
+  });
+
+
+  it('defers inactive non-LCP slide images until their slide is selected', () => {
+    render(<HeroMobileCarousel slides={SLIDES} />);
+
+    expect(
+      screen.queryByRole('img', { name: 'Itel Power 80' })
     ).not.toBeInTheDocument();
-    // A single static slide has no rotating-carousel controls.
+
+    fireEvent.click(screen.getByRole('button', { name: /go to hero slide 2/i }));
+
+    expect(
+      screen.getByRole('img', { name: 'Itel Power 80' })
+    ).toBeInTheDocument();
+  });
+
+  it('omits the dot controls for a single slide', () => {
+    render(<HeroMobileCarousel slides={[SLIDES[0]]} />);
+
     expect(
       screen.queryByRole('group', { name: /hero carousel slide controls/i })
     ).toBeNull();
   });
 
-  it('uses theme variables for the hero CTA', () => {
-    renderHero();
-
-    expectStyleDeclarations(
-      screen.getAllByRole('link', { name: /shop now/i })[0].getAttribute('style'),
-      HERO_CTA_EXPECTED_DECLARATIONS
-    );
-  });
-
-  it('disables prefetch on the hero product call to action', () => {
-    renderHero();
-
-    for (const link of screen.getAllByRole('link', { name: /shop now/i })) {
-      expect(link).toHaveAttribute('data-prefetch', 'false');
-    }
-  });
-
-  it('uses a mobile-friendly touch target for the hero CTA', () => {
-    renderHero();
-
-    for (const link of screen.getAllByRole('link', { name: /shop now/i })) {
-      expect(link).toHaveClass('min-h-12');
-    }
-  });
-
   it('keeps the hero media inside the clipped carousel panel', () => {
-    const { container } = renderHero();
+    render(<HeroMobileCarousel slides={SLIDES} />);
 
-    const carouselPanel = container.querySelector(
-      '[data-ogabassey-mobile-hero-panel="true"]'
-    );
-    expect(carouselPanel).toHaveClass('overflow-hidden');
+    const carouselPanel = screen.getByRole('region', {
+      name: /featured launch product carousel/i,
+    });
+    within(carouselPanel).getByRole('link', {
+      name: 'Samsung Galaxy A27 5G — Pre-order now',
+    });
+    within(carouselPanel).getByRole('img', {
+      name: 'Samsung Galaxy A27 5G',
+    });
   });
 
-  it('keeps the first mobile hero copy in a separate column from its media rail', () => {
-    const { container } = renderHero();
-
-    const firstSlideHeading = screen.getByRole('heading', {
-      name: 'iPhone 17 Pro Max',
-    });
-    const copyColumn = firstSlideHeading.closest(
-      '[data-ogabassey-mobile-hero-copy="true"]'
-    );
-    const mediaRail = container.querySelector(
-      '[data-ogabassey-mobile-hero-media="true"]'
-    );
-
-    expect(copyColumn).toHaveClass('w-[46%]', 'pr-2', 'translate-y-1');
-    expect(firstSlideHeading).toHaveClass('mt-1.5', 'mb-1', 'text-[1.375rem]');
-    expect(mediaRail).toHaveClass('right-4', 'w-[43%]');
+  it('returns null when there are no slides', () => {
+    const { container } = render(<HeroMobileCarousel slides={[]} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

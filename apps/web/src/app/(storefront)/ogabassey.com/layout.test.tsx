@@ -138,6 +138,9 @@ describe('OgabasseyDomainLayout', () => {
     const metadata = await generateMetadata();
 
     expect(metadata.manifest).toBeNull();
+    expect(metadata.other).toMatchObject({
+      'apple-itunes-app': 'app-id=6472735367',
+    });
     const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
@@ -150,7 +153,12 @@ describe('OgabasseyDomainLayout', () => {
       new Error('metadata failed')
     );
 
-    await expect(generateMetadata()).resolves.toEqual({ manifest: null });
+    await expect(generateMetadata()).resolves.toEqual({
+      other: {
+        'apple-itunes-app': 'app-id=6472735367',
+      },
+      manifest: null,
+    });
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to load OgaBassey domain layout metadata',

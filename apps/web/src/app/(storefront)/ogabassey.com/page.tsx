@@ -5,5 +5,5 @@ import { metadata as ogabasseyMetadata } from '@/app/(storefront)/ogabassey/page
 export const metadata: Metadata = ogabasseyMetadata;
 
 export default function OgabasseyDomainHomePage() {
-  return <OgabasseyStaticHomePageContent heroBasePath="" />;
+  return <OgabasseyStaticHomePageContent />;
 }

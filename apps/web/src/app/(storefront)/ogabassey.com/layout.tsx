@@ -9,6 +9,7 @@ import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { OgabasseyShellMobileHero } from '@/components/storefront/ogabassey/components/ogabassey-shell-mobile-hero';
 import { OGABASSEY_URL } from '@/config/ogabassey';
+import { OGABASSEY_STOREFRONT_IOS_APP_ID } from '@/config/platform';
 
 // Co-locate with the Supabase primary (eu-west-1 / Dublin) — route handlers
 // and sibling layouts do not inherit the [slug] layout preferredRegion.
@@ -23,12 +24,23 @@ export { generateViewport };
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    return await generateStorefrontLayoutMetadata({
+    const metadata = await generateStorefrontLayoutMetadata({
       params: OGABASSEY_DOMAIN_PARAMS,
     });
+
+    return {
+      ...metadata,
+      other: {
+        ...metadata.other,
+        'apple-itunes-app': `app-id=${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
+      },
+    };
   } catch (error) {
     console.error('Failed to load OgaBassey domain layout metadata', error);
     return {
+      other: {
+        'apple-itunes-app': `app-id=${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
+      },
       manifest: null,
     };
   }

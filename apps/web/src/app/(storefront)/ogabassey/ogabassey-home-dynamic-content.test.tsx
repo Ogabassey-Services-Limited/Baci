@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
+import {
+  getCachedStorefrontHomeProducts,
+  getCachedStorefrontLaunchProducts,
+} from '@/lib/cached-data';
 import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 
 const mockMerchant = {
@@ -43,6 +46,7 @@ vi.mock('@/lib/cached-data', async (importOriginal) => {
   return {
     ...actual,
     getCachedStorefrontHomeProducts: vi.fn(() => Promise.resolve([])),
+    getCachedStorefrontLaunchProducts: vi.fn(() => Promise.resolve([])),
   };
 });
 
@@ -69,17 +73,20 @@ vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
     basePath,
+    launchProducts,
     products,
     renderHero,
     storeSlug,
   }: {
     basePath?: string;
+    launchProducts?: unknown[];
     products?: unknown[];
     renderHero?: boolean;
     storeSlug?: string;
   }) => (
     <section aria-label="OgaBassey home payload">
-      {storeSlug}:{basePath}:{products?.length ?? 0}:{String(renderHero)}
+      {storeSlug}:{basePath}:{products?.length ?? 0}:
+      {launchProducts?.length ?? 0}:{String(renderHero)}
     </section>
   ),
 }));
@@ -145,6 +152,7 @@ describe('OgabasseyHomeDynamicContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([]);
+    vi.mocked(getCachedStorefrontLaunchProducts).mockResolvedValue([]);
     vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([]);
   });
 
@@ -165,7 +173,7 @@ describe('OgabasseyHomeDynamicContent', () => {
     ).toHaveTextContent('G-OGABASSEY');
     expect(
       screen.getByRole('region', { name: 'OgaBassey home payload' })
-    ).toHaveTextContent('ogabassey:/ogabassey:1:false');
+    ).toHaveTextContent('ogabassey:/ogabassey:1:0:false');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
     );
@@ -184,6 +192,17 @@ describe('OgabasseyHomeDynamicContent', () => {
     expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
       'merchant-1',
       'recent'
+    );
+  });
+
+  it('requests a created-at launch window for the product hero', async () => {
+    await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    expect(getCachedStorefrontLaunchProducts).toHaveBeenCalledWith(
+      'merchant-1'
     );
   });
 
@@ -299,12 +318,15 @@ describe('OgabasseyHomeDynamicContent', () => {
       windowProducts
     );
     // The targeted by-slug fetch returns the pin that is absent from the window.
+    // A real pinned product carries an image, so it survives the renderable
+    // filter and is prepended into the launch set + schema.
     vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([
       createProduct({
         id: 'a27',
         name: 'Samsung Galaxy A27 5G Preorder',
         slug: 'samsung-galaxy-a27-5g',
         category: 'Smartphones',
+        images: ['https://cdn.ogabassey.com/products/a27.avif'],
       }),
     ]);
 

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Footer } from './Footer';
 
 vi.mock('next/link', () => ({
@@ -10,6 +10,28 @@ vi.mock('next/link', () => ({
     children: React.ReactNode;
     href: string;
   }) => <a href={href}>{children}</a>,
+}));
+
+vi.mock('next/image', () => ({
+  default: ({
+    alt,
+    height,
+    src,
+    width,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & {
+    height: number;
+    src: string;
+    width: number;
+  }) => (
+    <img
+      alt={alt}
+      data-height={height}
+      data-width={width}
+      src={src}
+      {...props}
+    />
+  ),
 }));
 
 vi.mock('./Logo', () => ({
@@ -49,6 +71,26 @@ const merchantFixture = {
 describe('Ogabassey Footer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('uses a footer background fallback and contrast text independent of primary text', () => {
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+
+    const { container } = render(
+      <Footer storeSlug="ogabassey" merchant={merchantFixture} />
+    );
+    const footer = container.querySelector('footer');
+
+    expect(footer?.className).toContain(
+      'var(--store-background-text,#111827)'
+    );
+    expect(footer?.className).toContain(
+      'text-[color:var(--store-background,#ffffff)]'
+    );
+    expect(footer?.className).not.toContain('text-store-primary-text');
   });
 
   it('adds trust policy links to the support section when available', () => {
@@ -200,4 +242,5 @@ describe('Ogabassey Footer', () => {
     ).toHaveAttribute('href', 'mailto:account-private@gmail.com');
     expect(screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')).toBeVisible();
   });
+
 });

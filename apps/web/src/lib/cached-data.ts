@@ -2934,7 +2934,46 @@ export async function getCachedBlogAuthor(
   };
 }
 
+export interface StorefrontHomeProductDirectCategoryRecord {
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+  parent_id?: string | null;
+}
+
+interface StorefrontHomeProductCategoryJoinRecord {
+  categories?:
+    | StorefrontHomeProductDirectCategoryRecord
+    | StorefrontHomeProductDirectCategoryRecord[]
+    | null;
+}
+
+export interface StorefrontHomeProduct {
+  id: string;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+  price?: number | string | null;
+  compare_at_price?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  images?: unknown[] | null;
+  category?: string | null;
+  brand?: string | null;
+  condition?: string | null;
+  stock?: number | null;
+  stock_quantity?: number | null;
+  manage_stock?: boolean | null;
+  low_stock_threshold?: number | null;
+  categories?:
+    | StorefrontHomeProductDirectCategoryRecord
+    | StorefrontHomeProductDirectCategoryRecord[]
+    | null;
+  product_categories?: StorefrontHomeProductCategoryJoinRecord[] | null;
+}
+
 interface StorefrontHomeProductRecencyCandidate {
+  id?: string | null;
   categories?:
     | StorefrontHomeProductDirectCategoryRecord
     | StorefrontHomeProductDirectCategoryRecord[]
@@ -2943,9 +2982,41 @@ interface StorefrontHomeProductRecencyCandidate {
   updated_at?: string | null;
 }
 
-interface StorefrontHomeProductDirectCategoryRecord {
-  name?: string | null;
-  slug?: string | null;
+interface StorefrontHomeProductsQuery
+  extends PromiseLike<{
+    data: StorefrontHomeProduct[] | null;
+    error: unknown;
+  }> {
+  eq(column: string, value: unknown): StorefrontHomeProductsQuery;
+  in(column: string, values: readonly string[]): StorefrontHomeProductsQuery;
+  limit(count: number): StorefrontHomeProductsQuery;
+  not(
+    column: string,
+    operator: string,
+    value: unknown
+  ): StorefrontHomeProductsQuery;
+  or(
+    filters: string,
+    options?: { referencedTable?: string }
+  ): StorefrontHomeProductsQuery;
+  order(
+    column: string,
+    options?: { ascending?: boolean; nullsFirst?: boolean }
+  ): StorefrontHomeProductsQuery;
+}
+
+interface StorefrontHomeProductsTable {
+  select(columns: string): StorefrontHomeProductsQuery;
+}
+
+function storefrontHomeProductsTable(
+  supabase: SupabaseClient
+): StorefrontHomeProductsTable {
+  // Keep the runtime Supabase query builder while avoiding type-level parsing of
+  // several large nested select strings on every web typecheck. Result shape is
+  // still explicitly represented by StorefrontHomeProduct above and covered by
+  // the home-product adapter/query tests.
+  return supabase.from('products') as unknown as StorefrontHomeProductsTable;
 }
 
 const HOME_HANDSET_CATEGORY_KEYWORDS = ['smartphone', 'mobile', 'phone'];
@@ -3045,6 +3116,73 @@ function allowsRelationBackedHomePhonePriority(
  */
 export type StorefrontHomeProductSort = 'price' | 'recent';
 
+const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
+const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
+const STOREFRONT_HOME_PRODUCT_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    product_categories(categories(name, slug))
+  `;
+const STOREFRONT_HOME_PRODUCT_RECENT_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at, updated_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    categories:category_id(id, name, slug, parent_id),
+    product_categories(categories(name, slug))
+  `;
+const STOREFRONT_HOME_PRODUCT_DIRECT_CATEGORY_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at, updated_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    categories:category_id!inner(id, name, slug, parent_id),
+    product_categories(categories(name, slug))
+  `;
+const STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT = `
+    id, name, slug, description, price, compare_at_price, created_at, updated_at,
+    images, category, brand, condition, stock, stock_quantity,
+    manage_stock, low_stock_threshold,
+    categories:category_id(id, name, slug, parent_id),
+    product_categories!inner(categories!inner(name, slug))
+  `;
+
+/**
+ * Cached launch-carousel candidate window ordered by creation time, not edits.
+ * OgaBassey uses this for the product-driven hero so an old product update can
+ * never eject a genuinely new launch before the carousel pin/cap logic runs.
+ */
+export async function getCachedStorefrontLaunchProducts(
+  merchantId: string
+): Promise<StorefrontHomeProduct[]> {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag(
+    'products',
+    `products-${merchantId}`,
+    `products-launch-${merchantId}-created`
+  );
+
+  const supabase = getPublicSupabaseClient();
+  const productsTable = storefrontHomeProductsTable(supabase);
+  const { data, error } = await productsTable
+    .select(STOREFRONT_HOME_PRODUCT_RECENT_SELECT)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('price', { ascending: false })
+    .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
+
+  if (error) {
+    console.error('Failed to load storefront launch products', {
+      merchantId,
+      error,
+    });
+    throw error;
+  }
+
+  return hydrateAndSanitizeProducts(supabase, merchantId, data ?? []);
+}
+
 /**
  * Cached storefront homepage products.
  * Uses the products cacheLife profile plus shared and sort-specific product
@@ -3053,7 +3191,7 @@ export type StorefrontHomeProductSort = 'price' | 'recent';
 export async function getCachedStorefrontHomeProducts(
   merchantId: string,
   sort: StorefrontHomeProductSort = 'price'
-) {
+): Promise<StorefrontHomeProduct[]> {
   'use cache: remote';
   cacheLife('products');
   cacheTag(
@@ -3061,37 +3199,9 @@ export async function getCachedStorefrontHomeProducts(
     `products-${merchantId}`,
     `products-home-${merchantId}-${sort}`
   );
-  const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
-  const STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT = 24;
 
   const supabase = getPublicSupabaseClient();
-  const homeProductSelect = `
-      id, name, slug, description, price, compare_at_price,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      product_categories(categories(name, slug))
-    `;
-  const homeProductRecentSelect = `
-      id, name, slug, description, price, compare_at_price, updated_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      categories:category_id(id, name, slug, parent_id),
-      product_categories(categories(name, slug))
-    `;
-  const homeProductDirectCategorySelect = `
-      id, name, slug, description, price, compare_at_price, updated_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      categories:category_id!inner(id, name, slug, parent_id),
-      product_categories(categories(name, slug))
-    `;
-  const homeProductRelationCategorySelect = `
-      id, name, slug, description, price, compare_at_price, updated_at,
-      images, category, brand, condition, stock, stock_quantity,
-      manage_stock, low_stock_threshold,
-      categories:category_id(id, name, slug, parent_id),
-      product_categories!inner(categories!inner(name, slug))
-    `;
+  const productsTable = storefrontHomeProductsTable(supabase);
   const buildHandsetCategoryClause = (
     column: 'name' | 'slug',
     keyword: string
@@ -3115,9 +3225,8 @@ export async function getCachedStorefrontHomeProducts(
   // the downstream phone-first homepage slice cannot lose older smartphones to
   // the database LIMIT.
   if (sort === 'recent') {
-    let phoneCandidatesQuery = supabase
-      .from('products')
-      .select(homeProductRecentSelect)
+    let phoneCandidatesQuery = productsTable
+      .select(STOREFRONT_HOME_PRODUCT_RECENT_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(
@@ -3135,9 +3244,8 @@ export async function getCachedStorefrontHomeProducts(
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
-    const directCategoryPhoneCandidatesQuery = supabase
-      .from('products')
-      .select(homeProductDirectCategorySelect)
+    const directCategoryPhoneCandidatesQuery = productsTable
+      .select(STOREFRONT_HOME_PRODUCT_DIRECT_CATEGORY_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(handsetCategoryClauses, { referencedTable: 'categories' })
@@ -3145,9 +3253,8 @@ export async function getCachedStorefrontHomeProducts(
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
-    const relationPhoneCandidatesQuery = supabase
-      .from('products')
-      .select(homeProductRelationCategorySelect)
+    const relationPhoneCandidatesQuery = productsTable
+      .select(STOREFRONT_HOME_PRODUCT_RELATION_CATEGORY_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .or(handsetCategoryClauses, {
@@ -3157,9 +3264,8 @@ export async function getCachedStorefrontHomeProducts(
       .order('price', { ascending: false })
       .limit(STOREFRONT_HOME_PRIORITY_PRODUCT_LIMIT);
 
-    const recentProductsQuery = supabase
-      .from('products')
-      .select(homeProductRecentSelect)
+    const recentProductsQuery = productsTable
+      .select(STOREFRONT_HOME_PRODUCT_RECENT_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('updated_at', { ascending: false, nullsFirst: false })
@@ -3240,9 +3346,8 @@ export async function getCachedStorefrontHomeProducts(
 
   // 'price' (the default for all other storefronts) keeps the original
   // highest-price-first ordering.
-  const { data, error } = await supabase
-    .from('products')
-    .select(homeProductSelect)
+  const { data, error } = await productsTable
+    .select(STOREFRONT_HOME_PRODUCT_SELECT)
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .order('price', { ascending: false })
