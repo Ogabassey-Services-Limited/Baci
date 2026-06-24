@@ -27,14 +27,6 @@ import {
   getStorefrontShellSnapshotBase,
 } from './storefront-shell-snapshot';
 
-// Run storefront SSR next to the Supabase primary (AWS eu-west-1 / Dublin) so
-// every render's DB round-trips stay intra-region. Neither `vercel.json`
-// `regions` nor the project's serverlessFunctionRegion is honored for Next.js
-// App Router functions — `preferredRegion` is the only mechanism the framework
-// builder bakes into the function config. Inherited by storefront PAGE routes;
-// route handlers + sibling layouts export it individually.
-export const preferredRegion = 'dub1';
-
 const STORE_NOT_FOUND_METADATA: Metadata = {
   title: 'Store Not Found',
   // Replace root metadata alternates so noindex fallback pages do not inherit a canonical.
@@ -43,9 +35,6 @@ const STORE_NOT_FOUND_METADATA: Metadata = {
     index: false,
     follow: true,
   },
-  // Replace root verification so the platform `google-adsense-account` meta does
-  // not bleed onto not-found pages served on third-party custom domains.
-  verification: {},
 };
 
 /**
@@ -164,15 +153,11 @@ export async function generateMetadata({
     title: getStorefrontSeoTitle(merchant),
     description,
     icons,
-    // Always emit an explicit verification object so the platform-level
-    // `google-adsense-account` meta from the root layout never bleeds onto
-    // merchant storefronts — especially independent third-party custom domains
-    // (merchant sovereignty). The platform AdSense tag stays scoped to the
-    // usebaci.com apex, which is served by the root layout. A merchant's own
-    // Google Search Console code is still applied here when configured.
-    verification: {
-      google: verificationCode,
-    },
+    verification: verificationCode
+      ? {
+          google: verificationCode,
+        }
+      : undefined,
     openGraph: {
       title: merchant.site_title || merchant.business_name,
       description,

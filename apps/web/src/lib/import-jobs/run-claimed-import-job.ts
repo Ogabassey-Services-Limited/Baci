@@ -306,7 +306,7 @@ async function processNotifyingJob(
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select(
-      'id, slug, business_name, support_email, email_sender_name, email, brand_colors, logo_url, email_logo_url'
+      'id, slug, business_name, support_email, email_sender_name, email, custom_domain, brand_colors, logo_url'
     )
     .eq('id', job.merchant_id)
     .single();
@@ -348,7 +348,7 @@ async function processNotifyingJob(
     importJobId: job.id,
     merchant: {
       ...merchant,
-      custom_domain: primaryDomain?.domain ?? null,
+      custom_domain: primaryDomain?.domain ?? merchant.custom_domain ?? null,
     },
     customSettings:
       (featureSettings?.custom_settings as Record<string, unknown> | null) ||

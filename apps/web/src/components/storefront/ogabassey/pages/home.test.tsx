@@ -10,24 +10,30 @@ const mockHomeProductGrid = vi.hoisted(() =>
       products?: unknown[];
       initialDisplayCount?: number;
       inlineAdBreakpoints?: number[];
-    }) => <div>Product grid {String(props.storeSlug)}</div>
+    }) => (
+      <div data-testid="product-grid">
+        {String(props.storeSlug)}
+      </div>
+    )
   )
 );
 const mockDeferredAdUnit = vi.hoisted(() =>
   vi.fn((props: Record<string, unknown>) => (
-    <div>
-      <span>Ad unit {String(props.placementKey ?? 'Ad')}</span>
+    <div data-testid="ad-unit">
+      <span>{String(props.placementKey ?? 'Ad')}</span>
       {props.fallback as ReactNode}
     </div>
   ))
 );
-const mockLaunchCarousel = vi.hoisted(() =>
-  vi.fn((props: { slides?: Array<{ href?: string; ctaLabel?: string }> }) => (
-    <div>Launch carousel ({props.slides?.length ?? 0})</div>
+const mockDeferredBannerCarousel = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => (
+    <div data-testid="banner-carousel">{String(props.className ?? '')}</div>
   ))
 );
 const mockHero = vi.hoisted(() =>
-  vi.fn((props: { basePath?: string }) => <div>Hero {props.basePath}</div>)
+  vi.fn((props: { basePath?: string }) => (
+    <div data-testid="hero">{props.basePath}</div>
+  ))
 );
 
 vi.mock('@baci/shared', () => ({
@@ -41,28 +47,15 @@ vi.mock('../components/HomeProductGrid', () => ({
     mockHomeProductGrid(props as Parameters<typeof mockHomeProductGrid>[0]),
 }));
 vi.mock('../components/deferred-ad-unit', () => ({
-  DeferredAdUnit: (props: Record<string, unknown>) => mockDeferredAdUnit(props),
+  DeferredAdUnit: (props: Record<string, unknown>) =>
+    mockDeferredAdUnit(props),
 }));
-vi.mock('../components/LaunchCarousel', () => ({
-  LaunchCarousel: (props: Record<string, unknown>) =>
-    mockLaunchCarousel(props as Parameters<typeof mockLaunchCarousel>[0]),
+vi.mock('../components/deferred-banner-carousel', () => ({
+  DeferredBannerCarousel: (props: Record<string, unknown>) =>
+    mockDeferredBannerCarousel(props),
 }));
 
 import { OgabasseyHomePage } from './home';
-
-const launchProduct = (overrides: Partial<Product>): Product => ({
-  id: 'a27',
-  name: 'Samsung Galaxy A27 5G Preorder',
-  description: '',
-  price: '₦50,000',
-  image: 'https://cdn.ogabassey.com/core-assets/products/a27.avif',
-  slug: 'samsung-galaxy-a27-5g',
-  brand: 'Samsung',
-  category: 'Smartphones',
-  categorySlug: 'smartphones',
-  categories: { id: 'c1', name: 'Smartphones', slug: 'smartphones' },
-  ...overrides,
-});
 
 describe('OgabasseyHomePage', () => {
   beforeEach(() => {
@@ -72,27 +65,38 @@ describe('OgabasseyHomePage', () => {
   it('renders core sections: hero, ad unit, and product grid', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
-    expect(screen.getByText(/^Hero/)).toBeInTheDocument();
-    expect(screen.getByText(/^Ad unit/)).toBeInTheDocument();
-    expect(screen.getByText(/^Product grid/)).toBeInTheDocument();
+    expect(screen.getByTestId('hero')).toBeInTheDocument();
+    expect(screen.getByTestId('ad-unit')).toBeInTheDocument();
+    expect(screen.getByTestId('product-grid')).toBeInTheDocument();
   });
 
   it('can omit the hero when the route shell renders it outside dynamic content', () => {
     render(
-      <OgabasseyHomePage products={[]} categories={[]} renderHero={false} />
+      <OgabasseyHomePage
+        products={[]}
+        categories={[]}
+        renderHero={false}
+      />
     );
 
-    expect(screen.queryByText(/^Hero/)).not.toBeInTheDocument();
-    expect(screen.getByText(/^Ad unit/)).toBeInTheDocument();
-    expect(screen.getByText(/^Product grid/)).toBeInTheDocument();
+    expect(screen.queryByTestId('hero')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ad-unit')).toBeInTheDocument();
+    expect(screen.getByTestId('product-grid')).toBeInTheDocument();
   });
 
-  it('derives a slug route base path for the hero', () => {
+  it('derives a slug route base path for path-routed hero and banner links', () => {
     render(
-      <OgabasseyHomePage storeSlug="test-store" products={[]} categories={[]} />
+      <OgabasseyHomePage
+        storeSlug="test-store"
+        products={[]}
+        categories={[]}
+      />
     );
 
     expect(mockHero).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '/test-store' })
+    );
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '/test-store' })
     );
   });
@@ -108,6 +112,9 @@ describe('OgabasseyHomePage', () => {
     );
 
     expect(mockHero).toHaveBeenCalledWith(
+      expect.objectContaining({ basePath: '' })
+    );
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: '' })
     );
   });
@@ -150,49 +157,22 @@ describe('OgabasseyHomePage', () => {
     );
   });
 
-  it('renders the launch carousel with basePath-joined product deep-links', () => {
-    render(
-      <OgabasseyHomePage
-        storeSlug="test-store"
-        products={[]}
-        launchProducts={[launchProduct({})]}
-        categories={[]}
-      />
-    );
-
-    expect(screen.getByText(/^Launch carousel/)).toBeInTheDocument();
-    const slides = mockLaunchCarousel.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides).toHaveLength(1);
-    expect(slides[0].href?.startsWith('/test-store/')).toBe(true);
-    expect(slides[0].href).toContain('samsung-galaxy-a27-5g');
-    expect(slides[0].ctaLabel).toBe('Pre-order now');
-  });
-
-  it('falls back to the product feed for the carousel when launchProducts is omitted', () => {
-    // The generic storefront renderer calls OgabasseyHomePage without
-    // launchProducts; the carousel must still render from the product feed.
-    render(
-      <OgabasseyHomePage
-        storeSlug="test-store"
-        products={[launchProduct({})]}
-        categories={[]}
-      />
-    );
-
-    expect(screen.getByText(/^Launch carousel/)).toBeInTheDocument();
-    const slides = mockLaunchCarousel.mock.calls.at(-1)?.[0]?.slides ?? [];
-    expect(slides).toHaveLength(1);
-    expect(slides[0].href).toContain('samsung-galaxy-a27-5g');
-  });
-
-  it('hides the launch carousel when there are no products at all', () => {
+  it('renders the banner carousel for desktop', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
-    expect(screen.queryByText(/^Launch carousel/)).not.toBeInTheDocument();
+    expect(screen.getByTestId('banner-carousel')).toBeInTheDocument();
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        className: 'h-40 md:h-52',
+        timeoutMs: expect.any(Number),
+      })
+    );
   });
 
   it('keeps the homepage strip ad out of the no-interaction main-thread window', () => {
-    render(<OgabasseyHomePage products={[]} categories={[]} />);
+    const { container } = render(
+      <OgabasseyHomePage products={[]} categories={[]} />
+    );
 
     expect(mockDeferredAdUnit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -207,15 +187,25 @@ describe('OgabasseyHomePage', () => {
     );
 
     expect(homepageStripCall).toBeDefined();
+
+    // Keep GAM boot out of no-interaction lab runs. The reserved fallback
+    // protects CLS, while pointer/keyboard intent still allows ads to hydrate
+    // for real shoppers after they engage with the page.
     expect(
       (homepageStripCall?.[0] as { bootDelayMs?: number }).bootDelayMs
     ).toBeGreaterThanOrEqual(9000);
+
     expect(homepageStripCall?.[0]).toEqual(
       expect.objectContaining({
         activateOnInteraction: true,
         timeoutMs: 0,
       })
     );
+
+    // CLS protection for the strip is now delegated to DeferredAdUnit's default
+    // AdSlotShell, which reserves a box height-locked to the exact creative size
+    // (mobile 50px / desktop 90px) instead of a hand-rolled min-height fallback.
+    // So the strip passes no custom fallback.
     expect(
       (homepageStripCall?.[0] as { fallback?: unknown }).fallback
     ).toBeUndefined();

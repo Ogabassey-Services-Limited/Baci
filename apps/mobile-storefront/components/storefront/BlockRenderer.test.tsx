@@ -39,15 +39,6 @@ jest.mock('./UtilityPanel', () => ({
   UtilityPanel: () => null,
 }));
 
-jest.mock('./JustLaunchedCarousel', () => {
-  const { Text: MockText } = jest.requireActual('react-native');
-  return {
-    JustLaunchedCarousel: () => (
-      <MockText testID="just-launched">Just launched</MockText>
-    ),
-  };
-});
-
 const emptyHeroBlock: Block = {
   type: 'HeroCarousel',
   props: { id: 'empty-hero', slides: [] },
@@ -83,29 +74,12 @@ describe('BlockRenderer', () => {
   it('does not reserve hero placeholder space when resolved content has no slides', () => {
     renderBlocks([emptyHeroBlock]);
 
-    expect(screen.queryByText('Loading hero')).toBeNull();
+    expect(screen.queryByTestId('hero-skeleton')).toBeNull();
   });
 
   it('renders a configured hero carousel when slides are present', () => {
     renderBlocks([configuredHeroBlock]);
 
-    expect(screen.getByText('Hero carousel')).toBeTruthy();
-  });
-
-  it('renders the just-launched carousel for a JustLaunched block', () => {
-    renderBlocks([{ type: 'JustLaunched', props: { id: 'launches' } }]);
-
-    expect(screen.getByText('Just launched')).toBeTruthy();
-  });
-
-  it('renders no content for an unknown block type', () => {
-    const { toJSON } = renderBlocks([
-      { type: 'Mystery', props: { id: 'x' } } as unknown as Block,
-    ]);
-
-    // The outer container View always renders; an unknown block contributes
-    // no children.
-    const tree = toJSON() as { children: unknown } | null;
-    expect(tree?.children ?? null).toBeNull();
+    expect(screen.getByTestId('hero-carousel')).toBeTruthy();
   });
 });

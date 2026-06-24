@@ -20,8 +20,7 @@ export type Block =
   | ProductGridBlock
   | NewsletterBlock
   | FooterBlock
-  | CategoryRailBlock
-  | JustLaunchedBlock;
+  | CategoryRailBlock;
 
 export interface BaseBlock {
   type: string;
@@ -101,13 +100,6 @@ export interface NewsletterBlock extends BaseBlock {
 
 export interface FooterBlock extends BaseBlock {
   type: 'Footer';
-  props: {
-    id: string;
-  };
-}
-
-export interface JustLaunchedBlock extends BaseBlock {
-  type: 'JustLaunched';
   props: {
     id: string;
   };

@@ -32,15 +32,14 @@ vi.mock('@/lib/logger', () => ({
 
 import { syncJumiaOrdersForActiveIntegrations } from './order-sync';
 import {
+  createDuplicateNotificationSyncMock,
   createQuery,
   createSupabaseMock,
   item,
   order,
 } from './order-sync.test-helpers';
 import {
-  claimJumiaNotificationDelivery,
   getJumiaNotificationAttemptKey,
-  isJumiaNotificationAlreadySent,
   markJumiaNotificationSent,
 } from './order-sync-notifications';
 
@@ -53,39 +52,6 @@ describe('Jumia order sync notification markers', () => {
     expect(getJumiaNotificationAttemptKey('merchant:1', 'order/1')).toBe(
       'merchant%3A1:order%2F1'
     );
-  });
-
-  it('claims rows where notification_sent is not true so legacy null markers are eligible', async () => {
-    const claimQuery = createQuery({
-      data: { jumia_order_id: 'jumia-order-1' },
-      error: null,
-    });
-    const supabase = createSupabaseMock({ jumia_orders: [claimQuery] });
-
-    await expect(
-      claimJumiaNotificationDelivery(supabase, 'merchant-1', 'jumia-order-1')
-    ).resolves.toEqual({
-      claimed: true,
-      claimedAt: expect.any(String),
-      error: null,
-    });
-    expect(claimQuery.not).toHaveBeenCalledWith(
-      'notification_sent',
-      'is',
-      true
-    );
-  });
-
-  it('surfaces sent-state read errors instead of treating them as not sent', async () => {
-    const readErrorQuery = createQuery({
-      data: null,
-      error: { message: 'read timeout' },
-    });
-    const supabase = createSupabaseMock({ jumia_orders: [readErrorQuery] });
-
-    await expect(
-      isJumiaNotificationAlreadySent(supabase, 'merchant-1', 'jumia-order-1')
-    ).rejects.toEqual({ message: 'read timeout' });
   });
 
   it('retries notification_sent updates and scopes them to the merchant', async () => {
@@ -139,26 +105,6 @@ describe('Jumia order sync notification markers', () => {
     expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 
-  it('treats an already-sent claimed marker retry as success', async () => {
-    const emptyClaimScopedUpdate = createQuery({ data: null, error: null });
-    const alreadySentQuery = createQuery({
-      data: { jumia_order_id: 'jumia-order-1' },
-      error: null,
-    });
-    const supabase = createSupabaseMock({
-      jumia_orders: [emptyClaimScopedUpdate, alreadySentQuery],
-    });
-
-    await expect(
-      markJumiaNotificationSent(supabase, 'merchant-1', 'jumia-order-1', {
-        attempts: 1,
-        claimedAt: '2026-06-22T18:00:00.000Z',
-        retryDelayMs: 0,
-      })
-    ).resolves.toBe(null);
-    expect(alreadySentQuery.eq).toHaveBeenCalledWith('notification_sent', true);
-  });
-
   it('returns an explicit error when no Jumia row is updated', async () => {
     const emptyQuery = createQuery({ data: null, error: null });
     const supabase = createSupabaseMock({ jumia_orders: [emptyQuery] });
@@ -171,6 +117,101 @@ describe('Jumia order sync notification markers', () => {
     ).resolves.toEqual({
       message: 'No Jumia order notification marker updated for jumia-order-1',
     });
+  });
+
+  it('skips duplicate Jumia notifications after a marker retry failure in one run', async () => {
+    const failedNotificationQueries = Array.from({ length: 3 }, () =>
+      createQuery({ error: { message: 'write timeout' } })
+    );
+    const { duplicateCacheQuery, supabase } =
+      createDuplicateNotificationSyncMock({
+        jumiaOrder: order,
+        markerQueries: failedNotificationQueries,
+      });
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order, order]);
+    vi.mocked(getOrderItems).mockResolvedValue({
+      orderId: order.id,
+      orderNumber: order.number,
+      items: [item],
+    });
+    vi.mocked(notifyMerchant).mockResolvedValue({
+      sent: 1,
+      failed: 0,
+      errors: [],
+    });
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(notifyMerchant).toHaveBeenCalledTimes(1);
+    for (const query of failedNotificationQueries) {
+      expect(query.update).toHaveBeenCalledWith({ notification_sent: true });
+    }
+    expect(result).toEqual(
+      expect.objectContaining({
+        synced: 1,
+        canonicalCreated: 1,
+        canonicalUpdated: 1,
+        notified: 1,
+        orderErrors: 1,
+      })
+    );
+    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification_sent: true,
+        baci_order_id: 'baci-order-1',
+      }),
+      { onConflict: 'jumia_order_id' }
+    );
+    expect(result.errors).toEqual([
+      'merchant-1/jumia-order-1: Failed to mark Jumia notification as sent: write timeout',
+    ]);
+  });
+
+  it('preserves notification state for duplicate Jumia pages after marker success', async () => {
+    const notifyUpdateQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
+    const { duplicateCacheQuery, supabase } =
+      createDuplicateNotificationSyncMock({
+        jumiaOrder: order,
+        markerQueries: [notifyUpdateQuery],
+      });
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order, order]);
+    vi.mocked(getOrderItems).mockResolvedValue({
+      orderId: order.id,
+      orderNumber: order.number,
+      items: [item],
+    });
+    vi.mocked(notifyMerchant).mockResolvedValue({
+      sent: 1,
+      failed: 0,
+      errors: [],
+    });
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(notifyMerchant).toHaveBeenCalledTimes(1);
+    expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification_sent: true,
+        baci_order_id: 'baci-order-1',
+      }),
+      { onConflict: 'jumia_order_id' }
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        synced: 2,
+        canonicalCreated: 1,
+        canonicalUpdated: 1,
+        notified: 1,
+        orderErrors: 0,
+      })
+    );
   });
 
   it('does not re-notify legacy cache rows already marked as notified', async () => {
@@ -232,20 +273,13 @@ describe('Jumia order sync notification markers', () => {
     const result = await syncJumiaOrdersForActiveIntegrations(supabase);
 
     expect(notifyMerchant).not.toHaveBeenCalled();
-    const cacheUpsertPayload = cacheQuery.upsert.mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
-    expect(cacheUpsertPayload).toEqual(
+    expect(cacheQuery.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
+        notification_sent: true,
         baci_order_id: 'baci-order-1',
-      })
+      }),
+      { onConflict: 'jumia_order_id' }
     );
-    expect(cacheUpsertPayload).not.toHaveProperty('notification_sent');
-    expect(cacheQuery.upsert).toHaveBeenCalledWith(expect.any(Object), {
-      defaultToNull: false,
-      onConflict: 'jumia_order_id',
-    });
     expect(result).toEqual(
       expect.objectContaining({
         synced: 1,

@@ -6,41 +6,21 @@ const mocks = vi.hoisted(() => {
   const clientConfigLoaded = vi.fn();
   const posthogCapture = vi.fn();
   const posthogInit = vi.fn();
-  const posthogReloadFeatureFlags = vi.fn();
-  const posthogRemoteConfigLoad = vi.fn();
-  const posthogSetConfig = vi.fn();
-  const webVitalsStartIfEnabled = vi.fn();
-  const buildPostHogClientConfig = vi.fn(
-    (_env: unknown, _token: unknown, options?: { lightweight?: boolean }) => ({
-      advanced_disable_flags: options?.lightweight === true,
-      api_host: '/baci-relay',
-      loaded: clientConfigLoaded,
-    })
-  );
   const posthogClient = {
     __loaded: false,
     capture: posthogCapture,
     init: posthogInit,
-    reloadFeatureFlags: posthogReloadFeatureFlags,
-    set_config: posthogSetConfig,
-    _remoteConfigLoader: {
-      load: posthogRemoteConfigLoad,
-    },
-    webVitalsAutocapture: {
-      startIfEnabled: webVitalsStartIfEnabled,
-    },
   };
 
   return {
-    buildPostHogClientConfig,
+    buildPostHogClientConfig: vi.fn(() => ({
+      api_host: '/baci-relay',
+      loaded: clientConfigLoaded,
+    })),
     clientConfigLoaded,
     posthogCapture,
     posthogClient,
     posthogInit,
-    posthogReloadFeatureFlags,
-    posthogRemoteConfigLoad,
-    posthogSetConfig,
-    webVitalsStartIfEnabled,
   };
 });
 
@@ -79,11 +59,10 @@ function loadPostHogClient() {
     throw new Error('PostHog init config did not include a loaded callback.');
   }
 
-  initConfig.loaded(mocks.posthogClient);
+  initConfig.loaded({});
 }
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.useRealTimers();
   mocks.posthogClient.__loaded = false;
   vi.clearAllMocks();
@@ -101,10 +80,9 @@ describe('initializePostHogBrowser', () => {
     initializePostHogBrowser(env);
 
     expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
-    expect(mocks.buildPostHogClientConfig).toHaveBeenLastCalledWith(
+    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(
       env,
-      'ph_project_token',
-      { lightweight: false }
+      'ph_project_token'
     );
     expect(mocks.posthogInit).toHaveBeenCalledOnce();
     expect(mocks.posthogInit).toHaveBeenCalledWith(
@@ -114,174 +92,6 @@ describe('initializePostHogBrowser', () => {
         loaded: expect.any(Function),
       })
     );
-    expect(mocks.posthogInit.mock.calls[0]?.[1]).not.toHaveProperty(
-      'advanced_disable_flags'
-    );
-    expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
-    expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
-    expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
-    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
-  });
-
-  it('requests the lightweight config on public blog surfaces without locking init-time flag config', async () => {
-    const env = {
-      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
-    };
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/ogabassey/blog/best-phones',
-      href: 'https://usebaci.com/ogabassey/blog/best-phones',
-    });
-    const { initializePostHogBrowser } = await importBrowserInitializer();
-
-    initializePostHogBrowser(env);
-
-    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledOnce();
-    expect(mocks.buildPostHogClientConfig).toHaveBeenCalledWith(
-      env,
-      'ph_project_token',
-      { lightweight: true }
-    );
-    expect(mocks.posthogInit).toHaveBeenCalledOnce();
-    expect(mocks.posthogInit.mock.calls[0]?.[1]).not.toHaveProperty(
-      'advanced_disable_flags'
-    );
-    expect(mocks.posthogSetConfig).not.toHaveBeenCalled();
-
-    loadPostHogClient();
-
-    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
-    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
-      advanced_disable_flags: true,
-    });
-    expect(mocks.posthogSetConfig.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.clientConfigLoaded.mock.invocationCallOrder[0] ??
-        Number.POSITIVE_INFINITY
-    );
-    expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
-    expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
-    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-  });
-
-  it('ignores stale lightweight loaded callbacks after a blog-to-storefront transition', async () => {
-    const env = {
-      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
-    };
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/ogabassey/blog/best-phones',
-      href: 'https://usebaci.com/ogabassey/blog/best-phones',
-    });
-    const { initializePostHogBrowser } = await importBrowserInitializer();
-
-    initializePostHogBrowser(env);
-
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/ogabassey/products',
-      href: 'https://usebaci.com/ogabassey/products',
-    });
-    initializePostHogBrowser(env);
-    loadPostHogClient();
-
-    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
-    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
-      advanced_disable_flags: false,
-      api_host: '/baci-relay',
-    });
-    expect(mocks.posthogSetConfig).not.toHaveBeenCalledWith({
-      advanced_disable_flags: true,
-    });
-
-    vi.unstubAllGlobals();
-  });
-
-  it('reconfigures an initialized client when entering public blog surfaces', async () => {
-    const env = {
-      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
-    };
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/pricing',
-      href: 'https://usebaci.com/pricing',
-    });
-    const { initializePostHogBrowser } = await importBrowserInitializer();
-
-    initializePostHogBrowser(env);
-
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/ogabassey/blog/best-phones',
-      href: 'https://usebaci.com/ogabassey/blog/best-phones',
-    });
-    initializePostHogBrowser(env);
-
-    expect(mocks.buildPostHogClientConfig).toHaveBeenLastCalledWith(
-      env,
-      'ph_project_token',
-      { lightweight: true }
-    );
-    expect(mocks.posthogSetConfig).toHaveBeenCalledOnce();
-    expect(mocks.posthogSetConfig).toHaveBeenCalledWith({
-      advanced_disable_flags: true,
-      api_host: '/baci-relay',
-    });
-    expect(mocks.posthogReloadFeatureFlags).not.toHaveBeenCalled();
-    expect(mocks.posthogRemoteConfigLoad).not.toHaveBeenCalled();
-    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-  });
-
-  it('clears lightweight flag disabling when returning to full instrumentation', async () => {
-    const env = {
-      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_project_token',
-    };
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/ogabassey/blog/best-phones',
-      href: 'https://usebaci.com/ogabassey/blog/best-phones',
-    });
-    const { initializePostHogBrowser } = await importBrowserInitializer();
-
-    initializePostHogBrowser(env);
-    loadPostHogClient();
-
-    vi.stubGlobal('location', {
-      hostname: 'usebaci.com',
-      pathname: '/ogabassey/products',
-      href: 'https://usebaci.com/ogabassey/products',
-    });
-    initializePostHogBrowser(env);
-
-    expect(mocks.buildPostHogClientConfig).toHaveBeenLastCalledWith(
-      env,
-      'ph_project_token',
-      { lightweight: false }
-    );
-    expect(mocks.posthogSetConfig).toHaveBeenCalledTimes(2);
-    expect(mocks.posthogSetConfig).toHaveBeenNthCalledWith(1, {
-      advanced_disable_flags: true,
-    });
-    expect(mocks.posthogSetConfig).toHaveBeenNthCalledWith(2, {
-      advanced_disable_flags: false,
-      api_host: '/baci-relay',
-    });
-    expect(mocks.posthogReloadFeatureFlags).toHaveBeenCalledOnce();
-    expect(mocks.posthogRemoteConfigLoad).toHaveBeenCalledOnce();
-    expect(
-      mocks.posthogRemoteConfigLoad.mock.invocationCallOrder[0]
-    ).toBeGreaterThan(mocks.posthogSetConfig.mock.invocationCallOrder[1] ?? 0);
-    expect(
-      mocks.posthogReloadFeatureFlags.mock.invocationCallOrder[0]
-    ).toBeGreaterThan(
-      mocks.posthogRemoteConfigLoad.mock.invocationCallOrder[0] ?? 0
-    );
-    expect(mocks.webVitalsStartIfEnabled).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
   });
 
   it('queues pageviews until PostHog finishes loading', async () => {

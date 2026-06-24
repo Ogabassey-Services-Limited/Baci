@@ -9,24 +9,8 @@ import { BlogPostBody } from './blog-post-body';
 
 // SafeHtml: render a plain div with a data-testid so we can inspect html prop
 vi.mock('@/components/ui/safe-html', () => ({
-  SafeHtml: ({
-    headingLevelOffset,
-    html,
-    normalizeSeoAnchors,
-    ...rest
-  }: {
-    headingLevelOffset?: number;
-    html: string;
-    normalizeSeoAnchors?: boolean;
-    [key: string]: unknown;
-  }) => (
-    <div
-      data-testid="safe-html"
-      data-heading-level-offset={headingLevelOffset ?? ''}
-      data-html={html}
-      data-normalize-seo-anchors={normalizeSeoAnchors ? 'true' : 'false'}
-      {...rest}
-    />
+  SafeHtml: ({ html, ...rest }: { html: string; [key: string]: unknown }) => (
+    <div data-testid="safe-html" data-html={html} {...rest} />
   ),
 }));
 

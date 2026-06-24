@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
@@ -173,23 +173,5 @@ describe('PriceRangeProducts', () => {
         '/api/storefront/products?merchant_id=merchant-1&category=smartphones&min_price=1020000&max_price=1380000&limit=12&compact=true&has_images=true'
       )
     );
-  });
-
-  it('uses the curated under-price band label as the rail title when available', () => {
-    render(<PriceRangeProducts product={{ ...product, price: 600000 }} />);
-
-    // The curated band label is used as descriptive heading copy, but is not
-    // linked here: indexability of the band page cannot be verified from this
-    // client rail, so the gated link lives in CommercialSupportLinks instead.
-    expect(
-      screen.getByRole('heading', {
-        name: 'Best Smartphones Under ₦1,000,000',
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', {
-        name: 'Best Smartphones Under ₦1,000,000',
-      })
-    ).not.toBeInTheDocument();
   });
 });

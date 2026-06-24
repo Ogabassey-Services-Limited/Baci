@@ -14,25 +14,17 @@ function importInstrumentationClient() {
   return import('./instrumentation-client');
 }
 
-async function flushPostHogMicrotasks() {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
 afterEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
   vi.unstubAllGlobals();
 });
+
 describe('instrumentation-client', () => {
   it('initializes browser PostHog instrumentation', async () => {
-    vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
-
     await importInstrumentationClient();
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
 
+    expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
@@ -48,36 +40,5 @@ describe('instrumentation-client', () => {
 
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
-  });
-
-  it('skips PostHog on public blog pages to keep article pages light', async () => {
-    vi.stubGlobal('location', {
-      pathname: '/blog/phone-guide',
-      href: 'https://ogabassey.com/blog/phone-guide',
-    });
-
-    await importInstrumentationClient();
-    await flushPostHogMicrotasks();
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-    expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
-  });
-
-  it('initializes after an explicit client transition away from a skipped blog page', async () => {
-    vi.stubGlobal('location', {
-      pathname: '/blog/phone-guide',
-      href: 'https://ogabassey.com/blog/phone-guide',
-    });
-
-    const { initializePostHogInstrumentationIfAllowed } =
-      await importInstrumentationClient();
-    await flushPostHogMicrotasks();
-    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
-
-    initializePostHogInstrumentationIfAllowed('/products/macbook-pro');
-
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
-    expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
   });
 });

@@ -145,10 +145,5 @@ describe('Jumia order sync cursor persistence', () => {
         sync_config: { orders: true },
       })
     );
-    expect(retryCursorQuery.eq).toHaveBeenCalledWith('id', 'integration-1');
-    expect(retryCursorQuery.eq).toHaveBeenCalledWith(
-      'merchant_id',
-      'merchant-1'
-    );
   });
 });

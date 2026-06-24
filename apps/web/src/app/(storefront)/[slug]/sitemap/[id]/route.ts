@@ -9,8 +9,6 @@ import {
   resolveStorefrontSitemapContextResult,
 } from '../../sitemap-data';
 
-export const preferredRegion = 'dub1';
-
 export async function GET(
   request: Request,
   context: { params: Promise<{ slug: string; id: string }> }

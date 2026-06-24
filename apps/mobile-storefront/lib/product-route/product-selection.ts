@@ -230,17 +230,9 @@ export function computeProductSelectionState({
         attributes: selectionAttributes,
       }) ?? (shouldUseDefaultVariantSelection ? defaultVariantSelection : null))
     : null;
-  const selectedAttributeCondition = !usesVariantConditions
-    ? normalizeRouteCondition(selectionAttributes.condition)
-    : null;
-  const displaySelectionCondition = normalizeRouteCondition(
-    currentVariantDisplaySelection?.condition
-  );
   const effectiveSelectedCondition =
-    (usesVariantConditions ? displaySelectionCondition : null) ??
-    selectedAttributeCondition ??
+    normalizeRouteCondition(currentVariantDisplaySelection?.condition) ??
     selectedCondition ??
-    displaySelectionCondition ??
     fallbackSelectedCondition;
   const currentVariantSelection = product?.has_variants
     ? resolveProductVariantSelection(product, {

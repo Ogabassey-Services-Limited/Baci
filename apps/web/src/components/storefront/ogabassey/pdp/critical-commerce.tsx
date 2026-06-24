@@ -3,10 +3,7 @@ import { Suspense } from 'react';
 import {
   type OgabasseyPdpCriticalProduct,
 } from './critical-product';
-import {
-  OgabasseyPdpCriticalCommerceConditionFact,
-  OgabasseyPdpCriticalCommerceControls,
-} from './critical-commerce.client';
+import { OgabasseyPdpCriticalCommerceControls } from './critical-commerce.client';
 
 interface OgabasseyPdpCriticalCommerceProps {
   cartBasePathPromise?: Promise<string>;
@@ -46,11 +43,26 @@ async function OgabasseyPdpResolvedCriticalCommerceControls({
   );
 }
 
+function formatCondition(condition: string | null | undefined) {
+  const normalizedCondition = condition?.trim();
+  if (!normalizedCondition) {
+    return null;
+  }
+
+  return normalizedCondition
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export function OgabasseyPdpCriticalCommerce({
   cartBasePathPromise,
   cartHref,
   product,
 }: OgabasseyPdpCriticalCommerceProps) {
+  const formattedCondition = formatCondition(product.condition);
   const controls = cartHref ? (
     <OgabasseyPdpCriticalCommerceControls
       cartHref={cartHref}
@@ -74,9 +86,12 @@ export function OgabasseyPdpCriticalCommerce({
         <p data-ogabassey-pdp-commerce-eyebrow>
           Ready to buy
         </p>
-        <OgabasseyPdpCriticalCommerceConditionFact
-          fallbackCondition={product.condition}
-        />
+        {formattedCondition ? (
+          <p data-ogabassey-pdp-commerce-fact>
+            <span>Condition</span>
+            <strong>{formattedCondition}</strong>
+          </p>
+        ) : null}
         <p data-ogabassey-pdp-commerce-fact>
           <span>Delivery</span>
           <strong>Lagos and nationwide</strong>

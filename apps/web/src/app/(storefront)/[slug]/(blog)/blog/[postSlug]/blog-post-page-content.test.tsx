@@ -59,9 +59,7 @@ vi.mock('next/image', () => ({
 }));
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
+  default: ({ children }: { children: ReactNode }) => children,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -576,57 +574,25 @@ describe('BlogPostPageContent', () => {
     expect(mockNotFound).not.toHaveBeenCalled();
   });
 
-  it('renders stable noindex soft-not-found content for missing direct blog slugs without redirects', async () => {
+  it('renders notFound for missing direct blog slugs without redirects', async () => {
     mockGetCachedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValueOnce(null);
 
-    render(
-      await BlogPostPageContent({
+    await expect(
+      BlogPostPageContent({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           postSlug: 'retired-post',
         }),
       })
-    );
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
       'ogabassey.com',
       'retired-post'
     );
-    expect(
-      screen.getByRole('heading', { name: 'Blog post not found' })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to blog' })).toHaveAttribute(
-      'href',
-      '/blog'
-    );
-    expect(mockNotFound).not.toHaveBeenCalled();
-  });
-
-  it('links missing merchant-slug blog posts back to the slug-scoped blog index', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(null);
-    mockGetLiveBlogPost.mockResolvedValue(null);
-    mockGetBlogPostRedirect.mockResolvedValueOnce(null);
-
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'my-store',
-          postSlug: 'retired-post',
-        }),
-      })
-    );
-
-    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
-      'my-store',
-      'retired-post'
-    );
-    expect(screen.getByRole('link', { name: 'Back to blog' })).toHaveAttribute(
-      'href',
-      '/my-store/blog'
-    );
-    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalled();
   });
 
   it('passes the author personal sameAs and headshot image to structured data', async () => {

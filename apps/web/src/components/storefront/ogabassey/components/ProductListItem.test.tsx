@@ -66,7 +66,7 @@ describe('ProductListItem', () => {
 
     expect(
       screen.getByRole('link', {
-        name: `View ${baseProduct.name} for ${baseProduct.price}`,
+        name: `${baseProduct.name} - ${baseProduct.price}`,
       })
     ).toHaveAttribute('href', '/ogabassey/laptops/macbook-pro');
 
@@ -212,7 +212,7 @@ describe('ProductListItem', () => {
     const image = container.querySelector('img');
 
     expect(image).toHaveAttribute('alt', '');
-    expect(image).toHaveAttribute('src', '/placeholder.svg');
+    expect(image?.getAttribute('src')).toContain('data:image/svg+xml');
   });
 
 });

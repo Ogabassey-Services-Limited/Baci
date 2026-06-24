@@ -1,32 +1,28 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlogList } from './blog-list';
 
+const { mockFetchMorePosts } = vi.hoisted(() => ({
+  mockFetchMorePosts: vi.fn(),
+}));
+
+let intersectionCallback:
+  | ((entries: Array<{ isIntersecting: boolean }>) => void)
+  | undefined;
+
 vi.mock('next/image', () => ({
-  default: ({ alt, preload }: { alt: string; preload?: boolean }) => (
-    <span
-      aria-label={alt}
-      data-preload={preload ? 'true' : undefined}
-      role="img"
-    />
-  ),
+  default: ({ alt }: { alt: string }) => <span aria-label={alt} role="img" />,
 }));
 
 vi.mock('next/link', () => ({
-  default: ({
-    children,
-    href,
-    ...props
-  }: {
-    children: ReactNode;
-    href: string;
-    [key: string]: unknown;
-  }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
   ),
+}));
+
+vi.mock('./actions', () => ({
+  fetchMorePosts: (...args: unknown[]) => mockFetchMorePosts(...args),
 }));
 
 const blogPost = {
@@ -45,10 +41,33 @@ const blogPost = {
 };
 
 describe('BlogList', () => {
+  beforeEach(() => {
+    mockFetchMorePosts.mockReset();
+    intersectionCallback = undefined;
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(
+          callback: (entries: Array<{ isIntersecting: boolean }>) => void
+        ) {
+          intersectionCallback = callback;
+        }
+        observe = vi.fn();
+        disconnect = vi.fn();
+        unobserve = vi.fn();
+      }
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('renders published dates with deterministic server/client text', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
+        merchantId="merchant-1"
         totalPosts={1}
         basePath="/ogabassey"
       />
@@ -65,6 +84,7 @@ describe('BlogList', () => {
     render(
       <BlogList
         initialPosts={[{ ...blogPost, published_at: 'not-a-date' }]}
+        merchantId="merchant-1"
         totalPosts={1}
         basePath="/ogabassey"
       />
@@ -77,121 +97,61 @@ describe('BlogList', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the first visible card image as the listing LCP candidate', () => {
-    render(
-      <BlogList
-        initialPosts={[
-          blogPost,
-          {
-            ...blogPost,
-            id: 'post-2',
-            slug: 'second-post',
-            title: 'Second post',
-          },
-        ]}
-        totalPosts={2}
-        basePath="/ogabassey"
-      />
-    );
+  it('continues infinite loading from the first server-rendered page', () => {
+    mockFetchMorePosts.mockResolvedValueOnce([]);
 
-    const images = screen.getAllByRole('img');
-    expect(images[0]).toHaveAttribute('data-preload', 'true');
-    expect(images[1]).not.toHaveAttribute('data-preload');
-  });
-
-  it('preloads the first image-bearing card when earlier cards have no image', () => {
-    render(
-      <BlogList
-        initialPosts={[
-          {
-            ...blogPost,
-            id: 'post-without-image',
-            slug: 'intro-post',
-            title: 'Intro post',
-            featured_image_url: null,
-            featured_image_alt: null,
-          },
-          {
-            ...blogPost,
-            id: 'post-with-image',
-            slug: 'image-post',
-            title: 'Image post',
-            featured_image_url: 'https://cdn.example.com/blog/image-post.jpg',
-            featured_image_alt: 'Image post hero',
-          },
-        ]}
-        totalPosts={2}
-        basePath="/ogabassey"
-      />
-    );
-
-    expect(
-      screen.getByRole('img', { name: 'Image post hero' })
-    ).toHaveAttribute('data-preload', 'true');
-  });
-
-  it('renders crawlable pagination controls instead of auto-fetching with IntersectionObserver', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
+        merchantId="merchant-1"
         totalPosts={48}
         basePath="/ogabassey"
       />
     );
 
-    expect(screen.getByText('Showing 1 of 48 articles')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
-      'href',
-      '/ogabassey/blog?page=2'
+    act(() => {
+      intersectionCallback?.([{ isIntersecting: true }]);
+    });
+
+    expect(mockFetchMorePosts).toHaveBeenCalledWith(
+      'merchant-1',
+      2,
+      undefined,
+      undefined
     );
-    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
-      'href',
-      '/ogabassey/blog?page=2'
+  });
+
+  it('does not show the infinite-scroll end marker on crawlable paginated pages', () => {
+    render(
+      <BlogList
+        initialPosts={[blogPost]}
+        initialPage={3}
+        merchantId="merchant-1"
+        totalPosts={48}
+        basePath="/ogabassey"
+      />
     );
+
     expect(
       screen.queryByText("You've reached the end")
     ).not.toBeInTheDocument();
   });
 
-  it('renders current-page pagination controls when rendering a later crawl page', () => {
+  it('does not auto-fetch when rendering a paginated crawl page', () => {
     render(
       <BlogList
         initialPosts={[blogPost]}
         initialPage={3}
+        merchantId="merchant-1"
         totalPosts={48}
         basePath="/ogabassey"
       />
     );
 
-    expect(screen.getByText('Showing 25 of 48 articles')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
-      'href',
-      '/ogabassey/blog?page=2'
-    );
-    expect(screen.getByRole('link', { name: '4' })).toHaveAttribute(
-      'href',
-      '/ogabassey/blog?page=4'
-    );
-    expect(screen.getByRole('link', { name: '3' })).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
-  });
+    act(() => {
+      intersectionCallback?.([{ isIntersecting: true }]);
+    });
 
-  it('preserves search and category params in pagination links', () => {
-    render(
-      <BlogList
-        initialPosts={[blogPost]}
-        totalPosts={48}
-        category="Buying Guides"
-        searchQuery="iphone 17"
-        basePath="/ogabassey"
-      />
-    );
-
-    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
-      'href',
-      '/ogabassey/blog?category=Buying+Guides&search=iphone+17&page=2'
-    );
+    expect(mockFetchMorePosts).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,6 @@ interface ResolveLinkedVariantSelectionInput {
   attributes: Record<string, string>;
   color: string | null;
   condition: ProductCondition | null;
-  preserveConditionAttribute?: boolean;
   storage: string | null;
   usesVariantConditions: boolean;
   value: string;
@@ -28,7 +27,6 @@ interface NormalizedSelectionInput
   attributes: Record<string, string>;
   axis: string;
   color: string | null;
-  preserveConditionAttribute: boolean;
   storage: string | null;
   value: string;
 }
@@ -42,10 +40,7 @@ interface NormalizedVariantCandidate {
 }
 
 function canonicalizeVariantAxis(axis: string) {
-  return axis
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  return axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
 
 function normalizeSelectionValue(value: string | null | undefined) {
@@ -76,26 +71,18 @@ function getVariantColor(attributes: Record<string, string>) {
 function normalizeInput(
   input: ResolveLinkedVariantSelectionInput
 ): NormalizedSelectionInput {
-  const axis = canonicalizeVariantAxis(input.axis);
-  const attributes = normalizeAttributeMap(input.attributes);
-
   return {
     ...input,
-    attributes,
-    axis,
+    attributes: normalizeAttributeMap(input.attributes),
+    axis: canonicalizeVariantAxis(input.axis),
     color: normalizeSelectionValue(input.color),
-    preserveConditionAttribute:
-      input.preserveConditionAttribute ||
-      axis === 'condition' ||
-      (!input.usesVariantConditions && Boolean(attributes.condition)),
     storage: normalizeSelectionValue(input.storage),
     value: input.value.trim(),
   };
 }
 
 function normalizeVariantCandidate(
-  variant: ProductVariant,
-  options: { preserveConditionAttribute: boolean }
+  variant: ProductVariant
 ): NormalizedVariantCandidate {
   const attributes = normalizeAttributeMap(variant.attributes);
 
@@ -104,16 +91,11 @@ function normalizeVariantCandidate(
     color: getVariantColor(attributes),
     condition: normalizeRouteCondition(variant.condition),
     storage: attributes.storage ?? null,
-    visibleAttributes: stripInternalSelectionAxes(attributes, {
-      preserveCondition: options.preserveConditionAttribute,
-    }),
+    visibleAttributes: stripInternalSelectionAxes(attributes),
   };
 }
 
-function matchesCondition(
-  input: NormalizedSelectionInput,
-  variant: NormalizedVariantCandidate
-) {
+function matchesCondition(input: NormalizedSelectionInput, variant: NormalizedVariantCandidate) {
   if (!input.usesVariantConditions || !input.condition) {
     return true;
   }
@@ -121,10 +103,7 @@ function matchesCondition(
   return variant.condition === input.condition;
 }
 
-function matchesColor(
-  input: NormalizedSelectionInput,
-  variant: NormalizedVariantCandidate
-) {
+function matchesColor(input: NormalizedSelectionInput, variant: NormalizedVariantCandidate) {
   if (!input.color) {
     return true;
   }
@@ -132,10 +111,7 @@ function matchesColor(
   return variant.color === input.color;
 }
 
-function matchesStorage(
-  variant: NormalizedVariantCandidate,
-  storage: string | null
-) {
+function matchesStorage(variant: NormalizedVariantCandidate, storage: string | null) {
   return !storage || variant.storage === storage;
 }
 
@@ -148,10 +124,7 @@ function matchesAttributes(
   );
 }
 
-function matchesChangedAxis(
-  variant: NormalizedVariantCandidate,
-  input: NormalizedSelectionInput
-) {
+function matchesChangedAxis(variant: NormalizedVariantCandidate, input: NormalizedSelectionInput) {
   if (input.axis === 'storage') {
     return variant.storage === input.value;
   }
@@ -165,11 +138,7 @@ function matchesChangedAxis(
 // Match the current selection first, then progressively relax only the axes
 // that made linked variant groups feel untappable in the UI.
 function findLinkedVariant(input: NormalizedSelectionInput) {
-  const variants = (input.variants ?? []).map((variant) =>
-    normalizeVariantCandidate(variant, {
-      preserveConditionAttribute: input.preserveConditionAttribute,
-    })
-  );
+  const variants = (input.variants ?? []).map(normalizeVariantCandidate);
   if (variants.length === 0) {
     return null;
   }
@@ -200,7 +169,8 @@ function findLinkedVariant(input: NormalizedSelectionInput) {
   return (
     variants.find(
       (variant) =>
-        matchesCondition(input, variant) && matchesChangedAxis(variant, input)
+        matchesCondition(input, variant) &&
+        matchesChangedAxis(variant, input)
     ) ??
     variants.find((variant) => matchesChangedAxis(variant, input)) ??
     null

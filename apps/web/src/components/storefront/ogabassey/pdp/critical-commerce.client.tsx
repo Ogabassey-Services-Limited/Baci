@@ -1,28 +1,16 @@
 'use client';
 
-import {
-  formatCanonicalProductConditionLabel,
-  sortCanonicalProductConditionsByPreference,
-} from '@baci/shared/lib';
-import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { useState } from 'react';
 import type { Product as CartProduct } from '@/lib/products';
-import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-  OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-} from '@/components/storefront/ogabassey/config/product-media';
 import {
   formatCriticalPrice,
   type InitialCriticalVariantSelection,
 } from './critical-commerce-selection';
 import {
   OgabasseyPdpCriticalCommerceProvider,
-  useOptionalOgabasseyPdpCriticalCommerce,
   useOgabasseyPdpCriticalCommerce,
 } from './critical-commerce-state.client';
-import { getVariantAxisOptions } from './critical-variant-selector-options';
 import { OgabasseyPdpCriticalVariantSelectors } from './critical-variant-selectors.client';
 
 export { OgabasseyPdpCriticalCommerceProvider } from './critical-commerce-state.client';
@@ -33,128 +21,12 @@ interface OgabasseyPdpCriticalCommerceClientProps {
   initialVariantSelection?: InitialCriticalVariantSelection;
   productName: string;
   variantAxes?: string[];
-  variantAxisOptions?: Record<string, string[]>;
   variantCount: number;
 }
 
 interface OgabasseyPdpCriticalCommerceControlsProps {
   cartHref: Route;
   productName: string;
-}
-
-function formatCriticalCondition(condition: string | null | undefined) {
-  return formatCanonicalProductConditionLabel(condition) || null;
-}
-
-function getCriticalMixedConditionLabel(conditions: string[]) {
-  const sortedConditions =
-    sortCanonicalProductConditionsByPreference(conditions);
-
-  if (sortedConditions.length <= 1) {
-    return null;
-  }
-
-  return sortedConditions.length === 2 &&
-    sortedConditions.includes('new') &&
-    sortedConditions.includes('used')
-    ? 'New & Used'
-    : 'Multiple Conditions';
-}
-
-export function OgabasseyPdpCriticalConditionBadge({
-  fallbackCondition,
-}: {
-  fallbackCondition?: string | null;
-}) {
-  const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
-  const conditionOptions = commerceState
-    ? getVariantAxisOptions(
-        commerceState.variants,
-        'condition',
-        commerceState.variantAxisOptions
-      )
-    : [];
-  const condition =
-    getCriticalMixedConditionLabel(conditionOptions) ||
-    formatCriticalCondition(
-      commerceState?.productForCart.condition ?? fallbackCondition
-    );
-
-  if (!condition) {
-    return null;
-  }
-
-  return <span data-ogabassey-pdp-condition>{condition}</span>;
-}
-
-export function OgabasseyPdpCriticalCommerceConditionFact({
-  fallbackCondition,
-}: {
-  fallbackCondition?: string | null;
-}) {
-  const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
-  const condition = formatCriticalCondition(
-    commerceState?.productForCart.condition ?? fallbackCondition
-  );
-
-  if (!condition) {
-    return null;
-  }
-
-  return (
-    <p data-ogabassey-pdp-commerce-fact>
-      <span>Condition</span>
-      <strong>{condition}</strong>
-    </p>
-  );
-}
-
-export function OgabasseyPdpCriticalProductImage({
-  alt,
-  fallbackImage,
-}: {
-  alt: string;
-  fallbackImage: string;
-}) {
-  const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
-  // Track images that fail to load (e.g. a variant photo that 404s on the CDN)
-  // so the above-the-fold LCP image never stays broken — it falls back to the
-  // product's base image, matching the gallery's fallback behavior.
-  const [brokenImages, setBrokenImages] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
-  const preferredImage = commerceState?.productForCart.image || fallbackImage;
-  const image =
-    preferredImage && !brokenImages.has(preferredImage)
-      ? preferredImage
-      : fallbackImage && !brokenImages.has(fallbackImage)
-        ? fallbackImage
-        : null;
-
-  if (!image) {
-    return null;
-  }
-
-  return (
-    <Image
-      alt={alt}
-      data-ogabassey-pdp-image="true"
-      fetchPriority="high"
-      fill
-      key={image}
-      loading="eager"
-      onError={() =>
-        setBrokenImages((previous) =>
-          !image || previous.has(image)
-            ? previous
-            : new Set(previous).add(image)
-        )
-      }
-      quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
-      sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-      src={image}
-    />
-  );
 }
 
 export function OgabasseyPdpCriticalCommerceSummary() {
@@ -164,7 +36,6 @@ export function OgabasseyPdpCriticalCommerceSummary() {
     productForCart,
     renderableVariantAxes,
     selectedAttributes,
-    variantAxisOptions,
     variantCount,
     variants,
   } = useOgabasseyPdpCriticalCommerce();
@@ -182,7 +53,6 @@ export function OgabasseyPdpCriticalCommerceSummary() {
           onAttributeSelection={handleAttributeSelection}
           renderableVariantAxes={renderableVariantAxes}
           selectedAttributes={selectedAttributes}
-          variantAxisOptions={variantAxisOptions}
           variantCount={variantCount}
           variants={variants}
         />
@@ -262,7 +132,6 @@ export function OgabasseyPdpCriticalCommerceClient({
   initialVariantSelection,
   productName,
   variantAxes = [],
-  variantAxisOptions = {},
   variantCount,
 }: OgabasseyPdpCriticalCommerceClientProps) {
   return (
@@ -270,7 +139,6 @@ export function OgabasseyPdpCriticalCommerceClient({
       cartProduct={cartProduct}
       initialVariantSelection={initialVariantSelection}
       variantAxes={variantAxes}
-      variantAxisOptions={variantAxisOptions}
       variantCount={variantCount}
     >
       <OgabasseyPdpCriticalCommerceSummary />

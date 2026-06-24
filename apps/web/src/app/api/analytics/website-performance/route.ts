@@ -1,14 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { env } from '@/env';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+
 import { requestGemmaCompletion } from '@/lib/gemma/gemma-completion';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { resolveWebsitePerformanceGemmaConfig } from './gemma-config';
-
-export const maxDuration = 30;
 
 const querySchema = z.object({
   startDate: z.string().datetime().optional(),
@@ -218,7 +217,11 @@ export async function GET(request: NextRequest) {
     timeoutId = setTimeout(() => controller.abort(), 15000);
 
     const gemmaResponse = await requestGemmaCompletion({
-      ...resolveWebsitePerformanceGemmaConfig(),
+      provider: 'auto',
+      llmServerUrl: env.LLM_SERVER_URL,
+      llmServerBearer: env.LLM_SERVER_BEARER,
+      ollamaBaseUrl: env.OLLAMA_BASE_URL,
+      model: env.LLM_CHAT_MODEL || env.AI_CHAT_MODEL || 'gemma',
       messages: [{ role: 'user', content: gemmaPrompt }],
       maxTokens: 300,
       signal: controller.signal,

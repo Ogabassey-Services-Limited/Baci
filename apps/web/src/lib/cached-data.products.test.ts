@@ -75,11 +75,7 @@ afterEach(() => {
 });
 
 describe('cached-data product query projections', () => {
-  const singleProduct = {
-    id: 'product-123',
-    slug: 'iphone-16',
-    variant_attributes: { storage: ['128GB'] },
-  };
+  const singleProduct = { id: 'product-123', slug: 'iphone-16' };
   const productList = [
     { id: 'product-123', slug: 'iphone-16' },
     { id: 'product-456', slug: 'iphone-15' },
@@ -145,13 +141,10 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('slug');
     expect(selectArg).toContain('price');
     expect(selectArg).toContain('images');
-    expect(selectArg).toContain('color');
-    expect(selectArg).toContain('default_variant_id');
     expect(selectArg).toContain('manage_stock');
     expect(selectArg).toContain('schema_markup');
     expect(selectArg).toContain('stock');
     expect(selectArg).toContain('stock_quantity');
-    expect(selectArg).toContain('variant_attributes');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).toContain('product_categories');
     expect(selectArg).not.toContain('product_variants');
@@ -180,7 +173,6 @@ describe('cached-data product query projections', () => {
         id: 'variant-1',
       }),
     ]);
-    expect(result?.variant_attributes).toEqual({ storage: ['128GB'] });
   });
 
   it('getCachedProductLcpHint hydrates serialized public variant stock', async () => {

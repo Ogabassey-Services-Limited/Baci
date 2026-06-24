@@ -3,9 +3,7 @@
   [data-ogabassey-pdp-critical-shell] {
     background: var(--store-background, #ffffff);
     color: var(--store-background-text, #111827);
-    /* Bottom padding tightened (was 7rem) to close the gap between the
-       above-fold product block and the deferred detail tabs. */
-    padding: 1rem 1rem 2.5rem;
+    padding: 1rem 1rem 7rem;
   }
 
   [data-ogabassey-pdp-critical-inner] {

@@ -2,9 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as CartProduct } from '@/lib/products';
-import {
-  OgabasseyPdpCriticalCommerceClient,
-} from './critical-commerce.client';
+import { OgabasseyPdpCriticalCommerceClient } from './critical-commerce.client';
 
 const cartMocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
@@ -279,5 +277,4 @@ describe('OgabasseyPdpCriticalCommerceClient', () => {
     expect(screen.getByRole('button', { name: /add to cart/i })).toBeDisabled();
     expect(cartMocks.addToCart).not.toHaveBeenCalled();
   });
-
 });

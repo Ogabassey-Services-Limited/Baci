@@ -41,23 +41,6 @@ describe('deploy crontab', () => {
     );
   });
 
-  it('schedules the storefront update nudge daily through run-web-cron', () => {
-    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
-
-    assert.match(
-      deployScript,
-      /0 10 {3}\* \* \* flock -n \$REMOTE_DIR\/locks\/storefront-update-nudge\.lock/
-    );
-    assert.match(
-      deployScript,
-      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/storefront-update-nudge/
-    );
-    assert.match(
-      deployScript,
-      />> \$REMOTE_DIR\/logs\/storefront-update-nudge\.log 2>&1/
-    );
-  });
-
   it('serializes the AI storefront worker behind the shared workload lock', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

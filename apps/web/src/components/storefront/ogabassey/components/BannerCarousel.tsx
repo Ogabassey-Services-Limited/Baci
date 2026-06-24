@@ -5,19 +5,61 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
+import type { AD_CONFIG } from '../config/ads';
+import {
+  FLASH_SALE_PROMO_IMAGE,
+  NEW_ARRIVALS_PROMO_IMAGE,
+} from '@/components/storefront/ogabassey/components/hero-data';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { asRoute, joinRouteBasePath } from '@/lib/routes';
-import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
-import {
-  BANNER_SLIDES,
-  type BannerSlide,
-  PROMO_CTA,
-  PROMO_SUBTITLE,
-  PROMO_TEXT_PANEL,
-  PROMO_TITLE,
-} from './banner-carousel-content';
-import { CarouselPlayToggle } from './carousel-play-toggle';
-import { useCarouselAutoplay } from './use-carousel-autoplay';
+
+interface BaseBannerSlide {
+  id: number;
+  title?: string;
+  subtitle?: string;
+  link?: string;
+  bgColor?: string;
+  textColor?: string;
+}
+
+interface ImageBannerSlide extends BaseBannerSlide {
+  type: 'image';
+  imageUrl: string;
+}
+
+interface AdBannerSlide extends BaseBannerSlide {
+  type: 'ad';
+  adPlacement: keyof typeof AD_CONFIG;
+}
+
+type BannerSlide = ImageBannerSlide | AdBannerSlide;
+
+const BANNER_SLIDES: BannerSlide[] = [
+  {
+    id: 1,
+    type: 'image',
+    imageUrl: FLASH_SALE_PROMO_IMAGE,
+    title: 'Flash Sale',
+    subtitle: 'Up to 50% Off Selected Items',
+    bgColor: 'bg-red-600',
+    textColor: 'text-white',
+  },
+  {
+    id: 2,
+    type: 'ad',
+    adPlacement: 'HEADER_LEADERBOARD',
+  },
+  {
+    id: 3,
+    type: 'image',
+    imageUrl: NEW_ARRIVALS_PROMO_IMAGE,
+    title: 'New Arrivals',
+    subtitle: 'Check out the latest tech',
+    bgColor: 'bg-black',
+    textColor: 'text-white',
+  },
+];
 
 export interface BannerCarouselProps {
   basePath?: string;
@@ -41,7 +83,6 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   const getHref = (path: string) => resolveBannerHref(basePath, path);
 
   const [currentSlide, setCurrentSlide] = useState(0);
-  const autoplay = useCarouselAutoplay();
 
   // Dynamic slides based on props
   const slides = (() => {
@@ -52,16 +93,13 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         imageUrl: categoryImage,
         title: title || 'Shop Now',
         subtitle: description || 'Explore our best collection',
+        bgColor: 'bg-black', // Default for category headers
+        textColor: 'text-white',
       };
       return [customSlide, ...BANNER_SLIDES];
     }
     return BANNER_SLIDES;
   })();
-  // Derive primitives from `slides` so the autoplay effect depends on stable
-  // values (not the inline array's identity, which churns every render) without
-  // mutating a ref during render — React-19/Compiler-safe.
-  const slideCount = slides.length;
-  const isCurrentSlideAd = slides[currentSlide]?.type === 'ad';
 
   // Touch handling state
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -80,7 +118,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   };
 
   const onTouchEnd = () => {
-    if (touchStart === null || touchEnd === null) return;
+    if (!touchStart || !touchEnd) return;
 
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
@@ -96,18 +134,18 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   };
 
   useEffect(() => {
-    // WCAG 2.2.2: stop on hover/focus, on the explicit toggle, and on reduced
-    // motion. Also pause on an ad slide so video ads can play through uncut.
-    if (!autoplay.isActive || isCurrentSlideAd) {
+    // PAUSE AUTO-ROTATION IF CURRENT SLIDE IS AN AD
+    // This allows video ads to finish playing without being cut off.
+    const activeSlide = slides[currentSlide];
+    if (activeSlide?.type === 'ad') {
       return;
     }
 
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slideCount);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-    // currentSlide stays in deps so manual navigation resets the 6s timer.
-  }, [currentSlide, autoplay.isActive, isCurrentSlideAd, slideCount]);
+  }, [slides.length, currentSlide, slides]); // Added currentSlide/slides dependency for ad check
 
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
 
@@ -122,111 +160,91 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
     }
   }
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-    }
-  };
-
   return (
     <div
-      aria-label={title ? `${title} promotions` : 'Promotional banner'}
-      aria-roledescription="carousel"
-      className={`relative w-full overflow-hidden rounded-xl shadow-sm border border-store-border bg-store-background ${className}`}
-      onKeyDown={onKeyDown}
+      className={`relative w-full overflow-hidden rounded-xl shadow-sm border border-gray-100 bg-white ${className}`}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      role="region"
-      tabIndex={0}
-      {...autoplay.containerHandlers}
     >
       <div
         className="flex h-full transition-transform duration-700 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {slides.map((slide, idx) => {
-          const isCategoryHero = Boolean(categoryImage) && idx === 0;
-          return (
-            <div
-              key={slide.id}
-              className="w-full h-full shrink-0 relative"
-              aria-hidden={idx !== currentSlide}
-              // `inert` removes the entire subtree from the accessibility tree,
-              // tab order, and click/pointer events while the slide is hidden.
-              // React 19 forwards this attribute to the DOM as a boolean.
-              inert={idx !== currentSlide}
-              role="group"
-              aria-roledescription="slide"
-              aria-label={`Slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
-            >
-              {slide.type === 'image' ? (
-                <div className="w-full h-full relative overflow-hidden group">
-                  <Image
-                    src={slide.imageUrl || ''}
-                    alt={slide.title || 'Featured collection'}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
-                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                    loading={isCategoryHero ? 'eager' : 'lazy'}
-                    fetchPriority={isCategoryHero ? 'high' : 'low'}
+        {slides.map((slide, idx) => (
+          <div
+            key={slide.id}
+            className="w-full h-full shrink-0 relative"
+            aria-hidden={idx !== currentSlide}
+            // `inert` removes the entire subtree from the accessibility tree,
+            // tab order, and click/pointer events while the slide is hidden.
+            // React 19 forwards this attribute to the DOM as a boolean.
+            inert={idx !== currentSlide}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`Slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
+          >
+            {slide.type === 'image' ? (
+              <div className="w-full h-full relative overflow-hidden group">
+                <Image
+                  src={slide.imageUrl || ''}
+                  alt={slide.title || 'Banner'}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
+                  className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  priority={Boolean(categoryImage) && idx === 0}
+                  loading={
+                    categoryImage && idx === 0 ? undefined : 'lazy'
+                  }
+                  fetchPriority={
+                    categoryImage && idx === 0 ? 'high' : 'low'
+                  }
+                />
+                <div
+                  className={`absolute inset-0 bg-linear-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
+                >
+                  <h3
+                    className={`text-2xl md:text-4xl font-bold ${slide.textColor} mb-2 leading-tight line-clamp-1`}
+                  >
+                    {slide.title}
+                  </h3>
+                  <p
+                    className={`text-sm md:text-lg ${slide.textColor} opacity-90 max-w-md line-clamp-2`}
+                  >
+                    {slide.subtitle}
+                  </p>
+                  {slide.link && (
+                    <Link
+                      href={asRoute(getHref(slide.link))}
+                      className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
+                    >
+                      Shop Now
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
+                <span className="absolute top-2 right-2 text-[10px] text-gray-400 border border-gray-200 px-1 rounded">
+                  Sponsored
+                </span>
+                <div className="transform scale-90 md:scale-100 w-full flex justify-center">
+                  {/* We ensure the ad unit doesn't overflow */}
+                  <AdUnit
+                    placementKey={slide.adPlacement}
+                    className="my-0"
+                    isActive={idx === currentSlide}
+                    bootDelayMs={SPONSORED_SLIDE_AD_BOOT_DELAY_MS}
+                    refreshKey={adRefreshTrigger}
                   />
-                  <div className="absolute inset-0 bg-linear-to-r from-store-primary/85 to-transparent flex flex-col justify-center px-8 md:px-16">
-                    <h3 className={PROMO_TITLE}>{slide.title}</h3>
-                    <p className={PROMO_SUBTITLE}>{slide.subtitle}</p>
-                    {slide.link ? (
-                      <Link
-                        href={asRoute(getHref(slide.link))}
-                        className={PROMO_CTA}
-                      >
-                        Shop Now
-                      </Link>
-                    ) : null}
-                  </div>
                 </div>
-              ) : slide.type === 'promo' ? (
-                <div className="w-full h-full relative overflow-hidden bg-linear-to-r from-store-primary to-store-accent">
-                  <div className={PROMO_TEXT_PANEL}>
-                    <h3 className={PROMO_TITLE}>{slide.title}</h3>
-                    <p className={PROMO_SUBTITLE}>{slide.subtitle}</p>
-                    {slide.link ? (
-                      <Link
-                        href={asRoute(getHref(slide.link))}
-                        className={PROMO_CTA}
-                      >
-                        Shop Now
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 relative">
-                  {/* Neutral, non-brand chrome for the sponsored slot (allowed
-                      exception to the themed-color rule). */}
-                  <span className="absolute top-2 right-2 text-[10px] text-gray-400 border border-gray-200 px-1 rounded">
-                    Sponsored
-                  </span>
-                  <div className="transform scale-90 md:scale-100 w-full flex justify-center">
-                    <AdUnit
-                      placementKey={slide.adPlacement}
-                      className="my-0"
-                      isActive={idx === currentSlide}
-                      bootDelayMs={SPONSORED_SLIDE_AD_BOOT_DELAY_MS}
-                      refreshKey={adRefreshTrigger}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
         {slides.map((slide, idx) => {
           const isCurrentSlide = idx === currentSlide;
           const isActiveAdSlide = slide.type === 'ad' && isCurrentSlide;
@@ -241,11 +259,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
               className="group flex h-11 min-w-11 items-center justify-center rounded-full"
             >
               <span
-                className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-                  isCurrentSlide
-                    ? 'w-6'
-                    : 'w-1.5 group-hover:bg-store-on-primary/70'
-                } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
+                className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${isCurrentSlide
+                  ? 'w-6'
+                  : 'w-1.5 group-hover:bg-store-on-primary/70'
+                  } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
                 style={{
                   backgroundColor: isCurrentSlide
                     ? isActiveAdSlide
@@ -257,12 +274,6 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
             </button>
           );
         })}
-        {autoplay.prefersReducedMotion ? null : (
-          <CarouselPlayToggle
-            isPlaying={autoplay.isPlaying}
-            onToggle={autoplay.toggle}
-          />
-        )}
       </div>
     </div>
   );

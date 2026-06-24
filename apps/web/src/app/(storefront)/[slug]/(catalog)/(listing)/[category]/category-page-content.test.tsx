@@ -109,10 +109,6 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
     mockGetPublishedClusterPosts(...args),
 }));
 
-vi.mock('@/lib/validation', () => ({
-  isDomainIdentifier: (value: string) => value.includes('.'),
-}));
-
 vi.mock('./category-page-content-helpers', () => ({
   STOREFRONT_PRODUCTS_PER_PAGE: 24,
   buildCategoryPageHubModel: (...args: unknown[]) =>
@@ -307,26 +303,11 @@ describe('CategoryPageContent', () => {
     expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
   });
 
-  it('keeps missing merchants hard-404 even when the requested page parameter is invalid', async () => {
-    mockGetMerchantByIdentifier.mockResolvedValue(null);
-
-    await expect(
-      CategoryPageContent({
-        params: Promise.resolve({
-          slug: 'unknown-merchant',
-          category: 'phones',
-        }),
-        searchParams: Promise.resolve({ page: 'invalid' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-
-    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
-  });
-
-  it('renders stable noindex soft-not-found content for an unknown category slug with no products', async () => {
+  it('calls notFound() for an unknown category slug with no products (doorway stopgap)', async () => {
     // Unknown/typo slug: merchant resolves, but the category data has no
-    // collection, no category row, and no fuzzy-matched products. Metadata stays
-    // noindex; content must not throw inside the streamed route boundary.
+    // collection, no category row, and no fuzzy-matched products — previously
+    // rendered an indexable empty page. The render-side guard must mirror
+    // generateMetadata so the shell and robots agree.
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       business_name: 'Demo Store',
@@ -341,22 +322,15 @@ describe('CategoryPageContent', () => {
       isInactiveCategory: false,
     });
 
-    render(
-      await CategoryPageContent({
+    await expect(
+      CategoryPageContent({
         params: Promise.resolve({
           slug: 'demo-store',
           category: 'totally-made-up-slug',
         }),
         searchParams: Promise.resolve({ page: '1' }),
       })
-    );
-
-    expect(
-      screen.getByRole('heading', { name: 'Category not found' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Continue shopping' })
-    ).toHaveAttribute('href', '/demo-store');
+    ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
   });
 

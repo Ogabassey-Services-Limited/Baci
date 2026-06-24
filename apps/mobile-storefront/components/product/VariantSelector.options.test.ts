@@ -6,11 +6,7 @@ describe('normalizeVariantOptions', () => {
       normalizeVariantOptions({
         colors: ['Red'],
         colorImages: { Blue: ['blue.png'] },
-        attributes: {
-          condition: ['used', 'new'],
-          material: ['Steel'],
-          storage: ['128GB'],
-        },
+        attributes: { storage: ['128GB'], material: ['Steel'] },
       })
     ).toMatchObject({
       hasImageDrivenColors: true,
@@ -29,10 +25,9 @@ describe('normalizeVariantOptions', () => {
         {
           id: 'variant-128',
           name: 'Red 128GB',
-          condition: 'used',
           price: 1000,
           stock_quantity: 2,
-          attributes: { condition: 'used', finish: 'Matte', storage: '128GB' },
+          attributes: { storage: '128GB', finish: 'Matte' },
         },
       ],
     });
@@ -43,42 +38,6 @@ describe('normalizeVariantOptions', () => {
     ]);
     expect(result.normalizedGenericAttributes).toEqual([
       { axis: 'finish', values: ['Matte'] },
-    ]);
-  });
-
-  it('omits storage from generic attributes when storage only comes from attributes', () => {
-    const result = normalizeVariantOptions({
-      attributes: {
-        finish: ['Matte'],
-        storage: ['128GB'],
-      },
-    });
-
-    expect(result.normalizedStorage).toEqual([]);
-    expect(result.normalizedGenericAttributes).toEqual([
-      { axis: 'finish', values: ['Matte'] },
-    ]);
-  });
-
-  it('keeps attribute-backed condition options when no dedicated condition selector is visible', () => {
-    const result = normalizeVariantOptions({
-      hideConditionAttributes: false,
-      attributes: {
-        Condition: ['used', 'open_box'],
-      },
-      variants: [
-        {
-          id: 'variant-used',
-          name: 'Used',
-          condition: 'used',
-          price: 1000,
-          attributes: { condition: 'used' },
-        },
-      ],
-    });
-
-    expect(result.normalizedGenericAttributes).toEqual([
-      { axis: 'condition', values: ['used', 'open_box'] },
     ]);
   });
 });

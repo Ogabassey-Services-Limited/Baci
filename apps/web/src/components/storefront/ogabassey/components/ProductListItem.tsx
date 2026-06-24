@@ -1,7 +1,6 @@
 'use client';
 // Template preview
 
-import { getProductImageAlt } from '@baci/shared/lib';
 import {
   Check,
   ChevronLeft,
@@ -10,15 +9,15 @@ import {
   ShoppingCart,
   Star,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
+import Image from 'next/image';
 import type React from 'react';
 import { useState } from 'react';
-import { PLACEHOLDER_IMAGE } from '@/lib/image-utils';
-import { asRoute } from '@/lib/routes';
-import { getProductUrl } from '@/lib/seo-utils';
-import { requiresOgabasseyProductSelection } from '../product-selection';
+import { getProductImageAlt } from '@baci/shared/lib';
 import type { Product } from '../types';
+import { getProductUrl } from '@/lib/seo-utils';
+import { asRoute } from '@/lib/routes';
+import { requiresOgabasseyProductSelection } from '../product-selection';
 import { resolveProductImageSource } from './product-image-source';
 
 /**
@@ -35,6 +34,7 @@ function stripHtml(html: string): string {
   }
   return result;
 }
+
 
 interface ProductListItemProps {
   product: Product;
@@ -59,6 +59,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // without adjusting state from an effect.
   const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
 
+  // Fallback placeholder for products without images
+  const PLACEHOLDER_IMAGE =
+    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="48" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
+
   // Determine current image with fallback
   const currentImage = resolveProductImageSource(
     [product.images?.[activeColorIndex], product.image],
@@ -72,8 +76,6 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   const productHref = asRoute(
     `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
   );
-  const linkTitle =
-    `${product.name}${product.brand ? ` - ${product.brand}` : ''}`.trim();
   const requiresSelection = requiresOgabasseyProductSelection(product);
   const isImageLoaded = loadedImageSrc === currentImage.src;
 
@@ -104,11 +106,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
       <Link
         href={productHref}
         prefetch={false}
-        title={linkTitle}
         className="absolute inset-0 z-0"
       >
         <span className="sr-only">
-          View {product.name} for {product.price}
+          {product.name} - {product.price}
         </span>
       </Link>
 

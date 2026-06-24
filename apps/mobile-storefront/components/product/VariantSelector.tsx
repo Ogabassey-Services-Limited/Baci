@@ -17,7 +17,6 @@ interface VariantSelectorProps {
   attributes?: Record<string, string[]>;
   colors?: (string | { name: string; value: string })[];
   colorImages?: Record<string, string[]>;
-  hideConditionAttributes?: boolean;
   storage?: string | string[];
   variants?: ProductVariant[];
   manageStock?: boolean;
@@ -33,7 +32,6 @@ export function VariantSelector({
   attributes,
   colors,
   colorImages,
-  hideConditionAttributes,
   storage,
   variants,
   manageStock,
@@ -59,7 +57,6 @@ export function VariantSelector({
     attributes,
     colors,
     colorImages,
-    hideConditionAttributes,
     storage,
     variants,
   });

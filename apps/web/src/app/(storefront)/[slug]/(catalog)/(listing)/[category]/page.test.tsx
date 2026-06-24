@@ -10,7 +10,8 @@ import {
 } from '@/lib/cached-data';
 import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 
-const NORMALIZED_PLACEHOLDER_IMAGE = '/placeholder.svg';
+const NORMALIZED_PLACEHOLDER_IMAGE =
+  'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
 const mockConnection = vi.hoisted(() => vi.fn());
 const { mockCategoryPageContent } = vi.hoisted(() => ({
@@ -898,9 +899,6 @@ describe('category page route', () => {
     expect(secondPageMetadata.title).toContain('Ogabassey');
     expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
     expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
-    expect(secondPageMetadata.description).toContain('Page 2 of');
-    expect(secondPageMetadata.openGraph?.description).toContain('Page 2 of');
-    expect(secondPageMetadata.twitter?.description).toContain('Page 2 of');
     expect(secondPageMetadata.openGraph?.url).toBe(
       'https://test-store.usebaci.com/smartphones?page=2'
     );
@@ -915,7 +913,7 @@ describe('category page route', () => {
     ]);
   });
 
-  it('returns noindex soft-404 metadata for inactive category slugs', async () => {
+  it('returns notFound metadata for inactive category slugs', async () => {
     vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
       isCollection: false,
       category: null,
@@ -925,32 +923,19 @@ describe('category page route', () => {
       isInactiveCategory: true,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'test-store',
-        category: 'inactive-category',
-      }),
-      searchParams: Promise.resolve({ page: '1' }),
-    });
-
-    expect(metadata.title).toBe('Category not found');
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
-    expect(metadata.alternates).toBeNull();
-    expect(metadata).toMatchObject({
-      openGraph: {
-        description: 'This category is unavailable or has moved.',
-        title: 'Category not found',
-      },
-      twitter: {
-        card: 'summary',
-        description: 'This category is unavailable or has moved.',
-        title: 'Category not found',
-      },
-    });
-    expect(notFound).not.toHaveBeenCalled();
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'inactive-category',
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(notFound).toHaveBeenCalled();
   });
 
-  it('returns noindex soft-404 metadata for unknown category slugs with no products (doorway stopgap)', async () => {
+  it('returns notFound metadata for unknown category slugs with no products (doorway stopgap)', async () => {
     // Unknown/typo slug: not a collection, no resolved category row, and the
     // legacy fuzzy fallback matched nothing — previously rendered index,follow
     // (the doorway trap). isInactiveCategory is FALSE here (distinct from the
@@ -964,29 +949,16 @@ describe('category page route', () => {
       isInactiveCategory: false,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'test-store',
-        category: 'totally-made-up-slug',
-      }),
-      searchParams: Promise.resolve({ page: '1' }),
-    });
-
-    expect(metadata.title).toBe('Category not found');
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
-    expect(metadata.alternates).toBeNull();
-    expect(metadata).toMatchObject({
-      openGraph: {
-        description: 'This category is unavailable or has moved.',
-        title: 'Category not found',
-      },
-      twitter: {
-        card: 'summary',
-        description: 'This category is unavailable or has moved.',
-        title: 'Category not found',
-      },
-    });
-    expect(notFound).not.toHaveBeenCalled();
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'totally-made-up-slug',
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(notFound).toHaveBeenCalled();
   });
 
   it('does not notFound a real category that has products', async () => {
@@ -1091,29 +1063,16 @@ describe('category page route', () => {
     expect((metadata.title as string).length).toBeLessThanOrEqual(70);
   });
 
-  it('returns noindex soft-404 metadata for out-of-range metadata pages', async () => {
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'test-store',
-        category: 'smartphones',
-      }),
-      searchParams: Promise.resolve({ page: '3' }),
-    });
-
-    expect(metadata.title).toBe('Category page not found');
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
-    expect(metadata.alternates).toBeNull();
-    expect(metadata).toMatchObject({
-      openGraph: {
-        description: 'This category page is unavailable or has moved.',
-        title: 'Category page not found',
-      },
-      twitter: {
-        card: 'summary',
-        description: 'This category page is unavailable or has moved.',
-        title: 'Category page not found',
-      },
-    });
+  it('matches the category route 404 behavior for out-of-range metadata pages', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'test-store',
+          category: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {
@@ -1184,24 +1143,17 @@ describe('category page route', () => {
     );
   });
 
-  it('renders stable noindex soft-not-found content for out-of-range category pages', async () => {
-    render(
-      await actualCategoryPageContentModule.CategoryPageContent({
-        params: Promise.resolve({
-          slug: 'test-store',
-          category: 'smartphones',
-        }),
-        searchParams: Promise.resolve({ page: '3' }),
-      })
-    );
+  it('returns notFound for out-of-range category pages', async () => {
+    const outOfRangePage = actualCategoryPageContentModule.CategoryPageContent({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
 
-    expect(
-      screen.getByRole('heading', { name: 'Category page not found' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Continue shopping' })
-    ).toHaveAttribute('href', '/test-store');
-    expect(notFound).not.toHaveBeenCalled();
+    await expect(outOfRangePage).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(notFound).toHaveBeenCalled();
   });
 
   it('falls back to the normalized placeholder image when the category page has no product media', async () => {
@@ -1223,12 +1175,10 @@ describe('category page route', () => {
 
     expect(metadata.openGraph?.images).toEqual([
       {
-        url: `https://test-store.usebaci.com${NORMALIZED_PLACEHOLDER_IMAGE}`,
+        url: NORMALIZED_PLACEHOLDER_IMAGE,
         alt: 'Smartphones',
       },
     ]);
-    expect(metadata.twitter?.images).toEqual([
-      `https://test-store.usebaci.com${NORMALIZED_PLACEHOLDER_IMAGE}`,
-    ]);
+    expect(metadata.twitter?.images).toEqual([NORMALIZED_PLACEHOLDER_IMAGE]);
   });
 });

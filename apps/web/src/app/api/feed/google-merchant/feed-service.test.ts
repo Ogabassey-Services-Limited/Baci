@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockResolveFeedMerchant = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
-const mockGetCachedGoogleMerchantFeedData = vi.fn();
+const mockGetGoogleMerchantFeedData = vi.fn();
 const mockLoggerError = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
@@ -21,8 +21,8 @@ vi.mock('@/lib/feed-identifier', () => {
 });
 
 vi.mock('./feed-data', () => ({
-  getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
-    mockGetCachedGoogleMerchantFeedData(...args),
+  getGoogleMerchantFeedData: (...args: unknown[]) =>
+    mockGetGoogleMerchantFeedData(...args),
 }));
 
 vi.mock('./feed-builder', () => ({
@@ -50,7 +50,7 @@ beforeEach(() => {
     slug: 'ogabassey',
   });
 
-  mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
+  mockGetGoogleMerchantFeedData.mockResolvedValue({
     custom_domain: 'ogabassey.com',
     slug: 'ogabassey',
     products: [{ id: 'product-1', name: 'Phone' }],
@@ -69,7 +69,7 @@ describe('generateGoogleMerchantFeedForIdentifier', () => {
 
     expect(result).toEqual({ success: true, xml: '<rss />' });
     expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
-    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
+    expect(mockGetGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
     );
@@ -86,7 +86,7 @@ describe('generateGoogleMerchantFeedForIdentifier', () => {
   });
 
   it('falls back to a slug-based base URL when custom domain is missing', async () => {
-    mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
+    mockGetGoogleMerchantFeedData.mockResolvedValue({
       custom_domain: null,
       slug: 'ogabassey',
       products: [{ id: 'product-1', name: 'Phone' }],
@@ -128,7 +128,7 @@ describe('generateGoogleMerchantFeedForIdentifier', () => {
       '00000000-0000-4000-8000-000000000001',
       false
     );
-    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
+    expect(mockGetGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
     );
@@ -165,7 +165,7 @@ describe('generateGoogleMerchantFeedForIdentifier', () => {
 
   it('returns a 500 service result when feed data loading fails', async () => {
     const error = new Error('feed data failed');
-    mockGetCachedGoogleMerchantFeedData.mockRejectedValue(error);
+    mockGetGoogleMerchantFeedData.mockRejectedValue(error);
 
     const result = await generateGoogleMerchantFeedForIdentifier({
       identifier: 'ogabassey',
@@ -210,7 +210,7 @@ describe('generateGoogleMerchantFeedForIdentifier', () => {
       identifier: 'ogabassey',
       isBySlug: true,
     });
-    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
+    expect(mockGetGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
     );

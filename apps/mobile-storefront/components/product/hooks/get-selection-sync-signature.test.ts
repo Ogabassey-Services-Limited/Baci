@@ -15,31 +15,6 @@ describe('getSelectionSyncSignature', () => {
     expect(initialSignature).not.toBe(updatedSignature);
   });
 
-  it('changes when variant prices change', () => {
-    const initialSignature = getSelectionSyncSignature(variantProduct);
-    const updatedSignature = getSelectionSyncSignature({
-      ...variantProduct,
-      variants: variantProduct.variants?.map((variant, index) =>
-        index === 1 ? { ...variant, price_override: 1 } : variant
-      ),
-    });
-
-    expect(initialSignature).not.toBe(updatedSignature);
-  });
-
-  it('changes when the base product price changes', () => {
-    // The price-first resolver falls back to product.price for variants
-    // without an absolute price/override, so a base-price change can flip the
-    // cheapest variant and must invalidate the signature.
-    const initialSignature = getSelectionSyncSignature(variantProduct);
-    const updatedSignature = getSelectionSyncSignature({
-      ...variantProduct,
-      price: variantProduct.price + 1000,
-    });
-
-    expect(initialSignature).not.toBe(updatedSignature);
-  });
-
   it('returns an empty signature when no product is loaded', () => {
     expect(getSelectionSyncSignature(null)).toBe('');
   });

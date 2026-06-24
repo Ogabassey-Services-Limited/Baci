@@ -12,7 +12,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { GET, maxDuration } from './route';
+import { GET } from './route';
 
 vi.mock('ai', () => ({
   generateObject: vi.fn(),
@@ -234,11 +234,10 @@ describe('GET /api/analytics/insights', () => {
       expect.any(Function),
       expect.objectContaining({ maxRetries: 0 })
     );
-    expect(maxDuration).toBe(30);
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         maxRetries: 0,
-        timeout: 25_000,
+        timeout: 10_000,
       })
     );
   });
@@ -311,7 +310,7 @@ describe('GET /api/analytics/insights', () => {
         topProducts: expect.any(Array),
         channels: expect.any(Array),
       }),
-      expect.objectContaining({ timeoutMs: 25_000 })
+      expect.objectContaining({ timeoutMs: 10_000 })
     );
     expect(cache.set).toHaveBeenCalledWith(
       'ai-insights:merchant-1',
@@ -341,7 +340,7 @@ describe('GET /api/analytics/insights', () => {
         topProducts: expect.any(Array),
         channels: expect.any(Array),
       }),
-      expect.objectContaining({ timeoutMs: 25_000 })
+      expect.objectContaining({ timeoutMs: 10_000 })
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({

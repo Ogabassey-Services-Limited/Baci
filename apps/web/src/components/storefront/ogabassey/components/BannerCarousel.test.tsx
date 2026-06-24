@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
@@ -35,10 +35,6 @@ const mockAdUnit = vi.hoisted(() =>
 vi.mock('./AdUnit', () => ({
   AdUnit: (props: Record<string, unknown>) => mockAdUnit(props),
 }));
-const mockReducedMotion = vi.hoisted(() => ({ value: false }));
-vi.mock('@/hooks/use-reduced-motion', () => ({
-  useReducedMotion: () => mockReducedMotion.value,
-}));
 
 import { BannerCarousel, resolveBannerHref } from './BannerCarousel';
 import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
@@ -46,10 +42,6 @@ import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
 describe('BannerCarousel', () => {
   beforeEach(() => {
     mockAdUnit.mockClear();
-  });
-
-  afterEach(() => {
-    mockReducedMotion.value = false;
   });
 
   it('renders without crashing', () => {
@@ -71,64 +63,37 @@ describe('BannerCarousel', () => {
     );
   });
 
-  it('renders the promo banners as CSS-only slides with no baked images', () => {
+  it('does not request removed CDN banner assets or preload below-fold banners', () => {
     const { container } = render(<BannerCarousel />);
     const images = Array.from(container.querySelectorAll('img'));
 
-    // Promo slides are now theme-driven CSS, so the homepage banner ships no
-    // banner image at all (nothing to preload below the fold).
-    expect(images).toHaveLength(0);
-    expect(screen.getByText('Flash Sale')).toBeInTheDocument();
-    expect(screen.getByText('New Arrivals')).toBeInTheDocument();
+    expect(images.map((image) => image.getAttribute('src'))).toEqual(
+      expect.not.arrayContaining([
+        'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
+        'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
+      ])
+    );
+
+    for (const image of images) {
+      expect(image).toHaveAttribute('data-priority', 'false');
+    }
   });
 
-  it('eagerly loads only the custom category image with high fetch priority', () => {
+  it('prioritizes only the custom category image when one is provided', () => {
     const { container } = render(
       <BannerCarousel categoryImage="/category-banner.avif" />
     );
     const images = Array.from(container.querySelectorAll('img'));
 
-    // Only the category hero is a real image; promo slides remain CSS-only.
-    expect(images).toHaveLength(1);
+    expect(images.length).toBeGreaterThan(0);
     expect(images[0]).toHaveAttribute('src', '/category-banner.avif');
-    expect(images[0]).toHaveAttribute('loading', 'eager');
+    expect(images[0]).toHaveAttribute('data-priority', 'true');
     expect(images[0]).toHaveAttribute('fetchpriority', 'high');
-    // The deprecated `priority` prop is gone.
-    expect(images[0]).not.toHaveAttribute('priority');
-  });
 
-  it('supports arrow-key navigation between slides', () => {
-    const { container } = render(<BannerCarousel />);
-    const region = screen.getByRole('region');
-    const visibleIndex = () =>
-      Array.from(
-        container.querySelectorAll('[aria-roledescription="slide"]')
-      ).findIndex((slide) => slide.getAttribute('aria-hidden') === 'false');
-
-    expect(visibleIndex()).toBe(0);
-    fireEvent.keyDown(region, { key: 'ArrowRight' });
-    expect(visibleIndex()).toBe(1);
-    fireEvent.keyDown(region, { key: 'ArrowLeft' });
-    expect(visibleIndex()).toBe(0);
-  });
-
-  it('renders a pause/play control that toggles autoplay (WCAG 2.2.2)', () => {
-    render(<BannerCarousel />);
-
-    const pause = screen.getByRole('button', { name: 'Pause auto-rotation' });
-    fireEvent.click(pause);
-    expect(
-      screen.getByRole('button', { name: 'Play auto-rotation' })
-    ).toBeDefined();
-  });
-
-  it('hides the pause/play control when reduced motion is preferred', () => {
-    mockReducedMotion.value = true;
-    render(<BannerCarousel />);
-
-    expect(
-      screen.queryByRole('button', { name: /auto-rotation/i })
-    ).toBeNull();
+    for (const image of images.slice(1)) {
+      expect(image).toHaveAttribute('data-priority', 'false');
+      expect(image).toHaveAttribute('fetchpriority', 'low');
+    }
   });
 
   it('labels banner slide controls as non-submit buttons', () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useOptionalCustomerAuth } from '@/contexts/customer-auth-context';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { toast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
@@ -150,11 +150,12 @@ export const UtilityModal = ({
 
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
-  const auth = useOptionalCustomerAuth();
-  const customer = auth?.customer ?? null;
-  const isAuthenticated = auth?.isAuthenticated ?? false;
-  const isAuthLoading = auth?.isLoading ?? false;
-  const user = auth?.user ?? null;
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    user,
+  } = useCustomerAuth();
   const {
     payWithWallet,
     setPayWithWallet,

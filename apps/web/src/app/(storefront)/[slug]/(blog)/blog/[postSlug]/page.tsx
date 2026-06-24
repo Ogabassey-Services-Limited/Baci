@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
@@ -50,21 +49,10 @@ export async function generateMetadata({
 
   const { merchant, post } = data;
   const title = post.seo_title || post.title || 'Blog Post';
-  const metadataTitle = generateMetaTitle(title, {
-    suffix: merchant.business_name,
-    maxLength: 70,
-    fallback: 'Blog Post',
-  });
-  const description = generateMetaDescription(
+  const description =
     post.seo_description ||
-      post.excerpt ||
-      getBlogPostTextPreview(post.content),
-    160,
-    {
-      minLength: 110,
-      fallback: `Read ${post.title || 'this article'} from ${merchant.business_name} for buying guidance, product context, and local shopping insights.`,
-    }
-  );
+    post.excerpt ||
+    getBlogPostTextPreview(post.content);
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
   const baseUrl = buildStoreUrl(merchant);
@@ -78,7 +66,7 @@ export async function generateMetadata({
     : title;
 
   return {
-    title: metadataTitle,
+    title: `${title} | ${merchant.business_name}`,
     description,
     keywords: post.keywords?.join(', '),
     authors: [{ name: post.author_name }],

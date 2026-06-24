@@ -39,6 +39,22 @@ describe('WalletPage', () => {
     notFound.mockClear();
   });
 
+  it('does not render a wrapper H1 in the initial synchronous output', () => {
+    vi.mocked(getCachedMerchant).mockReturnValue(
+      new Promise(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(
+      <Suspense fallback={null}>
+        <WalletPage params={Promise.resolve({ slug: 'test-store' })} />
+      </Suspense>
+    );
+
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+  });
+
   it('does not render a page-owned loading fallback while content loads', () => {
     vi.mocked(getCachedMerchant).mockReturnValue(
       new Promise(() => {

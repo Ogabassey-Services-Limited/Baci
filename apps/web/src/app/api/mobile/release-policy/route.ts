@@ -1,14 +1,53 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
-  parseBuildNumber,
-  readMobilePlatformEnv,
-  readMobileUpdatesEnabled,
-} from '@/lib/mobile-update-gate';
-import { mobileReleasePolicyQuerySchema } from '@/schemas/mobile-release-policy';
+  type MobileReleasePolicyPlatform,
+  mobileReleasePolicyQuerySchema,
+} from '@/schemas/mobile-release-policy';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
 } as const;
+
+function readEnabledFlag() {
+  const value =
+    process.env.MOBILE_STOREFRONT_UPDATES_ENABLED?.trim().toLowerCase();
+  return value === 'true' || value === '1' || value === 'yes';
+}
+
+function readPlatformEnv(
+  platform: MobileReleasePolicyPlatform,
+  key:
+    | 'LATEST_VERSION'
+    | 'MIN_VERSION'
+    | 'STORE_URL'
+    | 'LATEST_BUILD'
+    | 'MIN_BUILD'
+) {
+  return (
+    process.env[`MOBILE_STOREFRONT_${platform.toUpperCase()}_${key}`]?.trim() ||
+    null
+  );
+}
+
+/**
+ * Parse a native build number (Android `versionCode`, iOS `CFBundleVersion`)
+ * into a non-negative integer, or `null` when absent/malformed.
+ *
+ * Build numbers are the reliable update signal: CI auto-increments them on every
+ * release (Android `versionCode = run_number + base`, iOS `CFBundleVersion =
+ * run_number`), whereas the marketing version can stay constant across builds
+ * (Android ships a fixed `2.0.0`). Gating on the build number is therefore the
+ * only check that works uniformly across both platforms.
+ */
+function parseBuildNumber(value: string | null) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  // Guard the empty/whitespace case explicitly: `Number('')` is 0, which would
+  // otherwise pass the integer/non-negative checks and read as build 0.
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
 
 function parseVersion(version: string | null) {
   if (!version) return null;
@@ -78,21 +117,21 @@ export function GET(request: NextRequest) {
     );
   }
 
-  if (!readMobileUpdatesEnabled()) {
+  if (!readEnabledFlag()) {
     return disabledResponse();
   }
 
   const { buildNumber, nativeVersion, platform } = parsedQuery.data;
-  const minNativeVersion = readMobilePlatformEnv(platform, 'MIN_VERSION');
-  const latestNativeVersion = readMobilePlatformEnv(platform, 'LATEST_VERSION');
+  const minNativeVersion = readPlatformEnv(platform, 'MIN_VERSION');
+  const latestNativeVersion = readPlatformEnv(platform, 'LATEST_VERSION');
   const minNativeBuild = parseBuildNumber(
-    readMobilePlatformEnv(platform, 'MIN_BUILD')
+    readPlatformEnv(platform, 'MIN_BUILD')
   );
   const latestNativeBuild = parseBuildNumber(
-    readMobilePlatformEnv(platform, 'LATEST_BUILD')
+    readPlatformEnv(platform, 'LATEST_BUILD')
   );
   const installedBuild = parseBuildNumber(buildNumber);
-  const storeUrl = readMobilePlatformEnv(platform, 'STORE_URL');
+  const storeUrl = readPlatformEnv(platform, 'STORE_URL');
   const message =
     process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() ||
     'A newer version of Ogabassey is available.';

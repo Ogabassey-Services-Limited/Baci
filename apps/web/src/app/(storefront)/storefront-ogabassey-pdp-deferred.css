@@ -9,8 +9,6 @@
 @source "../../components/storefront/ogabassey/pages/product-details-page/**/*.tsx";
 @source "../../components/storefront/ogabassey/components/AdUnit.tsx";
 @source "../../components/storefront/ogabassey/components/BannerCarousel.tsx";
-@source "../../components/storefront/ogabassey/components/banner-carousel-content.ts";
-@source "../../components/storefront/ogabassey/components/carousel-play-toggle.tsx";
 @source "../../components/storefront/ogabassey/components/FlyToCartAnimation.tsx";
 @source "../../components/storefront/ogabassey/components/NegotiationModal.tsx";
 @source "../../components/storefront/ogabassey/components/ProductComparisonTable.tsx";

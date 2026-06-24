@@ -3,13 +3,8 @@ export const STOREFRONT_METADATA_CACHE_BUCKET_HEADER =
 export const STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM =
   '__baci_metadata_cache_bucket';
 
-// Lookaround-free superset of Next 16.2's DOM Googlebot branch for PPR
-// metadata rendering. Vercel serializes `htmlLimitedBots` into header-based
-// PPR cache bypass rules that live traffic shows are evaluated from the start
-// of the user-agent string. Real Googlebot crawls use a Mozilla-compatible UA
-// with `Googlebot/2.1` in the middle, so keep the leading wildcard to bypass
-// the static shell cache for the actual production crawler string.
-export const NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN = '.*Googlebot';
+// Mirrors Next 16.2's DOM bot branch for PPR metadata rendering.
+const NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN = 'Googlebot(?!-)|Googlebot$';
 
 // Mirrors Next 16.2's HTML-limited bot list. Keep this in the same module as
 // the proxy bucket classifier so future Next upgrades cannot silently desync
@@ -35,16 +30,8 @@ const AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN = [
   'CCBot',
 ].join('|');
 
-// Semrush Site Audit defaults to a mobile SiteAuditBot and can also audit as
-// SemrushBot. Treat both as HTML-limited so title/description metadata is in
-// the initial document instead of the streamed metadata payload.
-const SEMRUSH_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN = [
-  'SiteAuditBot',
-  'SemrushBot',
-].join('|');
-
 export const STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX = new RegExp(
-  `${NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN}|${NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${SEMRUSH_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}`,
+  `${NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN}|${NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}`,
   'i'
 );
 

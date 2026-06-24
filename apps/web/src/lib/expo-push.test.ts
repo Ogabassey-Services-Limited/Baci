@@ -35,9 +35,6 @@ function createChainableMock(
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.in = vi.fn().mockReturnValue(chain);
-  chain.or = vi.fn().mockReturnValue(chain);
-  chain.order = vi.fn().mockReturnValue(chain);
-  chain.limit = vi.fn().mockReturnValue(chain);
   chain.update = vi.fn().mockReturnValue(chain);
   chain.insert = vi.fn().mockReturnValue(chain);
   // Supabase query builder returns thenables — Object.defineProperty avoids biome noThenProperty
@@ -74,7 +71,6 @@ let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
 let notifyNewReview: typeof import('./expo-push').notifyNewReview;
-let notifyStorefrontUpdateAvailable: typeof import('./expo-push').notifyStorefrontUpdateAvailable;
 beforeEach(async () => {
   vi.clearAllMocks();
 
@@ -88,7 +84,6 @@ beforeEach(async () => {
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
   notifyNewReview = mod.notifyNewReview;
-  notifyStorefrontUpdateAvailable = mod.notifyStorefrontUpdateAvailable;
 });
 
 afterEach(() => {
@@ -646,169 +641,5 @@ describe('notifyNewReview', () => {
     expect(sentMessages[0].body).toContain('Jane');
     expect(sentMessages[0].body).toContain('5');
     expect(sentMessages[0].body).toContain('Blue Shirt');
-  });
-});
-
-describe('notifyStorefrontUpdateAvailable', () => {
-  it('pushes mobile_update_available to eligible tokens and stamps the throttle', async () => {
-    const selectChain = createChainableMock([
-      { id: 'id1', token: 'ExponentPushToken[a]' },
-      { id: 'id2', token: 'ExponentPushToken[b]' },
-    ]);
-    const ticketInsertChain = createChainableMock();
-    const stampChain = createChainableMock();
-    const attemptInsertChain = createChainableMock();
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi
-        .fn()
-        .mockReturnValueOnce(selectChain) // select eligible tokens
-        .mockReturnValueOnce(ticketInsertChain) // processTickets ticket insert
-        .mockReturnValueOnce(stampChain) // stamp last_update_push_at
-        .mockReturnValueOnce(attemptInsertChain), // record attempt
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 't1' },
-      { status: 'ok', id: 't2' },
-    ]);
-
-    const result = await notifyStorefrontUpdateAvailable({
-      platform: 'android',
-      latestBuild: 646,
-      storeUrl:
-        'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-      now: new Date('2026-06-21T00:00:00.000Z'),
-    });
-
-    expect(result).toMatchObject({
-      platform: 'android',
-      eligible: 2,
-      sent: 2,
-      failed: 0,
-      cappedAtLimit: false,
-    });
-
-    // Filters to active storefront tokens for the platform, below latest build.
-    expect(selectChain.eq).toHaveBeenCalledWith('app_type', 'storefront');
-    expect(selectChain.eq).toHaveBeenCalledWith('platform', 'android');
-    expect(selectChain.eq).toHaveBeenCalledWith('is_active', true);
-    // A SINGLE .or() carrying BOTH conditions AND-combined as an OR-of-ANDs.
-    // Chaining two .or() calls would drop the build filter (PostgREST overwrite);
-    // a flat OR of the four leaves would bypass the throttle. Asserting the
-    // and(...) groups locks in the AND-combination, not just substring presence.
-    expect(selectChain.or).toHaveBeenCalledTimes(1);
-    const orArg = selectChain.or.mock.calls[0][0] as string;
-    expect(orArg).toContain(
-      'and(build_number.is.null,last_update_push_at.is.null)'
-    );
-    expect(orArg).toContain('and(build_number.lt.646,last_update_push_at.lt.');
-    expect(orArg).toContain('and(build_number.is.null,last_update_push_at.lt.');
-    expect(orArg).toContain(
-      'and(build_number.lt.646,last_update_push_at.is.null)'
-    );
-    // No bare leaf outside an and() group (would mean the throttle is bypassed).
-    expect(orArg).not.toMatch(/(^|,)build_number\.(is\.null|lt\.646)(,|$)/);
-    // Never-nudged first, then oldest — so the backlog drains deterministically.
-    expect(selectChain.order).toHaveBeenCalledWith('last_update_push_at', {
-      ascending: true,
-      nullsFirst: true,
-    });
-
-    // Sends the payload the app's tap handler routes to the update prompt.
-    const sent = mockChunkPushNotifications.mock
-      .calls[0][0] as ExpoPushMessage[];
-    expect(sent[0].data).toMatchObject({
-      type: 'mobile_update_available',
-      platform: 'android',
-    });
-    expect(sent[0].title).toBe('Update available');
-
-    // Throttle-stamps only the devices that actually received the nudge.
-    expect(stampChain.update).toHaveBeenCalledWith({
-      last_update_push_at: '2026-06-21T00:00:00.000Z',
-    });
-    expect(stampChain.in).toHaveBeenCalledWith('id', ['id1', 'id2']);
-  });
-
-  it('sends nothing and reports zero eligible when no tokens match', async () => {
-    const selectChain = createChainableMock([]);
-    const attemptInsertChain = createChainableMock();
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi
-        .fn()
-        .mockReturnValueOnce(selectChain)
-        .mockReturnValueOnce(attemptInsertChain),
-    } as never);
-
-    const result = await notifyStorefrontUpdateAvailable({
-      platform: 'ios',
-      latestBuild: 390,
-    });
-
-    expect(result).toMatchObject({ platform: 'ios', eligible: 0, sent: 0 });
-    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
-  });
-
-  it('chunks the throttle stamp so the .in() filter stays within URL limits', async () => {
-    const tokens = Array.from({ length: 150 }, (_, i) => ({
-      id: `id${i}`,
-      token: `ExponentPushToken[t${i}]`,
-    }));
-    const chain = createChainableMock(tokens);
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(chain),
-    } as never);
-    mockSendPushNotificationsAsync.mockResolvedValueOnce(
-      tokens.map((_, i) => ({ status: 'ok', id: `ticket-${i}` }))
-    );
-
-    const result = await notifyStorefrontUpdateAvailable({
-      platform: 'android',
-      latestBuild: 646,
-      limit: 150,
-    });
-
-    // 150 stamped ids → 2 chunks (100 + 50); no chunk exceeds the 100 cap, so
-    // the PATCH .in() URL can never grow unbounded.
-    const idStampCalls = chain.in.mock.calls.filter((call) => call[0] === 'id');
-    expect(idStampCalls).toHaveLength(2);
-    expect(idStampCalls[0][1]).toHaveLength(100);
-    expect(idStampCalls[1][1]).toHaveLength(50);
-    // Hit the per-run limit → backlog signal is set for operators.
-    expect(result.cappedAtLimit).toBe(true);
-  });
-
-  it('flags stampFailed when the throttle write fails after a successful send', async () => {
-    const selectChain = createChainableMock([
-      { id: 'id1', token: 'ExponentPushToken[a]' },
-    ]);
-    const ticketInsertChain = createChainableMock();
-    // The last_update_push_at update errors.
-    const stampChain = createChainableMock(null, { message: 'db write down' });
-    const attemptInsertChain = createChainableMock();
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi
-        .fn()
-        .mockReturnValueOnce(selectChain) // select eligible tokens
-        .mockReturnValueOnce(ticketInsertChain) // processTickets ticket insert
-        .mockReturnValueOnce(stampChain) // stamp (fails)
-        .mockReturnValueOnce(attemptInsertChain), // record attempt
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 't1' },
-    ]);
-
-    const result = await notifyStorefrontUpdateAvailable({
-      platform: 'android',
-      latestBuild: 646,
-    });
-
-    // Delivered, but throttle not written → caller must alert/retry.
-    expect(result.sent).toBe(1);
-    expect(result.stampFailed).toBe(true);
   });
 });

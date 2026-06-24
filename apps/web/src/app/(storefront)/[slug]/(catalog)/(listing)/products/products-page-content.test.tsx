@@ -66,8 +66,8 @@ vi.mock('@/lib/routes', () => ({
   asRoute: (path: string) => path,
 }));
 
-vi.mock('@/components/seo/json-ld', () => ({
-  JsonLd: () => null,
+vi.mock('@/lib/sanitize-json-ld', () => ({
+  safeJsonLdStringify: () => '{}',
 }));
 
 vi.mock('@/lib/seo-utils', () => ({

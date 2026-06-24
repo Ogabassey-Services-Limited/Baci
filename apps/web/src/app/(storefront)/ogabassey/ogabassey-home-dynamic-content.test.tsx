@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
-import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 
 const mockMerchant = {
   id: 'merchant-1',
@@ -46,10 +45,6 @@ vi.mock('@/lib/cached-data', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/cached-storefront-products-by-slugs', () => ({
-  getCachedStorefrontProductsBySlugs: vi.fn(() => Promise.resolve([])),
-}));
-
 vi.mock('@/lib/cached-categories', () => ({
   getCachedNavigationCategories: vi.fn(() =>
     Promise.resolve([{ name: 'Smartphones', slug: 'smartphones' }])
@@ -88,9 +83,6 @@ vi.mock('@/components/storefront/ogabassey/home-product-feed', () => ({
   createOgabasseyHomeProductFeed: vi.fn((products: unknown[]) =>
     products.slice(0, 1)
   ),
-  mapStorefrontProductsToOgabasseyProducts: vi.fn(
-    (products: unknown[]) => products
-  ),
 }));
 
 vi.mock('next/link', () => ({
@@ -126,9 +118,7 @@ function createProduct(
     description: 'Apple flagship phone.',
     price: 2500000,
     compare_at_price: null,
-    images: [
-      'https://cdn.ogabassey.com/core-assets/products/iphone-17-pro-max.avif',
-    ],
+    images: null,
     category: 'Smartphones',
     brand: 'Apple',
     condition: 'new',
@@ -145,7 +135,6 @@ describe('OgabasseyHomeDynamicContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([]);
-    vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([]);
   });
 
   it('renders home data without duplicating the hero shell', async () => {
@@ -284,52 +273,6 @@ describe('OgabasseyHomeDynamicContent', () => {
         }),
       ])
     );
-  });
-
-  it('prepends targeted pinned launch products into the home ItemList even when they fall outside the recent window', async () => {
-    // Recent window: 8 products, none of them the pinned launch device.
-    const windowProducts = Array.from({ length: 8 }, (_, index) =>
-      createProduct({
-        id: `recent-${index}`,
-        name: `Recent ${index}`,
-        slug: `recent-${index}`,
-      })
-    );
-    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue(
-      windowProducts
-    );
-    // The targeted by-slug fetch returns the pin that is absent from the window.
-    vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([
-      createProduct({
-        id: 'a27',
-        name: 'Samsung Galaxy A27 5G Preorder',
-        slug: 'samsung-galaxy-a27-5g',
-        category: 'Smartphones',
-      }),
-    ]);
-
-    const result = await OgabasseyHomeDynamicContent({
-      merchant: mockMerchant,
-      pathPrefix: '/ogabassey',
-    });
-
-    const { container } = render(result as ReactElement);
-    const script = container.querySelector(
-      'script[type="application/ld+json"]'
-    );
-    const json = script?.innerHTML || '{}';
-
-    // The pin made it into the schema even though it was never in the recent
-    // window — proof the deterministic pinned fetch is wired into the ItemList.
-    expect(json).toContain('samsung-galaxy-a27-5g');
-
-    const schema = JSON.parse(json) as { '@graph': Record<string, unknown>[] };
-    const collectionPage = schema['@graph'].find(
-      (node) => node['@type'] === 'CollectionPage'
-    ) as { mainEntity?: { itemListElement?: unknown[] } } | undefined;
-    const elements = collectionPage?.mainEntity?.itemListElement ?? [];
-    // Pinned-first: the A27 leads the featured-products ItemList.
-    expect(JSON.stringify(elements[0])).toContain('samsung-galaxy-a27-5g');
   });
 
   it('includes the blog hub in the semantic graph only when the visible blog link is enabled', async () => {

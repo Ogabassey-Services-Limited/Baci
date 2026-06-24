@@ -22,9 +22,7 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
 
     expect(screen.getByTestId('home-feed-list')).toBeTruthy();
-    // Hero + injected JustLaunched + CategoryRail + ProductGrid.
-    expect(screen.getAllByTestId('block-renderer')).toHaveLength(4);
-    expect(screen.getByText('JustLaunched')).toBeTruthy();
+    expect(screen.getAllByTestId('block-renderer')).toHaveLength(3);
     expect(lastFeedProps()?.contentBottomPadding).toBe(
       getHomeContentBottomPadding(34, true)
     );

@@ -202,33 +202,17 @@ describe('BlogContentRenderer', () => {
 
   describe('heading nodes', () => {
     it.each([
-      [1, 2],
-      [2, 3],
-      [3, 4],
-      [4, 5],
-      [5, 6],
-      [6, 6],
-    ] as const)('renders source level %i as an <h%i> article-body heading', (sourceLevel, renderedLevel) => {
-      const json = doc(
-        headingNode(sourceLevel, textNode(`Heading ${sourceLevel}`))
-      );
+      1, 2, 3, 4,
+    ] as const)('renders an <h%i> element for level %i', (level) => {
+      const json = doc(headingNode(level, textNode(`Heading ${level}`)));
       const { container } = render(<BlogContentRenderer json={json} />);
-      const el = container.querySelector(`h${renderedLevel}`);
+      const el = container.querySelector(`h${level}`);
       expect(el).toBeInTheDocument();
-      expect(el).toHaveTextContent(`Heading ${sourceLevel}`);
-    });
-
-    it('does not render a body h1 below the blog post page heading', () => {
-      const json = doc(headingNode(1, textNode('Imported Title')));
-      const { container } = render(<BlogContentRenderer json={json} />);
-      expect(container.querySelector('h1')).toBeNull();
-      expect(
-        screen.getByRole('heading', { level: 2, name: /Imported Title/i })
-      ).toBeInTheDocument();
+      expect(el).toHaveTextContent(`Heading ${level}`);
     });
 
     it('generates a slug id from the heading text', () => {
-      const json = doc(headingNode(1, textNode('My Section Title')));
+      const json = doc(headingNode(2, textNode('My Section Title')));
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('h2')).toHaveAttribute(
         'id',
@@ -246,7 +230,7 @@ describe('BlogContentRenderer', () => {
     it('sets the scroll-mt-20 class for sticky-header offset', () => {
       const json = doc(headingNode(1, textNode('Title')));
       const { container } = render(<BlogContentRenderer json={json} />);
-      expect(container.querySelector('h2')).toHaveClass('scroll-mt-20');
+      expect(container.querySelector('h1')).toHaveClass('scroll-mt-20');
     });
   });
 
@@ -388,39 +372,6 @@ describe('BlogContentRenderer', () => {
         'href',
         '/smartphones/iphone-13-pro-6gb-256gb'
       );
-    });
-
-    it('renders technical resource links as plain text for JSON posts', () => {
-      const json = doc(
-        paragraph(
-          textNode('Product data JSON', [
-            {
-              type: 'link',
-              attrs: { href: 'https://example.com/assets/specs.json' },
-            },
-          ]),
-          textNode(' and '),
-          textNode('Optimized image', [
-            {
-              type: 'link',
-              attrs: {
-                href: '/_next/image?url=https%3A%2F%2Fcdn.example.com%2Fphone.avif&w=640&q=75',
-              },
-            },
-          ])
-        )
-      );
-
-      render(<BlogContentRenderer json={json} />);
-
-      expect(screen.getByText('Product data JSON')).toBeInTheDocument();
-      expect(screen.getByText('Optimized image')).toBeInTheDocument();
-      expect(
-        screen.queryByRole('link', { name: 'Product data JSON' })
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('link', { name: 'Optimized image' })
-      ).not.toBeInTheDocument();
     });
 
     it('rewrites javascript: URLs to a safe hash anchor', () => {
@@ -634,12 +585,6 @@ describe('BlogContentRenderer', () => {
       const json = doc({ type: 'image', attrs: { src: null } });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Blog image node missing or invalid src attribute'
-        ),
-        expect.objectContaining({ src: null })
-      );
       consoleSpy.mockRestore();
     });
 
@@ -654,12 +599,6 @@ describe('BlogContentRenderer', () => {
       });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Blog image node missing or invalid src attribute'
-        ),
-        expect.objectContaining({ src: 'data:image/png;base64,abc' })
-      );
       consoleSpy.mockRestore();
     });
   });
@@ -713,8 +652,7 @@ describe('BlogContentRenderer', () => {
       // The doc wrapper renders but contains no visible child content.
       expect(container.querySelector('.space-y-4')).toBeEmptyDOMElement();
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Unknown blog renderer node type'),
-        expect.objectContaining({ nodeType: 'customWidget' })
+        expect.stringContaining('customWidget')
       );
       consoleSpy.mockRestore();
     });
@@ -841,26 +779,14 @@ describe('BlogContentRenderer', () => {
         picture
           ?.querySelector('source[type="image/avif"]')
           ?.getAttribute('srcset')
-      ).toContain(
-        'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.avif 384w'
-      );
+      ).toBe(`${src}.avif`);
       expect(
         picture
           ?.querySelector('source[type="image/webp"]')
           ?.getAttribute('srcset')
-      ).toContain(
-        'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png.webp 384w'
-      );
+      ).toBe(`${src}.webp`);
       const img = picture?.querySelector('img');
-      expect(img?.getAttribute('src')).toContain('width=828');
-      expect(img?.getAttribute('srcset')).toContain(
-        'width=384,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png 384w'
-      );
-      expect(img?.getAttribute('sizes')).toBe(
-        '(max-width: 768px) calc(100vw - 3rem), 800px'
-      );
-      expect(img?.getAttribute('width')).toBeNull();
-      expect(img?.getAttribute('height')).toBeNull();
+      expect(img?.getAttribute('src')).toBe(src);
       expect(img?.getAttribute('alt')).toBe('Speaker');
     });
 
@@ -892,14 +818,10 @@ describe('BlogContentRenderer', () => {
 
       const images = Array.from(container.querySelectorAll('picture img'));
       expect(images).toHaveLength(2);
-      expect(images[0]?.getAttribute('src')).toContain(
-        'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
-      );
+      expect(images[0]).toHaveAttribute('src', firstSrc);
       expect(images[0]).toHaveAttribute('fetchpriority', 'high');
       expect(images[0]).toHaveAttribute('loading', 'eager');
-      expect(images[1]?.getAttribute('src')).toContain(
-        'width=828,quality=70,format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png'
-      );
+      expect(images[1]).toHaveAttribute('src', secondSrc);
       expect(images[1]).not.toHaveAttribute('fetchpriority');
       expect(images[1]).toHaveAttribute('loading', 'lazy');
     });
@@ -920,9 +842,7 @@ describe('BlogContentRenderer', () => {
       const allImages = Array.from(container.querySelectorAll('img'));
       expect(allImages[0]).toHaveAttribute('src', firstSrc);
       const trustedInlineImage = container.querySelector('picture img');
-      expect(trustedInlineImage?.getAttribute('src')).toContain(
-        'width=828,quality=70,format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png'
-      );
+      expect(trustedInlineImage).toHaveAttribute('src', secondSrc);
       expect(trustedInlineImage).not.toHaveAttribute('fetchpriority');
       expect(trustedInlineImage).toHaveAttribute('loading', 'lazy');
     });
@@ -959,9 +879,7 @@ describe('BlogContentRenderer', () => {
       );
 
       const img = container.querySelector('picture img');
-      expect(img?.getAttribute('src')).toContain(
-        'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
-      );
+      expect(img).toHaveAttribute('src', src);
       expect(img).not.toHaveAttribute('fetchpriority');
       expect(img).toHaveAttribute('loading', 'lazy');
     });

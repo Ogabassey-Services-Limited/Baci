@@ -1,8 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { BreadcrumbList, CollectionPage } from 'schema-dts';
-import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import {
   getCachedCategories,
@@ -10,7 +8,9 @@ import {
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
@@ -111,30 +111,27 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
         .map((category) => [category.canonicalSlug, category])
     ).values()
   );
-  const breadcrumbSchema: JsonLdData<BreadcrumbList> = generateBreadcrumbSchema(
-    [
-      { name: merchant.business_name, url: baseUrl },
-      {
-        name: 'Products',
-        url:
-          currentPage > 1
-            ? `${baseUrl}/products?page=${currentPage}`
-            : `${baseUrl}/products`,
-      },
-    ]
-  );
-  const collectionSchema: JsonLdData<CollectionPage> =
-    generateCollectionPageSchema({
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: merchant.business_name, url: baseUrl },
+    {
       name: 'Products',
-      description,
       url:
         currentPage > 1
           ? `${baseUrl}/products?page=${currentPage}`
           : `${baseUrl}/products`,
-      products: currentProductIndex.products,
-      merchantName: merchant.business_name,
-      currency: merchant.payout_currency || 'NGN',
-    });
+    },
+  ]);
+  const collectionSchema = generateCollectionPageSchema({
+    name: 'Products',
+    description,
+    url:
+      currentPage > 1
+        ? `${baseUrl}/products?page=${currentPage}`
+        : `${baseUrl}/products`,
+    products: currentProductIndex.products as unknown as Product[],
+    merchantName: merchant.business_name,
+    currency: merchant.payout_currency || 'NGN',
+  });
   const payoutCurrency = merchant.payout_currency || 'NGN';
   const formatProductPrice = (amount: number) =>
     formatDisplayCurrency(amount, payoutCurrency, {
@@ -155,8 +152,12 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   return (
     <>
-      <JsonLd data={collectionSchema} />
-      <JsonLd data={breadcrumbSchema} />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(collectionSchema)}
+      </script>
+      <script type="application/ld+json">
+        {safeJsonLdStringify(breadcrumbSchema)}
+      </script>
 
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">

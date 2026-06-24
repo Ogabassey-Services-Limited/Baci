@@ -14,10 +14,86 @@ pre-push:
   commands:
     typecheck:
       run: pnpm turbo typecheck
-    # Tests intentionally run in CI, where the Quality Gate has the full
-    # affected-test context plus build/misc guardrails. Keeping pre-push to
-    # typecheck + behind-base avoids local pushes spending several minutes in
-    # buffered Vitest output.
+    test:
+      # Pre-push is a fast PRE-FILTER; CI runs the full suite authoritatively
+      # (`pnpm turbo run test` in .github/workflows/ci.yml). Running all ~14k
+      # @baci/web tests on every push made pre-push take 11-29 min and get
+      # OOM/SIGTERM-killed under load — because any change to one web file
+      # cache-misses the whole @baci/web `test` task.
+      #
+      # @baci/web is the bottleneck, so for the common case (a source change on
+      # the checked-out branch) we run only the AFFECTED tests via vitest
+      # `--changed <base>` (import-graph walk). Because `--changed` +
+      # `--passWithNoTests` can FAIL OPEN (silently run zero tests), we fall back
+      # to the FULL web suite — the safe default — whenever:
+      #   - origin/main isn't a local ref (we deliberately don't fetch here),
+      #   - the diff vs base is empty,
+      #   - a @baci/web test INPUT changed that isn't import-reachable — the set
+      #     mirrors turbo.json's `test` inputs (root tsconfig*, next.config*,
+      #     vitest/jest config, web tsconfig/package.json) plus snapshots.
+      # KNOWN LIMITATION: the changed set is computed from the checked-out HEAD,
+      # not the pushed <local_sha> from git's pre-push stdin. Reading stdin here
+      # would race the behind-base guard (which needs it), so `git push origin
+      # other-branch` from a different HEAD may under-run web tests LOCALLY — the
+      # behind-base guard still validates the pushed ref, and CI runs the full
+      # suite authoritatively. Worker count is capped in apps/web/vitest.config.ts
+      # to avoid OOM. Every other package runs its full (small) suite via turbo,
+      # cache-replayed when unchanged.
+      run: |
+        set -e
+        run_full_web=0
+        # Resolve the base from LOCAL refs only — do NOT fetch here: a parallel
+        # fetch would race the behind-base guard's FETCH_HEAD. If origin/main is
+        # not present locally, fall back to the full suite (safe).
+        base="$(git rev-parse --verify -q origin/main || true)"
+        if [ -z "$base" ]; then
+          run_full_web=1
+        else
+          changed="$(git diff --name-only "$base...HEAD" 2>/dev/null || true)"
+          # Force the full web suite when --changed could miss affected tests: an
+          # empty diff (non-HEAD push), or a change that invalidates the
+          # @baci/web `test` task but isn't import-reachable. The set mirrors
+          # turbo's invalidation model (not ad-hoc):
+          #   - global deps (turbo.json globalDependencies + implicit ones):
+          #     turbo.json, root package.json, pnpm-lock/workspace, .npmrc,
+          #     biome.json, root tsconfig*.json, root next.config* (ci.yml web);
+          #   - `test` inputs: web next.config/vitest/vite/jest config, vitest
+          #     setup, web tsconfig/package.json; and snapshots.
+          # @baci/web "contract" tests runtime-read fixtures via readFileSync,
+          # NOT imports — so vitest --changed can't see them, and may even
+          # select the WRONG tests (a CSS edit selects layout tests, not the CSS
+          # contract tests, so a zero-result fallback wouldn't fire). Enumerated
+          # the COMPLETE set of runtime-read inputs web tests use: supabase/
+          # migrations (.sql), .github/workflows (.yml), and apps/web/**/*.css.
+          # A change touching any of these runs the full web suite.
+          infra='^supabase/migrations/|^\.github/workflows/|^(tsconfig[^/]*\.json|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc|biome\.json|turbo\.json|next\.config[^/]*\.(ts|js|mjs|cjs))$|^apps/web/((vitest|vite)\.config\.|vitest\.setup\.|next\.config\.|jest\.config\.|tsconfig[^/]*\.json$|package\.json$|.*__snapshots__/|.*\.snap$|.*\.css$)'
+          if [ -z "$changed" ] || printf '%s\n' "$changed" | grep -qE "$infra"; then
+            run_full_web=1
+          fi
+        fi
+        if [ "$run_full_web" -eq 1 ]; then
+          echo "pre-push: running FULL @baci/web suite (safe fallback)"
+          pnpm --filter=@baci/web exec vitest run
+        elif printf '%s\n' "$changed" | grep -qE '^apps/web/'; then
+          # apps/web changed. vitest --changed only sees IMPORT-reachable files,
+          # so it can select ZERO tests for a web change whose effect is via a
+          # runtime read (readFileSync of CSS/JSON fixtures) rather than an
+          # import. Treat an empty selection on a web change as untrustworthy and
+          # run the full suite. (A genuine test failure still blocks the push.)
+          set +e
+          out="$(pnpm --filter=@baci/web exec vitest run --changed "$base" --passWithNoTests 2>&1)"
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          if printf '%s\n' "$out" | grep -q 'No test files found'; then
+            echo "pre-push: apps/web changed but no import-reachable tests selected -> FULL web"
+            pnpm --filter=@baci/web exec vitest run
+          fi
+        else
+          pnpm --filter=@baci/web exec vitest run --changed "$base" --passWithNoTests
+        fi
+        pnpm turbo test --filter='!@baci/web'
     behind-base:
       # Block the push when ANY pushed branch is behind its base. Reads
       # git's pre-push stdin protocol (`<local_ref> <local_sha> <remote_ref>

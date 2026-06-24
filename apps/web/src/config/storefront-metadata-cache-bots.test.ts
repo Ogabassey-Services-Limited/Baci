@@ -1,17 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   getStorefrontMetadataCacheBucket,
-  NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN,
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 } from './storefront-metadata-cache-bots';
 
 describe('storefront metadata cache bot classifier', () => {
   it.each([
     ['Googlebot/2.1'],
-    [
-      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-    ],
-    ['Googlebot-Image/1.0'],
     ['AdsBot-Google (+http://www.google.com/adsbot.html)'],
     ['Google-InspectionTool/1.0'],
     ['GPTBot/1.1 (+https://openai.com/gptbot)'],
@@ -32,13 +27,6 @@ describe('storefront metadata cache bot classifier', () => {
     ['Bytespider'],
     ['CCBot/2.0'],
     ['Twitterbot/1.0'],
-    [
-      'Mozilla/5.0 (compatible; SiteAuditBot/0.97; +http://www.semrush.com/bot.html)',
-    ],
-    [
-      'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)',
-    ],
-    ['SiteAuditBot-Mobile'],
   ])('uses the metadata-blocking bucket for %s', (userAgent) => {
     expect(
       STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.test(userAgent)
@@ -63,29 +51,5 @@ describe('storefront metadata cache bot classifier', () => {
       false
     );
     expect(getStorefrontMetadataCacheBucket('')).toBe('streaming');
-  });
-
-  it('keeps the Googlebot branch compatible with Vercel PPR cache bypass matching', () => {
-    expect(NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN).toBe('.*Googlebot');
-    expect(NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN).not.toMatch(/\(\?[!=<]/);
-  });
-
-  it('matches the real Googlebot user-agent when serialized into Vercel PPR header bypass rules', () => {
-    const vercelPprHeaderMatcher = new RegExp(
-      `^(?:${STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.source})`,
-      STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX.flags
-    );
-
-    expect(vercelPprHeaderMatcher.test('Googlebot/2.1')).toBe(true);
-    expect(
-      vercelPprHeaderMatcher.test(
-        'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-      )
-    ).toBe(true);
-    expect(
-      vercelPprHeaderMatcher.test(
-        'Mozilla/5.0 AppleWebKit/537.36 Chrome/125.0 Safari/537.36'
-      )
-    ).toBe(false);
   });
 });

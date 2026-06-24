@@ -1,8 +1,4 @@
 import type { Product as CartProduct } from '@/lib/products';
-import {
-  canonicalizeVariantAxis,
-  getVariantAttributeOptions,
-} from '@/components/storefront/ogabassey/variant-attributes';
 import type { Product } from '../../types';
 import type { ConditionType } from './product-condition';
 import type { ProductDetailsCurrentOffer } from './offer-resolution';
@@ -70,52 +66,7 @@ export function getEffectiveAxes(
   return axes;
 }
 
-function getVariantBackedAxisOptions(
-  axis: string,
-  variants: NormalizedProductDetails['variants']
-) {
-  if (!variants?.length) {
-    return [];
-  }
-
-  const normalizedAxis = canonicalizeVariantAxis(axis);
-  const options = new Set<string>();
-
-  for (const variant of variants) {
-    for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
-      if (canonicalizeVariantAxis(rawAxis) !== normalizedAxis) {
-        continue;
-      }
-
-      const trimmedValue = typeof value === 'string' ? value.trim() : '';
-      if (trimmedValue) {
-        options.add(trimmedValue);
-      }
-    }
-  }
-
-  return Array.from(options);
-}
-
-export function hasVariantBackedAxis(
-  axis: string,
-  variants: NormalizedProductDetails['variants']
-) {
-  return getVariantBackedAxisOptions(axis, variants).length > 0;
-}
-
-export function getVariantBackedSelections(
-  selectedAttributes: Record<string, string>,
-  variants: NormalizedProductDetails['variants']
-) {
-  return Object.fromEntries(
-    Object.entries(selectedAttributes).filter(([axis]) =>
-      hasVariantBackedAxis(axis, variants)
-    )
-  );
-}
-
-function getMetadataAxisOptions(
+export function getAxisOptions(
   axis: string,
   productData: NormalizedProductDetails
 ) {
@@ -127,62 +78,17 @@ function getMetadataAxisOptions(
     return productData.platforms;
   }
 
-  return getVariantAttributeOptions(productData.variant_attributes, axis);
-}
+  if (!productData.variants) {
+    return [];
+  }
 
-export function getAxisOptions(
-  axis: string,
-  productData: NormalizedProductDetails
-) {
-  const variantBackedOptions = getVariantBackedAxisOptions(
-    axis,
-    productData.variants
+  return Array.from(
+    new Set(
+      productData.variants
+        .map((variant) => variant.attributes?.[axis])
+        .filter((v): v is string => Boolean(v))
+    )
   );
-  if (variantBackedOptions.length > 0) {
-    return variantBackedOptions;
-  }
-
-  const metadataOptions = getMetadataAxisOptions(axis, productData);
-
-  if (productData.variants?.length) {
-    return metadataOptions.length === 1 ? metadataOptions : [];
-  }
-
-  return metadataOptions;
-}
-
-export function getSingleOptionAxisSelections(
-  productData: NormalizedProductDetails,
-  effectiveAxes: string[]
-) {
-  const selections: Record<string, string> = {};
-
-  for (const axis of effectiveAxes.filter((item) => item !== 'color')) {
-    const options = getAxisOptions(axis, productData);
-    if (options.length === 1 && options[0]) {
-      selections[axis] = options[0];
-    }
-  }
-
-  return selections;
-}
-
-export function applySingleOptionAxisSelectionsToVariants(
-  variants: NormalizedProductDetails['variants'],
-  singleOptionAxisSelections: Record<string, string>
-) {
-  const selectionEntries = Object.entries(singleOptionAxisSelections);
-  if (!variants?.length || selectionEntries.length === 0) {
-    return variants;
-  }
-
-  return variants.map((variant) => ({
-    ...variant,
-    attributes: {
-      ...singleOptionAxisSelections,
-      ...(variant.attributes || {}),
-    },
-  }));
 }
 
 export function formatAxisLabel(axis: string) {

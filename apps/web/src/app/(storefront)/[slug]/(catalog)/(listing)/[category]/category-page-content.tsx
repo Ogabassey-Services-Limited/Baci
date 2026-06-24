@@ -21,8 +21,6 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
-import { isDomainIdentifier } from '@/lib/validation';
-import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import {
   buildCategoryPageHubModel,
   normalizeCategoryPageProducts,
@@ -36,27 +34,6 @@ interface PageProps {
     category: string;
   }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function renderCategoryNotFoundContent({
-  slug,
-  title = 'Category not found',
-  message = 'This category is unavailable or has moved.',
-}: {
-  slug: string;
-  title?: string;
-  message?: string;
-}) {
-  // Metadata generation remains the primary hard notFound/noindex gate. This
-  // streamed content fallback is only for render-time races after a valid
-  // merchant/category shell has already started.
-  return (
-    <StorefrontRouteNotFoundContent
-      backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
-      message={message}
-      title={title}
-    />
-  );
 }
 
 function toCollectionSchemaProduct(
@@ -97,20 +74,16 @@ function toCollectionSchemaProduct(
 export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const { slug, category } = await params;
   const { page } = await searchParams;
+  const currentPage = parseStorefrontPageParam(page);
+
+  if (!currentPage) {
+    notFound();
+  }
+
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();
-  }
-
-  const currentPage = parseStorefrontPageParam(page);
-
-  if (!currentPage) {
-    return renderCategoryNotFoundContent({
-      slug,
-      title: 'Category page not found',
-      message: 'This category page is unavailable or has moved.',
-    });
   }
 
   const [data, guidePosts] = await Promise.all([
@@ -119,7 +92,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   ]);
 
   if (!data.isCollection && data.isInactiveCategory) {
-    return renderCategoryNotFoundContent({ slug });
+    notFound();
   }
 
   // Doorway-trap stopgap (crawl-budget) — keep in lockstep with generateMetadata
@@ -132,7 +105,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     !data.productsQueryFailed &&
     !data.categoryQueryFailed
   ) {
-    return renderCategoryNotFoundContent({ slug });
+    notFound();
   }
 
   const products = data.products as unknown as RawDbProduct[];
@@ -143,11 +116,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
 
   if (currentPage > totalPages) {
-    return renderCategoryNotFoundContent({
-      slug,
-      title: 'Category page not found',
-      message: 'This category page is unavailable or has moved.',
-    });
+    notFound();
   }
 
   const categoryName = resolveCategoryPageName(data, category);

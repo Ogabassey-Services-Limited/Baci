@@ -32,40 +32,21 @@ function buildProductData(
   };
 }
 
-type ProductVariantFixture = NonNullable<NormalizedProductDetails['variants']>;
-
-const s22Variants: ProductVariantFixture = [
-  {
-    id: 'v1',
-    attributes: { ram: '8GB', storage: '128GB' },
-    price_override: 500000,
-    stock_quantity: 9999,
-  },
-  {
-    id: 'v2',
-    attributes: { ram: '12GB', storage: '256GB' },
-    price_override: 550000,
-    stock_quantity: 9999,
-  },
-  {
-    id: 'v3',
-    attributes: { ram: '12GB', storage: '512GB' },
-    price_override: 600000,
-    stock_quantity: 9999,
-  },
+const s22Variants = [
+  { id: 'v1', attributes: { ram: '8GB', storage: '128GB' }, price_override: 500000, stock_quantity: 9999 },
+  { id: 'v2', attributes: { ram: '12GB', storage: '256GB' }, price_override: 550000, stock_quantity: 9999 },
+  { id: 'v3', attributes: { ram: '12GB', storage: '512GB' }, price_override: 600000, stock_quantity: 9999 },
 ];
 
 function renderSelectors({
   selectedAttributes = {},
   effectiveAxes = ['storage', 'ram'],
   variants = s22Variants,
-  getAxisOptions,
   onSelectAttribute = vi.fn() as (axis: string, value: string) => void,
 }: {
   selectedAttributes?: Record<string, string>;
   effectiveAxes?: string[];
-  variants?: ProductVariantFixture;
-  getAxisOptions?: (axis: string) => string[];
+  variants?: typeof s22Variants;
   onSelectAttribute?: (axis: string, value: string) => void;
 } = {}) {
   const productData = buildProductData({ variants });
@@ -77,13 +58,13 @@ function renderSelectors({
       descriptionExcerpt="Great phone."
       effectiveAxes={effectiveAxes}
       formatAxisLabel={(axis) => axis.toUpperCase()}
-      getAxisOptions={getAxisOptions ?? ((axis) => {
+      getAxisOptions={(axis) => {
         const all = variants.flatMap((v) => {
-          const val = v.attributes?.[axis];
+          const val = v.attributes[axis as keyof typeof v.attributes];
           return val ? [val] : [];
         });
         return [...new Set(all)];
-      })}
+      }}
       onChangeDeliveryLocation={vi.fn()}
       onSelectAttribute={onSelectAttribute}
       onSelectColor={vi.fn()}
@@ -195,49 +176,5 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     expect(screen.getByRole('button', { name: /128GB/i })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: /256GB/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /512GB/i })).toBeDisabled();
-  });
-
-  it('keeps metadata-only single options enabled when variant rows omit that axis', async () => {
-    const user = userEvent.setup();
-    const onSelectAttribute = vi.fn();
-
-    renderSelectors({
-      effectiveAxes: ['storage'],
-      getAxisOptions: () => ['128GB'],
-      onSelectAttribute,
-      variants: [
-        {
-          id: 'v1',
-          attributes: { ram: '8GB' },
-          price_override: 500000,
-          stock_quantity: 9999,
-        },
-      ],
-    });
-
-    const storageOption = screen.getByRole('button', { name: /128GB/i });
-    expect(storageOption).not.toBeDisabled();
-
-    await user.click(storageOption);
-    expect(onSelectAttribute).toHaveBeenCalledWith('storage', '128GB');
-  });
-
-  it('ignores metadata-only selections when filtering variant-backed options', () => {
-    renderSelectors({
-      effectiveAxes: ['storage'],
-      selectedAttributes: { platform: 'PS5' },
-      variants: [
-        {
-          id: 'v1',
-          attributes: { storage: '128GB' },
-          price_override: 500000,
-          stock_quantity: 9999,
-        },
-      ],
-    });
-
-    expect(
-      screen.getByRole('button', { name: /128GB/i }),
-    ).not.toBeDisabled();
   });
 });

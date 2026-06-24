@@ -2,44 +2,32 @@ export const INTERNAL_SELECTION_AXIS_VALUES = [
   'color',
   'colour',
   'storage',
-  'condition',
   'color_hex',
   'colour_hex',
 ] as const;
 
-const INTERNAL_SELECTION_AXES = new Set<string>(INTERNAL_SELECTION_AXIS_VALUES);
-
-function normalizeInternalSelectionAxis(axis: string) {
-  return axis
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-}
+const INTERNAL_SELECTION_AXES = new Set<string>(
+  INTERNAL_SELECTION_AXIS_VALUES
+);
 
 export function isInternalSelectionAxis(axis: unknown): boolean {
   if (typeof axis !== 'string') {
     return false;
   }
 
-  return INTERNAL_SELECTION_AXES.has(normalizeInternalSelectionAxis(axis));
+  return INTERNAL_SELECTION_AXES.has(axis);
 }
 
 export function stripInternalSelectionAxes<T>(
-  attributes: Record<string, T> | null | undefined,
-  options: { preserveCondition?: boolean } = {}
+  attributes: Record<string, T> | null | undefined
 ): Record<string, T> {
   if (!attributes) {
     return {};
   }
 
   return Object.fromEntries(
-    Object.entries(attributes).filter(([axis]) => {
-      const normalizedAxis = normalizeInternalSelectionAxis(axis);
-      if (options.preserveCondition && normalizedAxis === 'condition') {
-        return true;
-      }
-
-      return !INTERNAL_SELECTION_AXES.has(normalizedAxis);
-    })
+    Object.entries(attributes).filter(
+      ([axis]) => !isInternalSelectionAxis(axis)
+    )
   );
 }

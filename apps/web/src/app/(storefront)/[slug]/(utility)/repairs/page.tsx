@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
 import {
@@ -11,72 +10,40 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
-interface RepairsPageProps {
-  params: Promise<{ slug: string }>;
-}
+export const metadata: Metadata = {
+  title: 'Book a Repair',
+  description: 'Schedule a repair for your device',
+};
 
-async function getRepairsMerchant(slug: string) {
+export default async function RepairsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
+  // Validate identifier
   if (!isValidMerchantIdentifier(slug)) {
-    return null;
+    notFound();
   }
 
+  // Get merchant data handling both slugs and domains
   const lookupKey = slug.toLowerCase();
-  return isDomainIdentifier(slug)
+  const merchant = isDomainIdentifier(slug)
     ? await getCachedMerchantByDomain(lookupKey)
     : await getCachedMerchant(lookupKey);
-}
-
-export async function generateMetadata({
-  params,
-}: RepairsPageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const merchant = await getRepairsMerchant(slug);
-
-  if (merchant?.template_id !== 'ogabassey') {
-    return {
-      title: 'Repair Service Not Found',
-    };
-  }
-
-  return {
-    title: `Book a Repair - ${merchant.business_name}`,
-    description: `Schedule a device repair with ${merchant.business_name}`,
-  };
-}
-
-function getRepairsBasePath(
-  headersList: { get(name: string): string | null },
-  merchant: { custom_domain?: string | null; slug: string }
-): string {
-  const requestMerchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
-  const merchantSlug = merchant.slug.toLowerCase();
-  const requestCustomDomain = headersList.get('x-custom-domain')?.toLowerCase();
-  const merchantCustomDomain = merchant.custom_domain?.toLowerCase();
-  const servedAtDomainRoot =
-    requestMerchantSlug === merchantSlug ||
-    (requestCustomDomain != null &&
-      requestCustomDomain.length > 0 &&
-      requestCustomDomain === merchantCustomDomain);
-
-  return servedAtDomainRoot ? '' : `/${merchant.slug}`;
-}
-
-export default async function RepairsPage({ params }: RepairsPageProps) {
-  const { slug } = await params;
-  const merchant = await getRepairsMerchant(slug);
 
   if (!merchant) {
     notFound();
   }
 
   // Only show for Ogabassey template (merchant-specific feature)
-  if (merchant.template_id !== 'ogabassey') {
+  if (
+    (merchant as unknown as { template_id?: string }).template_id !==
+    'ogabassey'
+  ) {
     notFound();
   }
 
-  return (
-    <OgabasseyV2Repairs
-      basePath={getRepairsBasePath(await headers(), merchant)}
-    />
-  );
+  return <OgabasseyV2Repairs />;
 }

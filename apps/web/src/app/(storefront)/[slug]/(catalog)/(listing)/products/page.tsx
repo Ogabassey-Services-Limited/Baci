@@ -28,28 +28,6 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-function buildProductsNotFoundMetadata(
-  title = 'Products page not found',
-  description = 'This products page is unavailable or has moved.'
-): Metadata {
-  return {
-    title,
-    description,
-    // Replace root metadata alternates so soft-404 pages do not inherit a canonical.
-    alternates: null,
-    robots: { index: false, follow: true },
-    openGraph: {
-      title,
-      description,
-    },
-    twitter: {
-      card: 'summary',
-      title,
-      description,
-    },
-  };
-}
-
 export async function generateMetadata({
   params,
   searchParams,
@@ -59,7 +37,7 @@ export async function generateMetadata({
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
   if (!currentPage) {
-    return buildProductsNotFoundMetadata();
+    notFound();
   }
 
   if (!isValidMerchantIdentifier(slug)) {
@@ -81,7 +59,7 @@ export async function generateMetadata({
   const totalPages = Math.max(1, productIndex.totalPages || 1);
 
   if (!productIndex.hasError && currentPage > totalPages) {
-    return buildProductsNotFoundMetadata();
+    notFound();
   }
 
   const baseUrl = buildStoreUrl(merchant);
@@ -97,20 +75,14 @@ export async function generateMetadata({
     currentPage > 1
       ? `Products | Page ${currentPage} | ${merchant.business_name}`
       : `Products | ${merchant.business_name}`;
-  const fallbackDescription = `Browse all products available at ${merchant.business_name}. Compare smartphones, laptops, accessories, and gaming devices with nationwide delivery and flexible payment options.`;
-  const baseDescription = merchant.site_description || fallbackDescription;
-  const pageAwareDescription =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${baseDescription}`
-      : baseDescription;
-  const pageAwareFallback =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${fallbackDescription}`
-      : fallbackDescription;
-  const description = generateMetaDescription(pageAwareDescription, 160, {
-    minLength: 110,
-    fallback: pageAwareFallback,
-  });
+  const description = generateMetaDescription(
+    merchant.site_description || '',
+    160,
+    {
+      minLength: 110,
+      fallback: `Browse all products available at ${merchant.business_name}. Compare smartphones, laptops, accessories, and gaming devices with nationwide delivery and flexible payment options.`,
+    }
+  );
   const socialImageCandidates = [
     productIndex.products[0]?.image,
     productIndex.products[0]?.imageLarge,

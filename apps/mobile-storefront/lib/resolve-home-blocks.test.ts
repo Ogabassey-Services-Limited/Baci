@@ -7,45 +7,9 @@ describe('resolveHomeBlocks', () => {
 
     expect(blocks.map((block) => block.type)).toEqual([
       'HeroCarousel',
-      'JustLaunched',
       'CategoryRail',
       'ProductGrid',
     ]);
-  });
-
-  it('injects the just-launched carousel after the hero for a non-elite storefront', () => {
-    const blocks = resolveHomeBlocks(
-      [
-        { type: 'HeroCarousel', props: { id: 'hero' } },
-        { type: 'ProductGrid', props: { id: 'products' } },
-      ],
-      false,
-      false
-    );
-
-    expect(blocks.map((block) => block.type)).toEqual([
-      'HeroCarousel',
-      'JustLaunched',
-      'ProductGrid',
-    ]);
-  });
-
-  it('does not duplicate a merchant-authored just-launched block', () => {
-    const blocks = resolveHomeBlocks(
-      [
-        { type: 'HeroCarousel', props: { id: 'hero' } },
-        { type: 'JustLaunched', props: { id: 'authored-launches' } },
-        { type: 'ProductGrid', props: { id: 'products' } },
-      ],
-      false,
-      false
-    );
-
-    expect(
-      blocks
-        .filter((block) => block.type === 'JustLaunched')
-        .map((block) => block.props.id)
-    ).toEqual(['authored-launches']);
   });
 
   it('inserts utility categories after an elite hero when absent', () => {
@@ -61,7 +25,6 @@ describe('resolveHomeBlocks', () => {
     expect(blocks.map((block) => block.props.id)).toEqual([
       'hero',
       'forced-categories',
-      'forced-just-launched',
       'products',
     ]);
   });
@@ -103,7 +66,6 @@ describe('resolveHomeBlocks', () => {
 
     expect(blocks.map((block) => block.type)).toEqual([
       'HeroCarousel',
-      'JustLaunched',
       'CategoryRail',
       'ProductGrid',
     ]);
@@ -118,7 +80,6 @@ describe('resolveHomeBlocks', () => {
 
     expect(blocks.map((block) => block.props.id)).toEqual([
       'default-hero',
-      'default-just-launched',
       'default-categories',
       'default-products',
     ]);

@@ -248,38 +248,4 @@ describe('getCachedBlogAuthor', () => {
     expect(result?.totalPages).toBe(3);
     expect(result?.currentPage).toBe(999);
   });
-
-  it('keeps totalPages at least at the current non-empty page when estimated author counts undercount', async () => {
-    setupBlogAuthorFetch({
-      count: 1,
-      posts: [
-        {
-          id: 'page-3-author-post',
-          title: 'Bassey Page 3 Guide',
-          slug: 'bassey-page-3-guide',
-          excerpt: 'Page 3.',
-          featured_image_url: null,
-          featured_image_alt: null,
-          category: 'Laptops',
-          author_name: 'Bassey John',
-          author_title: 'Performance Marketing Specialist',
-          author_bio: 'Bassey writes buying guides.',
-          author_image_url: 'https://cdn.example.com/bassey.jpg',
-          published_at: '2026-03-15T10:00:00.000Z',
-          reading_time_minutes: 6,
-        },
-      ],
-    });
-
-    const result = await getCachedBlogAuthor('ogabassey', 'Bassey John', {
-      page: 3,
-    });
-
-    expect(result).not.toBeNull();
-    expect(result?.posts.map((post) => post.id)).toEqual([
-      'page-3-author-post',
-    ]);
-    expect(result?.currentPage).toBe(3);
-    expect(result?.totalPages).toBeGreaterThanOrEqual(3);
-  });
 });

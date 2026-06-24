@@ -55,11 +55,6 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('Your receipt is now in the app');
     expect(content.htmlContent).toContain('On this receipt');
     expect(content.htmlContent).toContain('box-shadow');
-    expect(content.htmlContent).toContain('rgba(15,23,42,0.24)');
-    expect(content.htmlContent).not.toContain('rgba(214,32,39,0.32)');
-    expect(content.htmlContent).not.toContain(
-      'background-color:rgba(214,32,39,0.16)'
-    );
     expect(content.htmlContent).toContain('Powered by Baci');
     expect(content.htmlContent).toContain(
       'This ensures you can access the receipts for your devices purchased from us at any time in case you need them for support, warranty, or as proof of purchase.'
@@ -127,125 +122,37 @@ describe('import notification email content', () => {
     expect(content.htmlContent).not.toContain('#d62027');
   });
 
-  it('renders a non-Ogabassey raster merchant logo as an image in the header', () => {
-    const futureMerchant: MerchantNotificationContext = {
-      ...merchant,
-      slug: 'future-merchant',
-      business_name: 'Future Merchant',
-      custom_domain: 'futuremerchant.com',
-      logo_url: 'https://cdn.example.com/media/future-merchant-logo.png',
-    };
-    const delivery = appFirstDelivery(futureMerchant);
+  it('renders a raster merchant logo as an image in the header', () => {
+    const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
-      merchant: futureMerchant,
+      merchant: {
+        ...merchant,
+        logo_url: 'https://cdn.ogabassey.com/media/ogabassey-logo.png',
+      },
       recipientName: 'Ada',
       delivery,
-      claimUrl: 'https://futuremerchant.com/receipts/claim/claim-token',
+      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
       devices: ['iPhone 16 Pro Max'],
     });
 
     expect(content.htmlContent).toContain(
-      '<img src="https://cdn.example.com/media/future-merchant-logo.png"'
+      '<img src="https://cdn.ogabassey.com/media/ogabassey-logo.png"'
     );
-    expect(content.htmlContent).toContain('alt="Future Merchant"');
-  });
-
-  it('renders a configured opaque email_logo_url directly with no white chip (Gmail dark-mode safe)', () => {
-    // The merchant's own logo_url is a transparent PNG; Gmail's app darkens the
-    // white CSS chip behind it and the dark wordmark lands black-on-black. When
-    // a merchant configures a dedicated opaque email_logo_url, we render that
-    // plate directly instead (data-driven, no per-tenant branch).
-    const transparentMerchantLogo =
-      'https://cdn.ogabassey.com/media/ogabassey-logo.png';
-    const opaqueEmailLogo =
-      'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
-    const delivery = appFirstDelivery(merchant);
-
-    const content = buildReceiptNotificationEmailContent({
-      merchant: {
-        ...merchant,
-        logo_url: transparentMerchantLogo,
-        email_logo_url: opaqueEmailLogo,
-      },
-      recipientName: 'Ada',
-      delivery,
-      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
-      devices: ['iPhone 16 Pro Max'],
-    });
-
-    expect(content.htmlContent).toContain(`<img src="${opaqueEmailLogo}"`);
     expect(content.htmlContent).toContain('alt="Ogabassey"');
-    // Opaque logo is rendered directly — no CSS white chip (which Gmail inverts).
-    expect(content.htmlContent).not.toContain('class="r-logo-chip"');
-    // The transparent merchant logo must NOT be used for the email header.
-    expect(content.htmlContent).not.toContain(
-      `<img src="${transparentMerchantLogo}"`
-    );
-  });
-
-  it('falls back to the chip logo when no email_logo_url is configured', () => {
-    const merchantLogoUrl = 'https://cdn.example.com/media/merchant-logo.png';
-    const delivery = appFirstDelivery(merchant);
-
-    const content = buildReceiptNotificationEmailContent({
-      merchant: {
-        ...merchant,
-        logo_url: merchantLogoUrl,
-        email_logo_url: null,
-      },
-      recipientName: 'Ada',
-      delivery,
-      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
-      devices: ['iPhone 16 Pro Max'],
-    });
-
-    expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
-    expect(content.htmlContent).toContain('class="r-logo-chip"');
-  });
-
-  it('keeps configured logos for merchants with similar names', () => {
-    const merchantLogoUrl =
-      'https://cdn.example.com/media/ogabassey-reseller-logo.png';
-    const resellerMerchant: MerchantNotificationContext = {
-      ...merchant,
-      slug: 'ogabassey-reseller',
-      business_name: 'Ogabassey Reseller',
-      custom_domain: 'shop-ogabassey.example.com',
-      logo_url: merchantLogoUrl,
-    };
-    const delivery = appFirstDelivery(resellerMerchant);
-
-    const content = buildReceiptNotificationEmailContent({
-      merchant: resellerMerchant,
-      recipientName: 'Ada',
-      delivery,
-      claimUrl: 'https://shop-ogabassey.example.com/receipts/claim/token',
-      devices: ['iPhone 16 Pro Max'],
-    });
-
-    expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
-    expect(content.htmlContent).toContain('class="r-logo-chip"');
-    expect(content.htmlContent).toContain('alt="Ogabassey Reseller"');
   });
 
   it('falls back to the wordmark when the logo is an SVG (email-unsafe)', () => {
-    const futureMerchant: MerchantNotificationContext = {
-      ...merchant,
-      slug: 'future-merchant',
-      business_name: 'Future Merchant',
-      custom_domain: 'futuremerchant.com',
-    };
-    const delivery = appFirstDelivery(futureMerchant);
+    const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
       merchant: {
-        ...futureMerchant,
-        logo_url: 'https://cdn.example.com/media/future-merchant-logo.svg',
+        ...merchant,
+        logo_url: 'https://cdn.ogabassey.com/media/ogabassey-logo.svg',
       },
       recipientName: 'Ada',
       delivery,
-      claimUrl: 'https://futuremerchant.com/receipts/claim/claim-token',
+      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
       devices: ['iPhone 16 Pro Max'],
     });
 

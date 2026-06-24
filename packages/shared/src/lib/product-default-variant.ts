@@ -236,44 +236,6 @@ export function resolveDefaultVariantSelection<
     : null;
 }
 
-/**
- * Like `resolveDefaultVariantSelection`, but ranks purely by the lowest in-stock
- * price, ignoring condition preference. Used ONLY by the OgaBassey PDP so the
- * page opens on the cheapest buyable option (e.g. a cheaper "Used" over a
- * pricier "Open Box"). The shared default resolver — which also feeds the
- * product feeds and the cart — keeps its condition-first ordering, so this does
- * not change advertised/cart pricing.
- */
-export function resolveLowestPricedVariantSelection<
-  TVariant extends ProductDefaultVariantLike,
->(product: ProductWithDefaultVariantLike<TVariant>) {
-  const variants = product.variants || [];
-  if (variants.length === 0) {
-    return null;
-  }
-
-  const purchasableVariants = variants
-    .map((variant, index) => ({ variant, index }))
-    .filter(({ variant }) =>
-      isVariantPurchasable(product.manage_stock, variant)
-    );
-
-  if (purchasableVariants.length === 0) {
-    return null;
-  }
-
-  const [cheapest] = purchasableVariants.sort((left, right) => {
-    const leftPrice = getVariantPrice(product.price, left.variant);
-    const rightPrice = getVariantPrice(product.price, right.variant);
-    if (leftPrice !== rightPrice) {
-      return leftPrice - rightPrice;
-    }
-    return left.index - right.index;
-  });
-
-  return cheapest ? toResolvedSelection(product, cheapest.variant) : null;
-}
-
 function resolveVariantSelectionInternal<
   TVariant extends ProductDefaultVariantLike,
 >(

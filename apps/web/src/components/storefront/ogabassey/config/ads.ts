@@ -11,6 +11,7 @@ export interface AdPlacement {
 }
 
 export const DEFERRED_SHELL_MOUNT_DELAY_MS = 1;
+export const BANNER_CAROUSEL_MOUNT_DELAY_MS = 1800;
 export const HOMEPAGE_STRIP_AD_BOOT_DELAY_MS = 12_000;
 export const SPONSORED_SLIDE_AD_BOOT_DELAY_MS = 9000;
 
@@ -20,10 +21,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
   // Standard: 728x90 (Desktop) | 320x100 (Mobile)
   HEADER_LEADERBOARD: {
     id: 'div-gpt-ad-header',
-    // Must exactly match the Google Ad Manager ad unit code (case-sensitive);
-    // the GAM unit was created as `Header_Leaderboard` and already has
-    // impressions, so the app aligns to it rather than recreating the unit.
-    name: 'Header_Leaderboard',
+    name: 'header_leaderboard',
     description: 'High visibility top-of-page banner.',
     width: 728,
     height: 90,

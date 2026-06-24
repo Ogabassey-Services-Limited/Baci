@@ -21,16 +21,6 @@ export interface MerchantBranding {
   customDomain?: string | null;
   emailSenderName?: string | null;
   logoUrl: string | null;
-  /**
-   * Optional fully-OPAQUE logo (white plate baked into the pixels, no alpha)
-   * sourced from `merchants.email_logo_url`. The Gmail mobile app force-applies
-   * dark-mode inversion and ignores color-scheme / forced-color-adjust /
-   * prefers-color-scheme, so a transparent logo on a white CSS chip lands
-   * black-on-black. Gmail never inverts the pixels *inside* an image, so when
-   * this is set it is rendered directly (no chip) and stays readable. Data-driven
-   * — keep in sync with the receipt email (import-notification-email-content.ts).
-   */
-  emailLogoUrl?: string | null;
   primaryColor: string;
   buttonColor: string;
   buttonTextColor: string;
@@ -224,40 +214,24 @@ function hexToRgb(hex: string): string {
 }
 
 function isOgabasseyBrand(branding: MerchantBranding): boolean {
-  const slug = branding.slug?.toLowerCase();
-  const customDomain = branding.customDomain
-    ?.toLowerCase()
-    .replace(/^www\./, '');
+  const identity = [
+    branding.businessName,
+    branding.slug ?? '',
+    branding.customDomain ?? '',
+  ]
+    .join(' ')
+    .toLowerCase();
 
-  return slug === 'ogabassey' || customDomain === 'ogabassey.com';
+  return identity.includes('ogabassey');
 }
 
-function renderLogo(
-  branding: MerchantBranding,
-  safeBrandName: string,
-  align: 'left' | 'center' = 'left',
-  opaqueLogoUrl?: string
-): string {
-  // Preferred path: a dedicated fully-opaque logo image. The white plate is
-  // baked into the pixels, so no CSS chip is required and dark-mode-inverting
-  // clients (Gmail app) cannot make it unreadable.
-  if (opaqueLogoUrl) {
-    const safeOpaque = sanitizeUrl(opaqueLogoUrl);
-    if (safeOpaque) {
-      const centerStyles = align === 'center' ? 'margin:0 auto;' : '';
-      return `<img class="a-logo-img" src="${escapeHtml(safeOpaque)}" alt="${safeBrandName}" height="32" style="${centerStyles}display:block;border:0;outline:none;text-decoration:none;height:32px;width:auto;max-width:240px;border-radius:8px;background-color:#ffffff;">`;
-    }
-  }
-
+function renderLogo(branding: MerchantBranding, safeBrandName: string): string {
   const safeLogoUrl = sanitizeUrl(branding.logoUrl ?? '');
   if (!safeLogoUrl) {
-    return `<span class="a-brand-logo" style="display:inline-block;max-width:100%;font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
+    return `<span style="font-family:${FONT_STACK};font-size:20px;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;">${safeBrandName}</span>`;
   }
 
-  const centerAttributes = align === 'center' ? ' align="center"' : '';
-  const centerStyles = align === 'center' ? 'margin:0 auto;' : '';
-
-  return `<table role="presentation"${centerAttributes} cellpadding="0" cellspacing="0" border="0" style="${centerStyles}max-width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt;"><tr><td class="a-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:10px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;outline:none;text-decoration:none;height:24px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;"></td></tr></table>`;
+  return `<span style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;line-height:0;"><img src="${escapeHtml(safeLogoUrl)}" alt="${safeBrandName}" height="24" style="display:block;border:0;height:24px;width:auto;max-width:220px;"></span>`;
 }
 
 function renderTokenBlock(
@@ -306,9 +280,9 @@ function renderOgabasseyEmailHtml(
 <title>${escapeHtml(config.subject)}</title>
 <style>
 @media (prefers-color-scheme:dark){
-.a-bg{background:#0b0b0c!important}.a-card{background:#161618!important;border-color:#2a2a2e!important}.a-logo-chip{background:#ffffff!important;background-color:#ffffff!important;border-color:#ffffff!important;color:#111827!important;color-scheme:light!important;forced-color-adjust:none!important}.a-strong{color:#f4f4f5!important}.a-muted{color:#c3c5cc!important}.a-footer{background:#101012!important;border-color:#2a2a2e!important}
+.a-bg{background:#0b0b0c!important}.a-card{background:#161618!important;border-color:#2a2a2e!important}.a-strong{color:#f4f4f5!important}.a-muted{color:#c3c5cc!important}.a-footer{background:#101012!important;border-color:#2a2a2e!important}
 }
-@media only screen and (max-width:600px){.a-card{width:100%!important;border-radius:0!important}.a-pad{padding-left:22px!important;padding-right:22px!important}.a-cta{display:block!important;width:100%!important;box-sizing:border-box!important}.a-brand-cell{width:60%!important}.a-badge-cell{width:40%!important;text-align:right!important}.a-brand-logo img,.a-logo-chip img,.a-logo-img{height:26px!important;max-width:140px!important}.a-badge{display:inline-block!important;white-space:nowrap!important;font-size:9px!important;letter-spacing:1px!important;padding:6px 10px!important}}
+@media only screen and (max-width:600px){.a-card{width:100%!important;border-radius:0!important}.a-pad{padding-left:24px!important;padding-right:24px!important}.a-cta{display:block!important;width:100%!important;box-sizing:border-box!important}}
 </style>
 </head>
 <body class="a-bg" style="margin:0;padding:0;background:#f2f4f7;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
@@ -318,8 +292,8 @@ function renderOgabasseyEmailHtml(
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="a-card" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #e8edf3;border-radius:18px;overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,0.10);">
 <tr><td class="a-pad" style="background:#101010;padding:30px 34px 28px 34px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="a-brand-cell" valign="middle">${renderLogo(branding, safeBrandName, 'left', branding.emailLogoUrl ?? undefined)}</td>
-<td class="a-badge-cell" valign="middle" align="right"><span class="a-badge" style="display:inline-block;border:1px solid ${brandColor};background:rgba(${hexToRgb(brandColor)},0.16);border-radius:999px;padding:7px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:800;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">Secure sign in</span></td>
+<td valign="middle">${renderLogo(branding, safeBrandName)}</td>
+<td valign="middle" align="right"><span style="display:inline-block;border:1px solid ${brandColor};background:rgba(${hexToRgb(brandColor)},0.16);border-radius:999px;padding:7px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:800;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">Secure sign in</span></td>
 </tr></table>
 <div style="height:3px;width:46px;background:${brandColor};border-radius:4px;margin-top:24px;font-size:1px;line-height:3px;">&nbsp;</div>
 <h1 style="font-family:${FONT_STACK};font-size:25px;font-weight:800;color:#ffffff;line-height:1.25;margin:17px 0 0 0;">${escapeHtml(config.heading)}</h1>
@@ -366,12 +340,7 @@ function renderDefaultEmailHtml(
     branding.buttonTextColor,
     BACI_BUTTON_TEXT_COLOR
   );
-  const headerContent = renderLogo(
-    branding,
-    safeBrandName,
-    'center',
-    branding.emailLogoUrl ?? undefined
-  );
+  const headerContent = renderLogo(branding, safeBrandName);
   const tokenHtml = renderTokenBlock(token, primaryColor);
   const isMerchantBranded = branding.businessName !== 'Baci';
   const footerText = isMerchantBranded

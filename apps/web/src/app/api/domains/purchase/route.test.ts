@@ -20,7 +20,6 @@ const mocks = vi.hoisted(() => ({
   after: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
-  revalidateMerchantFeed: vi.fn(),
   transactionMutations: [] as MutationRecord[],
   verifyPaystackPayment: vi.fn(),
 }));
@@ -45,11 +44,6 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
-}));
-
-vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateMerchantFeed: (...args: unknown[]) =>
-    mocks.revalidateMerchantFeed(...args),
 }));
 
 vi.mock('@/lib/edge-config-sync', () => ({
@@ -216,6 +210,5 @@ describe('POST /api/domains/purchase transaction scoping', () => {
       ['id', 'transaction-owned'],
       ['merchant_id', 'merchant-1'],
     ]);
-    expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
   });
 });

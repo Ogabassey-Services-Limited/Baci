@@ -47,15 +47,12 @@ function inferCategorySlug(
       SupportedClusterCategory,
       (typeof CONTENT_CLUSTER_SUPPORT)[SupportedClusterCategory],
     ][]
-  )
-    .flatMap(([categorySlug, support]) =>
-      support.categoryNames.map((name) => ({ categorySlug, name }))
-    )
-    .sort((left, right) => right.name.length - left.name.length)
-    .find(({ name }) => hasPhrase(explicitCategory, name));
+  ).find(([, support]) =>
+    support.categoryNames.some((name) => hasPhrase(explicitCategory, name))
+  );
 
   if (explicitMatch) {
-    return explicitMatch.categorySlug;
+    return explicitMatch[0];
   }
 
   let bestCategory: SupportedClusterCategory | null = null;

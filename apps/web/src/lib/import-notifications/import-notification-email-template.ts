@@ -1,13 +1,10 @@
 const FONT_STACK = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const HEADER_BG = '#0f0f0f';
-const EYEBROW_BG = '#18181b';
-const CTA_SHADOW = 'rgba(15,23,42,0.24)';
 const CTA_FALLBACK_HTML = `<span style="display:inline-block;color:#b51920;font-family:${FONT_STACK};font-size:14px;font-weight:700;">Receipt link unavailable (invalid link configuration).</span>`;
 
 const DARK_MODE_STYLES = `@media (prefers-color-scheme:dark){
 .r-bg{background-color:#0b0b0c!important;}
 .r-card{background-color:#161618!important;border-color:#2a2a2e!important;}
-.r-logo-chip{background:#ffffff!important;background-color:#ffffff!important;border-color:#ffffff!important;color:#111827!important;color-scheme:light!important;forced-color-adjust:none!important;}
 .r-strong{color:#f4f4f5!important;}
 .r-muted{color:#c3c5cc!important;}
 .r-faint{color:#8a8d94!important;}
@@ -16,14 +13,9 @@ const DARK_MODE_STYLES = `@media (prefers-color-scheme:dark){
 .r-footer{background-color:#161618!important;border-top-color:#2a2a2e!important;}
 }`;
 
-/** Convert a 3- or 6-digit hex color to an "r,g,b" string for legacy callers. */
+/** Convert a 3- or 6-digit hex color to an "r,g,b" string for rgba() shadows/tints. */
 export function hexToRgb(hex: string): string {
-  const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex);
-  if (!match) {
-    return '0,0,0';
-  }
-
-  let h = match[1];
+  let h = hex.replace('#', '');
   if (h.length === 3) {
     h = h
       .split('')
@@ -47,15 +39,6 @@ export interface ReceiptEmailTemplateInput {
    * (guarantees contrast); otherwise the {@link brandWordmark} text is used.
    */
   logoUrl?: string;
-  /**
-   * When true, {@link logoUrl} is a fully OPAQUE image (white plate baked into
-   * the pixels) and is rendered directly with no CSS white chip. The Gmail
-   * mobile app force-applies dark-mode inversion and ignores `color-scheme` /
-   * `forced-color-adjust` / `prefers-color-scheme`, so a transparent logo on a
-   * CSS chip lands black-on-black once Gmail darkens the chip. Gmail never
-   * inverts the pixels *inside* an image, so an opaque plate stays readable.
-   */
-  logoIsOpaque?: boolean;
   /** Small uppercase tag shown top-right of the header (rendered as a pill). */
   eyebrow: string;
   headline: string;
@@ -115,6 +98,7 @@ export function renderReceiptCta(
   if (!sanitizedUrl) {
     return CTA_FALLBACK_HTML;
   }
+  const shadow = `rgba(${hexToRgb(brandColor)},0.32)`;
   return `<!--[if mso]>
 <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${sanitizedUrl}" style="height:52px;v-text-anchor:middle;width:240px;" arcsize="18%" strokecolor="${brandColor}" fillcolor="${brandColor}">
 <w:anchorlock/>
@@ -122,28 +106,16 @@ export function renderReceiptCta(
 </v:roundrect>
 <![endif]-->
 <!--[if !mso]><!-->
-<a href="${sanitizedUrl}" class="cta-link" style="display:inline-block;background-color:${brandColor};color:#ffffff;font-family:${FONT_STACK};font-size:16px;font-weight:700;text-decoration:none;padding:16px 36px;border-radius:10px;box-shadow:0 6px 16px ${CTA_SHADOW};mso-padding-alt:0;">${label}</a>
+<a href="${sanitizedUrl}" class="cta-link" style="display:inline-block;background-color:${brandColor};color:#ffffff;font-family:${FONT_STACK};font-size:16px;font-weight:700;text-decoration:none;padding:16px 36px;border-radius:10px;box-shadow:0 6px 16px ${shadow};mso-padding-alt:0;">${label}</a>
 <!--<![endif]-->`;
 }
 
-function renderBrandLockup(
-  brandWordmark: string,
-  logoUrl?: string,
-  logoIsOpaque?: boolean
-): string {
-  if (logoUrl && logoIsOpaque) {
-    // Opaque logo: white plate is baked into the image, so render it directly
-    // with no CSS chip. Dark-mode-inverting clients (Gmail app) cannot make an
-    // image's own pixels unreadable.
-    return `<td valign="middle">
-<img src="${logoUrl}" alt="${brandWordmark}" height="28" style="display:block;border:0;outline:none;text-decoration:none;height:28px;width:auto;max-width:230px;border-radius:8px;background-color:#ffffff;">
-</td>`;
-  }
+function renderBrandLockup(brandWordmark: string, logoUrl?: string): string {
   if (logoUrl) {
     return `<td valign="middle">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="r-logo-chip" bgcolor="#ffffff" style="background:#ffffff;background-color:#ffffff;border:1px solid #ffffff;border-radius:9px;padding:8px 12px;line-height:0;color:#111827;color-scheme:light;forced-color-adjust:none;">
-<img src="${logoUrl}" alt="${brandWordmark}" height="22" style="display:block;border:0;outline:none;text-decoration:none;height:22px;width:auto;max-width:220px;background-color:#ffffff;color-scheme:light;forced-color-adjust:none;">
+<td style="background-color:#ffffff;border-radius:9px;padding:8px 12px;line-height:0;">
+<img src="${logoUrl}" alt="${brandWordmark}" height="22" style="display:block;border:0;outline:none;text-decoration:none;height:22px;width:auto;max-width:220px;">
 </td>
 </tr></table>
 </td>`;
@@ -159,6 +131,7 @@ function renderBrandLockup(
 export function renderReceiptEmailHtml(
   input: ReceiptEmailTemplateInput
 ): string {
+  const brandRgb = hexToRgb(input.brandColor);
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -186,8 +159,8 @@ ${DARK_MODE_STYLES}
 <tr>
 <td style="background-color:${HEADER_BG};padding:30px 32px 26px 32px;" class="px-pad">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-${renderBrandLockup(input.brandWordmark, input.logoUrl, input.logoIsOpaque)}
-<td valign="middle" align="right"><span style="display:inline-block;background-color:${EYEBROW_BG};border:1px solid ${input.brandColor};border-radius:999px;padding:6px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:700;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">${input.eyebrow}</span></td>
+${renderBrandLockup(input.brandWordmark, input.logoUrl)}
+<td valign="middle" align="right"><span style="display:inline-block;background-color:rgba(${brandRgb},0.16);border:1px solid ${input.brandColor};border-radius:999px;padding:6px 12px;font-family:${FONT_STACK};font-size:10px;font-weight:700;letter-spacing:1.2px;color:#ffffff;text-transform:uppercase;">${input.eyebrow}</span></td>
 </tr></table>
 <div style="height:3px;width:44px;background-color:${input.brandColor};border-radius:3px;margin-top:22px;font-size:1px;line-height:3px;">&nbsp;</div>
 <div style="font-family:${FONT_STACK};font-size:24px;font-weight:700;color:#ffffff;line-height:1.3;margin-top:16px;">${input.headline}</div>

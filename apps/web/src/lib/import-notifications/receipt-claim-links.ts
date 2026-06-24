@@ -28,8 +28,12 @@ export interface ReceiptClaimOrderForDeviceList {
 const DEFAULT_RECEIPT_CLAIM_PATH = '/receipts/claim';
 const DEFAULT_DEVICE_LIST_LIMIT = 10;
 
-function toLowercaseHex(bytes: Uint8Array) {
-  return Buffer.from(bytes).toString('hex');
+function toBase64Url(bytes: Uint8Array) {
+  return Buffer.from(bytes)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 export function hashReceiptClaimToken(token: string) {
@@ -40,7 +44,7 @@ export function createReceiptClaimToken(
   options: CreateReceiptClaimTokenOptions = {}
 ): ReceiptClaimToken {
   const bytes = options.bytes ?? randomBytes(32);
-  const token = toLowercaseHex(bytes);
+  const token = toBase64Url(bytes);
 
   return {
     token,

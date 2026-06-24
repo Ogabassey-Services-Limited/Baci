@@ -122,21 +122,6 @@ describe('UtilityModal checkout routing', () => {
     expect(harness.checkoutFetch).not.toHaveBeenCalled();
   });
 
-  it('treats a missing CustomerAuthProvider as a signed-out customer', async () => {
-    harness.useAuth.mockReturnValue(null);
-
-    submitAirtimePurchase();
-
-    await waitFor(() => {
-      expect(harness.toast).toHaveBeenCalledWith({
-        title: 'Sign in required',
-        description: 'Please sign in to use utility checkout.',
-        variant: 'destructive',
-      });
-    });
-    expect(harness.checkoutFetch).not.toHaveBeenCalled();
-  });
-
   it('waits for authentication resolution before starting checkout', async () => {
     harness.useAuth.mockReturnValue({
       customer: null,

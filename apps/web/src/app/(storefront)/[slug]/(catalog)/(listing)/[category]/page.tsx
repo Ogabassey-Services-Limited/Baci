@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
@@ -40,28 +41,6 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-function buildCategoryNotFoundMetadata(
-  title = 'Category not found',
-  description = 'This category is unavailable or has moved.'
-): Metadata {
-  return {
-    title,
-    description,
-    // Replace root metadata alternates so soft-404 pages do not inherit a canonical.
-    alternates: null,
-    robots: { index: false, follow: true },
-    openGraph: {
-      title,
-      description,
-    },
-    twitter: {
-      card: 'summary',
-      title,
-      description,
-    },
-  };
-}
-
 export async function generateMetadata({
   params,
   searchParams,
@@ -71,10 +50,7 @@ export async function generateMetadata({
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
   if (!currentPage) {
-    return buildCategoryNotFoundMetadata(
-      'Category page not found',
-      'This category page is unavailable or has moved.'
-    );
+    notFound();
   }
 
   // 1. Get Merchant
@@ -91,13 +67,15 @@ export async function generateMetadata({
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
 
   if (!data.isCollection && data.isInactiveCategory) {
-    return buildCategoryNotFoundMetadata();
+    notFound();
   }
 
   // Doorway-trap stopgap (crawl-budget): a genuinely unknown/typo CATEGORY slug
-  // resolves to no collection, no category row, and no fuzzy-matched products.
-  // Return explicit noindex metadata so the soft-404 body cannot inherit
-  // indexable parent metadata or a platform canonical.
+  // resolves to no collection, no category row, and no fuzzy-matched products —
+  // which previously rendered as an indexable empty page. notFound() flips it to
+  // noindex so it stops bloating the index. Category pages keep this
+  // soft-404/noindex behavior; the PR-B §3.2 pre-stream proxy hard-404 applies
+  // only to PDP (`/{category}/{product}`) URLs, not category listings.
   if (
     !data.isCollection &&
     !data.category?.id &&
@@ -105,7 +83,7 @@ export async function generateMetadata({
     !data.productsQueryFailed &&
     !data.categoryQueryFailed
   ) {
-    return buildCategoryNotFoundMetadata();
+    notFound();
   }
 
   const categoryName = resolveCategoryPageName(data, category);
@@ -120,10 +98,7 @@ export async function generateMetadata({
   );
 
   if (currentPage > totalPages) {
-    return buildCategoryNotFoundMetadata(
-      'Category page not found',
-      'This category page is unavailable or has moved.'
-    );
+    notFound();
   }
 
   const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
@@ -158,21 +133,14 @@ export async function generateMetadata({
     suffix: merchant.business_name,
     fallback: categoryName,
   });
-  const fallbackDescription = `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`;
-  const baseDescription =
-    hubContent.intro.description.trim() || fallbackDescription;
-  const pageAwareDescription =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${baseDescription}`
-      : baseDescription;
-  const pageAwareFallback =
-    currentPage > 1
-      ? `Page ${currentPage} of ${totalPages}: ${fallbackDescription}`
-      : fallbackDescription;
-  const description = generateMetaDescription(pageAwareDescription, 160, {
-    minLength: 110,
-    fallback: pageAwareFallback,
-  });
+  const description = generateMetaDescription(
+    hubContent.intro.description,
+    160,
+    {
+      minLength: 110,
+      fallback: `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`,
+    }
+  );
   const firstProductImage = paginatedProducts[0]?.image || null;
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
 

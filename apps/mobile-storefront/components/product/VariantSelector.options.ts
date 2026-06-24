@@ -49,7 +49,6 @@ interface VariantOptionsInput {
   attributes?: Record<string, string[]>;
   colors?: (string | { name: string; value: string })[];
   colorImages?: Record<string, string[]>;
-  hideConditionAttributes?: boolean;
   storage?: string | string[];
   variants?: ProductVariant[];
 }
@@ -70,35 +69,10 @@ function getColorHex(colorName: string): string {
   return '#9CA3AF';
 }
 
-function shouldHideGenericAttributeAxis(
-  axis: string,
-  hideConditionAttributes: boolean
-) {
-  const normalizedAxis = axis
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-
-  return (
-    isInternalSelectionAxis(normalizedAxis) &&
-    (hideConditionAttributes || normalizedAxis !== 'condition')
-  );
-}
-
-function getGenericAttributeAxis(axis: string) {
-  const normalizedAxis = axis
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-
-  return normalizedAxis === 'condition' ? 'condition' : axis;
-}
-
 export function normalizeVariantOptions({
   attributes,
   colors,
   colorImages,
-  hideConditionAttributes = true,
   storage,
   variants,
 }: VariantOptionsInput) {
@@ -150,13 +124,11 @@ export function normalizeVariantOptions({
 
   const genericAttributes = new Map<string, Set<string>>();
   for (const [axis, values] of Object.entries(attributes ?? {})) {
-    if (shouldHideGenericAttributeAxis(axis, hideConditionAttributes)) {
+    if (isInternalSelectionAxis(axis)) {
       continue;
     }
 
-    const attributeAxis = getGenericAttributeAxis(axis);
-    const axisValues =
-      genericAttributes.get(attributeAxis) ?? new Set<string>();
+    const axisValues = genericAttributes.get(axis) ?? new Set<string>();
     for (const value of values) {
       const trimmedValue = value.trim();
       if (trimmedValue) {
@@ -164,13 +136,13 @@ export function normalizeVariantOptions({
       }
     }
     if (axisValues.size > 0) {
-      genericAttributes.set(attributeAxis, axisValues);
+      genericAttributes.set(axis, axisValues);
     }
   }
 
   for (const variant of variants ?? []) {
     for (const [axis, value] of Object.entries(variant.attributes ?? {})) {
-      if (shouldHideGenericAttributeAxis(axis, hideConditionAttributes)) {
+      if (isInternalSelectionAxis(axis)) {
         continue;
       }
 
@@ -179,11 +151,9 @@ export function normalizeVariantOptions({
         continue;
       }
 
-      const attributeAxis = getGenericAttributeAxis(axis);
-      const axisValues =
-        genericAttributes.get(attributeAxis) ?? new Set<string>();
+      const axisValues = genericAttributes.get(axis) ?? new Set<string>();
       axisValues.add(trimmedValue);
-      genericAttributes.set(attributeAxis, axisValues);
+      genericAttributes.set(axis, axisValues);
     }
   }
 

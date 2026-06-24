@@ -5,7 +5,6 @@ import {
   type PostHogEnv,
 } from '@/lib/posthog/config';
 import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
-import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
@@ -84,32 +83,6 @@ const TENANT_CONTEXT_PROPERTY_KEYS = [
   'merchant_slug',
 ] as const;
 const POSTHOG_PROJECT_CREDENTIAL_PROPERTY_KEYS = ['token', 'api_key'] as const;
-// React 418/419 are hydration mismatch and Suspense fallback/client-render
-// switches; keep modern-browser occurrences actionable and filter only known
-// unsupported browser noise below.
-const REACT_HYDRATION_OR_SUSPENSE_ERROR_PATTERN =
-  /react\.dev\/errors\/(?:418|419)\b/;
-const SYNTHETIC_SCRIPT_ERROR_MESSAGE = 'Script error.';
-type SupportedBrowserVersion = {
-  major: number;
-  minor: number;
-};
-
-// Match the current supported browser floor used by the web app so old browser
-// compatibility failures do not hide real hydration issues in supported Chrome,
-// Firefox, Safari, or Edge versions.
-const MIN_SUPPORTED_BROWSER_VERSION_BY_NAME: Record<
-  string,
-  SupportedBrowserVersion
-> = {
-  chrome: { major: 93, minor: 0 },
-  chromium: { major: 93, minor: 0 },
-  edge: { major: 93, minor: 0 },
-  firefox: { major: 92, minor: 0 },
-  ios: { major: 15, minor: 4 },
-  safari: { major: 15, minor: 4 },
-  'mobile safari': { major: 15, minor: 4 },
-};
 
 function isValidMerchantSlug(value: string): boolean {
   return (
@@ -290,156 +263,6 @@ function restorePostHogProjectCredentialProperties(
   } as Properties;
 }
 
-function getStringValues(value: unknown): string[] {
-  if (typeof value === 'string') {
-    return [value];
-  }
-
-  if (typeof value === 'number') {
-    return [String(value)];
-  }
-
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((item) => getStringValues(item));
-}
-
-function getExceptionMessages(properties: Properties): string[] {
-  const exceptionValues = getStringValues(properties.$exception_values);
-  const exceptionListMessages = Array.isArray(properties.$exception_list)
-    ? properties.$exception_list.flatMap((entry) =>
-        isRecord(entry) ? getStringValues(entry.value) : []
-      )
-    : [];
-
-  return [...exceptionValues, ...exceptionListMessages];
-}
-
-/**
- * Detects synthetic cross-origin script exceptions. Browsers collapse those
- * failures to "Script error.", and PostHog confirms the synthetic source with
- * mechanism.synthetic=true; missing exception structure safely stays actionable.
- */
-function hasSyntheticScriptError(properties: Properties): boolean {
-  if (
-    !getExceptionMessages(properties).some(
-      (message) => message === SYNTHETIC_SCRIPT_ERROR_MESSAGE
-    )
-  ) {
-    return false;
-  }
-
-  return Array.isArray(properties.$exception_list)
-    ? properties.$exception_list.some(
-        (entry) =>
-          isRecord(entry) &&
-          isRecord(entry.mechanism) &&
-          entry.mechanism.synthetic === true
-      )
-    : false;
-}
-
-function parseBrowserVersion(value: unknown): SupportedBrowserVersion | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return parseBrowserVersion(String(value));
-  }
-
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const match = value.match(/(\d+)(?:\.(\d+))?/);
-  if (!match) {
-    return null;
-  }
-
-  const major = Number.parseInt(match[1] ?? '', 10);
-  const minor = Number.parseInt(match[2] ?? '0', 10);
-  return Number.isFinite(major) && Number.isFinite(minor)
-    ? { major, minor }
-    : null;
-}
-
-function isBelowSupportedBrowserFloor(properties: Properties): boolean {
-  const browserName = String(properties.$browser ?? '')
-    .trim()
-    .toLowerCase();
-  const browserVersion = parseBrowserVersion(properties.$browser_version);
-
-  if (!browserName || browserVersion === null) {
-    return false;
-  }
-
-  const minimumSupportedVersion =
-    MIN_SUPPORTED_BROWSER_VERSION_BY_NAME[browserName];
-
-  if (!minimumSupportedVersion) {
-    return false;
-  }
-
-  return (
-    browserVersion.major < minimumSupportedVersion.major ||
-    (browserVersion.major === minimumSupportedVersion.major &&
-      browserVersion.minor < minimumSupportedVersion.minor)
-  );
-}
-
-function shouldSuppressClientException(properties: Properties): boolean {
-  if (hasSyntheticScriptError(properties)) {
-    return true;
-  }
-
-  const messages = getExceptionMessages(properties);
-  return (
-    isBelowSupportedBrowserFloor(properties) &&
-    messages.some((message) =>
-      REACT_HYDRATION_OR_SUSPENSE_ERROR_PATTERN.test(message)
-    )
-  );
-}
-
-function isPublicBlogUrl(value: unknown): boolean {
-  if (typeof value !== 'string' || value.trim() === '') {
-    return false;
-  }
-
-  try {
-    const url = new URL(value, globalThis.location?.origin);
-    return isPublicBlogPathname(url.pathname, { hostname: url.hostname });
-  } catch {
-    return false;
-  }
-}
-
-function getWebVitalsMetricUrls(properties: Properties): string[] {
-  return Object.entries(properties)
-    .filter(
-      ([key, value]) =>
-        key.startsWith('$web_vitals_') &&
-        key.endsWith('_event') &&
-        isRecord(value) &&
-        typeof value.$current_url === 'string'
-    )
-    .map(([, value]) => (value as { $current_url: string }).$current_url);
-}
-
-function isPublicBlogWebVitalsEvent(properties: Properties): boolean {
-  const metricUrls = getWebVitalsMetricUrls(properties);
-  if (metricUrls.length > 0) {
-    return metricUrls.some(isPublicBlogUrl);
-  }
-
-  if (typeof globalThis.location !== 'undefined') {
-    return isPublicBlogPathname(globalThis.location.pathname, {
-      hostname: globalThis.location.hostname,
-    });
-  }
-
-  return false;
-}
-
 export function sanitizePostHogProperties(
   properties: Record<string, unknown> | undefined
 ): Properties | undefined {
@@ -468,20 +291,6 @@ export function sanitizePostHogCapture(
     projectToken
   );
 
-  if (
-    capture.event === '$exception' &&
-    shouldSuppressClientException(properties)
-  ) {
-    return null;
-  }
-
-  if (
-    capture.event === '$web_vitals' &&
-    isPublicBlogWebVitalsEvent(properties)
-  ) {
-    return null;
-  }
-
   if (typeof globalThis.location !== 'undefined') {
     for (const key of TENANT_CONTEXT_PROPERTY_KEYS) {
       delete properties[key];
@@ -498,34 +307,14 @@ export function sanitizePostHogCapture(
   };
 }
 
-export interface PostHogClientConfigOptions {
-  /**
-   * Strips expensive client-side instrumentation from SEO/content surfaces while
-   * preserving manual pageview capture and privacy sanitization.
-   */
-  lightweight?: boolean;
-}
-
-const LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES: Partial<PostHogConfig> = {
-  advanced_disable_flags: true,
-  autocapture: false,
-  capture_dead_clicks: false,
-  capture_heatmaps: false,
-  capture_performance: false,
-  disable_session_recording: true,
-  rageclick: false,
-};
-
 export function buildPostHogClientConfig(
   env: PostHogEnv = process.env,
-  projectToken: string | undefined = getPublicPostHogProjectToken(),
-  options: PostHogClientConfigOptions = {}
+  projectToken: string | undefined = getPublicPostHogProjectToken()
 ): Partial<PostHogConfig> {
-  const baseConfig: Partial<PostHogConfig> = {
+  return {
     api_host: getPostHogProxyPath(env),
     ui_host: getPostHogUiHost(env),
     defaults: '2026-05-30',
-    advanced_disable_flags: false,
     autocapture: true,
     rageclick: true,
     capture_dead_clicks: true,
@@ -539,11 +328,13 @@ export function buildPostHogClientConfig(
       capture_unhandled_rejections: true,
       capture_console_errors: false,
     },
-    // Keep PostHog's web-vitals autocapture disabled. In posthog-js@1.387.0
-    // WebVitalsAutocapture exposes startIfEnabled() but no stop(), so enabling
-    // it on a full page would leak observers into public blog SPA transitions.
-    // CWV collection remains handled by WebVitalsReporter.
-    capture_performance: false,
+    capture_performance: {
+      web_vitals: true,
+      web_vitals_allowed_metrics: ['LCP', 'CLS', 'FCP', 'INP'],
+      web_vitals_delayed_flush_ms: 5000,
+      web_vitals_attribution: true,
+      network_timing: false,
+    },
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,
@@ -551,9 +342,6 @@ export function buildPostHogClientConfig(
       maskTextSelector: 'body',
       blockSelector: '[data-ph-block], [data-session-replay-block]',
     },
-    // Project credential keys are intentionally absent here:
-    // restorePostHogProjectCredentialProperties rewrites token/api_key after
-    // sanitization, and blacklisting them would break PostHog ingestion.
     property_blacklist: [
       'password',
       'secret',
@@ -579,10 +367,4 @@ export function buildPostHogClientConfig(
       });
     },
   };
-
-  if (options.lightweight) {
-    return { ...baseConfig, ...LIGHTWEIGHT_PUBLIC_BLOG_CONFIG_OVERRIDES };
-  }
-
-  return baseConfig;
 }

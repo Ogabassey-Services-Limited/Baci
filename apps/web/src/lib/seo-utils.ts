@@ -4,15 +4,7 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
-import type {
-  BreadcrumbList,
-  CollectionPage,
-  MerchantReturnPolicy,
-  OfferShippingDetails,
-  ReturnFeesEnumeration,
-  ReturnMethodEnumeration,
-  WithContext,
-} from 'schema-dts';
+import type { CollectionPage, WithContext } from 'schema-dts';
 import {
   type CheckoutPaymentMerchant,
   isBankTransferCheckoutAvailable,
@@ -20,11 +12,6 @@ import {
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
-import {
-  isExternalPlaceholderImageUrl,
-  PLACEHOLDER_IMAGE,
-} from './image-utils';
-import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -504,7 +491,7 @@ function getVariantSchemaSize(
 
 function mapReturnMethodToSchemaUrl(
   returnMethod: MerchantTrustProfileReturnMethod | undefined
-): ReturnMethodEnumeration | undefined {
+): string | undefined {
   switch (returnMethod) {
     case 'mail':
     case 'carrier_dropoff':
@@ -518,7 +505,7 @@ function mapReturnMethodToSchemaUrl(
 
 function mapReturnFeeToSchemaUrl(
   returnFees: MerchantTrustProfileReturnFee | undefined
-): ReturnFeesEnumeration | undefined {
+): string | undefined {
   switch (returnFees) {
     case 'free':
       return 'https://schema.org/FreeReturn';
@@ -588,7 +575,7 @@ function buildMerchantReturnPolicy(
   country: string,
   trustProfile?: MerchantTrustProfile,
   fallbackDays = 7
-): MerchantReturnPolicy {
+): Record<string, unknown> | undefined {
   const returnPolicy = trustProfile?.returnPolicy;
 
   return {
@@ -609,7 +596,7 @@ function buildOfferShippingDetails(
   country: string,
   currency: string,
   trustProfile?: MerchantTrustProfile
-): OfferShippingDetails {
+): Record<string, unknown> {
   const shippingPolicy = trustProfile?.shippingPolicy;
   const handlingMin = shippingPolicy?.handlingDaysMin ?? 0;
   const handlingMax = shippingPolicy?.handlingDaysMax ?? 1;
@@ -648,7 +635,7 @@ function buildOfferShippingDetails(
 function buildMerchantReturnPolicyFromTrustProfile(
   country: string,
   trustProfile?: MerchantTrustProfile
-): MerchantReturnPolicy {
+): Record<string, unknown> {
   const returnPolicy = trustProfile?.returnPolicy;
   return {
     '@type': 'MerchantReturnPolicy',
@@ -1431,13 +1418,10 @@ export interface BreadcrumbItem {
   url: string;
 }
 
-export type BreadcrumbJsonLdSchema = WithContext<BreadcrumbList> &
-  Record<string, unknown>;
-
 export function generateBreadcrumbSchema(
   items: BreadcrumbItem[]
-): BreadcrumbJsonLdSchema {
-  const schema: BreadcrumbJsonLdSchema = {
+): Record<string, unknown> {
+  return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: items.map((item, index) => {
@@ -1452,8 +1436,6 @@ export function generateBreadcrumbSchema(
       };
     }),
   };
-
-  return schema;
 }
 
 /**
@@ -2006,25 +1988,11 @@ export function generateMetaDescription(
 export type CollectionPageJsonLdSchema = WithContext<CollectionPage> &
   Record<string, unknown>;
 
-export type CollectionPageProduct = Parameters<typeof getProductUrl>[0] & {
-  brand?: string | null;
-  description?: string | null;
-  gtin?: string | null;
-  image?: string | null;
-  imageLarge?: string | null;
-  low_stock_threshold?: number | string | null;
-  manage_stock?: boolean | null;
-  mpn?: string | null;
-  price: number;
-  stock?: number | string | null;
-  stock_quantity?: number | string | null;
-};
-
 export interface CollectionPageData {
   name: string;
   description?: string;
   url: string;
-  products: CollectionPageProduct[];
+  products: Product[];
   merchantName: string;
   currency?: string;
   country?: string;
@@ -2043,36 +2011,6 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
   }
 }
 
-function toAbsoluteSchemaImageUrl(
-  baseUrl: string,
-  ...values: Array<string | null | undefined>
-): string {
-  for (const value of values) {
-    const trimmed = value?.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    try {
-      const url = new URL(trimmed, baseUrl);
-      const isHttpImage = url.protocol === 'http:' || url.protocol === 'https:';
-      const absoluteImageUrl = url.toString();
-      const isPlaceholder =
-        url.pathname === PLACEHOLDER_IMAGE ||
-        url.pathname.endsWith(PLACEHOLDER_IMAGE) ||
-        isExternalPlaceholderImageUrl(absoluteImageUrl);
-
-      if (isHttpImage && !isPlaceholder) {
-        return normalizeOgabasseyCdnImageUrl(absoluteImageUrl);
-      }
-    } catch {
-      // Ignore malformed image candidates and continue to the next fallback.
-    }
-  }
-
-  return '';
-}
-
 /**
  * Generates CollectionPage schema for product listing pages (categories, collections).
  * @see https://schema.org/CollectionPage
@@ -2080,17 +2018,7 @@ function toAbsoluteSchemaImageUrl(
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): CollectionPageJsonLdSchema {
-  const safeProducts = data.products
-    .flatMap((product) => {
-      const imageCandidates = [product.imageLarge, product.image];
-      const productImage = toAbsoluteSchemaImageUrl(
-        data.url,
-        ...imageCandidates
-      );
-
-      return productImage ? [{ product, productImage }] : [];
-    })
-    .slice(0, 20);
+  const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
   const currency = data.currency || 'NGN';
   const country = data.country || 'NG';
@@ -2104,7 +2032,7 @@ export function generateCollectionPageSchema(
     data.trustProfile
   );
 
-  const schema: CollectionPageJsonLdSchema = {
+  const schema = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: escapeHtml(data.name),
@@ -2112,11 +2040,15 @@ export function generateCollectionPageSchema(
     ...(absolutePageUrl && { url: absolutePageUrl }),
     mainEntity: {
       '@type': 'ItemList',
-      numberOfItems: safeProducts.length,
-      itemListElement: safeProducts.map(({ product, productImage }, index) => {
+      numberOfItems: data.products.length,
+      itemListElement: safeProducts.map((product, index) => {
         const productUrl = toAbsoluteSchemaUrl(
           data.url,
           getProductUrl(product)
+        );
+        const productImage = toAbsoluteSchemaUrl(
+          data.url,
+          product.imageLarge || product.image
         );
 
         return {
@@ -2128,7 +2060,7 @@ export function generateCollectionPageSchema(
             description: product.description
               ? escapeHtml(generateMetaDescription(product.description, 100))
               : undefined,
-            image: [productImage],
+            image: productImage || undefined,
             url: productUrl || undefined,
             brand: {
               '@type': 'Brand',
@@ -2151,7 +2083,10 @@ export function generateCollectionPageSchema(
     },
   };
 
-  return schema;
+  // Nested offer, shipping, and return-policy helpers intentionally remain
+  // dynamic records because they are shared across multiple schema builders;
+  // this generator fixes the top-level Schema.org document type for JsonLd.
+  return schema as unknown as CollectionPageJsonLdSchema;
 }
 
 /**

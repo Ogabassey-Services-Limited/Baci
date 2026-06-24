@@ -166,11 +166,7 @@ export function OrderItemDetailModal({
           onPress={onClose}
           style={[styles.doneButton, { backgroundColor: colors.primary }]}
         >
-          <Text
-            style={[styles.doneButtonText, { color: colors.textOnPrimary }]}
-          >
-            Done
-          </Text>
+          <Text style={styles.doneButtonText}>Done</Text>
         </Pressable>
       </View>
     </AppSheetModal>
@@ -294,6 +290,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   doneButtonText: {
+    color: '#FFF',
     fontSize: TYPOGRAPHY.size.md,
     fontWeight: '700',
   },

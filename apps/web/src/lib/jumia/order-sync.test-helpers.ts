@@ -19,10 +19,6 @@ export interface QueryMock {
     (_column?: string, _values?: unknown[]) => QueryMock | Promise<unknown>
   >;
   insert: Mock<(_payload?: unknown) => QueryMock | Promise<unknown>>;
-  not: Mock<
-    (_column?: string, _operator?: string, _value?: unknown) => QueryMock
-  >;
-  or: Mock<(_filters?: string) => QueryMock>;
   update: Mock<(_payload?: unknown) => QueryMock>;
   upsert: Mock<
     (_payload?: unknown, _options?: unknown) => QueryMock | Promise<unknown>
@@ -66,10 +62,6 @@ export function createQuery(
   query.insert = vi.fn((_payload?: unknown) =>
     options.terminalInsert ? Promise.resolve(response) : query
   );
-  query.not = vi.fn(
-    (_column?: string, _operator?: string, _value?: unknown) => query
-  );
-  query.or = vi.fn((_filters?: string) => query);
   query.update = vi.fn((_payload?: unknown) => query);
   query.upsert = vi.fn((_payload?: unknown, _options?: unknown) =>
     options.terminalUpsert ? Promise.resolve(response) : query
@@ -241,11 +233,10 @@ export function createDuplicateNotificationSyncMock({
     { error: null },
     { terminalUpsert: true }
   );
-  const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
+  const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
 
   return {
     duplicateCacheQuery,
-    syncCursorQuery,
     supabase: createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],

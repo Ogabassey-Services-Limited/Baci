@@ -1,12 +1,8 @@
 import '@/app/(storefront)/storefront-pdp-critical.css';
-import {
-  resolveDefaultVariantSelection,
-  resolveLowestPricedVariantSelection,
-} from '@baci/shared/lib';
+import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
-import { StorefrontRouteNotFoundContent } from '@/app/(storefront)/[slug]/storefront-route-not-found-content';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
@@ -20,7 +16,6 @@ import {
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
-import { SemanticSectionsErrorBoundary } from '@/components/storefront/ogabassey/seo/semantic-sections-error-boundary';
 import {
   normalizeProductCondition,
   type Product as OgabasseyProduct,
@@ -78,13 +73,6 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
-import {
-  getInitialCriticalVariantSelection,
-  getInitialCriticalVariantSelectionPrimaryImage,
-  getVariantPrimaryImage,
-  normalizeRouteProductVariants,
-  shouldRedirectVariantSelectionParams,
-} from './critical-variant-selection';
 import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
 const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
@@ -93,37 +81,7 @@ const CANONICAL_PRODUCT_REDIRECT_METADATA: Metadata = {
   robots: { index: false, follow: true },
 };
 
-const PRODUCT_NOT_FOUND_METADATA: Metadata = {
-  title: 'Product not found',
-  description: 'This product is unavailable or has moved.',
-  // Replace root metadata alternates so soft-404 pages do not inherit a canonical.
-  alternates: null,
-  robots: { index: false, follow: true },
-  openGraph: {
-    title: 'Product not found',
-    description: 'This product is unavailable or has moved.',
-  },
-  twitter: {
-    card: 'summary',
-    title: 'Product not found',
-    description: 'This product is unavailable or has moved.',
-  },
-};
-
 const priceFormatterCache = new Map<string, Intl.NumberFormat>();
-
-function renderCategoryProductNotFoundContent(slug: string) {
-  // generateMetadata keeps missing PDPs noindex/hard-not-found before render.
-  // This stable body only covers render-time races after the storefront shell
-  // is already streaming.
-  return (
-    <StorefrontRouteNotFoundContent
-      backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
-      message="This product is unavailable or has moved."
-      title="Product not found"
-    />
-  );
-}
 
 function getPriceFormatter(currency: string): Intl.NumberFormat {
   let formatter = priceFormatterCache.get(currency);
@@ -158,8 +116,7 @@ function toOgabasseyProduct(
     normalizeVariantAttributes(rawVariantAttributes);
   const mergedVariantAxisOptions = mergeVariantAxisOptions(
     product.variants,
-    rawVariantAttributes,
-    product.condition
+    rawVariantAttributes
   );
   const { detailedSpecs, specs } = buildOgabasseyProductSpecData({
     ...product,
@@ -178,8 +135,7 @@ function toOgabasseyProduct(
   // allowing public storefront queries to enrich pricing/availability once RLS permits them.
   const attributeAxes = getRenderableVariantAxes(
     product.variants,
-    rawVariantAttributes,
-    product.condition
+    rawVariantAttributes
   );
 
   return {
@@ -224,7 +180,6 @@ function toOgabasseyProduct(
           condition?: string | null;
           price_override?: number;
           price_modifier?: number;
-          primary_image?: string | null;
           stock_quantity?: number;
           images?: string[];
         }) => {
@@ -244,7 +199,6 @@ function toOgabasseyProduct(
             attributes: v.attributes,
             price_override: v.price_override,
             price_modifier: v.price_modifier,
-            primary_image: v.primary_image,
             // Keep legacy `stock` and canonical `stock_quantity` consumers in sync.
             stock: v.stock_quantity,
             stock_quantity: v.stock_quantity,
@@ -292,12 +246,49 @@ function toOgabasseyProduct(
   };
 }
 
+function buildTrustBulletsFromProfile(
+  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
+): string[] {
+  const bullets: string[] = [];
+  const returnPolicy = trustProfile.returnPolicy;
+  if (returnPolicy?.windowDays != null) {
+    bullets.push(
+      returnPolicy.returnFees === 'free'
+        ? `Free returns within ${returnPolicy.windowDays} days`
+        : `Returns within ${returnPolicy.windowDays} days`
+    );
+  }
+
+  const shippingPolicy = trustProfile.shippingPolicy;
+  const regions = shippingPolicy?.regions ?? [];
+  const regionsText = regions.join(' ').toLowerCase();
+  if (
+    regions.some(
+      (region) => region.toUpperCase() === 'NG' || /nigeria/i.test(region)
+    ) ||
+    /nationwide/.test(shippingPolicy?.summary ?? '') ||
+    /nigeria/.test(regionsText)
+  ) {
+    bullets.push('Ships across Nigeria');
+  }
+
+  if (trustProfile.whatsappNumber) {
+    bullets.push('WhatsApp support available');
+  }
+
+  return bullets;
+}
+
 function getFirstViewportVariantAxes(
   variants: Product['variants'],
-  variantAttributes: VariantAttributeSource,
-  condition?: Product['condition']
+  variantAttributes: VariantAttributeSource
 ) {
-  return getRenderableVariantAxes(variants, variantAttributes, condition);
+  const variantCount = variants?.length ?? 0;
+  if (variantCount <= 1) {
+    return [];
+  }
+
+  return getRenderableVariantAxes(variants, variantAttributes);
 }
 
 type TemplateProductRenderMode = 'full' | 'belowFold';
@@ -378,6 +369,72 @@ function redirectInvalidVariantSelectionParams(
   }
 }
 
+function shouldRedirectVariantSelectionParams(
+  product: Product,
+  searchParams: Awaited<PageProps['searchParams']>
+) {
+  if (!product.variants || product.variants.length === 0) {
+    return false;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  return (
+    selectionResolution.type === 'attribute_only' ||
+    selectionResolution.type === 'ambiguous' ||
+    selectionResolution.type === 'invalid_variant_id' ||
+    selectionResolution.type === 'zero_match'
+  );
+}
+
+function getInitialCriticalVariantSelection(
+  product: Product,
+  searchParams: Awaited<PageProps['searchParams']>
+) {
+  if (!product.variants || product.variants.length === 0) {
+    return undefined;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  if (selectionResolution.type === 'none') {
+    return undefined;
+  }
+
+  const [match] = selectionResolution.matches;
+  const attributes =
+    selectionResolution.type === 'variant_id'
+      ? match?.attributes
+      : selectionResolution.type === 'condition_with_attributes' ||
+          selectionResolution.type === 'attribute_only'
+        ? selectionResolution.selectionInput.attributes
+        : undefined;
+  const condition =
+    selectionResolution.selectionInput.condition ||
+    match?.condition ||
+    undefined;
+  const variantId =
+    selectionResolution.type === 'variant_id'
+      ? selectionResolution.selectionInput.variantId
+      : undefined;
+
+  if (!attributes && !condition && !variantId) {
+    return undefined;
+  }
+
+  return {
+    ...(attributes && { attributes }),
+    ...(condition && { condition }),
+    ...(variantId && { variantId }),
+  };
+}
+
 type CategoryProductResult =
   | {
       product: Product;
@@ -393,16 +450,13 @@ type CategoryProductResult =
 
 interface LcpRouteProduct {
   base_price?: number | null;
-  baseImage?: string;
   brand: string;
   canonical_url?: string;
   categories?: { name?: string; slug?: string } | null;
   category?: string;
   category_slug?: string;
-  color?: string;
   condition?: ProductCondition;
   compare_at_price?: number;
-  default_variant_id?: string;
   description: string;
   gtin: string;
   has_variants?: boolean;
@@ -433,7 +487,6 @@ interface LcpRouteProduct {
   stock: number;
   stock_quantity?: number | null;
   updated_at?: string | null;
-  variant_attributes?: unknown;
   variants?: Product['variants'];
 }
 
@@ -533,67 +586,6 @@ function getLcpRouteLegacyPrices(cachedProduct: CachedProductLcpHint) {
   };
 }
 
-function getRouteVariantResolutionProduct(
-  cachedProduct: CachedProductLcpHint,
-  variants: NonNullable<Product['variants']>
-) {
-  const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
-  const normalizedVariants = normalizeRouteProductVariants(variants);
-
-  return {
-    compare_at_price: legacyPrices.compareAtPrice,
-    condition: normalizeProductCondition(cachedProduct.condition),
-    manage_stock: cachedProduct.manage_stock,
-    price: legacyPrices.price ?? legacyPrices.basePrice ?? 0,
-    variants: normalizedVariants,
-  };
-}
-
-function getInitialRouteVariant(
-  cachedProduct: CachedProductLcpHint,
-  variants: NonNullable<Product['variants']>
-) {
-  const resolutionProduct = getRouteVariantResolutionProduct(
-    cachedProduct,
-    variants
-  );
-
-  // Match the critical commerce default: open on the GLOBAL cheapest variant,
-  // ignoring product.default_variant_id (the SKU projection's condition-first
-  // default), so the early LCP preload hint targets the same image the PDP
-  // renders instead of racing it and forcing a second preload.
-  return (
-    resolveLowestPricedVariantSelection(resolutionProduct)?.variant ??
-    resolveDefaultVariantSelection(resolutionProduct)?.variant ??
-    null
-  );
-}
-
-function getCachedProductRoutePrimaryImage(
-  cachedProduct: CachedProductLcpHint | null,
-  variants?: NonNullable<Product['variants']>
-) {
-  if (!cachedProduct) {
-    return null;
-  }
-
-  const normalizedVariants =
-    variants ??
-    normalizeStorefrontProductVariants(cachedProduct.product_variants, {
-      merchantId: cachedProduct.merchant_id || OGABASSEY_MERCHANT_ID,
-      productId: cachedProduct.id,
-    });
-  const initialVariant = getInitialRouteVariant(
-    cachedProduct,
-    normalizedVariants
-  );
-
-  return (
-    getVariantPrimaryImage(initialVariant) ||
-    getCachedProductLcpHintPrimaryImage(cachedProduct)
-  );
-}
-
 function mapCachedProductLcpHintToRouteProduct(
   cachedProduct: CachedProductLcpHint
 ): LcpRouteProduct {
@@ -606,6 +598,7 @@ function mapCachedProductLcpHintToRouteProduct(
     ? rawFallbackCategory[0]
     : rawFallbackCategory;
   const primaryCategory = canonicalCategory ?? fallbackCategory;
+  const primaryImage = getCachedProductLcpHintPrimaryImage(cachedProduct) ?? '';
   const legacyPrices = getLcpRouteLegacyPrices(cachedProduct);
   const manageStock = cachedProduct.manage_stock ?? true;
   const effectiveStock = getEffectiveStock(cachedProduct);
@@ -617,22 +610,16 @@ function mapCachedProductLcpHintToRouteProduct(
       productId: cachedProduct.id,
     }
   );
-  const primaryImage =
-    getCachedProductRoutePrimaryImage(cachedProduct, variants) || '';
-  const baseImage = getCachedProductLcpHintPrimaryImage(cachedProduct) || '';
 
   return {
     base_price: legacyPrices.basePrice,
-    baseImage,
     brand: cachedProduct.brand ?? '',
     canonical_url: cachedProduct.canonical_url ?? undefined,
     categories: primaryCategory,
     category: primaryCategory?.name ?? cachedProduct.category ?? undefined,
     category_slug: primaryCategory?.slug,
-    color: cachedProduct.color ?? undefined,
     condition: normalizeProductCondition(cachedProduct.condition),
     compare_at_price: legacyPrices.compareAtPrice ?? undefined,
-    default_variant_id: cachedProduct.default_variant_id ?? undefined,
     description: cachedProduct.meta_description ?? '',
     gtin: '',
     has_variants: Boolean(cachedProduct.has_variants) || variants.length > 0,
@@ -660,7 +647,6 @@ function mapCachedProductLcpHintToRouteProduct(
     stock: effectiveStock,
     stock_quantity: effectiveStock,
     updated_at: cachedProduct.updated_at,
-    variant_attributes: cachedProduct.variant_attributes,
     variants,
   };
 }
@@ -838,7 +824,7 @@ async function getProductRouteControl(
   let preloadedProductResourceKey: string | null = null;
   const knownOgaBasseyImageLcpHintPromise = knownOgaBasseyMerchantId
     ? getCachedProductLcpHint(knownOgaBasseyMerchantId, productSlug, {
-        includeVariants: isKnownOgaBasseyCustomDomain,
+        includeVariants: false,
       })
     : null;
   if (knownOgaBasseyImageLcpHintPromise) {
@@ -859,7 +845,7 @@ async function getProductRouteControl(
         .then((cachedProduct) => ({
           cachedProduct,
           kind: 'lcp-hint' as const,
-          primaryImage: getCachedProductRoutePrimaryImage(cachedProduct),
+          primaryImage: getCachedProductLcpHintPrimaryImage(cachedProduct),
         }))
         .catch(() => ({
           cachedProduct: null,
@@ -1136,13 +1122,7 @@ export async function generateMetadata({
   );
 
   if (!routeControl) {
-    const merchant = await getRequestScopedMerchant(slug);
-
-    if (!merchant) {
-      notFound();
-    }
-
-    return PRODUCT_NOT_FOUND_METADATA;
+    notFound();
   }
 
   // Don't redirect from generateMetadata — Next.js can't change HTTP status
@@ -1266,22 +1246,22 @@ async function CategoryProductPageContent({
   const plainProductDescription = stripHtmlTags(renderableProduct.description)
     .replace(/\s+/g, ' ')
     .trim();
+  const trustBullets = [
+    priceSeoCopy.answer,
+    ...buildTrustBulletsFromProfile(trustProfile),
+  ];
   const semanticSections = (
-    // The async server component catches strict SEO-data cold-cache failures
-    // before SSR can bubble to the route error boundary. This client boundary is
-    // still kept for downstream hydration/render failures.
-    <SemanticSectionsErrorBoundary fallback={null}>
-      <Suspense fallback={null}>
-        <OgabasseyPdpSemanticSections
-          categoryName={renderableProduct.category || 'All Products'}
-          categorySlug={resolvedCategorySlug}
-          merchant={merchant}
-          product={renderableProduct}
-          storeSlug={slug}
-          storeUrl={baseUrl}
-        />
-      </Suspense>
-    </SemanticSectionsErrorBoundary>
+    <Suspense fallback={null}>
+      <OgabasseyPdpSemanticSections
+        categoryName={renderableProduct.category || 'All Products'}
+        categorySlug={resolvedCategorySlug}
+        merchant={merchant}
+        product={renderableProduct}
+        storeSlug={slug}
+        storeUrl={baseUrl}
+        trustBullets={trustBullets}
+      />
+    </Suspense>
   );
   const derivedSpecData = buildOgabasseyProductSpecData(renderableProduct);
   const schemaProduct =
@@ -1390,13 +1370,7 @@ export default async function CategoryProductPage({
   );
 
   if (!routeControl) {
-    const merchant = await getRequestScopedMerchant(slug);
-
-    if (!merchant) {
-      notFound();
-    }
-
-    return renderCategoryProductNotFoundContent(slug);
+    notFound();
   }
 
   const {
@@ -1419,26 +1393,13 @@ export default async function CategoryProductPage({
   }
 
   const primaryProductImage = product.imageLarge || product.image || null;
-  const criticalFallbackProductImage =
-    (product as { baseImage?: string | null }).baseImage || primaryProductImage;
   const criticalProduct =
     merchant.template_id === OGABASSEY_TEMPLATE_ID
       ? buildOgabasseyPdpCriticalProduct(product)
       : null;
-  const resolvedSearchParams = await searchParams;
-  const commerceProduct = buildCriticalCommerceRouteProduct(product);
-  const criticalInitialVariantSelection = criticalProduct
-    ? getInitialCriticalVariantSelection(commerceProduct, resolvedSearchParams)
-    : undefined;
-  const selectedVariantProductImage = criticalProduct
-    ? getInitialCriticalVariantSelectionPrimaryImage(
-        commerceProduct,
-        criticalInitialVariantSelection
-      )
-    : null;
   const pageOwnsProductPreload = merchant.template_id === OGABASSEY_TEMPLATE_ID;
   const pagePreloadProductImage = pageOwnsProductPreload
-    ? selectedVariantProductImage || primaryProductImage
+    ? primaryProductImage
     : null;
   const pagePreloadResourceKey =
     pagePreloadProductImage !== null
@@ -1465,6 +1426,8 @@ export default async function CategoryProductPage({
     : Promise.resolve<'' | `/${string}`>('');
   const productResultPromise = loadProductResult();
 
+  const resolvedSearchParams = await searchParams;
+  const commerceProduct = buildCriticalCommerceRouteProduct(product);
   redirectInvalidVariantSelectionParams(
     slug,
     commerceProduct,
@@ -1477,25 +1440,21 @@ export default async function CategoryProductPage({
           commerceProduct as { variant_attributes?: unknown }
         ).variant_attributes as VariantAttributeSource;
         const variantCount = commerceProduct.variants?.length ?? 0;
-        const variantAxisOptions = mergeVariantAxisOptions(
-          commerceProduct.variants,
-          rawVariantAttributes,
-          commerceProduct.condition
-        );
 
         return {
           cartProduct: createCriticalCartProduct(commerceProduct),
-          initialVariantSelection: criticalInitialVariantSelection,
+          initialVariantSelection: getInitialCriticalVariantSelection(
+            commerceProduct,
+            resolvedSearchParams
+          ),
           product: {
             ...criticalProduct,
             variantCount,
           },
           variantAxes: getFirstViewportVariantAxes(
             commerceProduct.variants,
-            rawVariantAttributes,
-            commerceProduct.condition
+            rawVariantAttributes
           ),
-          variantAxisOptions,
           variantCount,
         };
       })()
@@ -1510,13 +1469,11 @@ export default async function CategoryProductPage({
             criticalCommerceContext.initialVariantSelection
           }
           variantAxes={criticalCommerceContext.variantAxes}
-          variantAxisOptions={criticalCommerceContext.variantAxisOptions}
           variantCount={criticalCommerceContext.variantCount}
         >
           <OgabasseyPdpCriticalShell
             basePath={getCategoryProductBasePath(slug)}
             basePathPromise={criticalBasePathPromise}
-            fallbackImage={criticalFallbackProductImage}
             product={criticalCommerceContext.product}
             summaryCommerce={<OgabasseyPdpCriticalCommerceSummary />}
           >

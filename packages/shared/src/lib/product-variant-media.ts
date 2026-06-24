@@ -85,32 +85,6 @@ function buildVariantColorImages(
 }
 
 /**
- * Flattens every variant-owned image, including variants without a color axis
- * (for example storage/condition-only SKUs). Color buckets still provide the
- * reverse color map; this list only guarantees exact-variant photos can appear
- * in the gallery and be selected by index.
- */
-function buildVariantGalleryImages(
-  variants: ProductVariantMediaLike[] | null | undefined
-) {
-  const images = new Set<string>();
-
-  for (const variant of variants ?? []) {
-    for (const image of [
-      normalizeImageUrl(variant.primary_image),
-      normalizeImageUrl(variant.image),
-      ...(variant.images ?? []).map((entry) => normalizeImageUrl(entry)),
-    ]) {
-      if (image) {
-        images.add(image);
-      }
-    }
-  }
-
-  return Array.from(images);
-}
-
-/**
  * Flattens all images from a colorImages record into a single list.
  */
 function flattenColorImages(colorImages: Record<string, string[]>) {
@@ -123,8 +97,7 @@ function flattenColorImages(colorImages: Record<string, string[]>) {
  */
 function buildGalleryImages(
   productImages: ProductImageInput,
-  colorImages: Record<string, string[]> | undefined,
-  variantImages: string[]
+  colorImages: Record<string, string[]> | undefined
 ) {
   const normalizedProductImages = normalizeProductImages(productImages);
   const normalizedColorImages = colorImages
@@ -132,11 +105,7 @@ function buildGalleryImages(
     : [];
 
   return Array.from(
-    new Set([
-      ...normalizedColorImages,
-      ...variantImages,
-      ...normalizedProductImages,
-    ])
+    new Set([...normalizedColorImages, ...normalizedProductImages])
   );
 }
 
@@ -243,7 +212,6 @@ export function resolveProductVariantMedia({
   productImages,
   variants,
 }: ResolveProductVariantMediaInput): ResolvedProductVariantMedia {
-  const variantGalleryImages = buildVariantGalleryImages(variants);
   const rawVariantColorImages = buildVariantColorImages(variants);
   // Collapse variant-only duplicates too: if two variants share a color
   // that differs only by case (e.g. `Black` and `black`), `buildOrderedColors`
@@ -270,11 +238,7 @@ export function resolveProductVariantMedia({
     variantColorImages
   );
 
-  const galleryImages = buildGalleryImages(
-    productImages,
-    resolvedColorImages,
-    variantGalleryImages
-  );
+  const galleryImages = buildGalleryImages(productImages, resolvedColorImages);
   const imageColorMap = buildImageColorMap(resolvedColorImages);
   const colors = buildOrderedColors({
     galleryImages,

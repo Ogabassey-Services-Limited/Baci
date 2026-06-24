@@ -7,8 +7,6 @@ type SafeHtmlProps = {
   as?: SafeHtmlTag;
   html: string;
   headingLevelOffset?: number;
-  normalizeSeoAnchors?: boolean;
-  trustedPriorityImageSources?: readonly string[];
 } & Omit<HTMLAttributes<HTMLElement>, 'dangerouslySetInnerHTML' | 'children'>;
 
 /**
@@ -29,8 +27,6 @@ export function SafeHtml({
   as = 'div',
   html,
   headingLevelOffset,
-  normalizeSeoAnchors,
-  trustedPriorityImageSources,
   ...rest
 }: SafeHtmlProps) {
   if (!html) {
@@ -42,11 +38,7 @@ export function SafeHtml({
     // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
     // react-doctor-disable-next-line react-doctor/no-danger -- Central allowlist sanitizer boundary; callers must use SafeHtml instead of raw dangerouslySetInnerHTML.
     dangerouslySetInnerHTML: {
-      __html: sanitizeHtml(html, {
-        headingLevelOffset,
-        normalizeSeoAnchors,
-        trustedPriorityImageSources,
-      }),
+      __html: sanitizeHtml(html, { headingLevelOffset }),
     },
   });
 }

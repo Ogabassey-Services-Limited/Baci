@@ -1,21 +1,18 @@
-import {
-  isExternalPlaceholderImageUrl,
-  PLACEHOLDER_IMAGE,
-} from '@/lib/image-utils';
-import {
-  buildOgabasseyCdnImageLoaderUrl,
-  isOgabasseyCdnImageUrl,
-} from '@/lib/ogabassey-cdn-image-url';
+import { DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 interface ImageLoaderParams {
   src: string;
   width: number;
   quality?: number;
+  preferOgabasseyTransform?: boolean;
 }
 
+const OGABASSEY_CDN_HOSTNAME = new URL(DEFAULT_MEDIA_CDN_ORIGIN).hostname;
 const DEFAULT_IMAGE_QUALITY = 75;
 const MIN_TRANSFORM_WIDTH = 16;
 const MAX_TRANSFORM_WIDTH = 3840;
+const OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX = '/core-assets/products/';
+const TRANSFORMABLE_IMAGE_EXTENSION_PATTERN = /\.(avif|jpe?g|png|webp)$/i;
 
 /**
  * Custom image loader for next/image.
@@ -34,6 +31,7 @@ export default function imageLoader({
   src,
   width,
   quality,
+  preferOgabasseyTransform = false,
 }: ImageLoaderParams): string {
   if (typeof src !== 'string') {
     return '';
@@ -43,18 +41,17 @@ export default function imageLoader({
     return src;
   }
 
-  // External URLs — serve directly from their CDN unless the source is an older
-  // OgaBassey URL shape that needs normalization.
+  // External URLs — serve directly from their CDN unless the OgaBassey product
+  // image transformer is needed to preserve next/image width-aware srcsets.
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    if (isExternalPlaceholderImageUrl(src)) {
-      return PLACEHOLDER_IMAGE;
-    }
-
-    if (isOgabasseyCdnImageUrl(src)) {
-      return buildOgabasseyCdnImageLoaderUrl(
-        src,
-        clampDimension(width),
-        clampQuality(quality)
+    if (isOgabasseyCdnUrl(src)) {
+      return (
+        buildOgabasseyCdnTransformUrl({
+          preferOgabasseyTransform,
+          quality,
+          src,
+          width,
+        }) ?? src
       );
     }
 
@@ -76,6 +73,43 @@ function appendLoaderParams(src: string, width: number, quality?: number) {
   const transformQuality = clampQuality(quality);
 
   return `${base}${separator}w=${transformWidth}&q=${transformQuality}${hash}`;
+}
+
+function isOgabasseyCdnUrl(src: string): boolean {
+  try {
+    return new URL(src).hostname === OGABASSEY_CDN_HOSTNAME;
+  } catch {
+    return false;
+  }
+}
+
+function buildOgabasseyCdnTransformUrl({
+  preferOgabasseyTransform = false,
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string | null {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return null;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    url.pathname.startsWith('/image/') ||
+    (!preferOgabasseyTransform &&
+      !url.pathname.startsWith(OGABASSEY_PRODUCT_IMAGE_PATH_PREFIX)) ||
+    !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
+  ) {
+    return null;
+  }
+
+  const transformWidth = clampDimension(width);
+  const transformQuality = clampQuality(quality);
+
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=auto${url.pathname}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {

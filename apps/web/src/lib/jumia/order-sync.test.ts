@@ -102,10 +102,6 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
-    const notificationClaimQuery = createQuery({
-      data: { jumia_order_id: order.id },
-      error: null,
-    });
     const notifyUpdateQuery = createQuery({
       data: { jumia_order_id: order.id },
       error: null,
@@ -114,12 +110,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
-        jumia_orders: [
-          existingJumiaQuery,
-          cacheQuery,
-          notificationClaimQuery,
-          notifyUpdateQuery,
-        ],
+        jumia_orders: [existingJumiaQuery, cacheQuery, notifyUpdateQuery],
         orders: [existingCanonicalQuery, insertOrderQuery],
       },
       {
@@ -155,28 +146,11 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       }),
       'orders'
     );
-    expect(notificationClaimQuery.update).toHaveBeenCalledWith({
-      notification_claimed_at: expect.any(String),
-    });
-    const cacheUpsertPayload = cacheQuery.upsert.mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
-    expect(cacheUpsertPayload).toEqual(
+    expect(notifyUpdateQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        baci_order_id: 'baci-order-1',
-        jumia_order_id: order.id,
+        notification_sent: true,
       })
     );
-    expect(cacheUpsertPayload).not.toHaveProperty('notification_sent');
-    expect(cacheQuery.upsert).toHaveBeenCalledWith(expect.any(Object), {
-      defaultToNull: false,
-      onConflict: 'jumia_order_id',
-    });
-    expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
-      notification_claimed_at: null,
-      notification_sent: true,
-    });
   });
 
   it('keeps the sync cursor in place when every Jumia order fails', async () => {
@@ -373,10 +347,6 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
-    const notificationClaimQuery = createQuery({
-      data: { jumia_order_id: order.id },
-      error: null,
-    });
     const notifyUpdateQuery = createQuery({
       data: { jumia_order_id: order.id },
       error: null,
@@ -385,12 +355,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
-        jumia_orders: [
-          existingJumiaQuery,
-          cacheQuery,
-          notificationClaimQuery,
-          notifyUpdateQuery,
-        ],
+        jumia_orders: [existingJumiaQuery, cacheQuery, notifyUpdateQuery],
         orders: [existingCanonicalQuery, insertOrderQuery],
       },
       {
@@ -417,12 +382,11 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     expect(result.canonicalCreated).toBe(1);
     expect(result.notified).toBe(1);
     expect(result.orderErrors).toBe(1);
-    expect(notificationClaimQuery.update).toHaveBeenCalledWith({
-      notification_claimed_at: expect.any(String),
-    });
-    expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
-      notification_claimed_at: null,
-    });
+    expect(notifyUpdateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification_sent: true,
+      })
+    );
     expect(result.errors).toEqual(
       expect.arrayContaining([
         expect.stringContaining(
@@ -435,9 +399,9 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       | undefined;
     expect(updatePayload).toEqual(
       expect.objectContaining({
-        last_sync_at: order.updatedAt,
-        sync_error: expect.stringContaining('cursor parked'),
+        sync_error: expect.stringContaining('cursor not advanced'),
       })
     );
+    expect(updatePayload).not.toHaveProperty('last_sync_at');
   });
 });
