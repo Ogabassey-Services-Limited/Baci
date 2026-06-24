@@ -63,12 +63,7 @@ const accountLinks = [
 export function AccountPageClient() {
   const router = useRouter();
   const { merchant, loading: merchantLoading, basePath } = useMerchant();
-  const {
-    customer,
-    isAuthenticated,
-    isLoading: authLoading,
-    logout,
-  } = useCustomerAuth();
+  const { customer, isAuthenticated, logout } = useCustomerAuth();
   const { currencySymbol } = useCurrency();
   const resolvedBasePath = basePath || '';
   const getHref = (path: string) => `${resolvedBasePath}${path}`;
@@ -83,7 +78,7 @@ export function AccountPageClient() {
     }
   };
 
-  if (merchantLoading || authLoading) {
+  if (merchantLoading) {
     return (
       <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 py-8 max-w-4xl">

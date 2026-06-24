@@ -277,7 +277,25 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toContain('product_key_specs');
     expect(selectArg).not.toContain('product_offers');
     expect(selectArg).not.toContain('product_variants');
+    expect(cacheTag).toHaveBeenCalledWith(
+      'product',
+      'product-canonical-redirect',
+      getProductScopedCacheTag('product', 'merchant-123', 'iphone-16'),
+      getProductScopedCacheTag(
+        'product-canonical-redirect',
+        'merchant-123',
+        'iphone-16'
+      )
+    );
     expect(harness.mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('getCachedProductCanonicalRedirectTarget throws on query error', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+
+    await expect(
+      getCachedProductCanonicalRedirectTarget('merchant-123', 'missing-product')
+    ).rejects.toEqual(productQueryError.error);
   });
 
   it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {

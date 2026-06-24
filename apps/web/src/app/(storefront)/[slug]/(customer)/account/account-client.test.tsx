@@ -125,6 +125,24 @@ describe('AccountPageClient', () => {
     );
   });
 
+  it('renders the sign-in prompt while auth is still loading for initial no-JS HTML', () => {
+    vi.mocked(useCustomerAuth).mockReturnValue(
+      createCustomerAuthValue({
+        user: null,
+        customer: null,
+        isAuthenticated: false,
+        isLoading: true,
+      })
+    );
+
+    render(<AccountPageClient />);
+
+    expect(
+      screen.getByRole('heading', { name: /sign in to view your account/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/loading account/i)).not.toBeInTheDocument();
+  });
+
   it('shows account quick links for an authenticated customer', () => {
     render(<AccountPageClient />);
 

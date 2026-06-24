@@ -1909,6 +1909,7 @@ export async function getCachedProductCanonicalRedirectTarget(
   cacheTag(
     'product',
     'product-canonical-redirect',
+    getProductScopedCacheTag('product', merchantId, productSlug),
     getProductScopedCacheTag(
       'product-canonical-redirect',
       merchantId,
@@ -1947,8 +1948,7 @@ export async function getCachedProductCanonicalRedirectTarget(
   const { data, error } = await query.maybeSingle();
 
   if (error) {
-    console.error('Error fetching product canonical redirect target:', error);
-    return null;
+    throw error;
   }
 
   return (data as CachedProductCanonicalRedirectTarget | null) || null;
