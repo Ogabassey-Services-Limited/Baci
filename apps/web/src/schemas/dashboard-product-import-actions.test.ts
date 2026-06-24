@@ -328,6 +328,46 @@ describe('dashboard product import action schemas', () => {
     ).toBe(true);
   });
 
+  it('allows update and remove bulk changes to omit unchanged product names', () => {
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            details: {
+              price: 1000,
+              cost_price: null,
+              cost_price_was_edited: true,
+            },
+          },
+          {
+            type: 'remove',
+            productId: 'product-2',
+            details: {
+              price: 500,
+            },
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
+  it('still requires product names for new bulk products', () => {
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              price: 1000,
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
   it('rejects UI-only cost-price edit markers in AI responses', () => {
     const result = AIResponseSchema.safeParse({
       changes: [

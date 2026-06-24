@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         if (change.type === 'update') {
           const productId = change.productId?.trim();
           const sku = change.details.sku?.trim();
-          const name = change.details.name.trim();
+          const name = change.details.name?.trim() ?? '';
 
           if (!productId && !sku && !name) {
             results.errors.push(

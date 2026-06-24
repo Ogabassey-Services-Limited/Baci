@@ -368,6 +368,58 @@ describe('POST /api/products/bulk-update', () => {
     expect(productUpdates[0]).not.toHaveProperty('name');
   });
 
+  it('preserves existing product names when targeted updates omit the name field', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              price: 150,
+              category: 'Electronics',
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      category: 'Electronics',
+      price: 150,
+    });
+    expect(productUpdates[0]).not.toHaveProperty('name');
+  });
+
+  it('returns 400 when a new imported product omits a name', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              price: 200,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid changes data');
+    expect(productInserts).toEqual([]);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
   it('skips update changes without a safe product selector', async () => {
     const { POST } = await import('./route');
 

@@ -94,15 +94,18 @@ const SharedChangeDetailsShape = {
     .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
 };
 
-const ChangeDetailsSchema = z.object({
+const BulkChangeDetailsSchema = z.object({
   ...SharedChangeDetailsShape,
   cost_price_was_edited: z.boolean().optional(),
 });
 
+const BulkUpdateChangeDetailsSchema = BulkChangeDetailsSchema.extend({
+  name: z.string().optional(),
+});
+
 const AIChangeDetailsSchema = z.strictObject(SharedChangeDetailsShape);
 
-export const ChangeSchema = z.object({
-  type: z.enum(['update', 'new', 'remove']),
+const BulkChangeBaseSchema = z.object({
   productId: z
     .string()
     .optional()
@@ -113,12 +116,32 @@ export const ChangeSchema = z.object({
     .nonnegative()
     .optional()
     .describe('The new price for a product update'),
-  details: ChangeDetailsSchema,
   reason: z
     .string()
     .optional()
     .describe('Reasoning for the change, especially for removals'),
 });
+
+const BulkUpdateChangeSchema = BulkChangeBaseSchema.extend({
+  type: z.literal('update'),
+  details: BulkUpdateChangeDetailsSchema,
+});
+
+const BulkNewChangeSchema = BulkChangeBaseSchema.extend({
+  type: z.literal('new'),
+  details: BulkChangeDetailsSchema,
+});
+
+const BulkRemoveChangeSchema = BulkChangeBaseSchema.extend({
+  type: z.literal('remove'),
+  details: BulkUpdateChangeDetailsSchema,
+});
+
+export const ChangeSchema = z.discriminatedUnion('type', [
+  BulkUpdateChangeSchema,
+  BulkNewChangeSchema,
+  BulkRemoveChangeSchema,
+]);
 
 export const BulkUpdateChangesSchema = z.object({
   changes: z.array(ChangeSchema),
