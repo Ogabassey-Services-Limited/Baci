@@ -273,7 +273,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       );
     });
 
-    it('exposes inspectionStatus, defaulting to pending when null', async () => {
+    it('preserves nullable legacy inspectionStatus values', async () => {
       mockDb({
         policies: [
           mockPolicyRow,
@@ -288,7 +288,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       const body = await response.json();
 
       expect(body.policies[0].inspectionStatus).toBe('pending');
-      expect(body.policies[1].inspectionStatus).toBe('pending');
+      expect(body.policies[1].inspectionStatus).toBeNull();
     });
 
     it('surfaces rich claim state (stage, progress, decline reason)', async () => {

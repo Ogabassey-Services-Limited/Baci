@@ -31,6 +31,7 @@ END $$;
 CREATE OR REPLACE FUNCTION "public"."persist_customer_delivered_tracking"(
   "p_shipment_id" "uuid",
   "p_order_id" "uuid",
+  "p_customer_user_id" "uuid",
   "p_current_location" "text" DEFAULT NULL,
   "p_estimated_delivery_at" timestamp with time zone DEFAULT NULL,
   "p_delivered_at" timestamp with time zone DEFAULT NULL,
@@ -51,7 +52,8 @@ BEGIN
   JOIN "public"."customers" "c" ON "c"."id" = "o"."customer_id"
   WHERE "s"."id" = "p_shipment_id"
     AND "o"."id" = "p_order_id"
-    AND "c"."user_id" = (SELECT "auth"."uid"())
+    AND "p_customer_user_id" IS NOT NULL
+    AND "c"."user_id" = "p_customer_user_id"
   LIMIT 1;
 
   IF "v_authorized" IS DISTINCT FROM TRUE THEN
@@ -83,17 +85,29 @@ $$;
 REVOKE ALL ON FUNCTION "public"."persist_customer_delivered_tracking"(
   "uuid",
   "uuid",
+  "uuid",
   "text",
   timestamp with time zone,
   timestamp with time zone,
   "jsonb"
 ) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION "public"."persist_customer_delivered_tracking"(
+REVOKE ALL ON FUNCTION "public"."persist_customer_delivered_tracking"(
+  "uuid",
   "uuid",
   "uuid",
   "text",
   timestamp with time zone,
   timestamp with time zone,
   "jsonb"
-) TO "authenticated";
+) FROM "anon", "authenticated";
+
+GRANT EXECUTE ON FUNCTION "public"."persist_customer_delivered_tracking"(
+  "uuid",
+  "uuid",
+  "uuid",
+  "text",
+  timestamp with time zone,
+  timestamp with time zone,
+  "jsonb"
+) TO "service_role";

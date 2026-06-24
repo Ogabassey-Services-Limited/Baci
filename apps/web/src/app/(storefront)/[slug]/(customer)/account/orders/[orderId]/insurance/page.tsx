@@ -27,6 +27,13 @@ import {
   resolveInsuranceCta,
 } from './claim-action-helpers';
 
+interface PolicyItemsInsured {
+  imei?: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
+  [key: string]: unknown;
+}
+
 interface Policy {
   id: string;
   policyNumber: string;
@@ -36,8 +43,7 @@ interface Policy {
   expiryDate: string;
   premium: number;
   coverage: number;
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic items data from API
-  itemsInsured: any;
+  itemsInsured: PolicyItemsInsured | null;
   claimStatus: string;
   claimStage?: string | null;
   claimProgress?: string | null;
@@ -139,27 +145,27 @@ export default function InsurancePolicyPage() {
       return;
     }
 
-    if (!policy?.itemsInsured?.product_id) {
-      // Fallback if we didn't store simple product_id, try to use the one from env or show error
-      // ideally we should have stored it, but env var is a safe fallback for the gadget product
-      console.warn('Policy product_id missing, using default.');
+    const claimProductId =
+      policy?.itemsInsured?.product_id ||
+      process.env.NEXT_PUBLIC_MYCOVER_GADGET_PRODUCT_ID;
+    if (!claimProductId) {
+      alert(
+        'Claims system is currently unavailable (Missing Product Configuration). Please contact support.'
+      );
+      return;
     }
 
     // Initialize SDK
     mycoverai({
       action: 'claim',
       pk: publicKey,
-      pid: [
-        policy?.itemsInsured?.product_id ||
-          process.env.NEXT_PUBLIC_MYCOVER_GADGET_PRODUCT_ID,
-      ],
+      pid: [claimProductId],
       policy_number: policy?.policyNumber, // Pass policy number if supported/required to pre-fill
       email: policy?.customer_email, // Pre-fill email
       onClose: () => {
         console.log('Claim modal closed');
       },
-      // biome-ignore lint/suspicious/noExplicitAny: MyCover SDK callback response type
-      callback: (response: any) => {
+      callback: (response: unknown) => {
         console.log('Claim submitted', response);
         // Refresh policy status
         window.location.reload();

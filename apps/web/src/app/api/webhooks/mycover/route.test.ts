@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   dedupInsert: vi.fn(),
   fetch: vi.fn(),
   getMyCoverWebhookSecret: vi.fn(),
+  maybeNotifyActivateProtection: vi.fn(),
   policyEq: vi.fn(),
   policyUpdate: vi.fn(),
 }));
@@ -15,6 +16,11 @@ vi.mock('@/env', () => ({
   getMyCoverSecretKey: () =>
     process.env.MYCOVER_SECRET_KEY?.trim() || undefined,
   getMyCoverWebhookSecret: () => mocks.getMyCoverWebhookSecret(),
+}));
+
+vi.mock('@/lib/insurance/notify-activate-protection', () => ({
+  maybeNotifyActivateProtection: (...args: unknown[]) =>
+    mocks.maybeNotifyActivateProtection(...args),
 }));
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -98,6 +104,7 @@ describe('POST /api/webhooks/mycover', () => {
     process.env.MYCOVER_SECRET_KEY = 'mycover-api-secret';
     vi.stubGlobal('fetch', mocks.fetch);
     mocks.getMyCoverWebhookSecret.mockReturnValue('MCASECK|secret');
+    mocks.maybeNotifyActivateProtection.mockResolvedValue(undefined);
     mocks.createServiceClient.mockReturnValue(createSupabaseMock());
   });
 
@@ -187,6 +194,37 @@ describe('POST /api/webhooks/mycover', () => {
         claim_link: 'https://mycover.ai/purchase?q=claim-token',
         inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
       })
+    );
+  });
+
+  it('rechecks delivered-order activation when an inspection link is stored on purchase', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policyUpdateResult: {
+          data: { id: 'policy-row', order_id: 'order-123' },
+          error: null,
+        },
+      })
+    );
+    const payload = {
+      data: {
+        id: 'policy-123',
+        status: 'successful',
+        sdk: {
+          inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+        },
+      },
+      event: 'purchase.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.maybeNotifyActivateProtection).toHaveBeenCalledWith(
+      'order-123'
     );
   });
 
@@ -684,7 +722,15 @@ describe('POST /api/webhooks/mycover', () => {
       );
     });
 
-    it('refreshes hosted links on policy.updated', async () => {
+    it('refreshes hosted links on policy.updated and rechecks delivered-order activation', async () => {
+      mocks.createServiceClient.mockReturnValue(
+        createSupabaseMock({
+          policyUpdateResult: {
+            data: { id: 'policy-row', order_id: 'order-123' },
+            error: null,
+          },
+        })
+      );
       const payload = {
         event: 'policy.updated',
         data: {
@@ -707,6 +753,9 @@ describe('POST /api/webhooks/mycover', () => {
           claim_link: 'https://mycover.ai/purchase?q=claim-new',
           inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
         })
+      );
+      expect(mocks.maybeNotifyActivateProtection).toHaveBeenCalledWith(
+        'order-123'
       );
     });
   });

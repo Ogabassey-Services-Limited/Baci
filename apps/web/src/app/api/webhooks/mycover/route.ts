@@ -6,6 +6,7 @@ import {
   claimStatusLabel,
   normalizeClaimStatus,
 } from '@/lib/insurance/claim-status';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   type MyCoverWebhookPayload,
@@ -19,6 +20,7 @@ type MyCoverPolicyLookup = {
 
 type MyCoverUpdatedPolicy = {
   id: string;
+  order_id?: string | null;
 };
 
 const MYCOVER_RENEWAL_DETAILS_URL = 'https://api.mycover.ai/v1/renewals';
@@ -256,6 +258,7 @@ async function handlePolicyPurchased(
     return;
   }
 
+  const hostedFlowLinks = getHostedFlowLinks(data);
   const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
@@ -266,10 +269,10 @@ async function handlePolicyPurchased(
       status: 'active',
       updated_at: new Date().toISOString(),
       // Hosted flows for filing a claim / completing a device inspection.
-      ...getHostedFlowLinks(data),
+      ...hostedFlowLinks,
     })
     .eq(lookup.column, lookup.value)
-    .select('id')
+    .select('id, order_id')
     .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
@@ -283,6 +286,10 @@ async function handlePolicyPurchased(
 
   const safeIdentifier = lookup.value.replace(/[\r\n]/g, '');
   console.log('[MyCover Webhook] Policy confirmed:', safeIdentifier);
+
+  if (hostedFlowLinks.inspection_link && updatedPolicy.order_id) {
+    await notifyActivateProtectionIfDelivered(updatedPolicy.order_id);
+  }
 }
 
 /**
@@ -342,6 +349,17 @@ async function handleInspectionCompleted(
     '[MyCover Webhook] Pre-loss inspection completed:',
     safeIdentifier
   );
+}
+
+async function notifyActivateProtectionIfDelivered(orderId: string) {
+  try {
+    await maybeNotifyActivateProtection(orderId);
+  } catch (error) {
+    console.error(
+      '[MyCover Webhook] Failed to check activation reminder after hosted link update:',
+      error
+    );
+  }
 }
 
 /**
@@ -549,9 +567,10 @@ async function handlePolicyUpdated(
   const lookup = getPolicyLookup(data, { dataIdColumn: 'mycover_policy_id' });
   if (!lookup) return;
 
+  const hostedFlowLinks = getHostedFlowLinks(data);
   const update: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
-    ...getHostedFlowLinks(data),
+    ...hostedFlowLinks,
   };
   const certificateUrl = getCertificateUrl(data);
   const policyNumber = getPolicyNumber(data);
@@ -560,14 +579,20 @@ async function handlePolicyUpdated(
   if (policyNumber) update.mycover_policy_number = policyNumber;
   if (expiryDate) update.policy_expiry_date = expiryDate;
 
-  const { error } = await supabase
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update(update)
-    .eq(lookup.column, lookup.value);
+    .eq(lookup.column, lookup.value)
+    .select('id, order_id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to apply policy.updated:', error);
     throw error;
+  }
+
+  if (hostedFlowLinks.inspection_link && updatedPolicy?.order_id) {
+    await notifyActivateProtectionIfDelivered(updatedPolicy.order_id);
   }
 }
 

@@ -92,7 +92,7 @@ export async function GET(
         certificateUrl: policy.certificate_url,
         claimLink: policy.claim_link ?? null,
         inspectionLink: policy.inspection_link ?? null,
-        inspectionStatus: policy.inspection_status ?? 'pending',
+        inspectionStatus: policy.inspection_status ?? null,
         orderDelivered,
       })),
     });

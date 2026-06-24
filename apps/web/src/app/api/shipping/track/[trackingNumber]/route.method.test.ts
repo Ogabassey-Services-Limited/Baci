@@ -7,15 +7,23 @@ const mockOrderStatusEq = vi.fn();
 const mockOrderStatusUpdate = vi.fn();
 const mockShipmentStatusEq = vi.fn();
 const mockShipmentStatusUpdate = vi.fn();
-const mockRpc = vi.fn();
+const mockAdminRpc = vi.fn();
+const mockAuthGetUser = vi.fn();
 const mockMaybeNotifyActivateProtection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => new Map()),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ rpc: mockAdminRpc })),
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({ from: mockFrom, rpc: mockRpc })),
+  createClient: vi.fn(() => ({
+    auth: { getUser: mockAuthGetUser },
+    from: mockFrom,
+  })),
 }));
 
 vi.mock('@/lib/insurance/notify-activate-protection', () => ({
@@ -85,8 +93,12 @@ function mockShipmentLookup(data: unknown) {
 describe('/api/shipping/track/[trackingNumber] method boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
     mockMaybeNotifyActivateProtection.mockResolvedValue(undefined);
-    mockRpc.mockResolvedValue({ data: true, error: null });
+    mockAdminRpc.mockResolvedValue({ data: true, error: null });
   });
 
   it('rejects GET so tracking refresh cannot be triggered by prefetch or forged navigation', async () => {
@@ -252,16 +264,56 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ status: 'delivered' });
       expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
-      expect(mockRpc).toHaveBeenCalledWith(
+      expect(mockAdminRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_current_location: 'Lagos',
+          p_customer_user_id: 'user-1',
           p_delivered_at: '2026-05-12T15:00:00.000Z',
           p_order_id: 'order-1',
           p_shipment_id: 'shipment-1',
         })
       );
       expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith('order-1');
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('does not call the service-only RPC when delivered fallback has no authenticated customer', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusEq.mockResolvedValueOnce({
+      error: { message: 'shipment write denied by RLS' },
+    });
+    mockAuthGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+
+      expect(response.status).toBe(200);
+      expect(mockAdminRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }
@@ -279,7 +331,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     mockShipmentStatusEq.mockResolvedValueOnce({
       error: { message: 'shipment write denied by RLS' },
     });
-    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+    mockAdminRpc.mockResolvedValueOnce({ data: false, error: null });
     mockTrackShipment.mockResolvedValue({
       actualDelivery: new Date('2026-05-12T15:00:00Z'),
       carrierName: 'DHL',
@@ -296,7 +348,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockRpc).toHaveBeenCalledWith(
+      expect(mockAdminRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_order_id: 'order-1',
