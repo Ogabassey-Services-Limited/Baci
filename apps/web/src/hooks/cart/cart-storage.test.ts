@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   generateCartItemId,
   getCartFromStorage,
+  getCartWideNegotiationFromStorage,
   getMerchantSlugFromStorage,
   getStorefrontCartStorageKey,
   saveCartToStorage,
+  saveCartWideNegotiationToStorage,
   saveMerchantSlugToStorage,
 } from './cart-storage';
 import type { CartItem } from './cart-types';
@@ -114,5 +116,17 @@ describe('cart-storage', () => {
     saveMerchantSlugToStorage(null);
 
     expect(getMerchantSlugFromStorage()).toBeNull();
+  });
+
+  it('persists and clears the cart-wide negotiation flag per merchant', () => {
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
+
+    saveCartWideNegotiationToStorage(true, 'ogabassey');
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(true);
+    // Scoped per merchant — a different slug is unaffected.
+    expect(getCartWideNegotiationFromStorage('other')).toBe(false);
+
+    saveCartWideNegotiationToStorage(false, 'ogabassey');
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
   });
 });

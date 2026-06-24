@@ -88,7 +88,13 @@ export async function repriceCartItems(
     }
 
     // Variant overrides via the same RLS-safe RPC the order validation uses.
-    const variantOverride = new Map<string, number | null>();
+    // Keep the owning product_id alongside the price so a stale/corrupt cart
+    // line cannot be repriced with an override that belongs to another product.
+    const variantOverride = new Map<
+      string,
+      { price: number | null; productId: string }
+    >();
+    let variantLookupFailed = false;
     if (variantIds.length > 0) {
       const { data: variants, error: variantsError } = (await supabase.rpc(
         'get_order_variant_overrides',
@@ -98,24 +104,38 @@ export async function repriceCartItems(
         error: { message: string } | null;
       };
       if (variantsError) {
-        // Fail open on the variant leg: fall back to base product price.
-        log.warn('Reprice variant override lookup failed; using base prices', {
-          error: variantsError.message,
-        });
+        // Fail open, but do NOT silently fall back to base prices for variant
+        // lines — a variant with a price_override would be rewritten to the
+        // wrong unit price. Mark the failure so those lines are skipped below.
+        variantLookupFailed = true;
+        log.warn(
+          'Reprice variant override lookup failed; skipping variant lines',
+          {
+            error: variantsError.message,
+          }
+        );
       } else {
         for (const variant of variants ?? []) {
-          variantOverride.set(
-            variant.id,
-            variant.price_override == null
-              ? null
-              : Number(variant.price_override)
-          );
+          variantOverride.set(variant.id, {
+            price:
+              variant.price_override == null
+                ? null
+                : Number(variant.price_override),
+            productId: variant.product_id,
+          });
         }
       }
     }
 
     const result: RepriceResult = { priceById: {}, changes: [] };
     for (const item of items) {
+      // When the override lookup failed, skip variant lines instead of
+      // repricing them against the base product price (wrong for any variant
+      // carrying a price_override). Non-variant lines still reprice safely.
+      if (item.variant_id && variantLookupFailed) {
+        continue;
+      }
+
       const basePrice = productPrice.get(item.product_id);
       if (basePrice == null) {
         // Product missing/inactive — leave the line untouched; availability is
@@ -123,10 +143,17 @@ export async function repriceCartItems(
         continue;
       }
       // Authoritative unit price: variant.price_override ?? product.price.
+      // Only honor an override whose variant actually belongs to this line's
+      // product (guards stale/corrupt lines), mirroring the checkout parity
+      // `candidateVariant.product_id === item.product_id` check.
       const override = item.variant_id
         ? variantOverride.get(item.variant_id)
         : undefined;
-      const liveUnitPrice = override != null ? override : basePrice;
+      const overridePrice =
+        override && override.productId === item.product_id
+          ? override.price
+          : undefined;
+      const liveUnitPrice = overridePrice != null ? overridePrice : basePrice;
       if (!Number.isFinite(liveUnitPrice) || liveUnitPrice <= 0) {
         continue;
       }

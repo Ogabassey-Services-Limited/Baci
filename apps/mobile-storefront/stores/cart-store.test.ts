@@ -425,6 +425,70 @@ describe('cart-store', () => {
     expect(items[0].negotiationStatus).toBeUndefined();
   });
 
+  it('resets the group negotiation when a line quantity changes', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'p1',
+      slug: 's1',
+      name: 'Item A',
+      price: 100000,
+      quantity: 1,
+    });
+    addItem({
+      product_id: 'p2',
+      slug: 's2',
+      name: 'Item B',
+      price: 200000,
+      quantity: 1,
+    });
+
+    useCartStore.getState().applyCartWideNegotiation(270000);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+
+    // Incrementing a line changes the cart total, so the distributed group deal
+    // must reset rather than apply the old negotiated unit price to new units.
+    const targetId = useCartStore.getState().items[0].id;
+    useCartStore.getState().updateQuantity(targetId, 3);
+
+    const items = useCartStore.getState().items;
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(false);
+    expect(items.every((item) => item.negotiatedPrice === undefined)).toBe(
+      true
+    );
+    expect(items.find((item) => item.id === targetId)?.quantity).toBe(3);
+  });
+
+  it('resets the group negotiation when a new item is added', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'p1',
+      slug: 's1',
+      name: 'Item A',
+      price: 100000,
+      quantity: 1,
+    });
+
+    useCartStore.getState().applyCartWideNegotiation(90000);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+
+    // Adding a line changes the cart composition, so the group deal resets and
+    // existing lines revert to catalog price (no stale negotiated shares).
+    addItem({
+      product_id: 'p2',
+      slug: 's2',
+      name: 'Item B',
+      price: 200000,
+      quantity: 1,
+    });
+
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(2);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(false);
+    expect(items.every((item) => item.negotiatedPrice === undefined)).toBe(
+      true
+    );
+  });
+
   it('clears the group negotiation on ALL lines when a reprice changes any line', () => {
     const { addItem } = useCartStore.getState();
     addItem({

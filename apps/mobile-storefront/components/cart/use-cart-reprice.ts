@@ -55,10 +55,19 @@ export function useCartReprice() {
         if (cancelled) {
           return;
         }
-        if (Object.keys(result.priceById).length > 0) {
-          repriceItems(result.priceById);
-        }
         if (result.changes.length > 0) {
+          // Apply only the reported changes. repriceCartItems keeps ≤₦1
+          // tolerance drift out of `changes` (though still in priceById);
+          // applying those would silently clear an accepted negotiated price
+          // with no price-change modal shown.
+          const changedPriceById: Record<string, number> = {};
+          for (const change of result.changes) {
+            const livePrice = result.priceById[change.id];
+            if (typeof livePrice === 'number') {
+              changedPriceById[change.id] = livePrice;
+            }
+          }
+          repriceItems(changedPriceById);
           setPriceChanges(result.changes);
         }
       })

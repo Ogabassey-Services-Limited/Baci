@@ -187,13 +187,22 @@ describe('repriceCartItems', () => {
     );
   });
 
-  it('falls back to base product prices when variant lookup fails', async () => {
-    const item = createCartItem({
+  it('skips variant lines (but not base lines) when the variant lookup fails', async () => {
+    const variantItem = createCartItem({
+      id: 'variant-line',
       variant_id: 'variant-1',
       price: 390000,
     });
+    const baseItem = createCartItem({
+      id: 'base-line',
+      product_id: 'base-product',
+      price: 200000,
+    });
     productQuery.in.mockResolvedValue({
-      data: [{ id: 'product-1', price: 430000 }],
+      data: [
+        { id: 'product-1', price: 430000 },
+        { id: 'base-product', price: 250000 },
+      ],
       error: null,
     });
     mockRpc.mockResolvedValue({
@@ -201,20 +210,55 @@ describe('repriceCartItems', () => {
       error: { message: 'variants unavailable' },
     });
 
-    const result = await repriceCartItems([item], 'merchant-1');
+    const result = await repriceCartItems(
+      [variantItem, baseItem],
+      'merchant-1'
+    );
 
-    expect(result.priceById).toEqual({ 'line-1': 430000 });
+    // The variant line is NOT repriced to the base product price (a variant
+    // with a price_override would otherwise be rewritten incorrectly); the
+    // non-variant line still reprices normally.
+    expect(result.priceById).toEqual({ 'base-line': 250000 });
     expect(result.changes).toEqual([
       {
-        id: 'line-1',
+        id: 'base-line',
         name: 'iPhone 13',
-        oldPrice: 390000,
-        newPrice: 430000,
+        oldPrice: 200000,
+        newPrice: 250000,
       },
     ]);
     expect(mockWarn).toHaveBeenCalledWith(
-      'Reprice variant override lookup failed; using base prices',
+      'Reprice variant override lookup failed; skipping variant lines',
       { error: 'variants unavailable' }
     );
+  });
+
+  it('ignores a variant override that belongs to a different product', async () => {
+    const item = createCartItem({
+      id: 'variant-line',
+      product_id: 'product-1',
+      variant_id: 'variant-1',
+      price: 390000,
+    });
+    productQuery.in.mockResolvedValue({
+      data: [{ id: 'product-1', price: 430000 }],
+      error: null,
+    });
+    // The override row's variant belongs to a DIFFERENT product (stale/corrupt
+    // cart line), so it must be ignored and the base price used instead.
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: 'variant-1',
+          product_id: 'some-other-product',
+          price_override: '999000',
+        },
+      ],
+      error: null,
+    });
+
+    const result = await repriceCartItems([item], 'merchant-1');
+
+    expect(result.priceById).toEqual({ 'variant-line': 430000 });
   });
 });

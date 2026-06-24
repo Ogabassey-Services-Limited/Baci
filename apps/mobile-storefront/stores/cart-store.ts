@@ -12,6 +12,18 @@ import type { CartState } from './cart-store-state';
 export type { CartItem } from './cart-store.types';
 export { formatPrice, selectCartQuantities } from './cart-store-selectors';
 
+// A cart-wide (group) negotiation distributes one accepted total across every
+// line. Any change to cart composition — add, remove, or quantity change — or a
+// catalog price drift invalidates that total, so the group deal is reset:
+// negotiated prices are cleared from all lines (callers turn the flag off).
+function clearGroupNegotiation(items: CartItem[]): CartItem[] {
+  return items.map((item) =>
+    item.negotiatedPrice === undefined && item.negotiationStatus === undefined
+      ? item
+      : { ...item, negotiatedPrice: undefined, negotiationStatus: undefined }
+  );
+}
+
 export function resetCartLineSequence() {
   if (useCartStore.getState().items.length === 0) {
     useCartStore.setState({ lineSequence: 0 });
@@ -65,26 +77,35 @@ export const useCartStore = create<CartState>()(
             isSameCartLine(existingItem, itemToAdd)
           );
 
+          let items: CartItem[];
+          let lineSequence = state.lineSequence;
           if (existingIndex >= 0) {
             // Refresh cart metadata from the latest add while preserving cart-only state.
-            const updatedItems = [...state.items];
-            const existingItem = updatedItems[existingIndex];
-            updatedItems[existingIndex] = mergeExistingCartItem(
-              existingItem,
+            items = [...state.items];
+            items[existingIndex] = mergeExistingCartItem(
+              items[existingIndex],
               itemToAdd
             );
-
-            return { items: updatedItems };
+          } else {
+            lineSequence = state.lineSequence + 1;
+            items = [
+              ...state.items,
+              { ...itemToAdd, id: createCartLineId(itemToAdd, lineSequence) },
+            ];
           }
 
-          // Add new item
-          const lineSequence = state.lineSequence + 1;
-          const newItem: CartItem = {
-            ...itemToAdd,
-            id: createCartLineId(itemToAdd, lineSequence),
-          };
+          // Adding or merging a line changes the cart composition, so an active
+          // cart-wide negotiation no longer represents the agreed total — reset
+          // it (and the newly added units never inherit a stale group share).
+          if (state.cartWideNegotiationActive) {
+            return {
+              items: clearGroupNegotiation(items),
+              lineSequence,
+              cartWideNegotiationActive: false,
+            };
+          }
 
-          return { items: [...state.items, newItem], lineSequence };
+          return { items, lineSequence };
         });
       },
 
@@ -93,16 +114,11 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           const items = state.items.filter((item) => item.id !== id);
 
-          // A cart-wide (group) negotiation distributes one negotiated total
-          // across all lines; removing a line breaks that total, so reset the
-          // group negotiation and revert remaining lines to catalog price.
+          // Removing a line breaks any cart-wide negotiated total, so reset the
+          // group deal and revert remaining lines to catalog price.
           if (state.cartWideNegotiationActive) {
             return {
-              items: items.map((item) => ({
-                ...item,
-                negotiatedPrice: undefined,
-                negotiationStatus: undefined,
-              })),
+              items: clearGroupNegotiation(items),
               cartWideNegotiationActive: false,
             };
           }
@@ -118,29 +134,36 @@ export const useCartStore = create<CartState>()(
             const items = state.items.filter((item) => item.id !== id);
             if (state.cartWideNegotiationActive) {
               return {
-                items: items.map((item) => ({
-                  ...item,
-                  negotiatedPrice: undefined,
-                  negotiationStatus: undefined,
-                })),
+                items: clearGroupNegotiation(items),
                 cartWideNegotiationActive: false,
               };
             }
             return { items };
           }
 
-          return {
-            items: state.items.map((item) => {
-              if (item.id !== id) return item;
+          const items = state.items.map((item) => {
+            if (item.id !== id) return item;
 
-              // Respect max quantity if set
-              const newQuantity = item.max_quantity
-                ? Math.min(quantity, item.max_quantity)
-                : quantity;
+            // Respect max quantity if set
+            const newQuantity = item.max_quantity
+              ? Math.min(quantity, item.max_quantity)
+              : quantity;
 
-              return { ...item, quantity: newQuantity };
-            }),
-          };
+            return { ...item, quantity: newQuantity };
+          });
+
+          // A quantity change alters the cart total, so an active cart-wide
+          // negotiation (one agreed total distributed across lines) no longer
+          // holds — reset it instead of applying the old per-unit deal to the
+          // new quantity.
+          if (state.cartWideNegotiationActive) {
+            return {
+              items: clearGroupNegotiation(items),
+              cartWideNegotiationActive: false,
+            };
+          }
+
+          return { items };
         });
       },
 

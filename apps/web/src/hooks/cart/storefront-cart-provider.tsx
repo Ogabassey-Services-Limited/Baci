@@ -11,8 +11,10 @@ import {
   DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS,
   generateCartItemId,
   getCartFromStorage,
+  getCartWideNegotiationFromStorage,
   getMerchantSlugFromStorage,
   saveCartToStorage,
+  saveCartWideNegotiationToStorage,
   saveMerchantSlugToStorage,
 } from './cart-storage';
 import type { AddToCartOptions, CartContextType, CartItem } from './cart-types';
@@ -87,6 +89,7 @@ export function StorefrontCartProvider({
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
     setCart(getCartFromStorage(slugToUse));
+    setCartWideNegotiationActive(getCartWideNegotiationFromStorage(slugToUse));
     setMerchantSlugState(slugToUse);
     setIsHydrated(true);
   }, []);
@@ -193,11 +196,35 @@ export function StorefrontCartProvider({
           return;
         }
 
+        // A cart-wide negotiation distributes one agreed total across all
+        // lines, so any validated price drift voids the whole group deal — not
+        // just the changed line. Reset the flag and clear every line's
+        // negotiated price (applyValidationResults only clears the drifted one).
+        const resetGroup =
+          cartWideNegotiationActive &&
+          (validation.priceChanges?.length ?? 0) > 0;
+
         setCart((previousCart) => {
-          const updatedCart = applyValidationResults(previousCart, validation);
+          let updatedCart = applyValidationResults(previousCart, validation);
+          if (resetGroup) {
+            updatedCart = updatedCart.map((item) =>
+              item.negotiatedPrice === undefined &&
+              item.negotiationStatus === undefined
+                ? item
+                : {
+                    ...item,
+                    negotiatedPrice: undefined,
+                    negotiationStatus: undefined,
+                  }
+            );
+          }
           lastValidatedCartHashRef.current = createCartHash(updatedCart);
           return updatedCart;
         });
+
+        if (resetGroup) {
+          setCartWideNegotiationActive(false);
+        }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
@@ -214,13 +241,14 @@ export function StorefrontCartProvider({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [cart, isHydrated, isValidationActivated]);
+  }, [cart, isHydrated, isValidationActivated, cartWideNegotiationActive]);
 
   useEffect(() => {
     if (isHydrated) {
       saveCartToStorage(cart, merchantSlug);
+      saveCartWideNegotiationToStorage(cartWideNegotiationActive, merchantSlug);
     }
-  }, [cart, isHydrated, merchantSlug]);
+  }, [cart, cartWideNegotiationActive, isHydrated, merchantSlug]);
 
   useEffect(() => {
     return () => {

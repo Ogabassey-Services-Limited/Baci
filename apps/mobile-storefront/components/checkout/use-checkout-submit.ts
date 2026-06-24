@@ -8,8 +8,8 @@ import type {
   DeliveryMethod,
   ShippingQuote,
 } from '@/components/checkout/types';
-import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useMerchant } from '@/hooks/use-merchant';
+import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import type { ShippingAddressInput } from '@/lib/validation';
 import {
   buildSavingsOrderFields,
@@ -119,7 +119,11 @@ export function useCheckoutSubmit({
   walletSelection,
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
-  const repriceMerchantId = merchant?.id ?? CHECKOUT_MERCHANT_ID;
+  // useMerchant returns placeholder data whose id is CONFIG.MERCHANT_ID, which
+  // defaults to '' when Expo extra is not injected. `??` would keep that empty
+  // string, so use `||` to treat a blank id as missing and fall back to the
+  // same constant order submission uses.
+  const repriceMerchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
 
@@ -154,7 +158,10 @@ export function useCheckoutSubmit({
       // double taps cannot start another submit while repricing is pending; the
       // finally block below releases the lock for price-drift aborts and errors.
       if (itemsSnapshot.length > 0) {
-        const reprice = await repriceCartItems(itemsSnapshot, repriceMerchantId);
+        const reprice = await repriceCartItems(
+          itemsSnapshot,
+          repriceMerchantId
+        );
         if (reprice.changes.length > 0) {
           useCartStore.getState().repriceItems(reprice.priceById);
           Alert.alert(
