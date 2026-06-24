@@ -13,7 +13,6 @@ import type {
   ShippingProviderCode,
   TrackingResult,
 } from '@/lib/shipping/types';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { trackingParamsSchema } from '@/schemas/shipping-tracking';
 
@@ -260,8 +259,7 @@ async function persistDeliveredTransitionForCustomer({
     return false;
   }
 
-  const adminSupabase = createAdminClient();
-  const { data, error } = await adminSupabase.rpc(
+  const { data, error } = await supabase.rpc(
     'persist_customer_delivered_tracking',
     {
       p_current_location: snapshot.current_location ?? null,

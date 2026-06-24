@@ -53,7 +53,8 @@ BEGIN
   WHERE "s"."id" = "p_shipment_id"
     AND "o"."id" = "p_order_id"
     AND "p_customer_user_id" IS NOT NULL
-    AND "c"."user_id" = "p_customer_user_id"
+    AND "p_customer_user_id" = (SELECT "auth"."uid"())
+    AND "c"."user_id" = (SELECT "auth"."uid"())
   LIMIT 1;
 
   IF "v_authorized" IS DISTINCT FROM TRUE THEN
@@ -127,4 +128,4 @@ GRANT EXECUTE ON FUNCTION "public"."persist_customer_delivered_tracking"(
   timestamp with time zone,
   timestamp with time zone,
   "jsonb"
-) TO "service_role";
+) TO "authenticated";
