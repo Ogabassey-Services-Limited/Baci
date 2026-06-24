@@ -19,7 +19,6 @@ type Builder = {
   insert: Spy;
   eq: Spy;
   is: Spy;
-  gte: Spy;
   maybeSingle: Spy;
   then: (resolve: (r: Result) => void) => void;
 };
@@ -32,7 +31,6 @@ function queryReturning(result: Result): Builder {
   builder.insert = vi.fn(ret);
   builder.eq = vi.fn(ret);
   builder.is = vi.fn(ret);
-  builder.gte = vi.fn(ret);
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
   // biome-ignore lint/suspicious/noThenProperty: intentional thenable to mock the awaitable Supabase query builder
   builder.then = (resolve) => resolve(result);
@@ -122,6 +120,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
       codeId: 'c1',
       ipHash: 'ip',
       attemptId: 'attempt-1',
+      replacementCodeHash: 'replacement-hash',
     });
 
     expect(claimed).toBe(true);
@@ -130,6 +129,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
       p_code_id: 'c1',
       p_code_set_id: 'set-1',
       p_ip_hash: 'ip',
+      p_replacement_code_hash: 'replacement-hash',
       p_user_id: 'user-1',
     });
   });
@@ -144,6 +144,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
         codeId: 'c1',
         ipHash: 'ip',
         attemptId: 'attempt-1',
+        replacementCodeHash: 'replacement-hash',
       })
     ).rejects.toThrow('Failed to consume recovery code');
   });
@@ -158,6 +159,7 @@ describe('recovery-code-store (Supabase-backed)', () => {
         codeId: 'c1',
         ipHash: 'ip',
         attemptId: 'attempt-1',
+        replacementCodeHash: 'replacement-hash',
       })
     ).resolves.toBe(false);
   });
@@ -213,54 +215,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
         maxFailures: 10,
       })
     ).rejects.toThrow('Failed to begin recovery attempt');
-  });
-
-  it('countRecentFailures throws on query error (fail closed)', async () => {
-    mockFrom.mockReturnValueOnce(
-      queryReturning({ count: null, error: { message: 'count denied' } })
-    );
-
-    await expect(
-      createRecoveryCodeStore().countRecentFailures({
-        userId: 'user-1',
-        codeSetId: 'set-1',
-        ipHash: 'ip',
-      })
-    ).rejects.toThrow('Failed to count recovery attempts');
-  });
-
-  it('countRecentFailures counts failed attempts within the window', async () => {
-    const builder = queryReturning({ count: 3, error: null });
-    mockFrom.mockReturnValueOnce(builder);
-
-    const n = await createRecoveryCodeStore().countRecentFailures({
-      userId: 'user-1',
-      codeSetId: 'set-1',
-      ipHash: 'ip',
-    });
-
-    expect(mockFrom).toHaveBeenCalledWith('merchant_auth_recovery_attempts');
-    expect(builder.select).toHaveBeenCalledWith('id', {
-      count: 'exact',
-      head: true,
-    });
-    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
-    expect(builder.eq).toHaveBeenCalledWith('code_set_id', 'set-1');
-    expect(builder.eq).toHaveBeenCalledWith('ip_hash', 'ip');
-    expect(builder.eq).toHaveBeenCalledWith('succeeded', false);
-    expect(builder.gte).toHaveBeenCalledWith('created_at', expect.any(String));
-    expect(n).toBe(3);
-  });
-
-  it('countRecentFailures treats a null count as 0', async () => {
-    mockFrom.mockReturnValueOnce(queryReturning({ count: null, error: null }));
-    expect(
-      await createRecoveryCodeStore().countRecentFailures({
-        userId: 'u',
-        codeSetId: 'set-1',
-        ipHash: 'ip',
-      })
-    ).toBe(0);
   });
 
   it('recordAttempt inserts an attempt row', async () => {

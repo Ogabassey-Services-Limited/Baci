@@ -25,6 +25,7 @@ const FIXED_RECOVERY_CODES = [
   'WXYZ-RSTV-MNPQ-GHJK-CDEF-89AB',
 ] as const;
 const UNKNOWN_RECOVERY_CODE = 'ZZZZ-YYYY-XXXX-WWWW-VVVV-TTTT';
+const REPLACEMENT_CODE = 'ABCD-EFGH-JKMQ-RSTV-WXYZ-2345';
 
 type Attempt = {
   userId: string;
@@ -44,6 +45,7 @@ function makeStore(plaintextCodes: string[]) {
 
   const store: RecoveryCodeStore & {
     attempts: Attempt[];
+    activeCodeCount: () => number;
     listCalls: () => number;
     isUsed: (id: string) => boolean;
   } = {
@@ -86,10 +88,12 @@ function makeStore(plaintextCodes: string[]) {
       attemptId,
       codeId,
       codeSetId,
+      replacementCodeHash,
     }: {
       attemptId: string;
       codeId: string;
       codeSetId: string;
+      replacementCodeHash: string;
     }): Promise<boolean> => {
       if (codeSetId !== CODE_SET_ID) {
         return Promise.resolve(false);
@@ -106,19 +110,39 @@ function makeStore(plaintextCodes: string[]) {
       }
       c.used = true;
       attempts[Number(attemptId)].succeeded = true;
+      codes.push({
+        id: `replacement-${codes.length}`,
+        codeHash: replacementCodeHash,
+        used: false,
+      });
       return Promise.resolve(true);
     },
-    countRecentFailures: (): Promise<number> =>
-      Promise.resolve(attempts.filter((a) => !a.succeeded).length),
     recordAttempt: (a: Attempt): Promise<void> => {
       attempts.push(a);
       return Promise.resolve();
     },
     attempts,
+    activeCodeCount: () => codes.filter((c) => !c.used).length,
     listCalls: () => listCalls,
     isUsed: (id: string) => codes.find((x) => x.id === id)?.used ?? false,
   };
   return store;
+}
+
+function redeem(
+  store: RecoveryCodeStore,
+  input: string,
+  overrides: Partial<Parameters<typeof redeemRecoveryCode>[0]> = {}
+) {
+  return redeemRecoveryCode({
+    userId: USER,
+    ipHash: IP,
+    input,
+    pepper: PEPPER,
+    store,
+    generateReplacementCode: () => REPLACEMENT_CODE,
+    ...overrides,
+  });
 }
 
 describe('redeemRecoveryCode', () => {
@@ -129,16 +153,15 @@ describe('redeemRecoveryCode', () => {
 
   it('accepts a valid code, consumes it, and records success', async () => {
     const store = makeStore(codes);
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[3],
-      pepper: PEPPER,
-      store,
-    });
+    const result = await redeem(store, codes[3]);
 
-    expect(result).toEqual({ ok: true, codeId: 'code-3' });
+    expect(result).toEqual({
+      ok: true,
+      codeId: 'code-3',
+      replacementCode: REPLACEMENT_CODE,
+    });
     expect(store.isUsed('code-3')).toBe(true);
+    expect(store.activeCodeCount()).toBe(FIXED_RECOVERY_CODES.length);
     expect(store.attempts.at(-1)).toEqual({
       userId: USER,
       ipHash: IP,
@@ -149,25 +172,16 @@ describe('redeemRecoveryCode', () => {
 
   it('matches a code regardless of formatting/case', async () => {
     const store = makeStore(codes);
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[0].toLowerCase().replace(/-/g, ' '),
-      pepper: PEPPER,
+    const result = await redeem(
       store,
-    });
+      codes[0].toLowerCase().replace(/-/g, ' ')
+    );
     expect(result.ok).toBe(true);
   });
 
   it('rejects an unknown code and records a failure', async () => {
     const store = makeStore(codes);
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: UNKNOWN_RECOVERY_CODE,
-      pepper: PEPPER,
-      store,
-    });
+    const result = await redeem(store, UNKNOWN_RECOVERY_CODE);
 
     expect(result).toEqual({ ok: false, reason: 'invalid' });
     expect(store.attempts).toHaveLength(1);
@@ -181,20 +195,8 @@ describe('redeemRecoveryCode', () => {
 
   it('does not accept an already-consumed code', async () => {
     const store = makeStore(codes);
-    await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[2],
-      pepper: PEPPER,
-      store,
-    });
-    const second = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[2],
-      pepper: PEPPER,
-      store,
-    });
+    await redeem(store, codes[2]);
+    const second = await redeem(store, codes[2]);
     expect(second).toEqual({ ok: false, reason: 'invalid' });
   });
 
@@ -202,13 +204,7 @@ describe('redeemRecoveryCode', () => {
     const store = makeStore(codes);
     store.claimCode = () => Promise.resolve(false);
 
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[1],
-      pepper: PEPPER,
-      store,
-    });
+    const result = await redeem(store, codes[1]);
 
     expect(result).toEqual({ ok: false, reason: 'invalid' });
     expect(store.attempts.at(-1)).toEqual({
@@ -231,13 +227,7 @@ describe('redeemRecoveryCode', () => {
     }
     const callsBefore = store.listCalls();
 
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[0], // a valid code — must still be refused while locked
-      pepper: PEPPER,
-      store,
-    });
+    const result = await redeem(store, codes[0]); // valid code refused while locked
 
     expect(result).toEqual({ ok: false, reason: 'locked' });
     expect(store.listCalls()).toBe(callsBefore); // did not even look up codes
@@ -247,21 +237,9 @@ describe('redeemRecoveryCode', () => {
   it('eventually locks after repeated wrong codes (no-match attempts count)', async () => {
     const store = makeStore(codes);
     for (let i = 0; i < RECOVERY_MAX_FAILURES; i += 1) {
-      await redeemRecoveryCode({
-        userId: USER,
-        ipHash: IP,
-        input: UNKNOWN_RECOVERY_CODE,
-        pepper: PEPPER,
-        store,
-      });
+      await redeem(store, UNKNOWN_RECOVERY_CODE);
     }
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[0],
-      pepper: PEPPER,
-      store,
-    });
+    const result = await redeem(store, codes[0]);
     expect(result).toEqual({ ok: false, reason: 'locked' });
   });
 
@@ -269,13 +247,7 @@ describe('redeemRecoveryCode', () => {
     const store = makeStore(codes);
     store.getActiveCodeSetId = () => Promise.resolve(null);
 
-    const result = await redeemRecoveryCode({
-      userId: USER,
-      ipHash: IP,
-      input: codes[0],
-      pepper: PEPPER,
-      store,
-    });
+    const result = await redeem(store, codes[0]);
 
     expect(result).toEqual({ ok: false, reason: 'invalid' });
     expect(store.listCalls()).toBe(0);

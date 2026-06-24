@@ -7,7 +7,6 @@ import type {
   RecoveryCodeClaim,
   RecoveryCodeRecord,
   RecoveryCodeStore,
-  RecoveryFailureScope,
 } from './recovery-code-redemption';
 
 const RECOVERY_CODES_TABLE = 'merchant_auth_recovery_codes';
@@ -93,43 +92,23 @@ export function createRecoveryCodeStore(): RecoveryCodeStore {
       codeSetId,
       ipHash,
       attemptId,
+      replacementCodeHash,
     }: RecoveryCodeClaim): Promise<boolean> {
       // The RPC runs the code claim and reserved-attempt success update in one
-      // database transaction. This avoids burning a code if attempt logging
-      // fails after a successful claim.
+      // database transaction, and inserts the replacement saved code hash before
+      // commit. This avoids burning a code if attempt logging/reissue fails.
       const { data, error } = await supabase.rpc(CLAIM_RECOVERY_CODE_RPC, {
         p_attempt_id: attemptId,
         p_code_id: codeId,
         p_code_set_id: codeSetId,
         p_ip_hash: ipHash,
+        p_replacement_code_hash: replacementCodeHash,
         p_user_id: userId,
       });
       if (error) {
         throw new Error(`Failed to consume recovery code: ${error.message}`);
       }
       return data === true;
-    },
-
-    async countRecentFailures({
-      userId,
-      ipHash,
-      codeSetId,
-    }: RecoveryFailureScope): Promise<number> {
-      const cutoff = new Date(
-        Date.now() - RECOVERY_FAILURE_WINDOW_MS
-      ).toISOString();
-      const { count, error } = await supabase
-        .from(RECOVERY_ATTEMPTS_TABLE)
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('code_set_id', codeSetId)
-        .eq('ip_hash', ipHash)
-        .eq('succeeded', false)
-        .gte('created_at', cutoff);
-      if (error) {
-        throw new Error(`Failed to count recovery attempts: ${error.message}`);
-      }
-      return count ?? 0;
     },
 
     async recordAttempt({

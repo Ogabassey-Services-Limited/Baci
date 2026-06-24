@@ -1,6 +1,8 @@
 import 'server-only';
 
 import {
+  generateRecoveryCodes,
+  hashRecoveryCode,
   hashRecoveryCodeCandidate,
   RECOVERY_CODE_COUNT,
   verifyRecoveryCodeHash,
@@ -39,6 +41,7 @@ export type RecoveryFailureScope = {
 export type RecoveryCodeClaim = RecoveryFailureScope & {
   attemptId: string;
   codeId: string;
+  replacementCodeHash: string;
 };
 
 export type RecoveryAttemptReservation = RecoveryFailureScope & {
@@ -54,24 +57,22 @@ export interface RecoveryCodeStore {
     codeSetId: string
   ): Promise<RecoveryCodeRecord[]>;
   /**
-   * Serialize lockout accounting for the user / active code-set / IP tuple,
-   * returning null when the tuple is already locked.
+   * Serialize lockout accounting for the user / active code-set, enforcing
+   * both account-level and IP-level thresholds before reserving the attempt.
    */
   beginAttempt(attempt: RecoveryAttemptReservation): Promise<string | null>;
   /**
    * Atomically mark a single code consumed and flip the reserved attempt row
-   * from failure to success.
+   * from failure to success while inserting the replacement saved code hash.
    * Returns false when another request already consumed/revoked it.
    */
   claimCode(claim: RecoveryCodeClaim): Promise<boolean>;
-  /** Failures within the lockout window for a user / active code-set / IP. */
-  countRecentFailures(scope: RecoveryFailureScope): Promise<number>;
   /** Append to the attempt ledger. */
   recordAttempt(attempt: RecoveryAttempt): Promise<void>;
 }
 
 export type RedeemResult =
-  | { ok: true; codeId: string }
+  | { ok: true; codeId: string; replacementCode: string }
   | { ok: false; reason: 'locked' | 'invalid' };
 
 export const RECOVERY_MAX_FAILURES = 10;
@@ -82,7 +83,16 @@ type RedeemParams = {
   input: string;
   pepper: string;
   store: RecoveryCodeStore;
+  generateReplacementCode?: () => string;
 };
+
+function generateDefaultReplacementCode(): string {
+  const [code] = generateRecoveryCodes(1);
+  if (!code) {
+    throw new Error('Failed to generate replacement recovery code');
+  }
+  return code;
+}
 
 export async function redeemRecoveryCode({
   userId,
@@ -90,6 +100,7 @@ export async function redeemRecoveryCode({
   input,
   pepper,
   store,
+  generateReplacementCode = generateDefaultReplacementCode,
 }: RedeemParams): Promise<RedeemResult> {
   // 1. Resolve the acknowledged code-set first. This does not expose code
   //    hashes, but it lets lockout accounting stay scoped to the current set
@@ -140,17 +151,20 @@ export async function redeemRecoveryCode({
     return { ok: false, reason: 'invalid' };
   }
 
-  // 4. Single-use: atomically claim the code and log the attempt in one
-  //    database transaction. A false claim means another concurrent request
-  //    consumed/revoked the matched code first.
+  // 4. Single-use: atomically claim the code, log the attempt, and insert a
+  //    replacement saved recovery code in one database transaction. A false
+  //    claim means another concurrent request consumed/revoked the match first.
+  const replacementCode = generateReplacementCode();
+  const replacementCodeHash = hashRecoveryCode(replacementCode, pepper);
   const claimed = await store.claimCode({
     ...failureScope,
     attemptId,
     codeId: match.id,
+    replacementCodeHash,
   });
   if (!claimed) {
     return { ok: false, reason: 'invalid' };
   }
 
-  return { ok: true, codeId: match.id };
+  return { ok: true, codeId: match.id, replacementCode };
 }

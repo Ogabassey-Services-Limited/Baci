@@ -10,8 +10,10 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
  *   has >= 112 bits, NIST permits an *approved one-way function* — no slow KDF.
  * - Hash = HMAC-SHA-256 keyed with a server-side pepper, so a DB leak alone is
  *   not enough to verify a code offline.
- * - Single-use, brute-force lockout, and "notify on use" are enforced by the
- *   store layer (see the recovery-code store/verify flow), not here.
+ * - Single-use, brute-force lockout, and replacement-code reissue are enforced
+ *   by the store layer (see the recovery-code store/verify flow), not here.
+ * - Account-recovery notifications belong to the recovery-session integration
+ *   that consumes a successfully redeemed code.
  *
  * Refs: NIST SP 800-63B-4 §5.1.2 (look-up secrets); OWASP MFA Cheat Sheet.
  */
