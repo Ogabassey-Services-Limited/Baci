@@ -497,6 +497,13 @@ export function StorefrontCartProvider({
   };
 
   const clearCart = () => {
+    // Clear persisted state against the active merchant slug first — the
+    // persistence effect runs after `merchantSlug` is nulled, so it would
+    // otherwise write the cleared cart against the default key and leave the
+    // merchant-scoped cart/group-negotiation state to rehydrate on refresh.
+    const slugToClear = merchantSlug;
+    saveCartToStorage([], slugToClear);
+    saveCartWideNegotiationToStorage(false, slugToClear);
     setCart([]);
     setMerchantSlugState(null);
     saveMerchantSlugToStorage(null);

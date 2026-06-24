@@ -25,8 +25,13 @@ export interface CartState {
   applyNegotiatedPrice: (id: string, negotiatedPrice: number) => void;
   applyCartWideNegotiation: (newTotal: number) => void;
   clearNegotiatedPrice: (id: string) => void;
-  // Restore actions (for rollback without generating new IDs)
-  restoreItems: (items: CartItem[]) => void;
+  // Restore actions (for rollback without generating new IDs). The optional
+  // cart-wide flag is restored alongside items so a rolled-back group deal does
+  // not leave stale per-line negotiated prices behind an inactive flag.
+  restoreItems: (
+    items: CartItem[],
+    cartWideNegotiationActive?: boolean
+  ) => void;
   // Reconcile stored prices with the live catalog (keyed by cart line id).
   repriceItems: (priceById: Record<string, number>) => void;
   // Device assurance actions

@@ -2,19 +2,22 @@ import type { MerchantData } from '@/hooks/merchant/types';
 
 export const GOOGLE_MERCHANT_CENTER_ID_CUSTOM_SETTING = 'google_merchant_id';
 
-const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
+export const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
 
 /**
  * Finds the Google merchant store-rating iframe that the widget script injects
- * outside React (by id, or by its merchantverse src as a fallback).
+ * outside React (by id, or by its merchantverse src as a fallback). The
+ * `instanceof HTMLIFrameElement` guard avoids matching a non-iframe element
+ * that happens to share the id. Single source of truth — reused by the widget
+ * component so the resolver and id never drift.
  */
-function resolveMerchantWidgetFrame(): HTMLElement | null {
+export function resolveMerchantWidgetFrame(): HTMLIFrameElement | null {
   if (typeof document === 'undefined') return null;
 
   const byId = document.getElementById(MERCHANT_WIDGET_IFRAME_ID);
-  if (byId) return byId;
+  if (byId instanceof HTMLIFrameElement) return byId;
 
-  return document.querySelector<HTMLElement>(
+  return document.querySelector<HTMLIFrameElement>(
     'iframe[src*="google.com/shopping/merchantverse"], iframe[src*="googleusercontent.com/shopping/merchantverse"]'
   );
 }

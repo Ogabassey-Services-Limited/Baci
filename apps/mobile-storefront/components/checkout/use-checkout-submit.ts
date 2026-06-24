@@ -123,9 +123,11 @@ export function useCheckoutSubmit({
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
   // `||` (not `??`) so a blank CONFIG.MERCHANT_ID placeholder falls back.
-  const repriceMerchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
+  const merchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
+    const groupNegotiationSnapshot =
+      useCartStore.getState().cartWideNegotiationActive;
 
     if (
       !validateCheckoutSubmission({
@@ -147,15 +149,11 @@ export function useCheckoutSubmit({
 
     isOrderInFlight.current = true;
     setIsProcessing(true);
-    const cartSnapshot = [...itemsSnapshot];
 
     try {
       // Freeze step: reprice vs live catalog; on drift update+alert+abort. Lock is engaged (no double-submit); finally releases it.
       if (itemsSnapshot.length > 0) {
-        const reprice = await repriceCartItems(
-          itemsSnapshot,
-          repriceMerchantId
-        );
+        const reprice = await repriceCartItems(itemsSnapshot, merchantId);
         if (reprice.changes.length > 0) {
           useCartStore.getState().repriceItems(pickChangedPriceById(reprice));
           Alert.alert(
@@ -288,8 +286,9 @@ export function useCheckoutSubmit({
           selectedPayment === 'bank_transfer',
       });
     } catch (error) {
-      if (useCartStore.getState().items.length === 0) {
-        useCartStore.getState().restoreItems(cartSnapshot);
+      const cartStore = useCartStore.getState();
+      if (cartStore.items.length === 0) {
+        cartStore.restoreItems(itemsSnapshot, groupNegotiationSnapshot);
       }
       handleCheckoutSubmitError(error, selectedPayment);
     } finally {

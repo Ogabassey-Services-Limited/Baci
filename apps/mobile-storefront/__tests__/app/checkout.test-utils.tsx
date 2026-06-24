@@ -1,7 +1,4 @@
-import {
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import type React from 'react';
 import { Alert } from 'react-native';
@@ -315,9 +312,18 @@ jest.mock('@/services/orders', () => ({
 // Cart reprice runs before checkout submit; default to "no price drift" so
 // these tests exercise the normal order path. Suites that want to test the
 // reconcile/abort behavior can override this mock.
-jest.mock('@/services/cart-reprice', () => ({
-  repriceCartItems: jest.fn(async () => ({ priceById: {}, changes: [] })),
-}));
+jest.mock('@/services/cart-reprice', () => {
+  // Keep the real `pickChangedPriceById` so suites that override repricing to
+  // return `changes` still exercise the drift-alert path instead of crashing
+  // on a missing export.
+  const actual = jest.requireActual<typeof import('@/services/cart-reprice')>(
+    '@/services/cart-reprice'
+  );
+  return {
+    ...actual,
+    repriceCartItems: jest.fn(async () => ({ priceById: {}, changes: [] })),
+  };
+});
 
 jest.mock('@/lib/customer-savings', () => ({
   listSavingsGoals: (...args: unknown[]) => mockListSavingsGoals(...args),

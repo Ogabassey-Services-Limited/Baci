@@ -238,9 +238,15 @@ export const useCartStore = create<CartState>()(
         }));
       },
 
-      // Restore items directly (for rollback without generating new IDs)
-      restoreItems: (items) => {
-        set({ items });
+      // Restore items directly (for rollback without generating new IDs).
+      // When a snapshot of the cart-wide flag is provided, restore it too so a
+      // rolled-back group deal keeps its lines and active flag in sync.
+      restoreItems: (items, cartWideNegotiationActive) => {
+        set(
+          cartWideNegotiationActive === undefined
+            ? { items }
+            : { items, cartWideNegotiationActive }
+        );
       },
 
       // Reconcile line prices from live catalog values keyed by cart line id.

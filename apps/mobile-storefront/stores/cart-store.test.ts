@@ -576,4 +576,35 @@ describe('cart-store', () => {
     expect(remaining[0].negotiatedPrice).toBe(195000);
     expect(remaining[0].negotiationStatus).toBe('accepted');
   });
+
+  it('restores the cart-wide negotiation flag alongside items on rollback', () => {
+    const { addItem } = useCartStore.getState();
+    addItem({
+      product_id: 'p1',
+      slug: 's1',
+      name: 'Item A',
+      price: 100000,
+      quantity: 1,
+    });
+    useCartStore.getState().applyCartWideNegotiation(90000);
+    const snapshot = [...useCartStore.getState().items];
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+
+    // Simulate a checkout that cleared the cart then failed and rolled back.
+    useCartStore.getState().clearCart();
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(false);
+
+    useCartStore.getState().restoreItems(snapshot, true);
+
+    expect(useCartStore.getState().items).toHaveLength(1);
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+  });
+
+  it('leaves the cart-wide flag untouched when restoreItems omits it', () => {
+    useCartStore.setState({ cartWideNegotiationActive: true });
+
+    useCartStore.getState().restoreItems([]);
+
+    expect(useCartStore.getState().cartWideNegotiationActive).toBe(true);
+  });
 });

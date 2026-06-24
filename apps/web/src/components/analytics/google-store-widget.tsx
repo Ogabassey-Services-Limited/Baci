@@ -6,6 +6,7 @@ import type { MerchantData } from '@/hooks/merchant/types';
 import {
   normalizeHostname,
   resolveGoogleMerchantCenterId,
+  resolveMerchantWidgetFrame,
 } from './google-store-widget-utils';
 
 export {
@@ -41,24 +42,8 @@ declare global {
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
 const WIDGET_DEFER_TIMEOUT_MS = 20000;
-const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
 export const MERCHANT_WIDGET_IFRAME_TITLE =
   'Google Store badge and merchant quality widget';
-
-function resolveMerchantWidgetFrame() {
-  const frameById = document.getElementById(MERCHANT_WIDGET_IFRAME_ID);
-
-  if (frameById instanceof HTMLIFrameElement) {
-    return frameById;
-  }
-
-  return document.querySelector<HTMLIFrameElement>(
-    [
-      'iframe[src*="google.com/shopping/merchantverse"]',
-      'iframe[src*="googleusercontent.com/shopping/merchantverse"]',
-    ].join(', ')
-  );
-}
 
 function titleMerchantWidgetFrame() {
   const frame = resolveMerchantWidgetFrame();

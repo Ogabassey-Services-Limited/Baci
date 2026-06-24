@@ -139,6 +139,40 @@ describe('StorefrontCartProvider', () => {
     expect(result.current.cart[0]?.negotiationStatus).toBeUndefined();
   });
 
+  it('clears persisted cart and group-negotiation state against the active merchant key', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StorefrontCartProvider merchantSlug="ogabassey" enableSmartCartPro>
+        {children}
+      </StorefrontCartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(mockProduct, 1);
+    });
+    act(() => {
+      result.current.applyCartWideNegotiation?.(90);
+    });
+    await waitFor(() =>
+      expect(
+        localStorageMock.getItem('baci-cart-ogabassey-group-negotiation')
+      ).toBe('true')
+    );
+
+    act(() => {
+      result.current.clearCart();
+    });
+
+    // The merchant-scoped keys must be cleared (not left to rehydrate after a
+    // refresh on the same storefront). The group flag is removed when inactive.
+    expect(localStorageMock.getItem('baci-cart-ogabassey-guest')).toBe('[]');
+    expect(
+      localStorageMock.getItem('baci-cart-ogabassey-group-negotiation')
+    ).toBeNull();
+  });
+
   it('resets a cart-wide negotiation on a positive quantity change', async () => {
     const product2 = {
       ...mockProduct,
