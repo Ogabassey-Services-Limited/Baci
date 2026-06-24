@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
 import {
   parseBuildNumber,
   readMobilePlatformEnv,
@@ -59,7 +60,7 @@ function disabledResponse() {
   );
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const parsedQuery = mobileReleasePolicyQuerySchema.safeParse({
     app: request.nextUrl.searchParams.get('app') ?? undefined,
     buildNumber: request.nextUrl.searchParams.get('buildNumber') ?? undefined,
@@ -88,9 +89,9 @@ export function GET(request: NextRequest) {
   const minNativeBuild = parseBuildNumber(
     readMobilePlatformEnv(platform, 'MIN_BUILD')
   );
-  const latestNativeBuild = parseBuildNumber(
-    readMobilePlatformEnv(platform, 'LATEST_BUILD')
-  );
+  // DB-first (the App Store's actual live build, kept current by the
+  // ios-live-build-sync cron), falling back to the LATEST_BUILD env var.
+  const latestNativeBuild = await readLatestLiveBuild(platform);
   const installedBuild = parseBuildNumber(buildNumber);
   const storeUrl = readMobilePlatformEnv(platform, 'STORE_URL');
   const message =

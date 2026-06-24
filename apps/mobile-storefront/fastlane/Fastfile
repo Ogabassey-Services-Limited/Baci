@@ -75,10 +75,15 @@ platform :ios do
       }
     )
 
+    # Wait for App Store Connect to finish processing the build. The release
+    # workflow chains `fastlane ios submit` immediately afterwards, and a build
+    # still in "Processing" cannot be attached to a review submission — so we
+    # block here rather than skip the wait, trading a few CI minutes for a
+    # reliable hands-off submit.
     upload_to_testflight(
       api_key: api_key,
       ipa: File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      skip_waiting_for_build_processing: true,
+      skip_waiting_for_build_processing: false,
       skip_submission: true,
       distribute_external: false,
       notify_external_testers: false
@@ -102,8 +107,17 @@ platform :ios do
       force: true,
       reject_if_possible: true,
       precheck_include_in_app_purchases: false,
+      # IDFA: the storefront uses the advertiser identifier for ad-attribution
+      # (Facebook/TikTok/Snapchat/Google conversion + install tracking via the
+      # ad-tracking runtime), gated behind App Tracking Transparency. It does
+      # NOT display ads in-app. These flags must match the Apple privacy
+      # declaration or the automated review submission is rejected.
       submission_information: {
-        add_id_info_uses_idfa: false,
+        add_id_info_uses_idfa: true,
+        add_id_info_serves_ads: false,
+        add_id_info_tracks_action: true,
+        add_id_info_tracks_install: true,
+        add_id_info_limits_tracking: true,
         export_compliance_uses_encryption: false,
         export_compliance_encryption_updated: false
       }

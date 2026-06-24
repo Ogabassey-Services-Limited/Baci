@@ -257,34 +257,31 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      # Point the in-app update gate at the build we just submitted so installs
-      # below this CFBundleVersion get prompted. The new value applies on the
-      # next production web deploy (Vercel snapshots env at deploy time).
-      # Non-fatal: a sync hiccup must never fail an otherwise-successful release.
-      - name: Sync iOS build number to in-app update gate
+      # Auto-submit the freshly-uploaded build for App Store review, mirroring
+      # the Android workflow's straight-to-production publish. `fastlane ios
+      # submit` runs `deliver(submit_for_review: true, automatic_release: true)`,
+      # so once Apple approves it releases automatically. The build is already
+      # processed (the release lane waited), so deliver can attach it.
+      #
+      # The in-app update gate is intentionally NOT bumped here: a build only
+      # becomes downloadable after Apple's review, which can take hours and may
+      # be rejected. Prompting users on TestFlight upload was the old bug. The
+      # gate is now driven by the App Store's actual live state via the
+      # `ios-live-build-sync` cron reconciler (App Store Connect API).
+      - name: Submit to App Store for review
         if: steps.fastlane_release.outcome == 'success'
+        working-directory: ${{ env.WORKING_DIR }}
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::warning::Vercel credentials missing — skipping update-gate sync"
-            exit 0
-          fi
-          TEAM_QS=""
-          if [ -n "$VERCEL_ORG_ID" ]; then TEAM_QS="&teamId=${VERCEL_ORG_ID}"; fi
-          HTTP_CODE=$(curl -sS -o /tmp/vercel_env.json -w '%{http_code}' -X POST \
-            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?upsert=true${TEAM_QS}" \
-            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"key\":\"MOBILE_STOREFRONT_IOS_LATEST_BUILD\",\"value\":\"${BUILD_NUMBER}\",\"type\":\"encrypted\",\"target\":[\"production\"]}")
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "Synced MOBILE_STOREFRONT_IOS_LATEST_BUILD=${BUILD_NUMBER} (HTTP ${HTTP_CODE})"
-          else
-            echo "::warning::Vercel env sync failed (HTTP ${HTTP_CODE}): $(cat /tmp/vercel_env.json)"
-          fi
+          CI: '1'
+          FASTLANE_DISABLE_COLORS: '1'
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
+          SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+          SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
+          IOS_RELEASE_NOTES: ${{ vars.IOS_STOREFRONT_RELEASE_NOTES }}
+        run: bundle exec fastlane ios submit
 
       - name: Clean up secrets
         if: always()

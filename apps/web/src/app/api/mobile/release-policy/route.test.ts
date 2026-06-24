@@ -1,6 +1,19 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// The route resolves the latest live build via the DB-backed gate store. Here we
+// delegate to the LATEST_BUILD env var (the store's own fallback) so these tests
+// stay env-driven and never touch Supabase.
+vi.mock('@/lib/mobile-release-gate-store', async () => {
+  const { parseBuildNumber, readMobilePlatformEnv } = await vi.importActual<
+    typeof import('@/lib/mobile-update-gate')
+  >('@/lib/mobile-update-gate');
+  return {
+    readLatestLiveBuild: async (platform: 'android' | 'ios') =>
+      parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
+  };
+});
+
 function makeRequest(query: Record<string, string | undefined>) {
   const url = new URL('http://localhost/api/mobile/release-policy');
   for (const [key, value] of Object.entries(query)) {

@@ -6,8 +6,8 @@ import {
   type StorefrontUpdateNudgeResult,
 } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
 import {
-  parseBuildNumber,
   readMobilePlatformEnv,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
@@ -57,9 +57,7 @@ export async function GET(request: NextRequest) {
   let errored = 0;
 
   for (const platform of PLATFORMS) {
-    const latestBuild = parseBuildNumber(
-      readMobilePlatformEnv(platform, 'LATEST_BUILD')
-    );
+    const latestBuild = await readLatestLiveBuild(platform);
     if (latestBuild === null) {
       results.push({ platform, skipped: 'no_latest_build' });
       continue;
