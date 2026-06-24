@@ -56,6 +56,8 @@ const mockDeviceDetails = {
   devicePhotos: {
     about: 'https://example.com/device-photo.jpg',
   },
+  gender: 'Male' as const,
+  dateOfBirth: '1990-01-15',
 };
 
 const mockOrderWithInsurance = {
@@ -308,23 +310,23 @@ describe('syncClaimsStatus', () => {
   });
 
   describe('v2 claim status mapping', () => {
-    // v2 defines 12 claim statuses. The sync function must map each to our local statuses.
+    // Current MyCover docs list these claim statuses for the v2 claims API.
     const v2ClaimStatuses = [
+      'Pending',
       'Documented',
       'Inspection submitted',
+      'Approved',
+      'Declined',
+      'Repair estimate requested',
+      'Repair estimate provided',
+      'Repair estimate submitted',
       'Offer sent',
       'Offer accepted',
-      'Payment initiated',
-      'Settled',
-      'Declined',
-      'Repair estimate submitted',
-      'Approved',
-      'Pending',
-      'Processing',
-      'Rejected',
+      'Offer rejected',
+      'Paid',
     ];
 
-    it('recognizes all 12 v2 claim status values without errors', async () => {
+    it('recognizes all documented v2 claim status values without errors', async () => {
       const claims = v2ClaimStatuses.map((status, i) => ({
         id: `claim-${i}`,
         policy_id: `policy-${i}`,
@@ -363,7 +365,7 @@ describe('syncClaimsStatus', () => {
       expect(result.success).toBe(true);
     });
 
-    it('maps "Documented" to "in_review" status', async () => {
+    it('maps "Documented" to "documented" status', async () => {
       const claims = [
         { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Documented' },
       ];
@@ -399,12 +401,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'in_review',
+          claim_status: 'documented',
         })
       );
     });
 
-    it('maps "Inspection submitted" to "in_review" status', async () => {
+    it('maps "Inspection submitted" to "inspection" status', async () => {
       const claims = [
         {
           id: 'claim-1',
@@ -444,12 +446,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'in_review',
+          claim_status: 'inspection',
         })
       );
     });
 
-    it('maps "Offer sent" to "in_review" status', async () => {
+    it('maps "Offer sent" to "offer_sent" status', async () => {
       const claims = [
         { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Offer sent' },
       ];
@@ -485,12 +487,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'in_review',
+          claim_status: 'offer_sent',
         })
       );
     });
 
-    it('maps "Offer accepted" to "in_review" status', async () => {
+    it('maps "Offer accepted" to "offer_accepted" status', async () => {
       const claims = [
         {
           id: 'claim-1',
@@ -530,12 +532,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'in_review',
+          claim_status: 'offer_accepted',
         })
       );
     });
 
-    it('maps "Payment initiated" to "approved" status', async () => {
+    it('keeps legacy "Payment initiated" as "pending" status', async () => {
       const claims = [
         {
           id: 'claim-1',
@@ -575,12 +577,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'approved',
+          claim_status: 'pending',
         })
       );
     });
 
-    it('maps "Settled" to "approved" status', async () => {
+    it('keeps legacy "Settled" as "pending" status', async () => {
       const claims = [
         { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Settled' },
       ];
@@ -616,12 +618,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'approved',
+          claim_status: 'pending',
         })
       );
     });
 
-    it('maps "Declined" to "rejected" status', async () => {
+    it('maps "Declined" to "declined" status', async () => {
       const claims = [
         { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Declined' },
       ];
@@ -657,12 +659,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'rejected',
+          claim_status: 'declined',
         })
       );
     });
 
-    it('maps "Repair estimate submitted" to "in_review" status', async () => {
+    it('maps "Repair estimate submitted" to "repair_estimate" status', async () => {
       const claims = [
         {
           id: 'claim-1',
@@ -702,7 +704,7 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'in_review',
+          claim_status: 'repair_estimate',
         })
       );
     });

@@ -15,6 +15,40 @@ import {
   purchaseOrderInsurance,
 } from '@/services/insurance';
 
+function isStrictPastDateOnly(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const [, yearText, monthText, dayText] = match;
+  if (!yearText || !monthText || !dayText) return false;
+
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const dobTime = Date.UTC(year, month - 1, day);
+  const dob = new Date(dobTime);
+
+  if (
+    dob.getUTCFullYear() !== year ||
+    dob.getUTCMonth() !== month - 1 ||
+    dob.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  const now = new Date();
+  const todayTime = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  return dobTime < todayTime;
+}
+
+const strictPastDateOnlySchema = z.string().refine(isStrictPastDateOnly, {
+  message: 'dateOfBirth must be a valid past date',
+});
+
 const deviceInsuranceDetailsSchema = z.object({
   imei: z.string().trim().min(1).max(64),
   serialNumber: z.string().trim().min(1).max(128),
@@ -31,16 +65,7 @@ const deviceInsuranceDetailsSchema = z.object({
   // Real policyholder KYC is required for insurance — no placeholder data may
   // reach the insurer.
   gender: z.enum(['Male', 'Female']),
-  dateOfBirth: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .refine(
-      (value) => {
-        const dob = new Date(value);
-        return !Number.isNaN(dob.getTime()) && dob < new Date();
-      },
-      { message: 'dateOfBirth must be a valid past date' }
-    ),
+  dateOfBirth: strictPastDateOnlySchema,
 });
 
 export async function POST(

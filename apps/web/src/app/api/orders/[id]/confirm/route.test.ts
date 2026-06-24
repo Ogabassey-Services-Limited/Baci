@@ -182,6 +182,30 @@ describe('POST /api/orders/[id]/confirm', () => {
     expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
   });
 
+  it('rejects insurance details with a normalized invalid calendar date', async () => {
+    const response = await POST(
+      createRequest(createInsuranceDetails({ dateOfBirth: '2025-02-31' })),
+      createParams()
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with today as date of birth', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const response = await POST(
+      createRequest(createInsuranceDetails({ dateOfBirth: today })),
+      createParams()
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
   it('files reconciliation and rejects with 409 when the order was clamped as cancelled', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'orders') {

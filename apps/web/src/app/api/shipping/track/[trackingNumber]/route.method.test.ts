@@ -7,6 +7,12 @@ const mockOrderStatusEq = vi.fn();
 const mockOrderStatusUpdate = vi.fn();
 const mockShipmentStatusEq = vi.fn();
 const mockShipmentStatusUpdate = vi.fn();
+const mockAdminFrom = vi.fn();
+const mockAdminOrderStatusEq = vi.fn();
+const mockAdminOrderStatusUpdate = vi.fn();
+const mockAdminShipmentStatusEq = vi.fn();
+const mockAdminShipmentStatusUpdate = vi.fn();
+const mockMaybeNotifyActivateProtection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => new Map()),
@@ -14,6 +20,15 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({ from: mockFrom })),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ from: mockAdminFrom })),
+}));
+
+vi.mock('@/lib/insurance/notify-activate-protection', () => ({
+  maybeNotifyActivateProtection: (...args: unknown[]) =>
+    mockMaybeNotifyActivateProtection(...args),
 }));
 
 vi.mock('@/lib/shipping', () => ({
@@ -78,6 +93,22 @@ function mockShipmentLookup(data: unknown) {
 describe('/api/shipping/track/[trackingNumber] method boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMaybeNotifyActivateProtection.mockResolvedValue(undefined);
+    mockAdminOrderStatusEq.mockResolvedValue({ error: null });
+    mockAdminOrderStatusUpdate.mockReturnValue({ eq: mockAdminOrderStatusEq });
+    mockAdminShipmentStatusEq.mockResolvedValue({ error: null });
+    mockAdminShipmentStatusUpdate.mockReturnValue({
+      eq: mockAdminShipmentStatusEq,
+    });
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return { update: mockAdminOrderStatusUpdate };
+      }
+      if (table === 'shipments') {
+        return { update: mockAdminShipmentStatusUpdate };
+      }
+      throw new Error(`Unexpected admin table: ${table}`);
+    });
   });
 
   it('rejects GET so tracking refresh cannot be triggered by prefetch or forged navigation', async () => {
@@ -200,6 +231,64 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
         trackingNumber: 'TRACK123',
       });
       expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('uses privileged delivered persistence and activation notification when snapshot persistence is denied', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusEq.mockResolvedValueOnce({
+      error: { message: 'shipment write denied by RLS' },
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [
+        {
+          description: 'Delivered',
+          location: 'Lagos',
+          status: 'delivered',
+          timestamp: new Date('2026-05-12T15:00:00Z'),
+        },
+      ],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ status: 'delivered' });
+      expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+      expect(mockAdminShipmentStatusUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          delivered_at: '2026-05-12T15:00:00.000Z',
+          status: 'delivered',
+        })
+      );
+      expect(mockAdminShipmentStatusEq).toHaveBeenCalledWith(
+        'id',
+        'shipment-1'
+      );
+      expect(mockAdminOrderStatusUpdate).toHaveBeenCalledWith({
+        shipping_status: 'delivered',
+      });
+      expect(mockAdminOrderStatusEq).toHaveBeenCalledWith('id', 'order-1');
+      expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith('order-1');
     } finally {
       consoleErrorSpy.mockRestore();
     }

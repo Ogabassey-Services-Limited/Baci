@@ -26,10 +26,14 @@ export type ConfirmInsurancePayload = Omit<
   customerPhoto?: string;
 };
 
+export type ConfirmOrderPayload =
+  | ConfirmInsurancePayload
+  | Record<string, never>;
+
 interface ConfirmInsuranceDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: ConfirmInsurancePayload) => Promise<void>;
+  onConfirm: (data: ConfirmOrderPayload) => Promise<void>;
   orderItems: OrderDetailsItem[];
 }
 
@@ -63,43 +67,46 @@ export default function ConfirmInsuranceDialog({
   const isAssuranceOrder = assuranceItems.length > 0;
 
   const handleConfirm = async () => {
-    // Validate required fields BEFORE any upload side-effect (no orphan uploads).
-    if (isAssuranceOrder) {
-      if (
-        !imei ||
-        !serialNumber ||
-        aboutFiles.length === 0 ||
-        !gender ||
-        !dateOfBirth
-      ) {
+    if (!isAssuranceOrder) {
+      setLoading(true);
+      try {
+        await onConfirm({});
+        onClose();
+      } catch (error) {
+        console.error('Confirmation failed', error);
         toast({
           variant: 'destructive',
-          title: 'Missing Details',
-          description:
-            'IMEI, Serial Number, Device Photo, Gender and Date of Birth are required for insurance.',
+          title: 'Error',
+          description: 'Failed to confirm order. Please try again.',
         });
-        return;
+      } finally {
+        setLoading(false);
       }
+      return;
+    }
+
+    const aboutFile = aboutFiles[0];
+
+    // Validate required fields BEFORE any upload side-effect (no orphan uploads).
+    if (!imei || !serialNumber || !aboutFile || !gender || !dateOfBirth) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing Details',
+        description:
+          'IMEI, Serial Number, Device Photo, Gender and Date of Birth are required for insurance.',
+      });
+      return;
     }
 
     setLoading(true);
     try {
-      let devicePhotoUrl = '';
+      // Create a temporary object URL to pass to our upload helper
+      // (which expects a URI string and fetch-blobs it)
+      const objectUrl = URL.createObjectURL(aboutFile);
+      const uploadedUrl = await uploadImage(objectUrl, 'images');
+      URL.revokeObjectURL(objectUrl);
 
-      // Upload Logic
-      if (aboutFiles.length > 0) {
-        // Create a temporary object URL to pass to our upload helper
-        // (which expects a URI string and fetch-blobs it)
-        const objectUrl = URL.createObjectURL(aboutFiles[0]);
-        const uploadedUrl = await uploadImage(objectUrl, 'images');
-        URL.revokeObjectURL(objectUrl);
-
-        if (uploadedUrl) {
-          devicePhotoUrl = uploadedUrl;
-        }
-      }
-
-      if (isAssuranceOrder && !devicePhotoUrl) {
+      if (!uploadedUrl) {
         toast({
           variant: 'destructive',
           title: 'Upload Failed',
@@ -109,7 +116,7 @@ export default function ConfirmInsuranceDialog({
         return;
       }
 
-      const payload = {
+      const payload: ConfirmInsurancePayload = {
         // Insurance fields
         imei,
         serialNumber,
@@ -118,13 +125,13 @@ export default function ConfirmInsuranceDialog({
         deviceMake: 'Generic', // TODO: Extract from product name
         deviceType: 'Phone' as const,
         deviceValue: assuranceItems[0]?.price || 0,
-        purchaseDate: new Date().toISOString().split('T')[0],
+        purchaseDate: new Date().toISOString().split('T')[0] ?? '',
         devicePhotos: {
-          about: devicePhotoUrl,
+          about: uploadedUrl,
         },
         // Real policyholder KYC (no longer hardcoded server-side).
-        gender: gender || undefined,
-        dateOfBirth: dateOfBirth || undefined,
+        gender,
+        dateOfBirth,
         // Optional ID photo placeholder logic handled in service if missing
         customerPhoto: undefined,
       };
@@ -138,9 +145,9 @@ export default function ConfirmInsuranceDialog({
         title: 'Error',
         description: 'Failed to confirm order. Please try again.',
       });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

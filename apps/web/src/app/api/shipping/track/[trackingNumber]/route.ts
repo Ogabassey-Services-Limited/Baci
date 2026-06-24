@@ -13,6 +13,7 @@ import type {
   ShippingProviderCode,
   TrackingResult,
 } from '@/lib/shipping/types';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { trackingParamsSchema } from '@/schemas/shipping-tracking';
 
@@ -172,16 +173,14 @@ async function persistTrackingResult({
   supabase: SupabaseServerClient;
   trackingResult: TrackingResult;
 }) {
+  const shippingStatus =
+    ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] || 'processing';
+  const delivered = shippingStatus === 'delivered';
+  const snapshot = buildTrackingSnapshot(trackingResult);
+
   const { error: shipmentUpdateError } = await supabase
     .from('shipments')
-    .update({
-      status: trackingResult.status,
-      current_location: trackingResult.events[0]?.location,
-      estimated_delivery_at: trackingResult.estimatedDelivery?.toISOString(),
-      delivered_at: trackingResult.actualDelivery?.toISOString(),
-      tracking_events: trackingResult.events,
-      last_tracked_at: new Date().toISOString(),
-    })
+    .update(snapshot)
     .eq('id', shipment.id);
 
   if (shipmentUpdateError) {
@@ -191,15 +190,19 @@ async function persistTrackingResult({
     });
     // Customer tracking should return the live carrier result even when RLS
     // denies opportunistic snapshot persistence for the request-scoped client.
+    if (delivered) {
+      await persistDeliveredTransitionPrivileged({
+        shipment,
+        shippingStatus,
+        snapshot,
+      });
+    }
     return;
   }
 
   const { error: orderUpdateError } = await supabase
     .from('orders')
-    .update({
-      shipping_status:
-        ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] || 'processing',
-    })
+    .update({ shipping_status: shippingStatus })
     .eq('id', shipment.order_id);
 
   if (orderUpdateError) {
@@ -207,14 +210,76 @@ async function persistTrackingResult({
       error: orderUpdateError,
       orderId: shipment.order_id,
     });
+    if (delivered) {
+      await persistDeliveredTransitionPrivileged({
+        shipment,
+        shippingStatus,
+        snapshot: null,
+      });
+    }
     return;
   }
 
-  // On delivery, nudge the customer to activate any pending gadget cover.
-  if (ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] === 'delivered') {
-    maybeNotifyActivateProtection(shipment.order_id).catch((err) => {
-      console.error('Failed to send activate-protection push:', err);
+  if (delivered) {
+    await notifyDeliveredProtectionActivation(shipment.order_id);
+  }
+}
+
+function buildTrackingSnapshot(trackingResult: TrackingResult) {
+  return {
+    status: trackingResult.status,
+    current_location: trackingResult.events[0]?.location,
+    estimated_delivery_at: trackingResult.estimatedDelivery?.toISOString(),
+    delivered_at: trackingResult.actualDelivery?.toISOString(),
+    tracking_events: trackingResult.events,
+    last_tracked_at: new Date().toISOString(),
+  };
+}
+
+async function persistDeliveredTransitionPrivileged({
+  shipment,
+  shippingStatus,
+  snapshot,
+}: {
+  shipment: ShipmentLookupResult;
+  shippingStatus: string;
+  snapshot: ReturnType<typeof buildTrackingSnapshot> | null;
+}) {
+  const admin = createAdminClient();
+
+  if (snapshot) {
+    const { error: shipmentError } = await admin
+      .from('shipments')
+      .update(snapshot)
+      .eq('id', shipment.id);
+    if (shipmentError) {
+      console.error('Error applying privileged delivered shipment snapshot:', {
+        error: shipmentError,
+        shipmentId: shipment.id,
+      });
+    }
+  }
+
+  const { error: orderError } = await admin
+    .from('orders')
+    .update({ shipping_status: shippingStatus })
+    .eq('id', shipment.order_id);
+  if (orderError) {
+    console.error('Error applying privileged delivered order status:', {
+      error: orderError,
+      orderId: shipment.order_id,
     });
+    return;
+  }
+
+  await notifyDeliveredProtectionActivation(shipment.order_id);
+}
+
+async function notifyDeliveredProtectionActivation(orderId: string) {
+  try {
+    await maybeNotifyActivateProtection(orderId);
+  } catch (err) {
+    console.error('Failed to send activate-protection push:', err);
   }
 }
 

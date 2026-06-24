@@ -27,8 +27,8 @@ export interface DeviceInsuranceDetails {
   customerPhoto?: string;
   // Real policyholder KYC — collected at confirmation so we stop sending
   // hardcoded placeholder values to the insurer.
-  gender?: 'Male' | 'Female';
-  dateOfBirth?: string; // YYYY-MM-DD
+  gender: 'Male' | 'Female';
+  dateOfBirth: string; // YYYY-MM-DD
 }
 
 interface DatabaseOrderItem {

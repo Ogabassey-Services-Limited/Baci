@@ -50,7 +50,7 @@ import { getOrderSourceLabel } from '../order-source-display';
 import { OrderSourceIcon } from '../order-source-icon';
 import { StatusBadge } from '../status-badge';
 import ConfirmInsuranceDialog, {
-  type ConfirmInsurancePayload,
+  type ConfirmOrderPayload,
 } from './confirm-insurance-dialog';
 
 // Type definitions
@@ -86,7 +86,7 @@ interface ConfirmOrderResponse {
 
 async function confirmOrderRequest(
   orderId: string,
-  data: ConfirmInsurancePayload
+  data: ConfirmOrderPayload
 ): Promise<ConfirmOrderResponse> {
   const response = await fetchWithCsrf(`/api/orders/${orderId}/confirm`, {
     method: 'POST',
@@ -181,7 +181,7 @@ export default function OrderDetailsClientPage({
     }
   };
 
-  const handleConfirmationSubmit = async (data: ConfirmInsurancePayload) => {
+  const handleConfirmationSubmit = async (data: ConfirmOrderPayload) => {
     try {
       const result = await confirmOrderRequest(order.id, data);
 
