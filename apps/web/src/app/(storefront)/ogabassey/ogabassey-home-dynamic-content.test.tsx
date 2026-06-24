@@ -183,6 +183,28 @@ describe('OgabasseyHomeDynamicContent', () => {
     );
   });
 
+  it('still renders the homepage when the launch feed fails', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct(),
+    ]);
+    vi.mocked(getCachedStorefrontLaunchProducts).mockRejectedValue(
+      new Error('launch feed down')
+    );
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    // The launch products are JSON-LD-only; a feed failure must not take down
+    // the visible product grid/home payload.
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey home payload' })
+    ).toBeInTheDocument();
+  });
+
   it('requests home products ordered by most recently updated', async () => {
     await OgabasseyHomeDynamicContent({
       merchant: mockMerchant,

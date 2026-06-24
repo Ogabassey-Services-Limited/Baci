@@ -31,6 +31,14 @@ export const APPLE_TEAM_ID = '6QLNK7TXM3' as const;
  */
 export const OGABASSEY_STOREFRONT_IOS_APP_ID = '6472735367' as const;
 
+/**
+ * OgaBassey's live App Store listing. Only OgaBassey-specific surfaces (e.g. the
+ * storefront footer) may link here directly. The global
+ * `MOBILE_APPS.storefront.appStoreUrl` fallback stays empty so non-OgaBassey
+ * merchants never inherit this CTA (e.g. via import-notification emails).
+ */
+export const OGABASSEY_STOREFRONT_APP_STORE_URL = `https://apps.apple.com/app/id${OGABASSEY_STOREFRONT_IOS_APP_ID}`;
+
 export const MOBILE_APPS = {
   admin: {
     name: 'Baci - The Ecommerce Builder',
@@ -56,7 +64,9 @@ export const MOBILE_APPS = {
     ],
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-    appStoreUrl: `https://apps.apple.com/app/id${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
+    // Keep empty globally so non-OgaBassey merchants don't inherit OgaBassey's
+    // App Store CTA; OgaBassey surfaces use OGABASSEY_STOREFRONT_APP_STORE_URL.
+    appStoreUrl: '',
     deepLinkPaths: [
       '/product/*',
       '/products/*',

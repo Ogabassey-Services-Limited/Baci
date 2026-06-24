@@ -1,4 +1,7 @@
-import { MOBILE_APPS } from '@/config/platform';
+import {
+  MOBILE_APPS,
+  OGABASSEY_STOREFRONT_APP_STORE_URL,
+} from '@/config/platform';
 import Image from 'next/image';
 
 const APP_STORE_BADGE_SRC = '/badges/app-store-black.svg';
@@ -11,9 +14,9 @@ export function FooterAppPayments() {
         Download App
       </h3>
       <div className="flex gap-2 mb-6">
-        {MOBILE_APPS.storefront.appStoreUrl ? (
+        {OGABASSEY_STOREFRONT_APP_STORE_URL ? (
           <a
-            href={MOBILE_APPS.storefront.appStoreUrl}
+            href={OGABASSEY_STOREFRONT_APP_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Download on the App Store"

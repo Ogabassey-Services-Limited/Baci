@@ -1,19 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockMobileApps = vi.hoisted(() => ({
-  storefront: {
-    appStoreUrl: 'https://apps.apple.com/app/id6472735367',
-    playStoreUrl:
-      'https://play.google.com/store/apps/details?id=com.ogabassey.store',
-  },
+// The OgaBassey footer links to OgaBassey's own App Store listing
+// (OGABASSEY_STOREFRONT_APP_STORE_URL), NOT the global MOBILE_APPS.storefront
+// fallback (which is empty so other merchants don't inherit the CTA). A getter
+// lets each test drive the App Store URL's presence.
+const mockPlatform = vi.hoisted(() => ({
+  appStoreUrl: 'https://apps.apple.com/app/id6472735367',
 }));
 
 vi.mock('@/config/platform', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/config/platform')>();
   return {
     ...actual,
-    MOBILE_APPS: mockMobileApps,
+    get OGABASSEY_STOREFRONT_APP_STORE_URL() {
+      return mockPlatform.appStoreUrl;
+    },
   };
 });
 
@@ -43,10 +45,7 @@ import { FooterAppPayments } from './FooterAppPayments';
 
 describe('FooterAppPayments', () => {
   beforeEach(() => {
-    mockMobileApps.storefront.appStoreUrl =
-      'https://apps.apple.com/app/id6472735367';
-    mockMobileApps.storefront.playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.ogabassey.store';
+    mockPlatform.appStoreUrl = 'https://apps.apple.com/app/id6472735367';
   });
 
   it('renders optimized store badges with explicit intrinsic dimensions', () => {
@@ -66,7 +65,7 @@ describe('FooterAppPayments', () => {
   });
 
   it('keeps Google Play available when the App Store URL is absent', () => {
-    mockMobileApps.storefront.appStoreUrl = '';
+    mockPlatform.appStoreUrl = '';
 
     render(<FooterAppPayments />);
 

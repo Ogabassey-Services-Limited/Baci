@@ -21,6 +21,7 @@ import { usePinnedLaunchProducts } from '@/hooks/use-pinned-launch-products';
 import { useProducts } from '@/hooks/use-products';
 import { useTheme } from '@/hooks/useTheme';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/product-normalization';
 import type { Product } from '@/types/product';
 
 const SECTION_TITLE = 'Just Launched';
@@ -45,8 +46,15 @@ export function JustLaunchedCarousel() {
 
   // Drop rows that cannot render a complete card up front so a slide can never
   // deep-link to /product/undefined or consume a launch slot with an empty image.
-  const launchCandidates = [...(pinned ?? []), ...newest].filter((product) =>
-    Boolean(product.slug && (product.image || product.images?.some(Boolean)))
+  // `product.image` falls back to PRODUCT_PLACEHOLDER_IMAGE when a product has no
+  // uploaded images, so a real renderable image must come from the `images` array
+  // (or a non-placeholder `image`) — a placeholder-only "No Image" card must not
+  // be hoisted into a launch slot.
+  const launchCandidates = [...(pinned ?? []), ...newest].filter(
+    (product) =>
+      Boolean(product.slug) &&
+      (Boolean(product.images?.some(Boolean)) ||
+        (Boolean(product.image) && product.image !== PRODUCT_PLACEHOLDER_IMAGE))
   );
   const launchPins = effectiveLaunchPins(
     launchCandidates,

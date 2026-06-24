@@ -15,6 +15,7 @@
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
+@source "../../components/storefront/ogabassey/components/hero-desktop-grid.tsx";
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
 @source "../../components/storefront/ogabassey/pages/home.tsx";
@@ -25,9 +26,10 @@
   render-blocking path. The complete product-card utility surface is deferred
   through storefront-home.css.
 
-  Keep hero-desktop-grid.tsx out of this critical entrypoint: that component is
-  explicitly client-deferred by Hero.tsx, while Hero.tsx already contributes the
-  desktop skeleton geometry needed before the deferred homepage stylesheet loads.
+  hero-desktop-grid.tsx is sourced above: Hero.tsx now renders it directly in
+  the above-fold server output (it is no longer client-deferred), so its grid /
+  card utilities must be in this critical entrypoint or desktop users first-paint
+  the launch hero unstyled before the deferred homepage stylesheet loads.
 */
 /* stylelint-enable scss/at-rule-no-unknown */
 

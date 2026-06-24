@@ -112,7 +112,12 @@ export async function OgabasseyHomeDynamicContent({
     getCachedNavigationCategories(merchant.id),
     // Used for JSON-LD coverage only. The visible hero has its own streamed
     // boundary so LCP discovery is not gated on product-grid/category queries.
-    loadOgabasseyLaunchProducts(merchant.id),
+    // Best-effort: a launch-feed failure must not take down the whole homepage,
+    // so fall back to an empty list (the schema simply omits launch coverage).
+    loadOgabasseyLaunchProducts(merchant.id).catch((error) => {
+      console.error('Failed to load OgaBassey launch products', { error });
+      return [];
+    }),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
   // Schema product list: prepend the visible launch items (deduped) so every
