@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrencyWithConfig, getCurrencyConfig } from '@/lib/currency';
 import type { Product } from '@/lib/products';
 import type { ProductsResult } from '@/lib/products-server';
 import { ProductsPageDialogs } from './products-page-dialogs';
@@ -49,6 +49,10 @@ function ProductsPageContent() {
     editingProduct,
   } = useProductContext();
   const { merchant, updateMerchant } = useMerchant();
+  const { formatCurrency } = useCurrencyWithCountry(
+    merchant?.country,
+    merchant?.payout_currency
+  );
   const { toast } = useToast();
   const hasAutoOpenedFromQuery = useRef(false);
 
@@ -109,15 +113,6 @@ function ProductsPageContent() {
     if (params.get('onboarding') === 'true') {
       window.location.href = '/dashboard?setup_complete=products';
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    const currencyConfig = getCurrencyConfig(
-      merchant?.country,
-      merchant?.payout_currency
-    );
-
-    return formatCurrencyWithConfig(amount, currencyConfig);
   };
 
   return (

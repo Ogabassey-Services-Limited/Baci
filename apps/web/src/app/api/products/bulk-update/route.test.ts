@@ -420,6 +420,30 @@ describe('POST /api/products/bulk-update', () => {
     expect(mockRevalidateProducts).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when a new imported product has a blank name', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: '   ',
+              price: 200,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid changes data');
+    expect(productInserts).toEqual([]);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
   it('skips update changes without a safe product selector', async () => {
     const { POST } = await import('./route');
 

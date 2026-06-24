@@ -78,8 +78,10 @@ export const FetchGoogleSheetInputSchema = z.object({
   }),
 });
 
+const RequiredProductNameSchema = z.string().trim().min(1);
+
 const SharedChangeDetailsShape = {
-  name: z.string(),
+  name: RequiredProductNameSchema,
   price: z.number().finite().nonnegative(),
   cost_price: z.number().finite().nonnegative().nullable().optional(),
   sku: z.string().optional(),

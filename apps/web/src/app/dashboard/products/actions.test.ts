@@ -433,6 +433,30 @@ describe('product import actions', () => {
     ]);
   });
 
+  it('preserves the existing name for SKU-matched alias price updates', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,SKU\nVendor Alias,1250,OLD-1'
+    );
+
+    expect(result.changes).toEqual([
+      {
+        details: {
+          category: undefined,
+          image: undefined,
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+          stock: 5,
+        },
+        newPrice: 1250,
+        productId: 'product-1',
+        reason: 'Price changed from 1000 to 1250',
+        type: 'update',
+      },
+    ]);
+  });
+
   it('ignores invalid cost-only values for SKU-matched aliases', async () => {
     const result = await parseCSVDirectly(
       [

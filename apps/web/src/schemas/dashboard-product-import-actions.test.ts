@@ -366,6 +366,20 @@ describe('dashboard product import action schemas', () => {
         ],
       }).success
     ).toBe(false);
+
+    expect(
+      BulkUpdateChangesSchema.safeParse({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: '   ',
+              price: 1000,
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('rejects UI-only cost-price edit markers in AI responses', () => {

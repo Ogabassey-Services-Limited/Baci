@@ -394,8 +394,6 @@ export async function parseCSVDirectly(
       if (priceChanged || costPriceChanged) {
         const shouldPreserveExistingName =
           Boolean(skuMatchedProduct) &&
-          costPriceChanged &&
-          !priceChanged &&
           normalizeName(existingProduct.name) !== normalizedName;
         const reasons = [];
         if (priceChanged) {
