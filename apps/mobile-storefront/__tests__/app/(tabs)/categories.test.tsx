@@ -12,6 +12,7 @@ const mockPush = jest.fn();
 const mockRefetch = jest.fn();
 const mockUseCategories = jest.fn();
 const mockUseNetworkState = jest.fn();
+const mockImage = jest.fn((_props: unknown) => null);
 const mockStorefrontScreenShell = jest.fn(
   ({ children }: MockStorefrontScreenShellProps) => (
     <View testID="storefront-screen-shell">{children}</View>
@@ -35,7 +36,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@react-native-vector-icons/ionicons', () => () => null);
 
 jest.mock('expo-image', () => ({
-  Image: () => null,
+  Image: (props: unknown) => mockImage(props),
 }));
 
 jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
@@ -77,7 +78,8 @@ jest.mock('@/components/OfflineNotice', () => ({
   },
 }));
 
-import { BRAND } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
+import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 
 describe('CategoriesScreen', () => {
   beforeEach(() => {
@@ -97,6 +99,19 @@ describe('CategoriesScreen', () => {
 
     expect(screen.getByText('Phones')).toBeOnTheScreen();
     expectTabShell();
+  });
+
+  it('applies the themed muted background to fallback images', () => {
+    render(<CategoriesScreen />);
+
+    expect(mockImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: { uri: PLACEHOLDER_IMAGE_URL },
+        style: expect.arrayContaining([
+          expect.objectContaining({ backgroundColor: Colors.light.muted }),
+        ]),
+      })
+    );
   });
 
   it('uses the tab shell while categories are loading', () => {
