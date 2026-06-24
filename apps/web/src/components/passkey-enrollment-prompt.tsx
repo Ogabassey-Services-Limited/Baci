@@ -58,12 +58,13 @@ export function PasskeyEnrollmentPrompt() {
 
   const dismissKey = user?.id ? getDismissKey(user.id) : null;
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    isMounted.current = true;
+
+    return () => {
       isMounted.current = false;
-    },
-    []
-  );
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled || !dismissKey || !pathname) {
@@ -135,9 +136,6 @@ export function PasskeyEnrollmentPrompt() {
       });
       return;
     }
-    if (dismissKey) {
-      rememberDismissed(dismissKey);
-    }
     setVisible(false);
     toast({
       title: 'Passkey ready',
@@ -148,7 +146,7 @@ export function PasskeyEnrollmentPrompt() {
   return (
     <section
       aria-label="Set up a passkey"
-      className="glass fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-4 z-[60] flex flex-col gap-3 rounded-xl border border-border/60 p-4 shadow-lg sm:bottom-6 sm:left-auto sm:max-w-xl sm:flex-row sm:items-center sm:justify-between"
+      className="glass fixed right-4 bottom-[calc(env(safe-area-inset-bottom)_+_5rem)] left-4 z-[60] flex flex-col gap-3 rounded-xl border border-border/60 p-4 shadow-lg sm:bottom-6 sm:left-auto sm:max-w-xl sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex items-start gap-3">
         <Fingerprint className="mt-0.5 size-5 shrink-0 text-primary" />

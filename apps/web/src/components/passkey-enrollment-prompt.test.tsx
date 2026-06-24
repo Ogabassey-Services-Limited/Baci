@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockListPasskeys, mockRegisterPasskey, mockToast } = vi.hoisted(() => ({
@@ -73,7 +74,7 @@ describe('PasskeyEnrollmentPrompt', () => {
 
     expect(prompt).toHaveClass('fixed');
     expect(prompt).toHaveClass(
-      'bottom-[calc(env(safe-area-inset-bottom)+5rem)]'
+      'bottom-[calc(env(safe-area-inset-bottom)_+_5rem)]'
     );
     expect(prompt).toHaveClass('z-[60]');
   });
@@ -136,7 +137,7 @@ describe('PasskeyEnrollmentPrompt', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('enrolls a passkey and hides the prompt on success', async () => {
+  it('enrolls a passkey without persisting a dismissal', async () => {
     render(<PasskeyEnrollmentPrompt />);
     fireEvent.click(
       await screen.findByRole('button', { name: /set up passkey/i })
@@ -148,9 +149,39 @@ describe('PasskeyEnrollmentPrompt', () => {
         screen.queryByRole('button', { name: /set up passkey/i })
       ).not.toBeInTheDocument()
     );
-    expect(window.localStorage.getItem(dismissKey())).toBe('1');
+    expect(window.localStorage.getItem(dismissKey())).toBeNull();
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Passkey ready' })
+    );
+
+    act(() => {
+      window.dispatchEvent(new Event(PASSKEY_STATE_CHANGED_EVENT));
+    });
+
+    expect(
+      await screen.findByRole('button', { name: /set up passkey/i })
+    ).toBeInTheDocument();
+  });
+
+  it('surfaces enrollment success after React Strict Mode effect replay', async () => {
+    render(
+      <StrictMode>
+        <PasskeyEnrollmentPrompt />
+      </StrictMode>
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: /set up passkey/i })
+    );
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Passkey ready' })
+      )
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /set up passkey/i })
+      ).not.toBeInTheDocument()
     );
   });
 
