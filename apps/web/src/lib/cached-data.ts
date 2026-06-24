@@ -1866,17 +1866,92 @@ export async function getCachedProductWithDetails(
   return hydrated[0] || null;
 }
 
+interface CachedProductCanonicalCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id?: string | null;
+}
+
+export interface CachedProductCanonicalRedirectTarget {
+  canonical_url?: string | null;
+  category?: string | null;
+  category_slug?: string | null;
+  categories?:
+    | CachedProductCanonicalCategory
+    | CachedProductCanonicalCategory[]
+    | null;
+  id: string;
+  name: string;
+  slug: string;
+  status?: string | null;
+}
+
 export interface CachedLegacyProductRedirectTarget {
   id: string;
   name: string;
   slug: string;
   category?: string | null;
-  categories?: {
-    id: string;
-    name: string;
-    slug: string;
-    parent_id?: string | null;
-  } | null;
+  categories?: CachedProductCanonicalCategory | null;
+}
+
+/**
+ * Narrow active-product lookup for the proxy canonical redirect preflight.
+ * Keep this projection smaller than `getCachedProductWithDetails()` so normal
+ * PDP requests do not hydrate variants/specs before the App Router render.
+ */
+export async function getCachedProductCanonicalRedirectTarget(
+  merchantId: string,
+  productSlug: string
+): Promise<CachedProductCanonicalRedirectTarget | null> {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag(
+    'product',
+    'product-canonical-redirect',
+    getProductScopedCacheTag(
+      'product-canonical-redirect',
+      merchantId,
+      productSlug
+    )
+  );
+
+  const supabase = getPublicSupabaseClient();
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      productSlug
+    );
+
+  let query = supabase
+    .from('products')
+    .select(`
+        id,
+        name,
+        slug,
+        status,
+        category,
+        category_slug,
+        canonical_url,
+        categories:category_id(id, name, slug, parent_id)
+      `)
+    .eq('merchant_id', merchantId);
+
+  if (isUuid) {
+    query = query.or(
+      `slug.eq.${productSlug.toLowerCase()},id.eq.${productSlug}`
+    );
+  } else {
+    query = query.eq('slug', productSlug.toLowerCase());
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error('Error fetching product canonical redirect target:', error);
+    return null;
+  }
+
+  return (data as CachedProductCanonicalRedirectTarget | null) || null;
 }
 
 /**

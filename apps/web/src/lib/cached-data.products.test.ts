@@ -4,6 +4,7 @@ import {
   getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
   getCachedProduct,
+  getCachedProductCanonicalRedirectTarget,
   getCachedProductLcpHint,
   getCachedProducts,
   getCachedProductWithDetails,
@@ -253,6 +254,30 @@ describe('cached-data product query projections', () => {
     await expect(
       getCachedProductLcpHint('merchant-123', 'missing-product')
     ).resolves.toBeNull();
+  });
+
+  it('getCachedProductCanonicalRedirectTarget uses the narrow proxy preflight projection', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+
+    await getCachedProductCanonicalRedirectTarget('merchant-123', 'iphone-16');
+
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+    expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
+    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).toContain('id');
+    expect(selectArg).toContain('name');
+    expect(selectArg).toContain('slug');
+    expect(selectArg).toContain('status');
+    expect(selectArg).toContain('category');
+    expect(selectArg).toContain('category_slug');
+    expect(selectArg).toContain('canonical_url');
+    expect(selectArg).toContain('categories:category_id');
+    expect(selectArg).not.toMatch(/\*\s*,/);
+    expect(selectArg).not.toMatch(standaloneDescriptionColumnPattern);
+    expect(selectArg).not.toContain('product_key_specs');
+    expect(selectArg).not.toContain('product_offers');
+    expect(selectArg).not.toContain('product_variants');
+    expect(harness.mockRpc).not.toHaveBeenCalled();
   });
 
   it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {

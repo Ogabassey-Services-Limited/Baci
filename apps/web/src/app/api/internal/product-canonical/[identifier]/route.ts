@@ -2,10 +2,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
 import {
   getCachedLegacyProductRedirectTarget,
-  getCachedProductWithDetails,
+  getCachedProductCanonicalRedirectTarget,
   getMerchantSafe,
 } from '@/lib/cached-data';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getProductUrl } from '@/lib/seo-utils';
 import {
   internalProductCanonicalRedirectQuerySchema,
@@ -32,9 +33,21 @@ interface ProductUrlSource {
   status?: string | null;
 }
 
+function normalizePublicPdpPath(path: string) {
+  const pathname = path.split(/[?#]/, 1)[0] || '/';
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length !== 2) {
+    return pathname.replace(/\/+$/g, '') || '/';
+  }
+
+  const [category, slug] = segments;
+  const normalizedCategory =
+    normalizeStorefrontCategorySlug(category) ?? category;
+  return `/${normalizedCategory}/${slug}`;
+}
+
 function normalizePath(path: string) {
-  const withoutTrailingSlash = path.replace(/\/+$/g, '');
-  return (withoutTrailingSlash || '/').toLowerCase();
+  return normalizePublicPdpPath(path).toLowerCase();
 }
 
 function asProductUrlSource(value: ProductUrlSource) {
@@ -65,7 +78,9 @@ function getRedirectResponseForTarget(
   requestedSlug: string,
   target: ProductUrlSource
 ) {
-  const targetPath = getProductUrl(asProductUrlSource(target));
+  const targetPath = normalizePublicPdpPath(
+    getProductUrl(asProductUrlSource(target))
+  );
   const requestedPath = `/${requestedCategory}/${requestedSlug}`;
 
   if (normalizePath(targetPath) === normalizePath(requestedPath)) {
@@ -113,7 +128,7 @@ export async function GET(
       return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
     }
 
-    const product = (await getCachedProductWithDetails(
+    const product = (await getCachedProductCanonicalRedirectTarget(
       merchant.id,
       query.data.slug
     )) as ProductUrlSource | null;

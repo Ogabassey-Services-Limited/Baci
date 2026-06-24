@@ -160,6 +160,15 @@ describe('OgabasseyLayoutChrome', () => {
     ).toHaveAttribute('data-defer-interaction-until-next-paint', 'true');
   });
 
+  it('keeps immediate footer links root-relative for domain-routed storefronts', () => {
+    render(<OgabasseyLayoutChrome basePath="" section="footer" />);
+
+    expect(screen.getByRole('link', { name: /about us/i })).toHaveAttribute(
+      'href',
+      '/about'
+    );
+  });
+
   it('mounts deferred footer commerce chrome after activation', async () => {
     deferredShellActive = true;
 
