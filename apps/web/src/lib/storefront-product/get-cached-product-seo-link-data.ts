@@ -12,8 +12,8 @@ export interface ProductSeoLinkData {
 }
 
 /**
- * Strict, cache-isolated fetch of the data that powers the PDP's semantic SEO
- * internal links (compare / brand / price-band support links + guide links).
+ * Strict, cache-isolated fetch of the data that powers semantic SEO internal
+ * links (compare / brand / price-band support links + guide links).
  *
  * Why this exists — the reliability pattern (Next 16 Cache Components):
  *   `getCachedCategoryPageData` deliberately FAILS OPEN: on transient Supabase
@@ -31,9 +31,14 @@ export interface ProductSeoLinkData {
  *   (no rows, no error) the flag is false, so we cache the empty result as
  *   normal.
  *
+ *   Keep this unit on local `'use cache'` rather than the remote cache
+ *   directive: these links are non-critical page enrichment and a Runtime Cache
+ *   write outage must not be able to crash public page renders with a
+ *   RemoteCacheHandler 502.
+ *
  *   Consumers must render this behind a Suspense boundary AND an error boundary
  *   so the cold-cache case (no last-good value yet + a transient failure)
- *   degrades to "no semantic links" instead of failing the whole PDP.
+ *   degrades to "no semantic links" instead of failing the whole page.
  *
  * NOTE (prototype): only the inventory path is made strict here. Guide-post
  * fetches still fail open (return []); giving them the same flag + strict
@@ -45,7 +50,7 @@ export async function getCachedProductSeoLinkData(
   _storeSlug: string,
   productId = ''
 ): Promise<ProductSeoLinkData> {
-  'use cache: remote';
+  'use cache';
   try {
     cacheLife('products');
     cacheTag(

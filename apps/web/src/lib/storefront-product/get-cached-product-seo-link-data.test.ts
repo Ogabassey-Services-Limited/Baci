@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data';
 
@@ -39,6 +42,13 @@ const productGuidePosts = [
   { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
   { slug: 'best-laptops', title: 'Best laptops' },
 ];
+const source = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    'get-cached-product-seo-link-data.ts'
+  ),
+  'utf8'
+);
 
 describe('getCachedProductSeoLinkData', () => {
   beforeEach(() => {
@@ -46,6 +56,11 @@ describe('getCachedProductSeoLinkData', () => {
     mockGetCachedProductSemanticInventory.mockResolvedValue(products);
     mockGetPublishedClusterPosts.mockResolvedValue(guidePosts);
     mockGetPublishedProductGuidePosts.mockResolvedValue(productGuidePosts);
+  });
+
+  it('keeps SEO link enrichment off the remote cache handler', () => {
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
   });
 
   it('returns inventory + guide posts on a successful fetch', async () => {
@@ -78,6 +93,7 @@ describe('getCachedProductSeoLinkData', () => {
       'blog-posts',
       'seo-links-merchant-1-laptops-prod-1'
     );
+    expect(mockCacheLife).toHaveBeenCalledWith('products');
   });
 
   it('continues when Next cache APIs are unavailable in a unit-test runtime', async () => {
