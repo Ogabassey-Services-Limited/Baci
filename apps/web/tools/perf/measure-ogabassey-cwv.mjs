@@ -18,11 +18,13 @@ import {
 } from './measure-ogabassey-cwv-runners.mjs';
 import { printCwvSummaryTable } from './measure-ogabassey-cwv-summary-utils.mjs';
 import {
+  applyPdpCanonicalResolution,
   buildLegacyPdpLcpJson,
   buildOgaBasseyCwvConfigurationFailures,
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
   filterOgaBasseyCwvTargets,
+  logOgaBasseyCwvCompletion,
 } from './measure-ogabassey-cwv-utils.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -151,7 +153,7 @@ export async function runOgaBasseyCwv() {
   const shouldResolvePdpCanonical = !isFalseyEnvValue(
     process.env.OGABASSEY_CWV_RESOLVE_PDP_CANONICAL
   );
-  const targets = filterOgaBasseyCwvTargets(
+  let targets = filterOgaBasseyCwvTargets(
     buildOgaBasseyCwvTargets({
       blogPostUrl,
       blogUrl: process.env.OGABASSEY_BLOG_URL,
@@ -165,10 +167,12 @@ export async function runOgaBasseyCwv() {
     const pdpResolution = await resolveCanonicalUrlOrFailure(requestedPdpUrl, {
       label: pdpTarget.label,
     });
-    pdpTarget.url = pdpResolution.url;
-    if (pdpResolution.failure) {
-      targetResolutionFailures.push(pdpResolution.failure);
-    }
+    targets = applyPdpCanonicalResolution({
+      pdpResolution,
+      pdpTarget,
+      targetResolutionFailures,
+      targets,
+    });
   }
   const summaries = [];
   const failures = buildOgaBasseyCwvConfigurationFailures({
@@ -291,10 +295,6 @@ export async function runOgaBasseyCwv() {
       console.log(JSON.stringify(buildLegacyPdpLcpJson(summary)));
     }
   }
-
-  const finalLog = shouldPrintLegacyPdpJson ? console.error : console.log;
-  finalLog(`Saved CWV audit artifacts to ${outputDir}`);
-  finalLog(`Audit id: ${auditId}`);
+  logOgaBasseyCwvCompletion(auditId, outputDir, shouldPrintLegacyPdpJson);
 }
-
 if (import.meta.main) await runOgaBasseyCwv();

@@ -1,4 +1,5 @@
-export const DEBUGBEAR_USER_AGENT = 'Baci-CWV-measurement/1.0';
+export const BACI_CWV_FETCH_USER_AGENT = 'Baci-CWV-measurement/1.0';
+export const DEBUGBEAR_API_USER_AGENT = 'Baci-CWV-debugbear-api/1.0';
 
 export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
   home: 'https://ogabassey.com/',
@@ -9,7 +10,7 @@ export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
 export function buildDebugBearHeaders(apiKey) {
   return {
     'content-type': 'application/json',
-    'user-agent': DEBUGBEAR_USER_AGENT,
+    'user-agent': DEBUGBEAR_API_USER_AGENT,
     'x-api-key': apiKey,
   };
 }
@@ -169,6 +170,33 @@ export function filterOgaBasseyCwvTargets(targets, requestedLabels) {
 
   const labelSet = new Set(labels);
   return targets.filter((target) => labelSet.has(target.label));
+}
+
+export function applyPdpCanonicalResolution({
+  pdpResolution,
+  pdpTarget,
+  targetResolutionFailures,
+  targets,
+}) {
+  if (!pdpTarget || !pdpResolution) return targets;
+
+  if (pdpResolution.failure) {
+    targetResolutionFailures.push(pdpResolution.failure);
+    return targets.filter((target) => target !== pdpTarget);
+  }
+
+  pdpTarget.url = pdpResolution.url;
+  return targets;
+}
+
+export function logOgaBasseyCwvCompletion(
+  auditId,
+  outputDir,
+  shouldPrintLegacyPdpJson
+) {
+  const finalLog = shouldPrintLegacyPdpJson ? console.error : console.log;
+  finalLog(`Saved CWV audit artifacts to ${outputDir}`);
+  finalLog(`Audit id: ${auditId}`);
 }
 
 export function buildLegacyPdpLcpJson(summary) {

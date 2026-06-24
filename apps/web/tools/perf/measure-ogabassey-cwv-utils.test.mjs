@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyPdpCanonicalResolution,
   buildDebugBearHeaders,
   buildLegacyPdpLcpJson,
   buildOgaBasseyCwvConfigurationFailures,
@@ -13,9 +14,40 @@ describe('buildDebugBearHeaders', () => {
   it('sends a stable user agent with DebugBear API requests', () => {
     expect(buildDebugBearHeaders('key')).toMatchObject({
       'content-type': 'application/json',
-      'user-agent': 'Baci-CWV-measurement/1.0',
+      'user-agent': 'Baci-CWV-debugbear-api/1.0',
       'x-api-key': 'key',
     });
+  });
+});
+
+describe('applyPdpCanonicalResolution', () => {
+  it('removes the PDP target after canonical validation fails', () => {
+    const pdpTarget = { label: 'pdp-dell', url: 'https://ogabassey.com/pdp' };
+    const homeTarget = { label: 'home', url: 'https://ogabassey.com/' };
+    const failures = [];
+
+    const targets = applyPdpCanonicalResolution({
+      pdpResolution: {
+        failure: {
+          label: 'pdp-dell',
+          message: 'canonical lookup failed',
+          source: 'target-resolution',
+        },
+        url: pdpTarget.url,
+      },
+      pdpTarget,
+      targetResolutionFailures: failures,
+      targets: [homeTarget, pdpTarget],
+    });
+
+    expect(targets).toEqual([homeTarget]);
+    expect(failures).toEqual([
+      {
+        label: 'pdp-dell',
+        message: 'canonical lookup failed',
+        source: 'target-resolution',
+      },
+    ]);
   });
 });
 

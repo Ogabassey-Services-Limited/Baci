@@ -17,6 +17,36 @@ function rememberWrapperDefaultEnvKey(env, key) {
   env[WRAPPER_DEFAULT_ENV_KEYS] = [...keys].sort().join(',');
 }
 
+function stripInlineEnvComment(rawValue) {
+  let quote = null;
+  for (let index = 0; index < rawValue.length; index += 1) {
+    const char = rawValue[index];
+    if (quote) {
+      if (char === quote && rawValue[index - 1] !== '\\') {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+
+    if (char === '#') {
+      return rawValue.slice(0, index).trimEnd();
+    }
+  }
+
+  return rawValue.trimEnd();
+}
+
+function parseEnvValue(rawValue) {
+  return stripInlineEnvComment(rawValue)
+    .trim()
+    .replace(/^(["'])(.*)\1$/, '$2');
+}
+
 export async function loadEnvFile(
   path,
   { env = process.env, override = false, readText } = {}
@@ -46,7 +76,7 @@ export async function loadEnvFile(
     const shouldOverride =
       typeof override === 'function' ? override(key, env[key]) : override;
     if (!key || (!shouldOverride && env[key] !== undefined)) continue;
-    env[key] = raw.replace(/^["']|["']$/g, '');
+    env[key] = parseEnvValue(raw);
   }
   return true;
 }

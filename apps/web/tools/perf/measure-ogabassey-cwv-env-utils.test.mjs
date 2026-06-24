@@ -39,6 +39,26 @@ describe('loadEnvFile', () => {
     });
   });
 
+  it('strips inline comments outside quoted env values', async () => {
+    const env = {};
+    const loaded = await loadEnvFile('/tmp/.env.local', {
+      env,
+      readText: async () =>
+        [
+          'OGABASSEY_CWV_PSI=0 # offline',
+          'DEBUGBEAR_API_KEY=project-key # account project key',
+          'QUOTED_HASH="value # not a comment" # trailing comment',
+        ].join('\n'),
+    });
+
+    expect(loaded).toBe(true);
+    expect(env).toEqual({
+      DEBUGBEAR_API_KEY: 'project-key',
+      OGABASSEY_CWV_PSI: '0',
+      QUOTED_HASH: 'value # not a comment',
+    });
+  });
+
   it('can override root env-file values without replacing shell-owned keys', async () => {
     const shellOwned = new Set(['DEBUGBEAR_API_KEY']);
     const env = {

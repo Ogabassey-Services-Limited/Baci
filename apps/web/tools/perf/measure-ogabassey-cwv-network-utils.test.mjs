@@ -195,7 +195,7 @@ describe('resolveCanonicalUrl', () => {
     vi.unstubAllGlobals();
   });
 
-  it('keeps same-path canonical URLs without query strings', async () => {
+  it('preserves requested PDP query parameters when the canonical path matches', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -203,13 +203,13 @@ describe('resolveCanonicalUrl', () => {
         status: 200,
         text: async () =>
           '<link rel="canonical" href="/products/source?utm=1#top">',
-        url: 'https://ogabassey.com/products/source',
+        url: 'https://ogabassey.com/products/source?variant=blue',
       }))
     );
 
     await expect(
-      resolveCanonicalUrl('https://ogabassey.com/products/source?ref=old')
-    ).resolves.toBe('https://ogabassey.com/products/source');
+      resolveCanonicalUrl('https://ogabassey.com/products/source?variant=blue')
+    ).resolves.toBe('https://ogabassey.com/products/source?variant=blue');
   });
 
   it('parses canonical links when href appears before rel', async () => {
@@ -225,8 +225,8 @@ describe('resolveCanonicalUrl', () => {
     );
 
     await expect(
-      resolveCanonicalUrl('https://ogabassey.com/products/source?ref=old')
-    ).resolves.toBe('https://ogabassey.com/products/source');
+      resolveCanonicalUrl('https://ogabassey.com/products/source?variant=red')
+    ).resolves.toBe('https://ogabassey.com/products/source?variant=red');
   });
 
   it('fails PDP resolution on non-OK responses', async () => {

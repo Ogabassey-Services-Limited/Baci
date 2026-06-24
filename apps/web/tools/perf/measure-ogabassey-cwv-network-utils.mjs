@@ -1,4 +1,4 @@
-import { DEBUGBEAR_USER_AGENT } from './measure-ogabassey-cwv-utils.mjs';
+import { BACI_CWV_FETCH_USER_AGENT } from './measure-ogabassey-cwv-utils.mjs';
 
 function redactUrlForError(value) {
   try {
@@ -74,7 +74,7 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
 
   try {
     const response = await fetch(blogUrl, {
-      headers: { 'user-agent': DEBUGBEAR_USER_AGENT },
+      headers: { 'user-agent': BACI_CWV_FETCH_USER_AGENT },
     });
     if (!response.ok) return null;
 
@@ -105,19 +105,24 @@ export async function resolveLatestBlogPostUrl(blogUrl) {
   return null;
 }
 
-function normalizeUrlForStrictTarget(value) {
+function normalizeUrlForPdpAudit(value) {
   const target = new URL(value);
   target.hash = '';
-  target.search = '';
   if (target.pathname !== '/') {
     target.pathname = target.pathname.replace(/\/+$/, '');
   }
   return target;
 }
 
+function normalizeUrlForStrictPdpComparison(value) {
+  const target = normalizeUrlForPdpAudit(value);
+  target.search = '';
+  return target;
+}
+
 function assertSamePdpTarget(candidate, requested, reason) {
-  const candidateUrl = normalizeUrlForStrictTarget(candidate);
-  const requestedUrl = normalizeUrlForStrictTarget(requested);
+  const candidateUrl = normalizeUrlForStrictPdpComparison(candidate);
+  const requestedUrl = normalizeUrlForStrictPdpComparison(requested);
 
   if (candidateUrl.origin !== requestedUrl.origin) {
     throw new Error(
@@ -131,7 +136,7 @@ function assertSamePdpTarget(candidate, requested, reason) {
     );
   }
 
-  return candidateUrl.toString();
+  return normalizeUrlForPdpAudit(requested).toString();
 }
 
 function getTagAttribute(tag, attributeName) {
@@ -151,10 +156,10 @@ function getCanonicalHref(html) {
 }
 
 export async function resolveCanonicalUrl(url) {
-  const requested = normalizeUrlForStrictTarget(url).toString();
+  const requested = normalizeUrlForPdpAudit(url).toString();
 
   const response = await fetch(requested, {
-    headers: { 'user-agent': DEBUGBEAR_USER_AGENT },
+    headers: { 'user-agent': BACI_CWV_FETCH_USER_AGENT },
   });
   if (!response.ok) {
     throw new Error(
