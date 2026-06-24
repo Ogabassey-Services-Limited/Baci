@@ -170,7 +170,7 @@ describe('BlogPostBody', () => {
     );
   });
 
-  it('demotes legacy HTML h1 headings inside the article body', async () => {
+  it('normalizes legacy HTML heading hierarchy inside the article body', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
       legacyHtml:
@@ -205,7 +205,7 @@ describe('BlogPostBody', () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { level: 3, name: 'Imported Section' })
+      screen.getByRole('heading', { level: 2, name: 'Imported Section' })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Product data JSON' })

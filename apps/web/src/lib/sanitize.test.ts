@@ -129,6 +129,43 @@ describe('sanitize', () => {
     ).toContain('<h1>Title</h1>');
   });
 
+  it('normalizes article body headings without skipping levels below the page h1', () => {
+    const output = sanitizeHtml(
+      '<h2>Buying advice</h2><h4>Battery checks</h4><h1>Duplicate imported title</h1><h3>Camera details</h3>',
+      { normalizeHeadingHierarchy: true }
+    );
+
+    expect(output).toContain('<h2>Buying advice</h2>');
+    expect(output).toContain('<h3>Battery checks</h3>');
+    expect(output).toContain('<h2>Duplicate imported title</h2>');
+    expect(output).toContain('<h3>Camera details</h3>');
+    expect(output).not.toContain('<h1>');
+    expect(output).not.toContain('<h4>Battery checks</h4>');
+  });
+
+  it('keeps repeated skipped sibling headings at the same normalized level', () => {
+    const output = sanitizeHtml(
+      '<h2>Main section</h2><h4>First sibling</h4><h4>Second sibling</h4>',
+      { normalizeHeadingHierarchy: true }
+    );
+
+    expect(output).toContain('<h2>Main section</h2>');
+    expect(output).toContain('<h3>First sibling</h3>');
+    expect(output).toContain('<h3>Second sibling</h3>');
+    expect(output).not.toContain('<h4>');
+  });
+
+  it('promotes all top-level body headings when content starts at h3', () => {
+    const output = sanitizeHtml(
+      '<h3>Battery</h3><h3>Camera</h3><h4>Low-light notes</h4>',
+      { normalizeHeadingHierarchy: true }
+    );
+
+    expect(output).toContain('<h2>Battery</h2>');
+    expect(output).toContain('<h2>Camera</h2>');
+    expect(output).toContain('<h3>Low-light notes</h3>');
+  });
+
   it('removes empty anchors when SEO anchor normalization is enabled', () => {
     const output = sanitizeHtml(
       '<p>See <a href="https://example.com/phone"></a> details.</p>',
