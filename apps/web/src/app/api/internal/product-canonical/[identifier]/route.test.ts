@@ -98,6 +98,47 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     expect(await res.json()).toEqual({ hasError: false, redirectPath: null });
   });
 
+  it('ignores stale stored canonical_url values when the product fields already match', async () => {
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      canonical_url: '/products/pixel-10',
+      id: 'product-1',
+      name: 'Pixel 10',
+      slug: 'pixel-10',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
+    });
+
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'pixel-10' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual({ hasError: false, redirectPath: null });
+  });
+
+  it('builds stale-category redirects from product fields instead of stale canonical_url', async () => {
+    mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
+      canonical_url: '/products/pixel-10',
+      id: 'product-1',
+      name: 'Pixel 10',
+      slug: 'pixel-10',
+      category: 'Smartphones',
+      categories: { name: 'Smartphones', slug: 'smartphones' },
+      status: 'active',
+    });
+
+    const res = await GET(
+      request({ category: 'google', slug: 'pixel-10' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual({
+      hasError: false,
+      redirectPath: '/smartphones/pixel-10',
+    });
+  });
+
   it('does not redirect normalized public category aliases back to legacy stored paths', async () => {
     mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue({
       id: 'product-1',

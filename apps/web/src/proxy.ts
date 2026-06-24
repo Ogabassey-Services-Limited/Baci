@@ -1420,10 +1420,6 @@ async function resolveStorefrontPdpCanonicalRedirect(
   ) {
     return null;
   }
-  if (UUID_SHAPED_SLUG.test(productSlug)) {
-    return null;
-  }
-
   const redirectPath = await getStorefrontProductCanonicalRedirectPath({
     origin: request.nextUrl.origin,
     identifier,

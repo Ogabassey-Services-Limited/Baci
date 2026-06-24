@@ -79,7 +79,10 @@ function getRedirectResponseForTarget(
   target: ProductUrlSource
 ) {
   const targetPath = normalizePublicPdpPath(
-    getProductUrl(asProductUrlSource(target))
+    getProductUrl({
+      ...asProductUrlSource(target),
+      canonical_url: null,
+    })
   );
   const requestedPath = `/${requestedCategory}/${requestedSlug}`;
 

@@ -204,7 +204,11 @@ describe('cache-revalidation utilities', () => {
         'category-page-data',
         'storefront-page'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
     });
 
     it('revalidates specific category when slug provided', () => {
@@ -228,7 +232,11 @@ describe('cache-revalidation utilities', () => {
         'category-page-data',
         'storefront-page'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
     });
 
     it('handles empty slug gracefully', () => {
@@ -238,7 +246,11 @@ describe('cache-revalidation utilities', () => {
         `categories-${MERCHANT_ID}`,
         'categories'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
     });
   });
 

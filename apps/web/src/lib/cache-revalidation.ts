@@ -108,6 +108,7 @@ export function revalidateCategories(
   revalidateTag(`categories-${merchantId}`, 'categories');
   revalidateTag('navigation-categories', 'categories');
   revalidateTag('category-page-data', 'storefront-page');
+  revalidateTag('product-canonical-redirect', 'products');
 
   if (categorySlug) {
     revalidateTag(`category-${merchantId}-${categorySlug}`, 'categories');

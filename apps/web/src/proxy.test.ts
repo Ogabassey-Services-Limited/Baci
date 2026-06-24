@@ -755,6 +755,30 @@ describe('Middleware Proxy', () => {
       expect(resolutionMock).not.toHaveBeenCalled();
     });
 
+    it('308-redirects UUID-shaped PDP aliases before the App Router renders a duplicate 200', async () => {
+      canonicalRedirectMock.mockResolvedValue('/smartphones/google-pixel-10');
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/123e4567-e89b-12d3-a456-426614174000'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/google-pixel-10'
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'smartphones',
+          identifier: 'ogabassey',
+          productSlug: '123e4567-e89b-12d3-a456-426614174000',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
     it('preserves attribution query params on pre-streaming canonical redirects', async () => {
       canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
       resolutionMock.mockResolvedValue({ kind: 'missing' });
