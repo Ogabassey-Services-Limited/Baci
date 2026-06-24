@@ -8,7 +8,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { getStorefrontProductCanonicalRedirectPath } from '@/lib/storefront-product-canonical-redirect';
+import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from './config/storefront-metadata-cache-bots';
@@ -63,7 +63,9 @@ vi.mock('@/lib/storefront-product-slug-membership', () => ({
 // Mock the canonical PDP redirect lookup. Defaults to "already canonical" so
 // existing rewrite/404 tests only opt into redirects when explicitly needed.
 vi.mock('@/lib/storefront-product-canonical-redirect', () => ({
-  getStorefrontProductCanonicalRedirectPath: vi.fn().mockResolvedValue(null),
+  getStorefrontProductCanonicalRedirectResult: vi
+    .fn()
+    .mockResolvedValue({ kind: 'unknown' }),
 }));
 
 // Mock rate limit
@@ -121,9 +123,9 @@ describe('Middleware Proxy', () => {
     vi.mocked(resolveStorefrontProductSlugResolution).mockResolvedValue({
       kind: 'present-or-unknown',
     });
-    vi.mocked(getStorefrontProductCanonicalRedirectPath).mockResolvedValue(
-      null
-    );
+    vi.mocked(getStorefrontProductCanonicalRedirectResult).mockResolvedValue({
+      kind: 'unknown',
+    });
   });
 
   it('should apply security headers to API routes', async () => {
@@ -729,11 +731,14 @@ describe('Middleware Proxy', () => {
       );
 
     const canonicalRedirectMock = vi.mocked(
-      getStorefrontProductCanonicalRedirectPath
+      getStorefrontProductCanonicalRedirectResult
     );
 
     it('308-redirects stale custom-domain category aliases before the App Router streams a 200 shell', async () => {
-      canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
       resolutionMock.mockResolvedValue({ kind: 'missing' });
       const req = new NextRequest('https://ogabassey.com/tecno/tecno-spark-40');
       req.headers.set('host', 'ogabassey.com');
@@ -756,7 +761,10 @@ describe('Middleware Proxy', () => {
     });
 
     it('308-redirects UUID-shaped PDP aliases before the App Router renders a duplicate 200', async () => {
-      canonicalRedirectMock.mockResolvedValue('/smartphones/google-pixel-10');
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/google-pixel-10',
+      });
       resolutionMock.mockResolvedValue({ kind: 'missing' });
       const req = new NextRequest(
         'https://ogabassey.com/smartphones/123e4567-e89b-12d3-a456-426614174000'
@@ -780,7 +788,10 @@ describe('Middleware Proxy', () => {
     });
 
     it('preserves attribution query params on pre-streaming canonical redirects', async () => {
-      canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
       resolutionMock.mockResolvedValue({ kind: 'missing' });
       const req = new NextRequest(
         'https://ogabassey.com/tecno/tecno-spark-40?utm_source=email&gclid=abc123'
@@ -804,7 +815,10 @@ describe('Middleware Proxy', () => {
     });
 
     it('308-redirects stale category aliases on merchant subdomains before the storefront rewrite', async () => {
-      canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
       resolutionMock.mockResolvedValue({ kind: 'missing' });
       const req = new NextRequest(
         `https://ogabassey.${ROOT_DOMAIN}/tecno/tecno-spark-40`
@@ -829,9 +843,10 @@ describe('Middleware Proxy', () => {
     });
 
     it('308-redirects archived variant slugs on root-domain slug paths while preserving the merchant prefix', async () => {
-      canonicalRedirectMock.mockResolvedValue(
-        '/smartphones/samsung-galaxy-z-fold-6'
-      );
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/samsung-galaxy-z-fold-6',
+      });
       const req = new NextRequest(
         'https://usebaci.com/ogabassey/smartphones/samsung-galaxy-z-fold-6-12gb-256gb'
       );
@@ -853,7 +868,10 @@ describe('Middleware Proxy', () => {
     });
 
     it('does not run the canonical redirect lookup for RSC/prefetch navigations', async () => {
-      canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
       const req = new NextRequest('https://ogabassey.com/tecno/tecno-spark-40');
       req.headers.set('host', 'ogabassey.com');
       req.headers.set('RSC', '1');
@@ -862,6 +880,23 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).not.toBe(308);
       expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('skips the slug membership lookup when canonical preflight proves the PDP is already canonical', async () => {
+      canonicalRedirectMock.mockResolvedValue({ kind: 'checked-no-redirect' });
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/tecno-spark-40'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/smartphones/tecno-spark-40'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
     });
 
     it('returns a hard 404 for a confirmed-missing product slug on a custom domain', async () => {

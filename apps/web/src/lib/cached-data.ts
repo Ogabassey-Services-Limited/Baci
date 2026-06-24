@@ -1876,7 +1876,6 @@ interface CachedProductCanonicalCategory {
 export interface CachedProductCanonicalRedirectTarget {
   canonical_url?: string | null;
   category?: string | null;
-  category_slug?: string | null;
   categories?:
     | CachedProductCanonicalCategory
     | CachedProductCanonicalCategory[]
@@ -1931,7 +1930,6 @@ export async function getCachedProductCanonicalRedirectTarget(
         slug,
         status,
         category,
-        category_slug,
         canonical_url,
         categories:category_id(id, name, slug, parent_id)
       `)

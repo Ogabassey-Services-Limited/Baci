@@ -109,6 +109,7 @@ export function revalidateCategories(
   revalidateTag('navigation-categories', 'categories');
   revalidateTag('category-page-data', 'storefront-page');
   revalidateTag('product-canonical-redirect', 'products');
+  revalidateTag('product-legacy-redirect', 'products');
 
   if (categorySlug) {
     revalidateTag(`category-${merchantId}-${categorySlug}`, 'categories');

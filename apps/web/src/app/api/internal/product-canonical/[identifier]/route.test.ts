@@ -22,7 +22,7 @@ import { GET } from './route';
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const IDENTIFIER = 'ogabassey.com';
 const SECRET = 'test-internal-secret';
-const FAIL_OPEN = { hasError: true, redirectPath: null };
+const FAIL_OPEN = { hasError: true, matchedProduct: false, redirectPath: null };
 
 function request(
   params: { category?: string; slug?: string } = {},
@@ -72,6 +72,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({
       hasError: false,
+      matchedProduct: true,
       redirectPath: '/smartphones/tecno-spark-40',
     });
     expect(mockGetCachedProductCanonicalRedirectTarget).toHaveBeenCalledWith(
@@ -95,7 +96,11 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       context()
     );
 
-    expect(await res.json()).toEqual({ hasError: false, redirectPath: null });
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
   });
 
   it('ignores stale stored canonical_url values when the product fields already match', async () => {
@@ -114,7 +119,11 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       context()
     );
 
-    expect(await res.json()).toEqual({ hasError: false, redirectPath: null });
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
   });
 
   it('builds stale-category redirects from product fields instead of stale canonical_url', async () => {
@@ -135,6 +144,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
 
     expect(await res.json()).toEqual({
       hasError: false,
+      matchedProduct: true,
       redirectPath: '/smartphones/pixel-10',
     });
   });
@@ -155,7 +165,11 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       context()
     );
 
-    expect(await res.json()).toEqual({ hasError: false, redirectPath: null });
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
   });
 
   it('returns the normalized public alias target for stale product category URLs', async () => {
@@ -176,6 +190,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
 
     expect(await res.json()).toEqual({
       hasError: false,
+      matchedProduct: true,
       redirectPath: '/smartphones/iphone-12',
     });
   });
@@ -197,6 +212,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
 
     expect(await res.json()).toEqual({
       hasError: false,
+      matchedProduct: true,
       redirectPath: '/smartphones/iphone-15',
     });
   });
@@ -228,12 +244,26 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
 
     expect(await res.json()).toEqual({
       hasError: false,
+      matchedProduct: true,
       redirectPath: '/smartphones/samsung-galaxy-z-fold-6',
     });
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       MERCHANT_ID,
       'samsung-galaxy-z-fold-6-12gb-256gb'
     );
+  });
+
+  it('marks no-match responses so the proxy can continue to the slug resolver', async () => {
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'missing-product' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: false,
+      redirectPath: null,
+    });
   });
 
   it('fails open for invalid input or unresolved merchants', async () => {

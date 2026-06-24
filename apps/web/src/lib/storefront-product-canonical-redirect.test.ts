@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getStorefrontProductCanonicalRedirectPath } from './storefront-product-canonical-redirect';
+import {
+  getStorefrontProductCanonicalRedirectPath,
+  getStorefrontProductCanonicalRedirectResult,
+} from './storefront-product-canonical-redirect';
 
 const originalVercelUrl = process.env.VERCEL_URL;
 const SECRET = 'test-secret';
@@ -48,6 +51,48 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     expect((init as RequestInit).headers).toEqual({
       Authorization: `Bearer ${SECRET}`,
     });
+  });
+
+  it('returns checked-no-redirect when the internal endpoint matched a canonical product', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        hasError: false,
+        matchedProduct: true,
+        redirectPath: null,
+      })
+    );
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'smartphones',
+        productSlug: 'iphone-15',
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toEqual({ kind: 'checked-no-redirect' });
+  });
+
+  it('returns unknown when the internal endpoint found no active or legacy product', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({
+        hasError: false,
+        matchedProduct: false,
+        redirectPath: null,
+      })
+    );
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'smartphones',
+        productSlug: 'missing-product',
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
   });
 
   it('fails open when the endpoint reports no redirect or an error', async () => {

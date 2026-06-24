@@ -15,6 +15,11 @@ interface ProductCanonicalRedirectOptions {
   timeoutMs?: number;
 }
 
+export type StorefrontProductCanonicalRedirectResult =
+  | { kind: 'redirect'; redirectPath: string }
+  | { kind: 'checked-no-redirect' }
+  | { kind: 'unknown' };
+
 function isSafeRedirectPath(value: unknown): value is string {
   return (
     typeof value === 'string' &&
@@ -25,16 +30,16 @@ function isSafeRedirectPath(value: unknown): value is string {
   );
 }
 
-export async function getStorefrontProductCanonicalRedirectPath(
+export async function getStorefrontProductCanonicalRedirectResult(
   opts: ProductCanonicalRedirectOptions
-): Promise<string | null> {
+): Promise<StorefrontProductCanonicalRedirectResult> {
   if (!opts.secret) {
-    return null;
+    return { kind: 'unknown' };
   }
 
   const baseUrl = resolveInternalBaseUrl(opts.origin);
   if (!baseUrl) {
-    return null;
+    return { kind: 'unknown' };
   }
 
   try {
@@ -51,20 +56,34 @@ export async function getStorefrontProductCanonicalRedirectPath(
     });
 
     if (!response.ok) {
-      return null;
+      return { kind: 'unknown' };
     }
 
     const body = (await response.json()) as {
       hasError?: boolean;
+      matchedProduct?: boolean;
       redirectPath?: unknown;
     };
 
-    if (body?.hasError === false && isSafeRedirectPath(body.redirectPath)) {
-      return body.redirectPath;
+    if (body?.hasError !== false) {
+      return { kind: 'unknown' };
     }
 
-    return null;
+    if (isSafeRedirectPath(body.redirectPath)) {
+      return { kind: 'redirect', redirectPath: body.redirectPath };
+    }
+
+    return body.matchedProduct === true
+      ? { kind: 'checked-no-redirect' }
+      : { kind: 'unknown' };
   } catch {
-    return null;
+    return { kind: 'unknown' };
   }
+}
+
+export async function getStorefrontProductCanonicalRedirectPath(
+  opts: ProductCanonicalRedirectOptions
+): Promise<string | null> {
+  const result = await getStorefrontProductCanonicalRedirectResult(opts);
+  return result.kind === 'redirect' ? result.redirectPath : null;
 }

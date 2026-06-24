@@ -14,13 +14,16 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
-const FAIL_OPEN = { hasError: true, redirectPath: null };
-const NO_REDIRECT = { hasError: false, redirectPath: null };
+const FAIL_OPEN = { hasError: true, matchedProduct: false, redirectPath: null };
+const NO_REDIRECT = {
+  hasError: false,
+  matchedProduct: false,
+  redirectPath: null,
+};
 
 interface ProductUrlSource {
   canonical_url?: string | null;
   category?: string | null;
-  category_slug?: string | null;
   categories?:
     | { name?: string | null; slug?: string | null }
     | { name?: string | null; slug?: string | null }[]
@@ -58,7 +61,6 @@ function asProductUrlSource(value: ProductUrlSource) {
   return {
     canonical_url: value.canonical_url,
     category: value.category,
-    category_slug: value.category_slug,
     categories: category?.slug
       ? {
           name: category.name ?? undefined,
@@ -87,10 +89,10 @@ function getRedirectResponseForTarget(
   const requestedPath = `/${requestedCategory}/${requestedSlug}`;
 
   if (normalizePath(targetPath) === normalizePath(requestedPath)) {
-    return NO_REDIRECT;
+    return { hasError: false, matchedProduct: true, redirectPath: null };
   }
 
-  return { hasError: false, redirectPath: targetPath };
+  return { hasError: false, matchedProduct: true, redirectPath: targetPath };
 }
 
 export async function GET(

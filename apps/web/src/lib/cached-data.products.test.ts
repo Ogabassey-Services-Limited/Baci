@@ -269,7 +269,7 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('slug');
     expect(selectArg).toContain('status');
     expect(selectArg).toContain('category');
-    expect(selectArg).toContain('category_slug');
+    expect(selectArg).not.toMatch(/\bcategory_slug\b/);
     expect(selectArg).toContain('canonical_url');
     expect(selectArg).toContain('categories:category_id');
     expect(selectArg).not.toMatch(/\*\s*,/);

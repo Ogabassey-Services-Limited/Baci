@@ -34,7 +34,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
-import { getStorefrontProductCanonicalRedirectPath } from '@/lib/storefront-product-canonical-redirect';
+import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -1368,31 +1368,36 @@ async function resolveStorefrontPdpHardNotFound(
  * crawls. The internal endpoint performs the DB/cache lookup behind the
  * platform host and fails open on uncertainty.
  */
+interface StorefrontPdpCanonicalRedirectResolution {
+  response: NextResponse | null;
+  skipHardNotFound: boolean;
+}
+
 async function resolveStorefrontPdpCanonicalRedirect(
   request: NextRequest,
   pathname: string,
   hostname: string | undefined,
   identifier: string,
   publicPathPrefix = ''
-): Promise<NextResponse | null> {
+): Promise<StorefrontPdpCanonicalRedirectResolution> {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
   if (
     request.headers.get('rsc') === '1' ||
     request.headers.has('next-router-prefetch') ||
     request.headers.has('next-router-state-tree')
   ) {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
   const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
   if (fetchDest && fetchDest !== 'document') {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
 
   const routeType = getRouteType(pathname);
   if (routeType !== 'storefront') {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
 
   const contentSegments = getStorefrontContentSegments(
@@ -1401,7 +1406,7 @@ async function resolveStorefrontPdpCanonicalRedirect(
     routeType
   );
   if (contentSegments.length !== 2) {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
 
   const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
@@ -1412,15 +1417,15 @@ async function resolveStorefrontPdpCanonicalRedirect(
     !isProductsFallbackPdp &&
     (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
   ) {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
   if (
     !productSlug ||
     RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
   ) {
-    return null;
+    return { response: null, skipHardNotFound: false };
   }
-  const redirectPath = await getStorefrontProductCanonicalRedirectPath({
+  const canonicalResult = await getStorefrontProductCanonicalRedirectResult({
     origin: request.nextUrl.origin,
     identifier,
     category: firstSegment,
@@ -1428,21 +1433,28 @@ async function resolveStorefrontPdpCanonicalRedirect(
     secret: getInternalApiSecret(),
   });
 
-  if (!redirectPath) {
-    return null;
+  if (canonicalResult.kind === 'unknown') {
+    return { response: null, skipHardNotFound: false };
   }
 
-  const publicTargetPath = `${publicPathPrefix}${redirectPath}`;
+  if (canonicalResult.kind === 'checked-no-redirect') {
+    return { response: null, skipHardNotFound: true };
+  }
+
+  const publicTargetPath = `${publicPathPrefix}${canonicalResult.redirectPath}`;
   if (
     normalizePathnameForCompare(publicTargetPath) ===
     normalizePathnameForCompare(pathname)
   ) {
-    return null;
+    return { response: null, skipHardNotFound: true };
   }
 
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = publicTargetPath;
-  return NextResponse.redirect(redirectUrl, 308);
+  return {
+    response: NextResponse.redirect(redirectUrl, 308),
+    skipHardNotFound: true,
+  };
 }
 
 function buildStrictCspResponse(
@@ -2430,22 +2442,24 @@ export async function proxy(request: NextRequest) {
         hostname,
         domainMerchantSlug ?? domain
       );
-      if (pdpCanonicalRedirect) {
-        return pdpCanonicalRedirect;
+      if (pdpCanonicalRedirect.response) {
+        return pdpCanonicalRedirect.response;
       }
 
       // Crawl-budget hard-404 (PR-B §3.2): a confirmed-missing PDP product slug
       // gets a real 404 instead of a soft-404 shell. Fail-open; runs before the
       // storefront rewrite so a true typo never reaches the dynamic route.
-      const pdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-        request,
-        pathname,
-        hostname,
-        userAgent,
-        domainMerchantSlug ?? domain
-      );
-      if (pdpHardNotFound) {
-        return pdpHardNotFound;
+      if (!pdpCanonicalRedirect.skipHardNotFound) {
+        const pdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          domainMerchantSlug ?? domain
+        );
+        if (pdpHardNotFound) {
+          return pdpHardNotFound;
+        }
       }
 
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
@@ -2626,23 +2640,25 @@ export async function proxy(request: NextRequest) {
         hostname,
         subdomain as string
       );
-    if (subdomainPdpCanonicalRedirect) {
-      return subdomainPdpCanonicalRedirect;
+    if (subdomainPdpCanonicalRedirect.response) {
+      return subdomainPdpCanonicalRedirect.response;
     }
 
     // Crawl-budget hard-404 (PR-B §3.2) for SUBDOMAIN storefronts
     // (`{slug}.usebaci.com/{category}/{product}`). Same fail-open guard as the
     // custom-domain branch; identifier is the subdomain. The subdomain host is
     // not a platform host, so content segments are not slug-sliced here.
-    const subdomainPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-      request,
-      pathname,
-      hostname,
-      userAgent,
-      subdomain as string
-    );
-    if (subdomainPdpHardNotFound) {
-      return subdomainPdpHardNotFound;
+    if (!subdomainPdpCanonicalRedirect.skipHardNotFound) {
+      const subdomainPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        subdomain as string
+      );
+      if (subdomainPdpHardNotFound) {
+        return subdomainPdpHardNotFound;
+      }
     }
 
     const url = request.nextUrl.clone();
@@ -2765,19 +2781,21 @@ export async function proxy(request: NextRequest) {
           slug,
           `/${slug}`
         );
-      if (rootPdpCanonicalRedirect) {
-        return rootPdpCanonicalRedirect;
+      if (rootPdpCanonicalRedirect.response) {
+        return rootPdpCanonicalRedirect.response;
       }
 
-      const rootPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-        request,
-        pathname,
-        hostname,
-        userAgent,
-        slug
-      );
-      if (rootPdpHardNotFound) {
-        return rootPdpHardNotFound;
+      if (!rootPdpCanonicalRedirect.skipHardNotFound) {
+        const rootPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          slug
+        );
+        if (rootPdpHardNotFound) {
+          return rootPdpHardNotFound;
+        }
       }
     }
   }

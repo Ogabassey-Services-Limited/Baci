@@ -208,7 +208,11 @@ describe('cache-revalidation utilities', () => {
         'product-canonical-redirect',
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
     });
 
     it('revalidates specific category when slug provided', () => {
@@ -236,7 +240,11 @@ describe('cache-revalidation utilities', () => {
         'product-canonical-redirect',
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(6);
     });
 
     it('handles empty slug gracefully', () => {
@@ -250,7 +258,11 @@ describe('cache-revalidation utilities', () => {
         'product-canonical-redirect',
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
     });
   });
 
