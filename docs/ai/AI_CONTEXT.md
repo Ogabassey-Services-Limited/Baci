@@ -303,9 +303,11 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-Use Genkit Dev UI: `pnpm turbo genkit:dev`
-1. Navigate to http://localhost:4000
-2. Test each flow individually with sample inputs
+No Genkit Dev UI scripts are currently defined. Test active AI flows through the
+web app and route/API test suites unless Genkit is intentionally restored with
+package-local scripts.
+1. Run the relevant `@baci/web` tests for the changed AI route or flow
+2. Exercise the web UI path that calls the flow with sample inputs
 3. Verify output schemas match TypeScript types
 4. Test error handling with invalid inputs
 
@@ -409,7 +411,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - **Schema Docs:** `/src/schemas/README.md`
 
 ### External Docs
-- **Next.js 15:** https://nextjs.org/docs
+- **Next.js 16:** https://nextjs.org/docs
 - **Genkit:** https://firebase.google.com/docs/genkit
 - **Tailwind CSS:** https://tailwindcss.com/docs
 - **Radix UI:** https://www.radix-ui.com/primitives/docs/overview/introduction
@@ -419,12 +421,14 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 ### Commands
 ```bash
 pnpm turbo dev              # Start Next.js dev server on port 9002
-pnpm turbo genkit:dev       # Start Genkit Dev UI on port 4000
-pnpm turbo genkit:watch     # Genkit with hot reload
 pnpm turbo build            # Production build
 pnpm turbo typecheck        # TypeScript type checking
 pnpm turbo lint             # Biome linting
 ```
+
+> Genkit rollback/debug commands are not active in this workspace. If Genkit is
+> intentionally restored, add package-local scripts to `apps/web/package.json`
+> before documenting Turbo tasks such as `genkit:dev` or `genkit:watch`.
 
 ---
 
