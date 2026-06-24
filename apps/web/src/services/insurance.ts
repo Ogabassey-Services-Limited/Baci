@@ -233,11 +233,14 @@ export async function syncClaimsStatus() {
       // Map v2 claim status to our shared normalized vocabulary.
       const rawStatus = String(claim.claim_status || claim.status || '');
       const paymentStatus = String(claim.payment_status || '').toLowerCase();
-      const newClaimStatus =
-        paymentStatus === 'paid' || paymentStatus === 'payment initiated'
-          ? 'paid'
-          : normalizeClaimStatus(rawStatus);
-      const claimStage = rawStatus.trim() || claimStatusLabel(newClaimStatus);
+      const paymentStatusIndicatesPaid =
+        paymentStatus === 'paid' || paymentStatus === 'payment initiated';
+      const newClaimStatus = paymentStatusIndicatesPaid
+        ? 'paid'
+        : normalizeClaimStatus(rawStatus);
+      const claimStage = paymentStatusIndicatesPaid
+        ? claimStatusLabel(newClaimStatus)
+        : rawStatus.trim() || claimStatusLabel(newClaimStatus);
       const incomingClaimProgress =
         (claim.progress as string | undefined) ??
         (claim.meta as { progress?: string } | undefined)?.progress;

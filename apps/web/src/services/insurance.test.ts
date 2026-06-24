@@ -685,6 +685,7 @@ describe('syncClaimsStatus', () => {
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           claim_status: 'paid',
+          claim_stage: 'Paid',
         })
       );
     });

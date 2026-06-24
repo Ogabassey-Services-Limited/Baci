@@ -772,6 +772,58 @@ describe('POST /api/webhooks/mycover', () => {
       );
     });
 
+    it('reads legacy claim.updated status fields without wiping omitted details', async () => {
+      const payload = {
+        event: 'claim.updated',
+        data: {
+          policy_id: 'pol-1',
+          status: 'Approved',
+        },
+      };
+      const rawBody = JSON.stringify(payload);
+
+      const response = await POST(
+        createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+      );
+
+      expect(response.status).toBe(200);
+      const updatePayload = mocks.policyUpdate.mock.calls[0]?.[0] as Record<
+        string,
+        unknown
+      >;
+      expect(updatePayload).toEqual(
+        expect.objectContaining({
+          claim_status: 'approved',
+          claim_stage: 'Approved',
+        })
+      );
+      expect(updatePayload).not.toHaveProperty('claim_progress');
+      expect(updatePayload).not.toHaveProperty('claim_comment');
+    });
+
+    it('falls back to legacy data.claim_status on generic claim updates', async () => {
+      const payload = {
+        event: 'claim.updated',
+        data: {
+          policy_id: 'pol-1',
+          claim_status: 'Offer sent',
+        },
+      };
+      const rawBody = JSON.stringify(payload);
+
+      const response = await POST(
+        createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+      );
+
+      expect(response.status).toBe(200);
+      expect(mocks.policyUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'offer_sent',
+          claim_stage: 'Offer sent',
+        })
+      );
+    });
+
     it('refreshes certificate_url on policy.updated', async () => {
       const payload = {
         event: 'policy.updated',

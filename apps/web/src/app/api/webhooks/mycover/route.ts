@@ -638,20 +638,22 @@ async function handleClaimUpdate(
   const policyId = getExplicitPolicyId(data);
   if (!policyId) return;
 
-  // The authoritative claim state is `data.essential.status`; fall back to the
-  // event name. `data.meta.progress` is the workflow milestone and
-  // `data.essential.comment` carries decline/rejection reasons.
-  const rawStatus = data.essential?.status;
+  // The authoritative claim state is `data.essential.status`; legacy claim
+  // webhooks can also place it on `data.status` or `data.claim_status`. Fall
+  // back to the event name only when the payload has no explicit claim state.
+  const rawStatus = data.essential?.status ?? data.claim_status ?? data.status;
   const token = normalizeClaimStatus(rawStatus, event);
   const stage = rawStatus?.trim() || claimStatusLabel(token);
+  const claimProgress = data.meta?.progress;
+  const claimComment = data.essential?.comment ?? data.meta?.comment;
 
   const updateData: Record<string, unknown> = {
     claim_status: token,
     claim_stage: stage,
-    claim_progress: data.meta?.progress ?? null,
-    claim_comment: data.essential?.comment ?? data.meta?.comment ?? null,
     updated_at: new Date().toISOString(),
   };
+  if (claimProgress !== undefined) updateData.claim_progress = claimProgress;
+  if (claimComment !== undefined) updateData.claim_comment = claimComment;
   if (data.claim_id) updateData.claim_id = data.claim_id;
   if (token === 'approved' || token === 'paid') {
     updateData.status = 'claimed';
