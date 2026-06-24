@@ -57,9 +57,10 @@ interface EmailPayload {
 // ⚠️ Keep MERCHANT_BRANDING_COLUMNS and MerchantBrandingRow in sync — a Deno
 // edge fn gets no typed Supabase inference, so a mismatch surfaces only at runtime.
 const MERCHANT_BRANDING_COLUMNS =
-  'business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email';
+  'id, business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email';
 
 interface MerchantBrandingRow {
+  id: string;
   brand_colors: { primary?: string; accent?: string } | null;
   business_name: string;
   email: string | null;
@@ -68,6 +69,36 @@ interface MerchantBrandingRow {
   logo_url: string | null;
   slug: string | null;
   support_email: string | null;
+}
+
+/**
+ * The merchant's verified + enabled custom sending address (e.g.
+ * "noreply@ogabassey.com"), or null to fall back to the platform sender.
+ * Aligning the From-domain with the brand/links materially improves inbox
+ * placement; see merchant_email_domains migration.
+ */
+async function fetchMerchantSendingAddress(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('merchant_email_domains')
+    .select('domain, sender_local_part')
+    .eq('merchant_id', merchantId)
+    .eq('enabled', true)
+    .eq('status', 'verified')
+    .maybeSingle();
+
+  if (error) {
+    // Fail open to the platform sender — never block an auth email over this.
+    console.log('Sending-domain lookup failed:', merchantId, error.message);
+    return null;
+  }
+  if (!data?.domain) {
+    return null;
+  }
+  const localPart = (data.sender_local_part as string) || 'noreply';
+  return `${localPart}@${data.domain}`;
 }
 
 async function fetchMerchantBranding(
@@ -151,6 +182,11 @@ async function fetchMerchantBranding(
       accent?: string;
     } | null;
 
+    const sendingFromAddress = await fetchMerchantSendingAddress(
+      supabase,
+      merchant.id
+    );
+
     return {
       businessName: merchant.business_name,
       customDomain: resolvedCustomDomain,
@@ -163,6 +199,7 @@ async function fetchMerchantBranding(
       buttonTextColor: '#ffffff',
       slug: merchant.slug,
       supportEmail: merchant.support_email || merchant.email,
+      sendingFromAddress,
     };
   } catch (err) {
     console.error('Error fetching merchant branding:', err);
@@ -296,12 +333,29 @@ Deno.serve(async (req) => {
     actionUrlOverride
   );
 
-  // Sender: use merchant name for merchant emails, "Baci" for platform emails.
-  // The address stays on usebaci.com for SPF/DKIM alignment.
+  // Sender name: merchant name for merchant emails, "Baci" for platform emails.
   const senderName =
     branding.businessName !== 'Baci'
       ? branding.emailSenderName || branding.businessName
       : 'Baci';
+
+  // From-address: a merchant's verified+enabled custom domain when present,
+  // otherwise the platform sender. Sending from the merchant's own domain
+  // aligns From ↔ brand ↔ links and improves inbox placement.
+  const fromAddress = branding.sendingFromAddress || 'noreply@usebaci.com';
+
+  // Plain-text alternative. HTML-only mail is a deliverability/spam signal;
+  // a multipart message scores better.
+  const textBody = [
+    config.subject,
+    '',
+    emailData.token ? `Your code: ${emailData.token}` : '',
+    `Continue: ${actionUrlOverride || confirmationUrl.toString()}`,
+    '',
+    'If you did not request this email, you can safely ignore it.',
+  ]
+    .filter((line, index) => line !== '' || index > 0)
+    .join('\n');
 
   console.log(
     'Sending email to:',
@@ -309,7 +363,9 @@ Deno.serve(async (req) => {
     'Type:',
     emailType,
     'Brand:',
-    branding.businessName
+    branding.businessName,
+    'From:',
+    fromAddress
   );
 
   // Send via ZeptoMail
@@ -322,10 +378,11 @@ Deno.serve(async (req) => {
         Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
       },
       body: JSON.stringify({
-        from: { address: 'noreply@usebaci.com', name: senderName },
+        from: { address: fromAddress, name: senderName },
         to: [{ email_address: { address: user.email } }],
         subject: config.subject,
         htmlbody: htmlBody,
+        textbody: textBody,
       }),
     });
 

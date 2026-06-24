@@ -36,6 +36,11 @@ export interface MerchantBranding {
   buttonTextColor: string;
   slug?: string | null;
   supportEmail?: string | null;
+  /**
+   * The merchant's verified + enabled custom sending address (e.g.
+   * "noreply@ogabassey.com"). Null → fall back to the platform sender.
+   */
+  sendingFromAddress?: string | null;
 }
 
 export interface MerchantLookup {
@@ -312,7 +317,7 @@ function renderOgabasseyEmailHtml(
 </style>
 </head>
 <body class="a-bg" style="margin:0;padding:0;background:#f2f4f7;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;">${escapeHtml(config.body)}</span>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(config.body)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="a-bg" style="background:#f2f4f7;">
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="a-card" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #e8edf3;border-radius:18px;overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,0.10);">
