@@ -453,6 +453,13 @@ describe('CategoryPageContent', () => {
 
     render(ui);
 
+    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+      'merchant-1',
+      'phones',
+      'demo-store',
+      20,
+      20
+    );
     expect(
       screen.getByText((_, node) => node?.textContent === 'Page: 2')
     ).toBeInTheDocument();

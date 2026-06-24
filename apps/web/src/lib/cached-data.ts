@@ -423,6 +423,8 @@ export type CachedCategoryPageData =
       isInactiveCategory?: false;
       name: string;
       productIdsQueryFailed?: boolean;
+      productCount?: number;
+      productsArePrePaginated?: boolean;
       products: unknown[];
       productSlots?: unknown[];
       productsQueryFailed?: boolean;
@@ -436,6 +438,8 @@ export type CachedCategoryPageData =
       isInactiveCategory: boolean;
       name?: string;
       productIdsQueryFailed?: boolean;
+      productCount?: number;
+      productsArePrePaginated?: boolean;
       products: unknown[];
       productSlots?: unknown[];
       // True when the products fallback query errored (vs a genuinely empty
@@ -2112,6 +2116,8 @@ type CachedCategoryPageShellData =
 
 interface CachedCategoryPageProductsResult {
   productIdsQueryFailed: boolean;
+  productCount: number;
+  productsArePrePaginated: boolean;
   products: unknown[];
   productSlots: unknown[];
   productsQueryFailed: boolean;
@@ -2123,6 +2129,7 @@ interface CachedCategoryPageProductIdsResult {
 }
 
 interface CategoryPageProductDetailsResult {
+  missingProductCount: number;
   productSlots: Array<unknown | null>;
   productsQueryFailed: boolean;
 }
@@ -2451,7 +2458,11 @@ async function getCategoryPageProductDetailsChunk({
   productIds: string[];
 }): Promise<CategoryPageProductDetailsResult> {
   if (productIds.length === 0) {
-    return { productSlots: [], productsQueryFailed: false };
+    return {
+      missingProductCount: 0,
+      productSlots: [],
+      productsQueryFailed: false,
+    };
   }
 
   const supabase = getPublicSupabaseClient();
@@ -2472,6 +2483,7 @@ async function getCategoryPageProductDetailsChunk({
   if (error) {
     console.error('Product detail query error:', error);
     return {
+      missingProductCount: 0,
       productSlots: productIds.map(() => null),
       productsQueryFailed: true,
     };
@@ -2484,10 +2496,16 @@ async function getCategoryPageProductDetailsChunk({
     ])
   );
 
+  const productSlots = productIds.map(
+    (productId) => productsById.get(productId) ?? null
+  );
+
   return {
-    productSlots: productIds
-      .map((productId) => productsById.get(productId) ?? null)
-      .filter((product): product is { id?: string | null } => product !== null),
+    missingProductCount: productSlots.filter((product) => product === null)
+      .length,
+    productSlots: productSlots.filter(
+      (product): product is { id?: string | null } => product !== null
+    ),
     productsQueryFailed: false,
   };
 }
@@ -2517,9 +2535,13 @@ async function mapWithConcurrency<T, R>(
 
 async function getCachedCategoryPageProductsUncached({
   merchantId,
+  productLimit,
+  productOffset,
   scope,
 }: {
   merchantId: string;
+  productLimit?: number;
+  productOffset?: number;
   scope: CachedCategoryPageProductScope;
 }): Promise<CachedCategoryPageProductsResult> {
   const idResult = await getCachedCategoryPageProductIds({
@@ -2530,20 +2552,30 @@ async function getCachedCategoryPageProductsUncached({
   if (idResult.productIds.length === 0) {
     return {
       productIdsQueryFailed: idResult.productsQueryFailed,
+      productCount: 0,
+      productsArePrePaginated: Boolean(productLimit),
       products: [],
       productSlots: [],
       productsQueryFailed: idResult.productsQueryFailed,
     };
   }
 
+  const productWindow =
+    typeof productLimit === 'number' && productLimit > 0
+      ? idResult.productIds.slice(
+          productOffset ?? 0,
+          (productOffset ?? 0) + productLimit
+        )
+      : idResult.productIds;
+
   const idChunks = Array.from(
     {
       length: Math.ceil(
-        idResult.productIds.length / CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
+        productWindow.length / CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
       ),
     },
     (_, chunkIndex) =>
-      idResult.productIds.slice(
+      productWindow.slice(
         chunkIndex * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE,
         (chunkIndex + 1) * CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE
       )
@@ -2559,9 +2591,15 @@ async function getCachedCategoryPageProductsUncached({
       })
   );
   const productSlots = detailChunks.flatMap((chunk) => chunk.productSlots);
+  const missingProductCount = detailChunks.reduce(
+    (count, chunk) => count + chunk.missingProductCount,
+    0
+  );
 
   return {
     productIdsQueryFailed: idResult.productsQueryFailed,
+    productCount: Math.max(0, idResult.productIds.length - missingProductCount),
+    productsArePrePaginated: Boolean(productLimit),
     products: productSlots.filter(
       (product): product is unknown => product !== null
     ),
@@ -2573,8 +2611,18 @@ async function getCachedCategoryPageProductsUncached({
 }
 
 const getCachedCategoryPageProducts = cache(
-  (merchantId: string, scope: CachedCategoryPageProductScope) =>
-    getCachedCategoryPageProductsUncached({ merchantId, scope })
+  (
+    merchantId: string,
+    scope: CachedCategoryPageProductScope,
+    productOffset?: number,
+    productLimit?: number
+  ) =>
+    getCachedCategoryPageProductsUncached({
+      merchantId,
+      productLimit,
+      productOffset,
+      scope,
+    })
 );
 
 /**
@@ -2587,7 +2635,9 @@ const getCachedCategoryPageProducts = cache(
 export async function getCachedCategoryPageData(
   merchantId: string,
   categorySlug: string,
-  storeSlug: string
+  storeSlug: string,
+  productOffset?: number,
+  productLimit?: number
 ): Promise<CachedCategoryPageData> {
   const shell = await getCachedCategoryPageShellData(
     merchantId,
@@ -2596,7 +2646,9 @@ export async function getCachedCategoryPageData(
   );
   const productResult = await getCachedCategoryPageProducts(
     merchantId,
-    shell.productScope
+    shell.productScope,
+    productOffset,
+    productLimit
   );
 
   if (shell.isCollection) {
@@ -2609,6 +2661,10 @@ export async function getCachedCategoryPageData(
       seo: shell.seo,
       ...(productResult.productIdsQueryFailed
         ? { productIdsQueryFailed: true }
+        : {}),
+      productCount: productResult.productCount,
+      ...(productResult.productsArePrePaginated
+        ? { productsArePrePaginated: true }
         : {}),
       products: productResult.products,
       ...(productResult.productSlots.length !== productResult.products.length
@@ -2627,6 +2683,10 @@ export async function getCachedCategoryPageData(
     categoryQueryFailed: shell.categoryQueryFailed,
     ...(productResult.productIdsQueryFailed
       ? { productIdsQueryFailed: true }
+      : {}),
+    productCount: productResult.productCount,
+    ...(productResult.productsArePrePaginated
+      ? { productsArePrePaginated: true }
       : {}),
     products: productResult.products,
     ...(productResult.productSlots.length !== productResult.products.length

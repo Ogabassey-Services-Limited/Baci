@@ -88,6 +88,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       fallbackName: 'Inactive Slug',
       fallbackDescription: 'Browse our collection of Inactive Slug products.',
       isInactiveCategory: true,
+      productCount: 0,
       // "No rows" (PGRST116) is the expected unknown-slug path, not a failure.
       productsQueryFailed: false,
       categoryQueryFailed: false,
@@ -151,6 +152,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       fallbackName: 'Active Category',
       fallbackDescription: 'Standard active category',
       isInactiveCategory: false,
+      productCount: 0,
       productsQueryFailed: false,
       categoryQueryFailed: false,
     });
@@ -298,6 +300,67 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     expect(result.productsQueryFailed).toBe(false);
     expect(result.products).toHaveLength(20);
     expect(result.productSlots).toBeUndefined();
+  });
+
+  it('fetches only the requested detail ID window while preserving total product count', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-parent',
+        name: 'Phones',
+        slug: 'phones',
+        description: 'Phones',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    const productIds = Array.from({ length: 49 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    const requestedWindow = productIds.slice(20, 40);
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-parent' }], error: null },
+      { data: productIds, error: null },
+      {
+        data: requestedWindow.map(({ id }) => ({
+          id,
+          name: `Product ${id}`,
+          slug: id,
+        })),
+        error: null,
+      }
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'phones',
+      'test-store',
+      20,
+      20
+    );
+
+    expect(harness.mockIn).toHaveBeenCalledWith(
+      'id',
+      requestedWindow.map(({ id }) => id)
+    );
+    expect(result.products).toHaveLength(20);
+    expect(result).toMatchObject({
+      productCount: 49,
+      productsArePrePaginated: true,
+    });
   });
 
   it('Scenario 3: flags categoryQueryFailed (fail open) when the category .single() lookup hits a transient error, not a normal "no rows"', async () => {

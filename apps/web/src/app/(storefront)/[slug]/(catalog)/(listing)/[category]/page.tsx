@@ -90,7 +90,14 @@ export async function generateMetadata({
     };
   }
 
-  const data = await getCachedCategoryPageData(merchant.id, category, slug);
+  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const data = await getCachedCategoryPageData(
+    merchant.id,
+    category,
+    slug,
+    productOffset,
+    STOREFRONT_PRODUCTS_PER_PAGE
+  );
 
   if (!data.isCollection && data.isInactiveCategory) {
     return buildCategoryNotFoundMetadata();
@@ -119,7 +126,9 @@ export async function generateMetadata({
   );
   const computedTotalPages = Math.max(
     1,
-    Math.ceil(productSlots.length / STOREFRONT_PRODUCTS_PER_PAGE)
+    Math.ceil(
+      (data.productCount ?? productSlots.length) / STOREFRONT_PRODUCTS_PER_PAGE
+    )
   );
   const totalPages = data.productIdsQueryFailed
     ? Math.max(computedTotalPages, currentPage)
@@ -132,10 +141,13 @@ export async function generateMetadata({
     );
   }
 
-  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const productSlotOffset = data.productsArePrePaginated ? 0 : productOffset;
   const paginatedProducts = normalizeCategoryPageProducts(
     productSlots
-      .slice(productOffset, productOffset + STOREFRONT_PRODUCTS_PER_PAGE)
+      .slice(
+        productSlotOffset,
+        productSlotOffset + STOREFRONT_PRODUCTS_PER_PAGE
+      )
       .filter(isCategoryPageProductSlot),
     undefined,
     merchant.country

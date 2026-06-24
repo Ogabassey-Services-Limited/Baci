@@ -1067,6 +1067,13 @@ describe('category page route', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
+    expect(getCachedCategoryPageData).toHaveBeenCalledWith(
+      'merchant-1',
+      'smartphones',
+      'test-store',
+      20,
+      20
+    );
     expect(metadata.title).toBe('Category page not found');
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(notFound).not.toHaveBeenCalled();

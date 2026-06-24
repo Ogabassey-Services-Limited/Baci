@@ -115,8 +115,15 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     });
   }
 
+  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
   const [data, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(merchant.id, category, slug),
+    getCachedCategoryPageData(
+      merchant.id,
+      category,
+      slug,
+      productOffset,
+      STOREFRONT_PRODUCTS_PER_PAGE
+    ),
     getPublishedClusterPosts(merchant.id),
   ]);
 
@@ -141,12 +148,14 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const products = data.products as unknown as RawDbProduct[];
   const computedTotalPages = Math.max(
     1,
-    Math.ceil(productSlots.length / STOREFRONT_PRODUCTS_PER_PAGE)
+    Math.ceil(
+      (data.productCount ?? productSlots.length) / STOREFRONT_PRODUCTS_PER_PAGE
+    )
   );
   const totalPages = data.productIdsQueryFailed
     ? Math.max(computedTotalPages, currentPage)
     : computedTotalPages;
-  const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const pageStartIndex = data.productsArePrePaginated ? 0 : productOffset;
 
   if (!data.productIdsQueryFailed && currentPage > totalPages) {
     return renderCategoryNotFoundContent({
@@ -172,9 +181,14 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const categoryPageProducts = data.productsQueryFailed
     ? paginatedNormalizedProducts
     : normalizedProducts;
-  const categoryPageCurrentPage = data.productIdsQueryFailed ? 1 : currentPage;
+  const categoryPageCurrentPage = data.productsArePrePaginated
+    ? currentPage
+    : data.productIdsQueryFailed
+      ? 1
+      : currentPage;
   const productsArePrePaginated =
-    data.productsQueryFailed && !data.productIdsQueryFailed;
+    data.productsArePrePaginated ||
+    (data.productsQueryFailed && !data.productIdsQueryFailed);
   const collectionSchemaProducts = paginatedNormalizedProducts.map(
     toCollectionSchemaProduct
   );
@@ -257,7 +271,9 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
           products={categoryPageProducts}
           totalProductCount={
-            productsArePrePaginated ? productSlots.length : undefined
+            productsArePrePaginated
+              ? (data.productCount ?? productSlots.length)
+              : undefined
           }
         />
       </V2ComparisonScope>
