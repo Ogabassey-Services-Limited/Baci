@@ -60,15 +60,27 @@ describe('cached-data cache directives', () => {
       expect(source, functionName).not.toContain("'use cache: remote';");
 
       // Next 16's local `use cache` API explicitly supports cacheLife/cacheTag.
-      // Keep these so blog metadata/content stays tag-revalidatable and has an
-      // intentional cache lifetime without reintroducing RemoteCacheHandler.
-      // Blog content is near-static and is invalidated on edit via cacheTag
-      // (see cache-revalidation.ts), so it uses the long-lived `blog` profile
-      // instead of the hot `merchant` profile to avoid needless re-renders
-      // under crawler load.
-      expect(source, functionName).toContain("cacheLife('blog');");
+      // Keep these so blog metadata/content stays tag-revalidatable without
+      // reintroducing RemoteCacheHandler.
       expect(source, functionName).toContain('cacheTag(');
     }
+  });
+
+  it('uses the long-lived `blog` profile for posts and canonical listings, but a short profile for filtered listings', () => {
+    // Blog posts are keyed by a bounded postSlug, so they always use the
+    // near-static `blog` profile (daily revalidate) to avoid re-rendering every
+    // 60s under crawler load.
+    const postSource = getFunctionSource('getCachedBlogPost');
+    expect(postSource).toContain("cacheLife('blog');");
+    expect(postSource).not.toContain("cacheLife('merchant');");
+
+    // Blog listings take user-supplied search/category args. Canonical
+    // (unfiltered) listings use the long `blog` profile, but filtered listings
+    // must stay on the short `merchant` profile so unbounded one-off
+    // search/category entries are not retained for a week.
+    const listingSource = getFunctionSource('getCachedBlogListing');
+    expect(listingSource).toContain("cacheLife('blog');");
+    expect(listingSource).toContain("cacheLife('merchant');");
   });
 });
 
@@ -88,10 +100,13 @@ describe('next.config cacheLife profiles', () => {
     ).not.toBeNull();
 
     const [, stale, revalidate, expire] = match as RegExpMatchArray;
-    // Blog edits invalidate by cacheTag, so time-based revalidation should be
-    // far less frequent than the hot `merchant` profile (revalidate: 60).
-    expect(Number(revalidate)).toBeGreaterThanOrEqual(86400); // >= 1 day
-    expect(Number(stale)).toBeGreaterThanOrEqual(600);
+    // The cost win comes from a long server `revalidate` (far fewer re-renders),
+    // not a long client `stale`. Blog edits invalidate by cacheTag, so server
+    // revalidation can be infrequent.
+    expect(Number(revalidate)).toBeGreaterThanOrEqual(86400); // >= 1 day server revalidation
+    // Keep client-side staleness short so edited posts surface quickly for
+    // visitors who already have the page in their router cache.
+    expect(Number(stale)).toBeLessThanOrEqual(600);
     expect(Number(expire)).toBeGreaterThanOrEqual(Number(revalidate));
   });
 });

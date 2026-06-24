@@ -2716,7 +2716,15 @@ export async function getCachedBlogListing(
   const category = options?.category;
   const page = options?.page || 1;
   const searchQuery = options?.searchQuery;
-  cacheLife('blog');
+  // Canonical (unfiltered) listings are near-static and use the long-lived
+  // `blog` profile. Filtered listings take user-supplied search/category args,
+  // so keep them on the short `merchant` profile to avoid retaining unbounded
+  // one-off filter permutations for the full `blog` expiry window.
+  if (category || searchQuery) {
+    cacheLife('merchant');
+  } else {
+    cacheLife('blog');
+  }
   cacheTag(
     'blog-posts',
     `blog-list-${identifier.toLowerCase()}-${category || 'all'}-${page}`
