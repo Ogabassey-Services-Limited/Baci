@@ -16,6 +16,7 @@ export const FEATURES = {
 
   // Other premium features
   CUSTOM_DOMAIN: 'custom_domain',
+  CUSTOM_EMAIL_DOMAIN: 'custom_email_domain',
   ADVANCED_ANALYTICS: 'advanced_analytics',
   PRIORITY_SUPPORT: 'priority_support',
   AI_PRODUCT_DESCRIPTIONS: 'ai_product_descriptions',
@@ -47,6 +48,7 @@ const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {
   starter: [FEATURES.CUSTOM_DOMAIN],
   pro: [
     FEATURES.CUSTOM_DOMAIN,
+    FEATURES.CUSTOM_EMAIL_DOMAIN,
     FEATURES.PRICE_NEGOTIATION,
     FEATURES.DEVICE_ASSURANCE,
     FEATURES.SMART_UPSELLS,
@@ -54,6 +56,7 @@ const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {
   ],
   business: [
     FEATURES.CUSTOM_DOMAIN,
+    FEATURES.CUSTOM_EMAIL_DOMAIN,
     FEATURES.PRICE_NEGOTIATION,
     FEATURES.DEVICE_ASSURANCE,
     FEATURES.SMART_UPSELLS,
@@ -153,6 +156,12 @@ export const FEATURE_METADATA: Record<
     description: 'Use your own domain name',
     icon: 'globe',
     minPlan: 'starter',
+  },
+  [FEATURES.CUSTOM_EMAIL_DOMAIN]: {
+    name: 'Custom Email Domain',
+    description: 'Send emails from your own domain for better inbox delivery',
+    icon: 'mail',
+    minPlan: 'pro',
   },
   [FEATURES.ADVANCED_ANALYTICS]: {
     name: 'Advanced Analytics',

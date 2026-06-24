@@ -217,6 +217,12 @@ const serverSchema = z
     // Email
     ZEPTOMAIL_TOKEN: z.string().optional(),
     ZEPTOMAIL_FROM_DOMAIN: z.string().optional(),
+    // ZeptoMail Domains API (per-merchant custom sending domains). Zoho OAuth
+    // self-client with scope Zeptomail.Domains.All.
+    ZOHO_CLIENT_ID: z.string().optional(),
+    ZOHO_CLIENT_SECRET: z.string().optional(),
+    ZOHO_REFRESH_TOKEN: z.string().optional(),
+    ZEPTOMAIL_MAILAGENT_KEY: z.string().optional(),
 
     // Zoho Campaigns
     ZOHO_CAMPAIGNS_ENABLED: optionalTrimmedStringSchema,
@@ -596,6 +602,10 @@ const getEnv = () => {
           process.env.WEB_BOT_AUTH_PUBLIC_JWKS_JSON,
         WEB_BOT_AUTH_PRIVATE_KEY_PEM: process.env.WEB_BOT_AUTH_PRIVATE_KEY_PEM,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
+        ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
+        ZOHO_CLIENT_SECRET: process.env.ZOHO_CLIENT_SECRET,
+        ZOHO_REFRESH_TOKEN: process.env.ZOHO_REFRESH_TOKEN,
+        ZEPTOMAIL_MAILAGENT_KEY: process.env.ZEPTOMAIL_MAILAGENT_KEY,
         ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
         ZOHO_CAMPAIGNS_ENABLED: process.env.ZOHO_CAMPAIGNS_ENABLED,
         ZOHO_CAMPAIGNS_AUTO_SEND: process.env.ZOHO_CAMPAIGNS_AUTO_SEND,
