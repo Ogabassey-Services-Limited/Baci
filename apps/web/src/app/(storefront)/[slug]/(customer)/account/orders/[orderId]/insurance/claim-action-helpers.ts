@@ -7,7 +7,11 @@
  */
 
 export interface InsuranceActionPolicy {
+  claimComment?: string | null;
   claimLink?: string | null;
+  claimProgress?: string | null;
+  claimStage?: string | null;
+  claimStatus?: string | null;
   inspectionLink?: string | null;
   inspectionStatus?: string | null;
   orderDelivered?: boolean;
@@ -31,12 +35,27 @@ export interface InsuranceActionPolicy {
 export type InsuranceCta =
   | { kind: 'awaiting_delivery' }
   | { kind: 'activation_pending' }
+  | { kind: 'claim_existing' }
   | { kind: 'inspect'; url: string }
   | { kind: 'claim'; url: string | null };
+
+function hasExistingClaim(policy: InsuranceActionPolicy): boolean {
+  const claimStatus = policy.claimStatus?.trim().toLowerCase();
+  return (
+    Boolean(policy.claimStage?.trim()) ||
+    Boolean(policy.claimProgress?.trim()) ||
+    Boolean(policy.claimComment?.trim()) ||
+    Boolean(claimStatus && claimStatus !== 'none')
+  );
+}
 
 export function resolveInsuranceCta(
   policy: InsuranceActionPolicy
 ): InsuranceCta {
+  if (hasExistingClaim(policy)) {
+    return { kind: 'claim_existing' };
+  }
+
   const claimUrl = resolveClaimUrl(policy);
   const inspectionUrl = resolveInspectionUrl(policy);
   const inspectionStatus = policy.inspectionStatus?.trim().toLowerCase();
@@ -62,12 +81,15 @@ function normalizeLink(link: string | null | undefined): string | null {
   if (typeof link !== 'string') return null;
   const trimmed = link.trim();
   if (trimmed.length === 0) return null;
-  // Only allow http(s) — these links are opened with window.open, so reject
-  // unsafe schemes (javascript:, data:) and malformed URLs as defense in depth.
+  // MyCover hosted flows carry claim/inspection tokens. Reject non-HTTPS and
+  // non-MyCover hosts before opening them in the browser.
   try {
-    const { protocol } = new URL(trimmed);
-    if (protocol !== 'https:' && protocol !== 'http:') return null;
-    return trimmed;
+    const url = new URL(trimmed);
+    const hostname = url.hostname.toLowerCase();
+    const isMyCoverHost =
+      hostname === 'mycover.ai' || hostname.endsWith('.mycover.ai');
+    if (url.protocol !== 'https:' || !isMyCoverHost) return null;
+    return url.toString();
   } catch {
     return null;
   }

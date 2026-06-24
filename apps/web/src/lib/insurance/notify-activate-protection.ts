@@ -87,24 +87,36 @@ export async function maybeNotifyActivateProtection(
 
   if (claimedIds.length === 0) return;
 
-  const result = await notifyActivateProtection(
-    customer.user_id,
-    orderId,
-    order.order_number
-  );
-
-  // If nothing was actually delivered (no token / send failure), release the
-  // claim so a later delivery can retry the reminder.
-  if (result.sent === 0) {
+  const releaseReminderClaims = async (message: string) => {
     const { error: releaseError } = await supabase
       .from('order_insurance_policies')
       .update({ activation_reminder_sent_at: null })
       .in('id', claimedIds);
     if (releaseError) {
-      console.error(
-        '[ActivateProtection] failed to release undelivered reminder claim:',
-        releaseError
-      );
+      console.error(message, releaseError);
     }
+  };
+
+  let result: Awaited<ReturnType<typeof notifyActivateProtection>>;
+  try {
+    result = await notifyActivateProtection(
+      customer.user_id,
+      orderId,
+      order.order_number
+    );
+  } catch (error) {
+    console.error('[ActivateProtection] push send failed:', error);
+    await releaseReminderClaims(
+      '[ActivateProtection] failed to release failed reminder claim:'
+    );
+    return;
+  }
+
+  // If nothing was actually delivered (no token / send failure), release the
+  // claim so a later delivery can retry the reminder.
+  if (result.sent === 0) {
+    await releaseReminderClaims(
+      '[ActivateProtection] failed to release undelivered reminder claim:'
+    );
   }
 }

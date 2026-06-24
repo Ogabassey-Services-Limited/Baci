@@ -545,7 +545,10 @@ async function handlePolicyRenewed(
       updated_at: new Date().toISOString(),
       ...hostedFlowLinks,
       ...(hostedFlowLinks.inspection_link
-        ? { inspection_status: 'pending' }
+        ? {
+            activation_reminder_sent_at: null,
+            inspection_status: 'pending',
+          }
         : {}),
     })
     .eq(lookup.column, lookup.value)
@@ -581,6 +584,12 @@ async function handlePolicyUpdated(
   const update: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
     ...hostedFlowLinks,
+    ...(hostedFlowLinks.inspection_link
+      ? {
+          activation_reminder_sent_at: null,
+          inspection_status: 'pending',
+        }
+      : {}),
   };
   const certificateUrl = getCertificateUrl(data);
   const policyNumber = getPolicyNumber(data);

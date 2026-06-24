@@ -2,12 +2,12 @@ import { StyleSheet } from 'react-native';
 
 export const INSURANCE_COLORS = {
   active: {
-    background: '#DCFCE7',
-    foreground: '#059669',
+    background: '#D1FAE5',
+    foreground: '#065F46',
   },
   pending: {
     background: '#FEF3C7',
-    foreground: '#D97706',
+    foreground: '#92400E',
   },
 } as const;
 

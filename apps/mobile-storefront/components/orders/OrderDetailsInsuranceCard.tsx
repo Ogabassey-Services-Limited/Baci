@@ -80,6 +80,11 @@ export function OrderDetailsInsuranceCard({
   const inspectionPending =
     inspectionStatus !== 'completed' &&
     (!!inspectionUrl || (inspectionStatus === 'pending' && !claimUrl));
+  const claimStatus = insurancePolicy.claim_status?.trim().toLowerCase();
+  const claimAlreadyStarted =
+    !!insurancePolicy.claim_stage ||
+    !!insurancePolicy.claim_comment ||
+    (!!claimStatus && claimStatus !== 'none');
   const showInspection =
     inspectionPending &&
     isDelivered &&
@@ -88,7 +93,8 @@ export function OrderDetailsInsuranceCard({
   const showActivationPending =
     inspectionPending && isDelivered && !inspectionUrl;
   const showAwaitingDelivery = inspectionPending && !isDelivered;
-  const showClaim = !inspectionPending && !!claimUrl && !!onFileClaim;
+  const showClaim =
+    !inspectionPending && !claimAlreadyStarted && !!claimUrl && !!onFileClaim;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>

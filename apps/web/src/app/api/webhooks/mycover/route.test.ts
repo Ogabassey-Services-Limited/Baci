@@ -501,6 +501,7 @@ describe('POST /api/webhooks/mycover', () => {
     expect(mocks.policyUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         claim_link: 'https://mycover.ai/purchase?q=renewed-claim',
+        activation_reminder_sent_at: null,
         inspection_link: 'https://mycover.ai/purchase?q=renewed-inspect',
         inspection_status: 'pending',
         policy_expiry_date: '2028-05-21T00:00:00.000Z',
@@ -746,9 +747,13 @@ describe('POST /api/webhooks/mycover', () => {
       );
     });
 
-    it('captures the decline reason from claim.disapproved', async () => {
+    it.each([
+      'claim.disapproved',
+      'claim.offer_rejected',
+      'claim.rejected',
+    ])('captures the decline reason from %s', async (event) => {
       const payload = {
-        event: 'claim.disapproved',
+        event,
         data: {
           essential: {
             policy_id: 'pol-1',
@@ -876,8 +881,10 @@ describe('POST /api/webhooks/mycover', () => {
       expect(response.status).toBe(200);
       expect(mocks.policyUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
+          activation_reminder_sent_at: null,
           claim_link: 'https://mycover.ai/purchase?q=claim-new',
           inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
+          inspection_status: 'pending',
         })
       );
       expect(mocks.maybeNotifyActivateProtection).toHaveBeenCalledWith(

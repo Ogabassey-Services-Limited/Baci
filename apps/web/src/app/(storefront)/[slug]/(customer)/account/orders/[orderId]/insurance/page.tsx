@@ -390,6 +390,12 @@ export default function InsurancePolicyPage() {
               Activation link pending
             </p>
           )}
+
+          {cta.kind === 'claim_existing' && (
+            <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
+              Existing claim in progress
+            </p>
+          )}
         </CardFooter>
       </Card>
 

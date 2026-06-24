@@ -111,6 +111,41 @@ describe('maybeNotifyActivateProtection', () => {
     );
   });
 
+  it('releases the claim when the push sender rejects after claiming', async () => {
+    mockNotifyActivateProtection.mockRejectedValue(new Error('push down'));
+    const releaseUpdate = vi.fn(() => ({
+      in: vi.fn(() => Promise.resolve({})),
+    }));
+    resultQueue = [
+      { data: ORDER },
+      { data: [PENDING_POLICY] },
+      { data: CUSTOMER },
+      { data: { id: 'policy-1' } },
+    ];
+    mockFrom.mockImplementation(() => {
+      const result = resultQueue.shift();
+      if (result === undefined) {
+        return { update: releaseUpdate };
+      }
+      const query: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'is', 'not', 'update', 'in']) {
+        query[m] = vi.fn(() => query);
+      }
+      query.maybeSingle = vi.fn(() => Promise.resolve(result));
+      // biome-ignore lint/suspicious/noThenProperty: thenable test double for the supabase builder.
+      query.then = (res: (v: unknown) => unknown) =>
+        Promise.resolve(result).then(res);
+      return query;
+    });
+
+    await maybeNotifyActivateProtection('order-1');
+
+    expect(mockNotifyActivateProtection).toHaveBeenCalledTimes(1);
+    expect(releaseUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ activation_reminder_sent_at: null })
+    );
+  });
+
   it('does nothing when there is no pending, un-notified inspection policy', async () => {
     resultQueue = [{ data: ORDER }, { data: [] }];
 

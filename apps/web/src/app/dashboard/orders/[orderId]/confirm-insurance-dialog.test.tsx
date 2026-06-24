@@ -92,6 +92,57 @@ describe('ConfirmInsuranceDialog', () => {
     vi.clearAllMocks();
   });
 
+  it('submits uploaded photo and KYC details for assurance orders', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    const createObjectUrl = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:device-photo');
+    const revokeObjectUrl = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => undefined);
+    mockUploadImage.mockResolvedValue(
+      'https://cdn.usebaci.com/orders/about.png'
+    );
+
+    render(
+      <ConfirmInsuranceDialog
+        isOpen={true}
+        onClose={onClose}
+        onConfirm={onConfirm}
+        orderItems={[assuranceItem]}
+      />
+    );
+
+    await user.type(screen.getByLabelText(/IMEI Number/i), '123456789012345');
+    await user.type(screen.getByLabelText(/Serial Number/i), 'SN-123');
+    await user.selectOptions(screen.getByLabelText(/Gender/i), 'Male');
+    await user.type(screen.getByLabelText(/Date of Birth/i), '1995-04-12');
+    await user.click(
+      screen.getByRole('button', { name: /select device photo/i })
+    );
+    await user.click(
+      screen.getByRole('button', { name: /confirm & purchase policy/i })
+    );
+
+    expect(createObjectUrl).toHaveBeenCalled();
+    expect(mockUploadImage).toHaveBeenCalledWith('blob:device-photo', 'images');
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dateOfBirth: '1995-04-12',
+        devicePhotos: {
+          about: 'https://cdn.usebaci.com/orders/about.png',
+        },
+        gender: 'Male',
+        imei: '123456789012345',
+        serialNumber: 'SN-123',
+      })
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:device-photo');
+  });
+
   it('rejects today-or-future date of birth before uploading the device photo', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();

@@ -80,6 +80,10 @@ BEGIN
   WHERE "id" = "p_shipment_id"
     AND "order_id" = "p_order_id";
 
+  IF NOT FOUND THEN
+    RETURN FALSE;
+  END IF;
+
   UPDATE "public"."orders"
   SET "shipping_status" = 'delivered'
   WHERE "id" = "p_order_id"

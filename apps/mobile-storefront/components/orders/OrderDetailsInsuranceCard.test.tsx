@@ -160,7 +160,11 @@ describe('OrderDetailsInsuranceCard', () => {
       <OrderDetailsInsuranceCard
         colors={colors}
         hasAssuranceItems
-        insurancePolicy={{ ...policyWithLinks, inspection_status: 'completed' }}
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_status: null,
+          inspection_status: 'completed',
+        }}
         isDelivered
         isPaid
         onCompleteInspection={jest.fn()}
@@ -183,7 +187,11 @@ describe('OrderDetailsInsuranceCard', () => {
       <OrderDetailsInsuranceCard
         colors={colors}
         hasAssuranceItems
-        insurancePolicy={{ ...policyWithLinks, inspection_link: null }}
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_status: null,
+          inspection_link: null,
+        }}
         isDelivered={false}
         isPaid
         onCompleteInspection={jest.fn()}
@@ -194,6 +202,29 @@ describe('OrderDetailsInsuranceCard', () => {
 
     expect(screen.queryByRole('button', { name: inspectionLabel })).toBeNull();
     expect(screen.getByRole('button', { name: claimLabel })).toBeTruthy();
+  });
+
+  it('hides File a Claim when a MyCover claim already exists', () => {
+    render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_stage: 'Offer sent',
+          claim_status: 'offer_sent',
+          inspection_status: 'completed',
+        }}
+        isDelivered
+        isPaid
+        onCompleteInspection={jest.fn()}
+        onFileClaim={jest.fn()}
+        onOpenCertificate={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
+    expect(screen.getByText('Offer sent')).toBeTruthy();
   });
 
   it('holds mobile claims while pending inspection links have not arrived', () => {

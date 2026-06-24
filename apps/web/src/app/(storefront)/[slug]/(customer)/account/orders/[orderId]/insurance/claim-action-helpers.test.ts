@@ -24,10 +24,16 @@ describe('resolveClaimUrl', () => {
     expect(resolveClaimUrl({ claimLink: '   ' })).toBeNull();
   });
 
-  it('returns null for unsafe schemes or malformed URLs', () => {
+  it('returns null for unsafe schemes, non-MyCover hosts, or malformed URLs', () => {
     expect(resolveClaimUrl({ claimLink: 'javascript:alert(1)' })).toBeNull();
     expect(
       resolveClaimUrl({ claimLink: 'data:text/html,<script/>' })
+    ).toBeNull();
+    expect(
+      resolveClaimUrl({ claimLink: 'http://mycover.ai/purchase' })
+    ).toBeNull();
+    expect(
+      resolveClaimUrl({ claimLink: 'https://evil.test/purchase' })
     ).toBeNull();
     expect(resolveClaimUrl({ claimLink: 'not-a-url' })).toBeNull();
   });
@@ -117,5 +123,24 @@ describe('resolveInsuranceCta', () => {
       kind: 'claim',
       url: null,
     });
+  });
+
+  it('hides claim actions once MyCover has an existing claim state', () => {
+    expect(
+      resolveInsuranceCta({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStage: 'Offer sent',
+        claimStatus: 'offer_sent',
+        inspectionStatus: 'completed',
+      })
+    ).toEqual({ kind: 'claim_existing' });
+
+    expect(
+      resolveInsuranceCta({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStatus: 'pending',
+        inspectionStatus: 'completed',
+      })
+    ).toEqual({ kind: 'claim_existing' });
   });
 });
