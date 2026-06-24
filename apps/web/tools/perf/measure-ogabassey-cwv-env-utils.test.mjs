@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   getWrapperDefaultEnvKeys,
+  isFalseyEnvValue,
+  isTruthyEnvValue,
   loadEnvFile,
+  loadOgaBasseyCwvEnvFiles,
   setDefaultEnv,
-} from './measure-ogabassey-cwv-utils.mjs';
+} from './measure-ogabassey-cwv-env-utils.mjs';
+
+describe('env flag helpers', () => {
+  it('normalizes common truthy and falsey env values', () => {
+    expect(isTruthyEnvValue('YES')).toBe(true);
+    expect(isTruthyEnvValue(' on ')).toBe(true);
+    expect(isFalseyEnvValue('false')).toBe(true);
+    expect(isFalseyEnvValue('off')).toBe(true);
+  });
+});
 
 describe('loadEnvFile', () => {
   it('loads quoted env values without overwriting existing keys', async () => {
@@ -75,5 +87,36 @@ describe('setDefaultEnv', () => {
     expect(getWrapperDefaultEnvKeys(env).has('OGABASSEY_PDP_LCP_URL')).toBe(
       true
     );
+  });
+});
+
+describe('loadOgaBasseyCwvEnvFiles', () => {
+  it('lets app env values override wrapper defaults without replacing shell keys', async () => {
+    const calls = [];
+    const env = {
+      DEBUGBEAR_API_KEY: 'shell-key',
+      OGABASSEY_CWV_WRAPPER_DEFAULT_KEYS: 'OGABASSEY_PDP_LCP_URL',
+      OGABASSEY_PDP_LCP_URL: 'wrapper-pdp',
+    };
+    await loadOgaBasseyCwvEnvFiles({
+      appRoot: '/repo/apps/web',
+      env,
+      loadEnvFileImpl: (path, options) => {
+        calls.push(path);
+        if (path.endsWith('/apps/web/.env.local')) {
+          options.override('OGABASSEY_PDP_LCP_URL');
+          env.OGABASSEY_PDP_LCP_URL = 'app-pdp';
+          if (options.override('DEBUGBEAR_API_KEY')) {
+            env.DEBUGBEAR_API_KEY = 'app-key';
+          }
+        }
+        return true;
+      },
+      repoRoot: '/repo',
+    });
+
+    expect(calls).toEqual(['/repo/.env.local', '/repo/apps/web/.env.local']);
+    expect(env.OGABASSEY_PDP_LCP_URL).toBe('app-pdp');
+    expect(env.DEBUGBEAR_API_KEY).toBe('shell-key');
   });
 });

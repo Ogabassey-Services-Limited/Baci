@@ -6,19 +6,8 @@ import {
   buildOgaBasseyCwvTargets,
   filterOgaBasseyCwvTargets,
   findDebugBearProjectIdForUrl,
-  isFalseyEnvValue,
-  isTruthyEnvValue,
   normalizeDebugBearProjects,
 } from './measure-ogabassey-cwv-utils.mjs';
-
-describe('env flag helpers', () => {
-  it('normalizes common truthy and falsey env values', () => {
-    expect(isTruthyEnvValue('YES')).toBe(true);
-    expect(isTruthyEnvValue(' on ')).toBe(true);
-    expect(isFalseyEnvValue('false')).toBe(true);
-    expect(isFalseyEnvValue('off')).toBe(true);
-  });
-});
 
 describe('buildDebugBearHeaders', () => {
   it('sends a stable user agent with DebugBear API requests', () => {

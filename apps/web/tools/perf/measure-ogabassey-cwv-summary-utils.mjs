@@ -96,7 +96,7 @@ export function printCwvSummaryTable(rows) {
       fcp: formatMetricMs(row.fcpMs) ?? '-',
       tbt: formatMetricMs(row.tbtMs) ?? '-',
       cls: row.cls ?? '-',
-      inp: formatMetricMs(row.inpMs) ?? '-',
+      inp: formatMetricMs(row.inpMs ?? row.fieldInp?.p75) ?? '-',
       fieldLcp: row.fieldLcp?.p75 ?? '-',
       fieldScope: row.fieldLcp?.scope ?? '-',
       result: row.resultUrl ?? '-',
@@ -108,6 +108,11 @@ export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
   const lighthouse = payload?.lighthouseResult ?? {};
   const audits = lighthouse.audits ?? {};
   const categories = lighthouse.categories ?? {};
+  const fieldInp = getFieldMetric(
+    payload,
+    requestedUrl,
+    'INTERACTION_TO_NEXT_PAINT'
+  );
 
   return {
     a11y: score(categories.accessibility),
@@ -123,11 +128,7 @@ export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
       requestedUrl,
       'FIRST_CONTENTFUL_PAINT_MS'
     ),
-    fieldInp: getFieldMetric(
-      payload,
-      requestedUrl,
-      'INTERACTION_TO_NEXT_PAINT'
-    ),
+    fieldInp,
     fieldLcp: getFieldMetric(
       payload,
       requestedUrl,
@@ -140,6 +141,7 @@ export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
     ),
     fcpMs: auditMetric(audits, 'first-contentful-paint'),
     finalUrl: lighthouse.finalUrl ?? payload?.id ?? requestedUrl,
+    inpMs: auditMetric(audits, 'interaction-to-next-paint') ?? fieldInp?.p75,
     label,
     lcpMs: auditMetric(audits, 'largest-contentful-paint'),
     performance: score(categories.performance),
@@ -235,6 +237,10 @@ export function summarizeDebugBearResult({
       'largest-contentful-paint',
     ]),
     inpMs: getDebugBearMetric(body, [
+      'crux.url.inp.p75',
+      'crux.origin.inp.p75',
+      'crux.url.interactionToNextPaint.p75',
+      'crux.origin.interactionToNextPaint.p75',
       'crux.inp.p75',
       'crux.interactionToNextPaint.p75',
       'performance.interactionToNextPaint',

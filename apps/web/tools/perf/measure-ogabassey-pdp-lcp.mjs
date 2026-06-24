@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { setDefaultEnv } from './measure-ogabassey-cwv-utils.mjs';
+import { setDefaultEnv } from './measure-ogabassey-cwv-env-utils.mjs';
 
 function setWrapperDefaultEnv(key, value) {
   setDefaultEnv(process.env, key, value, { track: true });

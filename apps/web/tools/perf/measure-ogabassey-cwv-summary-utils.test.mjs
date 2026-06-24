@@ -117,6 +117,22 @@ describe('printCwvSummaryTable', () => {
       expect.objectContaining({ strategy: 'Desktop' }),
     ]);
   });
+
+  it('prints PageSpeed field INP when lab INP is absent', () => {
+    const table = vi
+      .spyOn(console, 'table')
+      .mockImplementation(() => undefined);
+
+    printCwvSummaryTable([
+      {
+        fieldInp: { p75: 182, scope: 'url' },
+        label: 'home',
+        source: 'psi',
+      },
+    ]);
+
+    expect(table).toHaveBeenCalledWith([expect.objectContaining({ inp: 182 })]);
+  });
 });
 
 describe('summarizePsiResult', () => {
@@ -145,7 +161,10 @@ describe('summarizePsiResult', () => {
           },
           loadingExperience: {
             id: 'https://ogabassey.com/',
-            metrics: { LARGEST_CONTENTFUL_PAINT_MS: { percentile: 4800 } },
+            metrics: {
+              INTERACTION_TO_NEXT_PAINT: { percentile: 190 },
+              LARGEST_CONTENTFUL_PAINT_MS: { percentile: 4800 },
+            },
           },
         },
       })
@@ -153,6 +172,7 @@ describe('summarizePsiResult', () => {
       a11y: 96,
       bp: 100,
       fieldLcp: { p75: 4800, scope: 'url' },
+      inpMs: 190,
       fcpMs: 1000,
       label: 'home',
       lcpMs: 3000,
@@ -229,6 +249,19 @@ describe('summarizeDebugBearResult', () => {
         body: { url: 'https://ogabassey.com/pdp', metrics: {} },
       }).resultUrl
     ).toBe('https://www.debugbear.com/project/102065/quickTest/1431/overview');
+  });
+
+  it('reads URL-scoped DebugBear CrUX INP before generic INP metrics', () => {
+    expect(
+      summarizeDebugBearResult({
+        body: {
+          metrics: {
+            'crux.inp.p75': 220,
+            'crux.url.inp.p75': 140,
+          },
+        },
+      }).inpMs
+    ).toBe(140);
   });
 });
 

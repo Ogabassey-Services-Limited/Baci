@@ -212,6 +212,23 @@ describe('resolveCanonicalUrl', () => {
     ).resolves.toBe('https://ogabassey.com/products/source');
   });
 
+  it('parses canonical links when href appears before rel', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          '<link href="/products/source?utm=1#top" rel="canonical">',
+        url: 'https://ogabassey.com/products/source',
+      }))
+    );
+
+    await expect(
+      resolveCanonicalUrl('https://ogabassey.com/products/source?ref=old')
+    ).resolves.toBe('https://ogabassey.com/products/source');
+  });
+
   it('fails PDP resolution on non-OK responses', async () => {
     vi.stubGlobal(
       'fetch',

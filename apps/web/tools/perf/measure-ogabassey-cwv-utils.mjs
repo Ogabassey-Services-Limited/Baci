@@ -1,80 +1,10 @@
 export const DEBUGBEAR_USER_AGENT = 'Baci-CWV-measurement/1.0';
-export const WRAPPER_DEFAULT_ENV_KEYS = 'OGABASSEY_CWV_WRAPPER_DEFAULT_KEYS';
-
-export function getWrapperDefaultEnvKeys(env = process.env) {
-  return new Set(
-    `${env[WRAPPER_DEFAULT_ENV_KEYS] ?? ''}`
-      .split(',')
-      .map((key) => key.trim())
-      .filter(Boolean)
-  );
-}
-
-function rememberWrapperDefaultEnvKey(env, key) {
-  const keys = getWrapperDefaultEnvKeys(env);
-  keys.add(key);
-  env[WRAPPER_DEFAULT_ENV_KEYS] = [...keys].sort().join(',');
-}
 
 export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
   home: 'https://ogabassey.com/',
   pdp: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
   blog: 'https://ogabassey.com/blog',
 });
-
-export async function loadEnvFile(
-  path,
-  { env = process.env, override = false, readText } = {}
-) {
-  const reader = readText ?? (await import('node:fs/promises')).readFile;
-  let text = '';
-  try {
-    text = await reader(path, 'utf8');
-  } catch (error) {
-    if (
-      error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      error.code === 'ENOENT'
-    ) {
-      return false;
-    }
-    throw error;
-  }
-
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-    const index = trimmed.indexOf('=');
-    const key = trimmed.slice(0, index).trim();
-    const raw = trimmed.slice(index + 1).trim();
-    const shouldOverride =
-      typeof override === 'function' ? override(key, env[key]) : override;
-    if (!key || (!shouldOverride && env[key] !== undefined)) continue;
-    env[key] = raw.replace(/^["']|["']$/g, '');
-  }
-  return true;
-}
-
-export function normalizeEnvFlag(value) {
-  return `${value ?? ''}`.trim().toLowerCase();
-}
-
-export function isTruthyEnvValue(value) {
-  return ['1', 'true', 'yes', 'on'].includes(normalizeEnvFlag(value));
-}
-
-export function isFalseyEnvValue(value) {
-  return ['0', 'false', 'no', 'off'].includes(normalizeEnvFlag(value));
-}
-
-export function setDefaultEnv(env, key, value, { track = false } = {}) {
-  if (`${env[key] ?? ''}`.trim()) return;
-  env[key] = value;
-  if (track) {
-    rememberWrapperDefaultEnvKey(env, key);
-  }
-}
 
 export function buildDebugBearHeaders(apiKey) {
   return {

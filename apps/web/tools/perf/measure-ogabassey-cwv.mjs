@@ -3,6 +3,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  isFalseyEnvValue,
+  isTruthyEnvValue,
+  loadOgaBasseyCwvEnvFiles,
+  normalizeEnvFlag,
+} from './measure-ogabassey-cwv-env-utils.mjs';
+import {
   resolveCanonicalUrlOrFailure,
   resolveLatestBlogPostUrl,
 } from './measure-ogabassey-cwv-network-utils.mjs';
@@ -17,32 +23,12 @@ import {
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
   filterOgaBasseyCwvTargets,
-  getWrapperDefaultEnvKeys,
-  isFalseyEnvValue,
-  isTruthyEnvValue,
-  loadEnvFile,
-  normalizeEnvFlag,
 } from './measure-ogabassey-cwv-utils.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const appRoot = fileURLToPath(new URL('../..', import.meta.url));
 
-const wrapperDefaultEnvKeys = getWrapperDefaultEnvKeys(process.env);
-const envKeysBeforeAuditFileLoad = new Set(Object.keys(process.env));
-for (const key of wrapperDefaultEnvKeys) {
-  envKeysBeforeAuditFileLoad.delete(key);
-}
-const rootEnvFile =
-  process.env.OGABASSEY_CWV_ROOT_ENV_FILE || join(repoRoot, '.env.local');
-const appEnvFile =
-  process.env.OGABASSEY_CWV_APP_ENV_FILE || join(appRoot, '.env.local');
-await loadEnvFile(rootEnvFile, {
-  override: (key) => wrapperDefaultEnvKeys.has(key),
-});
-await loadEnvFile(appEnvFile, {
-  override: (key) =>
-    wrapperDefaultEnvKeys.has(key) || !envKeysBeforeAuditFileLoad.has(key),
-});
+await loadOgaBasseyCwvEnvFiles({ appRoot, repoRoot });
 const auditId = new Date().toISOString().replace(/[:.]/g, '-');
 const useDebugBearRawDir = isTruthyEnvValue(
   process.env.OGABASSEY_CWV_USE_DEBUGBEAR_RAW_DIR
@@ -192,10 +178,7 @@ const failures = buildOgaBasseyCwvConfigurationFailures({
   targets,
 });
 
-function logProgress(message) {
-  console.error(`[ogabassey-cwv] ${message}`);
-}
-
+const logProgress = (message) => console.error(`[ogabassey-cwv] ${message}`);
 if (shouldRunPsi) {
   for (const target of targets) {
     for (const strategy of strategies) {

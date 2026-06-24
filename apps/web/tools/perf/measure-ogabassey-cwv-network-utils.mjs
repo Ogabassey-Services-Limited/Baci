@@ -134,6 +134,22 @@ function assertSamePdpTarget(candidate, requested, reason) {
   return candidateUrl.toString();
 }
 
+function getTagAttribute(tag, attributeName) {
+  const pattern = new RegExp(`\\b${attributeName}\\s*=\\s*(["'])(.*?)\\1`, 'i');
+  return tag.match(pattern)?.[2] ?? null;
+}
+
+function getCanonicalHref(html) {
+  for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+    const tag = match[0];
+    const rel = getTagAttribute(tag, 'rel');
+    if (` ${rel ?? ''} `.toLowerCase().includes(' canonical ')) {
+      return getTagAttribute(tag, 'href');
+    }
+  }
+  return null;
+}
+
 export async function resolveCanonicalUrl(url) {
   const requested = normalizeUrlForStrictTarget(url).toString();
 
@@ -150,10 +166,7 @@ export async function resolveCanonicalUrl(url) {
   assertSamePdpTarget(finalUrl, requested, 'redirect');
 
   const html = await response.text();
-  const canonicalTag = html.match(
-    /<link\b[^>]*rel=["'][^"']*\bcanonical\b[^"']*["'][^>]*>/i
-  )?.[0];
-  const href = canonicalTag?.match(/\bhref=["']([^"']+)["']/i)?.[1];
+  const href = getCanonicalHref(html);
   if (!href) return requested;
 
   return assertSamePdpTarget(
