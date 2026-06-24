@@ -234,6 +234,22 @@ export default function InsurancePolicyPage() {
         </div>
       )}
 
+      {cta.kind === 'activation_pending' && (
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/40 p-4 text-muted-foreground">
+          <ShieldCheck className="size-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold text-foreground">
+              Activation link is being prepared
+            </p>
+            <p>
+              We&apos;re waiting for MyCover to send the inspection link for
+              this policy. You&apos;ll be able to file a claim after activation
+              is complete.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <div className="space-y-1">
@@ -366,6 +382,12 @@ export default function InsurancePolicyPage() {
           {cta.kind === 'awaiting_delivery' && (
             <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
               Available after delivery
+            </p>
+          )}
+
+          {cta.kind === 'activation_pending' && (
+            <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
+              Activation link pending
             </p>
           )}
         </CardFooter>

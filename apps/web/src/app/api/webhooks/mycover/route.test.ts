@@ -274,6 +274,35 @@ describe('POST /api/webhooks/mycover', () => {
     expect(mocks.policyEq).toHaveBeenCalledWith('mycover_policy_id', 'pol-abc');
   });
 
+  it('reads preloss inspection category from data.meta', async () => {
+    const payload = {
+      data: {
+        essential: {
+          status: 'completed',
+        },
+        meta: {
+          category: 'preloss',
+          policy_id: 'pol-meta',
+        },
+      },
+      event: 'inspection.completed',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.policyUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ inspection_status: 'completed' })
+    );
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_policy_id',
+      'pol-meta'
+    );
+  });
+
   it('ignores non-preloss inspection.completed events', async () => {
     const payload = {
       data: {
@@ -437,6 +466,52 @@ describe('POST /api/webhooks/mycover', () => {
     expect(mocks.policyEq).toHaveBeenCalledWith(
       'mycover_purchase_id',
       'policy-123'
+    );
+  });
+
+  it('persists renewed hosted claim and inspection links', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policyUpdateResult: {
+          data: { id: 'policy-row', order_id: 'order-123' },
+          error: null,
+        },
+      })
+    );
+    const payload = {
+      data: {
+        essential: {
+          policy_id: 'policy-123',
+          expiration_date: '2028-05-21T00:00:00.000Z',
+        },
+        sdk: {
+          claim_link: 'https://mycover.ai/purchase?q=renewed-claim',
+          inspection_link: 'https://mycover.ai/purchase?q=renewed-inspect',
+        },
+      },
+      event: 'purchase.renewed',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.policyUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claim_link: 'https://mycover.ai/purchase?q=renewed-claim',
+        inspection_link: 'https://mycover.ai/purchase?q=renewed-inspect',
+        policy_expiry_date: '2028-05-21T00:00:00.000Z',
+        status: 'active',
+      })
+    );
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_policy_id',
+      'policy-123'
+    );
+    expect(mocks.maybeNotifyActivateProtection).toHaveBeenCalledWith(
+      'order-123'
     );
   });
 

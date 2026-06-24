@@ -237,7 +237,7 @@ describe('myCoverWebhookSchema', () => {
             policy_id: 'pol-abc',
             is_approved: false,
           },
-          meta: { policy_id: 'pol-abc' },
+          meta: { category: 'preloss', policy_id: 'pol-abc' },
         },
       };
 
@@ -246,6 +246,7 @@ describe('myCoverWebhookSchema', () => {
       if (result.success) {
         expect(result.data.data.essential?.policy_id).toBe('pol-abc');
         expect(result.data.data.essential?.category).toBe('preloss');
+        expect(result.data.data.meta?.category).toBe('preloss');
         expect(result.data.data.essential?.status).toBe('completed');
       }
     });

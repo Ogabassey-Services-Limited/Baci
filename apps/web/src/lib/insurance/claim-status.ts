@@ -28,7 +28,13 @@ export function normalizeClaimStatus(
   const s = (raw ?? '').toLowerCase().trim();
 
   if (s) {
-    if (s.includes('paid')) return 'paid';
+    if (
+      s.includes('paid') ||
+      s.includes('settled') ||
+      s.includes('payment initiated')
+    ) {
+      return 'paid';
+    }
     // "Disapproved"/"Declined" must be checked before "approved" because
     // "disapproved" contains the substring "approved".
     if (s.includes('offer') && s.includes('reject')) return 'offer_rejected';

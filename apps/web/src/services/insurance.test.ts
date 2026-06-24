@@ -557,7 +557,7 @@ describe('syncClaimsStatus', () => {
       );
     });
 
-    it('keeps legacy "Payment initiated" as "pending" status', async () => {
+    it('preserves legacy "Payment initiated" as a successful paid status', async () => {
       const claims = [
         {
           id: 'claim-1',
@@ -597,12 +597,12 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'pending',
+          claim_status: 'paid',
         })
       );
     });
 
-    it('keeps legacy "Settled" as "pending" status', async () => {
+    it('preserves legacy "Settled" as a successful paid status', async () => {
       const claims = [
         { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Settled' },
       ];
@@ -638,7 +638,53 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'pending',
+          claim_status: 'paid',
+        })
+      );
+    });
+
+    it('preserves payment_status "payment initiated" as paid even when claim_status is pending', async () => {
+      const claims = [
+        {
+          id: 'claim-1',
+          policy_id: 'policy-1',
+          claim_status: 'Pending',
+          payment_status: 'payment initiated',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'paid',
         })
       );
     });

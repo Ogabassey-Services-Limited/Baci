@@ -21,6 +21,7 @@ export interface InsuranceActionPolicy {
  * happen once the device is delivered. So the customer sees exactly one
  * call-to-action at a time:
  *   not delivered yet            -> 'awaiting_delivery' (informational, no action)
+ *   delivered, link not stored   -> 'activation_pending' (informational, no action)
  *   delivered, inspection due    -> 'inspect' ("Activate Protection")
  *   inspection done / no inspect -> 'claim'  ("File a Claim")
  *
@@ -29,6 +30,7 @@ export interface InsuranceActionPolicy {
  */
 export type InsuranceCta =
   | { kind: 'awaiting_delivery' }
+  | { kind: 'activation_pending' }
   | { kind: 'inspect'; url: string }
   | { kind: 'claim'; url: string | null };
 
@@ -36,12 +38,17 @@ export function resolveInsuranceCta(
   policy: InsuranceActionPolicy
 ): InsuranceCta {
   const inspectionUrl = resolveInspectionUrl(policy);
+  const inspectionStatus = policy.inspectionStatus?.trim().toLowerCase();
   const inspectionPending =
-    inspectionUrl !== null && policy.inspectionStatus !== 'completed';
+    inspectionStatus !== 'completed' &&
+    (inspectionStatus === 'pending' || inspectionUrl !== null);
 
   if (inspectionPending) {
     if (!policy.orderDelivered) {
       return { kind: 'awaiting_delivery' };
+    }
+    if (inspectionUrl === null) {
+      return { kind: 'activation_pending' };
     }
     return { kind: 'inspect', url: inspectionUrl };
   }

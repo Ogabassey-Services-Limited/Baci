@@ -304,12 +304,13 @@ async function handleInspectionCompleted(
   supabase: SupabaseClient,
   data: MyCoverWebhookPayload['data']
 ) {
-  if (data.essential?.category !== 'preloss') {
+  const inspectionCategory = data.meta?.category ?? data.essential?.category;
+  if (inspectionCategory !== 'preloss') {
     return;
   }
 
   const policyId =
-    data.essential?.policy_id || data.meta?.policy_id || data.policy_id;
+    data.meta?.policy_id || data.essential?.policy_id || data.policy_id;
   if (!policyId) {
     console.warn('[MyCover Webhook] inspection.completed without policy_id');
     return;
@@ -535,15 +536,17 @@ async function handlePolicyRenewed(
     );
   }
 
+  const hostedFlowLinks = getHostedFlowLinks(data);
   const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       policy_expiry_date: getPolicyExpiryDate(data),
       status: 'active',
       updated_at: new Date().toISOString(),
+      ...hostedFlowLinks,
     })
     .eq(lookup.column, lookup.value)
-    .select('id')
+    .select('id, order_id')
     .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
@@ -553,6 +556,10 @@ async function handlePolicyRenewed(
 
   if (!updatedPolicy) {
     throw new Error('MyCover renewal webhook did not match a stored policy');
+  }
+
+  if (hostedFlowLinks.inspection_link && updatedPolicy.order_id) {
+    await notifyActivateProtectionIfDelivered(updatedPolicy.order_id);
   }
 }
 

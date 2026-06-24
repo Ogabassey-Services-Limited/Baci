@@ -234,7 +234,9 @@ export async function syncClaimsStatus() {
       const rawStatus = String(claim.claim_status || claim.status || '');
       const paymentStatus = String(claim.payment_status || '').toLowerCase();
       const newClaimStatus =
-        paymentStatus === 'paid' ? 'paid' : normalizeClaimStatus(rawStatus);
+        paymentStatus === 'paid' || paymentStatus === 'payment initiated'
+          ? 'paid'
+          : normalizeClaimStatus(rawStatus);
       const claimStage = rawStatus.trim() || claimStatusLabel(newClaimStatus);
       const claimProgress =
         (claim.progress as string | undefined) ??

@@ -60,6 +60,14 @@ BEGIN
     RETURN FALSE;
   END IF;
 
+  SELECT "shipping_status" INTO "v_order_status"
+  FROM "public"."orders"
+  WHERE "id" = "p_order_id";
+
+  IF "v_order_status" IN ('cancelled', 'canceled', 'returned', 'failed') THEN
+    RETURN FALSE;
+  END IF;
+
   UPDATE "public"."shipments"
   SET
     "status" = 'delivered',
