@@ -755,6 +755,30 @@ describe('Middleware Proxy', () => {
       expect(resolutionMock).not.toHaveBeenCalled();
     });
 
+    it('preserves attribution query params on pre-streaming canonical redirects', async () => {
+      canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/tecno/tecno-spark-40?utm_source=email&gclid=abc123'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/tecno-spark-40?utm_source=email&gclid=abc123'
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'tecno',
+          identifier: 'ogabassey',
+          productSlug: 'tecno-spark-40',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
     it('308-redirects stale category aliases on merchant subdomains before the storefront rewrite', async () => {
       canonicalRedirectMock.mockResolvedValue('/smartphones/tecno-spark-40');
       resolutionMock.mockResolvedValue({ kind: 'missing' });

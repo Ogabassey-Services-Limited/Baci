@@ -1378,9 +1378,6 @@ async function resolveStorefrontPdpCanonicalRedirect(
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return null;
   }
-  if (request.nextUrl.search.length > 0) {
-    return null;
-  }
   if (
     request.headers.get('rsc') === '1' ||
     request.headers.has('next-router-prefetch') ||
@@ -1449,7 +1446,6 @@ async function resolveStorefrontPdpCanonicalRedirect(
 
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = publicTargetPath;
-  redirectUrl.search = '';
   return NextResponse.redirect(redirectUrl, 308);
 }
 

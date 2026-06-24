@@ -113,7 +113,13 @@ export function AccountPageClient() {
             preferences after signing in.
           </p>
           <Button asChild>
-            <Link href={asRoute(`${resolvedBasePath}/account/login`)}>
+            <Link
+              href={asRoute(
+                `${resolvedBasePath}/account/login?redirect=${encodeURIComponent(
+                  `${resolvedBasePath}/account`
+                )}`
+              )}
+            >
               Sign in to your account
             </Link>
           </Button>

@@ -119,7 +119,10 @@ describe('AccountPageClient', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /sign in to your account/i })
-    ).toHaveAttribute('href', '/ogabassey/account/login');
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/account/login?redirect=%2Fogabassey%2Faccount'
+    );
   });
 
   it('shows account quick links for an authenticated customer', () => {
