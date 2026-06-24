@@ -16,7 +16,12 @@ const { syncStorage } =
 describe('cart-store', () => {
   beforeEach(() => {
     resetCartLineSequence();
-    useCartStore.setState({ items: [], isLoading: false, lineSequence: 0 });
+    useCartStore.setState({
+      items: [],
+      isLoading: false,
+      lineSequence: 0,
+      cartWideNegotiationActive: false,
+    });
     jest.clearAllMocks();
   });
 
