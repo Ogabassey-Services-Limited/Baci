@@ -18,12 +18,24 @@ vi.mock('@/lib/routes', () => ({
   asRoute: vi.fn((path: string) => path),
 }));
 
-vi.mock('@/lib/storefront-pagination', () => ({
-  buildStorefrontPageHref: vi.fn(
-    (basePath: string, page: number) =>
+vi.mock('@/lib/storefront-pagination', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/storefront-pagination')>();
+
+  return {
+    ...actual,
+    buildStorefrontPageHref: vi.fn((basePath: string, page: number) =>
       page <= 1 ? basePath : `${basePath}?page=${page}`
-  ),
-}));
+    ),
+    getStorefrontCrawlDiscoveryPages: vi.fn(
+      ({ totalPages }: { totalPages: number }) => [1, 2, totalPages]
+    ),
+    STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT:
+      actual.STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
+    STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS:
+      actual.STOREFRONT_CRAWL_DISCOVERY_OVERFLOW_MAX_LINKS,
+  };
+});
 
 import { StorefrontPagination } from './StorefrontPagination';
 
@@ -244,5 +256,45 @@ describe('StorefrontPagination', () => {
 
     expect(screen.getByText('1').getAttribute('aria-current')).toBe('page');
     expect(screen.queryByText('Previous')).toBeNull();
+  });
+
+  it('renders optional crawl discovery links without prefetching them', () => {
+    render(
+      <StorefrontPagination
+        basePath="/store/products"
+        currentPage={2}
+        totalPages={64}
+        crawlDiscoveryAllPagesThreshold={100}
+        crawlDiscoveryLabel="Browse product index pages"
+        crawlDiscoveryPageLabel="Products page"
+      />
+    );
+
+    expect(screen.getByText('Browse product index pages')).toBeInTheDocument();
+    const page64Link = screen.getByRole('link', { name: 'Products page 64' });
+    expect(page64Link).toHaveAttribute('href', '/store/products?page=64');
+    expect(page64Link).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(
+      screen.getByRole('link', { name: 'Products page 2' })
+    ).not.toHaveAttribute('aria-current');
+  });
+
+  it('does not render crawl discovery links without a discovery label', () => {
+    render(
+      <StorefrontPagination
+        basePath="/store/products"
+        currentPage={1}
+        totalPages={64}
+        crawlDiscoveryAllPagesThreshold={100}
+        crawlDiscoveryPageLabel="Products page"
+      />
+    );
+
+    expect(screen.queryByText('Browse product index pages')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Products page 64' })).toBeNull();
   });
 });

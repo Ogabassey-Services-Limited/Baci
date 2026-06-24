@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT } from '@/lib/storefront-pagination';
 
 const {
   mockGenerateBreadcrumbSchema,
@@ -9,6 +10,7 @@ const {
   mockGetCachedStorefrontProductIndex,
   mockGetRequestScopedMerchant,
   mockHeaders,
+  mockStorefrontPagination,
 } = vi.hoisted(() => ({
   mockGenerateBreadcrumbSchema: vi.fn(() => ({})),
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
@@ -16,6 +18,7 @@ const {
   mockGetCachedStorefrontProductIndex: vi.fn(),
   mockGetRequestScopedMerchant: vi.fn(),
   mockHeaders: vi.fn(),
+  mockStorefrontPagination: vi.fn((_props: Record<string, unknown>) => null),
 }));
 
 vi.mock('next/headers', () => ({
@@ -47,7 +50,8 @@ vi.mock('next/navigation', () => ({
 vi.mock(
   '@/components/storefront/ogabassey/components/StorefrontPagination',
   () => ({
-    StorefrontPagination: () => null,
+    StorefrontPagination: (props: Record<string, unknown>) =>
+      mockStorefrontPagination(props),
   })
 );
 
@@ -238,5 +242,51 @@ describe('ProductsPageContent', () => {
 
     expect(screen.getByText(/₹|INR/)).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+  });
+
+  it('enables crawl discovery pagination for the product index', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+      site_description: 'Browse products',
+    });
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      totalCount: 1280,
+      totalPages: 64,
+      products: [
+        {
+          id: 'product-1',
+          name: 'Galaxy S25',
+          slug: 'galaxy-s25',
+          price: 2500,
+          images: [],
+          categories: [{ name: 'Smartphones', slug: 'smartphones' }],
+        },
+      ],
+    });
+
+    const result = await ProductsPageContent({
+      params: Promise.resolve({ slug: 'demo-store' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    render(result as React.ReactElement);
+
+    expect(mockStorefrontPagination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ariaLabel: 'Products pagination',
+        basePath: '/demo-store/products',
+        crawlDiscoveryAllPagesThreshold:
+          STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
+        crawlDiscoveryLabel: 'Browse product index pages',
+        crawlDiscoveryPageLabel: 'Products page',
+        currentPage: 1,
+        totalPages: 64,
+      })
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildStorefrontPageHref,
+  getStorefrontCrawlDiscoveryPages,
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
@@ -125,5 +126,91 @@ describe('buildStorefrontPageHref', () => {
     expect(buildStorefrontPageHref('/store/products?sort=asc#catalog', 3)).toBe(
       '/store/products?sort=asc&page=3#catalog'
     );
+  });
+});
+
+describe('getStorefrontCrawlDiscoveryPages', () => {
+  it('returns every page when the total is within the all-pages threshold', () => {
+    expect(
+      getStorefrontCrawlDiscoveryPages({
+        totalPages: 6,
+        allPagesThreshold: 20,
+      })
+    ).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('supports product indexes that need up to one hundred crawlable page links', () => {
+    const pages = getStorefrontCrawlDiscoveryPages({
+      totalPages: 64,
+      allPagesThreshold: 100,
+    });
+
+    expect(pages).toHaveLength(64);
+    expect(pages[0]).toBe(1);
+    expect(pages.at(-1)).toBe(64);
+  });
+
+  it('caps very large page sets while keeping edge, current, jump, and required pages', () => {
+    const pages = getStorefrontCrawlDiscoveryPages({
+      totalPages: 240,
+      currentPage: 120,
+      requiredPages: [37, 199],
+      allPagesThreshold: 100,
+      maxPages: 30,
+      jumpInterval: 25,
+    });
+
+    expect(pages.length).toBeLessThanOrEqual(30);
+    expect(pages).toEqual([...pages].sort((left, right) => left - right));
+    expect(pages).toEqual(
+      expect.arrayContaining([1, 2, 10, 25, 37, 119, 120, 121, 199, 240])
+    );
+  });
+
+  it('keeps the full discovery result bounded when mandatory pages exceed a small cap', () => {
+    const pages = getStorefrontCrawlDiscoveryPages({
+      totalPages: 240,
+      currentPage: 120,
+      requiredPages: [37, 199, 222],
+      allPagesThreshold: 100,
+      maxPages: 5,
+      jumpInterval: 5,
+    });
+
+    expect(pages).toHaveLength(5);
+    expect(pages).toEqual([...pages].sort((left, right) => left - right));
+    expect(pages).toEqual(expect.arrayContaining([37, 120, 199, 222]));
+  });
+
+  it('sanitizes non-finite current windows so the page loop stays bounded', () => {
+    const pages = getStorefrontCrawlDiscoveryPages({
+      totalPages: 25,
+      currentPage: 10,
+      currentWindow: Number.POSITIVE_INFINITY,
+      edgePageCount: 2,
+      allPagesThreshold: 5,
+      maxPages: 12,
+    });
+
+    expect(pages).toEqual([1, 2, 10, 20, 24, 25]);
+  });
+
+  it('floors fractional current windows instead of widening them unpredictably', () => {
+    const pages = getStorefrontCrawlDiscoveryPages({
+      totalPages: 30,
+      currentPage: 10,
+      currentWindow: 1.8,
+      edgePageCount: 1,
+      allPagesThreshold: 5,
+      maxPages: 15,
+    });
+
+    expect(pages).toEqual(expect.arrayContaining([9, 10, 11]));
+    expect(pages).not.toContain(8);
+    expect(pages).not.toContain(12);
+  });
+
+  it('returns no discovery pages when there is only one page', () => {
+    expect(getStorefrontCrawlDiscoveryPages({ totalPages: 1 })).toEqual([]);
   });
 });
