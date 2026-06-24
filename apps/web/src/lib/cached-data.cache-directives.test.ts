@@ -68,7 +68,7 @@ describe('cached-data cache directives', () => {
 
   it('moves only the high-cost blog post renders to the long-lived `blog` profile; keeps the listing short', () => {
     // Blog posts are keyed by a bounded postSlug, so they use the near-static
-    // `blog` profile (daily revalidate) to avoid re-rendering every 60s under
+    // `blog` profile (hourly revalidate) to avoid re-rendering every 60s under
     // crawler load.
     const postSource = getFunctionSource('getCachedBlogPost');
     expect(postSource).toContain("cacheLife('blog');");
@@ -76,7 +76,7 @@ describe('cached-data cache directives', () => {
 
     // The listing takes user-supplied search/category args, and a `'use cache'`
     // function takes a single static profile (no conditional cacheLife), so it
-    // stays on the short `merchant` profile — avoids week-long retention of
+    // stays on the short `merchant` profile — avoids long-lived retention of
     // arbitrary filter permutations.
     const listingSource = getFunctionSource('getCachedBlogListing');
     expect(listingSource).toContain("cacheLife('merchant');");
