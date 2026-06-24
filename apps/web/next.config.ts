@@ -141,8 +141,8 @@ const nextConfig: NextConfig = {
     'storefront-page': { stale: 60, revalidate: 300, expire: 3600 },
     // Categories: rarely change, revalidate every 1hr, expire after 24hr
     categories: { stale: 300, revalidate: 3600, expire: 86400 },
-    // Blog posts/canonical listings: near-static content that is invalidated on
-    // edit via cacheTag (see lib/cache-revalidation.ts), so the server only
+    // Blog posts: near-static content that is invalidated on edit via cacheTag
+    // (see lib/cache-revalidation.ts), so the server only
     // needs to re-render daily instead of every 60s (the merchant profile)
     // under heavy crawler load. Keep `stale` short (the cost win comes from
     // `revalidate`, not `stale`) so edited content still surfaces quickly for

@@ -66,21 +66,21 @@ describe('cached-data cache directives', () => {
     }
   });
 
-  it('uses the long-lived `blog` profile for posts and canonical listings, but a short profile for filtered listings', () => {
-    // Blog posts are keyed by a bounded postSlug, so they always use the
-    // near-static `blog` profile (daily revalidate) to avoid re-rendering every
-    // 60s under crawler load.
+  it('moves only the high-cost blog post renders to the long-lived `blog` profile; keeps the listing short', () => {
+    // Blog posts are keyed by a bounded postSlug, so they use the near-static
+    // `blog` profile (daily revalidate) to avoid re-rendering every 60s under
+    // crawler load.
     const postSource = getFunctionSource('getCachedBlogPost');
     expect(postSource).toContain("cacheLife('blog');");
     expect(postSource).not.toContain("cacheLife('merchant');");
 
-    // Blog listings take user-supplied search/category args. Canonical
-    // (unfiltered) listings use the long `blog` profile, but filtered listings
-    // must stay on the short `merchant` profile so unbounded one-off
-    // search/category entries are not retained for a week.
+    // The listing takes user-supplied search/category args, and a `'use cache'`
+    // function takes a single static profile (no conditional cacheLife), so it
+    // stays on the short `merchant` profile — avoids week-long retention of
+    // arbitrary filter permutations.
     const listingSource = getFunctionSource('getCachedBlogListing');
-    expect(listingSource).toContain("cacheLife('blog');");
     expect(listingSource).toContain("cacheLife('merchant');");
+    expect(listingSource).not.toContain("cacheLife('blog');");
   });
 });
 
@@ -92,7 +92,7 @@ describe('next.config cacheLife profiles', () => {
 
   it('defines a long-lived `blog` profile so near-static blog pages are not re-rendered every minute', () => {
     const match = NEXT_CONFIG_SOURCE.match(
-      /blog:\s*\{\s*stale:\s*(\d+),\s*revalidate:\s*(\d+),\s*expire:\s*(\d+)\s*\}/
+      /blog:\s*\{\s*stale:\s*(\d+),\s*revalidate:\s*(\d+),\s*expire:\s*(\d+),?\s*\}/
     );
     expect(
       match,
