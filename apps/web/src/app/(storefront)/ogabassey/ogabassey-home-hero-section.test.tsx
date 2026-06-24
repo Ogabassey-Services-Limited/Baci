@@ -5,6 +5,13 @@ import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyHomeHeroSection } from './ogabassey-home-hero-section';
 import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 
+// The hero is a `'use cache'` component (rendered in the PPR static shell); the
+// cacheLife runtime needs the Next server cache context, so stub it under test.
+vi.mock('next/cache', () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+}));
+
 vi.mock('./ogabassey-home-launch-products', () => ({
   loadOgabasseyLaunchProducts: vi.fn(),
 }));

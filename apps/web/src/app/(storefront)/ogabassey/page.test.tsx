@@ -28,6 +28,14 @@ vi.mock('./ogabassey-home-page-content', () => ({
   OgabasseyHomePageContent: () => mockOgabasseyHomePageContent(),
 }));
 
+vi.mock('./ogabassey-home-hero-section', () => ({
+  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
+    <section aria-label="Product hero" data-prefix={pathPrefix}>
+      hero
+    </section>
+  ),
+}));
+
 vi.mock('./ogabassey-home-style-loader', () => ({
   OgabasseyHomeStyleLoader: () => {
     mockHomeStyleLoader();
@@ -47,8 +55,12 @@ describe('OgabasseyStaticHomePage', () => {
 
     expect(screen.getByText('Deferred homepage styles')).toBeInTheDocument();
     expect(mockHomeStyleLoader).toHaveBeenCalledOnce();
-    // The hero is now product-driven and renders inside the dynamic home
-    // content, not in this static shell.
+    // The product-driven hero now renders directly in the static shell (so it
+    // lands in the PPR prerender) with the path-based route's prefix; the dynamic
+    // home content streams below it.
+    expect(
+      screen.getByRole('region', { name: /product hero/i })
+    ).toHaveAttribute('data-prefix', '/ogabassey');
     expect(screen.getByRole('main')).toHaveTextContent('OgaBassey storefront');
     expect(mockOgabasseyHomePageContent).toHaveBeenCalled();
   });
