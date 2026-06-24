@@ -81,6 +81,25 @@ function parseEditablePrice(
   return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
+type PriceInputValidationState = 'valid' | 'blank' | 'invalid';
+
+function getPriceInputValidationState(
+  rawValue: string | undefined,
+  locale: string
+): PriceInputValidationState {
+  if (rawValue === undefined) {
+    return 'valid';
+  }
+
+  if (rawValue.trim() === '') {
+    return 'blank';
+  }
+
+  return parseEditablePrice(rawValue, locale) === undefined
+    ? 'invalid'
+    : 'valid';
+}
+
 interface EnrichmentRunArgs {
   targets: EnrichmentTarget[];
   stopGenerationRef: RefObject<boolean>;
@@ -241,12 +260,6 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       return next;
     });
   };
-  const isPriceInputBlank = (index: number) =>
-    priceInputValues[index]?.trim() === '';
-  const hasSelectedBlankPrice = localChanges.some(
-    (_, index) => selectedIndices.has(index) && isPriceInputBlank(index)
-  );
-
   const handleEdit = (
     index: number,
     field: keyof Change['details'],
@@ -272,6 +285,15 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     merchant?.payout_currency
   );
   const currencySymbol = currencyConfig.symbol;
+  const getPriceValidationState = (index: number) =>
+    getPriceInputValidationState(
+      priceInputValues[index],
+      currencyConfig.locale
+    );
+  const hasSelectedInvalidPrice = localChanges.some(
+    (_, index) =>
+      selectedIndices.has(index) && getPriceValidationState(index) !== 'valid'
+  );
 
   const handlePriceInputChange = (
     index: number,
@@ -405,7 +427,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <Button
             size="sm"
             onClick={handleApply}
-            disabled={selectedIndices.size === 0 || hasSelectedBlankPrice}
+            disabled={selectedIndices.size === 0 || hasSelectedInvalidPrice}
           >
             Import & Publish
           </Button>
@@ -438,6 +460,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <TableBody>
             {localChanges.map((change, index) => {
               const isSelected = selectedIndices.has(index);
+              const priceValidationState = getPriceValidationState(index);
               return (
                 <TableRow
                   // biome-ignore lint/suspicious/noArrayIndexKey: Changes don't have stable IDs
@@ -494,7 +517,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       </span>
                       <Input
                         aria-label="Price"
-                        aria-invalid={isPriceInputBlank(index)}
+                        aria-invalid={priceValidationState !== 'valid'}
                         inputMode="decimal"
                         type="text"
                         value={
@@ -517,9 +540,14 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                             'border-green-500 text-green-700 dark:text-green-400'
                         )}
                       />
-                      {isPriceInputBlank(index) && (
+                      {priceValidationState === 'blank' && (
                         <span className="text-xs text-destructive pl-1">
                           Price is required before import.
+                        </span>
+                      )}
+                      {priceValidationState === 'invalid' && (
+                        <span className="text-xs text-destructive pl-1">
+                          Enter a valid non-negative price before import.
                         </span>
                       )}
                       {change.type === 'update' && (

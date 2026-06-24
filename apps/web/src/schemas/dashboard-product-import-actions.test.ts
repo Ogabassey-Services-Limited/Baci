@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AIResponseSchema,
   BulkUpdateChangesSchema,
   FetchGoogleSheetInputSchema,
   MAX_GOOGLE_SHEET_URL_CHARS,
@@ -291,6 +292,62 @@ describe('dashboard product import action schemas', () => {
         ],
       }).success
     ).toBe(true);
+  });
+
+  it('rejects UI-only cost-price edit markers in AI responses', () => {
+    const result = AIResponseSchema.safeParse({
+      changes: [
+        {
+          type: 'update',
+          productId: 'product-1',
+          details: {
+            name: 'Updated Phone',
+            price: 1000,
+            cost_price: null,
+            cost_price_was_edited: true,
+          },
+        },
+      ],
+      summary: 'Updated cost price',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unexpected root keys in AI responses', () => {
+    const result = AIResponseSchema.safeParse({
+      changes: [
+        {
+          type: 'new',
+          details: {
+            name: 'New Phone',
+            price: 1000,
+          },
+        },
+      ],
+      summary: 'New product',
+      unexpectedRootKey: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unexpected change keys in AI responses', () => {
+    const result = AIResponseSchema.safeParse({
+      changes: [
+        {
+          type: 'new',
+          details: {
+            name: 'New Phone',
+            price: 1000,
+          },
+          unexpectedChangeKey: true,
+        },
+      ],
+      summary: 'New product',
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('accepts zero and decimal bulk change cost prices', () => {

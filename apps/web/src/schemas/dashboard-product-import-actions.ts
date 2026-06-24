@@ -78,11 +78,10 @@ export const FetchGoogleSheetInputSchema = z.object({
   }),
 });
 
-const ChangeDetailsSchema = z.object({
+const SharedChangeDetailsShape = {
   name: z.string(),
   price: z.number(),
   cost_price: z.number().finite().nonnegative().nullable().optional(),
-  cost_price_was_edited: z.boolean().optional(),
   sku: z.string().optional(),
   description: z.string().optional(),
   stock: z.number().optional(),
@@ -93,7 +92,14 @@ const ChangeDetailsSchema = z.object({
     .record(z.string(), z.string())
     .optional()
     .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
+};
+
+const ChangeDetailsSchema = z.object({
+  ...SharedChangeDetailsShape,
+  cost_price_was_edited: z.boolean().optional(),
 });
+
+const AIChangeDetailsSchema = z.strictObject(SharedChangeDetailsShape);
 
 export const ChangeSchema = z.object({
   type: z.enum(['update', 'new', 'remove']),
@@ -130,8 +136,25 @@ const MissingParameterRequestSchema = z
   })
   .optional();
 
-export const AIResponseSchema = z.object({
-  changes: z.array(ChangeSchema),
+const AIChangeSchema = z.strictObject({
+  type: z.enum(['update', 'new', 'remove']),
+  productId: z
+    .string()
+    .optional()
+    .describe('SKU or ID of the product to update or remove'),
+  newPrice: z
+    .number()
+    .optional()
+    .describe('The new price for a product update'),
+  details: AIChangeDetailsSchema,
+  reason: z
+    .string()
+    .optional()
+    .describe('Reasoning for the change, especially for removals'),
+});
+
+export const AIResponseSchema = z.strictObject({
+  changes: z.array(AIChangeSchema),
   summary: z.string().describe('A human-readable summary of all changes'),
   clarificationRequest: ClarificationRequestSchema,
   missingParameterRequest: MissingParameterRequestSchema,

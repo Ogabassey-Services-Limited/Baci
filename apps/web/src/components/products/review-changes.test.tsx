@@ -171,6 +171,44 @@ describe('ReviewChanges', () => {
     expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 
+  it('blocks import when a selected selling price edit is invalid', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
+    fireEvent.change(priceInput, { target: { value: 'abc' } });
+
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
+    });
+    expect(
+      screen.getByText('Enter a valid non-negative price before import.')
+    ).toBeVisible();
+    expect(priceInput).toHaveAttribute('aria-invalid', 'true');
+    expect(importButton).toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('blocks non-finite selling price edits before import', async () => {
+    const user = userEvent.setup();
+    render(<ReviewChanges />);
+
+    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
+    fireEvent.change(priceInput, { target: { value: '1e9999' } });
+
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
+    });
+    expect(importButton).toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).not.toHaveBeenCalled();
+  });
+
   it('accepts currency-formatted cost price edits before saving', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);

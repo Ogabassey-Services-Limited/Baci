@@ -403,6 +403,51 @@ describe('product import actions', () => {
     expect(result.summary).toContain('Parsed 1 products from CSV');
   });
 
+  it('preserves the existing name for SKU-matched cost-only updates', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          ...existingProducts[0],
+          cost_price: 700,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,Cost Price,SKU\nVendor Alias,1000,800,OLD-1'
+    );
+
+    expect(result.changes).toEqual([
+      {
+        details: {
+          cost_price: 800,
+          category: undefined,
+          image: undefined,
+          name: 'Old Phone',
+          price: 1000,
+          sku: 'OLD-1',
+          stock: 5,
+        },
+        newPrice: 1000,
+        productId: 'product-1',
+        reason: 'Cost price changed from 700 to 800',
+        type: 'update',
+      },
+    ]);
+  });
+
+  it('ignores invalid cost-only values for SKU-matched aliases', async () => {
+    const result = await parseCSVDirectly(
+      [
+        {
+          ...existingProducts[0],
+          cost_price: 700,
+        },
+      ] as unknown as Product[],
+      'Name,Selling Price,Cost Price,SKU\nVendor Alias,1000,not available,OLD-1'
+    );
+
+    expect(result.changes).toEqual([]);
+    expect(result.summary).toContain('Parsed 1 products from CSV');
+  });
+
   it('parses cost price from CSV without treating it as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,

@@ -373,12 +373,11 @@ export async function parseCSVDirectly(
     processedNames.add(normalizedName);
 
     // Try to match by SKU first, then by name
-    let existingProduct = rawSku
+    const skuMatchedProduct = rawSku
       ? existingBySku.get(rawSku.toLowerCase())
       : undefined;
-    if (!existingProduct) {
-      existingProduct = existingByName.get(normalizedName);
-    }
+    const existingProduct =
+      skuMatchedProduct ?? existingByName.get(normalizedName);
 
     if (existingProduct) {
       matchedProductIds.add(existingProduct.id);
@@ -389,6 +388,11 @@ export async function parseCSVDirectly(
           Math.abs(existingProduct.cost_price - costPrice) > 0.01);
       const priceChanged = Math.abs(existingProduct.price - price) > 0.01;
       if (priceChanged || costPriceChanged) {
+        const shouldPreserveExistingName =
+          Boolean(skuMatchedProduct) &&
+          costPriceChanged &&
+          !priceChanged &&
+          normalizeName(existingProduct.name) !== normalizedName;
         const reasons = [];
         if (priceChanged) {
           reasons.push(
@@ -409,7 +413,7 @@ export async function parseCSVDirectly(
           productId: existingProduct.id,
           newPrice: price,
           details: {
-            name: rawName,
+            name: shouldPreserveExistingName ? existingProduct.name : rawName,
             price: existingProduct.price,
             ...(typeof costPrice === 'number' ? { cost_price: costPrice } : {}),
             sku: rawSku || existingProduct.sku || undefined,
