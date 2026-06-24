@@ -41,9 +41,10 @@ export function OgabasseyStaticHomePageContent({
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* The first-flush product hero lives in the route layout's static PPR
-          fallback. The dynamic content below re-renders the final hero after it
-          can resolve request headers for path-mode vs subdomain links. */}
+      {/* The static PPR shell first-flushes a hero-shaped fallback with the same
+          critical CSS tokens and geometry as the final product hero. The real,
+          uncached product hero then streams after request headers resolve
+          path-mode vs subdomain links. */}
       <Suspense fallback={<OgabasseyHomeHeroFallback />}>
         <OgabasseyHomePageContent pathPrefix={pathPrefix} />
       </Suspense>

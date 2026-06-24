@@ -27,9 +27,10 @@ export function resolveOgabasseyHomePathPrefix(
 }
 
 /**
- * Request-scoped home content. The parent Suspense boundary prerenders the hero
- * fallback into the PPR shell, then this component streams the final hero and
- * below-the-fold content after request headers resolve.
+ * Request-scoped home content. The parent Suspense boundary prerenders the
+ * hero-shaped fallback into the PPR shell to avoid a blank/dark first frame;
+ * this component streams the final product hero and below-the-fold content
+ * after request headers resolve.
  */
 export async function OgabasseyHomePageContent({
   pathPrefix,
