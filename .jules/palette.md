@@ -116,3 +116,7 @@
 **Learning:** By default, setting the `disabled` prop on a `Pressable` in React Native prevents interaction but does not automatically inform assistive technologies (like VoiceOver or TalkBack) of the disabled state.
 **Action:** When conditionally disabling an interactive element, always pair the functional `disabled` prop with the semantic `accessibilityState={{ disabled: boolean }}` prop.
 **Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API docs
+## 2024-05-24 — [Add busy state and indicator for async submits]
+**Learning:** For interaction completeness, buttons handling async submissions (like "Save Order") must visually convey loading state via an `ActivityIndicator` and semantically communicate it using `accessibilityState={{ busy: isSubmitting }}` to screen readers.
+**Action:** When working on submit buttons handling asynchronous states, ensure that an `ActivityIndicator` replaces or sits alongside the text and that the `busy` property on `accessibilityState` maps to the loading boolean.
+**Source:** WCAG 2.2 SC 4.1.2 Name, Role, Value / React Native Accessibility API

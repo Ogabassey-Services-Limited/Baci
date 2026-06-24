@@ -16,14 +16,17 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    ActivityIndicator: () => React.createElement('span', { 'aria-hidden': 'true', className: 'activity-indicator' }, 'Loading...'),
     StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
+      accessibilityState,
       children,
       disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
+      accessibilityState?: { busy?: boolean; disabled?: boolean };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
@@ -31,8 +34,9 @@ vi.mock('react-native', async () => {
       React.createElement(
         'button',
         {
+          'aria-busy': accessibilityState?.busy ? 'true' : undefined,
           'aria-label': accessibilityLabel,
-          disabled,
+          disabled: disabled || accessibilityState?.disabled,
           onClick: () => onPress?.(),
           type: 'button',
         },

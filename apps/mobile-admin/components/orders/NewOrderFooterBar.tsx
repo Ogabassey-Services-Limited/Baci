@@ -2,7 +2,7 @@ import type { PaymentStatus } from '@baci/shared';
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { TYPOGRAPHY } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { PAYMENT_METHODS } from './new-order.shared';
@@ -211,6 +211,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           accessibilityRole="button"
           accessibilityState={{
             disabled: isSubmitting || orderItems.length === 0,
+            busy: isSubmitting,
           }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
@@ -219,18 +220,24 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
             styles.payBtn,
             {
               backgroundColor: colors.primary,
-              opacity: orderItems.length === 0 ? 0.6 : 1,
+              opacity: isSubmitting || orderItems.length === 0 ? 0.6 : 1,
             },
           ]}
         >
-          <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
-            Save Order
-          </Text>
-          <Ionicons
-            color={colors.textOnPrimary}
-            name="arrow-forward"
-            size={20}
-          />
+          {isSubmitting ? (
+            <ActivityIndicator color={colors.textOnPrimary} />
+          ) : (
+            <>
+              <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
+                Save Order
+              </Text>
+              <Ionicons
+                color={colors.textOnPrimary}
+                name="arrow-forward"
+                size={20}
+              />
+            </>
+          )}
         </Pressable>
       </View>
     </View>
