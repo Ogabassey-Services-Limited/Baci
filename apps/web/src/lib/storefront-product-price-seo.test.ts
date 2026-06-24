@@ -175,27 +175,6 @@ describe('buildProductPriceSeoCopy', () => {
     );
   });
 
-  it('adds trailing slug storage tokens to distinguish variant PDP titles', () => {
-    const copy = buildProductPriceSeoCopy({
-      product: {
-        name: 'Samsung Galaxy Tab S10 FE 5G',
-        slug: 'samsung-galaxy-tab-s10-fe-5g-8gb-128gb',
-        price: 780000,
-      },
-      merchantDisplayName: 'Ogabassey',
-      categoryName: 'Tablets',
-      currency: 'NGN',
-      country: 'NG',
-    });
-
-    expect(copy.title).toBe(
-      'Samsung Galaxy Tab S10 FE 5G 8GB 128GB Price in Nigeria'
-    );
-    expect(copy.description).toContain(
-      'Samsung Galaxy Tab S10 FE 5G 8GB 128GB price in Nigeria is ₦780,000'
-    );
-  });
-
   it('builds generic check-price copy when no price is available', () => {
     const copy = buildProductPriceSeoCopy({
       product: {

@@ -51,8 +51,6 @@ export function normalizeRemoteOrderTotals(
   };
 }
 
-// Safe only for `calculate_order`; VTU and loyalty non-2xx responses are
-// meaningful business errors and must not be converted to local totals.
 export function canFallbackToLocalOrderTotals(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
@@ -70,7 +68,6 @@ export function canFallbackToLocalOrderTotals(error: unknown): boolean {
     code === 'timeout_error' ||
     name.includes('functionsfetcherror') ||
     message.includes('failed to send a request to the edge function') ||
-    message.includes('edge function returned a non-2xx status code') ||
     message.includes('network request failed') ||
     message.includes('fetch failed') ||
     message.includes('timed out')

@@ -7,7 +7,6 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { useState } from 'react';
 import type { Product as CartProduct } from '@/lib/products';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -117,23 +116,7 @@ export function OgabasseyPdpCriticalProductImage({
   fallbackImage: string;
 }) {
   const commerceState = useOptionalOgabasseyPdpCriticalCommerce();
-  // Track images that fail to load (e.g. a variant photo that 404s on the CDN)
-  // so the above-the-fold LCP image never stays broken — it falls back to the
-  // product's base image, matching the gallery's fallback behavior.
-  const [brokenImages, setBrokenImages] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
-  const preferredImage = commerceState?.productForCart.image || fallbackImage;
-  const image =
-    preferredImage && !brokenImages.has(preferredImage)
-      ? preferredImage
-      : fallbackImage && !brokenImages.has(fallbackImage)
-        ? fallbackImage
-        : null;
-
-  if (!image) {
-    return null;
-  }
+  const image = commerceState?.productForCart.image || fallbackImage;
 
   return (
     <Image
@@ -141,15 +124,7 @@ export function OgabasseyPdpCriticalProductImage({
       data-ogabassey-pdp-image="true"
       fetchPriority="high"
       fill
-      key={image}
       loading="eager"
-      onError={() =>
-        setBrokenImages((previous) =>
-          !image || previous.has(image)
-            ? previous
-            : new Set(previous).add(image)
-        )
-      }
       quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
       sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
       src={image}

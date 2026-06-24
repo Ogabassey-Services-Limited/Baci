@@ -101,8 +101,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ### Step 3: Rebuild and Restart
 
 ```bash
-pnpm turbo build
-pnpm turbo dev
+npm run build
+npm run dev
 ```
 
 ## Testing the Integration

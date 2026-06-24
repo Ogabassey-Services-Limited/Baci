@@ -134,7 +134,7 @@ function createMockHomeProduct(
     description: 'Premium foldable phone.',
     price: 1200000,
     compare_at_price: null,
-    images: ['https://cdn.ogabassey.com/core-assets/products/galaxy-fold.avif'],
+    images: null,
     category: 'Smartphones',
     brand: null,
     condition: null,

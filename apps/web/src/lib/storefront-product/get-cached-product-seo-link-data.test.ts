@@ -77,7 +77,6 @@ describe('getCachedProductSeoLinkData', () => {
     });
     expect(mockCacheTag).toHaveBeenCalledWith(
       'products',
-      'products-merchant-1',
       'blog-posts',
       'seo-links-merchant-1-laptops-prod-1'
     );

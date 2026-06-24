@@ -150,7 +150,7 @@ export const BUSINESS_TYPES = {
 
 ### Step 4: Test Your Template
 
-1.  Start the development server: `pnpm turbo dev`.
+1.  Start the development server: `npm run dev`.
 2.  Navigate to the onboarding page: `http://localhost:3000/onboarding`.
 3.  Select the business type you assigned the template to (e.g., "Jewelry & Accessories").
 4.  Complete the onboarding process.

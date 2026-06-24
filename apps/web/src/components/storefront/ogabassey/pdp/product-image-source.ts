@@ -4,10 +4,6 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS,
 } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
-import {
-  buildOgabasseyCdnImageLoaderUrl,
-  isOgabasseyCdnImageUrl,
-} from '@/lib/ogabassey-cdn-image-url';
 
 type SameOriginImageUrlInput = {
   imageVersion?: string | null;
@@ -66,24 +62,13 @@ export function buildOgabasseyPdpSameOriginProfileImageUrl(
   );
 }
 
-function buildOgabasseyPdpMobileImageUrl(src: string, width: number): string {
-  if (isOgabasseyCdnImageUrl(src)) {
-    return buildOgabasseyCdnImageLoaderUrl(
-      src,
-      width,
-      OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY
-    );
-  }
-
-  return imageLoader({
-    quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
-    src,
-    width,
-  });
-}
-
 export function buildOgabasseyPdpMobileImageSrcSet(src: string): string {
   return OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_WIDTHS.map(
-    (width) => `${buildOgabasseyPdpMobileImageUrl(src, width)} ${width}w`
+    (width) =>
+      `${imageLoader({
+        quality: OGABASSEY_PDP_PRIMARY_IMAGE_MOBILE_QUALITY,
+        src,
+        width,
+      })} ${width}w`
   ).join(', ');
 }

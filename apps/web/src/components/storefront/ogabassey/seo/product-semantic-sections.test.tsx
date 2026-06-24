@@ -10,7 +10,7 @@ vi.mock('next/link', () => ({
 }));
 
 describe('ProductSemanticSections', () => {
-  it('renders buyer guides, card sections, and support links (no trust bullets)', () => {
+  it('renders buying context, buyer guides, card sections, and support links', () => {
     render(
       <ProductSemanticSections
         model={{
@@ -64,15 +64,11 @@ describe('ProductSemanticSections', () => {
       />,
     );
 
-    // The "Buying context" trust-bullet section was removed from the PDP, so
-    // trust bullets in the model must NOT render.
     expect(
-      screen.queryByRole('heading', { name: 'Buying context' })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Free returns within 7 days')
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText('Ships across Nigeria')).not.toBeInTheDocument();
+      screen.getByRole('heading', { name: 'Buying context' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Free returns within 7 days')).toBeInTheDocument();
+    expect(screen.getByText('Ships across Nigeria')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Buyer guides' })
     ).toBeInTheDocument();

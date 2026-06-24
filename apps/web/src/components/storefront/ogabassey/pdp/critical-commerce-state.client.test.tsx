@@ -302,49 +302,6 @@ describe('OgabasseyPdpCriticalCommerceProvider', () => {
     );
   });
 
-  it('preserves an explicit route condition before falling back to the lowest-priced default', () => {
-    render(
-      <OgabasseyPdpCriticalCommerceProvider
-        cartProduct={{
-          ...variantCartProduct,
-          condition: 'new',
-          price: 700_000,
-          variants: [
-            {
-              attributes: { storage: '128GB' },
-              condition: 'used',
-              id: 'variant-used-128',
-              merchant_id: 'merchant-1',
-              price_override: 500_000,
-              product_id: 'redmi-pad-2',
-              stock_quantity: 3,
-            },
-            {
-              attributes: { storage: '128GB' },
-              condition: 'open_box',
-              id: 'variant-open-box-128',
-              merchant_id: 'merchant-1',
-              price_override: 650_000,
-              product_id: 'redmi-pad-2',
-              stock_quantity: 5,
-            },
-          ],
-        }}
-        initialVariantSelection={{
-          attributes: { color: 'Blue' },
-          condition: 'open_box',
-        }}
-        variantAxes={['condition', 'storage']}
-        variantCount={2}
-      >
-        <CriticalCommerceStateProbe />
-      </OgabasseyPdpCriticalCommerceProvider>
-    );
-
-    expect(screen.getByText('650000')).toBeInTheDocument();
-    expect(screen.getByText('selected condition:open_box')).toBeInTheDocument();
-  });
-
   it('treats a top-level route condition as an explicit selector axis', () => {
     render(
       <OgabasseyPdpCriticalCommerceProvider

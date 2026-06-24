@@ -45,6 +45,7 @@ function applyLinkedVariantSelection(
 export function useProductDetailSelectionHandlers(routeData: RouteData) {
   const handleSelectImageIndex = (index: number) => {
     routeData.setSelectedImageIndex(index);
+    if (!routeData.usesImageDrivenColorSelection) return;
 
     const selectedImage = routeData.productGalleryImages[index];
     const resolvedSelectionFromImage = resolveVariantSelectionFromImage({
@@ -60,27 +61,17 @@ export function useProductDetailSelectionHandlers(routeData: RouteData) {
       (selectedImage
         ? routeData.productImageColorMap[selectedImage]
         : undefined);
-    const resolvedVariantId = resolvedSelectionFromImage?.variantId ?? null;
 
-    // A tapped image that maps to a specific variant must move the selection to
-    // that SKU even when the product has no image-driven color axis (e.g.
-    // storage/condition-only variants with primary_image), so price/cart follow
-    // the displayed frame — not only when the color changes.
-    const colorChanged =
-      Boolean(selectedImageColor) &&
-      selectedImageColor !== routeData.effectiveSelectedColor;
-    const variantChanged =
-      Boolean(resolvedVariantId) &&
-      resolvedVariantId !== routeData.effectiveSelectedVariantId;
-    if (!colorChanged && !variantChanged) {
+    if (
+      !selectedImageColor ||
+      selectedImageColor === routeData.effectiveSelectedColor
+    ) {
       return;
     }
 
     routeData.setHasCustomizedSelection(true);
-    routeData.setSelectedVariant(resolvedVariantId);
-    if (selectedImageColor) {
-      routeData.setSelectedColor(selectedImageColor);
-    }
+    routeData.setSelectedVariant(resolvedSelectionFromImage?.variantId ?? null);
+    routeData.setSelectedColor(selectedImageColor);
     routeData.setSelectedAttributes((current) =>
       stripInternalSelectionAxes(current, {
         preserveCondition: !routeData.usesVariantConditions,

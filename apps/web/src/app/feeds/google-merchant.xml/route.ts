@@ -4,10 +4,6 @@ import { getRootDomain } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
-// Cold merchant feeds can exceed the platform default function duration after
-// deploy cache misses; keep this aligned with /feeds/agent-products.jsonl.
-export const maxDuration = 60;
-
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 
 function escapeXmlText(value: string): string {

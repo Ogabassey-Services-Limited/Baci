@@ -271,7 +271,7 @@ See `AI_WORKER_ENV.md` for required environment variables.
 ## Testing
 
 ### Local Testing
-1. Start the dev server: `pnpm turbo dev`
+1. Start the dev server: `npm run dev`
 2. Manually trigger worker: 
    ```bash
    curl -X POST http://localhost:3000/api/ai-jobs/worker \

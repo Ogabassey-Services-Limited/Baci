@@ -47,10 +47,6 @@ function getVariantImageUrls(variant: ProductVariant) {
   return Array.from(
     new Set(
       [
-        // primary_image is surfaced in the gallery (buildVariantGalleryImages),
-        // so tapping it must map back to this variant too — otherwise the frame
-        // changes while the selected variant/price/cart stays on another SKU.
-        normalizeValue(variant.primary_image),
         normalizeValue(variant.image),
         ...(variant.images ?? []).map(normalizeValue),
       ].filter(Boolean)

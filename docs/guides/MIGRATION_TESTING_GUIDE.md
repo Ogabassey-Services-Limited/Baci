@@ -92,7 +92,7 @@ SELECT sanitize_text_input('  test  '); -- Should return 'test'
 If you have application code:
 ```bash
 # Start your development server
-pnpm turbo dev
+npm run dev
 
 # Test these scenarios:
 # 1. User authentication and order creation

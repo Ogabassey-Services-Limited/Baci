@@ -8,8 +8,6 @@ const mockFetch = vi.fn();
 let restoreFetch: () => void = () => undefined;
 const mockImageLoader = vi.fn();
 const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-const PRIMARY_PRODUCT_IMAGE =
-  'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif';
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedProductLcpHint: (...args: unknown[]) =>
@@ -52,7 +50,9 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       );
     restoreFetch = () => fetchSpy.mockRestore();
     mockWarn.mockClear();
-    mockImageLoader.mockReturnValue(PRIMARY_PRODUCT_IMAGE);
+    mockImageLoader.mockReturnValue(
+      'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
+    );
     mockFetch.mockResolvedValue(
       new Response('image-bytes', {
         headers: {
@@ -68,10 +68,12 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
     restoreFetch = () => undefined;
   });
 
-  it('redirects to the primary product image without proxy-fetching bytes', async () => {
+  it('redirects to the transformed primary product image without proxy-fetching bytes', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
-      images: [PRIMARY_PRODUCT_IMAGE],
+      images: [
+        'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
+      ],
       name: 'Dell Alienware m18 R3',
     });
 
@@ -91,7 +93,12 @@ describe('GET /api/ogabassey/pdp-lcp-image/[productSlug]', () => {
       'dell-alienware-m18-r3-rtx-5080',
       { includeVariants: false }
     );
-    expect(mockImageLoader).not.toHaveBeenCalled();
+    expect(mockImageLoader).toHaveBeenCalledWith({
+      preferOgabasseyTransform: true,
+      quality: 30,
+      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
+      width: 750,
+    });
   });
 
   it('returns 404 when the product has no primary image', async () => {

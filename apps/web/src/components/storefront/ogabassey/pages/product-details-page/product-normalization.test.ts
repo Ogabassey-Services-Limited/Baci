@@ -164,37 +164,6 @@ describe('normalizeProductDetails', () => {
     ]);
   });
 
-  it('keeps variant primary images in the gallery for non-color variants', () => {
-    const storageOnlyVariantMediaProduct = {
-      ...baseProduct,
-      color_images: {},
-      image: 'https://example.com/main.jpg',
-      images: ['https://example.com/generic.jpg'],
-      variants: [
-        {
-          id: 'variant-512',
-          attributes: { storage: '512GB' },
-          primary_image: 'https://example.com/storage-512.jpg',
-        },
-        {
-          id: 'variant-1tb',
-          attributes: { storage: '1TB' },
-          images: ['https://example.com/storage-1tb.jpg'],
-        },
-      ],
-    } as unknown as Product;
-
-    const normalized = normalizeProductDetails(storageOnlyVariantMediaProduct);
-
-    expect(normalized.colorImages).toEqual({});
-    expect(normalized.images).toEqual([
-      'https://example.com/storage-512.jpg',
-      'https://example.com/storage-1tb.jpg',
-      'https://example.com/generic.jpg',
-      'https://example.com/main.jpg',
-    ]);
-  });
-
   it('falls back to product color_images when a variant color has no primary image', () => {
     const variantWithoutPrimaryImage = {
       ...baseProduct,

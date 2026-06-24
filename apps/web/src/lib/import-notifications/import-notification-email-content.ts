@@ -24,13 +24,6 @@ export interface MerchantNotificationContext {
   email: string | null;
   brand_colors?: MerchantBrandColors | null;
   logo_url?: string | null;
-  /**
-   * Optional fully-opaque transactional-email logo (white plate baked into the
-   * pixels — `merchants.email_logo_url`). When set it is rendered directly with
-   * no white chip so it survives dark-mode-inverting clients (the Gmail app
-   * ignores CSS chip hardening). When null, {@link logo_url} is used on a chip.
-   */
-  email_logo_url?: string | null;
 }
 
 export interface ReceiptNotificationDeliveryConfig {
@@ -85,25 +78,6 @@ function emailSafeLogoUrl(logoUrl: string | null | undefined): string {
   }
   const path = safe.split('?')[0].split('#')[0].toLowerCase();
   return RASTER_LOGO_PATTERN.test(path) ? safe : '';
-}
-
-/**
- * Resolve the header logo for a merchant. When the merchant has configured a
- * dedicated opaque email logo (`merchants.email_logo_url` — a white plate baked
- * into the pixels) it is rendered directly with no white chip, which keeps it
- * readable in dark-mode-inverting clients (the Gmail app ignores CSS chip
- * hardening). Otherwise the merchant's raster `logo_url` is shown on a white
- * chip. Fully data-driven and merchant-agnostic — no per-tenant branches.
- */
-function resolveReceiptLogo(merchant: MerchantNotificationContext): {
-  logoUrl: string;
-  logoIsOpaque: boolean;
-} {
-  const opaqueLogo = emailSafeLogoUrl(merchant.email_logo_url);
-  if (opaqueLogo) {
-    return { logoUrl: opaqueLogo, logoIsOpaque: true };
-  }
-  return { logoUrl: emailSafeLogoUrl(merchant.logo_url), logoIsOpaque: false };
 }
 
 function readReceiptTagline(migrationSettings: Record<string, unknown>) {
@@ -236,7 +210,6 @@ function buildAppFirstReceiptEmailContent({
   const rawSupport =
     merchant.support_email || merchant.email || 'the store team';
   const supportContact = escapeHtmlAttribute(rawSupport);
-  const receiptLogo = resolveReceiptLogo(merchant);
   // Only render a tagline the merchant actually configured — never invent one.
   const footerNote = delivery.receiptTagline
     ? escapeHtmlAttribute(delivery.receiptTagline)
@@ -257,8 +230,7 @@ function buildAppFirstReceiptEmailContent({
       subhead:
         'A quicker, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: escapeHtmlAttribute(receiptLogo.logoUrl),
-      logoIsOpaque: receiptLogo.logoIsOpaque,
+      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
       introHtml: `${escapedMerchantName} has moved your receipt for the following device(s) to the mobile app.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),
@@ -315,7 +287,6 @@ function buildSiteReceiptEmailContent({
     merchant.support_email || merchant.email || 'the store team';
   const supportContact = escapeHtmlAttribute(rawSupport);
   const sanitizedReceiptsUrl = sanitizeUrl(claimUrl || delivery.receiptsUrl);
-  const receiptLogo = resolveReceiptLogo(merchant);
   const textDevices = devices
     .map((device, index) => `${index + 1}. ${device}`)
     .join('\n');
@@ -332,8 +303,7 @@ function buildSiteReceiptEmailContent({
       subhead:
         'A simpler, more secure way to keep your purchase records in one place.',
       greetingName: escapedRecipientName,
-      logoUrl: escapeHtmlAttribute(receiptLogo.logoUrl),
-      logoIsOpaque: receiptLogo.logoIsOpaque,
+      logoUrl: escapeHtmlAttribute(emailSafeLogoUrl(merchant.logo_url)),
       introHtml: `${escapedMerchantName} has moved your receipt for the following item(s) to your online account.`,
       sectionLabel: 'On this receipt',
       deviceRowsHtml: renderReceiptDeviceRows(escapedDevices, brandColor),

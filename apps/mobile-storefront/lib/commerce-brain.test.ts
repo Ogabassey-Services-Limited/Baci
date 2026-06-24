@@ -187,30 +187,6 @@ describe('commerce-brain', () => {
     );
   });
 
-  it('falls back to local order totals when Supabase reports a non-2xx edge response', async () => {
-    mockState.invoke.mockResolvedValue({
-      data: null,
-      error: new Error('Edge Function returned a non-2xx status code'),
-    });
-
-    await expect(
-      calculateCommerce('calculate_order', {
-        assuranceFee: 100,
-        shippingFee: 500,
-        subtotal: 1000,
-        taxRate: 0.075,
-      })
-    ).resolves.toEqual({
-      taxAmount: 75,
-      total: 1675,
-    });
-    expect(mockState.trackEvent).toHaveBeenCalledWith(
-      'commerce_brain_fallback',
-      expect.objectContaining({ action: 'calculate_order' })
-    );
-    expect(mockState.trackError).not.toHaveBeenCalled();
-  });
-
   it('rethrows commerce brain errors after tracking them', async () => {
     const error = new CommerceError('Remote failed', 'REMOTE_FAILED');
     mockState.invoke.mockResolvedValue({ data: null, error });
@@ -224,27 +200,6 @@ describe('commerce-brain', () => {
     expect(mockState.trackError).toHaveBeenCalledWith(
       'commerce_brain_error',
       'Remote failed',
-      expect.objectContaining({ action: 'calculate_vtu' })
-    );
-  });
-
-  it('does not fallback for VTU non-2xx edge responses', async () => {
-    const error = new Error('Edge Function returned a non-2xx status code');
-    mockState.invoke.mockResolvedValue({ data: null, error });
-
-    await expect(
-      calculateCommerce('calculate_vtu', {
-        amount: 1000,
-        provider: 'mtn',
-      })
-    ).rejects.toThrow('Edge Function returned a non-2xx status code');
-    expect(mockState.trackError).toHaveBeenCalledWith(
-      'commerce_brain_error',
-      'Edge Function returned a non-2xx status code',
-      expect.objectContaining({ action: 'calculate_vtu' })
-    );
-    expect(mockState.trackEvent).not.toHaveBeenCalledWith(
-      'commerce_brain_fallback',
       expect.objectContaining({ action: 'calculate_vtu' })
     );
   });

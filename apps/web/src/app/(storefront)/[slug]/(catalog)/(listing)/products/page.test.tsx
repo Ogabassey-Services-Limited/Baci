@@ -301,25 +301,6 @@ describe('products index page', () => {
     expect(getRequestScopedMerchant).not.toHaveBeenCalled();
   });
 
-  it('returns noindex metadata for invalid metadata pagination without lookup', async () => {
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({ page: '0' }),
-    });
-
-    expect(metadata).toMatchObject({
-      title: 'Products page not found',
-      description: 'This products page is unavailable or has moved.',
-      alternates: null,
-      robots: {
-        index: false,
-        follow: true,
-      },
-    });
-    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
-    expect(notFound).not.toHaveBeenCalled();
-  });
-
   it('does not return notFound for paginated product pages when the index fetch fails', async () => {
     vi.mocked(getCachedStorefrontProductIndex).mockResolvedValueOnce({
       hasError: true,
@@ -479,31 +460,13 @@ describe('products index page', () => {
     );
   });
 
-  it('returns noindex metadata for out-of-range metadata pages', async () => {
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({ page: '3' }),
-    });
-
-    expect(metadata).toMatchObject({
-      title: 'Products page not found',
-      description: 'This products page is unavailable or has moved.',
-      alternates: null,
-      robots: {
-        index: false,
-        follow: true,
-      },
-      openGraph: {
-        title: 'Products page not found',
-        description: 'This products page is unavailable or has moved.',
-      },
-      twitter: {
-        card: 'summary',
-        title: 'Products page not found',
-        description: 'This products page is unavailable or has moved.',
-      },
-    });
-    expect(notFound).not.toHaveBeenCalled();
+  it('matches the product index route 404 behavior for out-of-range metadata pages', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('falls back to the storefront opengraph image when catalog items have no media', async () => {
