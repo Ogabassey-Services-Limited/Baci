@@ -29,6 +29,7 @@ interface MockDefaultBlogUiProps {
 }
 
 interface MockTemplateBlogRendererProps {
+  basePath?: string;
   blogPosts?: MockDefaultBlogUiProps['posts'];
   category?: string;
   itemListSchema?: MockDefaultBlogUiProps['itemListSchema'];

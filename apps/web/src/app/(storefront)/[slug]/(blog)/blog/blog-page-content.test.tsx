@@ -128,6 +128,65 @@ describe('BlogPageContent', () => {
     );
   });
 
+  it('passes route-relative base paths to template blog renderers', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+        },
+      })
+    );
+    mockGetTemplate.mockReturnValueOnce({
+      getComponents: async () => ({
+        Blog: () => <div>OgaBassey blog component</div>,
+      }),
+    });
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basePath: '',
+      })
+    );
+  });
+
+  it('preserves path prefixes from canonical store URLs for template blog renderers', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+      })
+    );
+    mockGetTemplate.mockReturnValueOnce({
+      getComponents: async () => ({
+        Blog: () => <div>OgaBassey blog component</div>,
+      }),
+    });
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basePath: '/ogabassey',
+      })
+    );
+  });
+
   it('does not preload a template-specific hero image for non-Ogabassey templates', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
@@ -218,10 +277,12 @@ describe('BlogPageContent', () => {
         params: Promise.resolve({ slug: 'ogabassey' }),
         searchParams: Promise.resolve({ page: '999', category: 'Guides' }),
       })
-    ).rejects.toThrow('NEXT_REDIRECT:/ogabassey/blog?category=Guides&page=5');
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:https://ogabassey.usebaci.com/blog?category=Guides&page=5'
+    );
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      '/ogabassey/blog?category=Guides&page=5'
+      'https://ogabassey.usebaci.com/blog?category=Guides&page=5'
     );
   });
 
@@ -271,10 +332,7 @@ describe('BlogPageContent', () => {
     );
   });
 
-  it('uses domain-relative pagination links on storefront subdomains', async () => {
-    mockHeaders.mockReturnValue(
-      new Headers([['x-merchant-slug', 'ogabassey']])
-    );
+  it('uses canonical storefront links without reading request headers for non-domain listings', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -292,9 +350,10 @@ describe('BlogPageContent', () => {
       })
     );
 
+    expect(mockHeaders).not.toHaveBeenCalled();
     expect(mockDefaultBlogUi).toHaveBeenCalledWith(
       expect.objectContaining({
-        basePath: '',
+        basePath: 'https://ogabassey.usebaci.com',
         currentPage: 2,
         totalPosts: 50,
       })
@@ -322,7 +381,7 @@ describe('BlogPageContent', () => {
     expect(mockHeaders).not.toHaveBeenCalled();
     expect(mockDefaultBlogUi).toHaveBeenCalledWith(
       expect.objectContaining({
-        basePath: '',
+        basePath: 'https://example.com',
       })
     );
   });
