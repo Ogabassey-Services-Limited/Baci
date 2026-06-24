@@ -309,12 +309,15 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       currencyConfig.locale
     );
   const hasSelectedInvalidPrice = localChanges.some(
-    (_, index) =>
-      selectedIndices.has(index) && getPriceValidationState(index) !== 'valid'
+    (change, index) =>
+      selectedIndices.has(index) &&
+      change.type !== 'remove' &&
+      getPriceValidationState(index) !== 'valid'
   );
   const hasSelectedInvalidCostPrice = localChanges.some(
-    (_, index) =>
+    (change, index) =>
       selectedIndices.has(index) &&
+      change.type !== 'remove' &&
       getCostPriceValidationState(index) !== 'valid'
   );
 

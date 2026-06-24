@@ -301,6 +301,50 @@ describe('ReviewChanges', () => {
     expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 
+  it('does not block remove-only rows on ignored price edits', async () => {
+    const user = userEvent.setup();
+    mocks.useProductContext.mockReturnValue({
+      aiResponse: {
+        changes: [
+          {
+            details: {
+              category: 'General',
+              name: 'Old Product',
+              price: 1200,
+              sku: 'OLD-1',
+              stock: 0,
+            },
+            productId: 'product-1',
+            type: 'remove',
+          },
+        ],
+        summary: 'Remove 1 stale product',
+      },
+      applyChanges: mocks.applyChanges,
+      setWorkflowStep: mocks.setWorkflowStep,
+    });
+
+    render(<ReviewChanges />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: /^price$/i }), {
+      target: { value: '-5' },
+    });
+
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
+    });
+    expect(importButton).not.toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        productId: 'product-1',
+        type: 'remove',
+      }),
+    ]);
+  });
+
   it('keeps cleared cost price optional but blocks a later invalid edit', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);

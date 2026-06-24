@@ -33,6 +33,10 @@ export function formatPriceInput(amount: number, locale: string): string {
   return getPriceFormatter(locale).format(amount);
 }
 
+function normalizeCurrencyLabelSeparatorDashes(value: string): string {
+  return value.replace(/([\p{L}\p{Sc}])\s*[-\u2212]\s*(?=\d)/gu, '$1');
+}
+
 export function getCurrencySymbol(locale: string, currency: string): string {
   return getCurrencySymbolFormatter(locale, currency)
     .formatToParts(0)
@@ -48,7 +52,7 @@ export function parsePriceInput(value: string, locale: string): number {
   const decimalSeparator =
     parts.find((part) => part.type === 'decimal')?.value ?? '.';
 
-  const trimmedValue = value.trim();
+  const trimmedValue = normalizeCurrencyLabelSeparatorDashes(value).trim();
   const dotIndex = trimmedValue.lastIndexOf('.');
   const commaIndex = trimmedValue.lastIndexOf(',');
 

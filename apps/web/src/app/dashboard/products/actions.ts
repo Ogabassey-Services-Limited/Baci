@@ -606,7 +606,7 @@ function isCostPriceHeader(header: string): boolean {
     (hasCost &&
       !isCustomerFacingPrice &&
       !isLogisticsCost &&
-      (words.length === 1 || hasMonetarySignal)) ||
+      (words.length === 1 || words.includes('total') || hasMonetarySignal)) ||
     words.includes('cogs') ||
     (words.includes('buying') && hasAmountSignal) ||
     (words.includes('purchase') && hasAmountSignal) ||
@@ -748,7 +748,9 @@ function normalizeLocalizedNumericToken(token: string): string {
 }
 
 function normalizeLocalizedNumericString(value: string): string {
-  const normalizedValue = value.replace(/\u2212/g, '-');
+  const normalizedValue = value
+    .replace(/\u2212/g, '-')
+    .replace(/([\p{L}\p{Sc}])\s*-\s*(?=\d)/gu, '$1');
   const primaryTokenMatch = normalizedValue.match(PRIMARY_PRICE_TOKEN_PATTERN);
   let primaryToken = primaryTokenMatch?.[0];
 

@@ -1122,6 +1122,21 @@ describe('product import actions', () => {
     });
   });
 
+  it('imports total cost headers as product cost price', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Total Cost,SKU\nNew Phone,2000,1500,NEW-1'
+    );
+
+    expect(result.changes[0]).toMatchObject({
+      details: {
+        cost_price: 1500,
+        price: 2000,
+      },
+      type: 'new',
+    });
+  });
+
   it('does not use a standalone cost column as the selling price', async () => {
     const result = await parseCSVDirectly(
       existingProducts,
@@ -1186,6 +1201,24 @@ describe('product import actions', () => {
     const result = await parseCSVDirectly(
       existingProducts,
       'Name,Selling Price,Cost Price,SKU\nNew Phone,"NGN - 1,000","₦ - 700",NEW-1'
+    );
+
+    expect(result.changes).toContainEqual(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          cost_price: 700,
+          price: 1000,
+          sku: 'NEW-1',
+        }),
+        type: 'new',
+      })
+    );
+  });
+
+  it('treats no-space dashes between currency labels and amounts as separators', async () => {
+    const result = await parseCSVDirectly(
+      existingProducts,
+      'Name,Selling Price,Cost Price,SKU\nNew Phone,"NGN-1,000","₦-700",NEW-1'
     );
 
     expect(result.changes).toContainEqual(

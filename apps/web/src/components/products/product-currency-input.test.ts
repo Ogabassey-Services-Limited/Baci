@@ -25,4 +25,14 @@ describe('product currency input parsing', () => {
     expect(parsePriceInput('GH₵2,000', 'en-GH')).toBe(2000);
     expect(parsePriceInput('₦1 234,56', 'pt-BR')).toBe(1234.56);
   });
+
+  it('treats dashes between currency labels and amounts as separators', () => {
+    expect(parsePriceInput('NGN-1,000', 'en-NG')).toBe(1000);
+    expect(parsePriceInput('₦ - 700', 'en-NG')).toBe(700);
+  });
+
+  it('preserves leading negative signs before currency labels', () => {
+    expect(parsePriceInput('-₦2,000', 'en-NG')).toBe(-2000);
+    expect(parsePriceInput('-NGN2,000', 'en-NG')).toBe(-2000);
+  });
 });
