@@ -28,6 +28,8 @@ import { isDomainIdentifier } from '@/lib/validation';
 import { CategoryPageContent } from './category-page-content';
 import {
   buildCategoryPageHubModel,
+  getCategoryPageProductSlots,
+  isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
 } from './category-page-content-helpers';
@@ -88,7 +90,14 @@ export async function generateMetadata({
     };
   }
 
-  const data = await getCachedCategoryPageData(merchant.id, category, slug);
+  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const data = await getCachedCategoryPageData(
+    merchant.id,
+    category,
+    slug,
+    productOffset,
+    STOREFRONT_PRODUCTS_PER_PAGE
+  );
 
   if (!data.isCollection && data.isInactiveCategory) {
     return buildCategoryNotFoundMetadata();
@@ -109,27 +118,39 @@ export async function generateMetadata({
   }
 
   const categoryName = resolveCategoryPageName(data, category);
+  const productSlots = getCategoryPageProductSlots(data);
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[],
     undefined,
     merchant.country
   );
-  const totalPages = Math.max(
+  const computedTotalPages = Math.max(
     1,
-    Math.ceil(normalizedProducts.length / STOREFRONT_PRODUCTS_PER_PAGE)
+    Math.ceil(
+      (data.productCount ?? productSlots.length) / STOREFRONT_PRODUCTS_PER_PAGE
+    )
   );
+  const totalPages = data.productIdsQueryFailed
+    ? Math.max(computedTotalPages, currentPage)
+    : computedTotalPages;
 
-  if (currentPage > totalPages) {
+  if (!data.productIdsQueryFailed && currentPage > totalPages) {
     return buildCategoryNotFoundMetadata(
       'Category page not found',
       'This category page is unavailable or has moved.'
     );
   }
 
-  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
-  const paginatedProducts = normalizedProducts.slice(
-    productOffset,
-    productOffset + STOREFRONT_PRODUCTS_PER_PAGE
+  const productSlotOffset = data.productsArePrePaginated ? 0 : productOffset;
+  const paginatedProducts = normalizeCategoryPageProducts(
+    productSlots
+      .slice(
+        productSlotOffset,
+        productSlotOffset + STOREFRONT_PRODUCTS_PER_PAGE
+      )
+      .filter(isCategoryPageProductSlot),
+    undefined,
+    merchant.country
   );
 
   const baseUrl = buildStoreUrl(merchant);
@@ -182,7 +203,9 @@ export async function generateMetadata({
     alternates: {
       canonical: paginatedCategoryUrl,
     },
-    robots: getIndexableRobotsMetadata(resolvedSearchParams),
+    robots: data.productsQueryFailed
+      ? { index: false, follow: true }
+      : getIndexableRobotsMetadata(resolvedSearchParams),
     openGraph: {
       title,
       description,

@@ -55,13 +55,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Failed to update order payment ref:', error);
       const status =
         error.code === 'PGRST116' || error.message === 'order_not_found'
           ? 404
           : error.message === 'unauthorized'
             ? 403
             : 500;
+      if (status === 500) {
+        console.error('Failed to update order payment ref:', error);
+      } else {
+        console.warn('Rejected order payment ref update:', {
+          code: error.code,
+          message: error.message,
+          status,
+        });
+      }
       // Only expose known error messages; mask internal errors on 500
       const clientMessage =
         status === 404
