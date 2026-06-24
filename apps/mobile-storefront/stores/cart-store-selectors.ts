@@ -37,3 +37,54 @@ export function selectCartQuantities(state: {
   }
   return cachedCartQuantities;
 }
+
+/**
+ * Clears any negotiated price from every cart line. A cart-wide (group)
+ * negotiation distributes one accepted total across all lines, so any change to
+ * cart composition (add / remove / quantity) or a catalog price drift
+ * invalidates it — callers then turn the `cartWideNegotiationActive` flag off.
+ */
+export function clearGroupNegotiation(items: CartItem[]): CartItem[] {
+  return items.map((item) =>
+    item.negotiatedPrice === undefined && item.negotiationStatus === undefined
+      ? item
+      : { ...item, negotiatedPrice: undefined, negotiationStatus: undefined }
+  );
+}
+
+/**
+ * Reconciles cart line prices against live catalog values keyed by cart line id,
+ * returning the cart-store partial to apply. Lines within the ±₦1 parity
+ * tolerance are treated as unchanged (so an accepted negotiated price is not
+ * cleared for rounding noise). When a real drift clears any negotiation and a
+ * cart-wide deal is active, the whole group is reset.
+ */
+export function applyReprice(
+  state: { items: CartItem[]; cartWideNegotiationActive: boolean },
+  priceById: Record<string, number>
+): { items: CartItem[]; cartWideNegotiationActive?: boolean } {
+  let changed = false;
+  let items = state.items.map((item) => {
+    const livePrice = priceById[item.id];
+    if (typeof livePrice !== 'number' || !Number.isFinite(livePrice)) {
+      return item;
+    }
+    if (Math.abs(livePrice - item.price) <= 1) {
+      return item;
+    }
+    changed = true;
+    return {
+      ...item,
+      price: livePrice,
+      negotiatedPrice: undefined,
+      negotiationStatus: undefined,
+    };
+  });
+  if (!changed) {
+    return { items };
+  }
+  if (state.cartWideNegotiationActive) {
+    items = clearGroupNegotiation(items);
+  }
+  return { items, cartWideNegotiationActive: false };
+}

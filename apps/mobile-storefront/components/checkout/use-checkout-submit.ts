@@ -119,9 +119,7 @@ export function useCheckoutSubmit({
   walletSelection,
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
-  // useMerchant returns placeholder data whose id is CONFIG.MERCHANT_ID, which
-  // defaults to '' when Expo extra is not injected. `??` would keep that empty
-  // string, so use `||` to treat a blank id as missing and fall back to the
+  // `||` (not `??`): a blank CONFIG.MERCHANT_ID placeholder falls back to the
   // same constant order submission uses.
   const repriceMerchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
@@ -150,13 +148,9 @@ export function useCheckoutSubmit({
     const cartSnapshot = [...itemsSnapshot];
 
     try {
-      // Freeze step: reconcile against the live catalog before charging. If a
-      // price drifted, update the cart, tell the shopper, and abort so they
-      // re-confirm the new total — instead of being charged a stale price or
-      // hitting a server-side floor rejection (e.g. negotiated_price_below_floor).
-      // The in-flight lock is already engaged before this async round trip, so
-      // double taps cannot start another submit while repricing is pending; the
-      // finally block below releases the lock for price-drift aborts and errors.
+      // Freeze step: reconcile against the live catalog before charging; on a
+      // drift, update the cart + alert + abort to re-confirm. The lock is already
+      // engaged so double taps can't double-submit; finally releases it.
       if (itemsSnapshot.length > 0) {
         const reprice = await repriceCartItems(
           itemsSnapshot,

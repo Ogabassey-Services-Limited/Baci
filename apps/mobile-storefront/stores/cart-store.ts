@@ -7,22 +7,16 @@ import {
   mergeExistingCartItem,
 } from './cart-line';
 import type { CartItem } from './cart-store.types';
+import {
+  applyReprice,
+  clearGroupNegotiation,
+  formatPrice,
+  selectCartQuantities,
+} from './cart-store-selectors';
 import type { CartState } from './cart-store-state';
 
 export type { CartItem } from './cart-store.types';
-export { formatPrice, selectCartQuantities } from './cart-store-selectors';
-
-// A cart-wide (group) negotiation distributes one accepted total across every
-// line. Any change to cart composition — add, remove, or quantity change — or a
-// catalog price drift invalidates that total, so the group deal is reset:
-// negotiated prices are cleared from all lines (callers turn the flag off).
-function clearGroupNegotiation(items: CartItem[]): CartItem[] {
-  return items.map((item) =>
-    item.negotiatedPrice === undefined && item.negotiationStatus === undefined
-      ? item
-      : { ...item, negotiatedPrice: undefined, negotiationStatus: undefined }
-  );
-}
+export { formatPrice, selectCartQuantities };
 
 export function resetCartLineSequence() {
   if (useCartStore.getState().items.length === 0) {
@@ -246,51 +240,10 @@ export const useCartStore = create<CartState>()(
       // When a base price actually changes, any prior negotiation was made
       // against a stale basis and would be rejected at checkout, so it is
       // cleared — the shopper re-negotiates against the current price.
+      // Reconcile line prices from live catalog values (see applyReprice):
+      // honors the ±₦1 tolerance and resets any active cart-wide group deal.
       repriceItems: (priceById) => {
-        set((state) => {
-          let changed = false;
-          let items = state.items.map((item) => {
-            const livePrice = priceById[item.id];
-            if (typeof livePrice !== 'number' || !Number.isFinite(livePrice)) {
-              return item;
-            }
-            // Within the ±₦1 catalog parity tolerance (matching the reprice
-            // service): treat as unchanged so an accepted negotiated price is
-            // never silently cleared for one-naira rounding noise.
-            if (Math.abs(livePrice - item.price) <= 1) {
-              return item;
-            }
-            changed = true;
-            return {
-              ...item,
-              price: livePrice,
-              negotiatedPrice: undefined,
-              negotiationStatus: undefined,
-            };
-          });
-          if (!changed) {
-            return { items };
-          }
-          // A reprice that clears negotiations also breaks any group total.
-          // A cart-wide negotiation distributes one agreed total across every
-          // line, so clearing only the drifted lines would leave the rest with
-          // a stale group share (an inconsistent partial total). When the group
-          // was active, clear the negotiation on ALL lines — mirroring the
-          // reset done in removeItem / updateQuantity.
-          if (state.cartWideNegotiationActive) {
-            items = items.map((item) =>
-              item.negotiatedPrice === undefined &&
-              item.negotiationStatus === undefined
-                ? item
-                : {
-                    ...item,
-                    negotiatedPrice: undefined,
-                    negotiationStatus: undefined,
-                  }
-            );
-          }
-          return { items, cartWideNegotiationActive: false };
-        });
+        set((state) => applyReprice(state, priceById));
       },
 
       // Toggle device assurance for item
