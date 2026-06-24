@@ -207,7 +207,6 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           </Text>
         </View>
         <Pressable
-          accessibilityLabel={isSubmitting ? "Saving..." : "Save Order"}
           accessibilityRole="button"
           accessibilityState={{
             disabled: isSubmitting || orderItems.length === 0,
