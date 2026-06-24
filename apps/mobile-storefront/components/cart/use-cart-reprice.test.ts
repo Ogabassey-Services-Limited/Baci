@@ -28,6 +28,17 @@ jest.mock('@/services/cart-reprice', () => ({
     priceById: Record<string, number>;
     changes: CartPriceChange[];
   }> => mockRepriceCartItems(items, merchantId),
+  pickChangedPriceById: (result: {
+    changes: { id: string }[];
+    priceById: Record<string, number>;
+  }) => {
+    const out: Record<string, number> = {};
+    for (const change of result.changes) {
+      const live = result.priceById[change.id];
+      if (typeof live === 'number') out[change.id] = live;
+    }
+    return out;
+  },
 }));
 
 jest.mock('@/stores/cart-store', () => ({

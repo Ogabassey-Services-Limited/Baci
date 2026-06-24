@@ -238,9 +238,12 @@ describe('useCartNegotiation', () => {
     const buttons = (Alert.alert as jest.Mock).mock.calls[0]?.[2] as
       | MockAlertButton[]
       | undefined;
+    // Find the confirm button by label rather than position so the test does
+    // not break if the button order changes.
+    const confirmButton = buttons?.find((b) => b.text === 'Reset & Continue');
 
     act(() => {
-      buttons?.[1]?.onPress?.();
+      confirmButton?.onPress?.();
     });
 
     expect(mockClearNegotiatedPrice).toHaveBeenCalledWith(negotiatedLine.id);

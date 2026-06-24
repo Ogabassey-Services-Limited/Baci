@@ -129,4 +129,35 @@ describe('cart-storage', () => {
     saveCartWideNegotiationToStorage(false, 'ogabassey');
     expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
   });
+
+  it('logs and stays safe when persisting the group flag throws', () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('quota exceeded');
+      });
+
+    expect(() =>
+      saveCartWideNegotiationToStorage(true, 'ogabassey')
+    ).not.toThrow();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to save cart-wide negotiation flag',
+      })
+    );
+
+    setItem.mockRestore();
+  });
+
+  it('returns false when reading the group flag throws', () => {
+    const getItem = vi
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('storage unavailable');
+      });
+
+    expect(getCartWideNegotiationFromStorage('ogabassey')).toBe(false);
+
+    getItem.mockRestore();
+  });
 });

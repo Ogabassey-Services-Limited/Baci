@@ -175,20 +175,27 @@ export const useCartStore = create<CartState>()(
       },
 
       // Apply negotiated price to item (matches web feature parity).
-      // This is an individual-line negotiation, so the group flag is cleared.
+      // This is an individual-line negotiation, so the group flag is cleared —
+      // and if a cart-wide deal was active, the other lines' proportional group
+      // prices are cleared first so only the freshly negotiated line keeps one.
       applyNegotiatedPrice: (id, negotiatedPrice) => {
-        set((state) => ({
-          items: state.items.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  negotiatedPrice,
-                  negotiationStatus: 'accepted' as const,
-                }
-              : item
-          ),
-          cartWideNegotiationActive: false,
-        }));
+        set((state) => {
+          const base = state.cartWideNegotiationActive
+            ? clearGroupNegotiation(state.items)
+            : state.items;
+          return {
+            items: base.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    negotiatedPrice,
+                    negotiationStatus: 'accepted' as const,
+                  }
+                : item
+            ),
+            cartWideNegotiationActive: false,
+          };
+        });
       },
 
       // Apply negotiation to the whole cart (matches web behavior)

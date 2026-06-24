@@ -19,7 +19,10 @@ import {
   type WalletSelection,
 } from '@/lib/wallet-payment-helpers';
 import { trackCheckoutStep } from '@/services/analytics';
-import { repriceCartItems } from '@/services/cart-reprice';
+import {
+  pickChangedPriceById,
+  repriceCartItems,
+} from '@/services/cart-reprice';
 import { createOrder } from '@/services/orders';
 import { trackCheckoutRoutePurchaseCompleted } from '@/services/tiktok-checkout-route-tracking';
 import { type CartItem, useCartStore } from '@/stores/cart-store';
@@ -119,8 +122,7 @@ export function useCheckoutSubmit({
   walletSelection,
 }: UseCheckoutSubmitParams) {
   const { data: merchant } = useMerchant();
-  // `||` (not `??`): a blank CONFIG.MERCHANT_ID placeholder falls back to the
-  // same constant order submission uses.
+  // `||` (not `??`) so a blank CONFIG.MERCHANT_ID placeholder falls back.
   const repriceMerchantId = merchant?.id || CHECKOUT_MERCHANT_ID;
   return async (address: ShippingAddressInput) => {
     const itemsSnapshot = [...useCartStore.getState().items];
@@ -148,16 +150,14 @@ export function useCheckoutSubmit({
     const cartSnapshot = [...itemsSnapshot];
 
     try {
-      // Freeze step: reconcile against the live catalog before charging; on a
-      // drift, update the cart + alert + abort to re-confirm. The lock is already
-      // engaged so double taps can't double-submit; finally releases it.
+      // Freeze step: reprice vs live catalog; on drift update+alert+abort. Lock is engaged (no double-submit); finally releases it.
       if (itemsSnapshot.length > 0) {
         const reprice = await repriceCartItems(
           itemsSnapshot,
           repriceMerchantId
         );
         if (reprice.changes.length > 0) {
-          useCartStore.getState().repriceItems(reprice.priceById);
+          useCartStore.getState().repriceItems(pickChangedPriceById(reprice));
           Alert.alert(
             'Prices updated',
             'Some prices changed since you added these items. Your cart has been updated to the latest prices — please review the new total and tap checkout again.',

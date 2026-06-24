@@ -84,4 +84,31 @@ describe('NegotiationStatusContent', () => {
     expect(onTryAgain).toHaveBeenCalledTimes(1);
     expect(onOpenUpload).toHaveBeenCalledTimes(1);
   });
+
+  it('renders the success state and invokes the success action', () => {
+    const onSuccessAction = jest.fn();
+
+    render(
+      <NegotiationStatusContent
+        {...createBaseProps()}
+        status="success"
+        message="New price: ₦450,000"
+        successActionLabel="Apply to Cart"
+        onSuccessAction={onSuccessAction}
+      />
+    );
+
+    expect(screen.getByText('Offer Accepted!')).toBeTruthy();
+    expect(screen.getByText('New price: ₦450,000')).toBeTruthy();
+    fireEvent.press(screen.getByText('Apply to Cart'));
+    expect(onSuccessAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a processing indicator while the offer is in flight', () => {
+    render(
+      <NegotiationStatusContent {...createBaseProps()} status="processing" />
+    );
+
+    expect(screen.getByText('Checking best deal…')).toBeTruthy();
+  });
 });

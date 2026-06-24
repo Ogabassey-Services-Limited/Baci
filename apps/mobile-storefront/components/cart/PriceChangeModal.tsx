@@ -70,7 +70,10 @@ export default function PriceChangeModal({
             longer want.
           </Text>
 
-          <ScrollView style={[styles.priceChangeList, { maxHeight: 260 }]}>
+          <ScrollView
+            style={[styles.priceChangeList, { maxHeight: 260 }]}
+            contentContainerStyle={styles.priceChangeListContent}
+          >
             {changes.map((change) => (
               <View
                 key={change.id}

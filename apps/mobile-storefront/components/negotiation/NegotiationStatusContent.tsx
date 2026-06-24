@@ -102,7 +102,11 @@ export function NegotiationStatusContent({
         <Text style={[styles.successSubtext, { color: colors.textSecondary }]}>
           {message}
         </Text>
-        <Pressable style={successButtonStyle} onPress={onSuccessAction}>
+        <Pressable
+          accessibilityRole="button"
+          style={successButtonStyle}
+          onPress={onSuccessAction}
+        >
           <Text style={successButtonTextStyle}>{successActionLabel}</Text>
         </Pressable>
       </Animated.View>
@@ -132,6 +136,7 @@ export function NegotiationStatusContent({
         <Pressable
           style={[styles.doneButton, { backgroundColor: colors.muted }]}
           onPress={onClose}
+          accessibilityRole="button"
         >
           <Text style={[styles.doneButtonText, { color: colors.text }]}>
             Done
@@ -171,6 +176,7 @@ export function NegotiationStatusContent({
           <Pressable
             style={[styles.tryAgainButton, { borderColor: colors.border }]}
             onPress={onTryAgain}
+            accessibilityRole="button"
           >
             <Text style={[styles.tryAgainButtonText, { color: colors.text }]}>
               Negotiate Again
@@ -186,6 +192,7 @@ export function NegotiationStatusContent({
                 },
               ]}
               onPress={onOpenUpload}
+              accessibilityRole="button"
             >
               <Ionicons
                 name="cloud-upload-outline"
@@ -240,6 +247,7 @@ export function NegotiationStatusContent({
       <Pressable
         style={[styles.doneButton, { backgroundColor: colors.muted }]}
         onPress={onSubmittedAction}
+        accessibilityRole="button"
       >
         <Text style={[styles.doneButtonText, { color: colors.text }]}>
           {submittedActionLabel}
@@ -274,6 +282,7 @@ function CounterOfferBox({
       <Pressable
         style={[styles.acceptButton, { backgroundColor: colors.success }]}
         onPress={onAcceptCounter}
+        accessibilityRole="button"
       >
         <Ionicons
           name="checkmark-circle"

@@ -24,6 +24,17 @@ let cartItems: CartItem[] = [];
 jest.mock('@/services/cart-reprice', () => ({
   repriceCartItems: (items: CartItem[], merchantId: string) =>
     mockRepriceCartItems(items, merchantId),
+  pickChangedPriceById: (result: {
+    changes: { id: string }[];
+    priceById: Record<string, number>;
+  }) => {
+    const out: Record<string, number> = {};
+    for (const change of result.changes) {
+      const live = result.priceById[change.id];
+      if (typeof live === 'number') out[change.id] = live;
+    }
+    return out;
+  },
 }));
 
 jest.mock('@/services/orders', () => ({
@@ -316,6 +327,27 @@ describe('useCheckoutSubmit', () => {
     const params = createParams();
 
     const { result } = renderHook(() => useCheckoutSubmit(params));
+
+    await act(async () => {
+      await result.current(address);
+    });
+
+    expect(mockRepriceCartItems).toHaveBeenCalledWith(
+      [cartItem],
+      CHECKOUT_MERCHANT_ID
+    );
+  });
+
+  it('treats a blank placeholder merchant id as missing and uses the constant', async () => {
+    // useMerchant returns placeholder data whose id is '' when Expo extra is
+    // not injected; `||` must fall back rather than reprice with an empty id.
+    mockUseMerchant.mockReturnValue({ data: { id: '' } });
+    mockRepriceCartItems.mockResolvedValue({
+      changes: [],
+      priceById: { 'line-1': 1200000 },
+    });
+
+    const { result } = renderHook(() => useCheckoutSubmit(createParams()));
 
     await act(async () => {
       await result.current(address);

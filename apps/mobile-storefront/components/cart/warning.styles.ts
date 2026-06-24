@@ -102,8 +102,12 @@ const warningStyles = {
     opacity: 0.45,
   },
   priceChangeList: {
-    gap: 8,
     marginBottom: 18,
+  },
+  // Row spacing lives on the ScrollView's content container (a `gap` on the
+  // ScrollView style itself does not apply to its scrolled children).
+  priceChangeListContent: {
+    gap: 8,
   },
   priceChangeRow: {
     flexDirection: 'row' as const,

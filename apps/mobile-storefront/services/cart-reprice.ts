@@ -185,3 +185,22 @@ export async function repriceCartItems(
     return EMPTY_RESULT;
   }
 }
+
+/**
+ * Live prices for ONLY the lines that drifted beyond tolerance (`changes`).
+ * `priceById` includes every resolved line, so applying it wholesale could
+ * clear negotiations on tolerated/unchanged lines — callers that react to a
+ * drift should apply just these.
+ */
+export function pickChangedPriceById(
+  result: RepriceResult
+): Record<string, number> {
+  const changed: Record<string, number> = {};
+  for (const change of result.changes) {
+    const livePrice = result.priceById[change.id];
+    if (typeof livePrice === 'number') {
+      changed[change.id] = livePrice;
+    }
+  }
+  return changed;
+}

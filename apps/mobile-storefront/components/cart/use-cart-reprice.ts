@@ -4,6 +4,7 @@ import { CONSTANT_MERCHANT_ID } from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
 import {
   type CartPriceChange,
+  pickChangedPriceById,
   repriceCartItems,
 } from '@/services/cart-reprice';
 import { useCartStore } from '@/stores/cart-store';
@@ -29,16 +30,24 @@ function getCartRepriceKey(items: CartItem[]) {
 export function useCartReprice() {
   const { data: merchant } = useMerchant();
   const isFocused = useIsFocused();
-  const items = useCartStore((state) => state.items);
+  const rawItems = useCartStore((state) => state.items);
   const repriceItems = useCartStore((state) => state.repriceItems);
   const [priceChanges, setPriceChanges] = useState<CartPriceChange[]>([]);
   const lastRepriceKeyRef = useRef<string | null>(null);
 
+  // Mirror CartScreen's malformed-store recovery: if hydration produced a bad
+  // shape, treat the cart as empty here rather than throwing on `items.length`
+  // before the screen's recovery path can run.
+  const items = Array.isArray(rawItems) ? rawItems : [];
   const merchantId = merchant?.id ?? CONSTANT_MERCHANT_ID;
   const cartRepriceKey = getCartRepriceKey(items);
 
   useEffect(() => {
-    if (!isFocused || items.length === 0) {
+    if (
+      !isFocused ||
+      items.length === 0 ||
+      typeof repriceItems !== 'function'
+    ) {
       lastRepriceKeyRef.current = null;
       return;
     }
@@ -56,18 +65,9 @@ export function useCartReprice() {
           return;
         }
         if (result.changes.length > 0) {
-          // Apply only the reported changes. repriceCartItems keeps ≤₦1
-          // tolerance drift out of `changes` (though still in priceById);
-          // applying those would silently clear an accepted negotiated price
-          // with no price-change modal shown.
-          const changedPriceById: Record<string, number> = {};
-          for (const change of result.changes) {
-            const livePrice = result.priceById[change.id];
-            if (typeof livePrice === 'number') {
-              changedPriceById[change.id] = livePrice;
-            }
-          }
-          repriceItems(changedPriceById);
+          // Apply only the reported drifts (pickChangedPriceById) so a ≤₦1
+          // tolerance line in priceById can't silently clear a negotiation.
+          repriceItems(pickChangedPriceById(result));
           setPriceChanges(result.changes);
         }
       })

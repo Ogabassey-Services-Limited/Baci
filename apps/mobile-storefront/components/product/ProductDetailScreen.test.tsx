@@ -311,6 +311,14 @@ describe('ProductDetailScreen', () => {
         }),
       })
     );
+
+    // Negotiation now lives in the cart, so the PDP prices with no negotiated
+    // override (null) rather than a PDP-level negotiated price.
+    expect(mockUseProductDetailPurchaseState).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      null
+    );
   });
 
   it('tracks wishlist adds and shares product links from loaded view callbacks', async () => {
