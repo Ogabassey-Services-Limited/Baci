@@ -1,13 +1,18 @@
 /**
- * Lookup priority is array order: explicit NEXT_DEPLOYMENT_ID wins, and
- * GITHUB_SHA is the fallback for non-Vercel prebuilt builds.
+ * Lookup priority is array order: the neutral prebuilt source wins, explicit
+ * NEXT_DEPLOYMENT_ID remains a manual/local override, and GITHUB_SHA is the
+ * fallback for non-Vercel prebuilt builds.
  *
  * Vercel's prebuilt Skew Protection custom deployment IDs must not use the
  * reserved dpl_ prefix, must be at most 32 characters, and may only contain
  * alphanumeric characters, hyphens, and underscores. Keep those rules here so
  * a future deploy cannot silently emit an ID that Vercel refuses or ignores.
  */
-const DEPLOYMENT_ID_ENV_KEYS = ['NEXT_DEPLOYMENT_ID', 'GITHUB_SHA'] as const;
+const DEPLOYMENT_ID_ENV_KEYS = [
+  'BACI_NEXT_DEPLOYMENT_ID_SOURCE',
+  'NEXT_DEPLOYMENT_ID',
+  'GITHUB_SHA',
+] as const;
 
 const DEPLOYMENT_ID_MAX_LENGTH = 32;
 const RESERVED_VERCEL_DEPLOYMENT_ID_PREFIX = /^dpl_/i;
@@ -45,6 +50,7 @@ type DeploymentIdEnvKey =
 type DeploymentIdEnv = Partial<Record<DeploymentIdEnvKey, string | undefined>>;
 
 const DEFAULT_DEPLOYMENT_ID_ENV: DeploymentIdEnv = {
+  BACI_NEXT_DEPLOYMENT_ID_SOURCE: process.env.BACI_NEXT_DEPLOYMENT_ID_SOURCE,
   NEXT_DEPLOYMENT_ID: process.env.NEXT_DEPLOYMENT_ID,
   GITHUB_SHA: process.env.GITHUB_SHA,
 };

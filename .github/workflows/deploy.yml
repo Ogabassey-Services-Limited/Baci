@@ -131,7 +131,7 @@ jobs:
       # deployment that served their HTML. Include run attempt to keep reruns of
       # the same commit unique; next.config.ts normalizes this to Vercel's
       # 32-character custom deployment ID contract.
-      NEXT_DEPLOYMENT_ID: ${{ github.run_id }}_${{ github.run_attempt }}_${{ github.sha }}
+      BACI_NEXT_DEPLOYMENT_ID_SOURCE: ${{ github.run_id }}_${{ github.run_attempt }}_${{ github.sha }}
       # Fix OOM error on runner
       NODE_OPTIONS: "--max_old_space_size=8192"
     steps:
