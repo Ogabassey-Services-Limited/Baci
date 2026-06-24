@@ -30,7 +30,11 @@ describe('measure-ogabassey-critical-path CLI', () => {
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: 'utf8',
-      env: criticalPathEnv(outputDir),
+      env: {
+        ...criticalPathEnv(outputDir),
+        OGABASSEY_CWV_STRATEGIES: 'desktop',
+        OGABASSEY_CWV_TARGET_LABELS: 'blog-index',
+      },
     });
 
     expect(result.status).toBe(1);
@@ -55,6 +59,7 @@ describe('measure-ogabassey-critical-path CLI', () => {
       encoding: 'utf8',
       env: {
         ...criticalPathEnv(outputDir),
+        OGABASSEY_CWV_USE_PDP_LCP_URL: '1',
         OGABASSEY_PDP_LCP_URL: 'https://ogabassey.com/wrong-lcp',
         OGABASSEY_PDP_URL: 'https://ogabassey.com/right-pdp',
       },

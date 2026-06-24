@@ -170,6 +170,11 @@ export function findDebugBearProjectIdForUrl(
   return null;
 }
 
+function targetUrl(value, fallback) {
+  const trimmed = `${value ?? ''}`.trim();
+  return trimmed || fallback;
+}
+
 export function buildOgaBasseyCwvTargets({
   blogPostUrl,
   blogUrl = DEFAULT_OGABASSEY_CWV_TARGETS.blog,
@@ -177,9 +182,18 @@ export function buildOgaBasseyCwvTargets({
   pdpUrl = DEFAULT_OGABASSEY_CWV_TARGETS.pdp,
 } = {}) {
   const targets = [
-    { label: 'home', url: homeUrl },
-    { label: 'pdp-dell', url: pdpUrl },
-    { label: 'blog-index', url: blogUrl },
+    {
+      label: 'home',
+      url: targetUrl(homeUrl, DEFAULT_OGABASSEY_CWV_TARGETS.home),
+    },
+    {
+      label: 'pdp-dell',
+      url: targetUrl(pdpUrl, DEFAULT_OGABASSEY_CWV_TARGETS.pdp),
+    },
+    {
+      label: 'blog-index',
+      url: targetUrl(blogUrl, DEFAULT_OGABASSEY_CWV_TARGETS.blog),
+    },
   ];
 
   if (blogPostUrl) {
@@ -206,6 +220,20 @@ export function filterOgaBasseyCwvTargets(targets, requestedLabels) {
 
   const labelSet = new Set(labels);
   return targets.filter((target) => labelSet.has(target.label));
+}
+
+export function buildLegacyPdpLcpJson(summary) {
+  return {
+    cls: summary.cls ?? null,
+    device: summary.device ?? summary.strategy ?? null,
+    fcpMs: summary.fcpMs ?? null,
+    lcpMs: summary.lcpMs ?? null,
+    quickTestId: summary.quickTestId ?? null,
+    region: summary.region ?? null,
+    resultUrl: summary.resultUrl ?? null,
+    tbtMs: summary.tbtMs ?? null,
+    url: summary.url ?? summary.finalUrl ?? null,
+  };
 }
 
 export function buildOgaBasseyCwvConfigurationFailures({

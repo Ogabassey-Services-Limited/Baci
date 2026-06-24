@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   getDebugBearFailureMessage,
   getFieldMetric,
   isDebugBearComplete,
+  printCwvSummaryTable,
   summarizeDebugBearResult,
   summarizePsiResult,
 } from './measure-ogabassey-cwv-summary-utils.mjs';
@@ -91,6 +92,30 @@ describe('getFieldMetric', () => {
         'CUMULATIVE_LAYOUT_SHIFT_SCORE'
       )
     ).toEqual({ category: 'FAST', p75: 0.1, scope: 'url' });
+  });
+});
+
+describe('printCwvSummaryTable', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('uses DebugBear device when strategy is absent', () => {
+    const table = vi
+      .spyOn(console, 'table')
+      .mockImplementation(() => undefined);
+
+    printCwvSummaryTable([
+      {
+        device: 'Desktop',
+        label: 'home',
+        source: 'debugbear',
+      },
+    ]);
+
+    expect(table).toHaveBeenCalledWith([
+      expect.objectContaining({ strategy: 'Desktop' }),
+    ]);
   });
 });
 

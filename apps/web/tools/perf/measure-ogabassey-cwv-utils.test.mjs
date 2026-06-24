@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDebugBearHeaders,
+  buildLegacyPdpLcpJson,
   buildOgaBasseyCwvConfigurationFailures,
   buildOgaBasseyCwvTargets,
   filterOgaBasseyCwvTargets,
@@ -155,6 +156,23 @@ describe('buildOgaBasseyCwvTargets', () => {
       { label: 'blog-post-latest', url: 'https://ogabassey.com/blog/post' },
     ]);
   });
+
+  it('falls back when target URL overrides are blank', () => {
+    expect(
+      buildOgaBasseyCwvTargets({
+        blogUrl: ' ',
+        homeUrl: '',
+        pdpUrl: '	',
+      })
+    ).toEqual([
+      { label: 'home', url: 'https://ogabassey.com/' },
+      {
+        label: 'pdp-dell',
+        url: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
+      },
+      { label: 'blog-index', url: 'https://ogabassey.com/blog' },
+    ]);
+  });
 });
 
 describe('filterOgaBasseyCwvTargets', () => {
@@ -179,6 +197,35 @@ describe('filterOgaBasseyCwvTargets', () => {
     expect(filterOgaBasseyCwvTargets(targets, 'latest-blog-post')).toEqual([
       { label: 'blog-post-latest', url: 'https://ogabassey.com/blog/post' },
     ]);
+  });
+});
+
+describe('buildLegacyPdpLcpJson', () => {
+  it('preserves legacy PDP LCP identifiers for downstream automation', () => {
+    expect(
+      buildLegacyPdpLcpJson({
+        cls: 0.01,
+        device: 'Mobile',
+        fcpMs: 1200,
+        lcpMs: 2400,
+        quickTestId: 'qt-1',
+        region: 'us-east',
+        resultUrl:
+          'https://www.debugbear.com/project/p/quickTest/qt-1/overview',
+        tbtMs: 50,
+        url: 'https://ogabassey.com/pdp',
+      })
+    ).toEqual({
+      cls: 0.01,
+      device: 'Mobile',
+      fcpMs: 1200,
+      lcpMs: 2400,
+      quickTestId: 'qt-1',
+      region: 'us-east',
+      resultUrl: 'https://www.debugbear.com/project/p/quickTest/qt-1/overview',
+      tbtMs: 50,
+      url: 'https://ogabassey.com/pdp',
+    });
   });
 });
 

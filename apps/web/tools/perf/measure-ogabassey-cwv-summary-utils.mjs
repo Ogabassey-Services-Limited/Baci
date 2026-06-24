@@ -89,7 +89,7 @@ export function printCwvSummaryTable(rows) {
     rows.map((row) => ({
       route: row.label,
       source: row.source,
-      strategy: row.strategy ?? '-',
+      strategy: row.strategy ?? row.device ?? '-',
       perf: row.performance ?? '-',
       seo: row.seo ?? '-',
       lcp: formatMetricMs(row.lcpMs) ?? '-',

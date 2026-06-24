@@ -12,6 +12,7 @@ import {
 } from './measure-ogabassey-cwv-runners.mjs';
 import { printCwvSummaryTable } from './measure-ogabassey-cwv-summary-utils.mjs';
 import {
+  buildLegacyPdpLcpJson,
   buildOgaBasseyCwvConfigurationFailures,
   buildOgaBasseyCwvTargets,
   DEFAULT_OGABASSEY_CWV_TARGETS,
@@ -105,9 +106,10 @@ async function writeArtifact(name, payload) {
     JSON.stringify(payload, null, 2)
   );
 }
-const skipLatestBlogPostTarget =
-  process.env.OGABASSEY_CWV_SKIP_LATEST_BLOG_POST === '1';
-const explicitBlogPostUrl = process.env.OGABASSEY_BLOG_POST_URL || '';
+const skipLatestBlogPostTarget = isTruthyEnvValue(
+  process.env.OGABASSEY_CWV_SKIP_LATEST_BLOG_POST
+);
+const explicitBlogPostUrl = process.env.OGABASSEY_BLOG_POST_URL?.trim() || '';
 const shouldResolveLatestBlogPost =
   shouldRunExternalProbes &&
   shouldIncludeLatestBlogPostTarget &&
@@ -118,7 +120,8 @@ const blogPostUrl = skipLatestBlogPostTarget
   : explicitBlogPostUrl ||
     (shouldResolveLatestBlogPost
       ? await resolveLatestBlogPostUrl(
-          process.env.OGABASSEY_BLOG_URL || 'https://ogabassey.com/blog'
+          process.env.OGABASSEY_BLOG_URL?.trim() ||
+            DEFAULT_OGABASSEY_CWV_TARGETS.blog
         )
       : null);
 const targetResolutionFailures =
@@ -132,29 +135,29 @@ const targetResolutionFailures =
         },
       ]
     : [];
-const shouldUsePdpLcpUrl = !isFalseyEnvValue(
+const shouldUsePdpLcpUrl = isTruthyEnvValue(
   process.env.OGABASSEY_CWV_USE_PDP_LCP_URL
 );
 const requestedPdpUrl =
-  (shouldUsePdpLcpUrl ? process.env.OGABASSEY_PDP_LCP_URL : '') ||
-  process.env.OGABASSEY_PDP_URL ||
+  (shouldUsePdpLcpUrl ? process.env.OGABASSEY_PDP_LCP_URL?.trim() : '') ||
+  process.env.OGABASSEY_PDP_URL?.trim() ||
   DEFAULT_OGABASSEY_CWV_TARGETS.pdp;
 const shouldResolvePdpCanonical = !isFalseyEnvValue(
   process.env.OGABASSEY_CWV_RESOLVE_PDP_CANONICAL
 );
-const pdpUrl =
-  shouldRunExternalProbes && shouldResolvePdpCanonical
-    ? await resolveCanonicalUrl(requestedPdpUrl)
-    : requestedPdpUrl;
 const targets = filterOgaBasseyCwvTargets(
   buildOgaBasseyCwvTargets({
     blogPostUrl,
     blogUrl: process.env.OGABASSEY_BLOG_URL,
     homeUrl: process.env.OGABASSEY_HOME_URL,
-    pdpUrl,
+    pdpUrl: requestedPdpUrl,
   }),
   targetLabelFilter
 );
+const pdpTarget = targets.find((target) => target.label === 'pdp-dell');
+if (pdpTarget && shouldRunExternalProbes && shouldResolvePdpCanonical) {
+  pdpTarget.url = await resolveCanonicalUrl(requestedPdpUrl);
+}
 
 const summaries = [];
 const failures = buildOgaBasseyCwvConfigurationFailures({
@@ -283,15 +286,7 @@ if (shouldPrintLegacyPdpJson) {
   const summary =
     summaries.find((row) => row.label === 'pdp-dell') ?? summaries[0];
   if (summary) {
-    console.log(
-      JSON.stringify({
-        cls: summary.cls ?? null,
-        fcpMs: summary.fcpMs ?? null,
-        lcpMs: summary.lcpMs ?? null,
-        resultUrl: summary.resultUrl ?? null,
-        tbtMs: summary.tbtMs ?? null,
-      })
-    );
+    console.log(JSON.stringify(buildLegacyPdpLcpJson(summary)));
   }
 }
 

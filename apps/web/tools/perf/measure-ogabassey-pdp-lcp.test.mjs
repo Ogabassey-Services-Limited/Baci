@@ -30,7 +30,8 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
     );
 
     const env = wrapperEnv(outputDir);
-    env.OGABASSEY_CWV_TARGET_LABELS = '';
+    env.OGABASSEY_CWV_TARGET_LABELS = 'home';
+    env.OGABASSEY_CWV_USE_PDP_LCP_URL = '0';
     env.OGABASSEY_PDP_LCP_URL = '';
 
     const result = spawnSync(process.execPath, [scriptPath], {
