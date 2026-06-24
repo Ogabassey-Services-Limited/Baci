@@ -5,6 +5,7 @@ import type React from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
 import {
   buildInlineImageSiblings,
+  isLegacyOgabasseyCdnBlogImage,
   isTrustedCdnInlineImage,
 } from '@/lib/blog-inline-image-optimization';
 import { generateHeadingId } from '@/lib/blog-utils';
@@ -311,6 +312,10 @@ const NodeRenderer = ({
         return null;
       }
 
+      if (isLegacyOgabasseyCdnBlogImage(imageSrc)) {
+        return null;
+      }
+
       const imageAlt = node.attrs?.alt || 'Blog image';
       const inlineSiblings = isTrustedCdnInlineImage(imageSrc)
         ? buildInlineImageSiblings(imageSrc)
@@ -496,7 +501,9 @@ function findFirstRenderableImageNode(
   if (node.type === 'image') {
     const rawSrc = node.attrs?.src;
     const src = typeof rawSrc === 'string' ? sanitizeUrl(rawSrc) : '';
-    return src?.startsWith('http') ? { src, nodePath } : null;
+    return src?.startsWith('http') && !isLegacyOgabasseyCdnBlogImage(src)
+      ? { src, nodePath }
+      : null;
   }
 
   for (const [index, child] of (node.content ?? []).entries()) {

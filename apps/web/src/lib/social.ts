@@ -2,16 +2,26 @@
  * Normalizes a social media input (username or URL) into a valid URL.
  * Handles removing leading @ and prepending the correct domain.
  */
+export const SOCIAL_PLATFORMS = [
+  'instagram',
+  'facebook',
+  'tiktok',
+  'twitter',
+  'youtube',
+  'linkedin',
+  'pinterest',
+  'snapchat',
+] as const;
+
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
+export function isSocialPlatform(platform: string): platform is SocialPlatform {
+  return (SOCIAL_PLATFORMS as readonly string[]).includes(platform);
+}
+
 export function normalizeSocialUrl(
   input: string | undefined,
-  platform:
-    | 'instagram'
-    | 'facebook'
-    | 'tiktok'
-    | 'twitter'
-    | 'youtube'
-    | 'linkedin'
-    | 'snapchat'
+  platform: SocialPlatform
 ): string | undefined {
   if (!input?.trim()) return undefined;
 
@@ -19,6 +29,12 @@ export function normalizeSocialUrl(
 
   // If it's already a URL, return it
   if (cleanInput.startsWith('http://') || cleanInput.startsWith('https://')) {
+    if (platform === 'twitter') {
+      return cleanInput.replace(
+        /^https?:\/\/(?:www\.)?x\.com(?=[/?#]|$)/i,
+        'https://twitter.com'
+      );
+    }
     return cleanInput;
   }
 
@@ -33,7 +49,7 @@ export function normalizeSocialUrl(
     case 'tiktok':
       return `https://www.tiktok.com/@${handle}`;
     case 'twitter':
-      return `https://x.com/${handle}`;
+      return `https://twitter.com/${handle}`;
     case 'snapchat':
       return `https://www.snapchat.com/@${handle}`;
     case 'youtube':
@@ -43,6 +59,8 @@ export function normalizeSocialUrl(
       // Default to company for merchants, but fallback/support personal 'in/' logic is hard without more context.
       // Defaulting to company page as Baci is B2B2C.
       return `https://linkedin.com/company/${handle}`;
+    case 'pinterest':
+      return `https://pinterest.com/${handle}`;
     default:
       return `https://${platform}.com/${handle}`;
   }

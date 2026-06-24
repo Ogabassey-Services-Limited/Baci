@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BLOG_INLINE_IMAGE_SIZES,
   buildInlineImageSiblings,
+  isLegacyOgabasseyCdnBlogImage,
   isTrustedCdnInlineImage,
 } from './blog-inline-image-optimization';
 
@@ -65,6 +66,62 @@ describe('isTrustedCdnInlineImage', () => {
           'https://media.example.com/blog/x/inline-1-b9244d7a754d.png'
         )
       ).toBe(true);
+    } finally {
+      if (prev === undefined) {
+        delete process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+      } else {
+        process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = prev;
+      }
+    }
+  });
+});
+
+describe('isLegacyOgabasseyCdnBlogImage', () => {
+  it('detects absolute old WordPress-style OgaBassey CDN blog images', () => {
+    expect(
+      isLegacyOgabasseyCdnBlogImage(
+        `${CDN}/blog/2024/06/Redmi-13-4-768x960-1.jpg`
+      )
+    ).toBe(true);
+  });
+
+  it('does not apply the OgaBassey stale-image denylist to relative paths', () => {
+    expect(
+      isLegacyOgabasseyCdnBlogImage('/blog/2024/06/Redmi-13-4-768x960-1.jpg')
+    ).toBe(false);
+  });
+
+  it('returns false for malformed absolute URLs', () => {
+    expect(isLegacyOgabasseyCdnBlogImage('https://[bad-url')).toBe(false);
+  });
+
+  it('does not flag managed blog images or external images', () => {
+    expect(
+      isLegacyOgabasseyCdnBlogImage(
+        `${CDN}/core-assets/blog/x/inline-1-b9244d7a754d.png`
+      )
+    ).toBe(false);
+    expect(
+      isLegacyOgabasseyCdnBlogImage(
+        `${CDN}/blog/2025/12/chip-unlocked-hero.png`
+      )
+    ).toBe(false);
+    expect(
+      isLegacyOgabasseyCdnBlogImage(
+        'https://cdn.example.com/blog/2024/06/photo.jpg'
+      )
+    ).toBe(false);
+  });
+
+  it('does not apply the OgaBassey stale-image denylist to configured CDN origins', () => {
+    const prev = process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
+    try {
+      expect(
+        isLegacyOgabasseyCdnBlogImage(
+          'https://media.example.com/blog/2024/06/Redmi-13-4-768x960-1.jpg'
+        )
+      ).toBe(false);
     } finally {
       if (prev === undefined) {
         delete process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;

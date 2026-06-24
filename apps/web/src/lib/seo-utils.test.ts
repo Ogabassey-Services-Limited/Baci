@@ -781,6 +781,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     >;
     expect(returnPolicy['@type']).toBe('MerchantReturnPolicy');
     expect(returnPolicy.applicableCountry).toBe('NG');
+    expect(returnPolicy.returnPolicyCountry).toBe('NG');
     expect(returnPolicy.merchantReturnDays).toBe(7);
   });
 
@@ -1226,7 +1227,7 @@ describe('generateOrganizationSchema', () => {
         foundedYear: 2018,
         socialLinks: {
           instagram: 'https://instagram.com/teststore',
-          twitter: 'https://x.com/teststore',
+          twitter: 'https://twitter.com/teststore',
         },
         returnPolicy: {
           summary: 'Returns accepted for 7 days.',
@@ -1251,6 +1252,7 @@ describe('generateOrganizationSchema', () => {
       hasMerchantReturnPolicy: {
         '@type': 'MerchantReturnPolicy',
         applicableCountry: 'NG',
+        returnPolicyCountry: 'NG',
         merchantReturnDays: 7,
         returnMethod: 'https://schema.org/ReturnByMail',
         returnFees: 'https://schema.org/FreeReturn',
@@ -1260,7 +1262,7 @@ describe('generateOrganizationSchema', () => {
     expect(schema.sameAs).toEqual(
       expect.arrayContaining([
         'https://instagram.com/teststore',
-        'https://x.com/teststore',
+        'https://twitter.com/teststore',
       ])
     );
   });
@@ -2467,6 +2469,7 @@ describe('generateCollectionPageSchema', () => {
       (shipping.shippingDestination as Record<string, unknown>).addressCountry
     ).toBe('NG');
     expect(returnPolicy['@type']).toBe('MerchantReturnPolicy');
+    expect(returnPolicy.returnPolicyCountry).toBe('NG');
     expect(returnPolicy.merchantReturnDays).toBe(10);
   });
 

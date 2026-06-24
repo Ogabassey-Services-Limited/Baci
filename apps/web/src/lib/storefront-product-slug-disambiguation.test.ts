@@ -29,6 +29,81 @@ describe('getSeoProductName', () => {
     ).toBe('PSN Gift Card £50');
   });
 
+  it('normalizes plus signs so plus-model PDP titles stay unique', () => {
+    expect(
+      getSeoProductName({
+        name: 'Samsung Galaxy Tab S9+',
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Samsung Galaxy Tab S9 Plus');
+  });
+
+  it('separates compact plus model tokens before matching slug tokens', () => {
+    expect(
+      getSeoProductName({
+        name: 'Samsung Galaxy S10+5G',
+        slug: 'samsung-galaxy-s10-plus-5g',
+      })
+    ).toBe('Samsung Galaxy S10 Plus 5G');
+  });
+
+  it('preserves separator plus signs in product names', () => {
+    expect(
+      getSeoProductName({
+        name: 'USB-C + Lightning Cable',
+        slug: 'usb-c-plus-lightning-cable',
+      })
+    ).toBe('USB-C + Lightning Cable');
+    expect(
+      getSeoProductName({
+        name: '3 bundles + closure',
+        slug: '3-bundles-plus-closure',
+      })
+    ).toBe('3 bundles + closure');
+  });
+
+  it('does not append leading slug-only brand tokens', () => {
+    expect(
+      getSeoProductName({
+        name: 'iPhone 13',
+        slug: 'apple-iphone-13',
+      })
+    ).toBe('iPhone 13');
+  });
+
+  it('matches compact model names before appending trailing variant tokens', () => {
+    expect(
+      getSeoProductName({
+        name: 'iPhone15',
+        slug: 'iphone-15-128gb',
+      })
+    ).toBe('iPhone15 128GB');
+    expect(
+      getSeoProductName({
+        name: 'iPhone15',
+        slug: 'iphone-15-256gb',
+      })
+    ).toBe('iPhone15 256GB');
+  });
+
+  it('does not append slug-only tokens that appear before the final represented name token', () => {
+    expect(
+      getSeoProductName({
+        name: 'Case for iPhone 15',
+        slug: 'case-for-apple-iphone-15',
+      })
+    ).toBe('Case for iPhone 15');
+  });
+
+  it('appends represented slug tokens when the product name has a mismatched currency symbol', () => {
+    expect(
+      getSeoProductName({
+        name: 'PSN Gift Card €50',
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card €50 GBP');
+  });
+
   it('does not append duplicate compact capacity tokens from the slug', () => {
     expect(
       getSeoProductName({
@@ -36,6 +111,15 @@ describe('getSeoProductName', () => {
         slug: 'samsung-galaxy-tab-s10-fe-5g-8gb-128gb',
       })
     ).toBe('Samsung Galaxy Tab S10 FE 5G 8 GB 128 GB');
+  });
+
+  it('deduplicates non-consecutive slug disambiguators while preserving order', () => {
+    expect(
+      getSeoProductName({
+        name: 'Gaming Phone',
+        slug: 'gaming-phone-8gb-red-8gb',
+      })
+    ).toBe('Gaming Phone 8GB RED');
   });
 
   it('does not append non-identifying trailing condition tokens from the slug', () => {

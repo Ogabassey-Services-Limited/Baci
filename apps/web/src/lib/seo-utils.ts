@@ -594,6 +594,7 @@ function buildMerchantReturnPolicy(
   return {
     '@type': 'MerchantReturnPolicy',
     applicableCountry: country,
+    returnPolicyCountry: country,
     returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
     merchantReturnDays: returnPolicy?.windowDays ?? fallbackDays,
     returnMethod:
@@ -653,6 +654,7 @@ function buildMerchantReturnPolicyFromTrustProfile(
   return {
     '@type': 'MerchantReturnPolicy',
     applicableCountry: country,
+    returnPolicyCountry: country,
     returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
     merchantReturnDays: returnPolicy?.windowDays ?? 7,
     returnMethod:
