@@ -16,7 +16,7 @@ export async function GET(
     const { data: policies, error } = await supabase
       .from('order_insurance_policies')
       .select(
-        'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, certificate_url, provider_name, policy_type'
+        'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, policy_type, claim_link, inspection_link, inspection_status'
       )
       .eq('order_id', orderId);
 
@@ -34,6 +34,18 @@ export async function GET(
       });
     }
 
+    // Pre-loss inspection (which activates protection) can only happen once the
+    // device is in the customer's hands, so the activation CTA is gated on
+    // delivery.
+    const { data: order } = await supabase
+      .from('orders')
+      .select('shipping_status')
+      .eq('id', orderId)
+      .maybeSingle();
+    const orderDelivered =
+      order?.shipping_status === 'delivered' ||
+      order?.shipping_status === 'completed';
+
     return NextResponse.json({
       found: true,
       policies: policies.map((policy) => ({
@@ -48,7 +60,14 @@ export async function GET(
         coverage: policy.coverage_amount,
         itemsInsured: policy.items_insured,
         claimStatus: policy.claim_status || 'None',
+        claimStage: policy.claim_stage ?? null,
+        claimProgress: policy.claim_progress ?? null,
+        claimComment: policy.claim_comment ?? null,
         certificateUrl: policy.certificate_url,
+        claimLink: policy.claim_link ?? null,
+        inspectionLink: policy.inspection_link ?? null,
+        inspectionStatus: policy.inspection_status ?? 'pending',
+        orderDelivered,
       })),
     });
   } catch (_error: unknown) {

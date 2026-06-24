@@ -75,7 +75,7 @@ export async function fetchLatestInsurancePolicy(
   const { data: policies, error: policyError } = await supabase
     .from('order_insurance_policies')
     .select(
-      'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, created_at'
+      'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, claim_stage, claim_comment, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, claim_link, inspection_link, inspection_status, created_at'
     )
     .eq('order_id', orderId)
     .order('created_at', { ascending: false })

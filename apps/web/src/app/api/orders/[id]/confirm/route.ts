@@ -28,6 +28,11 @@ const deviceInsuranceDetailsSchema = z.object({
     about: z.url(),
   }),
   customerPhoto: z.url().optional(),
+  gender: z.enum(['Male', 'Female']).optional(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 export async function POST(

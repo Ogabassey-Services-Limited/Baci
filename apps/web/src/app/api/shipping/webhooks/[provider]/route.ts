@@ -16,6 +16,7 @@ function getServiceClient() {
 
 import crypto from 'node:crypto';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import type {
   NormalizedShipmentStatus,
   ShippingProviderCode,
@@ -355,6 +356,16 @@ export async function POST(
         orderStatusForNotification
       ).catch((err) => {
         console.error('[Webhook] Failed to send push notification:', err);
+      });
+    }
+
+    // On delivery, nudge the customer to activate any pending gadget cover.
+    if (normalizedStatus === 'delivered') {
+      maybeNotifyActivateProtection(shipment.order_id).catch((err) => {
+        console.error(
+          '[Webhook] Failed to send activate-protection push:',
+          err
+        );
       });
     }
 

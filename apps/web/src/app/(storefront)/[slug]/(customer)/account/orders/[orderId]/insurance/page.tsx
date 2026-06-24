@@ -21,6 +21,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import {
+  resolveClaimUrl,
+  resolveInspectionUrl,
+  resolveInsuranceCta,
+} from './claim-action-helpers';
 
 interface Policy {
   id: string;
@@ -34,7 +39,14 @@ interface Policy {
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic items data from API
   itemsInsured: any;
   claimStatus: string;
+  claimStage?: string | null;
+  claimProgress?: string | null;
+  claimComment?: string | null;
   certificateUrl?: string;
+  claimLink?: string | null;
+  inspectionLink?: string | null;
+  inspectionStatus?: string | null;
+  orderDelivered?: boolean;
   customer_email?: string; // Added for SDK
 }
 
@@ -97,7 +109,28 @@ export default function InsurancePolicyPage() {
     });
   }, [orderId]);
 
+  const openHostedFlow = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCompleteInspection = () => {
+    if (!policy) return;
+    const inspectionUrl = resolveInspectionUrl(policy);
+    if (inspectionUrl) openHostedFlow(inspectionUrl);
+  };
+
   const handleFileClaim = () => {
+    // Prefer MyCover's official hosted claim flow when we captured the link
+    // from the purchase webhook. The SDK modal below is a legacy fallback for
+    // policies created before links were persisted.
+    if (policy) {
+      const claimUrl = resolveClaimUrl(policy);
+      if (claimUrl) {
+        openHostedFlow(claimUrl);
+        return;
+      }
+    }
+
     const publicKey = process.env.NEXT_PUBLIC_MYCOVER_PUBLIC_KEY;
     if (!publicKey) {
       alert(
@@ -153,6 +186,8 @@ export default function InsurancePolicyPage() {
     );
   }
 
+  const cta = resolveInsuranceCta(policy);
+
   return (
     <div className="container max-w-3xl py-8 space-y-8">
       <div>
@@ -163,6 +198,35 @@ export default function InsurancePolicyPage() {
           Managed by MyCover.ai • Underwritten by {policy.provider}
         </p>
       </div>
+
+      {cta.kind === 'inspect' && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
+          <AlertTriangle className="size-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold">Activate your protection</p>
+            <p>
+              Complete a quick device inspection (photos of your device) to
+              activate this policy. You can only file a claim once your
+              protection is active.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {cta.kind === 'awaiting_delivery' && (
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/40 p-4 text-muted-foreground">
+          <ShieldCheck className="size-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold text-foreground">
+              Protection activates after delivery
+            </p>
+            <p>
+              Once your order is delivered, you&apos;ll be able to activate your
+              protection with a quick device inspection.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
@@ -231,6 +295,27 @@ export default function InsurancePolicyPage() {
               </span>
             </div>
           </div>
+
+          {policy.claimStatus && policy.claimStatus !== 'None' && (
+            <>
+              <Separator className="my-2" />
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">
+                  Claim Status
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-sm capitalize">
+                    {policy.claimStage || policy.claimStatus.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+                {policy.claimComment && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {policy.claimComment}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row gap-3 pt-4">
           {policy.certificateUrl && (
@@ -249,14 +334,32 @@ export default function InsurancePolicyPage() {
             </Button>
           )}
 
-          <Button
-            className="w-full sm:w-auto gap-2 ml-auto"
-            onClick={handleFileClaim}
-          >
-            {/* Link to external claim portal or show modal */}
-            <ExternalLink className="size-4" />
-            File a Claim
-          </Button>
+          {cta.kind === 'inspect' && (
+            <Button
+              className="w-full sm:w-auto gap-2 sm:ml-auto"
+              onClick={handleCompleteInspection}
+            >
+              <ShieldCheck className="size-4" />
+              Activate Protection
+            </Button>
+          )}
+
+          {cta.kind === 'claim' && (
+            <Button
+              className="w-full sm:w-auto gap-2 sm:ml-auto"
+              onClick={handleFileClaim}
+            >
+              {/* Opens MyCover's hosted claim flow (or SDK modal fallback) */}
+              <ExternalLink className="size-4" />
+              File a Claim
+            </Button>
+          )}
+
+          {cta.kind === 'awaiting_delivery' && (
+            <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
+              Available after delivery
+            </p>
+          )}
         </CardFooter>
       </Card>
 

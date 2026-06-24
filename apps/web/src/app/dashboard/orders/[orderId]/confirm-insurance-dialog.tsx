@@ -47,6 +47,8 @@ export default function ConfirmInsuranceDialog({
   // Form State
   const [imei, setImei] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | ''>('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   // TODO: Make device color selectable from product variants
   // const [deviceColor, setDeviceColor] = useState('Black');
 
@@ -80,12 +82,18 @@ export default function ConfirmInsuranceDialog({
 
       // Basic validation for assurance orders
       if (isAssuranceOrder) {
-        if (!imei || !serialNumber || !devicePhotoUrl) {
+        if (
+          !imei ||
+          !serialNumber ||
+          !devicePhotoUrl ||
+          !gender ||
+          !dateOfBirth
+        ) {
           toast({
             variant: 'destructive',
             title: 'Missing Details',
             description:
-              'IMEI, Serial Number, and Device Photo are required for insurance.',
+              'IMEI, Serial Number, Device Photo, Gender and Date of Birth are required for insurance.',
           });
           setLoading(false);
           return;
@@ -105,6 +113,9 @@ export default function ConfirmInsuranceDialog({
         devicePhotos: {
           about: devicePhotoUrl,
         },
+        // Real policyholder KYC (no longer hardcoded server-side).
+        gender: gender || undefined,
+        dateOfBirth: dateOfBirth || undefined,
         // Optional ID photo placeholder logic handled in service if missing
         customerPhoto: undefined,
       };
@@ -155,6 +166,33 @@ export default function ConfirmInsuranceDialog({
                     placeholder="Enter Serial Number"
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender *</Label>
+                  <select
+                    id="gender"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={gender}
+                    onChange={(e) =>
+                      setGender(e.target.value as 'Male' | 'Female' | '')
+                    }
+                  >
+                    <option value="">Select…</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dob">Date of Birth *</Label>
+                  <Input
+                    id="dob"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
                   />
                 </div>
               </div>

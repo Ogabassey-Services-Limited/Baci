@@ -1,4 +1,8 @@
 import { cookies } from 'next/headers';
+import {
+  claimStatusLabel,
+  normalizeClaimStatus,
+} from '@/lib/insurance/claim-status';
 import { logger } from '@/lib/logger';
 import { createMyCoverClient, MYCOVER_PRODUCTS } from '@/lib/mycover';
 import { formatPhoneForMyCover } from '@/lib/phone';
@@ -21,6 +25,10 @@ export interface DeviceInsuranceDetails {
     about: string; // URL
   };
   customerPhoto?: string;
+  // Real policyholder KYC — collected at confirmation so we stop sending
+  // hardcoded placeholder values to the insurer.
+  gender?: 'Male' | 'Female';
+  dateOfBirth?: string; // YYYY-MM-DD
 }
 
 interface DatabaseOrderItem {
@@ -107,8 +115,8 @@ export async function purchaseOrderInsurance(
         email: typedOrder.customer_email,
         phone_number: formatPhoneForMyCover(typedOrder.customer_phone),
         address: typedOrder.shipping_address?.address || 'Lagos, Nigeria',
-        gender: 'Male',
-        date_of_birth: '1990-01-01',
+        gender: deviceDetails.gender ?? 'Male',
+        date_of_birth: deviceDetails.dateOfBirth ?? '1990-01-01',
         device_type: deviceDetails.deviceType,
         device_make: deviceDetails.deviceMake,
         device_model: deviceDetails.deviceModel,
@@ -210,46 +218,25 @@ export async function syncClaimsStatus() {
 
       if (!localPolicy) continue;
 
-      // Map v2 claim statuses to local values
-      const remoteStatus = String(
-        claim.claim_status || claim.status || 'pending'
-      ).toLowerCase();
+      // Map v2 claim status to our shared normalized vocabulary.
+      const rawStatus = String(claim.claim_status || claim.status || '');
       const paymentStatus = String(claim.payment_status || '').toLowerCase();
-
-      let newClaimStatus = 'pending';
-
-      const approvedStatuses = [
-        'approved',
-        'paid',
-        'settled',
-        'payment initiated',
-      ];
-      if (
-        approvedStatuses.some((s) => remoteStatus.includes(s)) ||
-        paymentStatus === 'paid'
-      ) {
-        newClaimStatus = 'approved';
-      } else if (
-        remoteStatus.includes('reject') ||
-        remoteStatus.includes('decline')
-      ) {
-        newClaimStatus = 'rejected';
-      } else if (
-        remoteStatus.includes('submitted') ||
-        remoteStatus.includes('process') ||
-        remoteStatus.includes('documented') ||
-        remoteStatus.includes('inspection') ||
-        remoteStatus.includes('estimate') ||
-        remoteStatus.includes('offer')
-      ) {
-        newClaimStatus = 'in_review';
-      }
+      const newClaimStatus =
+        paymentStatus === 'paid' ? 'paid' : normalizeClaimStatus(rawStatus);
+      const claimStage = rawStatus.trim() || claimStatusLabel(newClaimStatus);
+      const claimProgress =
+        (claim.progress as string | undefined) ??
+        ((claim.meta as { progress?: string } | undefined)?.progress || null);
+      const claimComment = (claim.comment as string | undefined) ?? null;
 
       if (localPolicy.claim_status !== newClaimStatus) {
         const { error: updateError } = await supabase
           .from('order_insurance_policies')
           .update({
             claim_status: newClaimStatus,
+            claim_stage: claimStage,
+            claim_progress: claimProgress,
+            claim_comment: claimComment,
             claim_id: claim.id,
             updated_at: new Date().toISOString(),
           })

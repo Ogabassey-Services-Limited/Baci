@@ -6,6 +6,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { shippingService } from '@/lib/shipping';
 import type {
   NormalizedShipmentStatus,
@@ -205,6 +206,14 @@ async function persistTrackingResult({
     console.error('Error updating order shipping status from tracking:', {
       error: orderUpdateError,
       orderId: shipment.order_id,
+    });
+    return;
+  }
+
+  // On delivery, nudge the customer to activate any pending gadget cover.
+  if (ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] === 'delivered') {
+    maybeNotifyActivateProtection(shipment.order_id).catch((err) => {
+      console.error('Failed to send activate-protection push:', err);
     });
   }
 }

@@ -31,6 +31,41 @@ function createParams(orderId: string): {
   return { params: Promise.resolve({ orderId }) };
 }
 
+/**
+ * Wire the supabase mock for both tables the route reads:
+ * `order_insurance_policies` (the policies) and `orders` (shipping status).
+ */
+function mockDb({
+  policies = [] as unknown[],
+  policiesError = null as unknown,
+  shippingStatus = 'delivered' as string | null,
+}) {
+  mockFrom.mockImplementation((table: string) => {
+    if (table === 'orders') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data:
+                  shippingStatus === null
+                    ? null
+                    : { shipping_status: shippingStatus },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    }
+    // order_insurance_policies
+    return {
+      select: () => ({
+        eq: () => Promise.resolve({ data: policies, error: policiesError }),
+      }),
+    };
+  });
+}
+
 // ---- Test Data ----
 
 const mockPolicyRow = {
@@ -47,6 +82,9 @@ const mockPolicyRow = {
   certificate_url: 'https://mycover.ai/certificates/POL-2024-001.pdf',
   provider_name: 'Sovereign Trust Insurance Plc',
   policy_type: 'gadget',
+  claim_link: 'https://mycover.ai/purchase?q=claim-token',
+  inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+  inspection_status: 'pending',
 };
 
 const mockSecondPolicyRow = {
@@ -74,11 +112,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
 
   describe('v2 response contract: array format', () => {
     it('returns { found: true, policies: [...] } when policies exist (array, not singular)', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () => Promise.resolve({ data: [mockPolicyRow], error: null }),
-        }),
-      });
+      mockDb({ policies: [mockPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -94,15 +128,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     });
 
     it('returns multiple policies in the array when order has several', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () =>
-            Promise.resolve({
-              data: [mockPolicyRow, mockSecondPolicyRow],
-              error: null,
-            }),
-        }),
-      });
+      mockDb({ policies: [mockPolicyRow, mockSecondPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -115,17 +141,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     });
 
     it('returns { found: false, policies: [] } when no policies exist', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () => Promise.resolve({ data: [], error: null }),
-          // Also handle .single() fallback for current code path
-          single: () =>
-            Promise.resolve({
-              data: null,
-              error: { code: 'PGRST116', message: 'not found' },
-            }),
-        }),
-      });
+      mockDb({ policies: [] });
 
       const response = await GET(
         createMockRequest(),
@@ -141,11 +157,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
 
   describe('v2 policy shape', () => {
     it('each policy has policyType field', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () => Promise.resolve({ data: [mockPolicyRow], error: null }),
-        }),
-      });
+      mockDb({ policies: [mockPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -157,11 +169,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     });
 
     it('each policy has policyNumber from DB', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () => Promise.resolve({ data: [mockPolicyRow], error: null }),
-        }),
-      });
+      mockDb({ policies: [mockPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -173,16 +181,10 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     });
 
     it('provider comes from DB provider_name, not hardcoded', async () => {
-      const customProviderPolicy = {
-        ...mockPolicyRow,
-        provider_name: 'AXA Mansard Insurance',
-      };
-
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () =>
-            Promise.resolve({ data: [customProviderPolicy], error: null }),
-        }),
+      mockDb({
+        policies: [
+          { ...mockPolicyRow, provider_name: 'AXA Mansard Insurance' },
+        ],
       });
 
       const response = await GET(
@@ -197,11 +199,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     });
 
     it('each policy has certificateUrl from DB', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () => Promise.resolve({ data: [mockPolicyRow], error: null }),
-        }),
-      });
+      mockDb({ policies: [mockPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -215,11 +213,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     });
 
     it('each policy has all required v2 fields', async () => {
-      mockFrom.mockReturnValue({
-        select: () => ({
-          eq: () => Promise.resolve({ data: [mockPolicyRow], error: null }),
-        }),
-      });
+      mockDb({ policies: [mockPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -239,6 +233,146 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       expect(policy).toHaveProperty('coverage');
       expect(policy).toHaveProperty('itemsInsured');
       expect(policy).toHaveProperty('claimStatus');
+    });
+
+    it('exposes hosted claimLink and inspectionLink from DB', async () => {
+      mockDb({ policies: [mockPolicyRow] });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].claimLink).toBe(
+        'https://mycover.ai/purchase?q=claim-token'
+      );
+      expect(body.policies[0].inspectionLink).toBe(
+        'https://mycover.ai/purchase?q=inspection-token'
+      );
+    });
+
+    it('exposes inspectionStatus, defaulting to pending when null', async () => {
+      mockDb({
+        policies: [
+          mockPolicyRow,
+          { ...mockPolicyRow, inspection_status: null },
+        ],
+      });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].inspectionStatus).toBe('pending');
+      expect(body.policies[1].inspectionStatus).toBe('pending');
+    });
+
+    it('surfaces rich claim state (stage, progress, decline reason)', async () => {
+      mockDb({
+        policies: [
+          {
+            ...mockPolicyRow,
+            claim_status: 'declined',
+            claim_stage: 'Declined',
+            claim_progress: 'status',
+            claim_comment: 'Outside coverage window',
+          },
+        ],
+      });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].claimStage).toBe('Declined');
+      expect(body.policies[0].claimProgress).toBe('status');
+      expect(body.policies[0].claimComment).toBe('Outside coverage window');
+    });
+
+    it('reflects a completed inspection status', async () => {
+      mockDb({
+        policies: [{ ...mockPolicyRow, inspection_status: 'completed' }],
+      });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].inspectionStatus).toBe('completed');
+    });
+
+    it('returns null links when columns are absent', async () => {
+      mockDb({
+        policies: [
+          { ...mockPolicyRow, claim_link: null, inspection_link: null },
+        ],
+      });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].claimLink).toBeNull();
+      expect(body.policies[0].inspectionLink).toBeNull();
+    });
+  });
+
+  describe('order delivery gating', () => {
+    it('marks orderDelivered true when the order is delivered', async () => {
+      mockDb({ policies: [mockPolicyRow], shippingStatus: 'delivered' });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].orderDelivered).toBe(true);
+    });
+
+    it('treats a completed order as delivered', async () => {
+      mockDb({ policies: [mockPolicyRow], shippingStatus: 'completed' });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].orderDelivered).toBe(true);
+    });
+
+    it('marks orderDelivered false when the order is not yet delivered', async () => {
+      mockDb({ policies: [mockPolicyRow], shippingStatus: 'shipped' });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].orderDelivered).toBe(false);
+    });
+
+    it('marks orderDelivered false when the order row is missing', async () => {
+      mockDb({ policies: [mockPolicyRow], shippingStatus: null });
+
+      const response = await GET(
+        createMockRequest(),
+        createParams('order-123')
+      );
+      const body = await response.json();
+
+      expect(body.policies[0].orderDelivered).toBe(false);
     });
   });
 

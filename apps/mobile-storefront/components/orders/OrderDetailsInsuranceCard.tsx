@@ -4,8 +4,13 @@ import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 
 export interface OrderDetailsInsurancePolicy {
   certificate_url: string | null;
+  claim_comment: string | null;
+  claim_link: string | null;
+  claim_stage: string | null;
   claim_status: string | null;
   coverage_amount: number;
+  inspection_link: string | null;
+  inspection_status: string | null;
   mycover_policy_number: string | null;
   policy_expiry_date: string | null;
   policy_start_date: string | null;
@@ -25,7 +30,10 @@ interface OrderDetailsInsuranceCardProps {
   colors: OrderDetailsInsuranceCardColors;
   hasAssuranceItems: boolean;
   insurancePolicy: OrderDetailsInsurancePolicy | null;
+  isDelivered: boolean;
   isPaid: boolean;
+  onCompleteInspection?: (inspectionUrl: string) => void;
+  onFileClaim?: (claimUrl: string) => void;
   onOpenCertificate: (certificateUrl: string) => void;
 }
 
@@ -44,7 +52,10 @@ export function OrderDetailsInsuranceCard({
   colors,
   hasAssuranceItems,
   insurancePolicy,
+  isDelivered,
   isPaid,
+  onCompleteInspection,
+  onFileClaim,
   onOpenCertificate,
 }: OrderDetailsInsuranceCardProps) {
   if (!insurancePolicy) {
@@ -86,6 +97,17 @@ export function OrderDetailsInsuranceCard({
       ? INSURANCE_COLORS.active
       : INSURANCE_COLORS.pending;
   const certificateUrl = insurancePolicy.certificate_url;
+  const claimUrl = insurancePolicy.claim_link;
+  const inspectionUrl = insurancePolicy.inspection_link;
+  // Pre-loss inspection ("Activate Protection") gates claims and can only
+  // happen after delivery: show nothing actionable until delivered, then
+  // "Activate Protection" until inspection is done, then "File a Claim".
+  const inspectionPending =
+    !!inspectionUrl && insurancePolicy.inspection_status !== 'completed';
+  const showInspection =
+    inspectionPending && isDelivered && !!onCompleteInspection;
+  const showAwaitingDelivery = inspectionPending && !isDelivered;
+  const showClaim = !inspectionPending && !!claimUrl && !!onFileClaim;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -172,9 +194,17 @@ export function OrderDetailsInsuranceCard({
                 { color: colors.text, textTransform: 'capitalize' },
               ]}
             >
-              {insurancePolicy.claim_status}
+              {insurancePolicy.claim_stage ||
+                insurancePolicy.claim_status.replace(/_/g, ' ')}
             </Text>
           </View>
+        )}
+        {insurancePolicy.claim_comment && (
+          <Text
+            style={[styles.insuranceProvider, { color: colors.textSecondary }]}
+          >
+            {insurancePolicy.claim_comment}
+          </Text>
         )}
         <Text
           style={[styles.insuranceProvider, { color: colors.textSecondary }]}
@@ -210,6 +240,57 @@ export function OrderDetailsInsuranceCard({
             </Text>
           </TouchableOpacity>
         )}
+        {showInspection && (
+          <TouchableOpacity
+            style={[
+              styles.fileClaimButton,
+              { backgroundColor: INSURANCE_COLORS.active.foreground },
+            ]}
+            onPress={() => onCompleteInspection?.(inspectionUrl as string)}
+            accessibilityRole="button"
+            accessibilityLabel="Activate protection with a device inspection"
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={18}
+              color="#ffffff"
+            />
+            <Text style={[styles.trackButtonText, { color: '#ffffff' }]}>
+              Activate Protection
+            </Text>
+          </TouchableOpacity>
+        )}
+        {showAwaitingDelivery && (
+          <Text
+            style={[
+              styles.insuranceProvider,
+              { color: colors.textSecondary, marginTop: 12 },
+            ]}
+          >
+            Protection activates after delivery — you&apos;ll be able to
+            complete a quick device inspection then.
+          </Text>
+        )}
+        {showClaim && (
+          <TouchableOpacity
+            style={[
+              styles.fileClaimButton,
+              { backgroundColor: INSURANCE_COLORS.active.foreground },
+            ]}
+            onPress={() => onFileClaim?.(claimUrl as string)}
+            accessibilityRole="button"
+            accessibilityLabel="File an insurance claim"
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={18}
+              color="#ffffff"
+            />
+            <Text style={[styles.trackButtonText, { color: '#ffffff' }]}>
+              File a Claim
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -234,6 +315,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     marginTop: 16,
+  },
+  fileClaimButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 12,
   },
   trackButtonText: {
     fontSize: 14,

@@ -893,6 +893,31 @@ export async function notifyOrderStatusChange(
 }
 
 /**
+ * Prompt a customer to activate their gadget insurance after delivery.
+ *
+ * Gadget cover requires a post-purchase pre-loss inspection (device photos) to
+ * activate, and that can only happen once the device is delivered. This is the
+ * delivery-triggered nudge to complete it.
+ */
+export async function notifyActivateProtection(
+  userId: string,
+  orderId: string,
+  orderNumber: string
+): Promise<void> {
+  await notifyCustomer(
+    userId,
+    '🛡️ Activate your protection',
+    `Your order #${orderNumber} was delivered. Complete a quick device inspection to activate your insurance cover.`,
+    {
+      type: 'insurance_activation',
+      orderId,
+      orderNumber,
+    },
+    'orders'
+  );
+}
+
+/**
  * Notify customer of promotional offer.
  */
 export async function notifyCustomerPromotion(

@@ -5,6 +5,7 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { logger } from '@/lib/logger';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import {
@@ -474,6 +475,16 @@ export async function PATCH(
           console.error('Failed to send order status push notification:', err);
         });
       }
+    }
+
+    // On delivery, nudge the customer to activate any pending gadget cover.
+    if (
+      shipping_status === 'delivered' &&
+      shipping_status !== existingOrder.shipping_status
+    ) {
+      maybeNotifyActivateProtection(id).catch((err) => {
+        console.error('Failed to send activate-protection push:', err);
+      });
     }
 
     return NextResponse.json({ order });

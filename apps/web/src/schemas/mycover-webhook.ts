@@ -2,6 +2,10 @@ import z from 'zod';
 
 export const myCoverWebhookSchema = z.object({
   event: z.string(),
+  // Stable per-delivery id used for idempotency (MyCover retries up to ~10x).
+  event_id: z.string().optional(),
+  // Top-level delivery status (e.g. 'processed') — distinct from claim status.
+  status: z.string().optional(),
   data: z
     .object({
       policy_id: z.string().optional(),
@@ -31,6 +35,43 @@ export const myCoverWebhookSchema = z.object({
       provider_id: z.string().optional(),
       claim_id: z.string().optional(),
       claim_status: z.string().optional(),
+      // Hosted flow links MyCover ships in the `purchase.successful` webhook.
+      // There is no REST endpoint to file a claim or run a device inspection;
+      // both happen through these hosted URLs.
+      sdk: z
+        .object({
+          claim_link: z.string().optional(),
+          inspection_link: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
+      // The documented MyCover envelope nests the real fields under
+      // `data.essential` / `data.meta`. We read these first and fall back to
+      // the legacy top-level fields above, so both shapes are supported.
+      essential: z
+        .object({
+          policy_id: z.string().optional(),
+          policy_number: z.string().optional(),
+          expiration_date: z.string().optional(),
+          certificate_url: z.string().optional(),
+          amount: z.union([z.string(), z.number()]).optional(),
+          product_id: z.string().optional(),
+          customer_id: z.string().optional(),
+          // Claim / inspection fields.
+          category: z.string().optional(),
+          status: z.string().optional(),
+          type: z.string().optional(),
+          comment: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
+      meta: z
+        .object({
+          policy_id: z.string().optional(),
+          progress: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
     })
     .passthrough(),
   timestamp: z.string().optional(),

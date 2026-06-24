@@ -178,7 +178,15 @@ export function OrderDetailsScreen() {
             colors={colors}
             hasAssuranceItems={order.items.some((item) => item.has_assurance)}
             insurancePolicy={insurancePolicy}
+            isDelivered={
+              order.shipping_status === 'delivered' ||
+              order.shipping_status === 'completed'
+            }
             isPaid={order.payment_status === 'paid'}
+            onCompleteInspection={(inspectionUrl) =>
+              Linking.openURL(inspectionUrl)
+            }
+            onFileClaim={(claimUrl) => Linking.openURL(claimUrl)}
             onOpenCertificate={(certificateUrl) =>
               Linking.openURL(certificateUrl)
             }
