@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { asRoute } from '@/lib/routes';
+
 import { buildBlogCategoryHref } from './blog-category-routing';
 
 interface BlogDiscoveryPost {
@@ -41,13 +43,13 @@ export function BlogDiscoverySection({
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-            href={`${baseUrl}/products`}
+            href={asRoute(`${baseUrl}/products`)}
           >
             All Products
           </Link>
           <Link
             className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-            href={`${baseUrl}/`}
+            href={asRoute(`${baseUrl}/`)}
           >
             Home
           </Link>
@@ -55,7 +57,7 @@ export function BlogDiscoverySection({
             <Link
               key={cat}
               className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-              href={buildBlogCategoryHref(baseUrl, cat, categories)}
+              href={asRoute(buildBlogCategoryHref(baseUrl, cat, categories))}
             >
               {cat}
             </Link>
@@ -92,7 +94,9 @@ export function BlogDiscoverySection({
                 <li key={post.id}>
                   <Link
                     className="text-xs text-store-primary underline-offset-4 hover:underline"
-                    href={`${baseUrl}/blog/${encodeURIComponent(post.slug)}`}
+                    href={asRoute(
+                      `${baseUrl}/blog/${encodeURIComponent(post.slug)}`
+                    )}
                   >
                     {post.title}
                   </Link>
