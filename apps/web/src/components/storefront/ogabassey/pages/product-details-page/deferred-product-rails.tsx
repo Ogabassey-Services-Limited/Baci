@@ -7,27 +7,22 @@
 
 import { BrandProducts } from '@/components/storefront/brand-products';
 import { PriceRangeProducts } from '@/components/storefront/price-range-products';
-import type { Product } from '@/components/storefront/ogabassey/types';
-import { toRelatedProductsProduct } from './related-product';
+import type { Product } from '@/lib/products';
 
 interface DeferredProductRailsProps {
   product: Product;
 }
 
 export function DeferredProductRails({ product }: DeferredProductRailsProps) {
-  // Identical transform to the one ProductDetailsPage's state hook applies to
-  // the same server product, so the rails receive the same related product.
-  const relatedProductsProduct = toRelatedProductsProduct(product);
-
   return (
     <div className="mx-auto max-w-[1400px]">
       <BrandProducts
-        product={relatedProductsProduct}
+        product={product}
         maxProducts={4}
         className="border-t border-store-background-text/10 pt-8"
       />
       <PriceRangeProducts
-        product={relatedProductsProduct}
+        product={product}
         maxProducts={4}
         className="border-t border-store-background-text/10"
       />

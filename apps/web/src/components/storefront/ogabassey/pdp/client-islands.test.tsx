@@ -12,9 +12,16 @@ vi.mock('./deferred-detail-island', () => ({
   OgabasseyPdpDeferredDetailIsland: (props: {
     product: { name: string };
     semanticSections?: ReactNode;
+    serverPrimaryDetails?: ReactNode;
+    storeSlug: string;
   }) => {
     mockDeferredDetailIsland(props);
-    return <section aria-label="Product details">{props.semanticSections}</section>;
+    return (
+      <section aria-label="Product details">
+        {props.serverPrimaryDetails}
+        {props.semanticSections}
+      </section>
+    );
   },
 }));
 
@@ -33,6 +40,8 @@ describe('OgaBassey PDP client islands', () => {
       <OgabasseyPdpBelowFoldIsland
         product={product}
         semanticSections={<section aria-label="Related buying guidance" />}
+        serverPrimaryDetails={<section aria-label="Server product details" />}
+        storeSlug="ogabassey"
       />
     );
 
@@ -40,8 +49,11 @@ describe('OgaBassey PDP client islands', () => {
       expect.objectContaining({
         product,
         semanticSections: expect.anything(),
+        serverPrimaryDetails: expect.anything(),
+        storeSlug: 'ogabassey',
       })
     );
+    expect(screen.getByLabelText('Server product details')).toBeInTheDocument();
     expect(screen.getByLabelText('Related buying guidance')).toBeInTheDocument();
   });
 });

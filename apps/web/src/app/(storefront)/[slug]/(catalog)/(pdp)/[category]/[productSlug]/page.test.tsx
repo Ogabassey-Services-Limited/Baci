@@ -469,10 +469,15 @@ vi.mock('@/components/storefront/ogabassey/pdp/client-islands', () => ({
   OgabasseyPdpBelowFoldIsland: (props: {
     product: unknown;
     semanticSections?: ReactNode;
+    serverPrimaryDetails?: ReactNode;
+    storeSlug: string;
   }) => {
     mockOgabasseyPdpDeferredDetailIsland(props);
     return (
-      <section aria-label="Product details">{props.semanticSections}</section>
+      <section aria-label="Product details">
+        {props.serverPrimaryDetails}
+        {props.semanticSections}
+      </section>
     );
   },
 }));
@@ -700,8 +705,21 @@ function isRscElement(
   return isRecord(value) && isValidElement<ResolveRscElementProps>(value);
 }
 
+function isReactClassComponent(type: unknown) {
+  return (
+    typeof type === 'function' &&
+    Boolean(
+      (
+        type as {
+          prototype?: { isReactComponent?: unknown };
+        }
+      ).prototype?.isReactComponent
+    )
+  );
+}
+
 function isServerComponent(type: unknown): type is ServerComponent {
-  return typeof type === 'function';
+  return typeof type === 'function' && !isReactClassComponent(type);
 }
 
 function isAsyncServerComponent(type: unknown): type is ServerComponent {
@@ -2131,6 +2149,11 @@ describe('[category]/[productSlug] page render', () => {
     expect(
       screen.getByRole('region', { name: /product details/i })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', {
+        name: /HP Laptop 14-ep0063nia overview and specifications/i,
+      })
+    ).toBeInTheDocument();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
     expect(
       container.querySelectorAll('img[alt="HP Laptop 14-ep0063nia"]')
@@ -2583,7 +2606,7 @@ describe('[category]/[productSlug] page render', () => {
           }
         | undefined;
 
-    expect(screen.getByText(expectedDescription)).toBeInTheDocument();
+    expect(screen.getAllByText(expectedDescription).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Current listed price/i)).not.toBeInTheDocument();
     expect(ogabasseyProps?.product?.description).toBe(expectedDescription);
     expect(criticalCommerceProviderProps?.cartProduct?.description).toBe(
@@ -4237,6 +4260,7 @@ describe('[category]/[productSlug] page render', () => {
       ...baseMerchant,
       support_email: 'support@test.example',
       support_phone: '+2348000000000',
+      template_id: OGABASSEY_TEMPLATE_ID,
       trust_profile: {
         return_policy: {
           summary: 'Returns accepted within 7 days.',
@@ -4343,6 +4367,12 @@ describe('[category]/[productSlug] page render', () => {
         product: expect.objectContaining({
           slug: 'samsung-galaxy-z-trifold',
         }),
+      })
+    );
+    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverPrimaryDetails: expect.anything(),
+        storeSlug: 'teststore',
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(
