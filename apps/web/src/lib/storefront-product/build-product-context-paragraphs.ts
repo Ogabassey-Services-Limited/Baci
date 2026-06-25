@@ -33,7 +33,7 @@ export function buildProductContextParagraphs({
   countryCode,
   currentProduct,
   merchantBusinessName,
-}: BuildProductContextParagraphsInput): string[] {
+}: BuildProductContextParagraphsInput): [string, string] {
   const productName = cleanText(currentProduct.name) || 'This product';
   const merchantName = cleanText(merchantBusinessName) || 'this store';
   const categoryLabel = cleanText(categoryName) || 'this category';

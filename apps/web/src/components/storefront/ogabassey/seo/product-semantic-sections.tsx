@@ -32,9 +32,9 @@ export function ProductSemanticSections({
           >
             Product buying context
           </h2>
-          {model.contextParagraphs?.map((paragraph) => (
+          {model.contextParagraphs?.map((paragraph, index) => (
             <p
-              key={paragraph}
+              key={index}
               className="ogabassey-pdp-semantic-card__description"
             >
               {paragraph}

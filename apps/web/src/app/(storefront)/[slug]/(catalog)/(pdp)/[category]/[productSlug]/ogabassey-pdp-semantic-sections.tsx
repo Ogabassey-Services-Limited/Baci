@@ -68,7 +68,7 @@ export async function OgabasseyPdpSemanticSections({
   };
   const semanticModel = buildProductSemanticModel({
     storeUrl,
-    merchantBusinessName: merchant?.business_name || 'Baci Store',
+    merchantBusinessName: merchant.business_name || 'Baci Store',
     categorySlug,
     categoryName,
     countryCode: merchant.country,
@@ -86,7 +86,7 @@ export async function OgabasseyPdpSemanticSections({
           categoryName,
           countryCode: merchant.country,
           currentProduct,
-          merchantBusinessName: merchant?.business_name || 'Baci Store',
+          merchantBusinessName: merchant.business_name || 'Baci Store',
         }),
       }}
     />

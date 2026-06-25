@@ -1216,6 +1216,11 @@ describe('products/[productSlug] page', () => {
     render(await ProductPageRuntime(resolution.runtimeProps));
 
     expect(
+      await screen.findByText(
+        /iPhone 17 Pro Max is listed by TestStore in All Products/
+      )
+    ).toBeInTheDocument();
+    expect(
       await screen.findByRole('link', {
         name: /Shop more Products/i,
       })
