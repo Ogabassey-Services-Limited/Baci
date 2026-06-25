@@ -245,7 +245,7 @@ const VTU_COMMISSION_PROVIDER_ALIASES = {
     ['KAEDCO', ['KAEDCO', 'KAEDC', 'KAED', 'KADUNA']],
     ['KEDCO', ['KEDCO', 'KEDC', 'KANO']],
     ['PHEDC', ['PHEDC', 'PHED', 'PORTHARCOURT']],
-    ['ABA', ['ABA']],
+    ['ABA', ['ABA', 'APLE']],
     ['YEDC', ['YEDC', 'YOLA']],
   ],
   CABLE: [
