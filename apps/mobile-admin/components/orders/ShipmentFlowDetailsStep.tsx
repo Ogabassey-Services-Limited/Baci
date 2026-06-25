@@ -52,6 +52,7 @@ export function ShipmentFlowDetailsStep({
           }
           placeholder="e.g. 353456789012345"
           placeholderTextColor={colors.textSecondary}
+          returnKeyType="done"
           style={[styles.input, { color: colors.text }]}
           value={fulfillmentDetails.imei}
         />
@@ -68,6 +69,7 @@ export function ShipmentFlowDetailsStep({
           }
           placeholder="e.g. C02ZK0ABC123"
           placeholderTextColor={colors.textSecondary}
+          returnKeyType="done"
           style={[styles.input, { color: colors.text }]}
           value={fulfillmentDetails.serialNumber}
         />

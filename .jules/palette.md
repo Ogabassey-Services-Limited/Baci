@@ -116,3 +116,7 @@
 **Learning:** By default, setting the `disabled` prop on a `Pressable` in React Native prevents interaction but does not automatically inform assistive technologies (like VoiceOver or TalkBack) of the disabled state.
 **Action:** When conditionally disabling an interactive element, always pair the functional `disabled` prop with the semantic `accessibilityState={{ disabled: boolean }}` prop.
 **Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API docs
+## 2025-02-12 — Missing returnKeyType on IMEI/Serial Input Fields
+**Learning:** TextInput fields on mobile forms need `returnKeyType="done"` to properly signal to the user and keyboard that the form field completes a data-entry step and the keyboard can be dismissed. Without this, the keyboard defaults to generic enter actions or provides an incomplete UX.
+**Action:** Always check `TextInput` components representing the last or standalone input in a view flow and ensure `returnKeyType="done"` (or an appropriate variant like "search" or "next") is set.
+**Source:** UX Improvement / APG Pattern
