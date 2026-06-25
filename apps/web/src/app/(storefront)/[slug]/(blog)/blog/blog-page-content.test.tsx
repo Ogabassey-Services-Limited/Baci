@@ -8,12 +8,9 @@ import {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetCachedBlogListing,
-  mockGetTemplate,
   mockHeaders,
   mockNotFound,
-  mockPreloadBlogListingFeaturedImage,
   mockRedirect,
-  mockTemplateBlogRenderer,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -67,103 +64,6 @@ describe('BlogPageContent', () => {
         }),
       ])
     );
-  });
-
-  it('preloads the root listing featured image before rendering the blog UI', async () => {
-    render(
-      await BlogPageContent({
-        params: Promise.resolve({ slug: 'ogabassey' }),
-        searchParams: Promise.resolve({}),
-      })
-    );
-
-    expect(mockPreloadBlogListingFeaturedImage).toHaveBeenCalledWith(
-      'https://cdn.example.com/blog-cover.png'
-    );
-  });
-
-  it('preloads the same first listing image used by the OgaBassey hero story', async () => {
-    const firstPost = {
-      ...postsPayload[0],
-      id: 'post-first',
-      title: 'First Post',
-      slug: 'first-post',
-      featured_image_url: 'https://cdn.example.com/first.png',
-    };
-    const secondPost = {
-      ...postsPayload[0],
-      id: 'post-second',
-      title: 'Second Post',
-      slug: 'second-post',
-      featured_image_url: 'https://cdn.example.com/second.png',
-    };
-    mockGetCachedBlogListing.mockResolvedValueOnce(
-      buildListingResult({
-        posts: [firstPost, secondPost],
-      })
-    );
-    mockGetTemplate.mockReturnValueOnce({
-      getComponents: async () => ({
-        Blog: () => <div>OgaBassey blog component</div>,
-      }),
-    });
-
-    render(
-      await BlogPageContent({
-        params: Promise.resolve({ slug: 'ogabassey' }),
-        searchParams: Promise.resolve({}),
-      })
-    );
-
-    expect(mockPreloadBlogListingFeaturedImage).toHaveBeenCalledWith(
-      'https://cdn.example.com/first.png'
-    );
-    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        blogPosts: expect.arrayContaining([
-          expect.objectContaining({
-            slug: 'first-post',
-          }),
-        ]),
-      })
-    );
-  });
-
-  it('does not preload a template-specific hero image for non-Ogabassey templates', async () => {
-    mockGetCachedBlogListing.mockResolvedValueOnce(
-      buildListingResult({
-        merchant: {
-          ...merchant,
-          template_id: 'modern',
-        },
-      })
-    );
-    mockGetTemplate.mockReturnValueOnce({
-      getComponents: async () => ({
-        Blog: () => <div>Custom blog component</div>,
-      }),
-    });
-
-    render(
-      await BlogPageContent({
-        params: Promise.resolve({ slug: 'test-store' }),
-        searchParams: Promise.resolve({}),
-      })
-    );
-
-    expect(screen.getByText('Template blog')).toBeInTheDocument();
-    expect(mockPreloadBlogListingFeaturedImage).not.toHaveBeenCalled();
-  });
-
-  it('does not preload a featured image for filtered listings without a hero story', async () => {
-    render(
-      await BlogPageContent({
-        params: Promise.resolve({ slug: 'ogabassey' }),
-        searchParams: Promise.resolve({ category: 'News' }),
-      })
-    );
-
-    expect(mockPreloadBlogListingFeaturedImage).not.toHaveBeenCalled();
   });
 
   it('renders guide collections after the blog listing', async () => {

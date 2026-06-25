@@ -30,106 +30,6 @@ const COUNTRY_LOCALES: Record<string, string> = {
   ZA: 'en-ZA',
 };
 
-const CURRENCY_FALLBACK_LOCALES: Record<string, string> = {
-  AUD: 'en-AU',
-  BRL: 'pt-BR',
-  CAD: 'en-CA',
-  EUR: 'de-DE',
-  GBP: 'en-GB',
-  GHS: 'en-GH',
-  INR: 'en-IN',
-  JPY: 'ja-JP',
-  KES: 'en-KE',
-  NGN: 'en-NG',
-  USD: 'en-US',
-  XAF: 'fr-CM',
-  XOF: 'fr-SN',
-  ZAR: 'en-ZA',
-};
-
-const FALLBACK_SUPPORTED_CURRENCY_CODES = new Set([
-  ...Object.keys(CURRENCY_FALLBACK_LOCALES),
-  'AED',
-  'CHF',
-  'CNY',
-]);
-
-let supportedCurrencyCodes: Set<string> | null | undefined;
-
-function getSupportedCurrencyCodes(): Set<string> | null {
-  if (supportedCurrencyCodes !== undefined) {
-    return supportedCurrencyCodes;
-  }
-
-  if (typeof Intl.supportedValuesOf !== 'function') {
-    supportedCurrencyCodes = null;
-    return supportedCurrencyCodes;
-  }
-
-  try {
-    supportedCurrencyCodes = new Set(Intl.supportedValuesOf('currency'));
-  } catch {
-    supportedCurrencyCodes = null;
-  }
-
-  return supportedCurrencyCodes;
-}
-
-function isValidCurrencyCode(currencyCode: string): boolean {
-  if (!/^[A-Z]{3}$/.test(currencyCode)) {
-    return false;
-  }
-
-  const runtimeSupportedCurrencies = getSupportedCurrencyCodes();
-  if (runtimeSupportedCurrencies) {
-    return runtimeSupportedCurrencies.has(currencyCode);
-  }
-
-  return FALLBACK_SUPPORTED_CURRENCY_CODES.has(currencyCode);
-}
-
-function getCurrencySymbolForCode(
-  currencyCode: string,
-  locale: string
-): string {
-  try {
-    const symbol = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-      currencyDisplay: 'symbol',
-    })
-      .formatToParts(0)
-      .filter((part) => part.type === 'currency')
-      .map((part) => part.value)
-      .join('');
-    return symbol || currencyCode;
-  } catch {
-    return currencyCode;
-  }
-}
-
-const DEFAULT_CURRENCY_CONFIG: CurrencyConfig = {
-  code: 'USD',
-  symbol: '$',
-  locale: 'en-US',
-};
-
-function getPayoutCurrencyConfig(
-  payoutCurrency?: string | null
-): CurrencyConfig | null {
-  const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
-  if (!normalizedCurrency || !isValidCurrencyCode(normalizedCurrency)) {
-    return null;
-  }
-
-  const locale = CURRENCY_FALLBACK_LOCALES[normalizedCurrency] || 'en-US';
-  return {
-    code: normalizedCurrency,
-    symbol: getCurrencySymbolForCode(normalizedCurrency, locale),
-    locale,
-  };
-}
-
 /**
  * Common options for compact currency display (no decimals)
  * constant reference to avoid object creation on every render
@@ -142,31 +42,24 @@ export const COMPACT_OPTIONS = {
 /**
  * Get currency configuration for a country
  * Defaults to USD if country not found
- *
- * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
- * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
  */
-export function getCurrencyConfig(
-  countryCode?: string | null,
-  payoutCurrency?: string | null
-): CurrencyConfig {
-  const payoutConfig = getPayoutCurrencyConfig(payoutCurrency);
-  const country = countryCode ? getCountryByCode(countryCode) : null;
-
-  if (country && payoutConfig?.code === country.currency) {
+export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
+  if (!countryCode) {
     return {
-      code: country.currency,
-      symbol: country.currencySymbol,
-      locale: COUNTRY_LOCALES[country.code] || payoutConfig.locale,
+      code: 'USD',
+      symbol: '$',
+      locale: 'en-US',
     };
   }
 
-  if (payoutConfig) {
-    return payoutConfig;
-  }
+  const country = getCountryByCode(countryCode);
 
   if (!country) {
-    return DEFAULT_CURRENCY_CONFIG;
+    return {
+      code: 'USD',
+      symbol: '$',
+      locale: 'en-US',
+    };
   }
 
   return {
@@ -254,10 +147,9 @@ export function formatCurrencyWithConfig(
 export function formatCurrency(
   amount: number,
   countryCode?: string | null,
-  options?: Partial<Intl.NumberFormatOptions>,
-  payoutCurrency?: string | null
+  options?: Partial<Intl.NumberFormatOptions>
 ): string {
-  const config = getCurrencyConfig(countryCode, payoutCurrency);
+  const config = getCurrencyConfig(countryCode);
   return formatCurrencyWithConfig(amount, config, options);
 }
 
@@ -277,35 +169,23 @@ export function formatCurrencyCompact(
 /**
  * Get just the currency symbol for a country
  *
- * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
- * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
- *
  * @example
  * getCurrencySymbol('NG') // "₦"
  * getCurrencySymbol('US') // "$"
  */
-export function getCurrencySymbol(
-  countryCode?: string | null,
-  payoutCurrency?: string | null
-): string {
-  const config = getCurrencyConfig(countryCode, payoutCurrency);
+export function getCurrencySymbol(countryCode?: string | null): string {
+  const config = getCurrencyConfig(countryCode);
   return config.symbol;
 }
 
 /**
  * Get the currency code for a country
  *
- * @param countryCode - Fallback country code used when payoutCurrency is absent or invalid.
- * @param payoutCurrency - Merchant selling/payout currency; takes precedence when valid.
- *
  * @example
  * getCurrencyCode('NG') // "NGN"
  * getCurrencyCode('US') // "USD"
  */
-export function getCurrencyCode(
-  countryCode?: string | null,
-  payoutCurrency?: string | null
-): string {
-  const config = getCurrencyConfig(countryCode, payoutCurrency);
+export function getCurrencyCode(countryCode?: string | null): string {
+  const config = getCurrencyConfig(countryCode);
   return config.code;
 }

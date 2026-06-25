@@ -11,13 +11,12 @@
  */
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { asRoute } from '@/lib/routes';
 import type { OtpCode, UseOgabasseyLoginReturn } from '../types';
 
 interface UseOgabasseyLoginOptions {
-  initialEmail?: string;
   redirectTo: string;
 }
 
@@ -53,7 +52,6 @@ async function runSocialSignIn(
  * - Error handling
  */
 export function useOgabasseyLogin({
-  initialEmail = '',
   redirectTo,
 }: UseOgabasseyLoginOptions): UseOgabasseyLoginReturn {
   const router = useRouter();
@@ -66,10 +64,9 @@ export function useOgabasseyLogin({
   } = useCustomerAuth();
 
   // Form state
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState<OtpCode>(['', '', '', '', '', '']);
   const [error, setError] = useState('');
-  const lastInitialEmailRef = useRef(initialEmail);
 
   // Loading states
   const [isSending, setIsSending] = useState(false);
@@ -79,22 +76,6 @@ export function useOgabasseyLogin({
 
   // Refs for OTP inputs
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  useEffect(() => {
-    if (otpState?.codeSent) {
-      lastInitialEmailRef.current = initialEmail;
-      return;
-    }
-
-    setEmail((currentEmail) => {
-      if (currentEmail === lastInitialEmailRef.current) {
-        return initialEmail;
-      }
-
-      return currentEmail;
-    });
-    lastInitialEmailRef.current = initialEmail;
-  }, [initialEmail, otpState?.codeSent]);
 
   /**
    * Send OTP code to email

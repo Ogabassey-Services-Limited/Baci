@@ -14,7 +14,6 @@ import {
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
-import { normalizeSeoProductText } from '@/lib/storefront-product-slug-disambiguation';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import {
   DEFAULT_STORE_NAME,
@@ -94,30 +93,12 @@ export async function generateMetadata(
     currency,
     country: merchant.country,
   });
-  const normalizedProductMetaTitle = normalizeSeoProductText(
-    product.meta_title,
-    product
-  );
-  const normalizedGeneratedTitle = normalizeSeoProductText(
-    priceSeoCopy.title,
-    product
-  );
-  const metadataTitleSource =
-    normalizedProductMetaTitle || normalizedGeneratedTitle;
-  const generatedSeoDescription = normalizeSeoProductText(
-    priceSeoCopy.description,
-    product
-  );
-  const productMetaDescription = normalizeSeoProductText(
-    product.meta_description,
-    product
-  );
   const seoDescription = generateMetaDescription(
-    productMetaDescription || generatedSeoDescription,
+    product.meta_description || priceSeoCopy.description,
     160,
     {
       minLength: 110,
-      fallback: generatedSeoDescription,
+      fallback: priceSeoCopy.description,
     }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
@@ -125,12 +106,14 @@ export async function generateMetadata(
     product,
     currency
   );
-  const metadataTitle = generateMetaTitle(metadataTitleSource, {
-    maxLength: 70,
-    suffix: merchantDisplayName,
-    fallback:
-      normalizeSeoProductText(product.name, product) || productCategoryName,
-  });
+  const metadataTitle = generateMetaTitle(
+    product.meta_title || priceSeoCopy.title,
+    {
+      maxLength: 70,
+      suffix: merchantDisplayName,
+      fallback: product.name || productCategoryName,
+    }
+  );
   const socialMedia = merchant.social_media as
     | Record<string, string>
     | undefined;

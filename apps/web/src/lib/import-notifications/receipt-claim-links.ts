@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { sanitizeCustomerLoginEmailHint } from '@baci/shared/schemas';
 import { getRootDomain } from '@/env';
 
 export interface ReceiptClaimMerchantUrlContext {
@@ -50,7 +49,8 @@ export function createReceiptClaimToken(
 }
 
 export function normalizeClaimEmail(email: string | null | undefined) {
-  return sanitizeCustomerLoginEmailHint(email) || null;
+  const normalized = email?.trim().toLowerCase();
+  return normalized || null;
 }
 
 export function buildReceiptClaimUrl({

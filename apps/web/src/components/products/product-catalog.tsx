@@ -20,16 +20,34 @@ import { useProductContext } from '@/contexts/product-context';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrencyWithConfig, getCurrencyConfig } from '@/lib/currency';
+import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
 import { ExportToJumiaDialog } from './jumia/export-dialog';
 import { mergeLocalProducts } from './merge-local-products';
 import { ProductCatalogTable } from './product-catalog-table';
-import { parsePriceInput } from './product-currency-input';
+import { getCurrencySymbol } from './product-currency-input';
 import { saveDirtyProducts } from './save-dirty-products';
 import { useJumiaIntegrations } from './use-jumia-integrations';
 
 type CatalogToast = ReturnType<typeof useToast>['toast'];
+
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
 
 interface RunProductSaveParams {
   dirtyProductIdsForSave: Set<string>;
@@ -336,8 +354,9 @@ export function ProductCatalog({
   };
 
   const handlePriceChange = (productId: string, newPrice: string) => {
-    const priceValue = parsePriceInput(newPrice, locale);
-    if (Number.isNaN(priceValue) || priceValue < 0) return;
+    const cleanPrice = newPrice.replace(/[^0-9.]/g, '');
+    const priceValue = Number.parseFloat(cleanPrice);
+    if (Number.isNaN(priceValue)) return;
 
     setLocalProducts((current) =>
       current.map((product) =>
@@ -375,15 +394,21 @@ export function ProductCatalog({
     markProductDirty(productId);
   };
 
-  const currencyConfig = getCurrencyConfig(
-    merchant?.country,
-    merchant?.payout_currency
-  );
   const formatCurrency = (amount: number) => {
-    return formatCurrencyWithConfig(amount, currencyConfig);
+    const country = merchant?.country
+      ? getCountryByCode(merchant.country)
+      : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
-  const currencySymbol = currencyConfig.symbol;
-  const locale = currencyConfig.locale;
+  const country = merchant?.country
+    ? getCountryByCode(merchant.country)
+    : undefined;
+  const locale = country ? `en-${country.code}` : 'en-US';
+  const currency = country ? country.currency : 'USD';
+  const currencySymbol = getCurrencySymbol(locale, currency);
 
   return (
     <Card className="flex-1 flex flex-col border border-border/40 shadow-sm bg-white/50 dark:bg-card/30 backdrop-blur-xs">

@@ -2,9 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
 import {
-  loadReceiptClaimLoginEmailHint,
   loadReceiptClaimPreview,
-  loadReceiptClaimPreviewWithLoginEmailHint,
   parseReceiptClaimToken,
 } from '@/lib/import-notifications/receipt-claim-preview';
 
@@ -93,73 +91,6 @@ describe('receipt claim preview', () => {
 
     expect(result).toEqual({
       claim: expect.objectContaining({ merchantName: 'Store' }),
-      ok: true,
-    });
-  });
-
-  it('loads a sanitized login email hint through the preview RPC', async () => {
-    const supabase = createSupabaseRpcMock({
-      data: {
-        ...baseClaim,
-        customer_email: '  BasseyBJohn@Yahoo.CO.UK  ',
-      },
-      error: null,
-    });
-
-    const result = await loadReceiptClaimLoginEmailHint({
-      supabase,
-      token: 'claim-token',
-    });
-
-    expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
-      p_token_hash: hashReceiptClaimToken('claim-token'),
-    });
-    expect(result).toEqual({
-      emailHint: 'basseybjohn@yahoo.co.uk',
-      ok: true,
-    });
-  });
-
-  it('loads preview data and login email hints from one claim lookup', async () => {
-    const supabase = createSupabaseRpcMock({
-      data: {
-        ...baseClaim,
-        customer_email: '  BasseyBJohn@Yahoo.CO.UK  ',
-      },
-      error: null,
-    });
-
-    const result = await loadReceiptClaimPreviewWithLoginEmailHint({
-      supabase,
-      token: 'claim-token',
-    });
-
-    expect(supabase.rpc).toHaveBeenCalledOnce();
-    expect(result).toEqual({
-      claim: {
-        claimed: false,
-        customerName: 'Bassey John',
-        devices: ['iPhone 16 Pro Max', '2 x AirPods Pro'],
-        merchantName: 'Ogabassey',
-      },
-      emailHint: 'basseybjohn@yahoo.co.uk',
-      ok: true,
-    });
-  });
-
-  it('drops invalid login email hints from claim data', async () => {
-    const supabase = createSupabaseRpcMock({
-      data: {
-        ...baseClaim,
-        customer_email: 'not-an-email',
-      },
-      error: null,
-    });
-
-    await expect(
-      loadReceiptClaimLoginEmailHint({ supabase, token: 'claim-token' })
-    ).resolves.toEqual({
-      emailHint: '',
       ok: true,
     });
   });

@@ -100,7 +100,6 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
         merchantName: 'Ogabassey',
       },
     });
-    expect(body.claim).not.toHaveProperty('customerEmail');
   });
 
   it('uses a generic merchant fallback when the claim merchant has no name', async () => {

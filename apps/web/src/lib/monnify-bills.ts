@@ -306,12 +306,8 @@ export async function getBillerProducts(
   billerCode: string,
   options: MonnifyDiscoveryOptions = {}
 ): Promise<BillerProduct[]> {
-  // Monnify's live biller-products endpoint silently ignores `billerCode`
-  // here and returns the unfiltered generic catalog; this endpoint requires
-  // snake_case `biller_code` even though sibling discovery endpoints remain
-  // camelCase.
   const envelope = await monnifyRequest(
-    `/api/v1/vas/bills-payment/biller-products?biller_code=${encodeURIComponent(billerCode)}`,
+    `/api/v1/vas/bills-payment/biller-products?billerCode=${encodeURIComponent(billerCode)}`,
     {
       method: 'GET',
       timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS,

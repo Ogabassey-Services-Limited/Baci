@@ -93,7 +93,6 @@ function setupBlogListingFetch({
   categories?: Array<{ category: string | null }>;
   count?: number | null;
   posts?: Array<{
-    featured?: boolean | null;
     id: string;
     slug: string | null;
     title: string | null;
@@ -210,21 +209,6 @@ describe('getCachedBlogListing', () => {
     expect(blogSelects[0]).toHaveBeenCalledWith(expect.any(String), {
       count: 'estimated',
     });
-  });
-
-  it('does not select a missing featured column from blog_posts', async () => {
-    const { blogSelects } = setupBlogListingFetch();
-
-    await getCachedBlogListing('ogabassey');
-
-    expect(blogSelects[0]).toHaveBeenCalledWith(
-      expect.not.stringContaining('featured,'),
-      { count: 'estimated' }
-    );
-    expect(blogSelects[0]).toHaveBeenCalledWith(
-      expect.stringContaining('featured_image_url'),
-      { count: 'estimated' }
-    );
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {

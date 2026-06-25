@@ -7,20 +7,18 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
+import { EmailSchema, getFirstError } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
 import {
+  clearAuthLoginResumeState,
   getAuthLoginResumeState,
   saveAuthLoginResumeState,
 } from './login-resume-state';
 import {
   type AuthStep,
-  dismissAuthenticatedLogin,
-  getValidatedLoginEmailHint,
   getValidatedLoginMode,
-  loadLoginEmailHintFromReturnTo,
   normalizeEmail,
   returnToEmailFromAuthStep,
-  validateLoginEmailInput,
 } from './login-screen-controller.helpers';
 import { runLoginSocialSignIn } from './login-social-sign-in';
 import { useLoginHardwareBackHandler } from './useLoginHardwareBackHandler';
@@ -30,20 +28,23 @@ const log = createLogger('Login');
 export function useLoginScreenController() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const {
-    email: emailParam,
-    mode,
-    returnTo,
-  } = useLocalSearchParams<{
-    email?: string;
+  const { mode, returnTo } = useLocalSearchParams<{
     mode?: string;
     returnTo?: string;
   }>();
   const resumeReturnTo = returnTo ?? null;
   const validatedMode = getValidatedLoginMode(mode);
-  const initialEmail = getValidatedLoginEmailHint(emailParam);
 
-  const dismissAndNavigate = () => dismissAuthenticatedLogin(returnTo);
+  const dismissAndNavigate = () => {
+    void clearAuthLoginResumeState();
+    if (returnTo) {
+      router.replace(decodeURIComponent(returnTo) as '/');
+    } else if (router.canDismiss()) {
+      router.dismiss();
+    } else {
+      router.replace('/');
+    }
+  };
 
   const {
     signInWithOtp,
@@ -71,7 +72,7 @@ export function useLoginScreenController() {
   const [authMethod, setAuthMethod] = useState<LoginAuthMethod>('otp');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -95,20 +96,16 @@ export function useLoginScreenController() {
 
   useEffect(() => {
     if (isInitialized && user) {
-      dismissAuthenticatedLogin(returnTo);
+      void clearAuthLoginResumeState();
+      if (returnTo) {
+        router.replace(decodeURIComponent(returnTo) as '/');
+      } else if (router.canDismiss()) {
+        router.dismiss();
+      } else {
+        router.replace('/');
+      }
     }
   }, [isInitialized, user, returnTo]);
-
-  useEffect(() => {
-    return loadLoginEmailHintFromReturnTo({
-      currentEmail: email,
-      initialEmail,
-      onError: (error) =>
-        log.warn('Failed to load receipt claim email hint', error),
-      returnTo,
-      setEmail,
-    });
-  }, [email, initialEmail, returnTo]);
 
   useEffect(() => {
     if (validatedMode !== 'otp') {
@@ -152,7 +149,8 @@ export function useLoginScreenController() {
   }, [step]);
 
   const handleContinue = withKeyboardDismiss(async () => {
-    const { error, normalizedEmail } = validateLoginEmailInput(email);
+    const emailResult = EmailSchema.safeParse(email.trim());
+    const error = getFirstError(emailResult);
 
     if (error) {
       setEmailError(error);
@@ -160,6 +158,8 @@ export function useLoginScreenController() {
     }
 
     setEmailError(null);
+
+    const normalizedEmail = normalizeEmail(email);
 
     if (authMethod === 'otp') {
       const result = await signInWithOtp(normalizedEmail);

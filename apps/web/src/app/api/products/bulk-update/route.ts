@@ -2,8 +2,8 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
+import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getCurrencyConfig } from '@/lib/currency';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
     }
     const merchantId = merchantContext.merchantId;
 
-    // Fetch business_name and currency fields for product creation
+    // Fetch business_name and country for product creation
     const { data: merchantDetails, error: merchantError } = await supabase
       .from('merchants')
-      .select('business_name, country, payout_currency')
+      .select('business_name, country')
       .eq('id', merchantId)
       .maybeSingle();
 
@@ -58,11 +58,6 @@ export async function POST(request: NextRequest) {
     const merchantBusinessName =
       merchantDetails?.business_name ?? merchantContext.businessName ?? '';
     const merchantCountry = merchantDetails?.country ?? null;
-    const merchantPayoutCurrency = merchantDetails?.payout_currency ?? null;
-    const currency = getCurrencyConfig(
-      merchantCountry,
-      merchantPayoutCurrency
-    ).code;
 
     const body = await request.json();
 
@@ -89,46 +84,29 @@ export async function POST(request: NextRequest) {
     for (const change of changes) {
       try {
         if (change.type === 'update') {
-          const productId = change.productId?.trim();
-          const sku = change.details.sku?.trim();
-          const name = change.details.name?.trim() ?? '';
-
-          if (!productId && !sku && !name) {
-            results.errors.push(
-              'Skipped update without a product id, SKU, or product name.'
-            );
-            continue;
-          }
-
-          const updates: Record<string, unknown> = {
+          // Update Logic
+          // Prefer productId, fallback to SKU if available (though productId should be present for updates)
+          let matchQuery = supabase.from('products').update({
             price: change.newPrice ?? change.details.price,
             category: change.details.category,
-          };
-          if (name) {
-            updates.name = name;
-          }
-          if (typeof change.details.cost_price === 'number') {
-            updates.cost_price = change.details.cost_price;
-          } else if (
-            change.details.cost_price === null &&
-            change.details.cost_price_was_edited === true
-          ) {
-            updates.cost_price = null;
-          }
-          let matchQuery = supabase.from('products').update(updates);
+            // Only update other fields if they are explicitly different/provided?
+            // For now, let's assume the AI only suggests price updates mostly.
+            // But if we want to sync names:
+            name: change.details.name,
+          });
 
-          if (productId) {
+          if (change.productId) {
             matchQuery = matchQuery
-              .eq('id', productId)
+              .eq('id', change.productId)
               .eq('merchant_id', merchantId);
-          } else if (sku) {
+          } else if (change.details.sku) {
             matchQuery = matchQuery
-              .eq('sku', sku)
+              .eq('sku', change.details.sku)
               .eq('merchant_id', merchantId);
           } else {
-            // Fallback: match by name and merchant_id for name-only sheets.
+            // Fallback: match by name and merchant_id (risky but necessary for name-only sheets)
             matchQuery = matchQuery
-              .eq('name', name)
+              .eq('name', change.details.name)
               .eq('merchant_id', merchantId);
           }
 
@@ -136,6 +114,7 @@ export async function POST(request: NextRequest) {
           if (error) throw error;
           results.updated++;
         } else if (change.type === 'new') {
+          // Create Logic
           const slug = generateProductSlug(
             change.details.name,
             'new',
@@ -145,13 +124,17 @@ export async function POST(request: NextRequest) {
             change.details.sku ||
             generateSlug(change.details.name).toUpperCase().substring(0, 20);
 
+          const country = merchantCountry
+            ? getCountryByCode(merchantCountry)
+            : undefined;
+          const currency = country ? country.currency : 'USD';
+
           // Basic product insert
           const { error } = await supabase.from('products').insert({
             merchant_id: merchantId,
             name: change.details.name,
             description: change.details.description || '',
             price: change.details.price,
-            cost_price: change.details.cost_price,
             stock_quantity: change.details.stock || 0,
             sku: sku,
             slug: slug,

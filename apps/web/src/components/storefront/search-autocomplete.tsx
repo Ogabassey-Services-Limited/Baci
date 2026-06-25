@@ -43,7 +43,6 @@ export interface SearchAutocompleteProps {
   name?: string;
   autoFocus?: boolean;
   countryCode?: string | null;
-  payoutCurrency?: string | null;
 }
 
 export function SearchAutocomplete({
@@ -57,7 +56,6 @@ export function SearchAutocomplete({
   name = 'q',
   autoFocus = false,
   countryCode,
-  payoutCurrency,
 }: SearchAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -69,11 +67,8 @@ export function SearchAutocomplete({
   // 200ms sits at the responsive end of the 200-400ms typeahead debounce range;
   // pairs with the per-request AbortController below so superseded queries cancel.
   const debouncedValue = useDebounce(value, 200);
-  const safeCountryCode = countryCode || (payoutCurrency ? null : 'NG');
-  const { formatCurrencyCompact } = useCurrencyWithCountry(
-    safeCountryCode,
-    payoutCurrency
-  );
+  const safeCountryCode = countryCode || 'NG';
+  const { formatCurrencyCompact } = useCurrencyWithCountry(safeCountryCode);
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -49,18 +49,6 @@ describe('receipt claim links', () => {
     ).toBe('https://future-merchant.usebaci.com/receipts/claim/token_abc');
   });
 
-  it('does not add customer email hints to receipt claim links', () => {
-    expect(
-      buildReceiptClaimUrl({
-        merchant: {
-          slug: 'ogabassey',
-          custom_domain: 'ogabassey.com',
-        },
-        token: 'token_123',
-      })
-    ).toBe('https://ogabassey.com/receipts/claim/token_123');
-  });
-
   it('normalizes claim emails for grouping and idempotency', () => {
     expect(normalizeClaimEmail('  BasseyBJohn@Yahoo.CO.UK  ')).toBe(
       'basseybjohn@yahoo.co.uk'

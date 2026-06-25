@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OgabasseyLoginPage } from './OgabasseyLoginPage';
 
 // Mock next/navigation
@@ -70,10 +70,6 @@ vi.mock('../Logo', () => ({
 }));
 
 describe('OgabasseyLoginPage', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -228,67 +224,6 @@ describe('OgabasseyLoginPage', () => {
   });
 
   describe('Email form view', () => {
-    it('passes a sanitized email hint to the login hook', () => {
-      // Arrange
-      mockSearchParams.get = vi.fn((key) =>
-        key === 'email' ? '  BasseyBJohn@Yahoo.CO.UK  ' : null
-      );
-
-      // Act
-      render(<OgabasseyLoginPage />);
-
-      // Assert
-      expect(mockUseOgabasseyLogin).toHaveBeenCalledWith({
-        initialEmail: 'basseybjohn@yahoo.co.uk',
-        redirectTo: '/account',
-      });
-    });
-
-    it('prefills receipt claim login email from the token redirect', async () => {
-      const setEmail = vi.fn();
-      const fetchMock = vi.fn(async () =>
-        new Response(
-          JSON.stringify({ emailHint: '  BasseyBJohn@Yahoo.CO.UK  ' }),
-          { status: 200 }
-        )
-      );
-      vi.stubGlobal('fetch', fetchMock);
-      mockSearchParams.get = vi.fn((key) =>
-        key === 'redirect' ? '/receipts/claim/token_123' : null
-      );
-      mockUseOgabasseyLogin.mockReturnValue({
-        email: '',
-        code: ['', '', '', '', '', ''],
-        error: null,
-        isSending: false,
-        isVerifying: false,
-        isGoogleLoading: false,
-        isAppleLoading: false,
-        isCodeSent: false,
-        sentToEmail: '',
-        setEmail,
-        handleSendCode: vi.fn(),
-        handleCodeChange: vi.fn(),
-        handleKeyDown: vi.fn(),
-        handlePaste: vi.fn(),
-        handleResendCode: vi.fn(),
-        handleChangeEmail: vi.fn(),
-        handleGoogleSignIn: vi.fn(),
-        handleAppleSignIn: vi.fn(),
-        codeInputRefs: { current: [] },
-      });
-
-      render(<OgabasseyLoginPage />);
-
-      await waitFor(() => {
-        expect(setEmail).toHaveBeenCalledWith('basseybjohn@yahoo.co.uk');
-      });
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/storefront/receipts/claims/token_123/login-email',
-        { headers: { accept: 'application/json' } }
-      );
-    });
-
     it('renders EmailForm when isCodeSent is false', () => {
       // Arrange
       mockUseMerchant.mockReturnValue({ loading: false });
@@ -541,7 +476,6 @@ describe('OgabasseyLoginPage', () => {
 
       // Assert
       expect(mockUseOgabasseyLogin).toHaveBeenCalledWith({
-        initialEmail: '',
         redirectTo: redirectPath,
       });
     });
@@ -560,7 +494,6 @@ describe('OgabasseyLoginPage', () => {
 
       // Assert - sanitizeRedirect converts null to /account
       expect(mockUseOgabasseyLogin).toHaveBeenCalledWith({
-        initialEmail: '',
         redirectTo: '/account',
       });
     });

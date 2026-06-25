@@ -45,7 +45,6 @@ interface WishListItem {
 
 interface WishListPageClientProps {
   merchantCountry: string | null;
-  merchantPayoutCurrency: string | null;
 }
 
 const CUSTOMER_EMAIL_STORAGE_KEY = 'customerEmail';
@@ -140,7 +139,6 @@ function buildCartProduct(item: WishListItem): Product {
 
 export function WishListPageClient({
   merchantCountry,
-  merchantPayoutCurrency,
 }: WishListPageClientProps) {
   const params = useParams();
   const { toast } = useToast();
@@ -180,10 +178,7 @@ export function WishListPageClient({
   }
 
   // Use dynamic currency based on merchant's country (provided server-side)
-  const { formatCurrency } = useCurrencyWithCountry(
-    merchantCountry,
-    merchantPayoutCurrency
-  );
+  const { formatCurrency } = useCurrencyWithCountry(merchantCountry);
 
   // Fetch the wishlist whenever the known identity changes.
   // The API route resolves identity via Supabase auth cookies.

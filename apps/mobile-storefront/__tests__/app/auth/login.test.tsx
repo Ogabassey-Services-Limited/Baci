@@ -1,4 +1,5 @@
-import { beforeAll, jest } from '@jest/globals';
+import type { ReactNode } from 'react';
+import { beforeAll } from '@jest/globals';
 import {
   act,
   fireEvent,
@@ -6,10 +7,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 import { Alert, BackHandler } from 'react-native';
-import type { AuthLoginResumeState } from '@/components/auth/login-resume-state';
-import type { AuthState } from '@/stores/auth-store.types';
 
 const mockAlert = jest.fn();
 const mockBack = jest.fn();
@@ -18,16 +16,14 @@ const mockDismiss = jest.fn();
 const mockReplace = jest.fn();
 const mockSetParams = jest.fn();
 const mockUseLocalSearchParams = jest.fn(() => ({}));
-const mockClearAuthLoginResumeState = jest.fn<() => Promise<void>>();
-const mockGetAuthLoginResumeState =
-  jest.fn<(returnTo: string | null) => Promise<AuthLoginResumeState | null>>();
-const mockSaveAuthLoginResumeState =
-  jest.fn<(state: AuthLoginResumeState) => Promise<void>>();
-const mockSignInWithApple = jest.fn<AuthState['signInWithApple']>();
-const mockSignInWithGoogle = jest.fn<AuthState['signInWithGoogle']>();
-const mockSignInWithOtp = jest.fn<AuthState['signInWithOtp']>();
-const mockSignInWithPassword = jest.fn<AuthState['signInWithPassword']>();
-const mockVerifyOtp = jest.fn<AuthState['verifyOtp']>();
+const mockClearAuthLoginResumeState = jest.fn();
+const mockGetAuthLoginResumeState = jest.fn();
+const mockSaveAuthLoginResumeState = jest.fn();
+const mockSignInWithApple = jest.fn();
+const mockSignInWithGoogle = jest.fn();
+const mockSignInWithOtp = jest.fn();
+const mockSignInWithPassword = jest.fn();
+const mockVerifyOtp = jest.fn();
 const mockBackHandlerRemove = jest.fn();
 let hardwareBackPressHandler: (() => boolean | null | undefined) | null = null;
 const mockWithKeyboardDismiss = jest.fn(
@@ -117,7 +113,7 @@ jest.mock('@/components/auth/login-resume-state', () => ({
   clearAuthLoginResumeState: () => mockClearAuthLoginResumeState(),
   getAuthLoginResumeState: (returnTo: string | null) =>
     mockGetAuthLoginResumeState(returnTo),
-  saveAuthLoginResumeState: (state: AuthLoginResumeState) =>
+  saveAuthLoginResumeState: (state: unknown) =>
     mockSaveAuthLoginResumeState(state),
 }));
 
@@ -179,61 +175,6 @@ describe('LoginScreen', () => {
     expect(screen.getByText('Continue with Code')).toBeOnTheScreen();
     expect(screen.getByText('Google')).toBeOnTheScreen();
     expect(screen.getByText('Apple')).toBeOnTheScreen();
-  });
-
-  it('prefills a valid email query parameter', () => {
-    mockUseLocalSearchParams.mockReturnValue({
-      email: '  Shopper@Example.COM  ',
-    });
-
-    render(<LoginScreen />);
-
-    expect(screen.getByPlaceholderText('john@example.com')).toHaveProp(
-      'value',
-      'shopper@example.com'
-    );
-  });
-
-  it('ignores invalid email query parameters', () => {
-    mockUseLocalSearchParams.mockReturnValue({
-      email: 'https://evil.example',
-    });
-
-    render(<LoginScreen />);
-
-    expect(screen.getByPlaceholderText('john@example.com')).toHaveProp(
-      'value',
-      ''
-    );
-  });
-
-  it('prefills receipt claim login email from the return path token', async () => {
-    const originalFetch = global.fetch;
-    const fetchMock = jest.fn(async () => ({
-      json: async () => ({ emailHint: '  Shopper@Example.COM  ' }),
-      ok: true,
-    })) as unknown as typeof fetch;
-    global.fetch = fetchMock;
-    mockUseLocalSearchParams.mockReturnValue({
-      returnTo: '/receipts/claim/token_123',
-    });
-
-    try {
-      render(<LoginScreen />);
-
-      await waitFor(() => {
-        expect(screen.getByPlaceholderText('john@example.com')).toHaveProp(
-          'value',
-          'shopper@example.com'
-        );
-      });
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://usebaci.com/api/storefront/receipts/claims/token_123/login-email',
-        { headers: { accept: 'application/json' } }
-      );
-    } finally {
-      global.fetch = originalFetch;
-    }
   });
 
   it('submits a normalized email through the OTP auth flow', async () => {

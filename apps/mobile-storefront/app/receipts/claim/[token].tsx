@@ -1,12 +1,14 @@
-import { sanitizeCustomerLoginEmailHint } from '@baci/shared/schemas';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 import {
-  type ClaimStatus,
-  ReceiptClaimStatusCard,
-} from '@/components/receipts/receipt-claim-status-card';
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -14,30 +16,15 @@ import { EXPO_PUBLIC_API_URL } from '@/env';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { getSession } from '@/lib/supabase';
 
-function readParam(value: string | string[] | undefined) {
+type ClaimStatus = 'loading' | 'claiming' | 'error';
+
+function readToken(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function readEmailHint(value: string | string[] | undefined) {
-  return sanitizeCustomerLoginEmailHint(value) || null;
-}
-
-function appendEmailHintToLoginRedirect(href: string, email: string | null) {
-  if (!email) {
-    return href;
-  }
-
-  const separator = href.includes('?') ? '&' : '?';
-  return `${href}${separator}email=${encodeURIComponent(email)}`;
 }
 
 function buildClaimApiUrl(token: string) {
   const baseUrl = EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
   return `${baseUrl}/api/storefront/receipts/claims/${encodeURIComponent(token)}`;
-}
-
-function buildClaimLoginEmailApiUrl(token: string) {
-  return `${buildClaimApiUrl(token)}/login-email`;
 }
 
 async function readErrorMessage(response: Response) {
@@ -63,75 +50,16 @@ async function readRedirectPath(response: Response) {
   }
 }
 
-async function readLoginEmailHint(response: Response) {
-  try {
-    const body = (await response.json()) as { emailHint?: unknown };
-    return sanitizeCustomerLoginEmailHint(
-      typeof body.emailHint === 'string' ? body.emailHint : undefined
-    );
-  } catch {
-    return '';
-  }
-}
-
 export default function ReceiptClaimScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{
-    email?: string | string[];
-    token?: string | string[];
-  }>();
-  const token = readParam(params.token);
-  const routeEmailHint = readEmailHint(params.email);
+  const params = useLocalSearchParams<{ token?: string | string[] }>();
+  const token = readToken(params.token);
   const { isLoading: isAuthLoading, redirectTo } = useRequireAuth();
   const [attempt, setAttempt] = useState(0);
-  const [loginEmailHint, setLoginEmailHint] = useState<string | null>(
-    routeEmailHint
-  );
-  const [loginEmailHintLoaded, setLoginEmailHintLoaded] = useState(
-    Boolean(routeEmailHint)
-  );
-  const [message, setMessage] = useState('Checking your sign-in...');
+  const [message, setMessage] = useState('Moving your receipt into the app...');
   const [status, setStatus] = useState<ClaimStatus>('loading');
-
-  useEffect(() => {
-    const claimToken = token;
-    if (!redirectTo || !claimToken || routeEmailHint || loginEmailHintLoaded) {
-      return;
-    }
-
-    let isActive = true;
-
-    async function loadLoginEmailHint(claimTokenValue: string) {
-      try {
-        const response = await fetch(
-          buildClaimLoginEmailApiUrl(claimTokenValue),
-          {
-            headers: { Accept: 'application/json' },
-            method: 'GET',
-          }
-        );
-        if (!isActive) return;
-        setLoginEmailHint(
-          response.ok ? await readLoginEmailHint(response) : ''
-        );
-      } catch {
-        if (!isActive) return;
-        setLoginEmailHint('');
-      } finally {
-        if (isActive) {
-          setLoginEmailHintLoaded(true);
-        }
-      }
-    }
-
-    void loadLoginEmailHint(claimToken);
-
-    return () => {
-      isActive = false;
-    };
-  }, [loginEmailHintLoaded, redirectTo, routeEmailHint, token]);
 
   useEffect(() => {
     let isActive = true;
@@ -148,7 +76,9 @@ export default function ReceiptClaimScreen() {
       }
 
       setStatus('claiming');
-      setMessage(attempt > 0 ? 'Trying again...' : 'Securing this receipt...');
+      setMessage(
+        attempt > 0 ? 'Trying again...' : 'Moving your receipt into the app...'
+      );
 
       try {
         const session = await getSession();
@@ -200,31 +130,7 @@ export default function ReceiptClaimScreen() {
   }, [attempt, isAuthLoading, queryClient, redirectTo, token]);
 
   if (redirectTo) {
-    if (token && !loginEmailHintLoaded) {
-      return (
-        <StorefrontScreenShell
-          edges={['bottom']}
-          style={[styles.screen, { backgroundColor: colors.background }]}
-        >
-          <View style={styles.content}>
-            <ReceiptClaimStatusCard
-              colors={colors}
-              message="Preparing sign-in..."
-              status="loading"
-            />
-          </View>
-        </StorefrontScreenShell>
-      );
-    }
-
-    return (
-      <Redirect
-        href={appendEmailHintToLoginRedirect(
-          String(redirectTo),
-          loginEmailHint
-        )}
-      />
-    );
+    return <Redirect href={redirectTo} />;
   }
 
   return (
@@ -233,25 +139,116 @@ export default function ReceiptClaimScreen() {
       style={[styles.screen, { backgroundColor: colors.background }]}
     >
       <View style={styles.content}>
-        <ReceiptClaimStatusCard
-          colors={colors}
-          message={message}
-          onRetry={() => setAttempt((value) => value + 1)}
-          status={status}
-        />
+        <View
+          style={[
+            styles.iconWrap,
+            {
+              backgroundColor: `${colors.tint}18`,
+              borderColor: `${colors.tint}33`,
+            },
+          ]}
+        >
+          <Ionicons color={colors.tint} name="receipt-outline" size={30} />
+        </View>
+
+        <Text style={[styles.title, { color: colors.text }]}>
+          Your Receipt Has Changed.
+        </Text>
+        <Text style={[styles.body, { color: colors.textSecondary }]}>
+          We are moving this receipt into the app so you can access it any time.
+        </Text>
+
+        <View style={styles.statusRow}>
+          {status === 'error' ? (
+            <Ionicons
+              color={colors.error}
+              name="alert-circle-outline"
+              size={20}
+            />
+          ) : (
+            <ActivityIndicator color={colors.tint} />
+          )}
+          <Text
+            style={[
+              styles.statusText,
+              { color: status === 'error' ? colors.error : colors.text },
+            ]}
+          >
+            {message}
+          </Text>
+        </View>
+
+        {status === 'error' ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setAttempt((value) => value + 1)}
+            style={[styles.button, { backgroundColor: colors.tint }]}
+          >
+            <Text
+              style={[styles.buttonText, { color: colors.primaryForeground }]}
+            >
+              Try again
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </StorefrontScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
+  body: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  button: {
+    alignItems: 'center',
+    borderRadius: 14,
+    minHeight: 52,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
   content: {
-    alignItems: 'stretch',
+    alignItems: 'center',
     flex: 1,
+    gap: 18,
     justifyContent: 'center',
     padding: 24,
   },
+  iconWrap: {
+    alignItems: 'center',
+    borderRadius: 28,
+    borderWidth: 1,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
+  },
   screen: {
     flex: 1,
+  },
+  statusRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  title: {
+    fontSize: 25,
+    fontWeight: '800',
+    lineHeight: 32,
+    textAlign: 'center',
   },
 });

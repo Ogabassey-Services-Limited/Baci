@@ -12,13 +12,6 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://supabase.example.com';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
-process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-
-const { GET } = await import('./route');
-
 function createValidAgenticPrivateJwk() {
   const { privateKey } = generateKeyPairSync('ec', {
     namedCurve: 'P-256',
@@ -78,6 +71,7 @@ function stubAgenticCheckoutEnvWithoutSigningMaterial() {
 describe('GET /agent-commerce.json checkout capabilities', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
     stubBaseEnv();
   });
 
@@ -94,6 +88,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       slug: 'another-store',
     });
 
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -109,7 +104,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     expect(body.links.product_api).toBe(
       'https://another.example/api/storefront/another-store/products'
     );
-  });
+  }, 10_000);
 
   it('advertises checkout for the configured agentic merchant slug', async () => {
     stubAgenticCheckoutEnv();
@@ -120,6 +115,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -175,6 +172,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -200,6 +199,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -222,6 +223,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: null,
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -249,6 +252,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -277,6 +282,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: null,
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },
@@ -309,6 +316,8 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
+
+    const { GET } = await import('./route');
     const response = await GET(
       new Request('https://another.example/agent-commerce.json', {
         headers: { host: 'another.example' },

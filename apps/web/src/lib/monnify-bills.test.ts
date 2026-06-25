@@ -340,7 +340,7 @@ describe('Monnify Bills Client', () => {
       const result = await getCachedBillerProducts('MTN');
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://sandbox.monnify.com/api/v1/vas/bills-payment/biller-products?biller_code=MTN',
+        'https://sandbox.monnify.com/api/v1/vas/bills-payment/biller-products?billerCode=MTN',
         expect.objectContaining({ method: 'GET' })
       );
       expect(result).toEqual([

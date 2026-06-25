@@ -2,15 +2,33 @@
 
 import { useEffect, useRef } from 'react';
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
-import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
 import type { ProductsResult } from '@/lib/products-server';
 import { ProductsPageDialogs } from './products-page-dialogs';
 import { ProductsPageShell } from './products-page-shell';
 import { ProductsPageWorkflowContent } from './products-page-workflow-content';
 import { useProductsPageActions } from './use-products-page-actions';
+
+const _currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(
+  locale: string,
+  currency: string
+): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let formatter = _currencyFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    });
+    _currencyFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
 
 export default function ProductsPage({
   initialData,
@@ -49,10 +67,6 @@ function ProductsPageContent() {
     editingProduct,
   } = useProductContext();
   const { merchant, updateMerchant } = useMerchant();
-  const { formatCurrency } = useCurrencyWithCountry(
-    merchant?.country,
-    merchant?.payout_currency
-  );
   const { toast } = useToast();
   const hasAutoOpenedFromQuery = useRef(false);
 
@@ -113,6 +127,16 @@ function ProductsPageContent() {
     if (params.get('onboarding') === 'true') {
       window.location.href = '/dashboard?setup_complete=products';
     }
+  };
+
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country
+      ? getCountryByCode(merchant.country)
+      : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return getCurrencyFormatter(locale, currency).format(amount);
   };
 
   return (

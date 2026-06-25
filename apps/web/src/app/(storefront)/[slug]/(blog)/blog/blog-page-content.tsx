@@ -2,7 +2,6 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
-import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
@@ -14,10 +13,12 @@ import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import { isDomainIdentifier } from '@/lib/validation';
-import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
-import { getTemplate } from '@/templates/registry';
+import {
+  type BlogPostData,
+  getTemplate,
+  type TemplateBlogPageProps,
+} from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
-import { preloadOgabasseyRootBlogListingHeroImage } from './blog-listing-hero-image-preload';
 import { parseBlogListingPage } from './blog-listing-page-params';
 import { BlogListingPagination } from './blog-listing-pagination';
 import { buildBlogListingRouteHref } from './blog-listing-route';
@@ -74,7 +75,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const basePath = isDomainIdentifier(slug)
     ? ''
     : getBlogStorefrontPathPrefix(await headers(), merchant);
-  const authorLinks = getBlogAuthorPageLinks(slug);
 
   if (currentPage > totalPages) {
     redirect(
@@ -125,12 +125,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       published_at: post.published_at,
       reading_time_minutes: post.reading_time_minutes,
     })),
-  });
-  preloadOgabasseyRootBlogListingHeroImage({
-    category,
-    posts,
-    searchQuery: effectiveSearchQuery,
-    templateId: merchant.template_id,
   });
   const blogSchema = {
     '@context': 'https://schema.org',
@@ -264,7 +258,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             <InformationalClusterIndex collections={guideCollections} />
             <BlogDiscoverySection
               baseUrl={baseUrl}
-              authors={authorLinks}
               categories={publicCategories}
               posts={posts}
             />
@@ -294,7 +287,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       <InformationalClusterIndex collections={guideCollections} />
       <BlogDiscoverySection
         baseUrl={baseUrl}
-        authors={authorLinks}
         categories={publicCategories}
         posts={posts}
       />

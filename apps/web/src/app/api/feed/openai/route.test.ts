@@ -43,13 +43,6 @@ vi.mock('@/lib/cache-headers', () => ({
 
 import { MerchantNotFoundError } from '@/lib/feed-identifier';
 
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://supabase.example.com';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
-process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-
-const { GET } = await import('./route');
-
 interface ProductFixture {
   id: string;
   name: string;
@@ -80,6 +73,13 @@ function makeRequest(path: string) {
   return new NextRequest(`https://ogabassey.usebaci.com${path}`, {
     headers: { host: 'ogabassey.usebaci.com' },
   });
+}
+
+let routeModulePromise: Promise<typeof import('./route')> | null = null;
+
+function importRoute() {
+  routeModulePromise ??= import('./route');
+  return routeModulePromise;
 }
 
 function simpleProduct(
@@ -124,6 +124,7 @@ beforeEach(() => {
 
 describe('GET /api/feed/openai', () => {
   it('returns 400 when merchant identifier is missing', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest('https://usebaci.com/api/feed/openai', {
         headers: { host: 'usebaci.com' },
@@ -138,6 +139,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('returns 400 when both merchant_id and merchant_slug are provided', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest(
         '/api/feed/openai?merchant_id=00000000-0000-4000-8000-000000000001&merchant_slug=ogabassey'
@@ -152,6 +154,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('returns 200 with JSONL for valid slug', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -180,6 +183,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('passes resolved merchant UUID (not slug) to cached data fetcher', async () => {
+    const { GET } = await importRoute();
     await GET(makeRequest('/api/feed/openai?merchant_slug=ogabassey'));
 
     expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
@@ -187,6 +191,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('returns 200 with JSONL for valid merchant_id', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest(
         '/api/feed/openai?merchant_id=00000000-0000-4000-8000-000000000001'
@@ -204,6 +209,7 @@ describe('GET /api/feed/openai', () => {
     mockResolveFeedMerchant.mockRejectedValue(
       new MerchantNotFoundError('nonexistent')
     );
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=nonexistent')
     );
@@ -217,6 +223,7 @@ describe('GET /api/feed/openai', () => {
     mockGetCachedOpenAIFeedData.mockRejectedValue(
       new Error('Failed to fetch products')
     );
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -227,6 +234,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('returns gzipped content when format=jsonl', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=jsonl')
     );
@@ -249,6 +257,8 @@ describe('GET /api/feed/openai', () => {
       slug: 'other-store',
       business_name: 'Other Store',
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://other-store.usebaci.com/api/feed/openai?merchant_slug=ogabassey',
@@ -264,6 +274,8 @@ describe('GET /api/feed/openai', () => {
 
   it('returns 500 when storefront host merchant lookup fails', async () => {
     mockGetMerchantByIdentifier.mockRejectedValue(new Error('boom'));
+
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://other-store.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -296,6 +308,8 @@ describe('GET /api/feed/openai', () => {
         custom_domain: 'ogabassey.com',
       };
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://other-store.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -332,6 +346,8 @@ describe('GET /api/feed/openai', () => {
           }
         : null
     );
+
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://www.ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -351,6 +367,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('uses the canonical merchant URL when the request is not storefront scoped', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -371,6 +388,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('treats IPv6 localhost with a port as not storefront scoped', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'http://[::1]:3000/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -388,6 +406,7 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('resolves localhost subdomains as storefront slug hosts', async () => {
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'http://ogabassey.localhost:3000/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -412,6 +431,8 @@ describe('GET /api/feed/openai', () => {
 
   it('rejects storefront scoped requests when the host cannot be resolved', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://missing.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -440,6 +461,8 @@ describe('GET /api/feed/openai', () => {
         }),
       ],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       new NextRequest(
         'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
@@ -474,6 +497,8 @@ describe('GET /api/feed/openai', () => {
         }),
       ],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
     );
@@ -514,6 +539,8 @@ describe('GET /api/feed/openai', () => {
         }),
       ],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
     );
@@ -551,6 +578,8 @@ describe('GET /api/feed/openai', () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [simpleProduct({ price: 0 })],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
     );
@@ -563,6 +592,8 @@ describe('GET /api/feed/openai', () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [simpleProduct({ price: -1 })],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
     );
@@ -596,6 +627,8 @@ describe('GET /api/feed/openai', () => {
         }),
       ],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
     );
@@ -635,6 +668,8 @@ describe('GET /api/feed/openai', () => {
         }),
       ],
     });
+
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
     );
@@ -649,6 +684,7 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [simpleProduct({ stock: 0, manage_stock: false })],
     });
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -663,6 +699,7 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [simpleProduct({ stock: 0, stock_quantity: 42 })],
     });
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -683,6 +720,7 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
         }),
       ],
     });
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -709,6 +747,7 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
         }),
       ],
     });
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -741,6 +780,7 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
         }),
       ],
     });
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
@@ -784,6 +824,7 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
         }),
       ],
     });
+    const { GET } = await importRoute();
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=ogabassey')
     );
