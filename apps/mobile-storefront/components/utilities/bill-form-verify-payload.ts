@@ -1,4 +1,5 @@
 import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
+import { resolveBillFulfillment } from './resolve-bill-fulfillment';
 
 interface CreateBillFormVerifyPayloadInput {
   customerIdentifier: string;
@@ -13,29 +14,16 @@ export function createBillFormVerifyPayload({
   selectedBillItem,
   selectedBillItemIdentifier,
 }: CreateBillFormVerifyPayloadInput) {
-  // Kuda-display + Monnify-fulfillment: when this DISCO/meter was folded with
-  // Monnify codes, verify through Monnify (instant) using those codes.
-  const monnifyBillerCode = selectedBillItem?.monnifyBillerCode;
-  const monnifyProductCode = selectedBillItem?.monnifyProductCode;
-  if (monnifyBillerCode && monnifyProductCode) {
-    return {
-      billItemIdentifier: selectedBillItemIdentifier,
-      billerCode: monnifyBillerCode,
-      customerIdentifier,
-      productCode: monnifyProductCode,
-      provider: 'monnify' as const,
-    };
-  }
-
-  const provider =
-    selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
+  const { provider, billerCode, productCode } = resolveBillFulfillment(
+    selectedBillItem,
+    selectedBiller,
+    selectedBillItemIdentifier
+  );
   return {
     billItemIdentifier: selectedBillItemIdentifier,
-    billerCode: selectedBillItem?.billerCode ?? selectedBiller.billerCode,
+    billerCode,
     customerIdentifier,
-    productCode:
-      selectedBillItem?.productCode ??
-      (provider === 'monnify' ? selectedBillItemIdentifier : undefined),
+    productCode,
     provider,
   };
 }
