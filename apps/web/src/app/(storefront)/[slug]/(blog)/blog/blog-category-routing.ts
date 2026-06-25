@@ -5,6 +5,15 @@ export function getBlogCategorySlug(category: string): string {
   return generateSlug(category);
 }
 
+const RESERVED_CLEAN_BLOG_CATEGORY_SLUGS = new Set(['product']);
+
+export function canUseCleanBlogCategorySlug(categorySlug: string): boolean {
+  return (
+    Boolean(categorySlug) &&
+    !RESERVED_CLEAN_BLOG_CATEGORY_SLUGS.has(categorySlug)
+  );
+}
+
 function getDistinctCategoryLabels(categories: string[]): string[] {
   return [
     ...new Set(categories.map((category) => category.trim()).filter(Boolean)),
@@ -51,7 +60,10 @@ export function buildBlogCategoryHref(
     basePath === '/' ? '' : basePath.replace(/\/+$/, '');
   const categorySlug = getBlogCategorySlug(category);
 
-  if (!categorySlug || hasBlogCategorySlugCollision(categories, categorySlug)) {
+  if (
+    !canUseCleanBlogCategorySlug(categorySlug) ||
+    hasBlogCategorySlugCollision(categories, categorySlug)
+  ) {
     const query = new URLSearchParams({ category: category.trim() });
 
     return asRoute(`${normalizedBasePath}/blog?${query.toString()}`);
@@ -67,10 +79,12 @@ export function buildBlogCategorySchemaUrl(
   const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
   const categorySlug = getBlogCategorySlug(category);
   const url = new URL(
-    categorySlug ? `blog/category/${categorySlug}` : 'blog',
+    canUseCleanBlogCategorySlug(categorySlug)
+      ? `blog/category/${categorySlug}`
+      : 'blog',
     normalizedBaseUrl
   );
-  if (!categorySlug) {
+  if (!canUseCleanBlogCategorySlug(categorySlug)) {
     url.searchParams.set('category', category.trim());
   }
 
@@ -82,6 +96,9 @@ export function findBlogCategoryLabelBySlug(
   categorySlug: string
 ): string | null {
   const normalizedSlug = categorySlug.toLowerCase();
+  if (!canUseCleanBlogCategorySlug(normalizedSlug)) {
+    return null;
+  }
   if (hasBlogCategorySlugCollision(categories, normalizedSlug)) {
     return null;
   }

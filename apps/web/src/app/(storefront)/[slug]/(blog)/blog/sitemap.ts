@@ -8,7 +8,10 @@ import {
   isPublicBlogCategory,
 } from '@/lib/public-blog-content-quality';
 import { resolveStorefrontSitemapContext } from '../../sitemap-data';
-import { getBlogCategorySlug } from './blog-category-routing';
+import {
+  canUseCleanBlogCategorySlug,
+  getBlogCategorySlug,
+} from './blog-category-routing';
 
 export const preferredRegion = 'dub1';
 
@@ -48,6 +51,10 @@ function getBlogCategorySitemapEntries<TPost extends BlogCategorySitemapPost>(
     }
 
     const key = getBlogCategorySlug(category);
+    if (!canUseCleanBlogCategorySlug(key)) {
+      continue;
+    }
+
     const existing = stats.get(key);
     if (!existing) {
       stats.set(key, {

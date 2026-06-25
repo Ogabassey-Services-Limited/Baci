@@ -222,4 +222,67 @@ describe('blog category sitemap entries', () => {
       'https://ogabassey.com/blog/category/cases-covers'
     );
   });
+
+  it('omits clean category hub entries for unsafe category slugs', async () => {
+    mockNot.mockReturnValue({
+      data: [
+        {
+          slug: 'product-one',
+          title: 'Product One',
+          category: 'Product',
+          published_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-02T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'product-two',
+          title: 'Product Two',
+          category: 'Product',
+          published_at: '2026-05-03T00:00:00Z',
+          updated_at: '2026-05-04T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'product-three',
+          title: 'Product Three',
+          category: 'Product',
+          published_at: '2026-05-05T00:00:00Z',
+          updated_at: '2026-05-06T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'emoji-one',
+          title: 'Emoji One',
+          category: '🔥🔥',
+          published_at: '2026-05-07T00:00:00Z',
+          updated_at: '2026-05-08T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'emoji-two',
+          title: 'Emoji Two',
+          category: '🔥🔥',
+          published_at: '2026-05-09T00:00:00Z',
+          updated_at: '2026-05-10T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'emoji-three',
+          title: 'Emoji Three',
+          category: '🔥🔥',
+          published_at: '2026-05-11T00:00:00Z',
+          updated_at: '2026-05-12T00:00:00Z',
+          featured_image_url: null,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await sitemap();
+    const urls = result.map((entry) => entry.url);
+
+    expect(urls).not.toContain('https://ogabassey.com/blog/category/product');
+    expect(urls).not.toContain('https://ogabassey.com/blog/category/');
+    expect(urls.some((url) => url.includes('/blog?category='))).toBe(false);
+  });
 });

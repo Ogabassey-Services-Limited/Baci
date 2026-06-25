@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBlogCategoryHref,
   buildBlogCategorySchemaUrl,
+  canUseCleanBlogCategorySlug,
   findBlogCategoryLabelBySlug,
   getBlogCategorySlug,
   getCollidingBlogCategorySlugs,
@@ -34,6 +35,16 @@ describe('blog category routing', () => {
       '/ogabassey/blog?category=%F0%9F%94%A5%F0%9F%94%A5'
     );
     expect(buildBlogCategoryHref('', '!!!')).toBe('/blog?category=%21%21%21');
+  });
+
+  it('falls back to query-string category hrefs for proxy-blocked clean slugs', () => {
+    expect(buildBlogCategoryHref('/ogabassey', 'Product')).toBe(
+      '/ogabassey/blog?category=Product'
+    );
+    expect(buildBlogCategorySchemaUrl('https://ogabassey.com', 'Product')).toBe(
+      'https://ogabassey.com/blog?category=Product'
+    );
+    expect(canUseCleanBlogCategorySlug('product')).toBe(false);
   });
 
   it('keeps colliding category slugs on query-string hrefs', () => {
@@ -95,5 +106,9 @@ describe('blog category routing', () => {
 
   it('returns null for unknown slugs', () => {
     expect(findBlogCategoryLabelBySlug(['Smartphones'], 'phones')).toBeNull();
+  });
+
+  it('returns null for proxy-blocked category slugs', () => {
+    expect(findBlogCategoryLabelBySlug(['Product'], 'product')).toBeNull();
   });
 });
