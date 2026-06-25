@@ -1081,6 +1081,7 @@ function buildCategoryProductMetadata({
 // Params not listed here keep rendering on demand (the default PPR behavior
 // under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
 const OGABASSEY_PRERENDER_LIMIT = 50;
+const PRERENDER_PLACEHOLDER_PRODUCT_SLUG = '__prerender_placeholder__';
 // Keep the actively monitored, revenue-critical PDP in the prerender set even
 // when it is older than the newest-products window. This gives the route a
 // static shell and earlier LCP image discovery without expanding build scope.
@@ -1101,7 +1102,7 @@ export async function generateStaticParams(): Promise<
     {
       slug: OGABASSEY_DOMAIN,
       category: 'smartphones',
-      productSlug: '__prerender_placeholder__',
+      productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
     },
   ];
 
@@ -1160,6 +1161,11 @@ export async function generateMetadata({
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
+
+  if (productSlug === PRERENDER_PLACEHOLDER_PRODUCT_SLUG) {
+    return PRODUCT_NOT_FOUND_METADATA;
+  }
+
   const routeControl = await getProductRouteControl(
     slug,
     category,
@@ -1412,6 +1418,10 @@ export default async function CategoryProductPage({
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
+  }
+
+  if (productSlug === PRERENDER_PLACEHOLDER_PRODUCT_SLUG) {
+    return renderCategoryProductNotFoundContent(slug);
   }
 
   const knownOgaBasseyProductPreload = startKnownOgaBasseyPdpProductPreload(

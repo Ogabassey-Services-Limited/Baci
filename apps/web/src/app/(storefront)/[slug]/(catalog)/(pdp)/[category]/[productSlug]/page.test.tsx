@@ -965,6 +965,36 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockGetRequestScopedMerchant).toHaveBeenCalled();
   });
 
+  it('returns noindex placeholder metadata without merchant or product lookups', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: OGABASSEY_DOMAIN,
+        category: 'smartphones',
+        productSlug: '__prerender_placeholder__',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata).toEqual({
+      title: 'Product not found',
+      description: 'This product is unavailable or has moved.',
+      alternates: null,
+      robots: { index: false, follow: true },
+      openGraph: {
+        title: 'Product not found',
+        description: 'This product is unavailable or has moved.',
+      },
+      twitter: {
+        card: 'summary',
+        title: 'Product not found',
+        description: 'This product is unavailable or has moved.',
+      },
+    });
+    expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
   it('builds metadata from the LCP hint without hydrating full product details', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-1',
@@ -2379,6 +2409,29 @@ describe('[category]/[productSlug] page render', () => {
     } finally {
       consoleWarnSpy.mockRestore();
     }
+  });
+
+  it('renders the prerender placeholder without merchant or product lookups', async () => {
+    render(
+      (await CategoryProductPage({
+        params: Promise.resolve({
+          slug: OGABASSEY_DOMAIN,
+          category: 'smartphones',
+          productSlug: '__prerender_placeholder__',
+        }),
+        searchParams: Promise.resolve({}),
+      })) as ReactElement
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Product not found' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Continue shopping' })
+    ).toHaveAttribute('href', '/');
+    expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
   });
 
   it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {
