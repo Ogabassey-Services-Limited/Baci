@@ -1597,11 +1597,17 @@ export async function backfillVtuVoucherPin({
 }) {
   const existingVoucherPin = getVoucherPinFromMetadata(metadata);
   if (existingVoucherPin) {
-    return existingVoucherPin;
+    return { voucherPin: existingVoucherPin, units: undefined };
   }
 
-  if (!billResponseReference && !billRequestRef) {
-    return undefined;
+  // Monnify requery resolves by a persisted vendReference even when this row has
+  // no transaction_id yet, so allow the requery to run when it is present.
+  const monnifyVendReference =
+    typeof metadata?.monnifyVendReference === 'string'
+      ? metadata.monnifyVendReference
+      : undefined;
+  if (!billResponseReference && !billRequestRef && !monnifyVendReference) {
+    return { voucherPin: undefined, units: undefined };
   }
 
   try {
@@ -1612,7 +1618,7 @@ export async function backfillVtuVoucherPin({
     );
     const voucherPin = status ? normalizeVoucherPin(status.pin) : undefined;
     if (!voucherPin) {
-      return undefined;
+      return { voucherPin: undefined, units: undefined };
     }
 
     const { error } = await supabase.rpc('set_vtu_transaction_voucher_pin', {
@@ -1627,27 +1633,13 @@ export async function backfillVtuVoucherPin({
       });
     }
 
-    // Persist delivered units from the requery too, so a token resolved via the
-    // fallback poll still surfaces units on the receipt (parity with the
-    // immediate vend path). Best-effort; never blocks the pin return.
-    const units = status?.units?.trim();
-    if (units) {
-      const { error: unitsError } = await supabase
-        .from('vtu_transactions')
-        .update({ metadata: { ...(metadata ?? {}), voucherPin, units } })
-        .eq('id', transactionId);
-      if (unitsError) {
-        console.error('Failed to persist VTU units:', {
-          error: unitsError.message,
-          transactionId,
-        });
-      }
-    }
-
-    return voucherPin;
+    // Return the delivered units (Monnify requery) so the CALLER persists them
+    // in the same metadata write it already performs — writing them here would
+    // be clobbered by the caller's subsequent `updatedMetadata` write.
+    return { voucherPin, units: status?.units?.trim() || undefined };
   } catch (error) {
     console.error('Failed to backfill VTU voucher pin from Kuda:', error);
-    return undefined;
+    return { voucherPin: undefined, units: undefined };
   }
 }
 
@@ -1663,20 +1655,30 @@ async function resolveSuccessfulVtuTransaction({
   const metadata = { ...(row.metadata ?? {}) };
   let metadataChanged = false;
   const cashbackAmount = Number(row.customer_cashback ?? 0);
-  const voucherPin =
-    normalizeVoucherPin(reconciledVoucherPin) ??
-    (canResolveBillVoucherPin(row.type)
-      ? await backfillVtuVoucherPin({
-          billRequestRef: row.request_reference,
-          billResponseReference: row.transaction_id,
-          metadata: row.metadata,
-          supabase,
-          transactionId: row.id,
-        })
-      : getVoucherPinFromMetadata(row.metadata));
+  let voucherPin = normalizeVoucherPin(reconciledVoucherPin);
+  let backfilledUnits: string | undefined;
+  if (!voucherPin) {
+    if (canResolveBillVoucherPin(row.type)) {
+      const backfilled = await backfillVtuVoucherPin({
+        billRequestRef: row.request_reference,
+        billResponseReference: row.transaction_id,
+        metadata: row.metadata,
+        supabase,
+        transactionId: row.id,
+      });
+      voucherPin = backfilled.voucherPin;
+      backfilledUnits = backfilled.units;
+    } else {
+      voucherPin = getVoucherPinFromMetadata(row.metadata);
+    }
+  }
   if (voucherPin) {
     metadataChanged =
       setMetadataValue(metadata, 'voucherPin', voucherPin) || metadataChanged;
+  }
+  if (backfilledUnits) {
+    metadataChanged =
+      setMetadataValue(metadata, 'units', backfilledUnits) || metadataChanged;
   }
   const walletSettlement = await settleVtuWalletCredits({
     metadata,
@@ -2720,17 +2722,21 @@ export async function fulfillPendingVtuTransaction({
   const backfillMetadata = monnifyVendReference
     ? { ...(row.metadata ?? {}), monnifyVendReference }
     : row.metadata;
-  const voucherPin =
-    normalizeVoucherPin(result.pin) ||
-    (result.success && canResolveBillVoucherPin(row.type)
-      ? await backfillVtuVoucherPin({
-          billRequestRef: row.request_reference,
-          billResponseReference: result.transactionId ?? row.transaction_id,
-          metadata: backfillMetadata,
-          supabase,
-          transactionId: row.id,
-        })
-      : undefined);
+  let voucherPin = normalizeVoucherPin(result.pin);
+  let backfilledUnits: string | undefined;
+  if (!voucherPin && result.success && canResolveBillVoucherPin(row.type)) {
+    const backfilled = await backfillVtuVoucherPin({
+      billRequestRef: row.request_reference,
+      billResponseReference: result.transactionId ?? row.transaction_id,
+      metadata: backfillMetadata,
+      supabase,
+      transactionId: row.id,
+    });
+    voucherPin = backfilled.voucherPin;
+    backfilledUnits = backfilled.units;
+  }
+  // Inline vend units take precedence; otherwise use units resolved via requery.
+  const units = result.units || backfilledUnits;
   const providerErrorDetail = result.success
     ? undefined
     : result.providerErrorDetail?.trim();
@@ -2738,7 +2744,7 @@ export async function fulfillPendingVtuTransaction({
     ...(row.metadata ?? {}),
     ...(result.metadataPatch ?? {}),
     ...(monnifyVendReference && { monnifyVendReference }),
-    ...(result.units && { units: result.units }),
+    ...(units && { units }),
     ...(voucherPin && { voucherPin }),
   };
   if (providerErrorDetail) {

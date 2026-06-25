@@ -277,20 +277,35 @@ export async function scheduleVoucherPinBackfill({
         pinResolved =
           result.status === 'successful' && Boolean(result.voucherPin);
       } else if (transaction.status === 'successful') {
-        const pin =
-          (await backfillVtuVoucherPin({
-            billRequestRef: isString(transaction.request_reference)
-              ? transaction.request_reference
-              : null,
-            billResponseReference: isString(transaction.transaction_id)
-              ? transaction.transaction_id
-              : null,
-            metadata: currentMetadata,
-            supabase,
-            transactionId,
-          })) ?? null;
+        const { voucherPin, units } = await backfillVtuVoucherPin({
+          billRequestRef: isString(transaction.request_reference)
+            ? transaction.request_reference
+            : null,
+          billResponseReference: isString(transaction.transaction_id)
+            ? transaction.transaction_id
+            : null,
+          metadata: currentMetadata,
+          supabase,
+          transactionId,
+        });
 
-        pinResolved = Boolean(pin);
+        pinResolved = Boolean(voucherPin);
+        // backfill persists the pin via RPC but returns units for the owner of
+        // the metadata write to persist; this path has no later write, so do it.
+        if (voucherPin && units) {
+          const { error: unitsError } = await supabase
+            .from('vtu_transactions')
+            .update({
+              metadata: { ...currentMetadata, voucherPin, units },
+            })
+            .eq('id', transactionId);
+          if (unitsError) {
+            console.error('Failed to persist VTU units on backfill:', {
+              error: unitsError.message,
+              transactionId,
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('VTU voucher-pin backfill provider poll failed:', {

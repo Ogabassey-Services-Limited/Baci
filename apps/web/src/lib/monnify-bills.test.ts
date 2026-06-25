@@ -1102,7 +1102,40 @@ describe('Monnify Bills Client', () => {
           'JANE DOE',
           'BACI-REF-123'
         )
-      ).rejects.toThrow('missing transactionReference');
+      ).rejects.toThrow('missing both transaction and vend references');
+    });
+
+    it('accepts a success response that has vendReference but no transactionReference', async () => {
+      // Monnify resolves requery by vendReference, so a vendReference alone is a
+      // valid tracking handle — the vend should not be treated as transient.
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            vendReference: 'MFBP-MDR-12345678-260625173742f9cb',
+            vendStatus: 'SUCCESS',
+            metaData: { token: '1111-2222-3333-4444-5555', unit: '3.2' },
+          },
+        }),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123'
+      );
+      expect(result.status).toBe('successful');
+      expect(result.transactionId).toBe('MFBP-MDR-12345678-260625173742f9cb');
+      expect(result.providerVendReference).toBe(
+        'MFBP-MDR-12345678-260625173742f9cb'
+      );
+      expect(result.pin).toBe('1111-2222-3333-4444-5555');
     });
   });
 
@@ -1157,6 +1190,8 @@ describe('Monnify Bills Client', () => {
       const result = await checkTransactionStatus('MON-TX-123');
       expect(result.status).toBe('successful');
       expect(result.pin).toBe('3772-0340-4164-5060-0336');
+      // Units must also be surfaced so the fallback poll can persist them.
+      expect(result.units).toBe('4.5');
     });
 
     it('supports vendStatus when status is missing', async () => {

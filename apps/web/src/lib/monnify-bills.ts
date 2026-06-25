@@ -550,13 +550,21 @@ export async function purchaseBill(
     }
 
     const transactionReference = body.transactionReference || undefined;
+    const vendReference = body.vendReference || undefined;
 
     const { isSuccess, isProcessing, isFailed } =
       classifyMonnifyBillStatus(body);
 
-    if ((isSuccess || isProcessing) && !transactionReference) {
+    // We need at least one reference to track/requery the vend. Monnify resolves
+    // requery by vendReference, so accept the response when either reference is
+    // present; only treat a totally reference-less success/pending as transient.
+    if (
+      (isSuccess || isProcessing) &&
+      !transactionReference &&
+      !vendReference
+    ) {
       throw new MonnifyTransientVendError(
-        'Monnify vend response missing transactionReference'
+        'Monnify vend response missing both transaction and vend references'
       );
     }
 
@@ -569,9 +577,9 @@ export async function purchaseBill(
     return {
       success: isSuccess || isProcessing,
       reference: requestReference,
-      transactionId: transactionReference,
+      transactionId: transactionReference ?? vendReference,
       // Monnify resolves requery by its own vendReference, not transactionRef.
-      providerVendReference: body?.vendReference || undefined,
+      providerVendReference: vendReference,
       // Token lives at responseBody.metaData.token for prepaid electricity;
       // fall back to a flat token for billers that return it top-level.
       pin: body?.metaData?.token || body?.token || undefined,
