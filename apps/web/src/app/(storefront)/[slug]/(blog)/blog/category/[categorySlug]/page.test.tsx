@@ -10,6 +10,7 @@ import {
 } from '../../blog-page-content.test-utils';
 
 interface MockBlogPageContentProps {
+  itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
     category: string;
@@ -67,6 +68,7 @@ describe('blog category page', () => {
     );
     expect(mockBlogPageContent).toHaveBeenCalledWith(
       expect.objectContaining({
+        itemListSchemaUrl: 'https://ogabassey.com/blog/category/smartphones',
         params: expect.any(Promise),
         searchParams: expect.any(Promise),
       })
@@ -114,6 +116,22 @@ describe('blog category page', () => {
   });
 
   it('keeps searched category hubs noindex with search-scoped canonical data', async () => {
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ search: 'iphone' }),
+      })
+    );
+
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemListSchemaUrl: undefined,
+      })
+    );
+
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: 'ogabassey.com',

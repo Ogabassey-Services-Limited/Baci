@@ -107,7 +107,7 @@ describe('resolveBlogCategoryHub', () => {
     ).resolves.toBeNull();
   });
 
-  it('returns null when category lookup fails', async () => {
+  it('throws when category lookup fails instead of returning a false 404', async () => {
     const query = createCategoryQuery({
       data: [],
       error: { message: 'timeout' },
@@ -118,6 +118,6 @@ describe('resolveBlogCategoryHub', () => {
 
     await expect(
       resolveBlogCategoryHub('ogabassey.com', 'smartphones')
-    ).resolves.toBeNull();
+    ).rejects.toThrow('Failed to load blog categories for category hub');
   });
 });

@@ -55,11 +55,13 @@ export async function resolveBlogCategoryHub(
 
   const { data: categories, error } = await categoriesQuery;
   if (error) {
-    console.warn('Failed to load blog categories for category hub', {
+    console.error('Failed to load blog categories for category hub', {
       merchantId: merchant.id,
       error,
     });
-    return null;
+    throw new Error('Failed to load blog categories for category hub', {
+      cause: error,
+    });
   }
 
   const uniqueCategories = [

@@ -143,9 +143,9 @@ export async function buildBlogListingMetadata({
   const baseDescription = normalizedSearch
     ? `Search results for "${normalizedSearch}" on ${data.merchant.business_name}'s blog.`
     : knownCategoryLabel
-      ? `Read articles, buying guides, comparisons, and shopping updates about ${knownCategoryLabel.toLowerCase()} from ${data.merchant.business_name}.`
+      ? `Read articles and updates about ${knownCategoryLabel.toLowerCase()} from ${data.merchant.business_name}.`
       : normalizedCategory
-        ? `Read ${categoryLabel.toLowerCase()} articles, buying guides, product comparisons, and practical tech updates from ${data.merchant.business_name}.`
+        ? `Read ${categoryLabel.toLowerCase()} articles and updates from ${data.merchant.business_name}.`
         : `Read the latest articles, news, and insights from ${data.merchant.business_name}.`;
   const pageAwareDescription =
     currentPage > 1
@@ -153,7 +153,7 @@ export async function buildBlogListingMetadata({
       : baseDescription;
   const description = generateMetaDescription(pageAwareDescription, 160, {
     minLength: 110,
-    fallback: `Read expert buying guides, product comparisons, and tech updates from ${data.merchant.business_name}. Find practical recommendations tailored for shoppers in Nigeria.`,
+    fallback: `Read articles, updates, and practical insights from ${data.merchant.business_name}.`,
   });
 
   return {

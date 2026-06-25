@@ -112,7 +112,7 @@ describe('DefaultBlogUi', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Read articles, buying guides, comparisons, and shopping updates about smartphones from Ogabassey.'
+        'Read articles and updates about smartphones from Ogabassey.'
       )
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(

@@ -66,7 +66,7 @@ export function DefaultBlogUi({
   const description = searchQuery
     ? `${posts.length} post${posts.length !== 1 ? 's' : ''} found`
     : category
-      ? `Read articles, buying guides, comparisons, and shopping updates about ${category.toLowerCase()} from ${merchant.business_name}.`
+      ? `Read articles and updates about ${category.toLowerCase()} from ${merchant.business_name}.`
       : 'Latest articles, news, and insights';
 
   return (

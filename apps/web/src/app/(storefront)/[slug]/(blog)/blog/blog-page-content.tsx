@@ -31,6 +31,7 @@ import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
+  itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
     category?: BlogSearchParamValue;
@@ -39,7 +40,11 @@ export interface BlogPageProps {
   }>;
 }
 
-export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
+export async function BlogPageContent({
+  itemListSchemaUrl,
+  params,
+  searchParams,
+}: BlogPageProps) {
   const { slug } = await params;
   const searchParamValues = await searchParams;
   const category = toSingleBlogSearchParam(searchParamValues.category);
@@ -170,12 +175,14 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
           '@context': 'https://schema.org',
           '@type': 'ItemList',
           name: `${merchant.business_name} Blog articles`,
-          url: buildBlogListingSchemaUrl({
-            baseUrl,
-            category,
-            page: currentPage,
-            search: effectiveSearchQuery,
-          }),
+          url:
+            itemListSchemaUrl ??
+            buildBlogListingSchemaUrl({
+              baseUrl,
+              category,
+              page: currentPage,
+              search: effectiveSearchQuery,
+            }),
           numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
             '@type': 'ListItem',

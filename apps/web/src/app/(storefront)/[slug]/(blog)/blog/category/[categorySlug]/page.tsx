@@ -64,13 +64,20 @@ export default async function BlogCategoryPage({
     notFound();
   }
 
+  const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
+  const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
+  const currentPage = parseBlogListingPage(page);
+
   return (
     <BlogPageContent
+      itemListSchemaUrl={
+        !search && currentPage === 1 ? hub.canonicalUrl : undefined
+      }
       params={Promise.resolve({ slug })}
       searchParams={Promise.resolve({
         category: hub.categoryLabel,
-        page: toSingleBlogSearchParam(resolvedSearchParams?.page),
-        search: toSingleBlogSearchParam(resolvedSearchParams?.search),
+        page,
+        search,
       })}
     />
   );

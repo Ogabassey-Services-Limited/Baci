@@ -253,6 +253,24 @@ describe('BlogPageContent', () => {
     );
   });
 
+  it('uses the provided canonical URL for ItemList schema URLs', async () => {
+    render(
+      await BlogPageContent({
+        itemListSchemaUrl: 'https://example.com/blog/category/smartphones',
+        params: Promise.resolve({ slug: 'example.com' }),
+        searchParams: Promise.resolve({ category: 'Smartphones' }),
+      })
+    );
+
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemListSchema: expect.objectContaining({
+          url: 'https://example.com/blog/category/smartphones',
+        }),
+      })
+    );
+  });
+
   it('uses domain-relative pagination links on storefront subdomains', async () => {
     mockHeaders.mockReturnValue(
       new Headers([['x-merchant-slug', 'ogabassey']])
