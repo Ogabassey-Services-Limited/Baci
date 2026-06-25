@@ -84,7 +84,6 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
               <Link
                 href={asRoute(slide.href)}
                 prefetch={false}
-                aria-label={linkLabel}
                 className="absolute inset-0"
               >
                 <span className="sr-only">{linkLabel}</span>
