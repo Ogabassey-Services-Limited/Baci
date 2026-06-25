@@ -1,3 +1,9 @@
+import {
+  buildTelLink,
+  buildWhatsAppLink,
+  type NegotiationCartLine,
+  type NegotiationItemInfo,
+} from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
@@ -5,6 +11,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -17,37 +24,49 @@ import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
 
+type NegotiationStatus = 'pending' | 'accepted' | 'rejected' | 'countered';
+
 interface NegotiationRequest {
   id: string;
   customer_id: string | null;
   type: 'single' | 'total';
-  status: 'pending' | 'accepted' | 'rejected' | 'countered';
+  status: NegotiationStatus;
   offered_price: number;
   current_price: number | null;
-  item_info: {
-    name: string;
-    image?: string;
-    current_price?: number;
-  } | null;
+  item_info: NegotiationItemInfo | null;
+  cart_snapshot: NegotiationCartLine[] | null;
+  customer_phone: string | null;
   created_at: string;
   evidence_url?: string;
 }
+
+const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
+const EVIDENCE_SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 // Module-scope helpers keep try/throw out of the component body so React
 // Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
 async function loadNegotiationRequests(
   merchantId: string
 ): Promise<NegotiationRequest[]> {
+  // NOTE: `negotiation_requests` has no top-level `current_price` column —
+  // selecting it returns a 400 ("column does not exist") and breaks the whole
+  // screen. The pre-offer price lives in `item_info.current_price` (single-item
+  // offers only); whole-cart "total" offers carry no per-item price. Derive the
+  // display price from item_info so the query stays valid.
   const { data, error } = await supabase
     .from('negotiation_requests')
     .select(
-      'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+      'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url'
     )
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data || [];
+
+  return (data ?? []).map((row) => ({
+    ...row,
+    current_price: row.item_info?.current_price ?? null,
+  })) as NegotiationRequest[];
 }
 
 async function updateNegotiationStatus(
@@ -59,9 +78,76 @@ async function updateNegotiationStatus(
     .from('negotiation_requests')
     .update({ status })
     .eq('id', id)
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .eq('status', 'pending');
 
   if (error) throw error;
+}
+
+// Open a link in the OS handler (browser, dialer, WhatsApp). Best-effort: an
+// unsupported or malformed URL surfaces a friendly alert instead of throwing.
+async function openExternalUrl(url: string): Promise<void> {
+  try {
+    if (/^tel:/i.test(url)) {
+      await Linking.openURL(url);
+      return;
+    }
+
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      Alert.alert('Cannot open link', url);
+      return;
+    }
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('Cannot open link', url);
+  }
+}
+
+function isRemoteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function isStorageObjectPath(value: string): boolean {
+  return !value.includes('://') && value.includes('/') && value.length <= 1024;
+}
+
+// Customers attach evidence as a URL (competitor link), a durable Supabase
+// Storage object path, or legacy placeholder text. Storage paths are private, so
+// mint a fresh signed URL at view time; placeholders stay readable as text.
+async function openEvidence(evidenceUrl: string): Promise<void> {
+  if (isRemoteUrl(evidenceUrl)) {
+    await openExternalUrl(evidenceUrl);
+    return;
+  }
+
+  if (isStorageObjectPath(evidenceUrl)) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(NEGOTIATION_EVIDENCE_BUCKET)
+        .createSignedUrl(evidenceUrl, EVIDENCE_SIGNED_URL_TTL_SECONDS);
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error('Missing signed URL');
+      }
+      await openExternalUrl(data.signedUrl);
+    } catch {
+      Alert.alert('Cannot open evidence', 'Unable to open the uploaded proof.');
+    }
+    return;
+  }
+
+  Alert.alert('Customer evidence', evidenceUrl);
+}
+
+// Short WhatsApp/SMS opener referencing the offer so the merchant doesn't have
+// to retype context. Falls back to the item name or a generic cart label.
+function formatNegotiationStatus(status: NegotiationStatus): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function buildFollowUpMessage(request: NegotiationRequest): string {
+  const item = request.item_info?.name ?? 'your cart';
+  return `Hi! About your negotiation offer on ${item} — `;
 }
 
 export default function NegotiationsScreen() {
@@ -71,6 +157,7 @@ export default function NegotiationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
   // setState happens only inside promise callbacks (never synchronously), so
@@ -238,57 +325,177 @@ export default function NegotiationsScreen() {
           )}
       </View>
 
+      {item.cart_snapshot && item.cart_snapshot.length > 0 ? (
+        <View style={styles.cartSection}>
+          <Pressable
+            style={styles.cartToggle}
+            onPress={() =>
+              setExpandedId((current) => (current === item.id ? null : item.id))
+            }
+            accessibilityRole="button"
+            accessibilityLabel={
+              expandedId === item.id
+                ? 'Hide cart items'
+                : `View ${item.cart_snapshot.length} cart items`
+            }
+          >
+            <Ionicons name="cart-outline" size={16} color={palette.gray[600]} />
+            <Text style={styles.cartToggleText}>
+              {expandedId === item.id
+                ? 'Hide items'
+                : `View ${item.cart_snapshot.length} ${
+                    item.cart_snapshot.length === 1 ? 'item' : 'items'
+                  }`}
+            </Text>
+            <Ionicons
+              name={expandedId === item.id ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={palette.gray[600]}
+            />
+          </Pressable>
+
+          {expandedId === item.id ? (
+            <View style={styles.cartItems}>
+              {item.cart_snapshot.map((line, index) => (
+                <View
+                  key={`${line.product_id}-${line.variant_id ?? index}`}
+                  style={styles.cartLine}
+                >
+                  <Text style={styles.cartLineQty}>{line.quantity}×</Text>
+                  <View style={styles.cartLineBody}>
+                    <Text style={styles.cartLineName} numberOfLines={2}>
+                      {line.name}
+                    </Text>
+                    {line.variant_name || line.condition ? (
+                      <Text style={styles.cartLineMeta} numberOfLines={1}>
+                        {[line.variant_name, line.condition]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.cartLinePrice}>
+                    {formatPrice(line.price * line.quantity)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {item.evidence_url ? (
         <Pressable
           style={styles.evidenceButton}
-          onPress={() =>
-            Alert.alert(
-              'Evidence',
-              'Evidence image viewing pending implementation'
-            )
-          }
+          onPress={() => void openEvidence(item.evidence_url as string)}
+          accessibilityRole="button"
+          accessibilityLabel="View customer evidence"
         >
           <Ionicons
             name="image-outline"
             size={16}
             color={palette.blue?.[500] || '#3B82F6'}
           />
-          <Text style={styles.evidenceText}>Customer attached evidence</Text>
+          <Text style={styles.evidenceText}>View customer evidence</Text>
         </Pressable>
       ) : null}
 
-      <View style={styles.actionRow}>
-        <Pressable
-          style={[
-            styles.actionButton,
-            styles.rejectButton,
-            actionLoadingId === item.id && styles.disabledButton,
-          ]}
-          onPress={() => handleAction(item.id, 'rejected')}
-          disabled={actionLoadingId !== null}
-        >
-          {actionLoadingId === item.id ? (
-            <ActivityIndicator size="small" color={palette.gray[600]} />
-          ) : (
-            <Text style={styles.rejectButtonText}>Reject</Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={[
-            styles.actionButton,
-            styles.acceptButton,
-            actionLoadingId === item.id && styles.disabledButton,
-          ]}
-          onPress={() => handleAction(item.id, 'accepted')}
-          disabled={actionLoadingId !== null}
-        >
-          {actionLoadingId === item.id ? (
-            <ActivityIndicator size="small" color={palette.white} />
-          ) : (
-            <Text style={styles.acceptButtonText}>Accept Offer</Text>
-          )}
-        </Pressable>
-      </View>
+      {item.customer_phone ? (
+        <View style={styles.contactRow}>
+          {buildTelLink(item.customer_phone) ? (
+            <Pressable
+              style={[styles.contactButton, styles.callButton]}
+              onPress={() =>
+                openExternalUrl(buildTelLink(item.customer_phone) as string)
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Call customer"
+            >
+              <Ionicons name="call" size={16} color={palette.gray[700]} />
+              <Text style={styles.callButtonText}>Call</Text>
+            </Pressable>
+          ) : null}
+          {buildWhatsAppLink(
+            item.customer_phone,
+            buildFollowUpMessage(item)
+          ) ? (
+            <Pressable
+              style={[styles.contactButton, styles.whatsappButton]}
+              onPress={() =>
+                openExternalUrl(
+                  buildWhatsAppLink(
+                    item.customer_phone,
+                    buildFollowUpMessage(item)
+                  ) as string
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Message customer on WhatsApp"
+            >
+              <Ionicons name="logo-whatsapp" size={16} color={palette.white} />
+              <Text style={styles.whatsappButtonText}>WhatsApp</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {item.status === 'pending' ? (
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.rejectButton,
+              actionLoadingId === item.id && styles.disabledButton,
+            ]}
+            onPress={() => handleAction(item.id, 'rejected')}
+            disabled={actionLoadingId !== null}
+          >
+            {actionLoadingId === item.id ? (
+              <ActivityIndicator size="small" color={palette.gray[600]} />
+            ) : (
+              <Text style={styles.rejectButtonText}>Reject</Text>
+            )}
+          </Pressable>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.acceptButton,
+              actionLoadingId === item.id && styles.disabledButton,
+            ]}
+            onPress={() => handleAction(item.id, 'accepted')}
+            disabled={actionLoadingId !== null}
+          >
+            {actionLoadingId === item.id ? (
+              <ActivityIndicator size="small" color={palette.white} />
+            ) : (
+              <Text style={styles.acceptButtonText}>Accept Offer</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.statusOutcomeRow}>
+          <Text style={styles.statusOutcomeLabel}>Status</Text>
+          <View
+            style={[
+              styles.statusOutcomeBadge,
+              item.status === 'accepted' && styles.statusAcceptedBadge,
+              item.status === 'rejected' && styles.statusRejectedBadge,
+              item.status === 'countered' && styles.statusCounteredBadge,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusOutcomeText,
+                item.status === 'accepted' && styles.statusAcceptedText,
+                item.status === 'rejected' && styles.statusRejectedText,
+                item.status === 'countered' && styles.statusCounteredText,
+              ]}
+            >
+              {formatNegotiationStatus(item.status)}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -325,6 +532,7 @@ export default function NegotiationsScreen() {
         data={requests}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        extraData={expandedId}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -434,6 +642,57 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.red[700],
   },
+  cartSection: {
+    marginBottom: SPACING.md,
+  },
+  cartToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: SPACING.xs,
+  },
+  cartToggleText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.gray[600],
+  },
+  cartItems: {
+    marginTop: SPACING.xs,
+    borderTopWidth: 1,
+    borderTopColor: palette.gray[100],
+    paddingTop: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  cartLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  cartLineQty: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.gray[500],
+    minWidth: 28,
+  },
+  cartLineBody: {
+    flex: 1,
+  },
+  cartLineName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: palette.gray[900],
+  },
+  cartLineMeta: {
+    fontSize: 11,
+    color: palette.gray[500],
+    marginTop: 2,
+  },
+  cartLinePrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.gray[700],
+  },
   evidenceButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,9 +704,78 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     fontWeight: '500',
   },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: SPACING.md,
+  },
+  contactButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  callButton: {
+    borderWidth: 1,
+    borderColor: palette.gray[200],
+  },
+  callButtonText: {
+    color: palette.gray[700],
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  whatsappButton: {
+    backgroundColor: '#25D366',
+  },
+  whatsappButtonText: {
+    color: palette.white,
+    fontWeight: '600',
+    fontSize: 13,
+  },
   actionRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  statusOutcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statusOutcomeLabel: {
+    color: palette.gray[500],
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statusOutcomeBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  statusAcceptedBadge: {
+    backgroundColor: palette.emerald[400],
+  },
+  statusRejectedBadge: {
+    backgroundColor: palette.red[50],
+  },
+  statusCounteredBadge: {
+    backgroundColor: palette.amber[100],
+  },
+  statusOutcomeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  statusAcceptedText: {
+    color: palette.gray[950],
+  },
+  statusRejectedText: {
+    color: palette.red[700],
+  },
+  statusCounteredText: {
+    color: palette.amber[700],
   },
   actionButton: {
     flex: 1,

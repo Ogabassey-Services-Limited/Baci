@@ -530,6 +530,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
           merchantId={merchant.id}
+          cart={cart}
         />
       )}
 
