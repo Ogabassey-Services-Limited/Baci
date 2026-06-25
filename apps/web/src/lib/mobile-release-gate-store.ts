@@ -69,7 +69,7 @@ async function readDbLiveBuild(
  */
 export async function readLatestLiveBuild(
   platform: MobileReleasePolicyPlatform,
-  client?: SupabaseClient
+  client: SupabaseClient
 ): Promise<number | null> {
   const now = Date.now();
   const cached = liveBuildCache.get(platform);
@@ -79,9 +79,7 @@ export async function readLatestLiveBuild(
 
   let value: number | null = null;
   try {
-    // Created lazily inside the try so a missing service-role key (e.g. in
-    // tests) degrades to the env fallback instead of throwing.
-    value = await readDbLiveBuild(client ?? createAdminClient(), platform);
+    value = await readDbLiveBuild(client, platform);
   } catch (error) {
     logger.error({
       message: 'mobile_release_gate read threw',

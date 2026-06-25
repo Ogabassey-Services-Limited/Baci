@@ -11,6 +11,7 @@ import {
   readMobilePlatformEnv,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Manual fallback only - DO NOT enable Vercel Cron for this route.
 // Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
@@ -55,9 +56,10 @@ export async function GET(request: NextRequest) {
 
   const results: PlatformOutcome[] = [];
   let errored = 0;
+  const supabase = createAdminClient();
 
   for (const platform of PLATFORMS) {
-    const latestBuild = await readLatestLiveBuild(platform);
+    const latestBuild = await readLatestLiveBuild(platform, supabase);
     if (latestBuild === null) {
       results.push({ platform, skipped: 'no_latest_build' });
       continue;

@@ -129,8 +129,12 @@ describe('writeLatestLiveBuild', () => {
       client
     );
 
-    // No client passed: a cache miss would call createAdminClient() and throw,
-    // so a clean return proves the write populated the cache.
-    await expect(readLatestLiveBuild('ios')).resolves.toBe(400);
+    const readClient = {
+      from: vi.fn(() => {
+        throw new Error('cache miss should not read the DB');
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(readLatestLiveBuild('ios', readClient)).resolves.toBe(400);
   });
 });

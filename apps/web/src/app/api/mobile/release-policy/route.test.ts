@@ -1,6 +1,14 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const mocks = vi.hoisted(() => ({
+  createClient: vi.fn(async () => ({ from: vi.fn() })),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mocks.createClient,
+}));
+
 // The route resolves the latest live build via the DB-backed gate store. Here we
 // delegate to the LATEST_BUILD env var (the store's own fallback) so these tests
 // stay env-driven and never touch Supabase.
@@ -9,8 +17,10 @@ vi.mock('@/lib/mobile-release-gate-store', async () => {
     typeof import('@/lib/mobile-update-gate')
   >('@/lib/mobile-update-gate');
   return {
-    readLatestLiveBuild: async (platform: 'android' | 'ios') =>
-      parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
+    readLatestLiveBuild: async (
+      platform: 'android' | 'ios',
+      _client: unknown
+    ) => parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
   };
 });
 
@@ -32,6 +42,7 @@ async function callGet(query: Record<string, string | undefined>) {
 
 describe('GET /api/mobile/release-policy', () => {
   afterEach(() => {
+    vi.clearAllMocks();
     vi.unstubAllEnvs();
   });
 
@@ -50,6 +61,7 @@ describe('GET /api/mobile/release-policy', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(mocks.createClient).not.toHaveBeenCalled();
     expect(body).toEqual({
       enabled: false,
       latestNativeVersion: null,
@@ -76,6 +88,7 @@ describe('GET /api/mobile/release-policy', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid release policy query');
+    expect(mocks.createClient).not.toHaveBeenCalled();
   });
 
   it('requires a native update when installed version is below the platform minimum', async () => {
@@ -102,6 +115,7 @@ describe('GET /api/mobile/release-policy', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mocks.createClient).toHaveBeenCalledTimes(1);
     expect(body).toMatchObject({
       enabled: true,
       latestNativeVersion: '2.2.0',

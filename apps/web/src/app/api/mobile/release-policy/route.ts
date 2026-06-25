@@ -5,6 +5,7 @@ import {
   readMobilePlatformEnv,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
+import { createClient } from '@/lib/supabase/server';
 import { mobileReleasePolicyQuerySchema } from '@/schemas/mobile-release-policy';
 
 const NO_STORE_HEADERS = {
@@ -90,8 +91,11 @@ export async function GET(request: NextRequest) {
     readMobilePlatformEnv(platform, 'MIN_BUILD')
   );
   // DB-first (the App Store's actual live build, kept current by the
-  // ios-live-build-sync cron), falling back to the LATEST_BUILD env var.
-  const latestNativeBuild = await readLatestLiveBuild(platform);
+  // ios-live-build-sync cron), falling back to the LATEST_BUILD env var. The
+  // table has an explicit public RLS read policy, so this public route must use
+  // the request-scoped server client instead of a service-role fallback.
+  const supabase = await createClient();
+  const latestNativeBuild = await readLatestLiveBuild(platform, supabase);
   const installedBuild = parseBuildNumber(buildNumber);
   const storeUrl = readMobilePlatformEnv(platform, 'STORE_URL');
   const message =
