@@ -11,9 +11,13 @@
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
+import {
+  fetchCustomerLoginEmailPrefillForRedirect,
+  sanitizeCustomerLoginEmailPrefill,
+} from '@/lib/customer-login-prefill';
 import { asRoute } from '@/lib/routes';
 import { Logo as OgabasseyLogo } from '../Logo';
 import {
@@ -37,9 +41,22 @@ import { sanitizeRedirect } from './utils';
  * - LoginFooter: Footer branding
  */
 export function OgabasseyLoginPage() {
+  return (
+    <Suspense
+      fallback={<LoadingScreen message="Loading Ogabassey sign-in..." />}
+    >
+      <OgabasseyLoginPageContent />
+    </Suspense>
+  );
+}
+
+function OgabasseyLoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = sanitizeRedirect(searchParams.get('redirect'));
+  const initialEmail = sanitizeCustomerLoginEmailPrefill(
+    searchParams.get('email')
+  );
 
   const { loading: merchantLoading } = useMerchant();
   const { isAuthenticated, isLoading: authLoading } = useCustomerAuth();
@@ -64,7 +81,7 @@ export function OgabasseyLoginPage() {
     handleGoogleSignIn,
     handleAppleSignIn,
     codeInputRefs,
-  } = useOgabasseyLogin({ redirectTo });
+  } = useOgabasseyLogin({ initialEmail, redirectTo });
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -72,6 +89,28 @@ export function OgabasseyLoginPage() {
       router.push(asRoute(redirectTo));
     }
   }, [authLoading, isAuthenticated, router, redirectTo]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (initialEmail || email) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void fetchCustomerLoginEmailPrefillForRedirect(redirectTo).then(
+      (emailHint) => {
+        if (!cancelled && emailHint) {
+          setEmail(emailHint);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [email, initialEmail, redirectTo, setEmail]);
 
   // Show loading screen while checking auth/merchant
   if (merchantLoading || authLoading) {

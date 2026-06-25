@@ -2,21 +2,10 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
 
-const mockAuthenticateApiRequest = vi.fn();
-const mockCheckCsrfProtection = vi.fn();
 const mockCreateClient = vi.fn();
 const mockConsoleError = vi
   .spyOn(console, 'error')
   .mockImplementation(() => undefined);
-
-vi.mock('@/lib/api-auth', () => ({
-  authenticateApiRequest: (...args: unknown[]) =>
-    mockAuthenticateApiRequest(...args),
-}));
-
-vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
-}));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockCreateClient(),
@@ -27,7 +16,7 @@ import { GET } from './route';
 const baseClaim = {
   claimed_at: null,
   claimed_by_user_id: null,
-  customer_email: 'basseybjohn@yahoo.co.uk',
+  customer_email: '  BasseyBJohn@Yahoo.CO.UK  ',
   customer_id: 'customer-1',
   customer_name: 'Bassey John',
   expires_at: '2099-01-01T00:00:00.000Z',
@@ -37,18 +26,7 @@ const baseClaim = {
     business_name: 'Ogabassey',
     slug: 'ogabassey',
   },
-  orders: [
-    {
-      id: 'order-1',
-      order_items: [{ name: 'iPhone 16 Pro Max', quantity: 1 }],
-      order_number: '06485',
-    },
-    {
-      id: 'order-2',
-      order_items: [{ name: 'AirPods Pro', quantity: 2 }],
-      order_number: '06484',
-    },
-  ],
+  orders: [],
 };
 
 function createSupabaseRpcMock(response: { data: unknown; error: unknown }) {
@@ -59,14 +37,14 @@ function createSupabaseRpcMock(response: { data: unknown; error: unknown }) {
 
 function getRequest() {
   return new NextRequest(
-    'http://localhost:3000/api/storefront/receipts/claims/claim-token'
+    'http://localhost:3000/api/storefront/receipts/claims/claim-token/login-email'
   );
 }
 
 const params = { params: Promise.resolve({ token: 'claim-token' }) };
 const invalidParams = { params: Promise.resolve({ token: 'bad token' }) };
 
-describe('GET /api/storefront/receipts/claims/[token]', () => {
+describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsoleError.mockClear();
@@ -81,7 +59,7 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
-  it('returns claim preview details for a valid token', async () => {
+  it('returns a sanitized email hint for a valid claim token', async () => {
     const supabase = createSupabaseRpcMock({ data: baseClaim, error: null });
     mockCreateClient.mockResolvedValue(supabase);
 
@@ -92,23 +70,12 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
-    expect(body).toMatchObject({
-      claim: {
-        claimed: false,
-        customerName: 'Bassey John',
-        devices: ['iPhone 16 Pro Max', '2 x AirPods Pro'],
-        merchantName: 'Ogabassey',
-      },
-    });
-    expect(body.claim).not.toHaveProperty('customerEmail');
+    expect(body).toEqual({ emailHint: 'basseybjohn@yahoo.co.uk' });
   });
 
-  it('uses a generic merchant fallback when the claim merchant has no name', async () => {
+  it('returns an empty email hint when claim data has an invalid email', async () => {
     const supabase = createSupabaseRpcMock({
-      data: {
-        ...baseClaim,
-        merchant: { business_name: null, slug: null },
-      },
+      data: { ...baseClaim, customer_email: 'not-an-email' },
       error: null,
     });
     mockCreateClient.mockResolvedValue(supabase);
@@ -117,10 +84,10 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.claim.merchantName).toBe('Store');
+    expect(body).toEqual({ emailHint: '' });
   });
 
-  it('returns 404 when the receipt claim is not found', async () => {
+  it('returns 404 when no claim matches the token', async () => {
     const supabase = createSupabaseRpcMock({ data: null, error: null });
     mockCreateClient.mockResolvedValue(supabase);
 
@@ -131,24 +98,7 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     expect(body).toEqual({ error: 'Receipt claim link not found' });
   });
 
-  it('returns 410 for expired claims', async () => {
-    const supabase = createSupabaseRpcMock({
-      data: {
-        ...baseClaim,
-        expires_at: '2020-01-01T00:00:00.000Z',
-      },
-      error: null,
-    });
-    mockCreateClient.mockResolvedValue(supabase);
-
-    const response = await GET(getRequest(), params);
-    const body = await response.json();
-
-    expect(response.status).toBe(410);
-    expect(body).toEqual({ error: 'Receipt claim link has expired' });
-  });
-
-  it('returns a generic 500 when loading the receipt claim fails', async () => {
+  it('returns a generic 500 when loading the email hint fails', async () => {
     const supabase = createSupabaseRpcMock({
       data: null,
       error: { message: 'relation receipt_claims_secret does not exist' },
@@ -159,23 +109,10 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to load receipt claim' });
-    expect(JSON.stringify(body)).not.toContain('receipt_claims_secret');
-    expect(mockConsoleError).toHaveBeenCalled();
-  });
-
-  it('returns a generic 500 when preview RPC data is malformed', async () => {
-    const supabase = createSupabaseRpcMock({
-      data: { id: 'claim-1' },
-      error: null,
+    expect(body).toEqual({
+      error: 'Failed to load receipt claim login email',
     });
-    mockCreateClient.mockResolvedValue(supabase);
-
-    const response = await GET(getRequest(), params);
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to load receipt claim' });
+    expect(JSON.stringify(body)).not.toContain('receipt_claims_secret');
     expect(mockConsoleError).toHaveBeenCalled();
   });
 });

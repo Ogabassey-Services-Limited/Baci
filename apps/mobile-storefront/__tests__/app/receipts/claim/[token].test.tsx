@@ -108,7 +108,11 @@ describe('ReceiptClaimScreen', () => {
     global.fetch = originalFetch;
   });
 
-  it('preserves the claim route when unauthenticated customers are sent to login', () => {
+  it('preserves the claim route and email hint when unauthenticated customers are sent to login', () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      email: '  BasseyBJohn@Yahoo.CO.UK  ',
+      token: 'claim-token',
+    });
     mockUseRequireAuth.mockReturnValue({
       isLoading: false,
       redirectTo: '/auth/login?returnTo=%2Freceipts%2Fclaim%2Fclaim-token',
@@ -117,10 +121,36 @@ describe('ReceiptClaimScreen', () => {
     render(<ReceiptClaimScreen />);
 
     expect(mockRedirect).toHaveBeenCalledWith({
-      href: '/auth/login?returnTo=%2Freceipts%2Fclaim%2Fclaim-token',
+      href: '/auth/login?returnTo=%2Freceipts%2Fclaim%2Fclaim-token&email=basseybjohn%40yahoo.co.uk',
     });
     expect(mockGetSession).not.toHaveBeenCalled();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('loads the login email hint from the claim token before redirecting unauthenticated customers', async () => {
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: '/auth/login?returnTo=%2Freceipts%2Fclaim%2Fclaim-token',
+    });
+    mockFetch.mockResolvedValue({
+      json: async () => ({ emailHint: '  BasseyBJohn@Yahoo.CO.UK  ' }),
+      ok: true,
+    });
+
+    render(<ReceiptClaimScreen />);
+
+    expect(screen.getByText('Preparing sign-in...')).toBeOnTheScreen();
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://ogabassey.com/api/storefront/receipts/claims/claim-token/login-email',
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: '/auth/login?returnTo=%2Freceipts%2Fclaim%2Fclaim-token&email=basseybjohn%40yahoo.co.uk',
+      });
+    });
+    expect(mockGetSession).not.toHaveBeenCalled();
   });
 
   it('redeems the claim with the current bearer session and opens the API redirect path', async () => {
@@ -128,7 +158,7 @@ describe('ReceiptClaimScreen', () => {
 
     expect(
       screen.getByText(
-        'We are moving this receipt into the app so you can access it any time.'
+        'We are linking it to your signed-in account, then your receipts panel will open automatically.'
       )
     ).toBeOnTheScreen();
 
