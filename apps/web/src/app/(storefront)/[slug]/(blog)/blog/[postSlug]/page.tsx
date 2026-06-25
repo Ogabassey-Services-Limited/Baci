@@ -13,6 +13,7 @@ import {
   getBlogPostTextPreview,
 } from './blog-post-content';
 import BlogPostPageContent from './blog-post-page-content';
+import { getResolvedBlogPost } from './get-resolved-blog-post';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -148,15 +149,15 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const { isEnabled: isDraftMode } = await draftMode();
   if (!isDraftMode) {
-    let publicPost: Awaited<ReturnType<typeof getCachedBlogPost>>;
+    let publicPost: Awaited<ReturnType<typeof getResolvedBlogPost>>;
     try {
-      publicPost = await getCachedBlogPost(
+      publicPost = await getResolvedBlogPost(
         resolvedParams.slug,
         resolvedParams.postSlug,
         false
       );
     } catch (error) {
-      console.error('Error fetching cached public blog post at page boundary', {
+      console.error('Error resolving public blog post at page boundary', {
         slug: resolvedParams.slug,
         postSlug: resolvedParams.postSlug,
         error,

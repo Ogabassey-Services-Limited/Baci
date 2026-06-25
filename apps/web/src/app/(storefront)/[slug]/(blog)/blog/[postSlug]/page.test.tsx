@@ -7,6 +7,7 @@ import {
   mockDraftMode,
   mockGetBlogPostRedirect,
   mockGetCachedBlogPost,
+  mockGetLiveBlogPost,
   mockPermanentRedirect,
   resetBlogPostPageMocks,
 } from './page.test-utils';
@@ -66,6 +67,7 @@ describe('storefront blog post page', () => {
 
   it('returns notFound for missing public blog post slugs outside draft mode', async () => {
     mockGetCachedBlogPost.mockResolvedValueOnce(null);
+    mockGetLiveBlogPost.mockResolvedValueOnce(null);
 
     await expect(loadBlogPostPage('smartphones')).rejects.toThrow(
       'NEXT_NOT_FOUND'
@@ -77,15 +79,34 @@ describe('storefront blog post page', () => {
       'smartphones',
       false
     );
+    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'smartphones',
+      false
+    );
     expect(mockBlogPostPageContent).not.toHaveBeenCalled();
   });
 
-  it('propagates public post lookup errors outside draft mode', async () => {
+  it('renders public posts when the cache misses but the live fallback resolves', async () => {
+    mockGetCachedBlogPost.mockResolvedValueOnce(null);
+
+    render(await loadBlogPostPage('apple-studio-display-review'));
+
+    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'apple-studio-display-review',
+      false
+    );
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+  });
+
+  it('propagates public post live fallback errors outside draft mode', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const lookupError = new Error('public post cache unavailable');
-    mockGetCachedBlogPost.mockRejectedValueOnce(lookupError);
+    const lookupError = new Error('public post live fallback unavailable');
+    mockGetCachedBlogPost.mockResolvedValueOnce(null);
+    mockGetLiveBlogPost.mockRejectedValueOnce(lookupError);
 
     await expect(
       loadBlogPostPage('apple-studio-display-review')
@@ -93,7 +114,7 @@ describe('storefront blog post page', () => {
 
     expect(mockBlogPostPageContent).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error fetching cached public blog post at page boundary',
+      'Error resolving public blog post at page boundary',
       expect.objectContaining({
         slug: 'ogabassey.com',
         postSlug: 'apple-studio-display-review',
@@ -112,6 +133,7 @@ describe('storefront blog post page', () => {
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
   });
 
   it('permanently redirects retired blog slugs before rendering the streamed shell', async () => {

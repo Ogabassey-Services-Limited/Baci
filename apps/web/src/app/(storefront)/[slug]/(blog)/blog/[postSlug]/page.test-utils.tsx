@@ -23,6 +23,7 @@ const pageMockState = vi.hoisted(() => ({
     throw new Error('NEXT_NOT_FOUND');
   }),
   mockGetCachedBlogPost: vi.fn(),
+  mockGetLiveBlogPost: vi.fn(),
   mockConnection: vi.fn(),
 }));
 
@@ -36,6 +37,7 @@ export const mockDraftMode = pageMockState.mockDraftMode;
 export const mockHeaders = pageMockState.mockHeaders;
 export const mockNotFound = pageMockState.mockNotFound;
 export const mockGetCachedBlogPost = pageMockState.mockGetCachedBlogPost;
+export const mockGetLiveBlogPost = pageMockState.mockGetLiveBlogPost;
 export const mockConnection = pageMockState.mockConnection;
 
 vi.mock('next/headers', () => ({
@@ -55,6 +57,11 @@ vi.mock('next/server', () => ({
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogPost: (...args: unknown[]) =>
     pageMockState.mockGetCachedBlogPost(...args),
+}));
+
+vi.mock('@/lib/live-blog-post', () => ({
+  getLiveBlogPost: (...args: unknown[]) =>
+    pageMockState.mockGetLiveBlogPost(...args),
 }));
 
 vi.mock('@/lib/blog-post-redirects', () => ({
@@ -134,6 +141,8 @@ export function resetBlogPostPageMocks() {
   mockDraftMode.mockResolvedValue({ isEnabled: false });
   mockGetCachedBlogPost.mockReset();
   mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
+  mockGetLiveBlogPost.mockReset();
+  mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
   mockHeaders.mockResolvedValue(new Headers());
   mockBlogPostPageContent.mockReset();
   mockBlogPostPageContent.mockImplementation(() => (
