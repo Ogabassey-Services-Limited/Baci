@@ -612,7 +612,7 @@ export async function purchaseBill(
 
 export async function checkTransactionStatus(
   transactionReference: string
-): Promise<{ status: string; message: string; pin?: string }> {
+): Promise<{ status: string; message: string; pin?: string; units?: string }> {
   // Monnify's bills requery expects `reference`, not `transactionReference`
   // (the latter 400s with "Required request parameter 'reference' is not
   // present"). Note: the token is delivered inline in the vend response
@@ -636,6 +636,7 @@ export async function checkTransactionStatus(
         status: 'successful',
         message: parsed.responseMessage || 'success',
         pin: body.metaData?.token || body.token || undefined,
+        units: body.metaData?.unit || undefined,
       };
     }
     if (isProcessing) {

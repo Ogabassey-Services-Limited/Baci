@@ -1627,6 +1627,23 @@ export async function backfillVtuVoucherPin({
       });
     }
 
+    // Persist delivered units from the requery too, so a token resolved via the
+    // fallback poll still surfaces units on the receipt (parity with the
+    // immediate vend path). Best-effort; never blocks the pin return.
+    const units = status?.units?.trim();
+    if (units) {
+      const { error: unitsError } = await supabase
+        .from('vtu_transactions')
+        .update({ metadata: { ...(metadata ?? {}), voucherPin, units } })
+        .eq('id', transactionId);
+      if (unitsError) {
+        console.error('Failed to persist VTU units:', {
+          error: unitsError.message,
+          transactionId,
+        });
+      }
+    }
+
     return voucherPin;
   } catch (error) {
     console.error('Failed to backfill VTU voucher pin from Kuda:', error);
