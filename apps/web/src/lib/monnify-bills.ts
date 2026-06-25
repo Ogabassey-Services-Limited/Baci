@@ -369,6 +369,15 @@ export async function verifyBillCustomer(
       }
     );
 
+    // TEMP DIAGNOSTIC: log the raw Monnify validate-customer envelope so we can
+    // see whether it carries a customer address (our Zod schema strips unknown
+    // keys before they reach the caller). Remove once the address question is
+    // resolved.
+    console.log(
+      '[monnify-bills] validate-customer raw envelope:',
+      JSON.stringify({ productCode, envelope })
+    );
+
     const parsed = monnifyEnvelopeSchema(
       validateCustomerResponseBodySchema
     ).parse(envelope);
@@ -441,6 +450,14 @@ export async function purchaseBill(
       timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS,
       body: JSON.stringify(payload),
     });
+
+    // TEMP DIAGNOSTIC: log the raw Monnify vend envelope (token, units, and any
+    // customer address the biller returns are stripped by our schema otherwise).
+    // Remove once the address question is resolved.
+    console.log(
+      '[monnify-bills] vend raw envelope:',
+      JSON.stringify({ productCode, envelope })
+    );
 
     const parsedEnvelope = monnifyEnvelopeSchema(vendResponseBodySchema).parse(
       envelope
