@@ -9,6 +9,12 @@ export async function WishListContent({
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
   const merchantCountry = merchant?.country ?? null;
+  const merchantPayoutCurrency = merchant?.payout_currency ?? null;
 
-  return <WishListPageClient merchantCountry={merchantCountry} />;
+  return (
+    <WishListPageClient
+      merchantCountry={merchantCountry}
+      merchantPayoutCurrency={merchantPayoutCurrency}
+    />
+  );
 }
