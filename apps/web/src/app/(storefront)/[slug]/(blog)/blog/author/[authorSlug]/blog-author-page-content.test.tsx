@@ -130,7 +130,7 @@ describe('BlogAuthorPageContent', () => {
       name: 'Bassey John',
       sameAs: [
         'https://www.linkedin.com/in/bassey-john-6a277885',
-        'https://x.com/digitalogaa',
+        'https://twitter.com/digitalogaa',
       ],
     });
     mockGetCachedBlogAuthor.mockResolvedValue(authorData);
@@ -162,7 +162,7 @@ describe('BlogAuthorPageContent', () => {
     );
     expect(screen.getByRole('link', { name: 'X' })).toHaveAttribute(
       'href',
-      'https://x.com/digitalogaa'
+      'https://twitter.com/digitalogaa'
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
