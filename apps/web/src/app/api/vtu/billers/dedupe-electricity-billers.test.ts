@@ -61,7 +61,7 @@ function monnifyBiller(code: string, name: string): NormalizedBiller {
 
 describe('dedupeElectricityBillers', () => {
   it('attaches matching Monnify pre/post codes onto the Kuda bill items', () => {
-    const { billers, matchedMonnifyBillerCodes } = dedupeElectricityBillers(
+    const { billers, matchedMonnifyProducts } = dedupeElectricityBillers(
       [kudaBiller()],
       [
         monnifyBiller(
@@ -82,8 +82,12 @@ describe('dedupeElectricityBillers', () => {
     expect(prepaid?.monnifyBillerCode).toBe('biller-ekedc-pre');
     expect(prepaid?.monnifyProductCode).toBe('biller-ekedc-pre');
     expect(postpaid?.monnifyBillerCode).toBe('biller-ekedc-post');
-    expect(matchedMonnifyBillerCodes.has('biller-ekedc-pre')).toBe(true);
-    expect(matchedMonnifyBillerCodes.has('biller-ekedc-post')).toBe(true);
+    expect(
+      matchedMonnifyProducts.get('biller-ekedc-pre')?.has('biller-ekedc-pre')
+    ).toBe(true);
+    expect(
+      matchedMonnifyProducts.get('biller-ekedc-post')?.has('biller-ekedc-post')
+    ).toBe(true);
     // Display stays Kuda (logo + short name preserved).
     expect(billers[0]?.provider).toBe('kuda');
     expect(billers[0]?.billerIconUrl).toBe('https://cdn.kuda.com/ekedc.png');
@@ -179,16 +183,19 @@ describe('dedupeElectricityBillers', () => {
       billItems: [kudaBiller().billItems?.[0] ?? []].flat(),
     };
 
-    const { matchedMonnifyBillerCodes } = dedupeElectricityBillers(
+    const { matchedMonnifyProducts } = dedupeElectricityBillers(
       [kudaPrepaidOnly],
       [multiProduct]
     );
-    // Not fully matched → must NOT be dropped from display.
-    expect(matchedMonnifyBillerCodes.has('biller-ekedc')).toBe(false);
+    // Only the prepaid product folded; postpaid stays unmatched so the route
+    // prunes prepaid but keeps the postpaid product on the retained card.
+    const folded = matchedMonnifyProducts.get('biller-ekedc');
+    expect(folded?.has('eko-pre')).toBe(true);
+    expect(folded?.has('eko-post')).toBe(false);
   });
 
   it('leaves Kuda items untouched when no Monnify DISCO matches', () => {
-    const { billers, matchedMonnifyBillerCodes } = dedupeElectricityBillers(
+    const { billers, matchedMonnifyProducts } = dedupeElectricityBillers(
       [kudaBiller()],
       [monnifyBiller('biller-phedc-pre', 'Port Harcourt Electricity Prepaid')]
     );
@@ -197,6 +204,6 @@ describe('dedupeElectricityBillers', () => {
       (i) => i.itemName === 'EKEDC PREPAID'
     );
     expect(prepaid?.monnifyBillerCode).toBeUndefined();
-    expect(matchedMonnifyBillerCodes.size).toBe(0);
+    expect(matchedMonnifyProducts.size).toBe(0);
   });
 });
