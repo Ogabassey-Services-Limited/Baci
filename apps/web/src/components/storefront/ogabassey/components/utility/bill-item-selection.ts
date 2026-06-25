@@ -8,6 +8,9 @@ export interface BillItem {
   provider?: 'kuda' | 'monnify';
   billerCode?: string;
   productCode?: string;
+  /** Monnify fulfillment codes folded onto a Kuda-display electricity item. */
+  monnifyBillerCode?: string;
+  monnifyProductCode?: string;
   billItems?: BillItem[];
 }
 
