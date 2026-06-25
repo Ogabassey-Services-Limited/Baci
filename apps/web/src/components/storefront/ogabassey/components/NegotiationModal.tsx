@@ -2,13 +2,18 @@
 
 // Migrated from temp-source/components/NegotiationModal.tsx
 import {
+  buildCartSnapshot,
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+  type NegotiationCartLine,
+  normalizePhoneToE164,
+  summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
+import type { CartItem } from '@/hooks/cart';
 import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
@@ -22,6 +27,22 @@ interface NegotiationModalProps {
   type: 'single' | 'total';
   itemId?: string;
   merchantId: string;
+  /** Cart lines to snapshot for whole-cart ("total") offers. */
+  cart?: CartItem[];
+}
+
+/** Map a web cart line into the platform-neutral negotiation snapshot shape. */
+function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
+  return {
+    product_id: item.id,
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+    image: item.image,
+    variant_id: item.variantId,
+    brand: item.brand,
+    condition: item.condition,
+  };
 }
 
 type NegotiationStatus =
@@ -84,6 +105,8 @@ interface NegotiationRequestInput {
   currentPrice: number;
   offeredPrice: number;
   evidenceUrl?: string;
+  customerPhone?: string | null;
+  cart?: CartItem[];
 }
 
 async function insertNegotiationRequest(
@@ -99,6 +122,17 @@ async function insertNegotiationRequest(
     console.warn('Auth check failed, continuing as guest:', authError.message);
   }
 
+  // Whole-cart offers snapshot the cart so the merchant can see what's being
+  // negotiated; single offers keep their existing per-product item_info.
+  const cartSnapshot =
+    request.type === 'total' && request.cart
+      ? buildCartSnapshot(request.cart.map(toNegotiationCartLine))
+      : [];
+  const totalItemInfo =
+    request.type === 'total'
+      ? summarizeCartForItemInfo(cartSnapshot, request.currentPrice)
+      : null;
+
   const { error } = await supabase.from('negotiation_requests').insert({
     merchant_id: request.merchantId,
     session_id: getOrCreateSessionId(),
@@ -111,9 +145,13 @@ async function insertNegotiationRequest(
             name: request.productName,
             current_price: request.currentPrice,
           }
-        : null,
+        : totalItemInfo,
+    cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
     offered_price: request.offeredPrice,
     evidence_url: request.evidenceUrl || null,
+    // Optional follow-up number (null when blank/invalid) so the merchant can
+    // reach guests who'd otherwise get no decision notification.
+    customer_phone: normalizePhoneToE164(request.customerPhone),
     status: 'pending',
   });
 
@@ -131,10 +169,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   type,
   itemId,
   merchantId,
+  cart,
 }) => {
   const offerInputId = useId();
   const uploadFileInputId = useId();
   const uploadLinkInputId = useId();
+  const phoneInputId = useId();
   const isNegotiableProduct = isProductNegotiable({
     brand: productBrand,
     name: productName,
@@ -150,6 +190,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   // Upload Evidence State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
+  // Optional follow-up contact captured alongside the merchant-approval evidence.
+  const [phone, setPhone] = useState('');
   const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
@@ -193,6 +235,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
+      setPhone('');
     }
   }
 
@@ -411,6 +454,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         currentPrice,
         offeredPrice: offerAmount,
         evidenceUrl,
+        customerPhone: phone,
+        cart,
       });
 
       if (!canApplyAsyncResult()) {
@@ -689,6 +734,29 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   placeholder="https://example.com/product"
                   className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
                 />
+              </div>
+
+              {/* Phone / WhatsApp (Optional) */}
+              <div>
+                <label
+                  htmlFor={phoneInputId}
+                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+                >
+                  Phone / WhatsApp (Optional)
+                </label>
+                <input
+                  id={phoneInputId}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. 0803 123 4567"
+                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
+                />
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  So the merchant can reach you about this offer.
+                </p>
               </div>
 
               {/* Buttons */}

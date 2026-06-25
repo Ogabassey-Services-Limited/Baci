@@ -35,4 +35,20 @@ describe('navigateToNotificationTarget', () => {
     expect(router.push).toHaveBeenNthCalledWith(2, '/(admin)/(tabs)');
     expect(router.push).toHaveBeenCalledTimes(2);
   });
+
+  it('routes negotiation notifications to the list screen (no detail route exists)', () => {
+    const router = { push: vi.fn() };
+
+    // A negotiation push carries an id, but there is no `negotiations/[id]`
+    // screen — routing to it throws "Unmatched Route". Both the id and no-id
+    // cases must land on the list screen.
+    navigateToNotificationTarget(router, {
+      params: { id: 'abc-123' },
+      screen: 'negotiation',
+    });
+    navigateToNotificationTarget(router, { screen: 'negotiations' });
+
+    expect(router.push).toHaveBeenNthCalledWith(1, '/(admin)/negotiations');
+    expect(router.push).toHaveBeenNthCalledWith(2, '/(admin)/negotiations');
+  });
 });

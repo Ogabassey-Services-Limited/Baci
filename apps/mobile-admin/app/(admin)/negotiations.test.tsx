@@ -6,8 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   channelOn: vi.fn(),
   channelSubscribe: vi.fn(),
+  canOpenURL: vi.fn().mockResolvedValue(true),
   merchant: { id: 'merchant-1' } as { id?: string } | null,
   notificationAsync: vi.fn().mockResolvedValue(undefined),
+  openURL: vi.fn().mockResolvedValue(undefined),
   queryCalls: [] as Array<{ method: string; args: unknown[] }>,
   removeChannel: vi.fn(),
   selectResult: null as QueryResult | null,
@@ -127,6 +129,10 @@ vi.mock('react-native', () => {
     ActivityIndicator: () => <MockText>loading</MockText>,
     Alert: { alert: vi.fn() },
     Dimensions: { get: () => ({ height: 844, width: 390 }) },
+    Linking: {
+      canOpenURL: (...args: unknown[]) => mocks.canOpenURL(...args),
+      openURL: (...args: unknown[]) => mocks.openURL(...args),
+    },
     Pressable: ({
       children,
       disabled,
@@ -194,6 +200,148 @@ describe('NegotiationsScreen', () => {
     expect(mocks.queryCalls.some(({ method }) => method === 'update')).toBe(
       false
     );
+  });
+
+  it('reveals the itemized cart snapshot for a bulk offer when expanded', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          evidence_url: null,
+          id: 'negotiation-total-1',
+          item_info: { name: '3 items: iPhone 15 Pro, Galaxy S24' },
+          cart_snapshot: [
+            {
+              product_id: 'p1',
+              name: 'iPhone 15 Pro',
+              price: 1_200_000,
+              quantity: 1,
+              condition: 'new',
+            },
+            {
+              product_id: 'p2',
+              name: 'Galaxy S24',
+              price: 900_000,
+              quantity: 2,
+            },
+          ],
+          offered_price: 420_000,
+          status: 'pending',
+          type: 'total',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    // Collapsed by default: line items are hidden behind the toggle.
+    const toggle = await screen.findByText('View 2 items');
+    expect(screen.queryByText('iPhone 15 Pro')).toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+    expect(screen.getByText('Galaxy S24')).toBeInTheDocument();
+    // Quantity-aware line total: 900,000 × 2 (currency symbol varies by ICU).
+    expect(screen.getByText(/1,800,000/)).toBeInTheDocument();
+    expect(screen.getByText('Hide items')).toBeInTheDocument();
+  });
+
+  it('opens WhatsApp and a dialer for a customer with a phone number', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: 'customer-9',
+          customer_phone: '0803 123 4567',
+          evidence_url: null,
+          id: 'negotiation-phone-1',
+          item_info: { name: 'Wireless Headphones' },
+          offered_price: 8_500,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('WhatsApp'));
+    await waitFor(() => {
+      expect(mocks.openURL).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/2348031234567')
+      );
+    });
+
+    fireEvent.click(screen.getByText('Call'));
+    await waitFor(() => {
+      expect(mocks.openURL).toHaveBeenCalledWith('tel:+2348031234567');
+    });
+  });
+
+  it('hides contact buttons when no phone number was captured', async () => {
+    render(<NegotiationsScreen />);
+
+    await screen.findByText('Accept Offer');
+    expect(screen.queryByText('WhatsApp')).toBeNull();
+    expect(screen.queryByText('Call')).toBeNull();
+  });
+
+  it('opens the evidence link in the OS handler', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          customer_phone: null,
+          evidence_url: 'https://x.com/i/status/123',
+          id: 'negotiation-evidence-1',
+          item_info: { name: 'Wireless Headphones' },
+          offered_price: 8_500,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('View customer evidence'));
+    await waitFor(() => {
+      expect(mocks.openURL).toHaveBeenCalledWith('https://x.com/i/status/123');
+    });
+  });
+
+  it('shows non-URL evidence as text instead of opening a link', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          customer_phone: null,
+          evidence_url: 'uploaded_evidence_placeholder',
+          id: 'negotiation-evidence-2',
+          item_info: { name: 'Wireless Headphones' },
+          offered_price: 8_500,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('View customer evidence'));
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Customer evidence',
+      'uploaded_evidence_placeholder'
+    );
+    expect(mocks.openURL).not.toHaveBeenCalled();
   });
 
   it('shows an error when the scoped Supabase update fails', async () => {

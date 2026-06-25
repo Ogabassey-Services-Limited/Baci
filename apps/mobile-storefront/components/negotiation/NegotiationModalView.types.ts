@@ -32,8 +32,10 @@ export interface NegotiationModalViewProps {
   onSuccessAction: () => void;
   onTryAgain: () => void;
   onUploadLinkChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
   onUploadSubmit: () => void;
   offer: string;
+  phone: string;
   productName: string;
   status: NegotiationStatus;
   submittedActionLabel?: string;

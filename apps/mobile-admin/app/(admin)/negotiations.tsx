@@ -1,3 +1,8 @@
+import {
+  buildTelLink,
+  buildWhatsAppLink,
+  type NegotiationCartLine,
+} from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
@@ -5,6 +10,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -29,6 +35,8 @@ interface NegotiationRequest {
     image?: string;
     current_price?: number;
   } | null;
+  cart_snapshot: NegotiationCartLine[] | null;
+  customer_phone: string | null;
   created_at: string;
   evidence_url?: string;
 }
@@ -38,16 +46,25 @@ interface NegotiationRequest {
 async function loadNegotiationRequests(
   merchantId: string
 ): Promise<NegotiationRequest[]> {
+  // NOTE: `negotiation_requests` has no top-level `current_price` column —
+  // selecting it returns a 400 ("column does not exist") and breaks the whole
+  // screen. The pre-offer price lives in `item_info.current_price` (single-item
+  // offers only); whole-cart "total" offers carry no per-item price. Derive the
+  // display price from item_info so the query stays valid.
   const { data, error } = await supabase
     .from('negotiation_requests')
     .select(
-      'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+      'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url'
     )
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data || [];
+
+  return (data ?? []).map((row) => ({
+    ...row,
+    current_price: row.item_info?.current_price ?? null,
+  })) as NegotiationRequest[];
 }
 
 async function updateNegotiationStatus(
@@ -64,6 +81,39 @@ async function updateNegotiationStatus(
   if (error) throw error;
 }
 
+// Open a link in the OS handler (browser, dialer, WhatsApp). Best-effort: an
+// unsupported or malformed URL surfaces a friendly alert instead of throwing.
+async function openExternalUrl(url: string): Promise<void> {
+  try {
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      Alert.alert('Cannot open link', url);
+      return;
+    }
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('Cannot open link', url);
+  }
+}
+
+// Customers attach evidence as a URL (competitor link) or an uploaded image
+// URL. Legacy/guest rows can hold non-URL placeholder text — show it as-is so
+// the merchant can still read what was submitted rather than opening nothing.
+function openEvidence(evidenceUrl: string): void {
+  if (/^https?:\/\//i.test(evidenceUrl)) {
+    void openExternalUrl(evidenceUrl);
+    return;
+  }
+  Alert.alert('Customer evidence', evidenceUrl);
+}
+
+// Short WhatsApp/SMS opener referencing the offer so the merchant doesn't have
+// to retype context. Falls back to the item name or a generic cart label.
+function buildFollowUpMessage(request: NegotiationRequest): string {
+  const item = request.item_info?.name ?? 'your cart';
+  return `Hi! About your negotiation offer on ${item} — `;
+}
+
 export default function NegotiationsScreen() {
   const { merchant } = useMerchant();
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
@@ -71,6 +121,7 @@ export default function NegotiationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
   // setState happens only inside promise callbacks (never synchronously), so
@@ -238,23 +289,118 @@ export default function NegotiationsScreen() {
           )}
       </View>
 
+      {item.cart_snapshot && item.cart_snapshot.length > 0 ? (
+        <View style={styles.cartSection}>
+          <Pressable
+            style={styles.cartToggle}
+            onPress={() =>
+              setExpandedId((current) => (current === item.id ? null : item.id))
+            }
+            accessibilityRole="button"
+            accessibilityLabel={
+              expandedId === item.id
+                ? 'Hide cart items'
+                : `View ${item.cart_snapshot.length} cart items`
+            }
+          >
+            <Ionicons name="cart-outline" size={16} color={palette.gray[600]} />
+            <Text style={styles.cartToggleText}>
+              {expandedId === item.id
+                ? 'Hide items'
+                : `View ${item.cart_snapshot.length} ${
+                    item.cart_snapshot.length === 1 ? 'item' : 'items'
+                  }`}
+            </Text>
+            <Ionicons
+              name={expandedId === item.id ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={palette.gray[600]}
+            />
+          </Pressable>
+
+          {expandedId === item.id ? (
+            <View style={styles.cartItems}>
+              {item.cart_snapshot.map((line, index) => (
+                <View
+                  key={`${line.product_id}-${line.variant_id ?? index}`}
+                  style={styles.cartLine}
+                >
+                  <Text style={styles.cartLineQty}>{line.quantity}×</Text>
+                  <View style={styles.cartLineBody}>
+                    <Text style={styles.cartLineName} numberOfLines={2}>
+                      {line.name}
+                    </Text>
+                    {line.variant_name || line.condition ? (
+                      <Text style={styles.cartLineMeta} numberOfLines={1}>
+                        {[line.variant_name, line.condition]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.cartLinePrice}>
+                    {formatPrice(line.price * line.quantity)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {item.evidence_url ? (
         <Pressable
           style={styles.evidenceButton}
-          onPress={() =>
-            Alert.alert(
-              'Evidence',
-              'Evidence image viewing pending implementation'
-            )
-          }
+          onPress={() => openEvidence(item.evidence_url as string)}
+          accessibilityRole="button"
+          accessibilityLabel="View customer evidence"
         >
           <Ionicons
             name="image-outline"
             size={16}
             color={palette.blue?.[500] || '#3B82F6'}
           />
-          <Text style={styles.evidenceText}>Customer attached evidence</Text>
+          <Text style={styles.evidenceText}>View customer evidence</Text>
         </Pressable>
+      ) : null}
+
+      {item.customer_phone ? (
+        <View style={styles.contactRow}>
+          {buildTelLink(item.customer_phone) ? (
+            <Pressable
+              style={[styles.contactButton, styles.callButton]}
+              onPress={() =>
+                openExternalUrl(buildTelLink(item.customer_phone) as string)
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Call customer"
+            >
+              <Ionicons name="call" size={16} color={palette.gray[700]} />
+              <Text style={styles.callButtonText}>Call</Text>
+            </Pressable>
+          ) : null}
+          {buildWhatsAppLink(
+            item.customer_phone,
+            buildFollowUpMessage(item)
+          ) ? (
+            <Pressable
+              style={[styles.contactButton, styles.whatsappButton]}
+              onPress={() =>
+                openExternalUrl(
+                  buildWhatsAppLink(
+                    item.customer_phone,
+                    buildFollowUpMessage(item)
+                  ) as string
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Message customer on WhatsApp"
+            >
+              <Ionicons name="logo-whatsapp" size={16} color={palette.white} />
+              <Text style={styles.whatsappButtonText}>WhatsApp</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       <View style={styles.actionRow}>
@@ -434,6 +580,57 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.red[700],
   },
+  cartSection: {
+    marginBottom: SPACING.md,
+  },
+  cartToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: SPACING.xs,
+  },
+  cartToggleText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.gray[600],
+  },
+  cartItems: {
+    marginTop: SPACING.xs,
+    borderTopWidth: 1,
+    borderTopColor: palette.gray[100],
+    paddingTop: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  cartLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  cartLineQty: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.gray[500],
+    minWidth: 28,
+  },
+  cartLineBody: {
+    flex: 1,
+  },
+  cartLineName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: palette.gray[900],
+  },
+  cartLineMeta: {
+    fontSize: 11,
+    color: palette.gray[500],
+    marginTop: 2,
+  },
+  cartLinePrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.gray[700],
+  },
   evidenceButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -444,6 +641,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3B82F6',
     fontWeight: '500',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: SPACING.md,
+  },
+  contactButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  callButton: {
+    borderWidth: 1,
+    borderColor: palette.gray[200],
+  },
+  callButtonText: {
+    color: palette.gray[700],
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  whatsappButton: {
+    backgroundColor: '#25D366',
+  },
+  whatsappButtonText: {
+    color: palette.white,
+    fontWeight: '600',
+    fontSize: 13,
   },
   actionRow: {
     flexDirection: 'row',

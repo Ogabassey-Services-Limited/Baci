@@ -8,8 +8,10 @@ type NegotiationUploadFormProps = {
   message: string;
   uploadFile: string | null;
   uploadLink: string;
+  phone: string;
   onPickImage: () => void;
   onUploadLinkChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
   onBackFromUpload: () => void;
   onUploadSubmit: () => void;
 };
@@ -18,8 +20,10 @@ export function NegotiationUploadForm({
   message,
   uploadFile,
   uploadLink,
+  phone,
   onPickImage,
   onUploadLinkChange,
+  onPhoneChange,
   onBackFromUpload,
   onUploadSubmit,
 }: NegotiationUploadFormProps) {
@@ -49,6 +53,21 @@ export function NegotiationUploadForm({
         placeholder="Paste competitor product URL"
         placeholderTextColor={palette.gray[400]}
         autoCapitalize="none"
+      />
+      <Text style={styles.inputLabel}>Phone / WhatsApp (optional)</Text>
+      <Text style={styles.uploadHelp}>
+        Add a number so the merchant can reach you about this offer.
+      </Text>
+      <TextInput
+        style={styles.linkInput}
+        value={phone}
+        onChangeText={onPhoneChange}
+        placeholder="e.g. 0803 123 4567"
+        placeholderTextColor={palette.gray[400]}
+        keyboardType="phone-pad"
+        autoCapitalize="none"
+        autoComplete="tel"
+        textContentType="telephoneNumber"
       />
       <View style={styles.uploadActions}>
         <Pressable style={styles.backButton} onPress={onBackFromUpload}>

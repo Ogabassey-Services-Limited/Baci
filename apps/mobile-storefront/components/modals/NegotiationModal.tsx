@@ -17,6 +17,7 @@ export const NegotiationModal: React.FC = () => {
       }))
     );
   const merchantId = useAuthStore((state) => state.merchantId);
+  const customerPhone = useAuthStore((state) => state.customer?.phone);
 
   const applyNegotiatedPrice = useCartStore(
     (state) => state.applyNegotiatedPrice
@@ -24,6 +25,9 @@ export const NegotiationModal: React.FC = () => {
   const applyCartWideNegotiation = useCartStore(
     (state) => state.applyCartWideNegotiation
   );
+  // Live cart lines, snapshotted into the request for whole-cart ("total")
+  // offers so the merchant can see which items the offer covers.
+  const cartItems = useCartStore((state) => state.items);
 
   const type = negotiationContext?.type ?? 'single';
   const itemId = negotiationContext?.itemId ?? null;
@@ -44,9 +48,11 @@ export const NegotiationModal: React.FC = () => {
     message,
     offer,
     openUpload,
+    phone,
     pickImage,
     resetToInput,
     setOffer,
+    setPhone,
     setUploadLink,
     status,
     uploadFile,
@@ -66,6 +72,8 @@ export const NegotiationModal: React.FC = () => {
     successMessageFormatter: (price) => `New price: ${formatPrice(price)}`,
     type,
     visible: isNegotiationModalOpen && Boolean(negotiationContext),
+    cartItems,
+    prefillPhone: customerPhone,
   });
 
   if (!isNegotiationModalOpen || !negotiationContext) return null;
@@ -93,7 +101,9 @@ export const NegotiationModal: React.FC = () => {
       attemptCount={attemptCount}
       uploadFile={uploadFile}
       uploadLink={uploadLink}
+      phone={phone}
       onUploadLinkChange={setUploadLink}
+      onPhoneChange={setPhone}
       onClose={closeNegotiation}
       onSubmitOffer={handleSubmitOffer}
       onAcceptCounter={handleAcceptCounter}

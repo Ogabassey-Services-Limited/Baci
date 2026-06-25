@@ -1,12 +1,15 @@
 import {
-  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  buildCartSnapshot,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+  normalizePhoneToE164,
+  summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import type { ImpactFeedbackStyle } from 'expo-haptics';
 import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import type { CartItem } from '@/stores/cart-store';
 import type { NegotiationStatus } from './NegotiationModalView';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import {
@@ -18,6 +21,10 @@ import {
   getNegotiationHapticsModule,
   getNegotiationImagePickerModule,
 } from './negotiation-native-modules';
+import {
+  computeCounterOffer,
+  toNegotiationCartLine,
+} from './negotiation-offer-helpers';
 
 const log = createLogger('NegotiationModal');
 void ensureNegotiationNativeModules();
@@ -37,6 +44,10 @@ interface UseNegotiationModalControllerParams {
   successMessageFormatter: (price: number) => string;
   type: 'single' | 'total';
   visible: boolean;
+  /** Live cart lines to snapshot for whole-cart ("total") offers. */
+  cartItems?: CartItem[];
+  /** Phone to prefill the follow-up field with for signed-in customers. */
+  prefillPhone?: string;
 }
 
 export function useNegotiationModalController({
@@ -48,6 +59,8 @@ export function useNegotiationModalController({
   successMessageFormatter,
   type,
   visible,
+  cartItems,
+  prefillPhone,
 }: UseNegotiationModalControllerParams) {
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
@@ -56,6 +69,7 @@ export function useNegotiationModalController({
   const [counterOffer, setCounterOffer] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<string | null>(null);
   const [uploadLink, setUploadLink] = useState('');
+  const [phone, setPhone] = useState(prefillPhone ?? '');
 
   const [prevVisible, setPrevVisible] = useState(visible);
   if (visible !== prevVisible) {
@@ -67,6 +81,7 @@ export function useNegotiationModalController({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
+      setPhone(prefillPhone ?? '');
       if (isNegotiable === false) {
         setStatus('final');
         setMessage('This is already the best price.');
@@ -84,7 +99,9 @@ export function useNegotiationModalController({
 
     hapticsModule
       .impactAsync(style ?? hapticsModule.ImpactFeedbackStyle.Light)
-      .catch(() => {});
+      .catch(() => {
+        // Haptics are best-effort; ignore failures (e.g. unsupported device).
+      });
   };
 
   const handleSubmitOffer = (offerAmount: number) => {
@@ -111,19 +128,10 @@ export function useNegotiationModalController({
         return;
       }
 
-      const counterStepIndex = Math.min(
+      const { proposedCounter, replyMessage } = computeCounterOffer(
         attemptCount,
-        COUNTER_NEGOTIATION_DISCOUNT_STEPS.length - 1
+        currentPrice
       );
-      const counterDiscount =
-        COUNTER_NEGOTIATION_DISCOUNT_STEPS[counterStepIndex];
-      const replyMessage =
-        counterStepIndex === 0
-          ? "That's a bit low. But I can do:"
-          : counterStepIndex === 1
-            ? "We're getting closer. The best I can do is:"
-            : 'This is my absolute final offer:';
-      const proposedCounter = Math.floor(currentPrice * (1 - counterDiscount));
 
       if (attemptCount >= NEGOTIATION_CHEAPER_BUTTON_THRESHOLD) {
         setStatus('upload');
@@ -174,6 +182,17 @@ export function useNegotiationModalController({
         data: { user },
       } = await supabase.auth.getUser();
 
+      // Whole-cart offers snapshot the cart so the merchant can see what's being
+      // negotiated; single offers keep their existing per-product item_info.
+      const cartSnapshot =
+        type === 'total' && cartItems
+          ? buildCartSnapshot(cartItems.map(toNegotiationCartLine))
+          : [];
+      const totalItemInfo =
+        type === 'total'
+          ? summarizeCartForItemInfo(cartSnapshot, currentPrice)
+          : null;
+
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: merchantId,
         session_id: createNegotiationSessionId(),
@@ -186,9 +205,13 @@ export function useNegotiationModalController({
                 name: itemInfo.name,
                 current_price: itemInfo.currentPrice,
               }
-            : null,
+            : totalItemInfo,
+        cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,
+        // Optional follow-up number (null when blank/invalid) so the merchant
+        // can reach guests who'd otherwise get no decision notification.
+        customer_phone: normalizePhoneToE164(phone),
         status: 'pending',
       });
 
@@ -263,9 +286,11 @@ export function useNegotiationModalController({
     message,
     offer,
     openUpload: () => setStatus('upload'),
+    phone,
     pickImage,
     resetToInput: () => setStatus('input'),
     setOffer,
+    setPhone,
     setUploadLink,
     status,
     uploadFile,

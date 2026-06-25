@@ -384,6 +384,51 @@ describe('NegotiationModal', () => {
     expect(insertPayload.session_id).not.toBe('web-session');
   });
 
+  it('persists a normalized customer_phone when one is entered', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const phoneInput = screen.getByLabelText(
+      'Phone / WhatsApp (Optional)'
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: '0803 123 4567' } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].customer_phone).toBe('2348031234567');
+  });
+
+  it('sends a null customer_phone when the field is left blank', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].customer_phone).toBeNull();
+  });
+
   it('sets customer_id to null for unauthenticated users', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
 
