@@ -11,12 +11,12 @@ describe('getBlogAuthorSameAs', () => {
     expect(getBlogAuthorSameAs('Bassey John', 'ogabassey')).toEqual([
       'https://www.instagram.com/bassey__j',
       'https://www.linkedin.com/in/bassey-john-6a277885',
-      'https://x.com/digitalogaa',
+      'https://twitter.com/digitalogaa',
     ]);
     expect(getBlogAuthorSameAs('Bolakale', 'ogabassey')).toEqual([
       'https://www.instagram.com/earthmover007',
       'https://www.linkedin.com/in/michael-bolakale',
-      'https://x.com/earthmover007',
+      'https://twitter.com/earthmover007',
     ]);
   });
 
