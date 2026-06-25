@@ -1,3 +1,4 @@
+import type React from 'react';
 import { vi } from 'vitest';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -78,6 +79,21 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('@/lib/routes', () => ({
