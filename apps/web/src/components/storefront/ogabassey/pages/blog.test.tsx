@@ -90,8 +90,9 @@ describe('OgabasseyV2Blog', () => {
       .find((img) => img.getAttribute('src') === 'https://example.com/featured.jpg');
 
     expect(featuredImage).toBeInTheDocument();
-    expect(featuredImage).toHaveAttribute('data-preload', 'true');
-    expect(featuredImage).not.toHaveAttribute('data-fetchpriority');
+    expect(featuredImage).toHaveAttribute('data-preload', 'false');
+    expect(featuredImage).toHaveAttribute('data-loading', 'eager');
+    expect(featuredImage).toHaveAttribute('data-fetchpriority', 'high');
     expect(featuredImage).toHaveAttribute('data-priority', 'false');
     expect(featuredImage).toHaveAttribute('data-fill', 'true');
     expect(featuredImage).toHaveAttribute('data-sizes', '100vw');
@@ -131,10 +132,10 @@ describe('OgabasseyV2Blog', () => {
       />
     );
 
-    expect(screen.getByRole('img', { name: 'Featured Post' })).toHaveAttribute(
-      'src',
-      '/placeholder.png'
-    );
+    const featuredLink = screen.getByRole('link', { name: /featured post/i });
+    expect(featuredLink.querySelector('img')).toHaveAttribute('src', '/placeholder.png');
+    expect(screen.queryByRole('img', { name: 'Featured Post' })).not.toBeInTheDocument();
+
     expect(screen.getByRole('img', { name: 'Regular Post' })).toHaveAttribute(
       'src',
       '/placeholder.png'
