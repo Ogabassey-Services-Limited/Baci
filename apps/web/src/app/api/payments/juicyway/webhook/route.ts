@@ -205,71 +205,72 @@ export async function POST(request: NextRequest) {
         ? data.currency.trim()
         : null;
 
-    if (Number.isFinite(expectedAmount) && expectedAmount > 0) {
-      if (!Number.isFinite(settledAmount) || settledAmount <= 0) {
-        logger.error({
-          message: 'Juicyway payment amount missing or invalid',
-          reference,
-          expected: expectedAmount,
-          received: data.amount,
-        });
-        return NextResponse.json(
-          { error: 'Payment amount mismatch' },
-          { status: 400 }
-        );
-      }
-
-      if (!expectedCurrency || !settledCurrency) {
-        logger.error({
-          message: 'Juicyway payment currency missing or invalid',
-          reference,
-          expected: expectedCurrency,
-          received: data.currency,
-        });
-        return NextResponse.json(
-          { error: 'Payment currency mismatch' },
-          { status: 400 }
-        );
-      }
-
-      if (expectedCurrency.toUpperCase() !== settledCurrency.toUpperCase()) {
-        logger.error({
-          message: 'Juicyway payment currency mismatch',
-          reference,
-          expected: expectedCurrency,
-          received: settledCurrency,
-        });
-        return NextResponse.json(
-          { error: 'Payment currency mismatch' },
-          { status: 400 }
-        );
-      }
-
-      // Allow overpayment + dust; reject clear underpayment (>1% short).
-      // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
-      // and the tolerance only absorbs on-chain rounding/dust.
-      const UNDERPAYMENT_TOLERANCE = 0.01;
-      if (settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)) {
-        logger.error({
-          message: 'Juicyway payment amount mismatch (underpaid)',
-          reference,
-          expected: expectedAmount,
-          received: settledAmount,
-          currency: settledCurrency,
-        });
-        return NextResponse.json(
-          { error: 'Payment amount mismatch' },
-          { status: 400 }
-        );
-      }
-    } else {
-      // In-flight transactions created before expected-amount persistence (or a
-      // failed persist) have no anchor to validate against — log and proceed,
-      // mirroring the paystack/korapay "could not verify amount" path.
-      logger.warn({
-        message: 'Juicyway expected amount unavailable; skipping amount check',
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+      logger.error({
+        message: 'Juicyway expected amount missing; rejecting settlement',
         reference,
       });
+      return NextResponse.json(
+        { error: 'Payment amount mismatch' },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(settledAmount) || settledAmount <= 0) {
+      logger.error({
+        message: 'Juicyway payment amount missing or invalid',
+        reference,
+        expected: expectedAmount,
+        received: data.amount,
+      });
+      return NextResponse.json(
+        { error: 'Payment amount mismatch' },
+        { status: 400 }
+      );
+    }
+
+    if (!expectedCurrency || !settledCurrency) {
+      logger.error({
+        message: 'Juicyway payment currency missing or invalid',
+        reference,
+        expected: expectedCurrency,
+        received: data.currency,
+      });
+      return NextResponse.json(
+        { error: 'Payment currency mismatch' },
+        { status: 400 }
+      );
+    }
+
+    if (expectedCurrency.toUpperCase() !== settledCurrency.toUpperCase()) {
+      logger.error({
+        message: 'Juicyway payment currency mismatch',
+        reference,
+        expected: expectedCurrency,
+        received: settledCurrency,
+      });
+      return NextResponse.json(
+        { error: 'Payment currency mismatch' },
+        { status: 400 }
+      );
+    }
+
+    // Allow overpayment + dust; reject clear underpayment (>1% short).
+    // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
+    // and the tolerance only absorbs on-chain rounding/dust.
+    const UNDERPAYMENT_TOLERANCE = 0.01;
+    if (settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)) {
+      logger.error({
+        message: 'Juicyway payment amount mismatch (underpaid)',
+        reference,
+        expected: expectedAmount,
+        received: settledAmount,
+        currency: settledCurrency,
+      });
+      return NextResponse.json(
+        { error: 'Payment amount mismatch' },
+        { status: 400 }
+      );
     }
 
     // Update transaction status

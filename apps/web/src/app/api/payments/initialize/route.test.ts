@@ -104,6 +104,7 @@ const ORDER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 let rpcResult: { data: unknown; error: unknown };
 let rpcTransactionResult: { data: unknown; error: unknown };
+let rpcMergeMetadataResult: { data: unknown; error: unknown };
 const rpcCalls: Array<{ args?: unknown; name: string }> = [];
 
 function createMockSupabase() {
@@ -114,6 +115,8 @@ function createMockSupabase() {
         return Promise.resolve(rpcResult);
       if (name === 'create_payment_transaction')
         return Promise.resolve(rpcTransactionResult);
+      if (name === 'merge_transaction_metadata_by_reference')
+        return Promise.resolve(rpcMergeMetadataResult);
       return Promise.resolve({ data: null, error: null });
     }),
   };
@@ -272,6 +275,7 @@ function setupDefaults() {
     error: null,
   };
   rpcTransactionResult = { data: null, error: null };
+  rpcMergeMetadataResult = { data: null, error: null };
   merchantResult = {
     data: {
       id: MERCHANT_ID,
@@ -1201,13 +1205,19 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.currency).toBe('USDT');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
       expect(json.crypto_address_pending).toBeUndefined();
-      expect(transactionMetadataUpdateCalls.at(-1)).toEqual({
-        metadata: expect.objectContaining({
-          existing_key: 'preserved',
-          customer_email: validBody.customer_email,
-          customer_name: validBody.customer_name,
-          session_id: 'session-123',
-          juicyway_expected_currency: 'USDT',
+      expect(rpcCalls.at(-1)).toEqual({
+        name: 'merge_transaction_metadata_by_reference',
+        args: expect.objectContaining({
+          p_gateway_reference: expect.any(String),
+          p_session_id: 'session-123',
+          p_order_id: ORDER_ID,
+          p_merchant_id: MERCHANT_ID,
+          p_metadata: expect.objectContaining({
+            customer_email: validBody.customer_email,
+            customer_name: validBody.customer_name,
+            session_id: 'session-123',
+            juicyway_expected_currency: 'USDT',
+          }),
         }),
       });
     });
@@ -1262,6 +1272,48 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.address).toBe('');
       expect(json.session_id).toBe('session-123');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
+    });
+
+    it('fails checkout when Juicyway settlement metadata cannot be persisted', async () => {
+      mockInitializeJuicyway.mockResolvedValue({
+        id: 'session-123',
+        status: 'pending',
+      });
+      mockCapturePaymentWithCrypto.mockResolvedValue({
+        success: true,
+        data: {
+          payment: {
+            id: 'payment-456',
+            amount: 500000,
+            status: 'processing',
+            payment_method: {
+              address: 'TRX_WALLET_ADDR_123',
+              chain: 'TRX',
+              currency: 'USDT',
+            },
+          },
+        },
+      });
+      rpcMergeMetadataResult = {
+        data: null,
+        error: { message: 'metadata merge failed' },
+      };
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          gateway: 'juicyway',
+          crypto_chain: 'TRX',
+          crypto_currency: 'USDT',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json).toMatchObject({
+        code: 'JUICYWAY_METADATA_PERSIST_FAILED',
+        error: 'Failed to secure payment validation',
+      });
     });
 
     it('returns address found during polling', { timeout: 15000 }, async () => {

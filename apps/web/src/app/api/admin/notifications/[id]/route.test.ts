@@ -37,22 +37,34 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-function createRequest(method: 'DELETE' | 'PATCH'): NextRequest {
+function createRequest(
+  method: 'DELETE' | 'PATCH',
+  body: Record<string, unknown> = { title: 'Updated title' }
+): NextRequest {
   return new Request('http://localhost/api/admin/notifications/123', {
     method,
-    body:
-      method === 'PATCH' ? JSON.stringify({ title: 'Updated title' }) : null,
+    body: method === 'PATCH' ? JSON.stringify(body) : null,
     headers: method === 'PATCH' ? { 'Content-Type': 'application/json' } : {},
   }) as NextRequest;
 }
 
 function createMockSupabase(options?: {
   deleteError?: { message: string } | null;
-  notification?: { id: string; sent_at: string | null; title?: string } | null;
+  notification?: {
+    id: string;
+    sent_at: string | null;
+    target_merchant_ids?: string[] | null;
+    target_segment?: string | null;
+    target_type?: string;
+    title?: string;
+  } | null;
 }) {
   const notification = options?.notification ?? {
     id: '123e4567-e89b-12d3-a456-426614174000',
     sent_at: null,
+    target_merchant_ids: null,
+    target_segment: null,
+    target_type: 'all',
     title: 'Launch update',
   };
   const deleteError = options?.deleteError ?? null;
@@ -256,6 +268,36 @@ describe('/api/admin/notifications/[id]', () => {
     expect(response.status).toBe(403);
     expect(body.error).toBe('Invalid CSRF token');
     expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects PATCH updates that would leave specific targeting without merchants', async () => {
+    mockSupabase = createMockSupabase({
+      notification: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        sent_at: null,
+        target_merchant_ids: ['123e4567-e89b-12d3-a456-426614174111'],
+        target_segment: null,
+        target_type: 'specific',
+        title: 'Launch update',
+      },
+    });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PATCH(
+      createRequest('PATCH', { target_merchant_ids: [] }),
+      {
+        params: Promise.resolve({
+          id: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid input');
+    expect(body.details.fieldErrors.target_merchant_ids).toContain(
+      'Target merchant IDs required for specific targeting'
+    );
   });
 
   it('deletes notifications after passing CSRF validation', async () => {

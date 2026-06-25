@@ -1400,33 +1400,14 @@ export async function POST(request: NextRequest) {
       gateway === 'juicyway' &&
       juicywayCrypto?.expected_session_amount != null
     ) {
-      const { data: existingTransaction, error: metadataReadError } =
-        await supabase
-          .from('transactions')
-          .select('metadata')
-          .eq('gateway_reference', paymentResult.reference)
-          .maybeSingle();
-
-      if (metadataReadError) {
-        logger.warn({
-          message: 'Failed to read Juicyway transaction metadata before merge',
-          reference: paymentResult.reference,
-          error: metadataReadError,
-        });
-      }
-
-      const existingMetadata =
-        existingTransaction?.metadata &&
-        typeof existingTransaction.metadata === 'object' &&
-        !Array.isArray(existingTransaction.metadata)
-          ? (existingTransaction.metadata as Record<string, unknown>)
-          : {};
-
-      const { error: metadataError } = await supabase
-        .from('transactions')
-        .update({
-          metadata: {
-            ...existingMetadata,
+      const { error: metadataError } = await supabase.rpc(
+        'merge_transaction_metadata_by_reference',
+        {
+          p_gateway_reference: paymentResult.reference,
+          p_session_id: paymentResult.sessionId,
+          p_order_id: paymentData.order_id,
+          p_merchant_id: merchantId,
+          p_metadata: {
             customer_email: paymentData.customer_email,
             customer_name: paymentData.customer_name,
             session_id: paymentResult.sessionId ?? null,
@@ -1435,17 +1416,20 @@ export async function POST(request: NextRequest) {
             juicyway_expected_currency: juicywayCrypto.currency,
             juicyway_fx_rate: juicywayCrypto.conversion_rate ?? null,
           },
-        })
-        .eq('gateway_reference', paymentResult.reference);
+        }
+      );
 
       if (metadataError) {
-        // Non-fatal: the webhook falls back to a logged warning when the
-        // expected amount is absent, so a failed persist never blocks checkout.
-        logger.warn({
+        logger.error({
           message: 'Failed to persist Juicyway expected settlement amount',
           reference: paymentResult.reference,
           error: metadataError,
         });
+        return createErrorResponse(
+          'Failed to secure payment validation',
+          'JUICYWAY_METADATA_PERSIST_FAILED',
+          500
+        );
       }
     }
 

@@ -430,6 +430,10 @@ describe('POST /api/payments/juicyway/webhook', () => {
       platform_fee: '150',
       merchant_id: 'merchant-123',
       order_id: 'order-123',
+      metadata: {
+        juicyway_expected_amount: 10000,
+        juicyway_expected_currency: 'NGN',
+      },
     };
 
     const order = {
@@ -819,20 +823,20 @@ describe('POST /api/payments/juicyway/webhook', () => {
     expect(state.orderUpdated).toBe(true);
   });
 
-  it('processes the payment (with a warning) when no expected amount is persisted', async () => {
+  it('rejects the payment when no expected amount is persisted', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
 
-    // In-flight transaction created before expected-amount persistence.
     const transaction = pendingCryptoTxn({});
     const state = wireProcessingMocks(transaction);
 
     const payload = createSuccessPayload();
-    payload.data.amount = 5000; // would be "underpaid" but no anchor to check
+    payload.data.amount = 5000;
     payload.data.currency = 'USDT';
     const response = await POST(createWebhookRequest(payload));
 
-    expect(response.status).toBe(200);
-    expect(state.orderUpdated).toBe(true);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Payment amount mismatch' });
+    expect(state.orderUpdated).toBe(false);
   });
 
   it('suppresses side effects + settlement and files reconciliation when the order was clamped as cancelled', async () => {
@@ -846,6 +850,10 @@ describe('POST /api/payments/juicyway/webhook', () => {
       platform_fee: '150',
       merchant_id: 'merchant-123',
       order_id: 'order-123',
+      metadata: {
+        juicyway_expected_amount: 10000,
+        juicyway_expected_currency: 'NGN',
+      },
     };
 
     // The order UPDATE returns the CLAMPED cancelled row.
@@ -939,6 +947,10 @@ describe('POST /api/payments/juicyway/webhook', () => {
       platform_fee: '150',
       merchant_id: 'merchant-123',
       order_id: null, // No order_id
+      metadata: {
+        juicyway_expected_amount: 10000,
+        juicyway_expected_currency: 'NGN',
+      },
     };
 
     let transactionCallCount = 0;

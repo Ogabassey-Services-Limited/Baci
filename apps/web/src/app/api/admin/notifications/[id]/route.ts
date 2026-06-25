@@ -229,7 +229,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Check if notification exists and hasn't been sent
     const { data: existing, error: fetchError } = await supabase
       .from('notifications')
-      .select('id, sent_at')
+      .select('id, sent_at, target_type, target_merchant_ids, target_segment')
       .eq('id', id)
       .single();
 
@@ -256,6 +256,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
     const body = parsed.data;
+
+    const effectiveTargetingValidation = updateNotificationSchema.safeParse({
+      target_type: body.target_type ?? existing.target_type ?? undefined,
+      target_merchant_ids:
+        body.target_merchant_ids ??
+        (Array.isArray(existing.target_merchant_ids)
+          ? existing.target_merchant_ids
+          : undefined),
+      target_segment:
+        body.target_segment ?? existing.target_segment ?? undefined,
+    });
+    if (!effectiveTargetingValidation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: z.flattenError(effectiveTargetingValidation.error),
+        },
+        { status: 400 }
+      );
+    }
 
     // Build update object
     const updates: Record<string, unknown> = {};
