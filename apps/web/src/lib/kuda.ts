@@ -231,6 +231,11 @@ export interface PurchaseResult {
   phoneNumber?: string;
   provider?: string;
   providerErrorDetail?: string;
+  // Monnify-only: the provider's own vend reference, used to requery status
+  // (Monnify resolves requery by this, not by transactionReference).
+  providerVendReference?: string;
+  // Units delivered for metered bills (e.g. prepaid electricity kWh).
+  units?: string;
 }
 
 // Kuda API Response

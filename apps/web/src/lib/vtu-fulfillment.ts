@@ -1560,15 +1560,23 @@ function getProviderCheckTransactionStatus(
 ) {
   const provider = metadata?.provider;
   if (provider === 'monnify') {
+    // Monnify requery resolves by its own vendReference (persisted at vend
+    // time), NOT by transactionReference. Prefer it; fall back to the passed
+    // reference for older rows that predate vendReference persistence.
+    const monnifyVendReference =
+      typeof metadata?.monnifyVendReference === 'string'
+        ? metadata.monnifyVendReference
+        : undefined;
     return async (responseRef?: string, _requestRef?: string) => {
-      if (!responseRef) {
+      const reference = monnifyVendReference ?? responseRef;
+      if (!reference) {
         return {
           status: 'PENDING',
           message:
-            'Missing Monnify transaction reference; leaving in processing state',
+            'Missing Monnify vend reference; leaving in processing state',
         };
       }
-      return await monnifyCheckTransactionStatus(responseRef);
+      return await monnifyCheckTransactionStatus(reference);
     };
   }
   return kudaCheckTransactionStatus;
@@ -2689,13 +2697,19 @@ export async function fulfillPendingVtuTransaction({
     };
   }
 
+  // Persist Monnify's vendReference so requery (which resolves by it, not
+  // transactionReference) works for any IN_PROGRESS fallback below + later.
+  const monnifyVendReference = result.providerVendReference;
+  const backfillMetadata = monnifyVendReference
+    ? { ...(row.metadata ?? {}), monnifyVendReference }
+    : row.metadata;
   const voucherPin =
     normalizeVoucherPin(result.pin) ||
     (result.success && canResolveBillVoucherPin(row.type)
       ? await backfillVtuVoucherPin({
           billRequestRef: row.request_reference,
           billResponseReference: result.transactionId ?? row.transaction_id,
-          metadata: row.metadata,
+          metadata: backfillMetadata,
           supabase,
           transactionId: row.id,
         })
@@ -2706,6 +2720,8 @@ export async function fulfillPendingVtuTransaction({
   const updatedMetadata: Record<string, unknown> = {
     ...(row.metadata ?? {}),
     ...(result.metadataPatch ?? {}),
+    ...(monnifyVendReference && { monnifyVendReference }),
+    ...(result.units && { units: result.units }),
     ...(voucherPin && { voucherPin }),
   };
   if (providerErrorDetail) {

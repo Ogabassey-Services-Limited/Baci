@@ -704,6 +704,7 @@ describe('Monnify Bills Client', () => {
         responseMessage: 'success',
         responseBody: {
           transactionReference: 'MFBP260625173742882d',
+          vendReference: 'MFBP-MDR-43901766923-260625173742f9cb',
           vendStatus: 'SUCCESS',
           metaData: { token: '3772-0340-4164-5060-0336', unit: '4.5' },
         },
@@ -727,6 +728,11 @@ describe('Monnify Bills Client', () => {
 
       expect(result.status).toBe('successful');
       expect(result.pin).toBe('3772-0340-4164-5060-0336');
+      expect(result.units).toBe('4.5');
+      // Monnify resolves requery by its own vendReference, not transactionRef.
+      expect(result.providerVendReference).toBe(
+        'MFBP-MDR-43901766923-260625173742f9cb'
+      );
     });
 
     it('honors vendStatus when status is missing', async () => {

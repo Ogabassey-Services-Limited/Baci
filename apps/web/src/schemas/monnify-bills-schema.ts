@@ -227,6 +227,9 @@ const billMetaDataSchema = z
 // Vend Response Body Schema
 export const vendResponseBodySchema = z.object({
   transactionReference: z.string().optional().nullable(),
+  // Monnify's own vend reference (MFBP-MDR-<customer>-…). This — NOT
+  // transactionReference — is what the requery endpoint resolves by.
+  vendReference: z.string().optional().nullable(),
   paymentReference: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
   vendStatus: z.string().optional().nullable(),

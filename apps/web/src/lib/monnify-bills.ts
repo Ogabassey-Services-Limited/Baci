@@ -570,9 +570,12 @@ export async function purchaseBill(
       success: isSuccess || isProcessing,
       reference: requestReference,
       transactionId: transactionReference,
+      // Monnify resolves requery by its own vendReference, not transactionRef.
+      providerVendReference: body?.vendReference || undefined,
       // Token lives at responseBody.metaData.token for prepaid electricity;
       // fall back to a flat token for billers that return it top-level.
       pin: body?.metaData?.token || body?.token || undefined,
+      units: body?.metaData?.unit || undefined,
       message:
         parsedEnvelope.responseMessage ||
         (isFailed ? 'Vend request failed' : 'Vend request completed'),
