@@ -219,10 +219,10 @@ const serverSchema = z
     ZEPTOMAIL_FROM_DOMAIN: z.string().optional(),
     // ZeptoMail Domains API (per-merchant custom sending domains). Zoho OAuth
     // self-client with scope Zeptomail.Domains.All.
-    ZOHO_CLIENT_ID: z.string().optional(),
-    ZOHO_CLIENT_SECRET: z.string().optional(),
-    ZOHO_REFRESH_TOKEN: z.string().optional(),
-    ZEPTOMAIL_MAILAGENT_KEY: z.string().optional(),
+    ZOHO_CLIENT_ID: optionalTrimmedStringSchema,
+    ZOHO_CLIENT_SECRET: optionalTrimmedStringSchema,
+    ZOHO_REFRESH_TOKEN: optionalTrimmedStringSchema,
+    ZEPTOMAIL_MAILAGENT_KEY: optionalTrimmedStringSchema,
 
     // Zoho Campaigns
     ZOHO_CAMPAIGNS_ENABLED: optionalTrimmedStringSchema,
@@ -1045,6 +1045,17 @@ export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;
 export const getZeptoMailFromDomain = () =>
   env?.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
+export const getZohoClientId = () =>
+  getRuntimeEnvValue(process.env.ZOHO_CLIENT_ID, env?.ZOHO_CLIENT_ID);
+export const getZohoClientSecret = () =>
+  getRuntimeEnvValue(process.env.ZOHO_CLIENT_SECRET, env?.ZOHO_CLIENT_SECRET);
+export const getZohoRefreshToken = () =>
+  getRuntimeEnvValue(process.env.ZOHO_REFRESH_TOKEN, env?.ZOHO_REFRESH_TOKEN);
+export const getZeptoMailAgentKey = () =>
+  getRuntimeEnvValue(
+    process.env.ZEPTOMAIL_MAILAGENT_KEY,
+    env?.ZEPTOMAIL_MAILAGENT_KEY
+  );
 
 const normalizeRuntimeBoolean = (value: string | undefined): boolean => {
   if (!value) return false;

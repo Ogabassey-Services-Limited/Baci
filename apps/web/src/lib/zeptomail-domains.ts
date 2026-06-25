@@ -1,5 +1,12 @@
 import 'server-only';
 
+import {
+  getZeptoMailAgentKey,
+  getZohoClientId,
+  getZohoClientSecret,
+  getZohoRefreshToken,
+} from '@/env';
+
 /**
  * ZeptoMail Domains API client — registers a merchant's custom sending domain,
  * returns the DNS records they must add, and reports verification status.
@@ -12,6 +19,7 @@ import 'server-only';
 
 const ZOHO_TOKEN_URL = 'https://accounts.zoho.com/oauth/v2/token';
 const ZEPTOMAIL_API = 'https://api.zeptomail.com/v1.1';
+const REQUEST_TIMEOUT_MS = 10_000;
 // Subdomain that ZeptoMail uses for the bounce/return-path CNAME.
 const BOUNCE_SUBDOMAIN_PREFIX = 'bounce-zem';
 
@@ -24,6 +32,7 @@ export interface ZeptomailDnsRecord {
 export interface SendingDomainState {
   domainKey: string;
   domain: string;
+  status: 'pending' | 'verified' | 'failed';
   verified: boolean;
   records: ZeptomailDnsRecord[];
 }
@@ -31,6 +40,7 @@ export interface SendingDomainState {
 interface ZeptomailDomainData {
   domain_name: string;
   domain_key: string;
+  status?: string;
   domain_status?: string;
   dkim?: {
     host: string;
@@ -41,11 +51,16 @@ interface ZeptomailDomainData {
   cname?: { host: string; cname_record: string; status?: string };
 }
 
+interface ZeptomailDomainsResponse {
+  data?: ZeptomailDomainData | ZeptomailDomainData[];
+  message?: string;
+}
+
 function getCredentials() {
-  const clientId = process.env.ZOHO_CLIENT_ID;
-  const clientSecret = process.env.ZOHO_CLIENT_SECRET;
-  const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
-  const mailagentKey = process.env.ZEPTOMAIL_MAILAGENT_KEY;
+  const clientId = getZohoClientId();
+  const clientSecret = getZohoClientSecret();
+  const refreshToken = getZohoRefreshToken();
+  const mailagentKey = getZeptoMailAgentKey();
   if (!(clientId && clientSecret && refreshToken && mailagentKey)) {
     throw new Error('ZeptoMail Domains API is not configured');
   }
@@ -55,14 +70,27 @@ function getCredentials() {
 /** Whether all credentials are present (gate the feature on this). */
 export function isZeptomailDomainsConfigured(): boolean {
   return Boolean(
-    process.env.ZOHO_CLIENT_ID &&
-      process.env.ZOHO_CLIENT_SECRET &&
-      process.env.ZOHO_REFRESH_TOKEN &&
-      process.env.ZEPTOMAIL_MAILAGENT_KEY
+    getZohoClientId() &&
+      getZohoClientSecret() &&
+      getZohoRefreshToken() &&
+      getZeptoMailAgentKey()
   );
 }
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function getAccessToken(): Promise<string> {
   // Re-use a cached token until ~1 minute before expiry.
@@ -70,7 +98,7 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.value;
   }
   const { clientId, clientSecret, refreshToken } = getCredentials();
-  const response = await fetch(ZOHO_TOKEN_URL, {
+  const response = await fetchWithTimeout(ZOHO_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -99,7 +127,7 @@ async function zeptomailRequest(
   init: RequestInit
 ): Promise<unknown> {
   const token = await getAccessToken();
-  const response = await fetch(`${ZEPTOMAIL_API}${path}`, {
+  const response = await fetchWithTimeout(`${ZEPTOMAIL_API}${path}`, {
     ...init,
     headers: {
       Authorization: `Zoho-oauthtoken ${token}`,
@@ -117,9 +145,17 @@ async function zeptomailRequest(
   return json;
 }
 
+function domainRows(json: unknown): ZeptomailDomainData[] {
+  const data = (json as ZeptomailDomainsResponse | null)?.data;
+  if (!data) {
+    return [];
+  }
+  return Array.isArray(data) ? data : [data];
+}
+
 function firstDomain(json: unknown): ZeptomailDomainData {
-  const data = (json as { data?: ZeptomailDomainData[] } | null)?.data;
-  if (!data?.length) {
+  const data = domainRows(json);
+  if (!data.length) {
     throw new Error('ZeptoMail returned no domain data');
   }
   return data[0];
@@ -143,12 +179,30 @@ function toSendingDomainState(data: ZeptomailDomainData): SendingDomainState {
   }
   const verified =
     data.dkim?.status === 'verified' && data.cname?.status === 'verified';
+  const status = toVerificationStatus(data, verified);
   return {
     domainKey: data.domain_key,
     domain: data.domain_name,
+    status,
     verified,
     records,
   };
+}
+
+function toVerificationStatus(
+  data: ZeptomailDomainData,
+  verified: boolean
+): SendingDomainState['status'] {
+  if (verified) {
+    return 'verified';
+  }
+  const values = [
+    data.status,
+    data.domain_status,
+    data.dkim?.status,
+    data.cname?.status,
+  ].map((value) => value?.toLowerCase() ?? '');
+  return values.some((value) => value.includes('fail')) ? 'failed' : 'pending';
 }
 
 /** Register a sending domain; returns the DNS records the merchant must add. */
@@ -167,12 +221,34 @@ export async function registerSendingDomain(
   return toSendingDomainState(firstDomain(json));
 }
 
+/** List domains and return the current ZeptoMail state for a domain name. */
+export async function findSendingDomainByName(
+  domain: string
+): Promise<SendingDomainState | null> {
+  const json = await zeptomailRequest('/domains', { method: 'GET' });
+  const normalizedDomain = domain.toLowerCase();
+  const match = domainRows(json).find(
+    (entry) => entry.domain_name.toLowerCase() === normalizedDomain
+  );
+  return match ? getSendingDomain(match.domain_key) : null;
+}
+
 /** Read a domain's current DNS-record state + verification status. */
 export async function getSendingDomain(
   domainKey: string
 ): Promise<SendingDomainState> {
   const json = await zeptomailRequest(`/domains/${domainKey}`, {
     method: 'GET',
+  });
+  return toSendingDomainState(firstDomain(json));
+}
+
+/** Ask ZeptoMail to validate DKIM/CNAME records, then return current state. */
+export async function verifySendingDomain(
+  domainKey: string
+): Promise<SendingDomainState> {
+  const json = await zeptomailRequest(`/domains/${domainKey}/verify`, {
+    method: 'PUT',
   });
   return toSendingDomainState(firstDomain(json));
 }

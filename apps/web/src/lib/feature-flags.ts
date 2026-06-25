@@ -230,21 +230,14 @@ export function hasPriceNegotiationEntitlement(
 
 /**
  * Whether a merchant may configure a custom email sending domain (premium).
- * Fail-closed on a malformed plan_tier; legacy fallback keeps the flagship
- * (ogabassey) entitled until plan_tier is backfilled.
+ * Fail-closed when plan_tier is absent or malformed; this feature must not
+ * inherit legacy price-negotiation allowlists.
  */
 export function hasCustomEmailDomainEntitlement(
   planTier: string | null | undefined,
-  merchantSlug: string | null | undefined
+  _merchantSlug: string | null | undefined
 ): boolean {
-  if (isPlanTier(planTier)) {
-    return planHasFeature(planTier, FEATURES.CUSTOM_EMAIL_DOMAIN);
-  }
-  if (planTier != null) {
-    return false;
-  }
-  return (
-    typeof merchantSlug === 'string' &&
-    LEGACY_NEGOTIATION_SLUGS.has(merchantSlug.toLowerCase())
-  );
+  return isPlanTier(planTier)
+    ? planHasFeature(planTier, FEATURES.CUSTOM_EMAIL_DOMAIN)
+    : false;
 }

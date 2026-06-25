@@ -57,7 +57,7 @@ interface EmailPayload {
 // ⚠️ Keep MERCHANT_BRANDING_COLUMNS and MerchantBrandingRow in sync — a Deno
 // edge fn gets no typed Supabase inference, so a mismatch surfaces only at runtime.
 const MERCHANT_BRANDING_COLUMNS =
-  'id, business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email';
+  'id, business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email, plan_tier';
 
 interface MerchantBrandingRow {
   id: string;
@@ -67,6 +67,7 @@ interface MerchantBrandingRow {
   email_logo_url: string | null;
   email_sender_name: string | null;
   logo_url: string | null;
+  plan_tier: string | null;
   slug: string | null;
   support_email: string | null;
 }
@@ -77,21 +78,31 @@ interface MerchantBrandingRow {
  * Aligning the From-domain with the brand/links materially improves inbox
  * placement; see merchant_email_domains migration.
  */
+function hasCustomEmailDomainEntitlement(planTier: string | null): boolean {
+  return (
+    planTier === 'pro' || planTier === 'business' || planTier === 'enterprise'
+  );
+}
+
 async function fetchMerchantSendingAddress(
   supabase: ReturnType<typeof createClient>,
-  merchantId: string
+  merchant: Pick<MerchantBrandingRow, 'id' | 'plan_tier'>
 ): Promise<string | null> {
+  if (!hasCustomEmailDomainEntitlement(merchant.plan_tier)) {
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('merchant_email_domains')
     .select('domain, sender_local_part')
-    .eq('merchant_id', merchantId)
+    .eq('merchant_id', merchant.id)
     .eq('enabled', true)
     .eq('status', 'verified')
     .maybeSingle();
 
   if (error) {
     // Fail open to the platform sender — never block an auth email over this.
-    console.log('Sending-domain lookup failed:', merchantId, error.message);
+    console.log('Sending-domain lookup failed:', error.message);
     return null;
   }
   if (!data?.domain) {
@@ -120,7 +131,7 @@ async function fetchMerchantBranding(
         .maybeSingle();
 
       if (error) {
-        console.log('Merchant slug lookup failed:', lookup.slug, error.message);
+        console.log('Merchant slug lookup failed:', error.message);
       }
       merchant = data;
     }
@@ -143,7 +154,7 @@ async function fetchMerchantBranding(
           .maybeSingle();
 
         if (domainError) {
-          console.log('Domain lookup failed:', candidate, domainError.message);
+          console.log('Domain lookup failed:', domainError.message);
           continue;
         }
         if (!domainRow) continue;
@@ -156,11 +167,7 @@ async function fetchMerchantBranding(
           .maybeSingle();
 
         if (error) {
-          console.log(
-            'Merchant custom-domain lookup failed:',
-            candidate,
-            error.message
-          );
+          console.log('Merchant custom-domain lookup failed:', error.message);
           continue;
         }
 
@@ -173,7 +180,7 @@ async function fetchMerchantBranding(
     }
 
     if (!merchant) {
-      console.log('Merchant not found for auth email lookup:', lookup);
+      console.log('Merchant not found for auth email lookup');
       return null;
     }
 
@@ -184,7 +191,7 @@ async function fetchMerchantBranding(
 
     const sendingFromAddress = await fetchMerchantSendingAddress(
       supabase,
-      merchant.id
+      merchant
     );
 
     return {
@@ -207,17 +214,33 @@ async function fetchMerchantBranding(
   }
 }
 
+function canUseRedirectAsNext(
+  nextUrl: URL,
+  siteUrl: URL,
+  branding: MerchantBranding
+): boolean {
+  if (nextUrl.origin === siteUrl.origin) {
+    return true;
+  }
+
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+  if (nextLookup?.slug && branding.slug) {
+    return nextLookup.slug === branding.slug.toLowerCase();
+  }
+
+  if (nextLookup?.customDomain && branding.customDomain) {
+    return getCustomDomainCandidates(branding.customDomain).includes(
+      nextLookup.customDomain
+    );
+  }
+
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
-
-  console.log(
-    'Token length:',
-    ZEPTOMAIL_TOKEN.length,
-    'Secret length:',
-    SEND_EMAIL_HOOK_SECRET.length
-  );
 
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers);
@@ -267,11 +290,11 @@ Deno.serve(async (req) => {
   let branding = BACI_BRANDING;
 
   if (merchantLookup) {
-    console.log('Detected merchant auth email lookup:', merchantLookup);
+    console.log('Detected merchant auth email lookup');
     const merchantBranding = await fetchMerchantBranding(merchantLookup);
     if (merchantBranding) {
       branding = merchantBranding;
-      console.log('Using merchant branding:', branding.businessName);
+      console.log('Using merchant branding');
     }
   }
 
@@ -304,17 +327,14 @@ Deno.serve(async (req) => {
         const nextUrl = new URL(emailData.redirect_to);
         const siteUrl = new URL(emailData.site_url);
 
-        // Carry a same-origin `next` so /auth/confirm redirects back into the
-        // app after it verifies the token.
-        if (nextUrl.origin === siteUrl.origin) {
+        // Carry a same-storefront `next` so /auth/confirm redirects back into
+        // the storefront after it verifies the token. This includes custom
+        // domains where the auth handler itself is still on the platform host.
+        if (canUseRedirectAsNext(nextUrl, siteUrl, branding)) {
           confirmationUrl.searchParams.set('next', nextUrl.toString());
         }
       } catch (error) {
-        console.warn(
-          'Ignoring invalid redirect_to URL:',
-          emailData.redirect_to,
-          error
-        );
+        console.warn('Ignoring invalid auth redirect target:', error);
       }
     } else {
       confirmationUrl.searchParams.set('next', emailData.redirect_to);
@@ -344,26 +364,24 @@ Deno.serve(async (req) => {
 
   // Plain-text alternative. HTML-only mail is a deliverability/spam signal;
   // a multipart message scores better.
-  const textBody = [
+  const textBodyLines = [
     config.subject,
     '',
-    emailData.token ? `Your code: ${emailData.token}` : '',
+    ...(emailData.token ? [`Your code: ${emailData.token}`] : []),
     `Continue: ${confirmationUrl.toString()}`,
     '',
     'If you did not request this email, you can safely ignore it.',
-  ]
-    .filter((line, index) => line !== '' || index > 0)
-    .join('\n');
+  ];
+  const textBody = textBodyLines.join('\n');
 
   console.log(
-    'Sending email to:',
-    user.email,
+    'Sending auth email',
     'Type:',
     emailType,
-    'Brand:',
-    branding.businessName,
-    'From:',
-    fromAddress
+    'MerchantBranded:',
+    branding.businessName !== 'Baci',
+    'CustomFrom:',
+    Boolean(branding.sendingFromAddress)
   );
 
   // Send via ZeptoMail

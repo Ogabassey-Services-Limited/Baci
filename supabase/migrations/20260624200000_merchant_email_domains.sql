@@ -16,8 +16,12 @@ create table if not exists public.merchant_email_domains (
   merchant_id uuid not null references public.merchants (id) on delete cascade,
   -- The sending domain, e.g. 'ogabassey.com'. Mail goes from
   -- '<sender_local_part>@<domain>'.
-  domain text not null,
-  sender_local_part text not null default 'noreply',
+  domain text not null
+    check (
+      domain ~* '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
+    ),
+  sender_local_part text not null default 'noreply'
+    check (sender_local_part ~* '^[a-z0-9][a-z0-9.+_-]{0,63}$'),
   -- ZeptoMail Domains API bookkeeping + the DNS records the merchant must add.
   zeptomail_domain_id text,
   dkim_host text,
@@ -31,13 +35,14 @@ create table if not exists public.merchant_email_domains (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   verified_at timestamptz,
-  -- One active sending domain per merchant (MVP); domains are globally unique.
-  constraint merchant_email_domains_merchant_key unique (merchant_id),
-  constraint merchant_email_domains_domain_key unique (domain)
+  -- One active sending domain per merchant (MVP).
+  constraint merchant_email_domains_merchant_key unique (merchant_id)
 );
 
-create index if not exists merchant_email_domains_merchant_id_idx
-  on public.merchant_email_domains (merchant_id);
+-- Do not globally reserve unverified domains: only a verified domain is unique.
+create unique index if not exists merchant_email_domains_verified_domain_idx
+  on public.merchant_email_domains (domain)
+  where status = 'verified';
 
 -- Only the verified+enabled row matters to the sender; index it for the hook.
 create index if not exists merchant_email_domains_active_idx

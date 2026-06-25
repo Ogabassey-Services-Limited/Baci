@@ -12,12 +12,22 @@ import {
   resolveMerchantForEmailDomain,
 } from './merchant-email-domain-access';
 
-function supabaseStub(user: { id: string } | null, merchantRow: unknown) {
+function supabaseStub(
+  user: { id: string } | null,
+  merchantResult: { data: unknown; error?: unknown } | unknown
+) {
+  const result =
+    merchantResult &&
+    typeof merchantResult === 'object' &&
+    'data' in merchantResult
+      ? merchantResult
+      : { data: merchantResult, error: null };
+
   return {
     auth: { getUser: () => Promise.resolve({ data: { user } }) },
     from: () => ({
       select: () => ({
-        eq: () => ({ single: () => Promise.resolve({ data: merchantRow }) }),
+        eq: () => ({ single: () => Promise.resolve(result) }),
       }),
     }),
   } as unknown as SupabaseClient;
@@ -41,8 +51,39 @@ describe('resolveMerchantForEmailDomain', () => {
     expect('error' in result && result.error.status).toBe(403);
   });
 
+  it('403s when the authoritative merchant row lookup fails', async () => {
+    mockGetMerchant.mockResolvedValue({
+      merchantId: 'm1',
+      merchantSlug: 'fb',
+      staffAccess: { isOwner: true },
+    });
+    const result = await resolveMerchantForEmailDomain(
+      supabaseStub(
+        { id: 'u1' },
+        { data: null, error: { message: 'database unavailable' } }
+      )
+    );
+    expect('error' in result && result.error.status).toBe(403);
+  });
+
+  it('403s when the user is only a staff member', async () => {
+    mockGetMerchant.mockResolvedValue({
+      merchantId: 'm1',
+      merchantSlug: 'fb',
+      staffAccess: { isOwner: false },
+    });
+    const result = await resolveMerchantForEmailDomain(
+      supabaseStub({ id: 'u1' }, { plan_tier: 'pro', slug: 'mystore' })
+    );
+    expect('error' in result && result.error.status).toBe(403);
+  });
+
   it('resolves merchant id, plan tier and slug', async () => {
-    mockGetMerchant.mockResolvedValue({ merchantId: 'm1', merchantSlug: 'fb' });
+    mockGetMerchant.mockResolvedValue({
+      merchantId: 'm1',
+      merchantSlug: 'fb',
+      staffAccess: { isOwner: true },
+    });
     const result = await resolveMerchantForEmailDomain(
       supabaseStub({ id: 'u1' }, { plan_tier: 'pro', slug: 'mystore' })
     );
@@ -59,6 +100,15 @@ describe('emailDomainGate', () => {
     expect(
       emailDomainGate({ merchantId: 'm1', planTier: 'pro', slug: 's' })
     ).toBeNull();
+  });
+
+  it('returns 403 when plan tier is absent even for legacy negotiation slugs', () => {
+    const res = emailDomainGate({
+      merchantId: 'm1',
+      planTier: null,
+      slug: 'ogabassey',
+    });
+    expect(res?.status).toBe(403);
   });
 
   it('returns 403 for a free plan', () => {

@@ -2,18 +2,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { mockFrom, mockRegister, mockGet } = vi.hoisted(() => ({
-  mockFrom: vi.fn(),
-  mockRegister: vi.fn(),
-  mockGet: vi.fn(),
-}));
+const { mockAdminFrom, mockServerFrom, mockRegister, mockFind, mockVerify } =
+  vi.hoisted(() => ({
+    mockAdminFrom: vi.fn(),
+    mockServerFrom: vi.fn(),
+    mockRegister: vi.fn(),
+    mockFind: vi.fn(),
+    mockVerify: vi.fn(),
+  }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createClient: () => ({ from: mockFrom }),
+  createClient: () => ({ from: mockAdminFrom }),
+}));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => Promise.resolve({ from: mockServerFrom }),
 }));
 vi.mock('@/lib/zeptomail-domains', () => ({
   registerSendingDomain: mockRegister,
-  getSendingDomain: mockGet,
+  findSendingDomainByName: mockFind,
+  verifySendingDomain: mockVerify,
 }));
 
 import {
@@ -54,7 +61,7 @@ describe('merchant-email-domain service', () => {
   });
 
   it('getMerchantEmailDomain maps a row into domain + DNS records', async () => {
-    mockFrom.mockReturnValueOnce(builderFor({ data: ROW, error: null }));
+    mockServerFrom.mockReturnValueOnce(builderFor({ data: ROW, error: null }));
 
     const result = await getMerchantEmailDomain('m1');
 
@@ -71,7 +78,7 @@ describe('merchant-email-domain service', () => {
   });
 
   it('getMerchantEmailDomain returns null when no row exists', async () => {
-    mockFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
+    mockServerFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
     await expect(getMerchantEmailDomain('m1')).resolves.toBeNull();
   });
 
@@ -79,6 +86,7 @@ describe('merchant-email-domain service', () => {
     mockRegister.mockResolvedValue({
       domainKey: 'dk1',
       domain: 'mystore.com',
+      status: 'pending',
       verified: false,
       records: [
         { type: 'TXT', host: 'h', value: 'v' },
@@ -94,7 +102,7 @@ describe('merchant-email-domain service', () => {
       },
       error: null,
     });
-    mockFrom.mockReturnValueOnce(upsertBuilder);
+    mockAdminFrom.mockReturnValueOnce(upsertBuilder);
 
     const result = await registerMerchantEmailDomain('m1', 'mystore.com');
 
@@ -114,13 +122,39 @@ describe('merchant-email-domain service', () => {
     expect(result.status).toBe('pending');
   });
 
+  it('registerMerchantEmailDomain resumes when ZeptoMail already has the domain', async () => {
+    mockRegister.mockRejectedValue(new Error('Domain already exists'));
+    mockFind.mockResolvedValue({
+      domainKey: 'existing-key',
+      domain: 'mystore.com',
+      status: 'pending',
+      verified: false,
+      records: [{ type: 'TXT', host: 'h', value: 'v' }],
+    });
+    const upsertBuilder = builderFor({
+      data: { ...ROW, domain: 'mystore.com', status: 'pending' },
+      error: null,
+    });
+    mockAdminFrom.mockReturnValueOnce(upsertBuilder);
+
+    await expect(
+      registerMerchantEmailDomain('m1', 'mystore.com')
+    ).resolves.toMatchObject({ domain: 'mystore.com' });
+    expect(mockFind).toHaveBeenCalledWith('mystore.com');
+    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ zeptomail_domain_id: 'existing-key' }),
+      { onConflict: 'merchant_id' }
+    );
+  });
+
   it('verifyMerchantEmailDomain re-checks ZeptoMail and flips to verified', async () => {
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       builderFor({ data: { zeptomail_domain_id: 'dk1' }, error: null })
     );
-    mockGet.mockResolvedValue({
+    mockVerify.mockResolvedValue({
       domainKey: 'dk1',
       domain: 'mystore.com',
+      status: 'verified',
       verified: true,
       records: [{ type: 'TXT', host: 'h', value: 'v' }],
     });
@@ -128,26 +162,106 @@ describe('merchant-email-domain service', () => {
       data: { ...ROW, status: 'verified' },
       error: null,
     });
-    mockFrom.mockReturnValueOnce(updateBuilder);
+    mockAdminFrom.mockReturnValueOnce(updateBuilder);
 
     const result = await verifyMerchantEmailDomain('m1');
 
-    expect(mockGet).toHaveBeenCalledWith('dk1');
+    expect(mockVerify).toHaveBeenCalledWith('dk1');
     expect(updateBuilder.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'verified' })
     );
     expect(result.status).toBe('verified');
   });
 
+  it('verifyMerchantEmailDomain recovers a missing local ZeptoMail domain id', async () => {
+    mockAdminFrom.mockReturnValueOnce(
+      builderFor({
+        data: { domain: 'mystore.com', zeptomail_domain_id: null },
+        error: null,
+      })
+    );
+    mockFind.mockResolvedValue({
+      domainKey: 'recovered-key',
+      domain: 'mystore.com',
+      status: 'pending',
+      verified: false,
+      records: [{ type: 'TXT', host: 'h', value: 'v' }],
+    });
+    mockVerify.mockResolvedValue({
+      domainKey: 'recovered-key',
+      domain: 'mystore.com',
+      status: 'verified',
+      verified: true,
+      records: [{ type: 'TXT', host: 'h', value: 'v' }],
+    });
+    const updateBuilder = builderFor({ data: ROW, error: null });
+    mockAdminFrom.mockReturnValueOnce(updateBuilder);
+
+    await verifyMerchantEmailDomain('m1');
+
+    expect(mockFind).toHaveBeenCalledWith('mystore.com');
+    expect(mockVerify).toHaveBeenCalledWith('recovered-key');
+    expect(updateBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ zeptomail_domain_id: 'recovered-key' })
+    );
+  });
+
+  it('verifyMerchantEmailDomain returns a seeded verified row without a ZeptoMail id when recovery is unavailable', async () => {
+    mockAdminFrom.mockReturnValueOnce(
+      builderFor({
+        data: { ...ROW, zeptomail_domain_id: null },
+        error: null,
+      })
+    );
+    mockFind.mockResolvedValue(null);
+
+    const result = await verifyMerchantEmailDomain('m1');
+
+    expect(mockFind).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      domain: 'ogabassey.com',
+      status: 'verified',
+    });
+  });
+
+  it('verifyMerchantEmailDomain persists failed verification status', async () => {
+    mockAdminFrom.mockReturnValueOnce(
+      builderFor({
+        data: { ...ROW, zeptomail_domain_id: 'dk1', status: 'pending' },
+        error: null,
+      })
+    );
+    mockVerify.mockResolvedValue({
+      domainKey: 'dk1',
+      domain: 'mystore.com',
+      status: 'failed',
+      verified: false,
+      records: [{ type: 'TXT', host: 'h', value: 'v' }],
+    });
+    const updateBuilder = builderFor({
+      data: { ...ROW, status: 'failed', enabled: false },
+      error: null,
+    });
+    mockAdminFrom.mockReturnValueOnce(updateBuilder);
+
+    const result = await verifyMerchantEmailDomain('m1');
+
+    expect(updateBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed' })
+    );
+    expect(result.status).toBe('failed');
+  });
+
   it('verifyMerchantEmailDomain throws when nothing is registered', async () => {
-    mockFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
+    mockAdminFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
     await expect(verifyMerchantEmailDomain('m1')).rejects.toThrow(
       'No sending domain to verify'
     );
   });
 
   it('setMerchantEmailDomainEnabled refuses to enable an unverified domain', async () => {
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       builderFor({ data: { status: 'pending' }, error: null })
     );
     await expect(setMerchantEmailDomainEnabled('m1', true)).rejects.toThrow(
@@ -156,11 +270,11 @@ describe('merchant-email-domain service', () => {
   });
 
   it('setMerchantEmailDomainEnabled enables a verified domain', async () => {
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       builderFor({ data: { status: 'verified' }, error: null })
     );
     const updateBuilder = builderFor({ data: ROW, error: null });
-    mockFrom.mockReturnValueOnce(updateBuilder);
+    mockAdminFrom.mockReturnValueOnce(updateBuilder);
 
     await setMerchantEmailDomainEnabled('m1', true);
 

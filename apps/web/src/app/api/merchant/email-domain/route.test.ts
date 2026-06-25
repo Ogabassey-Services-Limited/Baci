@@ -2,31 +2,29 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  mockGetUser,
+  mockAuth,
   mockGetMerchant,
   mockMerchantRow,
   mockGetDomain,
   mockRegister,
   mockSetEnabled,
+  mockCheckCsrf,
 } = vi.hoisted(() => ({
-  mockGetUser: vi.fn(),
+  mockAuth: vi.fn(),
   mockGetMerchant: vi.fn(),
   mockMerchantRow: vi.fn(),
   mockGetDomain: vi.fn(),
   mockRegister: vi.fn(),
   mockSetEnabled: vi.fn(),
+  mockCheckCsrf: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: () =>
-    Promise.resolve({
-      auth: { getUser: mockGetUser },
-      from: () => ({
-        select: () => ({
-          eq: () => ({ single: () => Promise.resolve(mockMerchantRow()) }),
-        }),
-      }),
-    }),
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: mockCheckCsrf,
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: mockAuth,
 }));
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: mockGetMerchant,
@@ -39,27 +37,67 @@ vi.mock('@/lib/merchant-email-domain', () => ({
 
 import { GET, PATCH, POST } from './route';
 
-function req(body: unknown): NextRequest {
-  return { json: () => Promise.resolve(body) } as unknown as NextRequest;
+function req(body: unknown, method = 'POST'): NextRequest {
+  return {
+    method,
+    headers: new Headers(),
+    json: () => Promise.resolve(body),
+  } as unknown as NextRequest;
 }
 
 function signedInAs(planTier: string | null, slug = 'mystore') {
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
-  mockGetMerchant.mockResolvedValue({ merchantId: 'm1', merchantSlug: slug });
+  const supabase = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({ single: () => Promise.resolve(mockMerchantRow()) }),
+      }),
+    }),
+  };
+  mockAuth.mockResolvedValue({
+    user: { id: 'u1' },
+    error: null,
+    supabase,
+  });
+  mockGetMerchant.mockResolvedValue({
+    merchantId: 'm1',
+    merchantSlug: slug,
+    staffAccess: { isOwner: true },
+  });
   mockMerchantRow.mockReturnValue({ data: { plan_tier: planTier, slug } });
 }
 
 describe('POST /api/merchant/email-domain', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckCsrf.mockResolvedValue({ valid: true });
+  });
+
+  it('returns 403 when CSRF validation fails', async () => {
+    mockCheckCsrf.mockResolvedValue({
+      valid: false,
+      response: new Response(null, { status: 403 }),
+    });
+    const res = await POST(req({ domain: 'mystore.com' }));
+    expect(res.status).toBe(403);
+    expect(mockAuth).not.toHaveBeenCalled();
+  });
 
   it('returns 401 when not authenticated', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockAuth.mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
     const res = await POST(req({ domain: 'mystore.com' }));
     expect(res.status).toBe(401);
   });
 
   it('returns 403 when the merchant context is missing', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockAuth.mockResolvedValue({
+      user: { id: 'u1' },
+      error: null,
+      supabase: {},
+    });
     mockGetMerchant.mockResolvedValue(null);
     const res = await POST(req({ domain: 'mystore.com' }));
     expect(res.status).toBe(403);
@@ -91,7 +129,17 @@ describe('POST /api/merchant/email-domain', () => {
 });
 
 describe('GET /api/merchant/email-domain', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckCsrf.mockResolvedValue({ valid: true });
+  });
+
+  it('returns 403 when the merchant lacks entitlement', async () => {
+    signedInAs('free');
+    const res = await GET(req(null, 'GET'));
+    expect(res.status).toBe(403);
+    expect(mockGetDomain).not.toHaveBeenCalled();
+  });
 
   it('returns the current domain config', async () => {
     signedInAs('pro');
@@ -99,28 +147,69 @@ describe('GET /api/merchant/email-domain', () => {
       domain: 'mystore.com',
       status: 'verified',
     });
-    const res = await GET();
+    const res = await GET(req(null, 'GET'));
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
       domain: { domain: 'mystore.com', status: 'verified' },
     });
   });
+
+  it('returns a JSON 500 when loading the domain config fails', async () => {
+    signedInAs('pro');
+    mockGetDomain.mockRejectedValue(new Error('Failed to load email domain'));
+    const res = await GET(req(null, 'GET'));
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_load_failed',
+    });
+  });
 });
 
 describe('PATCH /api/merchant/email-domain', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckCsrf.mockResolvedValue({ valid: true });
+  });
+
+  it('returns 403 when CSRF validation fails', async () => {
+    mockCheckCsrf.mockResolvedValue({
+      valid: false,
+      response: new Response(null, { status: 403 }),
+    });
+    const res = await PATCH(req({ enabled: true }, 'PATCH'));
+    expect(res.status).toBe(403);
+    expect(mockSetEnabled).not.toHaveBeenCalled();
+  });
 
   it('enables sending for an entitled merchant', async () => {
     signedInAs('pro');
     mockSetEnabled.mockResolvedValue({ enabled: true });
-    const res = await PATCH(req({ enabled: true }));
+    const res = await PATCH(req({ enabled: true }, 'PATCH'));
     expect(res.status).toBe(200);
     expect(mockSetEnabled).toHaveBeenCalledWith('m1', true);
   });
 
   it('returns 400 when the body is invalid', async () => {
     signedInAs('pro');
-    const res = await PATCH(req({ enabled: 'yes' }));
+    const res = await PATCH(req({ enabled: 'yes' }, 'PATCH'));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for verified-only business rule failures', async () => {
+    signedInAs('pro');
+    mockSetEnabled.mockRejectedValue(
+      new Error('Domain must be verified before enabling')
+    );
+    const res = await PATCH(req({ enabled: true }, 'PATCH'));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 500 for storage failures when toggling', async () => {
+    signedInAs('pro');
+    mockSetEnabled.mockRejectedValue(
+      new Error('Failed to update email domain')
+    );
+    const res = await PATCH(req({ enabled: true }, 'PATCH'));
+    expect(res.status).toBe(500);
   });
 });

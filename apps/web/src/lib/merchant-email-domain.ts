@@ -1,9 +1,12 @@
 import 'server-only';
 
 import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
-  getSendingDomain,
+  findSendingDomainByName,
   registerSendingDomain,
+  type SendingDomainState,
+  verifySendingDomain,
   type ZeptomailDnsRecord,
 } from '@/lib/zeptomail-domains';
 
@@ -23,6 +26,18 @@ interface Row {
   domain: string;
   sender_local_part: string;
   status: 'pending' | 'verified' | 'failed';
+  enabled: boolean;
+  dkim_host: string | null;
+  dkim_value: string | null;
+  bounce_host: string | null;
+  bounce_value: string | null;
+}
+
+interface DomainKeyRow {
+  domain: string;
+  zeptomail_domain_id: string | null;
+  status: 'pending' | 'verified' | 'failed';
+  sender_local_part: string;
   enabled: boolean;
   dkim_host: string | null;
   dkim_value: string | null;
@@ -62,11 +77,40 @@ function recordsToColumns(records: ZeptomailDnsRecord[]) {
   };
 }
 
+function stateToColumns(state: SendingDomainState) {
+  return {
+    zeptomail_domain_id: state.domainKey,
+    status: state.verified ? 'verified' : (state.status ?? 'pending'),
+    verified_at: state.verified ? new Date().toISOString() : null,
+    ...recordsToColumns(state.records),
+  };
+}
+
+async function getRegisterableSendingDomain(
+  domain: string
+): Promise<SendingDomainState> {
+  try {
+    return await registerSendingDomain(domain);
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !error.message.toLowerCase().includes('already')
+    ) {
+      throw error;
+    }
+    const existing = await findSendingDomainByName(domain);
+    if (!existing) {
+      throw error;
+    }
+    return existing;
+  }
+}
+
 /** The merchant's current sending-domain config, or null if none registered. */
 export async function getMerchantEmailDomain(
   merchantId: string
 ): Promise<MerchantEmailDomain | null> {
-  const supabase = createAdminClient();
+  const supabase = await createServerClient();
   const { data, error } = await supabase
     .from(TABLE)
     .select(SELECT)
@@ -83,7 +127,7 @@ export async function registerMerchantEmailDomain(
   merchantId: string,
   domain: string
 ): Promise<MerchantEmailDomain> {
-  const state = await registerSendingDomain(domain);
+  const state = await getRegisterableSendingDomain(domain);
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from(TABLE)
@@ -91,12 +135,9 @@ export async function registerMerchantEmailDomain(
       {
         merchant_id: merchantId,
         domain: state.domain,
-        zeptomail_domain_id: state.domainKey,
-        status: state.verified ? 'verified' : 'pending',
         // Never auto-enable — the merchant flips it on after verification.
         enabled: false,
-        verified_at: state.verified ? new Date().toISOString() : null,
-        ...recordsToColumns(state.records),
+        ...stateToColumns(state),
       },
       { onConflict: 'merchant_id' }
     )
@@ -115,26 +156,33 @@ export async function verifyMerchantEmailDomain(
   const supabase = createAdminClient();
   const { data: existing, error: readError } = await supabase
     .from(TABLE)
-    .select('zeptomail_domain_id')
+    .select(`zeptomail_domain_id, ${SELECT}`)
     .eq('merchant_id', merchantId)
     .maybeSingle();
   if (readError) {
     throw new Error(`Failed to load email domain: ${readError.message}`);
   }
-  const domainKey = (existing as { zeptomail_domain_id?: string } | null)
-    ?.zeptomail_domain_id;
-  if (!domainKey) {
+  if (!existing) {
     throw new Error('No sending domain to verify');
   }
 
-  const state = await getSendingDomain(domainKey);
+  const existingRow = existing as DomainKeyRow;
+  let domainKey = existingRow.zeptomail_domain_id;
+  if (!domainKey) {
+    const recovered = await findSendingDomainByName(existingRow.domain);
+    domainKey = recovered?.domainKey ?? null;
+    if (!domainKey) {
+      if (existingRow.status === 'verified') {
+        return rowToDomain(existingRow);
+      }
+      throw new Error('No sending domain to verify');
+    }
+  }
+
+  const state = await verifySendingDomain(domainKey);
   const { data, error } = await supabase
     .from(TABLE)
-    .update({
-      status: state.verified ? 'verified' : 'pending',
-      verified_at: state.verified ? new Date().toISOString() : null,
-      ...recordsToColumns(state.records),
-    })
+    .update(stateToColumns(state))
     .eq('merchant_id', merchantId)
     .select(SELECT)
     .single();

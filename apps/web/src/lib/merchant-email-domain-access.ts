@@ -14,31 +14,53 @@ export type ResolvedMerchant = {
  * response to short-circuit, or the resolved merchant (id, plan, slug).
  */
 export async function resolveMerchantForEmailDomain(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  authenticatedUserId?: string
 ): Promise<{ error: NextResponse } | ResolvedMerchant> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
+  let userId = authenticatedUserId;
+  if (!userId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return {
+        error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      };
+    }
+    userId = user.id;
   }
-  const ctx = await getMerchantForApiRequest(supabase, user.id);
+  const ctx = await getMerchantForApiRequest(supabase, userId);
   if (!ctx) {
     return {
       error: NextResponse.json({ error: 'No merchant found' }, { status: 403 }),
     };
   }
-  const { data: merchant } = await supabase
+  if (!ctx.staffAccess.isOwner) {
+    return {
+      error: NextResponse.json(
+        { error: 'Only merchant owners can manage email domains' },
+        { status: 403 }
+      ),
+    };
+  }
+  const { data: merchant, error } = await supabase
     .from('merchants')
     .select('plan_tier, slug')
     .eq('id', ctx.merchantId)
     .single();
+  if (error || !merchant) {
+    return {
+      error: NextResponse.json(
+        { error: 'Merchant access unavailable' },
+        { status: 403 }
+      ),
+    };
+  }
+
   return {
     merchantId: ctx.merchantId,
-    planTier: (merchant?.plan_tier as string | null) ?? null,
-    slug: (merchant?.slug as string | null) ?? ctx.merchantSlug ?? null,
+    planTier: (merchant.plan_tier as string | null) ?? null,
+    slug: (merchant.slug as string | null) ?? ctx.merchantSlug ?? null,
   };
 }
 

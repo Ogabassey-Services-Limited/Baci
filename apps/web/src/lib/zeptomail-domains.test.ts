@@ -44,8 +44,9 @@ function domainResponse(dkimStatus: string, cnameStatus: string) {
 const fetchMock = vi.fn();
 
 function routeFetch(handlers: { token?: unknown; domains?: unknown }) {
-  fetchMock.mockImplementation((url: string) => {
-    if (url.includes('accounts.zoho.com')) {
+  fetchMock.mockImplementation((url: string | URL | Request) => {
+    const href = String(url);
+    if (href.includes('accounts.zoho.com')) {
       return Promise.resolve(handlers.token ?? TOKEN_OK);
     }
     return Promise.resolve(handlers.domains);
@@ -71,11 +72,12 @@ describe('zeptomail-domains client', () => {
     vi.unstubAllGlobals();
   });
 
-  it('isZeptomailDomainsConfigured reflects env presence', async () => {
+  it('isZeptomailDomainsConfigured reflects trimmed env presence', async () => {
     const mod = await load();
     expect(mod.isZeptomailDomainsConfigured()).toBe(true);
-    vi.stubEnv('ZOHO_REFRESH_TOKEN', '');
-    expect(mod.isZeptomailDomainsConfigured()).toBe(false);
+    vi.stubEnv('ZOHO_REFRESH_TOKEN', '   ');
+    const reloaded = await load();
+    expect(reloaded.isZeptomailDomainsConfigured()).toBe(false);
   });
 
   it('registerSendingDomain posts the domain and maps DKIM + CNAME records', async () => {
@@ -96,6 +98,7 @@ describe('zeptomail-domains client', () => {
     });
 
     expect(state.domainKey).toBe('dk1');
+    expect(state.status).toBe('pending');
     expect(state.verified).toBe(false);
     expect(state.records).toEqual([
       {
@@ -111,6 +114,53 @@ describe('zeptomail-domains client', () => {
     ]);
   });
 
+  it('accepts ZeptoMail add-domain object responses', async () => {
+    routeFetch({
+      domains: {
+        ok: true,
+        json: async () => ({
+          data: {
+            domain_name: 'ogabassey.com',
+            domain_key: 'dk1',
+            status: 'unverified',
+            dkim: {
+              host: '24132322._domainkey.ogabassey.com',
+              public_key: 'k=rsa; p=AAA',
+              status: 'unverified',
+            },
+            cname: {
+              host: 'bounce-zem.ogabassey.com',
+              cname_record: 'cluster89.zeptomail.com',
+              status: 'unverified',
+            },
+          },
+        }),
+      },
+    });
+    const mod = await load();
+
+    await expect(mod.registerSendingDomain('ogabassey.com')).resolves.toEqual(
+      expect.objectContaining({
+        domainKey: 'dk1',
+        records: expect.arrayContaining([
+          expect.objectContaining({ type: 'TXT' }),
+          expect.objectContaining({ type: 'CNAME' }),
+        ]),
+      })
+    );
+  });
+
+  it('adds abort signals to Zoho token and ZeptoMail API requests', async () => {
+    routeFetch({ domains: domainResponse('unverified', 'unverified') });
+    const mod = await load();
+
+    await mod.registerSendingDomain('ogabassey.com');
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
   it('getSendingDomain reports verified only when DKIM and CNAME both pass', async () => {
     routeFetch({ domains: domainResponse('verified', 'verified') });
     const mod = await load();
@@ -123,6 +173,49 @@ describe('zeptomail-domains client', () => {
     await expect(mod2.getSendingDomain('dk1')).resolves.toMatchObject({
       verified: false,
     });
+  });
+
+  it('findSendingDomainByName returns the matching listed domain', async () => {
+    routeFetch({ domains: domainResponse('verified', 'verified') });
+    const mod = await load();
+
+    await expect(
+      mod.findSendingDomainByName('OGABASSEY.COM')
+    ).resolves.toMatchObject({
+      domainKey: 'dk1',
+      verified: true,
+    });
+    expect(
+      fetchMock.mock.calls.some((call) => String(call[0]).endsWith('/domains'))
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some((call) =>
+        String(call[0]).endsWith('/domains/dk1')
+      )
+    ).toBe(true);
+  });
+
+  it('marks failed DNS checks as failed', async () => {
+    routeFetch({ domains: domainResponse('failed', 'unverified') });
+    const mod = await load();
+
+    await expect(mod.getSendingDomain('dk1')).resolves.toMatchObject({
+      status: 'failed',
+      verified: false,
+    });
+  });
+
+  it('verifySendingDomain asks ZeptoMail to validate DNS records', async () => {
+    routeFetch({ domains: domainResponse('verified', 'verified') });
+    const mod = await load();
+
+    await expect(mod.verifySendingDomain('dk1')).resolves.toMatchObject({
+      verified: true,
+    });
+    const verifyCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).endsWith('/domains/dk1/verify')
+    );
+    expect((verifyCall?.[1] as RequestInit).method).toBe('PUT');
   });
 
   it('throws a useful error when the ZeptoMail API rejects', async () => {

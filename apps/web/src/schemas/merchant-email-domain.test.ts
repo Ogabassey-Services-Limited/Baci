@@ -25,6 +25,9 @@ describe('registerEmailDomainSchema', () => {
     'has space.com',
     'http://mystore.com',
     '-bad.com',
+    'bad-.com',
+    'good.-bad.com',
+    'good.bad-.com',
     '',
   ])('rejects %p', (domain) => {
     expect(registerEmailDomainSchema.safeParse({ domain }).success).toBe(false);

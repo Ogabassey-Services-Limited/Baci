@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantEmailDomain,
   registerMerchantEmailDomain,
@@ -8,31 +10,87 @@ import {
   emailDomainGate,
   resolveMerchantForEmailDomain,
 } from '@/lib/merchant-email-domain-access';
-import { createClient } from '@/lib/supabase/server';
 import {
   registerEmailDomainSchema,
   setEmailDomainEnabledSchema,
 } from '@/schemas/merchant-email-domain';
 
-export async function GET() {
-  const supabase = await createClient();
-  const resolved = await resolveMerchantForEmailDomain(supabase);
-  if ('error' in resolved) {
-    return resolved.error;
+async function resolveEmailDomainRequest(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (!(auth.user && auth.supabase)) {
+    return {
+      error: NextResponse.json(
+        { error: auth.error ?? 'Unauthorized' },
+        { status: 401 }
+      ),
+    };
   }
-  const domain = await getMerchantEmailDomain(resolved.merchantId);
-  return NextResponse.json({ domain });
-}
 
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const resolved = await resolveMerchantForEmailDomain(supabase);
+  const resolved = await resolveMerchantForEmailDomain(
+    auth.supabase,
+    auth.user.id
+  );
   if ('error' in resolved) {
-    return resolved.error;
+    return resolved;
   }
   const denied = emailDomainGate(resolved);
   if (denied) {
-    return denied;
+    return { error: denied };
+  }
+  return resolved;
+}
+
+function isBusinessRuleError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.toLowerCase().includes('must be verified')
+  );
+}
+
+function isStorageError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.startsWith('failed to load email domain') ||
+    message.startsWith('failed to save email domain') ||
+    message.startsWith('failed to update email domain')
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const resolved = await resolveEmailDomainRequest(request);
+  if ('error' in resolved) {
+    return resolved.error;
+  }
+
+  try {
+    const domain = await getMerchantEmailDomain(resolved.merchantId);
+    return NextResponse.json({ domain });
+  } catch {
+    return NextResponse.json(
+      {
+        error: 'Failed to load email domain',
+        code: 'email_domain_load_failed',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
+  const resolved = await resolveEmailDomainRequest(request);
+  if ('error' in resolved) {
+    return resolved.error;
   }
 
   const body = await request.json().catch(() => null);
@@ -55,21 +113,27 @@ export async function POST(request: NextRequest) {
       {
         error:
           error instanceof Error ? error.message : 'Failed to register domain',
+        code: isStorageError(error)
+          ? 'email_domain_storage_failed'
+          : 'email_domain_upstream_failed',
       },
-      { status: 502 }
+      { status: isStorageError(error) ? 500 : 502 }
     );
   }
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
-  const resolved = await resolveMerchantForEmailDomain(supabase);
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
+  const resolved = await resolveEmailDomainRequest(request);
   if ('error' in resolved) {
     return resolved.error;
-  }
-  const denied = emailDomainGate(resolved);
-  if (denied) {
-    return denied;
   }
 
   const body = await request.json().catch(() => null);
@@ -88,12 +152,24 @@ export async function PATCH(request: NextRequest) {
     );
     return NextResponse.json({ domain });
   } catch (error) {
+    if (isBusinessRuleError(error)) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error ? error.message : 'Failed to update domain',
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : 'Failed to update domain',
+        error: 'Failed to update email domain',
+        code: isStorageError(error)
+          ? 'email_domain_storage_failed'
+          : 'email_domain_update_failed',
       },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }

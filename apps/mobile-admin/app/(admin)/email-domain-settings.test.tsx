@@ -4,24 +4,51 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
+  isError: false,
+  isFetching: false,
   isLoading: false,
+  loadError: null as Error | null,
+  refetch: vi.fn(),
   register: vi.fn(),
   verify: vi.fn(),
   setEnabled: vi.fn(),
   getDomain: vi.fn(),
+  invalidateQueries: vi.fn(),
+  setQueryData: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: mocks.config, isLoading: mocks.isLoading }),
+  useQuery: () => ({
+    data: mocks.config,
+    error: mocks.loadError,
+    isError: mocks.isError,
+    isFetching: mocks.isFetching,
+    isLoading: mocks.isLoading,
+    refetch: mocks.refetch,
+  }),
   useMutation: ({
     mutationFn,
+    onError,
+    onSuccess,
   }: {
-    mutationFn: (arg?: unknown) => unknown;
+    mutationFn: (arg?: unknown) => Promise<unknown> | unknown;
+    onError?: (error: unknown) => void;
+    onSuccess?: (data: unknown) => void;
   }) => ({
-    mutate: (arg?: unknown) => mutationFn(arg),
+    mutate: async (arg?: unknown) => {
+      try {
+        const result = await mutationFn(arg);
+        onSuccess?.(result);
+      } catch (error) {
+        onError?.(error);
+      }
+    },
     isPending: false,
   }),
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({
+    invalidateQueries: mocks.invalidateQueries,
+    setQueryData: mocks.setQueryData,
+  }),
 }));
 
 vi.mock('expo-router', async () => {
@@ -42,6 +69,8 @@ vi.mock('@/hooks/useTheme', () => ({
       border: '#eee',
       card: '#fafafa',
       info: '#06c',
+      error: '#d00',
+      errorLight: '#fee',
       infoLight: '#def',
       primary: '#25f',
       success: '#1a3',
@@ -65,16 +94,45 @@ describe('EmailDomainSettingsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.config = null;
+    mocks.isError = false;
+    mocks.isFetching = false;
     mocks.isLoading = false;
+    mocks.loadError = null;
+    mocks.invalidateQueries.mockReset();
+    mocks.setQueryData.mockReset();
   });
 
-  it('lets a merchant submit a new sending domain', () => {
+  it('lets a merchant submit a new sending domain', async () => {
     render(<EmailDomainSettingsScreen />);
     fireEvent.change(screen.getByPlaceholderText('yourstore.com'), {
       target: { value: 'mystore.com' },
     });
     fireEvent.click(screen.getByText('Add domain'));
-    expect(mocks.register).toHaveBeenCalledWith('mystore.com');
+    await expect.poll(() => mocks.register).toHaveBeenCalledWith('mystore.com');
+  });
+
+  it('writes mutation results into the query cache before refetching', async () => {
+    const nextConfig = {
+      domain: 'mystore.com',
+      senderLocalPart: 'noreply',
+      status: 'pending',
+      enabled: false,
+      records: [],
+    };
+    mocks.register.mockResolvedValue(nextConfig);
+
+    render(<EmailDomainSettingsScreen />);
+    fireEvent.change(screen.getByPlaceholderText('yourstore.com'), {
+      target: { value: 'mystore.com' },
+    });
+    fireEvent.click(screen.getByText('Add domain'));
+
+    await expect
+      .poll(() => mocks.setQueryData)
+      .toHaveBeenCalledWith(['merchant', 'email-domain'], nextConfig);
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant', 'email-domain'],
+    });
   });
 
   it('shows the DNS records + a Verify action while pending', () => {
@@ -98,6 +156,49 @@ describe('EmailDomainSettingsScreen', () => {
     expect(screen.getByText('sel._domainkey.mystore.com')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /verify/i }));
     expect(mocks.verify).toHaveBeenCalled();
+  });
+
+  it('shows a retry state when loading fails', () => {
+    mocks.isError = true;
+    mocks.loadError = new Error('network unavailable');
+
+    render(<EmailDomainSettingsScreen />);
+
+    expect(screen.getByText('network unavailable')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(mocks.refetch).toHaveBeenCalled();
+  });
+
+  it('keeps showing cached config when a background refetch fails', () => {
+    mocks.isError = true;
+    mocks.loadError = new Error('network unavailable');
+    mocks.config = {
+      domain: 'mystore.com',
+      senderLocalPart: 'noreply',
+      status: 'verified',
+      enabled: true,
+      records: [],
+    };
+
+    render(<EmailDomainSettingsScreen />);
+
+    expect(screen.queryByText('network unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText('Verified')).toBeInTheDocument();
+  });
+
+  it('shows failed verification copy instead of pending DNS copy', () => {
+    mocks.config = {
+      domain: 'mystore.com',
+      senderLocalPart: 'noreply',
+      status: 'failed',
+      enabled: false,
+      records: [],
+    };
+    render(<EmailDomainSettingsScreen />);
+
+    expect(screen.getByText('Verification failed')).toBeInTheDocument();
+    expect(screen.queryByText('Pending DNS')).not.toBeInTheDocument();
+    expect(screen.getByText(/Check that the DKIM TXT/)).toBeInTheDocument();
   });
 
   it('toggles sending once the domain is verified', () => {
