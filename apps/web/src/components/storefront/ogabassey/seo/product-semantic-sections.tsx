@@ -9,10 +9,11 @@ interface ProductSemanticSectionsProps {
 export function ProductSemanticSections({
   model,
 }: ProductSemanticSectionsProps) {
+  const contextParagraphs = model.contextParagraphs ?? [];
   const hasCards = Boolean(
     model.alternatives || model.sameBrand || model.samePrice,
   );
-  const hasContext = Boolean(model.contextParagraphs?.length);
+  const hasContext = contextParagraphs.length > 0;
   const hasGuideLinks = model.guideLinks.length > 0;
 
   if (!model.supportLinks.length && !hasContext && !hasGuideLinks && !hasCards) {
@@ -32,7 +33,7 @@ export function ProductSemanticSections({
           >
             Product buying context
           </h2>
-          {model.contextParagraphs?.map((paragraph, index) => (
+          {contextParagraphs.map((paragraph, index) => (
             <p
               key={index}
               className="ogabassey-pdp-semantic-card__description"

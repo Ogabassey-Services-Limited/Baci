@@ -25,8 +25,10 @@ describe('getBlogAuthorSameAs', () => {
   });
 
   it('does not mix the company social media into an author (distinct entities)', () => {
-    const sameAs = getBlogAuthorSameAs('Bassey John', 'ogabassey.com');
-    expect(sameAs.every((url) => url.includes('bassey'))).toBe(true);
+    expect(getBlogAuthorSameAs('Bassey John', 'ogabassey.com')).toEqual([
+      'https://www.instagram.com/bassey__j',
+      'https://www.linkedin.com/in/bassey-john-6a277885',
+    ]);
   });
 
   it('omits broken X/Twitter profile links from author schemas', () => {

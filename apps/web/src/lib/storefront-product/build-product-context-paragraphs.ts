@@ -3,6 +3,7 @@ import type { ProductSemanticCandidate } from './product-semantic-types';
 
 interface BuildProductContextParagraphsInput {
   categoryName: string;
+  /** Falls back to NG when the merchant country is not available. */
   countryCode?: string | null;
   currentProduct: ProductSemanticCandidate;
   merchantBusinessName: string;
