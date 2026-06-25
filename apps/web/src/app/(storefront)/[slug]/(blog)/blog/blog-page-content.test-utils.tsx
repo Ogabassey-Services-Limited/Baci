@@ -1,12 +1,8 @@
 import { vi } from 'vitest';
-import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
 interface MockDefaultBlogUiProps {
   blogSchema: {
-    publisher?: {
-      '@id'?: string;
-    };
     blogPost?: unknown;
   };
   itemListSchema?: {
@@ -24,7 +20,6 @@ interface MockDefaultBlogUiProps {
   merchant: { business_name: string };
   posts: Array<{ slug: string; title: string }>;
   totalPosts: number;
-  currentPage?: number;
 }
 
 interface MockTemplateBlogRendererProps {
@@ -37,12 +32,8 @@ const hoistedMocks = vi.hoisted(() => ({
     <div>{props.merchant.business_name} blog</div>
   )),
   mockGetTemplate: vi.fn<(...args: unknown[]) => unknown>(() => null),
-  mockHeaders: vi.fn(() => new Headers()),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
-  }),
-  mockRedirect: vi.fn((url: string) => {
-    throw new Error(`NEXT_REDIRECT:${url}`);
   }),
   mockTemplateBlogRenderer: vi.fn((_props: MockTemplateBlogRendererProps) => (
     <div>Template blog</div>
@@ -53,9 +44,7 @@ export const {
   mockBuildBlogClusterCollections,
   mockDefaultBlogUi,
   mockGetTemplate,
-  mockHeaders,
   mockNotFound,
-  mockRedirect,
   mockTemplateBlogRenderer,
 } = hoistedMocks;
 
@@ -63,13 +52,8 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
 
-vi.mock('next/headers', () => ({
-  headers: async () => mockHeaders(),
-}));
-
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
-  redirect: (url: string) => mockRedirect(url),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -84,13 +68,6 @@ vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: vi.fn(() => ({})),
   generateMetaDescription: vi.fn((description: string) => description),
   generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
-}));
-
-vi.mock('@/lib/blog-organization-schema', () => ({
-  buildBlogOrganizationSchema: vi.fn(() => ({
-    '@id': 'https://test-store.usebaci.com#organization',
-    '@type': 'OnlineStore',
-  })),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -128,26 +105,6 @@ vi.mock('./template-blog-renderer', () => ({
     mockTemplateBlogRenderer(props),
 }));
 
-vi.mock('./blog-listing-pagination', () => ({
-  BlogListingPagination: (props: {
-    storeBasePath: string;
-    category?: string;
-    currentPage: number;
-    search?: string;
-    totalPages: number;
-  }) => (
-    <nav
-      aria-label="Blog pagination"
-      data-testid="blog-pagination"
-      data-store-base-path={props.storeBasePath}
-      data-category={props.category}
-      data-current-page={props.currentPage}
-      data-search={props.search}
-      data-total-pages={props.totalPages}
-    />
-  ),
-}));
-
 export const merchant = {
   id: 'merchant-1',
   business_name: 'Ogabassey',
@@ -156,10 +113,6 @@ export const merchant = {
   store_url: undefined as string | undefined,
   logo_url: '',
   template_id: 'ogabassey',
-  country: 'NG' as string | undefined,
-  social_media: { instagram: '@ogabassey' } as
-    | { instagram?: string; facebook?: string; twitter?: string }
-    | undefined,
 };
 
 export const postsPayload = [
@@ -214,14 +167,13 @@ export function buildListingResult(
   }>
 ) {
   const posts = overrides?.posts ?? postsPayload;
-  const totalPosts = overrides?.totalPosts ?? posts.length;
   return {
     merchant: overrides?.merchant ?? merchant,
     posts,
-    totalPosts,
+    totalPosts: overrides?.totalPosts ?? posts.length,
     categories: ['News', 'gcrblw'],
     currentPage: 1,
-    totalPages: Math.ceil(totalPosts / BLOG_LISTING_PAGE_SIZE),
+    totalPages: 1,
     searchQuery: undefined,
   };
 }
@@ -232,9 +184,6 @@ export function resetBlogPageContentMocks() {
   mockGetCachedBlogListing.mockReset();
   mockGetCachedBlogListing.mockResolvedValue(buildListingResult());
   mockNotFound.mockClear();
-  mockRedirect.mockClear();
-  mockHeaders.mockReset();
-  mockHeaders.mockReturnValue(new Headers());
   mockBuildBlogClusterCollections.mockReset();
   mockBuildBlogClusterCollections.mockReturnValue([]);
   mockDefaultBlogUi.mockReset();

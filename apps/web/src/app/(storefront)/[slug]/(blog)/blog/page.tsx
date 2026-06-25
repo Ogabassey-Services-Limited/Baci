@@ -6,36 +6,18 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import { parseBlogListingPage } from './blog-listing-page-params';
-import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
 import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: BlogPageProps): Promise<Metadata> {
-  const [{ slug }, { category, page, search }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const currentPage = parseBlogListingPage(page);
-  const data = await getCachedBlogListing(slug, {
-    category,
-    page: currentPage,
-    searchQuery: search,
-  });
+  const { slug } = await params;
+  const data = await getCachedBlogListing(slug, { page: 1 });
   if (!data) {
     return { title: 'Blog Not Found' };
   }
   const baseUrl = buildStoreUrl(data.merchant);
-  const totalPages = Math.max(1, data.totalPages);
-  const canonicalPage = Math.min(currentPage, totalPages);
-  const canonicalUrl = buildBlogListingSchemaUrl({
-    baseUrl,
-    category,
-    page: canonicalPage,
-    search: data.searchQuery ?? search,
-  });
+  const canonicalUrl = `${baseUrl}/blog`;
   const socialImageCandidates = [
     data.posts[0]?.featured_image_url,
     data.merchant.logo_url,
@@ -48,6 +30,8 @@ export async function generateMetadata({
       fallback: `Read expert buying guides, product comparisons, and tech updates from ${data.merchant.business_name}. Find practical recommendations tailored for shoppers in Nigeria.`,
     }
   );
+  const nextUrl = data.totalPages > 1 ? `${baseUrl}/blog?page=2` : undefined;
+
   return {
     title: `Blog | ${data.merchant.business_name}`,
     description,
@@ -74,6 +58,9 @@ export async function generateMetadata({
       types: {
         'application/rss+xml': `${baseUrl}/api/blog/feed/${slug}`,
       },
+    },
+    other: {
+      ...(nextUrl ? { 'link-next': nextUrl } : {}),
     },
     robots: {
       index: true,

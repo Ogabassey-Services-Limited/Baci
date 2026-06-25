@@ -23,7 +23,6 @@ import {
 import * as z from 'zod';
 import { DiscountItemSelector } from '@/components/discounts/DiscountItemSelector';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useCurrency } from '@/hooks/useCurrency';
 import { useDiscounts } from '@/hooks/useDiscounts';
 import { useTheme } from '@/hooks/useTheme';
 import type { CreateDiscountDTO } from '@/lib/types/discounts';
@@ -64,7 +63,7 @@ const discountResolver: Resolver<
   DiscountFormInput,
   undefined,
   DiscountFormOutput
-> = (values) => {
+> = async (values) => {
   const result = discountSchema.safeParse(values);
 
   if (result.success) {
@@ -108,7 +107,6 @@ export default function NewDiscountScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { createDiscount, isCreating } = useDiscounts();
-  const { symbol } = useCurrency();
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [showStartDate, setShowStartDate] = useState(false);
@@ -244,7 +242,7 @@ export default function NewDiscountScreen() {
                     >
                       {type === 'percentage'
                         ? 'Percentage (%)'
-                        : `Fixed Amount (${symbol})`}
+                        : 'Fixed Amount (₦)'}
                     </Text>
                   </Pressable>
                 ))}
@@ -256,7 +254,7 @@ export default function NewDiscountScreen() {
               <Text style={[styles.label, { color: colors.text }]}>
                 {discountType === 'percentage'
                   ? 'Percentage Value (%)'
-                  : `Discount Amount (${symbol})`}
+                  : 'Discount Amount (₦)'}
               </Text>
               <Controller
                 control={control}
@@ -469,7 +467,7 @@ export default function NewDiscountScreen() {
 
             <View style={styles.formGroup}>
               <Text style={[styles.label, { color: colors.text }]}>
-                Min. Purchase Amount ({symbol})
+                Min. Purchase Amount (₦)
               </Text>
               <Controller
                 control={control}

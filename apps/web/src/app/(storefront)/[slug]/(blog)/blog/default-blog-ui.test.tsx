@@ -74,28 +74,4 @@ describe('DefaultBlogUi', () => {
     expect(screen.getByText('BLOG_SIDEBAR')).toBeInTheDocument();
     expect(screen.getByText('BlogList:12')).toBeInTheDocument();
   });
-
-  it('renders the Organization entity when an organizationSchema is provided', () => {
-    const { container } = render(
-      <DefaultBlogUi
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
-        organizationSchema={{ '@type': 'OnlineStore', name: 'Ogabassey' }}
-        basePath="/ogabassey"
-        categories={['News']}
-        merchant={{ id: 'merchant-1', business_name: 'Ogabassey' }}
-        posts={[]}
-        slug="ogabassey"
-        totalPosts={0}
-      />
-    );
-
-    const scripts = container.querySelectorAll(
-      'script[type="application/ld+json"]'
-    );
-    const hasOrganization = Array.from(scripts).some((script) =>
-      script.textContent?.includes('OnlineStore')
-    );
-    expect(hasOrganization).toBe(true);
-  });
 });

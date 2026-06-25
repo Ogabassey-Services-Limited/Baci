@@ -1,6 +1,7 @@
 import '@/app/(storefront)/storefront-pdp-critical.css';
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
@@ -59,7 +60,7 @@ import {
   getProductUrl,
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { stripVolatileProductPriceSentences } from '@/lib/storefront-product-description';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
@@ -1142,7 +1143,7 @@ export async function generateMetadata({
     return CANONICAL_PRODUCT_REDIRECT_METADATA;
   }
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   return buildCategoryProductMetadata({ baseUrl, merchant, product });
 }
 
@@ -1219,7 +1220,7 @@ async function CategoryProductPageContent({
     productResultPromise,
   });
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const renderableProduct: Product = {
     ...product,
     description: stripVolatileProductPriceSentences(product.description),

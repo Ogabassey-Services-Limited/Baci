@@ -31,7 +31,6 @@ const EXPLICIT_STATIC_ROUTES = new Set([
   '(tabs)/categories.tsx',
   '(tabs)/saved.tsx',
   '(tabs)/wallet.tsx',
-  'account/verify.tsx',
   'auth/callback.tsx',
   'cart.tsx',
   'auth/login.tsx',

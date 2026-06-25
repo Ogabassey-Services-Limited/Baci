@@ -106,7 +106,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       data: { jumia_order_id: order.id },
       error: null,
     });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
@@ -146,11 +146,9 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       }),
       'orders'
     );
-    expect(notifyUpdateQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        notification_sent: true,
-      })
-    );
+    expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
+      notification_sent: true,
+    });
   });
 
   it('keeps the sync cursor in place when every Jumia order fails', async () => {
@@ -171,7 +169,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     );
     const existingJumiaQuery = createQuery({ data: [], error: null });
     const existingCanonicalQuery = createQuery({ data: [], error: null });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
     const supabase = createSupabaseMock({
       marketplace_integrations: [marketplaceQuery, syncCursorQuery],
       jumia_orders: [existingJumiaQuery],
@@ -268,7 +266,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
@@ -351,7 +349,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       data: { jumia_order_id: order.id },
       error: null,
     });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],
@@ -382,11 +380,9 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
     expect(result.canonicalCreated).toBe(1);
     expect(result.notified).toBe(1);
     expect(result.orderErrors).toBe(1);
-    expect(notifyUpdateQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        notification_sent: true,
-      })
-    );
+    expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
+      notification_sent: true,
+    });
     expect(result.errors).toEqual(
       expect.arrayContaining([
         expect.stringContaining(

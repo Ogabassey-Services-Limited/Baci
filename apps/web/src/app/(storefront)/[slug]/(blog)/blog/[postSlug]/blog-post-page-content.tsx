@@ -6,13 +6,10 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
-import { getBlogAuthorSameAs, hasBlogAuthorPage } from '@/lib/blog-authors';
 import {
   extractBlogFaqItems,
   generateFaqPageSchema,
 } from '@/lib/blog-faq-schema';
-import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
-import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
 import {
@@ -25,12 +22,10 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
-  generateSlug,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import { isDomainIdentifier } from '@/lib/validation';
-import { getBlogStorefrontPathPrefix } from '../blog-storefront-path-prefix';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
 import { BlogPostHeader } from './BlogPostHeader';
@@ -76,33 +71,9 @@ async function renderBlogPostContent({
   const { merchant, post, relatedPosts, relatedProducts } = data;
   const content = post.content || '';
   const baseUrl = buildStoreUrl(merchant);
-  const organizationSchema = buildBlogOrganizationSchema(merchant, baseUrl);
-  const organizationId =
-    typeof organizationSchema['@id'] === 'string'
-      ? organizationSchema['@id']
-      : buildBlogOrganizationId(baseUrl);
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
-  // On a merchant subdomain the proxy already mapped /blog/... into the internal
-  // /{slug}/... route, so a naive `/${slug}` prefix double-prefixes the author
-  // byline link. Resolve the prefix from the proxy-trusted merchant headers.
-  const headersList = await headers();
-  const basePath = isDomainIdentifier(slug)
-    ? ''
-    : getBlogStorefrontPathPrefix(headersList, merchant);
-  const authorName = post.author_name?.trim() || merchant.business_name;
-  const hasAuthorHub = Boolean(
-    post.author_name && hasBlogAuthorPage(post.author_name, merchant.slug)
-  );
-  const authorSlug =
-    hasAuthorHub && post.author_name ? generateSlug(post.author_name) : null;
-  const authorHref = authorSlug
-    ? `${basePath}/blog/author/${authorSlug}`
-    : undefined;
-  const authorUrl = authorSlug
-    ? `${baseUrl}/blog/author/${authorSlug}`
-    : baseUrl;
-  const authorId = authorSlug ? `${baseUrl}#author-${authorSlug}` : undefined;
+  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const blogImageUrls = getBlogStructuredDataImageUrls(post);
   const blogImages = getBlogStructuredDataImages(post);
   const faqSchema = generateFaqPageSchema(extractBlogFaqItems(content));
@@ -119,18 +90,12 @@ async function renderBlogPostContent({
     datePublished: post.published_at,
     dateModified: post.updated_at,
     author: {
-      name: authorName,
-      id: authorId,
-      url: authorUrl,
+      name: post.author_name,
+      url: baseUrl,
       jobTitle: post.author_title,
       description: post.author_bio,
-      sameAs: post.author_name
-        ? getBlogAuthorSameAs(post.author_name, merchant.slug)
-        : [],
-      image: post.author_image_url ?? undefined,
     },
     publisher: {
-      id: organizationId,
       name: merchant.business_name,
       logo: merchant.logo_url || `${baseUrl}/logo.png`,
       url: baseUrl,
@@ -140,7 +105,6 @@ async function renderBlogPostContent({
     keywords: post.keywords,
     category: post.category,
     readingTime: post.reading_time_minutes,
-    blogId: `${blogIndexUrl}#blog`,
   });
 
   const breadcrumbSchema = generateBreadcrumbSchema([
@@ -195,9 +159,6 @@ async function renderBlogPostContent({
         </div>
       )}
       <script type="application/ld+json">
-        {safeJsonLdStringify(organizationSchema)}
-      </script>
-      <script type="application/ld+json">
         {safeJsonLdStringify(blogSchema)}
       </script>
       <script type="application/ld+json">
@@ -244,7 +205,6 @@ async function renderBlogPostContent({
               author_bio={post.author_bio}
               author_name={post.author_name}
               author_title={post.author_title}
-              authorHref={authorHref}
               category={post.category}
               locale={locale}
               published_at={post.published_at}

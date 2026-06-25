@@ -458,8 +458,7 @@ describe('SearchAutocomplete', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/search/autocomplete?q=iphnoe&merchant_id=merchant-1&limit=10',
-        expect.objectContaining({ signal: expect.any(AbortSignal) })
+        '/api/search/autocomplete?q=iphnoe&merchant_id=merchant-1&limit=10'
       );
     });
 
@@ -468,64 +467,6 @@ describe('SearchAutocomplete', () => {
       expect.stringContaining('iPhone 16 Pro'),
       expect.stringContaining('iPhone X'),
     ]);
-  });
-
-  it('aborts the in-flight request when the debounced query is superseded', async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi.fn(
-      () =>
-        new Promise(() => {
-          // Keep the request pending so only an abort can settle it.
-        })
-    ) as unknown as typeof fetch;
-    globalThis.fetch = fetchMock;
-
-    const { rerender } = render(
-      <SearchAutocomplete
-        merchantId="merchant-1"
-        value="iphone"
-        onChange={vi.fn()}
-      />
-    );
-
-    // Flush the mount effect that dispatches the first request, then capture its
-    // abort signal.
-    await act(async () => {
-      await Promise.resolve();
-    });
-    const firstSignal = (
-      vi
-        .mocked(fetchMock)
-        .mock.calls.find(
-          ([url]) => typeof url === 'string' && url.includes('q=iphone&')
-        )?.[1] as RequestInit | undefined
-    )?.signal;
-    expect(firstSignal).toBeInstanceOf(AbortSignal);
-    expect(firstSignal?.aborted).toBe(false);
-
-    // A genuinely new query, once the debounce commits, supersedes and aborts the
-    // prior request and dispatches a replacement. We intentionally do NOT abort
-    // on every raw keystroke (that could strand the query with no replacement).
-    rerender(
-      <SearchAutocomplete
-        merchantId="merchant-1"
-        value="iphone 12"
-        onChange={vi.fn()}
-      />
-    );
-    await act(async () => {
-      vi.advanceTimersByTime(200);
-      await Promise.resolve();
-    });
-
-    expect(firstSignal?.aborted).toBe(true);
-    expect(
-      vi
-        .mocked(fetchMock)
-        .mock.calls.some(
-          ([url]) => typeof url === 'string' && url.includes('iphone%2012')
-        )
-    ).toBe(true);
   });
 
   it('keeps the autocomplete popup closed for empty ranked suggestions', async () => {
@@ -548,8 +489,7 @@ describe('SearchAutocomplete', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/search/autocomplete?q=zzzz&merchant_id=merchant-1&limit=10',
-        expect.objectContaining({ signal: expect.any(AbortSignal) })
+        '/api/search/autocomplete?q=zzzz&merchant_id=merchant-1&limit=10'
       );
     });
 

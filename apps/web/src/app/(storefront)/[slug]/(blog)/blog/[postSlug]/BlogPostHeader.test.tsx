@@ -1,13 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}));
-
+import { describe, expect, it } from 'vitest';
 import { BlogPostHeader } from './BlogPostHeader';
 
 describe('BlogPostHeader', () => {
@@ -64,20 +56,5 @@ describe('BlogPostHeader', () => {
     expect(screen.queryByText(/min read/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Ada')).not.toBeInTheDocument();
     expect(screen.queryByText('(Editor)')).not.toBeInTheDocument();
-  });
-
-  it('links the byline to the author page when authorHref is provided', () => {
-    render(
-      <BlogPostHeader
-        author_name="Bassey John"
-        authorHref="/ogabassey/blog/author/bassey-john"
-        title="Pixel 9 Review"
-      />
-    );
-
-    expect(screen.getByRole('link', { name: 'Bassey John' })).toHaveAttribute(
-      'href',
-      '/ogabassey/blog/author/bassey-john'
-    );
   });
 });

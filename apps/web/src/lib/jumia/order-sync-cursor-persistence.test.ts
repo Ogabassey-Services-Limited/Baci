@@ -96,11 +96,11 @@ describe('Jumia order sync cursor persistence', () => {
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
     const failedCursorQuery = createQuery(
       { error: { message: 'cursor write denied' } },
-      { terminalEqCall: 2 }
+      { terminalEqCall: 1 }
     );
     const retryCursorQuery = createQuery(
       { error: null },
-      { terminalEqCall: 2 }
+      { terminalEqCall: 1 }
     );
     const supabase = createSupabaseMock(
       {

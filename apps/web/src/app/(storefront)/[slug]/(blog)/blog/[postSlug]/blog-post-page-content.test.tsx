@@ -19,7 +19,6 @@ const {
   mockNextImage,
   mockBlogPostHeader,
   mockBlogPostBody,
-  mockHasBlogAuthorPage,
 } = vi.hoisted(() => ({
   mockBlogPostBodyFallback: vi.fn((_props: unknown) => null as ReactNode),
   mockDraftMode: vi.fn(),
@@ -39,9 +38,6 @@ const {
     <h1>{title}</h1>
   )),
   mockBlogPostBody: vi.fn((_props?: unknown) => null),
-  mockHasBlogAuthorPage: vi.fn(
-    (_authorName?: unknown, _tenant?: unknown) => true
-  ),
 }));
 
 vi.mock('lucide-react', () => ({
@@ -124,27 +120,6 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateBlogPostSchema: (data: unknown) => mockGenerateBlogPostSchema(data),
   generateBreadcrumbSchema: () => ({}),
-  generateSlug: (value: string) =>
-    value
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-')
-      .replace(/^-+/, '')
-      .replace(/-+$/, ''),
-}));
-
-vi.mock('@/lib/blog-organization-schema', () => ({
-  buildBlogOrganizationSchema: () => ({
-    '@id': 'https://ogabassey.com#organization',
-    '@type': 'OnlineStore',
-  }),
-}));
-
-vi.mock('@/lib/blog-authors', () => ({
-  getBlogAuthorSameAs: () => ['https://www.linkedin.com/in/michael-bolakale'],
-  hasBlogAuthorPage: (...args: unknown[]) => mockHasBlogAuthorPage(...args),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -176,7 +151,7 @@ vi.mock('./BlogPostHeader', () => ({
     title: string;
     locale?: string;
     author_bio: string | null;
-    author_name: string | null;
+    author_name: string;
     author_title: string | null;
     category: string | null;
     published_at: string | null;
@@ -228,8 +203,6 @@ const smartphoneGuideBlogPost = {
     author_name: 'Bolakale',
     author_title: null,
     author_bio: null,
-    author_image_url:
-      'https://cdn.ogabassey.com/merchants/ogabassey/authors/bolakale.jpg',
     published_at: '2026-03-16T10:05:33.654Z',
     updated_at: '2026-03-16T10:05:33.654Z',
     seo_title: null,
@@ -249,11 +222,9 @@ describe('BlogPostPageContent', () => {
     mockBlogPostBodyFallback.mockReset();
     mockNextImage.mockReset();
     mockGenerateBlogPostSchema.mockReset();
-    mockHasBlogAuthorPage.mockReset();
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
     mockGenerateBlogPostSchema.mockReturnValue({});
-    mockHasBlogAuthorPage.mockReturnValue(true);
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
       new Headers({
@@ -436,25 +407,6 @@ describe('BlogPostPageContent', () => {
     );
   });
 
-  it('links BlogPosting publisher to the standalone Organization entity', async () => {
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          postSlug: 'best-phones-in-nigeria',
-        }),
-      })
-    );
-
-    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
-      expect.objectContaining({
-        publisher: expect.objectContaining({
-          id: 'https://ogabassey.com#organization',
-        }),
-      })
-    );
-  });
-
   it('ignores non-string publisher social JSON values before structured data', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
@@ -593,126 +545,5 @@ describe('BlogPostPageContent', () => {
       'retired-post'
     );
     expect(mockNotFound).toHaveBeenCalled();
-  });
-
-  it('passes the author personal sameAs and headshot image to structured data', async () => {
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          postSlug: 'best-phones-in-nigeria',
-        }),
-      })
-    );
-
-    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
-      expect.objectContaining({
-        author: expect.objectContaining({
-          sameAs: ['https://www.linkedin.com/in/michael-bolakale'],
-          image:
-            'https://cdn.ogabassey.com/merchants/ogabassey/authors/bolakale.jpg',
-        }),
-      })
-    );
-  });
-
-  it('passes known author hub URL and stable Person id to structured data', async () => {
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          postSlug: 'best-phones-in-nigeria',
-        }),
-      })
-    );
-
-    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
-      expect.objectContaining({
-        author: expect.objectContaining({
-          id: 'https://ogabassey.com#author-bolakale',
-          url: 'https://ogabassey.com/blog/author/bolakale',
-        }),
-      })
-    );
-  });
-
-  it('falls back to the store URL and omits byline href when no author hub exists', async () => {
-    mockHasBlogAuthorPage.mockReturnValue(false);
-
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          postSlug: 'best-phones-in-nigeria',
-        }),
-      })
-    );
-
-    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
-      expect.objectContaining({
-        author: expect.objectContaining({
-          id: undefined,
-          url: 'https://ogabassey.com',
-        }),
-      })
-    );
-    expect(mockBlogPostHeader).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authorHref: undefined,
-      })
-    );
-  });
-
-  it('renders blog posts without an author name without trying to build an author slug', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...smartphoneGuideBlogPost,
-      post: {
-        ...smartphoneGuideBlogPost.post,
-        author_name: null,
-      },
-    });
-
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          postSlug: 'best-phones-in-nigeria',
-        }),
-      })
-    );
-
-    expect(mockHasBlogAuthorPage).not.toHaveBeenCalled();
-    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
-      expect.objectContaining({
-        author: expect.objectContaining({
-          name: 'Ogabassey',
-          id: undefined,
-          url: 'https://ogabassey.com',
-        }),
-      })
-    );
-    expect(mockBlogPostHeader).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authorHref: undefined,
-        author_name: null,
-      })
-    );
-  });
-
-  it('links the byline to the author page for a known author', async () => {
-    render(
-      await BlogPostPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          postSlug: 'best-phones-in-nigeria',
-        }),
-      })
-    );
-
-    expect(mockBlogPostHeader).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authorHref: '/ogabassey/blog/author/bolakale',
-      })
-    );
   });
 });

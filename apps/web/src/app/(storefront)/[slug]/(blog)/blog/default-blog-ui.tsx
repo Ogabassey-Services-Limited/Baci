@@ -24,7 +24,6 @@ interface BlogListPost {
 interface DefaultBlogUiProps {
   blogSchema: Record<string, unknown>;
   breadcrumbSchema: Record<string, unknown>;
-  organizationSchema?: Record<string, unknown>;
   itemListSchema?: Record<string, unknown>;
   basePath: string;
   categories: string[];
@@ -37,13 +36,11 @@ interface DefaultBlogUiProps {
   searchQuery?: string;
   slug: string;
   totalPosts: number;
-  currentPage?: number;
 }
 
 export function DefaultBlogUi({
   blogSchema,
   breadcrumbSchema,
-  organizationSchema,
   itemListSchema,
   basePath,
   categories,
@@ -53,15 +50,9 @@ export function DefaultBlogUi({
   searchQuery,
   slug,
   totalPosts,
-  currentPage = 1,
 }: DefaultBlogUiProps) {
   return (
     <>
-      {organizationSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(organizationSchema)}
-        </script>
-      )}
       <script type="application/ld+json">
         {safeJsonLdStringify(blogSchema)}
       </script>
@@ -150,7 +141,6 @@ export function DefaultBlogUi({
             category={category}
             searchQuery={searchQuery}
             basePath={basePath}
-            initialPage={currentPage}
           />
         </main>
       </div>

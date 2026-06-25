@@ -49,7 +49,3 @@
 ## 2024-06-14 - Optimize Location Picker FlatLists
 **Learning:** In the mobile-storefront app, dynamically heighted list items inside modals can cause UI thread asynchronous measurement cycles when rendered by FlatList, leading to slow rendering of pickers like City and State.
 **Action:** Always fix the height of simple picker row items (e.g., changing `minHeight` to `height` in stylesheets) and implement explicit `getItemLayout` on the corresponding `FlatList` to bypass runtime measurements and dramatically speed up rendering.
-## 2024-11-21 — Collapse N+1 SELECT queries into single `.in()`
-**Learning:** Checking for existence inside a `.map` or `for...of` loop leads to N+1 queries. We can collapse it by prefetching the array of IDs with a single `.in()` query up front and creating an O(1) map.
-**Action:** Always map the IDs, query with `.in()` up-front, and construct a Map or Set to check presence inside the loop instead of performing individual queries. Also use conditional `.update()` instead of `.upsert()` inside a loop when updating an existing record when the record's existence is already known from the map to avoid unneeded bulk operations or complex conflict resolution when unnecessary.
-**Measurement:** Removed an O(N) DB read loop during the manual Jumia order sync callback.

@@ -831,7 +831,6 @@ describe('[category]/[productSlug] page metadata', () => {
     });
 
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockHeaders).not.toHaveBeenCalled();
     expect(mockGetRequestScopedMerchant).toHaveBeenCalled();
   });
 
@@ -1572,10 +1571,6 @@ describe('[category]/[productSlug] page render', () => {
     }
 
     expect(mockConnection).not.toHaveBeenCalled();
-    // This page-level assertion covers the PDP metadata/JSON-LD render path.
-    // The shell base-path helper is mocked here and covered separately in
-    // storefront-shell-snapshot.test.ts so this test stays scoped to the PDP.
-    expect(mockHeaders).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', {
         level: 1,

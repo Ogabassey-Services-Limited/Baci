@@ -1,13 +1,10 @@
 import { Calendar, Clock, User } from 'lucide-react';
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { asRoute } from '@/lib/routes';
 
 interface BlogPostHeaderProps {
   author_bio?: string | null;
   author_name?: string | null;
   author_title?: string | null;
-  authorHref?: string | null;
   category?: string | null;
   locale?: string;
   published_at?: string | null;
@@ -19,7 +16,6 @@ export function BlogPostHeader({
   author_bio,
   author_name,
   author_title,
-  authorHref,
   category,
   locale,
   published_at,
@@ -41,16 +37,7 @@ export function BlogPostHeader({
         {author_name && (
           <div className="flex items-center gap-2">
             <User className="size-4" />
-            {authorHref ? (
-              <Link
-                href={asRoute(authorHref)}
-                className="font-medium text-foreground hover:underline"
-              >
-                {author_name}
-              </Link>
-            ) : (
-              <span>{author_name}</span>
-            )}
+            <span>{author_name}</span>
             {author_title && <span className="text-xs">({author_title})</span>}
           </div>
         )}

@@ -31,7 +31,6 @@ import {
   RELATED_BLOG_PRODUCTS_SELECT,
 } from '@/lib/related-blog-products';
 import { selectSemanticRelatedBlogPosts } from '@/lib/semantic-related-blog-posts';
-import { generateSlug } from '@/lib/seo-utils';
 import { normalizeOgabasseyBusinessType } from '@/lib/storefront/ogabassey-entity';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { canonicalizeStorefrontMediaUrl } from '@/lib/storefront-media-cdn-url';
@@ -2785,8 +2784,6 @@ export async function getCachedBlogListing(
       logo_url: merchant.logo_url,
       template_id: merchant.template_id,
       custom_domain: merchant.custom_domain,
-      country: merchant.country,
-      social_media: merchant.social_media,
     },
     posts: publicPosts,
     totalPosts: count || 0,
@@ -2794,101 +2791,6 @@ export async function getCachedBlogListing(
     currentPage: page,
     totalPages: Math.ceil((count || 0) / limit),
     searchQuery,
-  };
-}
-
-/**
- * Cached published posts + denormalized identity for a single blog author,
- * matched by generated author slug. Powers the `/blog/author/<slug>` pages. The
- * author's title/bio/headshot are read from the most recent post (they are
- * denormalized identically across an author's posts); `sameAs` is supplied
- * separately from the in-code author registry.
- */
-export async function getCachedBlogAuthor(
-  identifier: string,
-  authorName: string,
-  options?: { page?: number }
-) {
-  'use cache';
-  const requestedPage = options?.page ?? 1;
-  const page =
-    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const authorSlug = generateSlug(authorName);
-  if (!authorSlug) return null;
-  cacheLife('merchant');
-  cacheTag(
-    'blog-posts',
-    `blog-author-${identifier.toLowerCase()}-${authorSlug}-${page}`
-  );
-
-  const limit = BLOG_LISTING_PAGE_SIZE;
-  const offset = (page - 1) * limit;
-  const merchant = await getMerchantStrict(identifier.toLowerCase());
-  if (!merchant) return null;
-
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) return null;
-
-  const supabase = getPublicSupabaseClient();
-
-  let query = supabase
-    .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, author_name, author_title, author_bio, author_image_url, published_at, reading_time_minutes',
-      { count: 'exact' }
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .eq('author_name', authorName)
-    .not('published_at', 'is', null)
-    .not('title', 'is', null)
-    .not('slug', 'is', null)
-    .neq('title', '')
-    .neq('slug', '')
-    .order('published_at', { ascending: false });
-
-  query = applyPublicBlogSqlFilters(query);
-  query = query.range(offset, offset + limit - 1);
-
-  const { data: posts, count, error: postsError } = await query;
-  if (postsError) {
-    console.error('Failed to load blog author posts', {
-      merchantId: merchant.id,
-      authorName,
-      error: postsError,
-    });
-    throw postsError;
-  }
-
-  const publicPosts = filterPublicBlogPosts(posts || []);
-  const totalCount = count ?? publicPosts.length;
-  // No public posts anywhere for this author -> genuine missing author (404).
-  if (totalCount === 0) {
-    return null;
-  }
-  // `identity` is absent only on an out-of-range page (count > 0 but this
-  // ranged window is empty); the route redirects those stale paginated URLs to
-  // the last valid page rather than 404ing a real author.
-  const identity = publicPosts[0];
-
-  return {
-    merchant: {
-      id: merchant.id,
-      business_name: merchant.business_name,
-      slug: merchant.slug,
-      logo_url: merchant.logo_url,
-      custom_domain: merchant.custom_domain,
-    },
-    author: {
-      name: authorName,
-      title: identity?.author_title ?? null,
-      bio: identity?.author_bio ?? null,
-      imageUrl: identity?.author_image_url ?? null,
-    },
-    posts: publicPosts,
-    totalPosts: totalCount,
-    currentPage: page,
-    totalPages: Math.max(1, Math.ceil(totalCount / limit)),
   };
 }
 

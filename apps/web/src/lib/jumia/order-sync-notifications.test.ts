@@ -250,7 +250,7 @@ describe('Jumia order sync notification markers', () => {
       error: null,
     });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
-    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 2 });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
     const supabase = createSupabaseMock(
       {
         marketplace_integrations: [marketplaceQuery, syncCursorQuery],

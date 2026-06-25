@@ -296,12 +296,7 @@ for file in "${sorted_files[@]}"; do
   # a BEGIN/COMMIT block. Those must opt out with the `-- disable-transaction`
   # first-line marker (handled above); otherwise the explicit transaction
   # wrapper below would fail.
-  #
-  # Strip SQL line comments (`-- ...`) before scanning so a keyword that appears
-  # only inside an explanatory comment — e.g. a migration that notes it
-  # deliberately avoids CONCURRENTLY — is not misread as an actual
-  # non-transactional statement (that false positive blocked a deploy once).
-  if sed 's/--.*//' "$file" | grep -qiE '\bconcurrently\b|\bvacuum\b|create[[:space:]]+database|drop[[:space:]]+database|reindex'; then
+  if grep -qiE '\bconcurrently\b|\bvacuum\b|create[[:space:]]+database|drop[[:space:]]+database|reindex' "$file"; then
     echo "::error::$file contains a non-transactional statement but is missing the '-- disable-transaction' first-line marker"
     exit 1
   fi

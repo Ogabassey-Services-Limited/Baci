@@ -145,8 +145,7 @@ export async function POST(
           ssl_status: 'active',
           verified_at: new Date().toISOString(),
         })
-        .eq('id', domainRecord.id)
-        .eq('merchant_id', merchantId);
+        .eq('id', domainRecord.id);
 
       if (updateError) {
         throw new Error('Failed to update domain status');
@@ -179,8 +178,7 @@ export async function POST(
           await supabase
             .from('domains')
             .update({ verification_token: txtChallenge.value })
-            .eq('id', domainRecord.id)
-            .eq('merchant_id', merchantId);
+            .eq('id', domainRecord.id);
         }
       }
 

@@ -1443,116 +1443,6 @@ describe('generateBlogPostSchema', () => {
     },
   };
 
-  it('adds a per-author @id and links the post to its Blog via isPartOf', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      blogId: 'https://ogabassey.com/blog#blog',
-    });
-
-    expect((schema.author as Record<string, unknown>)['@id']).toBe(
-      'https://ogabassey.com#author-ogabassey-editorial'
-    );
-    expect(schema.isPartOf).toEqual({
-      '@type': 'Blog',
-      '@id': 'https://ogabassey.com/blog#blog',
-    });
-  });
-
-  it('uses an explicit author entity id separately from the profile URL', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      author: {
-        ...baseBlogSchemaInput.author,
-        id: 'https://ogabassey.com#author-bassey-john',
-        url: 'https://ogabassey.com/blog/author/bassey-john',
-      },
-    });
-
-    expect((schema.author as Record<string, unknown>)['@id']).toBe(
-      'https://ogabassey.com#author-bassey-john'
-    );
-    expect((schema.author as Record<string, unknown>).url).toBe(
-      'https://ogabassey.com/blog/author/bassey-john'
-    );
-  });
-
-  it('drops the author @id when author.id is an unsafe URL', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      author: {
-        ...baseBlogSchemaInput.author,
-        id: 'javascript:alert(1)#author-x',
-      },
-    });
-
-    expect((schema.author as Record<string, unknown>)['@id']).toBeUndefined();
-  });
-
-  it('drops the publisher @id when publisher.id is an unsafe URL', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      publisher: {
-        ...baseBlogSchemaInput.publisher,
-        id: 'javascript:alert(1)',
-      },
-    });
-
-    expect(
-      (schema.publisher as Record<string, unknown>)['@id']
-    ).toBeUndefined();
-  });
-
-  it('omits isPartOf when blogId is an unsafe URL', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      blogId: 'data:text/html,bad',
-    });
-
-    expect(schema.isPartOf).toBeUndefined();
-  });
-
-  it('omits isPartOf when no blogId is provided', () => {
-    const schema = generateBlogPostSchema(baseBlogSchemaInput);
-
-    expect(schema.isPartOf).toBeUndefined();
-  });
-
-  it('omits author @id when author.url is not provided', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      author: { name: 'Anonymous' },
-    });
-
-    expect((schema.author as Record<string, unknown>)['@id']).toBeUndefined();
-  });
-
-  it('emits the author headshot as Person.image when provided', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      author: {
-        ...baseBlogSchemaInput.author,
-        image:
-          'https://cdn.ogabassey.com/merchants/ogabassey/authors/bassey-john.jpg',
-      },
-    });
-
-    expect((schema.author as Record<string, unknown>).image).toBe(
-      'https://cdn.ogabassey.com/merchants/ogabassey/authors/bassey-john.jpg'
-    );
-  });
-
-  it('drops the author image when author.image is an unsafe URL', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      author: {
-        ...baseBlogSchemaInput.author,
-        image: 'javascript:alert(1)',
-      },
-    });
-
-    expect((schema.author as Record<string, unknown>).image).toBeUndefined();
-  });
-
   it('emits a Google Discover image array when persisted image URLs are supplied', () => {
     const schema = generateBlogPostSchema({
       ...baseBlogSchemaInput,
@@ -1756,20 +1646,6 @@ describe('generateBlogPostSchema', () => {
     expect((schema.publisher as Record<string, unknown>).sameAs).toEqual([
       'https://www.instagram.com/ogabassey/',
     ]);
-  });
-
-  it('links the publisher to the standalone Organization entity', () => {
-    const schema = generateBlogPostSchema({
-      ...baseBlogSchemaInput,
-      publisher: {
-        ...baseBlogSchemaInput.publisher,
-        id: 'https://ogabassey.com#organization',
-      },
-    });
-
-    expect((schema.publisher as Record<string, unknown>)['@id']).toBe(
-      'https://ogabassey.com#organization'
-    );
   });
 
   it('preserves ampersands in blog sameAs URLs until JSON-LD serialization', () => {

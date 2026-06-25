@@ -5,7 +5,6 @@ import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 interface TemplateBlogRendererProps {
   blogSchema: Record<string, unknown>;
   breadcrumbSchema: Record<string, unknown>;
-  organizationSchema?: Record<string, unknown>;
   itemListSchema?: Record<string, unknown>;
   BlogComponent: ComponentType<TemplateBlogPageProps>;
   basePath: string;
@@ -17,7 +16,6 @@ interface TemplateBlogRendererProps {
 export function TemplateBlogRenderer({
   blogSchema,
   breadcrumbSchema,
-  organizationSchema,
   itemListSchema,
   BlogComponent,
   basePath,
@@ -27,11 +25,6 @@ export function TemplateBlogRenderer({
 }: TemplateBlogRendererProps) {
   return (
     <>
-      {organizationSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(organizationSchema)}
-        </script>
-      )}
       <script type="application/ld+json">
         {safeJsonLdStringify(blogSchema)}
       </script>
