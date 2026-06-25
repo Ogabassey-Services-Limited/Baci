@@ -3,6 +3,7 @@ import {
   buildStorefrontPageHref,
   getStorefrontCrawlDiscoveryPages,
   parseStorefrontPageParam,
+  STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
 
@@ -148,6 +149,15 @@ describe('getStorefrontCrawlDiscoveryPages', () => {
     expect(pages).toHaveLength(64);
     expect(pages[0]).toBe(1);
     expect(pages.at(-1)).toBe(64);
+  });
+
+  it('fully links medium category indexes that remain in crawl-depth reports', () => {
+    const pages = getStorefrontCrawlDiscoveryPages({
+      totalPages: 27,
+      allPagesThreshold: STOREFRONT_CRAWL_DISCOVERY_CATEGORY_PAGE_LIMIT,
+    });
+
+    expect(pages).toEqual(Array.from({ length: 27 }, (_, index) => index + 1));
   });
 
   it('caps very large page sets while keeping edge, current, jump, and required pages', () => {
