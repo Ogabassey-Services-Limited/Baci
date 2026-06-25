@@ -192,12 +192,28 @@ describe('normalizeSeoProductText', () => {
     ).toBe('Shop Samsung Galaxy Tab S9 Plus tablet today.');
   });
 
+  it('normalizes compact plus signs before sentence punctuation', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9+.', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+  });
+
   it('adds matching currency codes to symbol amounts in explicit metadata text', () => {
     expect(
       normalizeSeoProductText('PSN Gift Card £50 at Ogabassey: £50 value.', {
         slug: 'psn-gift-card-gbp-50',
       })
     ).toBe('PSN Gift Card £50 GBP at Ogabassey: £50 GBP value.');
+  });
+
+  it('adds matching currency codes before sentence punctuation', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50. Premium price £50.99.', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP. Premium price £50.99 GBP.');
   });
 
   it('does not duplicate currency codes that are already present', () => {

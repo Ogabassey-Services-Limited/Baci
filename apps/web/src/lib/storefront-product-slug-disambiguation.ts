@@ -65,7 +65,7 @@ function normalizeSeoProductDisplayName(
     ? value
         // Handle mid-word plus models before trailing plus models.
         .replace(/\b([a-z]*\d+[a-z]*)\+([a-z0-9]+)\b/gi, '$1 Plus $2')
-        .replace(/\b([a-z0-9]+)\+(?=\s|$)/gi, '$1 Plus')
+        .replace(/\b([a-z0-9]+)\+(?=[\s.,!?;:]|$)/gi, '$1 Plus')
     : value;
 
   return normalized.replace(/\s{2,}/g, ' ').trim();
@@ -78,19 +78,35 @@ function appendCurrencyCodeToSymbolAmounts(
   let normalized = value;
 
   if (slugTokens.includes('gbp')) {
-    normalized = appendCurrencyCode(normalized, /£\s?\d[\d,.]*/gi, 'GBP');
+    normalized = appendCurrencyCode(
+      normalized,
+      /£\s?\d[\d,]*(?:\.\d+)?/gi,
+      'GBP'
+    );
   }
 
   if (slugTokens.includes('eur')) {
-    normalized = appendCurrencyCode(normalized, /€\s?\d[\d,.]*/gi, 'EUR');
+    normalized = appendCurrencyCode(
+      normalized,
+      /€\s?\d[\d,]*(?:\.\d+)?/gi,
+      'EUR'
+    );
   }
 
   if (slugTokens.includes('usd')) {
-    normalized = appendCurrencyCode(normalized, /\$\s?\d[\d,.]*/gi, 'USD');
+    normalized = appendCurrencyCode(
+      normalized,
+      /\$\s?\d[\d,]*(?:\.\d+)?/gi,
+      'USD'
+    );
   }
 
   if (slugTokens.includes('ngn')) {
-    normalized = appendCurrencyCode(normalized, /₦\s?\d[\d,.]*/gi, 'NGN');
+    normalized = appendCurrencyCode(
+      normalized,
+      /₦\s?\d[\d,]*(?:\.\d+)?/gi,
+      'NGN'
+    );
   }
 
   return normalized.replace(/\s{2,}/g, ' ').trim();
@@ -105,11 +121,12 @@ function appendCurrencyCode(
     amountPattern,
     (amount, offset: number, full: string) => {
       const followingText = full.slice(offset + amount.length);
-      const existingCodePattern = new RegExp(`^\\s*${currencyCode}\\b`, 'i');
+      const nextText = followingText.trimStart();
+      const hasExistingCurrencyCode =
+        nextText.slice(0, currencyCode.length).toUpperCase() === currencyCode &&
+        !/[a-z0-9]/i.test(nextText.charAt(currencyCode.length));
 
-      return existingCodePattern.test(followingText)
-        ? amount
-        : `${amount} ${currencyCode}`;
+      return hasExistingCurrencyCode ? amount : `${amount} ${currencyCode}`;
     }
   );
 }
