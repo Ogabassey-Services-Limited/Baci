@@ -96,6 +96,44 @@ describe('fetchLiveAppStoreBuild', () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
+  it('paginates past a page with no live version (string-sort/limit safety)', async () => {
+    const page1 = {
+      data: [
+        {
+          id: 'old',
+          type: 'appStoreVersions',
+          attributes: {
+            versionString: '2.1.99',
+            appStoreState: 'REPLACED_WITH_NEW_INFO_FROM_DEVELOPER',
+          },
+          relationships: { build: { data: { id: 'bOld' } } },
+        },
+      ],
+      included: [{ id: 'bOld', type: 'builds', attributes: { version: '99' } }],
+      links: {
+        next: 'https://api.appstoreconnect.apple.com/v1/apps/app123/appStoreVersions?cursor=PAGE2',
+      },
+    };
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: 'app123' }] }))
+      .mockResolvedValueOnce(jsonResponse(page1))
+      .mockResolvedValueOnce(jsonResponse(versionsPayload('READY_FOR_SALE')));
+
+    const result = await fetchLiveAppStoreBuild(
+      'com.ogabassey.app',
+      credentials,
+      fetchFn as unknown as typeof fetch
+    );
+
+    expect(result).toEqual({ build: 360, versionString: '2.1.360' });
+    // app id + page 1 (no live) + page 2 (live) = 3 calls; the live version was
+    // not on the first page.
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    // The second versions request must follow the absolute `links.next` URL.
+    expect(fetchFn.mock.calls[2]?.[0]).toContain('cursor=PAGE2');
+  });
+
   it('accepts the newer "state" field value', async () => {
     const payload = {
       data: [

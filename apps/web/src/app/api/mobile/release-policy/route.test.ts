@@ -127,21 +127,23 @@ describe('GET /api/mobile/release-policy', () => {
     });
   });
 
-  it('recommends but does not require native update when installed version is below latest only', async () => {
+  it('does NOT recommend on marketing version alone — only the live build drives recommended', async () => {
+    // LATEST_VERSION can be set ahead of the App Store live version; if it drove
+    // the recommended path it would prompt for an unreleased build. With no
+    // LATEST_BUILD/live-build signal, the gate must stay quiet.
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
-    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_MIN_VERSION', '2.0.0');
-    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_VERSION', '2.1.0');
+    vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_VERSION', '2.1.390');
     vi.stubEnv(
-      'MOBILE_STOREFRONT_ANDROID_STORE_URL',
-      'https://play.google.com/store/apps/details?id=com.ogabassey.store'
+      'MOBILE_STOREFRONT_IOS_STORE_URL',
+      'https://apps.apple.com/app/id6472735367'
     );
 
     const response = await callGet({
       app: 'storefront',
-      platform: 'android',
-      runtimeVersion: '2.0.0',
-      nativeVersion: '2.0.1',
-      buildNumber: '42',
+      platform: 'ios',
+      runtimeVersion: '2.1.360',
+      nativeVersion: '2.1.360',
+      buildNumber: '360',
       channel: 'production',
     });
     const body = await response.json();
@@ -149,9 +151,8 @@ describe('GET /api/mobile/release-policy', () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       enabled: true,
-      latestNativeVersion: '2.1.0',
-      minNativeVersion: '2.0.0',
-      nativeUpdateRecommended: true,
+      latestNativeVersion: '2.1.390',
+      nativeUpdateRecommended: false,
       nativeUpdateRequired: false,
     });
   });

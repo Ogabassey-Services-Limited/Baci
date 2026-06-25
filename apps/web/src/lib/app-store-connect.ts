@@ -77,10 +77,15 @@ export async function createAscToken(
 
 async function ascGet(
   token: string,
-  path: string,
+  pathOrUrl: string,
   fetchFn: FetchFn
 ): Promise<unknown> {
-  const response = await fetchFn(`${ASC_BASE_URL}${path}`, {
+  // `links.next` from a paginated response is an absolute URL; everything else
+  // is a path relative to the API base.
+  const url = pathOrUrl.startsWith('http')
+    ? pathOrUrl
+    : `${ASC_BASE_URL}${pathOrUrl}`;
+  const response = await fetchFn(url, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
@@ -90,7 +95,7 @@ async function ascGet(
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
     throw new Error(
-      `App Store Connect API ${response.status} for ${path}: ${detail.slice(0, 300)}`
+      `App Store Connect API ${response.status} for ${pathOrUrl}: ${detail.slice(0, 300)}`
     );
   }
 
@@ -127,21 +132,42 @@ export async function fetchLiveAppStoreBuild(
     throw new Error(`No App Store Connect app found for bundleId ${bundleId}`);
   }
 
-  const versionsPayload = (await ascGet(
-    token,
-    `/v1/apps/${appId}/appStoreVersions?include=build&limit=20&sort=-versionString`,
-    fetchFn
-  )) as { data?: AscResource[]; included?: AscResource[] };
+  // Find the live version by paginating the full version list and checking each
+  // locally. We deliberately do NOT `sort=-versionString` (App Store Connect
+  // sorts it lexically, so "2.1.99" sorts ahead of "2.1.360") nor filter
+  // server-side by live state: Apple is migrating the live-state field
+  // (`appStoreState` -> `state`), so a server filter could silently exclude the
+  // live version before our both-fields `isLiveVersion` check runs. A large page
+  // size keeps this to one or two requests; the page cap bounds runaway loops.
+  const MAX_PAGES = 10;
+  let nextUrl: string | null =
+    `/v1/apps/${appId}/appStoreVersions?include=build&limit=200`;
 
-  const liveVersion = versionsPayload.data?.find(isLiveVersion);
+  let liveVersion: AscResource | undefined;
+  let includedBuild: AscResource | undefined;
+
+  for (let page = 0; page < MAX_PAGES && nextUrl && !liveVersion; page += 1) {
+    const payload = (await ascGet(token, nextUrl, fetchFn)) as {
+      data?: AscResource[];
+      included?: AscResource[];
+      links?: { next?: string };
+    };
+
+    liveVersion = payload.data?.find(isLiveVersion);
+    if (liveVersion) {
+      const buildId = liveVersion.relationships?.build?.data?.id;
+      includedBuild = payload.included?.find(
+        (resource) => resource.type === 'builds' && resource.id === buildId
+      );
+      break;
+    }
+
+    nextUrl = payload.links?.next ?? null;
+  }
+
   if (!liveVersion) {
     return null;
   }
-
-  const buildId = liveVersion.relationships?.build?.data?.id;
-  const includedBuild = versionsPayload.included?.find(
-    (resource) => resource.type === 'builds' && resource.id === buildId
-  );
 
   const rawBuild = includedBuild?.attributes?.version;
   const build = rawBuild ? Number(rawBuild) : Number.NaN;
