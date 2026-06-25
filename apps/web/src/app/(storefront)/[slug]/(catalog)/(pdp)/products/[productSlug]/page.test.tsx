@@ -610,6 +610,33 @@ describe('products/[productSlug] page', () => {
       );
     });
 
+    it('uses normalized generated product metadata when explicit title sanitizes empty', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        id: 'prod-plus-empty-title',
+        name: 'Samsung Galaxy Tab S9+',
+        slug: 'samsung-galaxy-tab-s9-plus',
+        meta_title: '<span></span>',
+        meta_description: 'Shop Samsung Galaxy Tab S9+.',
+      });
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'samsung-galaxy-tab-s9-plus',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      expect(metadata.title).toBe(
+        'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+      );
+      expect(metadata.description).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+    });
+
     it('normalizes explicit currency-symbol product metadata before rendering', async () => {
       mockGetCachedProduct.mockResolvedValue({
         ...uncategorizedProduct,

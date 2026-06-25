@@ -94,10 +94,16 @@ export async function generateMetadata(
     currency,
     country: merchant.country,
   });
-  const metadataTitleSource = normalizeSeoProductText(
-    product.meta_title || priceSeoCopy.title,
+  const normalizedProductMetaTitle = normalizeSeoProductText(
+    product.meta_title,
     product
   );
+  const normalizedGeneratedTitle = normalizeSeoProductText(
+    priceSeoCopy.title,
+    product
+  );
+  const metadataTitleSource =
+    normalizedProductMetaTitle || normalizedGeneratedTitle;
   const generatedSeoDescription = normalizeSeoProductText(
     priceSeoCopy.description,
     product
@@ -122,7 +128,8 @@ export async function generateMetadata(
   const metadataTitle = generateMetaTitle(metadataTitleSource, {
     maxLength: 70,
     suffix: merchantDisplayName,
-    fallback: product.name || productCategoryName,
+    fallback:
+      normalizeSeoProductText(product.name, product) || productCategoryName,
   });
   const socialMedia = merchant.social_media as
     | Record<string, string>

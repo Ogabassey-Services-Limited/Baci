@@ -208,6 +208,22 @@ describe('normalizeSeoProductText', () => {
     ).toBe('Shop Samsung Galaxy Tab S9 Plus');
   });
 
+  it('preserves compact plus tokens when inline tags split model names', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9<sup>+</sup>.', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+  });
+
+  it('preserves separator plus signs after stripping inline tags', () => {
+    expect(
+      normalizeSeoProductText('<span>USB-C</span> + <span>Lightning</span>', {
+        slug: 'usb-c-plus-lightning-cable',
+      })
+    ).toBe('USB-C + Lightning');
+  });
+
   it('adds matching currency codes to symbol amounts in explicit metadata text', () => {
     expect(
       normalizeSeoProductText('PSN Gift Card £50 at Ogabassey: £50 value.', {

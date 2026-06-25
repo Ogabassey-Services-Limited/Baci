@@ -133,7 +133,14 @@ function appendCurrencyCode(
 }
 
 function stripSeoHtmlTags(value: string): string {
-  return value.includes('<') ? value.replace(SEO_HTML_TAG_PATTERN, ' ') : value;
+  if (!value.includes('<')) {
+    return value;
+  }
+
+  return value
+    .replace(SEO_HTML_TAG_PATTERN, ' ')
+    .replace(/\s+([.,!?;:])/g, '$1')
+    .replace(/([a-z]*\d[a-z0-9]*)\s+\+\s*(?=[a-z0-9]|[\s.,!?;:]|$)/gi, '$1+');
 }
 
 function getSlugTokens(slug: string | null | undefined): string[] {

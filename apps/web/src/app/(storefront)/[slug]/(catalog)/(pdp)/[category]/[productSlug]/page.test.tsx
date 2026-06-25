@@ -1072,6 +1072,48 @@ describe('[category]/[productSlug] page metadata', () => {
     );
   });
 
+  it('uses normalized generated category metadata when explicit title sanitizes empty', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-plus-empty-title',
+      name: 'Samsung Galaxy Tab S9+',
+      slug: 'samsung-galaxy-tab-s9-plus',
+      canonical_url: null,
+      brand: 'Samsung',
+      category: 'Tablets',
+      categories: {
+        id: 'cat-tablets',
+        name: 'Tablets',
+        slug: 'tablets',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 950_000,
+      base_price: 950_000,
+      sale_price: null,
+      stock_quantity: 10,
+      meta_title: '<span></span>',
+      meta_description: 'Shop Samsung Galaxy Tab S9+.',
+      keywords: [],
+      images: ['https://cdn.example.com/products/tab-s9-plus.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'tablets',
+        productSlug: 'samsung-galaxy-tab-s9-plus',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe(
+      'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+    );
+    expect(metadata.description).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+  });
+
   it('adds currency codes to explicit gift-card metadata with currency symbols', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-gift-card',
