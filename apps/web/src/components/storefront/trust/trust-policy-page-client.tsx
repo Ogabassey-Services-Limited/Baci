@@ -157,25 +157,50 @@ function getPolicyFacts(
   }
 }
 
+function hasConfiguredReturnPolicy(
+  trustProfile: MerchantTrustProfile
+): boolean {
+  const returnPolicy = trustProfile.returnPolicy;
+  return Boolean(
+    returnPolicy &&
+      (returnPolicy.summary?.trim() ||
+        returnPolicy.windowDays != null ||
+        returnPolicy.returnMethod ||
+        returnPolicy.returnFees)
+  );
+}
+
 function getPolicyGuidance(
   kind: TrustPolicyKind,
-  merchantName: string
+  merchantName: string,
+  trustProfile: MerchantTrustProfile
 ): { heading: string; paragraphs: string[] } {
   switch (kind) {
-    case 'returns':
+    case 'returns': {
+      if (!hasConfiguredReturnPolicy(trustProfile)) {
+        return {
+          heading: 'Before you contact support about a return',
+          paragraphs: [
+            `Return details for ${merchantName} are not fully specified on this page yet. Contact support before sending any item back so the team can confirm eligibility, required evidence and the correct return address or process.`,
+            'Keep your order number, receipt, product photos and packaging information available. Clear details help support confirm the next step without creating return instructions that are not backed by the merchant policy.',
+          ],
+        };
+      }
+
       return {
         heading: 'Before you request a return',
         paragraphs: [
           `Use this page to confirm the current return window, accepted return method and any return fees before sending an item back to ${merchantName}. Keep the order number, receipt, original accessories and product packaging ready so support can verify the request quickly.`,
-          'For phones, laptops, consoles and accessories, inspect the item as soon as it arrives. Report defects or delivery damage early, avoid removing protective seals unless you are keeping the item, and contact support before dispatching anything to prevent avoidable delays.',
+          'Inspect the item as soon as it arrives. Report defects or delivery damage early, keep product packaging where possible, and contact support before dispatching anything to prevent avoidable delays.',
         ],
       };
+    }
     case 'shipping':
       return {
         heading: 'How delivery works',
         paragraphs: [
           `Use this page to confirm the delivery regions, handling time, transit estimate and shipping fee method for ${merchantName}. Delivery timing can depend on stock status, payment confirmation, destination city and courier availability.`,
-          'Before checkout, confirm the exact delivery address, recipient phone number and selected product variant. For high-value electronics, keep the order reference available and inspect the package at delivery before accepting it where possible.',
+          'Before checkout, confirm the exact delivery address, recipient phone number and selected product variant. For high-value orders, keep the order reference available and inspect the package at delivery before accepting it where possible.',
         ],
       };
     case 'warranty':
@@ -183,7 +208,7 @@ function getPolicyGuidance(
         heading: 'How warranty support works',
         paragraphs: [
           `Use this page to confirm the warranty coverage available from ${merchantName} before you complete a purchase or request service support. Warranty handling can vary by product condition, manufacturer policy and evidence supplied with the claim.`,
-          'Keep your order receipt, serial number, IMEI where applicable and photos or videos showing the fault. Warranty support usually excludes accidental damage, liquid damage and unauthorized repairs unless the product page or written policy says otherwise.',
+          'Keep your order receipt, product identifier where applicable and photos or videos showing the fault. Warranty support usually excludes accidental damage, liquid damage and unauthorized repairs unless the product page or written policy says otherwise.',
         ],
       };
   }
@@ -197,7 +222,7 @@ export function TrustPolicyPageClient({
 }: TrustPolicyPageClientProps) {
   const summary = getPolicySummary(kind, trustProfile);
   const facts = getPolicyFacts(kind, trustProfile);
-  const guidance = getPolicyGuidance(kind, merchantName);
+  const guidance = getPolicyGuidance(kind, merchantName, trustProfile);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">

@@ -119,6 +119,7 @@ async function AboutContent({ params }: PageProps) {
             <ContentPageCrawlSummary
               kind="about"
               merchantName={merchant.business_name}
+              businessType={merchant.business_type}
             />
           </>
         );
@@ -137,6 +138,7 @@ async function AboutContent({ params }: PageProps) {
       <ContentPageCrawlSummary
         kind="about"
         merchantName={merchant.business_name}
+        businessType={merchant.business_type}
       />
     </>
   );

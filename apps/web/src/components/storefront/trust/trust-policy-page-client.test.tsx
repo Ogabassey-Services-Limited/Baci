@@ -153,4 +153,31 @@ describe('TrustPolicyPageClient', () => {
       screen.queryByRole('link', { name: /contact us/i })
     ).not.toBeInTheDocument();
   });
+
+  it('uses support-first return guidance when no return policy is configured', () => {
+    render(
+      <TrustPolicyPageClient
+        kind="returns"
+        merchantName="General Store"
+        contactHref="/contact"
+        trustProfile={{
+          socialLinks: {},
+          derivedLinks: {},
+        }}
+      />
+    );
+
+    expect(screen.getAllByText('Not specified')).toHaveLength(3);
+    expect(
+      screen.getByRole('heading', {
+        name: 'Before you contact support about a return',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/not fully specified on this page yet/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/confirm the current return window/i)
+    ).not.toBeInTheDocument();
+  });
 });

@@ -101,6 +101,7 @@ export async function ContactPageContent({ params }: PageProps) {
         <ContentPageCrawlSummary
           kind="contact"
           merchantName={merchant.business_name}
+          businessType={merchant.business_type}
         />
       </>
     );
@@ -116,6 +117,7 @@ export async function ContactPageContent({ params }: PageProps) {
       <ContentPageCrawlSummary
         kind="contact"
         merchantName={merchant.business_name}
+        businessType={merchant.business_type}
       />
     </>
   );

@@ -150,6 +150,7 @@ async function FAQContent({ params }: PageProps) {
             <ContentPageCrawlSummary
               kind="faq"
               merchantName={merchant.business_name}
+              businessType={merchant.business_type}
             />
           </>
         );
@@ -168,6 +169,7 @@ async function FAQContent({ params }: PageProps) {
       <ContentPageCrawlSummary
         kind="faq"
         merchantName={merchant.business_name}
+        businessType={merchant.business_type}
       />
     </>
   );

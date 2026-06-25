@@ -138,15 +138,56 @@ describe('buildProductContextParagraphs', () => {
           category_slug: 'gaming-laptops',
           product_key_specs: {
             processor: 'AMD Ryzen 7',
-            ram_gb: '32GB',
-            storage_gb: '1TB',
+            ram_gb: 32,
+            storage_gb: 1024,
+            created_at: '2026-06-01T00:00:00Z',
           },
         },
       })
     );
 
-    expect(paragraphs.join(' ')).toContain('processor or panel class');
-    expect(paragraphs.join(' ')).toContain('RAM: 32GB');
-    expect(paragraphs.join(' ')).toContain('storage: 1TB');
+    const copy = paragraphs.join(' ');
+    expect(copy).toContain('processor or panel class');
+    expect(copy).toContain('Open Box condition');
+    expect(copy).not.toContain('open_box condition');
+    expect(copy).toContain('RAM: 32GB');
+    expect(copy).toContain('Internal Storage: 1024GB');
+    expect(copy).not.toContain('created at');
+  });
+
+  it('preserves scalar phone specs in crawl-visible structured details', () => {
+    const paragraphs = buildProductContextParagraphs(
+      makeInput({
+        categorySlug: 'smartphones',
+        categoryName: 'Smartphones',
+        currentProduct: {
+          slug: 'galaxy-s24',
+          name: 'Samsung Galaxy S24',
+          price: 950_000,
+          brand: 'Samsung',
+          condition: 'new',
+          stock: 3,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            created_at: '2026-06-01T00:00:00Z',
+            ram_gb: 8,
+            storage_gb: 256,
+            battery_mah: 4000,
+            has_5g: true,
+            front_camera_mp: null,
+            display_resolution: '   ',
+          },
+        },
+      })
+    );
+
+    const copy = paragraphs.join(' ');
+    expect(copy).toContain('RAM: 8GB');
+    expect(copy).toContain('Internal Storage: 256GB');
+    expect(copy).toContain('Capacity: 4000mAh');
+    expect(copy).toContain('5G Support: Yes');
+    expect(copy).not.toContain('created at');
+    expect(copy).not.toContain('nullMP');
+    expect(copy).not.toContain('Display resolution');
   });
 });

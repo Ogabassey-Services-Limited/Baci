@@ -3,27 +3,43 @@ type ContentPageCrawlSummaryKind = 'about' | 'contact' | 'faq';
 interface ContentPageCrawlSummaryProps {
   kind: ContentPageCrawlSummaryKind;
   merchantName: string;
+  businessType?: string | null;
+}
+
+function isElectronicsBusiness(businessType?: string | null): boolean {
+  return businessType?.trim().toLowerCase() === 'electronics';
 }
 
 function getSummaryParagraphs(
   kind: ContentPageCrawlSummaryKind,
-  merchantName: string
+  merchantName: string,
+  businessType?: string | null
 ): string[] {
+  const electronics = isElectronicsBusiness(businessType);
+
   switch (kind) {
     case 'about':
       return [
-        `${merchantName} uses this page to explain the store background, customer promises and the type of electronics support shoppers can expect before placing an order.`,
-        'Use the product categories, policy pages and support links together: the about page explains the merchant context, while product pages carry the exact price, variant, condition, warranty and availability details for each item.',
+        electronics
+          ? `${merchantName} uses this page to explain the store background, customer promises and the type of electronics support shoppers can expect before placing an order.`
+          : `${merchantName} uses this page to explain the store background, customer promises and the type of support shoppers can expect before placing an order.`,
+        'Use the product categories, policy pages and support links together: the about page explains the merchant context, while product pages carry the exact price, variant, condition, fulfillment and availability details for each item.',
       ];
     case 'contact':
       return [
-        `Use this contact page when you need help from ${merchantName} before or after checkout. Support can help with product availability, order status, delivery questions, repair bookings, swap requests, returns and warranty follow-up.`,
+        electronics
+          ? `Use this contact page when you need help from ${merchantName} before or after checkout. Support can help with product availability, order status, delivery questions, repair bookings, swap requests, returns and warranty follow-up.`
+          : `Use this contact page when you need help from ${merchantName} before or after checkout. Support can help with product availability, order status, delivery questions, returns, warranty follow-up and account support.`,
         'Include the product name, order number, preferred contact channel and a clear description of the issue where possible. Specific details help support route the request faster and reduce back-and-forth.',
       ];
     case 'faq':
       return [
-        `The FAQ page helps ${merchantName} shoppers answer common questions before opening a support ticket. Review the topics for ordering, payments, delivery, returns, warranty, repairs, swaps and product selection.`,
-        'If the answer depends on a specific phone, laptop, console or accessory, check the product page first because live listings carry the current price, stock status, condition and variant information.',
+        electronics
+          ? `The FAQ page helps ${merchantName} shoppers answer common questions before opening a support ticket. Review the topics for ordering, payments, delivery, returns, warranty, repairs, swaps and product selection.`
+          : `The FAQ page helps ${merchantName} shoppers answer common questions before opening a support ticket. Review the topics for ordering, payments, delivery, returns, warranty, account support and product selection.`,
+        electronics
+          ? 'If the answer depends on a specific phone, laptop, console or accessory, check the product page first because live listings carry the current price, stock status, condition and variant information.'
+          : 'If the answer depends on a specific product or service, check the product page first because live listings carry the current price, stock status, condition and variant information.',
       ];
   }
 }
@@ -31,8 +47,9 @@ function getSummaryParagraphs(
 export function ContentPageCrawlSummary({
   kind,
   merchantName,
+  businessType,
 }: ContentPageCrawlSummaryProps) {
-  const paragraphs = getSummaryParagraphs(kind, merchantName);
+  const paragraphs = getSummaryParagraphs(kind, merchantName, businessType);
 
   return (
     <section className="bg-store-background px-4 pb-12 text-store-background-text sm:px-6 lg:px-8">

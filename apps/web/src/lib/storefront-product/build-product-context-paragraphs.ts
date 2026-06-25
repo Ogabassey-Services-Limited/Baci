@@ -1,4 +1,9 @@
 import type {
+  ComparableProductKeySpecs,
+  SpecField,
+} from '@/lib/storefront-specs/spec-taxonomy';
+import { KEY_SPEC_CATEGORIES } from '@/lib/storefront-specs/spec-taxonomy';
+import type {
   BuildProductSemanticModelInput,
   ProductSemanticModel,
   ProductSemanticSection,
@@ -8,6 +13,20 @@ const GAMING_CATEGORY_PATTERN =
   /(playstation|nintendo|xbox|gaming|vr|gift-card|gift-cards)/i;
 const COMPUTER_CATEGORY_PATTERN = /(laptop|desktop|monitor|computer|tablet)/i;
 const MOBILE_CATEGORY_PATTERN = /(smartphone|phone|watch|audio|soundbar|tv)/i;
+const METADATA_SPEC_KEYS = new Set([
+  'id',
+  'product_id',
+  'merchant_id',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+]);
+const SPEC_FIELDS_BY_KEY = new Map<string, SpecField>(
+  KEY_SPEC_CATEGORIES.flatMap((category) => category.fields).map((field) => [
+    field.key,
+    field,
+  ])
+);
 
 interface BuildProductContextParagraphsInput
   extends BuildProductSemanticModelInput {
@@ -24,12 +43,31 @@ function normalizeText(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function toTitleCase(value: string) {
-  return value
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+function normalizeCondition(value: string | null | undefined) {
+  const normalized = normalizeText(value);
+  return normalized
+    ? normalized
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : null;
+}
+
+function normalizeSpecValue(value: unknown): string | null {
+  if (typeof value === 'string') return normalizeText(value);
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? `${value}` : null;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) {
+    const normalizedItems = value
+      .map((item) => normalizeSpecValue(item))
+      .filter((item): item is string => Boolean(item));
+    return normalizedItems.length > 0 ? normalizedItems.join(', ') : null;
+  }
+
+  return null;
 }
 
 function humanizeSpecKey(key: string) {
@@ -58,10 +96,28 @@ function buildSpecFacts(
 ) {
   if (!productKeySpecs) return [];
 
+  const comparableSpecs = productKeySpecs as ComparableProductKeySpecs;
+
   return Object.entries(productKeySpecs)
     .flatMap(([key, value]) => {
-      const normalized = normalizeText(value);
-      return normalized ? [`${humanizeSpecKey(key)}: ${normalized}`] : [];
+      if (METADATA_SPEC_KEYS.has(key)) return [];
+
+      const field = SPEC_FIELDS_BY_KEY.get(key);
+      if (field?.condition && !field.condition(comparableSpecs)) return [];
+
+      const scalarValue = normalizeSpecValue(value);
+      if (!scalarValue) return [];
+
+      const normalized = field?.transform
+        ? normalizeText(field.transform(value, comparableSpecs))
+        : scalarValue;
+      if (!normalized) return [];
+
+      const label =
+        field?.dynamicLabel?.(comparableSpecs) ||
+        field?.label ||
+        humanizeSpecKey(key);
+      return [`${label}: ${normalized}`];
     })
     .slice(0, 5);
 }
@@ -157,9 +213,9 @@ export function buildProductContextParagraphs({
   const categoryLabel = normalizeText(categoryName) ?? 'this category';
   const slugForChecklist = normalizeText(categorySlug) ?? categoryLabel;
   const brandName = normalizeText(currentProduct.brand);
-  const condition = normalizeText(currentProduct.condition);
+  const condition = normalizeCondition(currentProduct.condition);
   const conditionPhrase = condition
-    ? `${toTitleCase(condition)} condition`
+    ? `${condition} condition`
     : 'the listed condition';
   const comparisonSubject = brandName
     ? `${brandName} options`
