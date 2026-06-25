@@ -69,6 +69,49 @@ function normalizeSeoProductDisplayName(
   return normalized.replace(/\s{2,}/g, ' ').trim();
 }
 
+function appendCurrencyCodeToSymbolAmounts(
+  value: string,
+  slugTokens: readonly string[]
+): string {
+  let normalized = value;
+
+  if (slugTokens.includes('gbp')) {
+    normalized = appendCurrencyCode(normalized, /£\s?\d[\d,.]*/gi, 'GBP');
+  }
+
+  if (slugTokens.includes('eur')) {
+    normalized = appendCurrencyCode(normalized, /€\s?\d[\d,.]*/gi, 'EUR');
+  }
+
+  if (slugTokens.includes('usd')) {
+    normalized = appendCurrencyCode(normalized, /\$\s?\d[\d,.]*/gi, 'USD');
+  }
+
+  if (slugTokens.includes('ngn')) {
+    normalized = appendCurrencyCode(normalized, /₦\s?\d[\d,.]*/gi, 'NGN');
+  }
+
+  return normalized.replace(/\s{2,}/g, ' ').trim();
+}
+
+function appendCurrencyCode(
+  value: string,
+  amountPattern: RegExp,
+  currencyCode: string
+): string {
+  return value.replace(
+    amountPattern,
+    (amount, offset: number, full: string) => {
+      const followingText = full.slice(offset + amount.length);
+      const existingCodePattern = new RegExp(`^\\s*${currencyCode}\\b`, 'i');
+
+      return existingCodePattern.test(followingText)
+        ? amount
+        : `${amount} ${currencyCode}`;
+    }
+  );
+}
+
 function getSlugTokens(slug: string | null | undefined): string[] {
   return (slug || '')
     .toLowerCase()
@@ -98,7 +141,7 @@ export function getSeoProductName(product: {
   slug?: string | null;
 }): string {
   const slugTokens = getSlugTokens(product.slug);
-  const productName = normalizeSeoProductDisplayName(product.name, slugTokens);
+  const productName = normalizeSeoProductText(product.name, product);
   if (!productName) {
     return '';
   }
@@ -152,4 +195,18 @@ export function getSeoProductName(product: {
     .join(' ');
 
   return suffix ? `${productName} ${suffix}` : productName;
+}
+
+export function normalizeSeoProductText(
+  value: string | null | undefined,
+  product: {
+    slug?: string | null;
+  }
+): string {
+  const slugTokens = getSlugTokens(product.slug);
+  const normalizedText = normalizeSeoProductDisplayName(
+    value || '',
+    slugTokens
+  );
+  return appendCurrencyCodeToSymbolAmounts(normalizedText, slugTokens);
 }

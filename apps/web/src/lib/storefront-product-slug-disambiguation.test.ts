@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getSeoProductName } from './storefront-product-slug-disambiguation';
+import {
+  getSeoProductName,
+  normalizeSeoProductText,
+} from './storefront-product-slug-disambiguation';
 
 describe('getSeoProductName', () => {
   it('adds trailing slug storage tokens to distinguish variant PDP titles', () => {
@@ -26,7 +29,7 @@ describe('getSeoProductName', () => {
         name: 'PSN Gift Card £50',
         slug: 'psn-gift-card-gbp-50',
       })
-    ).toBe('PSN Gift Card £50');
+    ).toBe('PSN Gift Card £50 GBP');
   });
 
   it('normalizes plus signs so plus-model PDP titles stay unique', () => {
@@ -113,6 +116,15 @@ describe('getSeoProductName', () => {
     ).toBe('PSN Gift Card €50 GBP');
   });
 
+  it('spells matching currency symbols with slug currency codes for crawler-stable titles', () => {
+    expect(
+      getSeoProductName({
+        name: 'PSN Gift Card €50',
+        slug: 'psn-gift-card-eur-50',
+      })
+    ).toBe('PSN Gift Card €50 EUR');
+  });
+
   it('does not append duplicate compact capacity tokens from the slug', () => {
     expect(
       getSeoProductName({
@@ -147,5 +159,44 @@ describe('getSeoProductName', () => {
     expect(getSeoProductName({ name: 'Test Device', slug: undefined })).toBe(
       'Test Device'
     );
+  });
+});
+
+describe('normalizeSeoProductText', () => {
+  it('returns an empty string for missing product metadata text', () => {
+    expect(
+      normalizeSeoProductText(null, {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('');
+    expect(
+      normalizeSeoProductText(undefined, {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('');
+  });
+
+  it('normalizes compact plus signs in explicit product metadata text', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9+ tablet today.', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus tablet today.');
+  });
+
+  it('adds matching currency codes to symbol amounts in explicit metadata text', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50 at Ogabassey: £50 value.', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP at Ogabassey: £50 GBP value.');
+  });
+
+  it('does not duplicate currency codes that are already present', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50 GBP Price in Nigeria', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP Price in Nigeria');
   });
 });
