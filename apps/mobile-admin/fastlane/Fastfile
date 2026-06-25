@@ -118,9 +118,11 @@ platform :ios do
 
     # fastlane be56dd5 currently drops --file when wrapping Xcode 26 altool.
     # Keep the Faraday 2 pin and own the upload arguments until that wrapper is fixed upstream.
+    # Wait here because the workflow runs `fastlane ios submit` immediately afterwards,
+    # and App Store Connect cannot attach a build that is still processing.
     upload_ipa_with_altool!(
       File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      wait_for_processing: false
+      wait_for_processing: true
     )
   end
 

@@ -209,6 +209,7 @@ jobs:
           bundle exec pod install --repo-update
 
       - name: Fastlane release
+        id: fastlane_release
         working-directory: ${{ env.WORKING_DIR }}
         env:
           CI: '1'
@@ -241,6 +242,26 @@ jobs:
             ${{ env.WORKING_DIR }}/build/*.app.dSYM.zip
           retention-days: 30
           if-no-files-found: warn
+
+      # Auto-submit the freshly-uploaded build for App Store review, mirroring
+      # the storefront pipeline. `fastlane ios submit` runs deliver with
+      # submit_for_review + automatic_release, so once Apple approves it releases
+      # automatically. The build is already processed (the release lane waited),
+      # so deliver can attach it.
+      - name: Submit to App Store for review
+        if: steps.fastlane_release.outcome == 'success'
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: '1'
+          FASTLANE_DISABLE_COLORS: '1'
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
+          SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+          SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
+          IOS_RELEASE_NOTES: ${{ vars.IOS_ADMIN_RELEASE_NOTES }}
+        run: bundle exec fastlane ios submit
 
       - name: Clean up secrets
         if: always()
