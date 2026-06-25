@@ -111,6 +111,7 @@ export function makeEmailDomainSettingsStyles(colors: EmailDomainColors) {
       color: colors.textMuted,
     },
     recordHost: {
+      flex: 1,
       fontFamily: TYPOGRAPHY.fontFamily.medium,
       fontSize: TYPOGRAPHY.size.sm,
       color: colors.text,

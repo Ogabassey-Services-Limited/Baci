@@ -46,7 +46,31 @@ describe('EmailDomainConfiguredView', () => {
     expect(screen.getByText(/Check that the DKIM TXT/)).toBeInTheDocument();
   });
 
-  it('copies DNS record values', () => {
+  it('keeps the verify button name and state while verifying', () => {
+    render(
+      <EmailDomainConfiguredView
+        colors={colors}
+        config={{
+          domain: 'mystore.com',
+          senderLocalPart: 'noreply',
+          status: 'pending',
+          enabled: false,
+          records: [],
+        }}
+        onCopy={vi.fn()}
+        onVerify={vi.fn()}
+        verifying={true}
+        onToggle={vi.fn()}
+        toggling={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Verify DNS records' })
+    ).toBeDisabled();
+  });
+
+  it('copies DNS record hosts and values', () => {
     const onCopy = vi.fn();
     render(
       <EmailDomainConfiguredView
@@ -66,7 +90,10 @@ describe('EmailDomainConfiguredView', () => {
       />
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Copy TXT host' }));
     fireEvent.click(screen.getByRole('button', { name: 'Copy TXT value' }));
-    expect(onCopy).toHaveBeenCalledWith('v');
+
+    expect(onCopy).toHaveBeenNthCalledWith(1, 'h');
+    expect(onCopy).toHaveBeenNthCalledWith(2, 'v');
   });
 });

@@ -64,14 +64,18 @@ export function EmailDomainConfiguredView({
     <View style={styles.card}>
       <View style={styles.domainRow}>
         <Text style={styles.domainName}>{config.domain}</Text>
-        <View style={[styles.badge, { backgroundColor: status.backgroundColor }]}>
+        <View
+          style={[styles.badge, { backgroundColor: status.backgroundColor }]}
+        >
           <Text style={[styles.badgeText, { color: status.color }]}>
             {status.label}
           </Text>
         </View>
       </View>
 
-      {status.helper ? <Text style={styles.helper}>{status.helper}</Text> : null}
+      {status.helper ? (
+        <Text style={styles.helper}>{status.helper}</Text>
+      ) : null}
 
       {config.records.map((record) => (
         <RecordRow
@@ -98,11 +102,15 @@ export function EmailDomainConfiguredView({
           disabled={verifying}
           onPress={onVerify}
           accessibilityRole="button"
+          accessibilityLabel="Verify DNS records"
+          accessibilityState={{ busy: verifying, disabled: verifying }}
         >
           {verifying ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.primaryButtonText}>I've added these — Verify</Text>
+            <Text style={styles.primaryButtonText}>
+              I've added these — Verify
+            </Text>
           )}
         </Pressable>
       )}
@@ -123,9 +131,19 @@ function RecordRow({
   return (
     <View style={styles.record}>
       <Text style={styles.recordType}>{record.type}</Text>
-      <Text style={styles.recordHost} numberOfLines={1}>
-        {record.host}
-      </Text>
+      <View style={styles.recordValueRow}>
+        <Text style={styles.recordHost} numberOfLines={1}>
+          {record.host}
+        </Text>
+        <Pressable
+          onPress={() => onCopy(record.host)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Copy ${record.type} host`}
+        >
+          <Ionicons name="copy-outline" size={18} color={colors.primary} />
+        </Pressable>
+      </View>
       <View style={styles.recordValueRow}>
         <Text style={styles.recordValue} numberOfLines={1}>
           {record.value}
