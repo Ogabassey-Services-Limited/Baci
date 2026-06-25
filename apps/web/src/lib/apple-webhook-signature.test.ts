@@ -23,6 +23,11 @@ describe('verifyAppleWebhookSignature', () => {
     ).toBe(true);
   });
 
+  it('accepts an algorithm-prefixed signature (hmacsha256=<hex>)', () => {
+    const header = `hmacsha256=${sign(BODY, SECRET, 'hex')}`;
+    expect(verifyAppleWebhookSignature(BODY, header, SECRET)).toBe(true);
+  });
+
   it('rejects a signature made with the wrong secret', () => {
     expect(
       verifyAppleWebhookSignature(BODY, sign(BODY, 'other', 'hex'), SECRET)
