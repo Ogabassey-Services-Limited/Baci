@@ -192,6 +192,14 @@ describe('normalizeSeoProductText', () => {
     ).toBe('Shop Samsung Galaxy Tab S9 Plus tablet today.');
   });
 
+  it('normalizes spaced model plus signs in explicit product metadata text', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9 + Case today.', {
+        slug: 'samsung-galaxy-tab-s9-plus-case',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus Case today.');
+  });
+
   it('normalizes compact plus signs before sentence punctuation', () => {
     expect(
       normalizeSeoProductText('Shop Samsung Galaxy Tab S9+.', {
@@ -224,6 +232,14 @@ describe('normalizeSeoProductText', () => {
     ).toBe('USB-C + Lightning');
   });
 
+  it('preserves plain text separator plus signs in metadata text', () => {
+    expect(
+      normalizeSeoProductText('USB-C + Lightning Cable', {
+        slug: 'usb-c-plus-lightning-cable',
+      })
+    ).toBe('USB-C + Lightning Cable');
+  });
+
   it('adds matching currency codes to symbol amounts in explicit metadata text', () => {
     expect(
       normalizeSeoProductText('PSN Gift Card £50 at Ogabassey: £50 value.', {
@@ -238,6 +254,22 @@ describe('normalizeSeoProductText', () => {
         slug: 'psn-gift-card-gbp-50',
       })
     ).toBe('PSN Gift Card £50 GBP. Premium price £50.99 GBP.');
+  });
+
+  it('adds matching currency codes before sentence commas', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50, today only.', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP, today only.');
+  });
+
+  it('preserves grouped currency amounts when adding currency codes', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £1,200, today only.', {
+        slug: 'psn-gift-card-gbp-1200',
+      })
+    ).toBe('PSN Gift Card £1,200 GBP, today only.');
   });
 
   it('does not duplicate currency codes that are already present', () => {

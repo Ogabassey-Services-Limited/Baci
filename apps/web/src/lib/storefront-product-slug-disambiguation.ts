@@ -21,6 +21,8 @@ const NON_IDENTIFYING_SLUG_DISAMBIGUATOR_TOKENS = new Set([
   'with',
 ]);
 const SEO_HTML_TAG_PATTERN = /<[^>]{0,1000}>/g;
+const SEO_SPACED_MODEL_PLUS_PATTERN =
+  /([a-z]+\d[a-z0-9]*|\d+[a-z][a-z0-9]*)\s+\+\s*(?=[a-z0-9]|[\s.,!?;:]|$)/gi;
 
 function tokenizeProductIdentity(value: string): Set<string> {
   const normalized = value
@@ -81,7 +83,7 @@ function appendCurrencyCodeToSymbolAmounts(
   if (slugTokens.includes('gbp')) {
     normalized = appendCurrencyCode(
       normalized,
-      /£\s?\d[\d,]*(?:\.\d+)?/gi,
+      /£\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
       'GBP'
     );
   }
@@ -89,7 +91,7 @@ function appendCurrencyCodeToSymbolAmounts(
   if (slugTokens.includes('eur')) {
     normalized = appendCurrencyCode(
       normalized,
-      /€\s?\d[\d,]*(?:\.\d+)?/gi,
+      /€\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
       'EUR'
     );
   }
@@ -97,7 +99,7 @@ function appendCurrencyCodeToSymbolAmounts(
   if (slugTokens.includes('usd')) {
     normalized = appendCurrencyCode(
       normalized,
-      /\$\s?\d[\d,]*(?:\.\d+)?/gi,
+      /\$\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
       'USD'
     );
   }
@@ -105,7 +107,7 @@ function appendCurrencyCodeToSymbolAmounts(
   if (slugTokens.includes('ngn')) {
     normalized = appendCurrencyCode(
       normalized,
-      /₦\s?\d[\d,]*(?:\.\d+)?/gi,
+      /₦\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
       'NGN'
     );
   }
@@ -132,15 +134,18 @@ function appendCurrencyCode(
   );
 }
 
+function collapseSeoModelPlusSpacing(value: string): string {
+  return value.replace(SEO_SPACED_MODEL_PLUS_PATTERN, '$1+');
+}
+
 function stripSeoHtmlTags(value: string): string {
   if (!value.includes('<')) {
-    return value;
+    return collapseSeoModelPlusSpacing(value);
   }
 
-  return value
-    .replace(SEO_HTML_TAG_PATTERN, ' ')
-    .replace(/\s+([.,!?;:])/g, '$1')
-    .replace(/([a-z]*\d[a-z0-9]*)\s+\+\s*(?=[a-z0-9]|[\s.,!?;:]|$)/gi, '$1+');
+  return collapseSeoModelPlusSpacing(
+    value.replace(SEO_HTML_TAG_PATTERN, ' ').replace(/\s+([.,!?;:])/g, '$1')
+  );
 }
 
 function getSlugTokens(slug: string | null | undefined): string[] {
