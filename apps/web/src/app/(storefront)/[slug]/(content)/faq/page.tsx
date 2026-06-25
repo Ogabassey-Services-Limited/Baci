@@ -160,17 +160,16 @@ async function FAQContent({ params }: PageProps) {
 
   // Fallback to default FAQ page
   return (
-    <>
-      <FAQPageClient
-        merchant={merchant}
-        faqItems={faqItems}
-        legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
-      />
+    <FAQPageClient
+      merchant={merchant}
+      faqItems={faqItems}
+      legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
+    >
       <ContentPageCrawlSummary
         kind="faq"
         merchantName={merchant.business_name}
         businessType={merchant.business_type}
       />
-    </>
+    </FAQPageClient>
   );
 }

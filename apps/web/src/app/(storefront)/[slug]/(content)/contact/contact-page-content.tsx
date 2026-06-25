@@ -113,12 +113,13 @@ export async function ContactPageContent({ params }: PageProps) {
       <ContactPageClient
         merchant={merchant}
         legacyContent={merchant.pages?.contact}
-      />
-      <ContentPageCrawlSummary
-        kind="contact"
-        merchantName={merchant.business_name}
-        businessType={merchant.business_type}
-      />
+      >
+        <ContentPageCrawlSummary
+          kind="contact"
+          merchantName={merchant.business_name}
+          businessType={merchant.business_type}
+        />
+      </ContactPageClient>
     </>
   );
 }

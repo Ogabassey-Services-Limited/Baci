@@ -9,7 +9,7 @@ vi.mock('@/components/app-body', () => ({
 }));
 
 vi.mock('@/components/storefront/footer', () => ({
-  StorefrontFooter: () => null,
+  StorefrontFooter: () => <footer data-testid="storefront-footer" />,
 }));
 
 vi.mock('@/components/storefront/header', () => ({
@@ -104,6 +104,28 @@ describe('FAQPageClient', () => {
     expect(
       screen.getByRole('link', { name: /contact support/i })
     ).toHaveAttribute('href', '/contact');
+  });
+
+  it('renders crawl summary children before the storefront footer', () => {
+    render(
+      <FAQPageClient
+        merchant={{
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
+        }}
+        faqItems={[]}
+      >
+        <section data-testid="crawl-summary">SEO crawl summary</section>
+      </FAQPageClient>
+    );
+
+    const summary = screen.getByTestId('crawl-summary');
+    const footer = screen.getByTestId('storefront-footer');
+
+    expect(
+      summary.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('prefixes the contact link with basePath when set', () => {

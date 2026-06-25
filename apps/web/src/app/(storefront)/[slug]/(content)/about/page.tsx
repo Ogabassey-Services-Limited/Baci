@@ -129,17 +129,16 @@ async function AboutContent({ params }: PageProps) {
 
   // Fallback to default about page
   return (
-    <>
-      <AboutPageClient
-        merchant={merchant}
-        aboutPage={aboutPage}
-        legacyContent={legacyAboutContent}
-      />
+    <AboutPageClient
+      merchant={merchant}
+      aboutPage={aboutPage}
+      legacyContent={legacyAboutContent}
+    >
       <ContentPageCrawlSummary
         kind="about"
         merchantName={merchant.business_name}
         businessType={merchant.business_type}
       />
-    </>
+    </AboutPageClient>
   );
 }

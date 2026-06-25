@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getMerchantByIdentifier,
@@ -51,7 +51,9 @@ vi.mock('@/types/faq', () => ({
 const { parseLegacyFAQ } = await import('@/types/faq');
 
 vi.mock('../pages/faq/faq-page-client', () => ({
-  FAQPageClient: () => <div data-testid="faq-client">FAQ UI</div>,
+  FAQPageClient: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="faq-client">FAQ UI{children}</div>
+  ),
 }));
 
 const notFound = vi.fn(() => {

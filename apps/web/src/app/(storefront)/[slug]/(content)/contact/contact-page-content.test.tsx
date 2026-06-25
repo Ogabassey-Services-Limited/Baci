@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
@@ -48,7 +49,9 @@ vi.mock('@/templates/registry', () => ({
 }));
 
 vi.mock('../pages/contact/contact-page-client', () => ({
-  ContactPageClient: () => <div>Contact UI</div>,
+  ContactPageClient: ({ children }: { children?: ReactNode }) => (
+    <div>Contact UI{children}</div>
+  ),
 }));
 
 const { ContactPageContent } = await import('./contact-page-content');
