@@ -53,14 +53,22 @@ export function dedupeElectricityBillers(
     { billerCode: string; productCode: string }
   >();
   for (const monnify of monnifyBillers) {
-    const source = monnify.billerCode ?? monnify.billerName ?? monnify.billerId;
-    const meterType = getMeterType(source);
+    const firstProduct = monnify.billItems?.[0];
+    // Meter type may live on the code (biller-ekedc-pre) OR only on the name /
+    // product (generic code "IKEDC" + "Prepaid" name) — check all.
+    const meterType =
+      getMeterType(monnify.billerCode) ??
+      getMeterType(monnify.billerName) ??
+      getMeterType(firstProduct?.itemName) ??
+      getMeterType(firstProduct?.productCode);
+    const discoSource =
+      monnify.billerCode ?? monnify.billerName ?? monnify.billerId;
     const billerCode = monnify.billerCode;
     const productCode = getMonnifyProductCode(monnify);
     if (!(meterType && billerCode && productCode)) {
       continue;
     }
-    monnifyByKey.set(`${getDiscoKey(source)}:${meterType}`, {
+    monnifyByKey.set(`${getDiscoKey(discoSource)}:${meterType}`, {
       billerCode,
       productCode,
     });
