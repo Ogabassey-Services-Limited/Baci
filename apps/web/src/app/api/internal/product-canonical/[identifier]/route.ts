@@ -1,13 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
 import {
-  getCachedLegacyProductRedirectTarget,
+  getCachedMerchant,
+  getCachedMerchantByDomain,
   getCachedProductCanonicalRedirectTarget,
-  getMerchantSafe,
 } from '@/lib/cached-data';
+import { getCachedStorefrontProductSlugResolution } from '@/lib/cached-storefront-product-slug-resolution';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getProductUrl } from '@/lib/seo-utils';
+import { isDomainIdentifier } from '@/lib/validation';
 import {
   internalProductCanonicalRedirectQuerySchema,
   internalSlugSetParamsSchema,
@@ -75,6 +77,15 @@ function asProductUrlSource(value: ProductUrlSource) {
   };
 }
 
+async function getPublishedMerchant(identifier: string) {
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  const merchant = isDomainIdentifier(normalizedIdentifier)
+    ? await getCachedMerchantByDomain(normalizedIdentifier)
+    : await getCachedMerchant(normalizedIdentifier);
+
+  return merchant?.is_published ? merchant : null;
+}
+
 function getRedirectResponseForTarget(
   requestedCategory: string,
   requestedSlug: string,
@@ -128,8 +139,8 @@ export async function GET(
   }
 
   try {
-    const merchant = await getMerchantSafe(params.data.identifier);
-    if (!merchant?.is_published) {
+    const merchant = await getPublishedMerchant(params.data.identifier);
+    if (!merchant) {
       return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
     }
 
@@ -149,18 +160,29 @@ export async function GET(
       );
     }
 
-    const legacyTarget = await getCachedLegacyProductRedirectTarget(
+    const slugResolution = await getCachedStorefrontProductSlugResolution(
       merchant.id,
       query.data.slug
     );
 
-    if (legacyTarget) {
+    if (slugResolution.hasError) {
+      return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
+    }
+
+    if (slugResolution.redirectTarget) {
       return NextResponse.json(
         getRedirectResponseForTarget(
           query.data.category,
           query.data.slug,
-          legacyTarget
+          slugResolution.redirectTarget
         ),
+        { status: 200, headers: NO_STORE }
+      );
+    }
+
+    if (slugResolution.present) {
+      return NextResponse.json(
+        { hasError: false, matchedProduct: true, redirectPath: null },
         { status: 200, headers: NO_STORE }
       );
     }

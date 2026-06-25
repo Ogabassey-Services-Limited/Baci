@@ -2,19 +2,24 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetInternalApiSecret = vi.fn();
-const mockGetMerchantSafe = vi.fn();
+const mockGetCachedMerchant = vi.fn();
+const mockGetCachedMerchantByDomain = vi.fn();
 const mockGetCachedProductCanonicalRedirectTarget = vi.fn();
-const mockGetCachedLegacyProductRedirectTarget = vi.fn();
+const mockGetCachedStorefrontProductSlugResolution = vi.fn();
 
 vi.mock('@/env', () => ({
   getInternalApiSecret: () => mockGetInternalApiSecret(),
 }));
 vi.mock('@/lib/cached-data', () => ({
-  getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
-    mockGetCachedLegacyProductRedirectTarget(...args),
+  getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
+  getCachedMerchantByDomain: (...args: unknown[]) =>
+    mockGetCachedMerchantByDomain(...args),
   getCachedProductCanonicalRedirectTarget: (...args: unknown[]) =>
     mockGetCachedProductCanonicalRedirectTarget(...args),
-  getMerchantSafe: (...args: unknown[]) => mockGetMerchantSafe(...args),
+}));
+vi.mock('@/lib/cached-storefront-product-slug-resolution', () => ({
+  getCachedStorefrontProductSlugResolution: (...args: unknown[]) =>
+    mockGetCachedStorefrontProductSlugResolution(...args),
 }));
 
 import { GET } from './route';
@@ -45,12 +50,19 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetInternalApiSecret.mockReturnValue(SECRET);
-    mockGetMerchantSafe.mockResolvedValue({
+    mockGetCachedMerchant.mockResolvedValue({
+      id: MERCHANT_ID,
+      is_published: true,
+    });
+    mockGetCachedMerchantByDomain.mockResolvedValue({
       id: MERCHANT_ID,
       is_published: true,
     });
     mockGetCachedProductCanonicalRedirectTarget.mockResolvedValue(null);
-    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: false,
+    });
   });
 
   it('returns a redirect path when an active product is requested under the wrong category', async () => {
@@ -226,12 +238,16 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       categories: { name: 'Smartphones', slug: 'smartphones' },
       status: 'archived',
     });
-    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
-      id: 'parent-1',
-      name: 'Samsung Galaxy Z Fold6',
-      slug: 'samsung-galaxy-z-fold-6',
-      category: 'Smartphones',
-      categories: { name: 'Smartphones', slug: 'smartphones' },
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+      redirectTarget: {
+        id: 'parent-1',
+        name: 'Samsung Galaxy Z Fold6',
+        slug: 'samsung-galaxy-z-fold-6',
+        category: 'Smartphones',
+        categories: { name: 'Smartphones', slug: 'smartphones' },
+      },
     });
 
     const res = await GET(
@@ -247,7 +263,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
       matchedProduct: true,
       redirectPath: '/smartphones/samsung-galaxy-z-fold-6',
     });
-    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+    expect(mockGetCachedStorefrontProductSlugResolution).toHaveBeenCalledWith(
       MERCHANT_ID,
       'samsung-galaxy-z-fold-6-12gb-256gb'
     );
@@ -266,12 +282,84 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     });
   });
 
+  it('resolves custom-domain identifiers through the domain cache path', async () => {
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'missing-product' }),
+      context('shop.example.com')
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockGetCachedMerchantByDomain).toHaveBeenCalledWith(
+      'shop.example.com'
+    );
+    expect(mockGetCachedMerchant).not.toHaveBeenCalled();
+  });
+
+  it('resolves slug identifiers through the slug cache path', async () => {
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'missing-product' }),
+      context('ogabassey')
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockGetCachedMerchant).toHaveBeenCalledWith('ogabassey');
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
+  });
+
+  it('fails open when the public slug-resolution RPC is uncertain', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: true,
+      present: false,
+    });
+
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'legacy-alias' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual(FAIL_OPEN);
+  });
+
+  it('marks public slug-resolution matches without redirects as checked', async () => {
+    mockGetCachedStorefrontProductSlugResolution.mockResolvedValue({
+      hasError: false,
+      present: true,
+    });
+
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'iphone-15' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual({
+      hasError: false,
+      matchedProduct: true,
+      redirectPath: null,
+    });
+  });
+
+  it('fails open for unpublished merchants without product lookups', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: MERCHANT_ID,
+      is_published: false,
+    });
+
+    const res = await GET(
+      request({ category: 'smartphones', slug: 'iphone-15' }),
+      context()
+    );
+
+    expect(await res.json()).toEqual(FAIL_OPEN);
+    expect(mockGetCachedProductCanonicalRedirectTarget).not.toHaveBeenCalled();
+    expect(mockGetCachedStorefrontProductSlugResolution).not.toHaveBeenCalled();
+  });
+
   it('fails open for invalid input or unresolved merchants', async () => {
     expect(
       await (await GET(request({ slug: 'iphone-15' }), context())).json()
     ).toEqual(FAIL_OPEN);
 
-    mockGetMerchantSafe.mockResolvedValue(null);
+    mockGetCachedMerchantByDomain.mockResolvedValue(null);
     expect(
       await (
         await GET(request({ category: 'apple', slug: 'iphone-15' }), context())
@@ -287,7 +375,7 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
 
     expect(res.status).toBe(401);
     expect(res.headers.get('Cache-Control')).toBe('no-store');
-    expect(mockGetMerchantSafe).not.toHaveBeenCalled();
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the internal API secret is not configured', async () => {
@@ -301,6 +389,6 @@ describe('GET /api/internal/product-canonical/[identifier]', () => {
     expect(res.status).toBe(500);
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({ error: 'Internal Server Error' });
-    expect(mockGetMerchantSafe).not.toHaveBeenCalled();
+    expect(mockGetCachedMerchantByDomain).not.toHaveBeenCalled();
   });
 });
