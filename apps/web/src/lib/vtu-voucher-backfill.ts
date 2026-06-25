@@ -277,20 +277,67 @@ export async function scheduleVoucherPinBackfill({
         pinResolved =
           result.status === 'successful' && Boolean(result.voucherPin);
       } else if (transaction.status === 'successful') {
-        const pin =
-          (await backfillVtuVoucherPin({
-            billRequestRef: isString(transaction.request_reference)
-              ? transaction.request_reference
-              : null,
-            billResponseReference: isString(transaction.transaction_id)
-              ? transaction.transaction_id
-              : null,
-            metadata: currentMetadata,
-            supabase,
-            transactionId,
-          })) ?? null;
+        const { voucherPin, units } = await backfillVtuVoucherPin({
+          billRequestRef: isString(transaction.request_reference)
+            ? transaction.request_reference
+            : null,
+          billResponseReference: isString(transaction.transaction_id)
+            ? transaction.transaction_id
+            : null,
+          metadata: currentMetadata,
+          supabase,
+          transactionId,
+        });
 
-        pinResolved = Boolean(pin);
+        pinResolved = Boolean(voucherPin);
+        // backfill persists the pin via RPC but returns units for the owner of
+        // the metadata write to persist; this path has no later write, so do it.
+        // Re-fetch the latest metadata and persist units with a compare-and-set
+        // (matching clearVoucherPinBackfillTimestamp) so a concurrent
+        // webhook/wallet/notification write between our read and write is never
+        // clobbered: if metadata changed, the filter matches 0 rows and we skip
+        // (the next history poll retries).
+        if (voucherPin && units) {
+          const { data: latest, error: readError } = await supabase
+            .from('vtu_transactions')
+            .select('metadata')
+            .eq('id', transactionId)
+            .single();
+          if (readError) {
+            console.error('Failed to read metadata before units persist:', {
+              error: readError.message,
+              transactionId,
+            });
+          } else {
+            const latestMetadata = normalizeMetadata(latest?.metadata);
+            if (latestMetadata.units !== units) {
+              const { data: updatedRows, error: unitsError } = await supabase
+                .from('vtu_transactions')
+                .update({
+                  metadata: { ...latestMetadata, units },
+                })
+                .eq('id', transactionId)
+                .filter('metadata', 'eq', stableJsonStringify(latestMetadata))
+                .select('id');
+              if (unitsError) {
+                console.error('Failed to persist VTU units on backfill:', {
+                  error: unitsError.message,
+                  transactionId,
+                });
+              } else if (!updatedRows || updatedRows.length === 0) {
+                // CAS lost the race (another writer changed metadata). The pin
+                // is already persisted so history won't reschedule — log so the
+                // dropped units are observable rather than silent.
+                console.warn(
+                  'VTU units CAS update matched 0 rows (lost race):',
+                  {
+                    transactionId,
+                  }
+                );
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('VTU voucher-pin backfill provider poll failed:', {

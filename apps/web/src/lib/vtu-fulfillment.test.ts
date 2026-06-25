@@ -2406,6 +2406,8 @@ describe('fulfillPendingVtuTransaction', () => {
           provider: 'monnify',
           billerCode: 'biller1',
           productCode: 'product1',
+          // Monnify requery resolves only by the persisted vendReference.
+          monnifyVendReference: 'monnify-vend-1',
         },
         error_message: null,
         merchant_commission: 0,
@@ -2422,13 +2424,52 @@ describe('fulfillPendingVtuTransaction', () => {
     });
 
     expect(mockMonnifyCheckTransactionStatus).toHaveBeenCalledWith(
-      'monnify-bill-1'
+      'monnify-vend-1'
     );
     expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: 'successful',
       voucherPin: 'token-1234',
     });
+  });
+
+  it('leaves a Monnify processing row pending (no requery) when it has no vendReference', async () => {
+    // Regression: transactionReference is not requeryable; requerying with it
+    // returns "not found" → normalized to failed → wrongful refund. A legacy
+    // processing row without monnifyVendReference must stay processing.
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'monnify-bill-1',
+        status: 'processing',
+        metadata: {
+          provider: 'monnify',
+          billerCode: 'biller1',
+          productCode: 'product1',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC',
+        biller_item_code: null,
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockMonnifyCheckTransactionStatus).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: 'processing' });
   });
 
   it('Monnify initial vend timeout/network error returns processing status', async () => {

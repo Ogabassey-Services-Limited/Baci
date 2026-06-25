@@ -212,13 +212,29 @@ export type ValidateCustomerResponseBody = z.infer<
   typeof validateCustomerResponseBodySchema
 >;
 
+// Monnify returns the delivered token/units NESTED under responseBody.metaData
+// for token-bearing bills (e.g. prepaid electricity):
+//   responseBody.metaData = { token: "3772-...-0336", unit: "4.5" }
+// A flat `token` is kept as a fallback in case other billers return it top-level.
+const billMetaDataSchema = z
+  .object({
+    token: z.string().optional().nullable(),
+    unit: z.string().optional().nullable(),
+  })
+  .optional()
+  .nullable();
+
 // Vend Response Body Schema
 export const vendResponseBodySchema = z.object({
   transactionReference: z.string().optional().nullable(),
+  // Monnify's own vend reference (MFBP-MDR-<customer>-…). This — NOT
+  // transactionReference — is what the requery endpoint resolves by.
+  vendReference: z.string().optional().nullable(),
   paymentReference: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
   vendStatus: z.string().optional().nullable(),
   token: z.string().optional().nullable(),
+  metaData: billMetaDataSchema,
 });
 export type VendResponseBody = z.infer<typeof vendResponseBodySchema>;
 
@@ -229,5 +245,6 @@ export const requeryResponseBodySchema = z.object({
   status: z.string().optional().nullable(),
   vendStatus: z.string().optional().nullable(),
   token: z.string().optional().nullable(),
+  metaData: billMetaDataSchema,
 });
 export type RequeryResponseBody = z.infer<typeof requeryResponseBodySchema>;

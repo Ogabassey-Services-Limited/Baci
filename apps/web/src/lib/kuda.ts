@@ -231,6 +231,11 @@ export interface PurchaseResult {
   phoneNumber?: string;
   provider?: string;
   providerErrorDetail?: string;
+  // Monnify-only: the provider's own vend reference, used to requery status
+  // (Monnify resolves requery by this, not by transactionReference).
+  providerVendReference?: string;
+  // Units delivered for metered bills (e.g. prepaid electricity kWh).
+  units?: string;
 }
 
 // Kuda API Response
@@ -270,6 +275,9 @@ type KudaTransactionStatusResult = {
   message: string;
   pin?: string;
   status: string;
+  // Units delivered for metered bills; surfaced by Monnify requery, kept on the
+  // shared shape so the provider-agnostic status type stays consistent.
+  units?: string;
 };
 
 function normalizeKudaStatusKey(status: string) {
