@@ -79,17 +79,28 @@ export async function GET(request: NextRequest) {
     // list shows one clean card per DISCO instead of Kuda+Monnify duplicates.
     let mergedBillers: NormalizedBiller[];
     if (type === 'electricity' && monnifyBillers.length > 0) {
-      const { billers, matchedMonnifyBillerCodes } = dedupeElectricityBillers(
+      const { billers, matchedMonnifyProducts } = dedupeElectricityBillers(
         kudaBillers,
         monnifyBillers
       );
-      const leftoverMonnify = monnifyBillers.filter(
-        (biller) =>
-          !(
-            biller.billerCode &&
-            matchedMonnifyBillerCodes.has(biller.billerCode)
-          )
-      );
+      // Prune folded products from each Monnify card; drop a card only once it
+      // has no products left (keeps unmatched/unclassifiable meter types visible).
+      const leftoverMonnify = monnifyBillers.flatMap((biller) => {
+        const folded = biller.billerCode
+          ? matchedMonnifyProducts.get(biller.billerCode)
+          : undefined;
+        if (!folded || folded.size === 0) {
+          return [biller];
+        }
+        const remaining = (biller.billItems ?? []).filter(
+          (item) => !(item.productCode && folded.has(item.productCode))
+        );
+        // No items left (incl. single-product billers with no nested items) → drop.
+        if (remaining.length === 0) {
+          return [];
+        }
+        return [{ ...biller, billItems: remaining }];
+      });
       mergedBillers = [...billers, ...leftoverMonnify];
     } else {
       mergedBillers = [...kudaBillers, ...monnifyBillers];
