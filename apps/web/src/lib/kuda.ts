@@ -673,6 +673,17 @@ export async function verifyBillCustomer(
       CustomerIdentification: customerIdentification,
     });
 
+    // TEMP DIAGNOSTIC: log only the field-name keys (never values) of the Kuda
+    // verify response, to see whether it returns a customer address we could
+    // surface on the electricity receipt. No PII is logged. Remove once resolved.
+    console.log(
+      '[kuda] verify-customer response keys:',
+      JSON.stringify({
+        top: Object.keys(response ?? {}),
+        data: Object.keys((response?.data ?? {}) as Record<string, unknown>),
+      })
+    );
+
     const customerName =
       response.data?.CustomerName ?? response.data?.customerName;
 
