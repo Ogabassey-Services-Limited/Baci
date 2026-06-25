@@ -118,6 +118,75 @@ describe('dedupeElectricityBillers', () => {
     expect(prepaid?.monnifyBillerCode).toBe('IKEDC-PRE');
   });
 
+  it('folds APLE (Kuda) onto Aba (Monnify) via the alias', () => {
+    const kuda: NormalizedBiller = {
+      ...kudaBiller(),
+      billerId: 'APLE',
+      billerName: 'APLE NG',
+      billItems: [
+        {
+          itemCode: 'KUD-ELE-APLE-001',
+          itemName: 'APLE PREPAID',
+          amount: 0,
+          itemCurrencySymbol: 'NGN',
+          isAmountFixed: false,
+          itemFee: 0,
+          provider: 'kuda',
+        },
+      ],
+    };
+    const { billers } = dedupeElectricityBillers(
+      [kuda],
+      [monnifyBiller('biller-aba-pre', 'Aba Power Prepaid')]
+    );
+    const prepaid = billers[0]?.billItems?.find(
+      (i) => i.itemName === 'APLE PREPAID'
+    );
+    expect(prepaid?.monnifyBillerCode).toBe('biller-aba-pre');
+  });
+
+  it('keeps a multi-product Monnify biller when only one meter type matched', () => {
+    const multiProduct: NormalizedBiller = {
+      ...monnifyBiller('biller-ekedc', 'Eko Electricity'),
+      billItems: [
+        {
+          itemCode: 'p1',
+          itemName: 'Eko Prepaid',
+          amount: 0,
+          itemCurrencySymbol: 'NGN',
+          isAmountFixed: false,
+          itemFee: 0,
+          provider: 'monnify',
+          billerCode: 'biller-ekedc',
+          productCode: 'eko-pre',
+        },
+        {
+          itemCode: 'p2',
+          itemName: 'Eko Postpaid',
+          amount: 0,
+          itemCurrencySymbol: 'NGN',
+          isAmountFixed: false,
+          itemFee: 0,
+          provider: 'monnify',
+          billerCode: 'biller-ekedc',
+          productCode: 'eko-post',
+        },
+      ],
+    };
+    // Kuda biller only offers PREPAID, so the postpaid product stays unmatched.
+    const kudaPrepaidOnly: NormalizedBiller = {
+      ...kudaBiller(),
+      billItems: [kudaBiller().billItems?.[0] ?? []].flat(),
+    };
+
+    const { matchedMonnifyBillerCodes } = dedupeElectricityBillers(
+      [kudaPrepaidOnly],
+      [multiProduct]
+    );
+    // Not fully matched → must NOT be dropped from display.
+    expect(matchedMonnifyBillerCodes.has('biller-ekedc')).toBe(false);
+  });
+
   it('leaves Kuda items untouched when no Monnify DISCO matches', () => {
     const { billers, matchedMonnifyBillerCodes } = dedupeElectricityBillers(
       [kudaBiller()],
