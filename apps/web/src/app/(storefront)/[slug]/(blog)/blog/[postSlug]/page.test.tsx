@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  mockBlogPostExistenceMaybeSingle,
   mockBlogPostPageContent,
   mockConnection,
   mockDraftMode,
@@ -67,55 +68,48 @@ describe('storefront blog post page', () => {
   });
 
   it('returns notFound for missing public blog post slugs outside draft mode', async () => {
-    mockGetCachedBlogPost.mockResolvedValueOnce(null);
-    mockGetLiveBlogPost.mockResolvedValueOnce(null);
+    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
 
     await expect(loadBlogPostPage('smartphones')).rejects.toThrow(
       'NEXT_NOT_FOUND'
     );
 
     expect(mockDraftMode).toHaveBeenCalledOnce();
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'smartphones',
-      false
-    );
-    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'smartphones',
-      false
-    );
+    expect(mockBlogPostExistenceMaybeSingle).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(mockBlogPostPageContent).not.toHaveBeenCalled();
   });
 
-  it('renders public posts when the cache misses but the live fallback resolves', async () => {
-    mockGetCachedBlogPost.mockResolvedValueOnce(null);
-
+  it('streams public posts without resolving full post data at the page boundary', async () => {
     render(await loadBlogPostPage('apple-studio-display-review'));
 
-    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'apple-studio-display-review',
-      false
-    );
+    expect(mockBlogPostExistenceMaybeSingle).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
   });
 
-  it('propagates public post live fallback errors outside draft mode', async () => {
+  it('keeps streaming content when the lightweight existence check errors', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const lookupError = new Error('public post live fallback unavailable');
-    mockGetCachedBlogPost.mockResolvedValueOnce(null);
-    mockGetLiveBlogPost.mockRejectedValueOnce(lookupError);
+    const lookupError = new Error('public post existence unavailable');
+    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: lookupError,
+    });
 
-    await expect(
-      loadBlogPostPage('apple-studio-display-review')
-    ).rejects.toThrow(lookupError);
+    render(await loadBlogPostPage('apple-studio-display-review'));
 
-    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error resolving public blog post at page boundary',
+      'Error checking public blog post at page boundary',
       expect.objectContaining({
         slug: 'ogabassey.com',
         postSlug: 'apple-studio-display-review',
@@ -139,8 +133,10 @@ describe('storefront blog post page', () => {
         },
         targetSlug: 'canonical-post',
       });
-    mockGetCachedBlogPost.mockResolvedValueOnce(null);
-    mockGetLiveBlogPost.mockResolvedValueOnce(null);
+    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
 
     await expect(loadBlogPostPage('retired-post')).rejects.toThrow(
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
@@ -157,8 +153,10 @@ describe('storefront blog post page', () => {
     mockGetBlogPostRedirect
       .mockRejectedValueOnce(firstError)
       .mockRejectedValueOnce(retryError);
-    mockGetCachedBlogPost.mockResolvedValueOnce(null);
-    mockGetLiveBlogPost.mockResolvedValueOnce(null);
+    mockBlogPostExistenceMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
 
     await expect(loadBlogPostPage('retired-post')).rejects.toThrow(retryError);
 
@@ -174,6 +172,7 @@ describe('storefront blog post page', () => {
     render(await loadBlogPostPage('draft-only-post'));
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
     expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
   });

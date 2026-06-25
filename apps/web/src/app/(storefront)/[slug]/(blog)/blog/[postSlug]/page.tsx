@@ -3,17 +3,22 @@ import { draftMode } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
-import { getCachedBlogPost } from '@/lib/cached-data';
+import {
+  getCachedBlogPost,
+  getCachedFeatureSettings,
+  getMerchantSafe,
+} from '@/lib/cached-data';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { asRoute } from '@/lib/routes';
 import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { createPublicClient } from '@/lib/supabase/anon';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
 } from './blog-post-content';
 import BlogPostPageContent from './blog-post-page-content';
-import { getResolvedBlogPost } from './get-resolved-blog-post';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -24,6 +29,67 @@ const SOCIAL_IMAGE_METADATA = {
   height: 630,
   type: 'image/png',
 } as const;
+
+async function hasPublicBlogPost(
+  identifier: string,
+  postSlug: string
+): Promise<boolean> {
+  const normalizedPostSlug = postSlug.trim().toLowerCase();
+  if (!normalizedPostSlug) {
+    return false;
+  }
+
+  const merchant = await getMerchantSafe(identifier.toLowerCase());
+  if (!merchant) {
+    return false;
+  }
+
+  let features: Awaited<ReturnType<typeof getCachedFeatureSettings>>;
+  try {
+    features = await getCachedFeatureSettings(merchant.id);
+  } catch (error) {
+    console.error('Error checking blog feature flag at page boundary', {
+      slug: identifier,
+      postSlug,
+      error,
+    });
+    return true;
+  }
+  if (!features?.blog_enabled) {
+    return false;
+  }
+
+  const supabase = createPublicClient({
+    clientInfo: 'baci-web-blog-post-existence',
+    timeoutMs: 5000,
+  });
+
+  let query = supabase
+    .from('blog_posts')
+    .select('id, title, slug')
+    .eq('merchant_id', merchant.id)
+    .eq('slug', normalizedPostSlug)
+    .eq('status', 'published')
+    .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '');
+
+  query = applyPublicBlogSqlFilters(query);
+
+  const { data, error } = await query.maybeSingle();
+  if (error) {
+    console.error('Error checking public blog post at page boundary', {
+      slug: identifier,
+      postSlug,
+      error,
+    });
+    return true;
+  }
+
+  return Boolean(data);
+}
 
 export async function generateMetadata({
   params,
@@ -151,22 +217,21 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const { isEnabled: isDraftMode } = await draftMode();
   if (!isDraftMode) {
-    let publicPost: Awaited<ReturnType<typeof getResolvedBlogPost>>;
+    let hasPublicPost = false;
     try {
-      publicPost = await getResolvedBlogPost(
+      hasPublicPost = await hasPublicBlogPost(
         resolvedParams.slug,
-        resolvedParams.postSlug,
-        false
+        resolvedParams.postSlug
       );
     } catch (error) {
-      console.error('Error resolving public blog post at page boundary', {
+      console.error('Error checking public blog post at page boundary', {
         slug: resolvedParams.slug,
         postSlug: resolvedParams.postSlug,
         error,
       });
       throw error;
     }
-    if (!publicPost) {
+    if (!hasPublicPost) {
       if (redirectLookupError) {
         try {
           redirectedPost = await getBlogPostRedirect(
