@@ -35,6 +35,7 @@ function getBlogCategorySitemapEntries<TPost extends BlogCategorySitemapPost>(
     {
       category: string;
       count: number;
+      labels: Set<string>;
       lastModified: string;
     }
   >();
@@ -46,14 +47,20 @@ function getBlogCategorySitemapEntries<TPost extends BlogCategorySitemapPost>(
       continue;
     }
 
-    const key = category.toLowerCase();
+    const key = getBlogCategorySlug(category);
     const existing = stats.get(key);
     if (!existing) {
-      stats.set(key, { category, count: 1, lastModified });
+      stats.set(key, {
+        category,
+        count: 1,
+        labels: new Set([category]),
+        lastModified,
+      });
       continue;
     }
 
     existing.count += 1;
+    existing.labels.add(category);
     if (
       new Date(lastModified).getTime() >
       new Date(existing.lastModified).getTime()
@@ -63,7 +70,10 @@ function getBlogCategorySitemapEntries<TPost extends BlogCategorySitemapPost>(
   }
 
   return Array.from(stats.values())
-    .filter((entry) => entry.count >= MIN_CATEGORY_HUB_POSTS)
+    .filter(
+      (entry) =>
+        entry.count >= MIN_CATEGORY_HUB_POSTS && entry.labels.size === 1
+    )
     .map(({ category, lastModified }) => ({ category, lastModified }));
 }
 

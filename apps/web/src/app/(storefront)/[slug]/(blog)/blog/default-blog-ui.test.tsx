@@ -144,4 +144,24 @@ describe('DefaultBlogUi', () => {
     );
     expect(hasOrganization).toBe(true);
   });
+
+  it('keeps ambiguous category slugs on query links', () => {
+    render(
+      <DefaultBlogUi
+        blogSchema={{ '@type': 'Blog' }}
+        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        basePath="/ogabassey"
+        categories={['Cases & Covers', 'Cases Covers']}
+        merchant={{ id: 'merchant-1', business_name: 'Ogabassey' }}
+        posts={[]}
+        slug="ogabassey"
+        totalPosts={0}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Cases Covers' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog?category=Cases+Covers'
+    );
+  });
 });

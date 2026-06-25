@@ -154,4 +154,43 @@ describe('blog category sitemap entries', () => {
     expect(urls).not.toContain('https://ogabassey.com/blog/category/laptops');
     expect(urls.some((url) => url.includes('/blog?category='))).toBe(false);
   });
+
+  it('omits clean category hub entries for colliding category slugs', async () => {
+    mockNot.mockReturnValue({
+      data: [
+        {
+          slug: 'cases-one',
+          title: 'Cases One',
+          category: 'Cases & Covers',
+          published_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-02T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'cases-two',
+          title: 'Cases Two',
+          category: 'Cases Covers',
+          published_at: '2026-05-03T00:00:00Z',
+          updated_at: '2026-05-04T00:00:00Z',
+          featured_image_url: null,
+        },
+        {
+          slug: 'cases-three',
+          title: 'Cases Three',
+          category: 'Cases Covers',
+          published_at: '2026-05-05T00:00:00Z',
+          updated_at: '2026-05-06T00:00:00Z',
+          featured_image_url: null,
+        },
+      ],
+      error: null,
+    });
+
+    const { default: sitemap } = await import('./sitemap');
+    const result = await sitemap();
+
+    expect(result.map((entry) => entry.url)).not.toContain(
+      'https://ogabassey.com/blog/category/cases-covers'
+    );
+  });
 });

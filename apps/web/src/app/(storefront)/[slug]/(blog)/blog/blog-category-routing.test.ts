@@ -4,6 +4,8 @@ import {
   buildBlogCategorySchemaUrl,
   findBlogCategoryLabelBySlug,
   getBlogCategorySlug,
+  getCollidingBlogCategorySlugs,
+  hasBlogCategorySlugCollision,
 } from './blog-category-routing';
 
 describe('blog category routing', () => {
@@ -25,6 +27,15 @@ describe('blog category routing', () => {
     expect(buildBlogCategoryHref('/ogabassey/', 'Smartphones')).toBe(
       '/ogabassey/blog/category/smartphones'
     );
+  });
+
+  it('keeps colliding category slugs on query-string hrefs', () => {
+    expect(
+      buildBlogCategoryHref('/ogabassey', 'Cases Covers', [
+        'Cases & Covers',
+        'Cases Covers',
+      ])
+    ).toBe('/ogabassey/blog?category=Cases+Covers');
   });
 
   it('builds absolute schema URLs without leaking query filters', () => {
@@ -49,6 +60,27 @@ describe('blog category routing', () => {
         'cases-covers'
       )
     ).toBe('Cases & Covers');
+  });
+
+  it('detects colliding category slugs', () => {
+    expect(
+      getCollidingBlogCategorySlugs(['Cases & Covers', 'Cases Covers'])
+    ).toEqual(new Set(['cases-covers']));
+    expect(
+      hasBlogCategorySlugCollision(
+        ['Cases & Covers', 'Cases Covers'],
+        'cases-covers'
+      )
+    ).toBe(true);
+  });
+
+  it('returns null for ambiguous category slugs', () => {
+    expect(
+      findBlogCategoryLabelBySlug(
+        ['Cases & Covers', 'Cases Covers'],
+        'cases-covers'
+      )
+    ).toBeNull();
   });
 
   it('returns null for unknown slugs', () => {

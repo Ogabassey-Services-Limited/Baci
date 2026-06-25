@@ -105,6 +105,7 @@ describe('blog listing metadata builder', () => {
         },
         totalPosts: 50,
       }),
+      totalPages: 5,
       categories: ['Smartphones'],
     });
 

@@ -128,7 +128,10 @@ export function DefaultBlogUi({
                 </Badge>
               </Link>
               {categories.map((cat) => (
-                <Link key={cat} href={buildBlogCategoryHref(basePath, cat)}>
+                <Link
+                  key={cat}
+                  href={buildBlogCategoryHref(basePath, cat, categories)}
+                >
                   <Badge
                     variant={category === cat ? 'default' : 'outline'}
                     className="cursor-pointer"

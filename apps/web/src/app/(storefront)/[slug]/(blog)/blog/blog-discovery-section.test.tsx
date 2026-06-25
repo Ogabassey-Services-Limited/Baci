@@ -79,4 +79,19 @@ describe('BlogDiscoverySection', () => {
       screen.queryByRole('heading', { name: 'Latest Article Links' })
     ).toBeNull();
   });
+
+  it('keeps ambiguous category slugs on absolute query links', () => {
+    render(
+      <BlogDiscoverySection
+        baseUrl="https://store.example"
+        categories={['Cases & Covers', 'Cases Covers']}
+        posts={[]}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Cases Covers' })).toHaveAttribute(
+      'href',
+      'https://store.example/blog?category=Cases+Covers'
+    );
+  });
 });

@@ -1,4 +1,4 @@
-import { getBlogCategorySlug } from './blog-category-routing';
+import { buildBlogCategoryHref } from './blog-category-routing';
 
 interface BlogDiscoveryPost {
   id: string;
@@ -53,7 +53,7 @@ export function BlogDiscoverySection({
             <a
               key={cat}
               className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-              href={`${baseUrl}/blog/category/${getBlogCategorySlug(cat)}`}
+              href={buildBlogCategoryHref(baseUrl, cat, categories)}
             >
               {cat}
             </a>

@@ -107,6 +107,20 @@ describe('resolveBlogCategoryHub', () => {
     ).resolves.toBeNull();
   });
 
+  it('returns null for ambiguous category slugs', async () => {
+    const query = createCategoryQuery({
+      data: [{ category: 'Cases & Covers' }, { category: 'Cases Covers' }],
+      error: null,
+    });
+    mockGetPublicSupabaseClient.mockReturnValue({
+      from: vi.fn(() => ({ select: query.select })),
+    });
+
+    await expect(
+      resolveBlogCategoryHub('ogabassey.com', 'cases-covers')
+    ).resolves.toBeNull();
+  });
+
   it('throws when category lookup fails instead of returning a false 404', async () => {
     const query = createCategoryQuery({
       data: [],
