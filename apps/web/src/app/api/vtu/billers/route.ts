@@ -4,12 +4,14 @@ import { billersQuerySchema } from '@/schemas/vtu';
 import {
   type BillersResponsePayload,
   getMonnifyCategoryCode,
+  type NormalizedBiller,
 } from './biller-normalizers';
 import {
   getErrorMessage,
   loadKudaBillers,
   loadMonnifyBillers,
 } from './biller-route-helpers';
+import { dedupeElectricityBillers } from './dedupe-electricity-billers';
 
 /**
  * GET /api/vtu/billers?type=electricity
@@ -72,7 +74,26 @@ export async function GET(request: NextRequest) {
 
     const monnifyBillers = monnifyResult.billers;
     const monnifyError = monnifyResult.error;
-    const mergedBillers = [...kudaBillers, ...monnifyBillers];
+    // Electricity: collapse to Kuda's cards and fold the matching Monnify pre/post
+    // codes onto each Kuda bill item (Kuda display + Monnify fulfillment), so the
+    // list shows one clean card per DISCO instead of Kuda+Monnify duplicates.
+    let mergedBillers: NormalizedBiller[];
+    if (type === 'electricity' && monnifyBillers.length > 0) {
+      const { billers, matchedMonnifyBillerCodes } = dedupeElectricityBillers(
+        kudaBillers,
+        monnifyBillers
+      );
+      const leftoverMonnify = monnifyBillers.filter(
+        (biller) =>
+          !(
+            biller.billerCode &&
+            matchedMonnifyBillerCodes.has(biller.billerCode)
+          )
+      );
+      mergedBillers = [...billers, ...leftoverMonnify];
+    } else {
+      mergedBillers = [...kudaBillers, ...monnifyBillers];
+    }
 
     if (mergedBillers.length === 0) {
       const providerError = kudaError ?? monnifyError;
