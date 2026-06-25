@@ -130,7 +130,9 @@ export function DefaultBlogUi({
               {categories.map((cat) => (
                 <Link
                   key={cat}
-                  href={buildBlogCategoryHref(basePath, cat, categories)}
+                  href={asRoute(
+                    buildBlogCategoryHref(basePath, cat, categories)
+                  )}
                 >
                   <Badge
                     variant={category === cat ? 'default' : 'outline'}
