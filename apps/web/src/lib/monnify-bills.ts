@@ -307,7 +307,7 @@ export async function getBillerProducts(
   options: MonnifyDiscoveryOptions = {}
 ): Promise<BillerProduct[]> {
   const envelope = await monnifyRequest(
-    `/api/v1/vas/bills-payment/biller-products?billerCode=${encodeURIComponent(billerCode)}`,
+    `/api/v1/vas/bills-payment/biller-products?biller_code=${encodeURIComponent(billerCode)}`,
     {
       method: 'GET',
       timeoutMs: MONNIFY_DISCOVERY_TIMEOUT_MS,
