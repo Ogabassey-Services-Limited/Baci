@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { HttpError } from '@/lib/fetch-with-timeout';
-import { type CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -15,6 +14,7 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { IDENTIFIER_LABELS } from './bill-form.constants';
+import type { CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import { getBillPaymentAmountError } from './bill-payment-amount-validation';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
@@ -106,26 +106,40 @@ export function createBillFormPurchaseHandler({
         return;
       }
 
-      const buyerName =
-        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+      const buyerFullName = [customer?.first_name, customer?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      // Receipts should show the BUYER's own name when they've set one — for
+      // electricity etc. the verified meter name is usually the landlord/owner,
+      // not the person paying. Fall back to the verified (meter-owner) name, then
+      // email, so legacy/no-name cases never go blank.
+      const customerName =
+        buyerFullName ||
+        verifiedCustomerName?.trim() ||
         customer?.email ||
         undefined;
-      // The bill `customer_name` column represents the bill customer-of-record
-      // (meter owner / account holder), so prefer the verified name when we
-      // have it. Falls back to the buyer name only when verification produced
-      // no name — keeps existing legacy receipts from going blank.
-      const customerName = verifiedCustomerName?.trim() || buyerName;
-      const selectedProvider =
-        selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
-      const selectedBillerCode =
-        selectedBillItem?.billerCode ?? selectedBiller.billerCode;
+      // Kuda-display + Monnify-fulfillment: a folded electricity item carries the
+      // matching Monnify codes — vend through Monnify (instant) using them.
+      const foldedMonnifyBillerCode = selectedBillItem?.monnifyBillerCode;
+      const foldedMonnifyProductCode = selectedBillItem?.monnifyProductCode;
+      const useFoldedMonnify = Boolean(
+        foldedMonnifyBillerCode && foldedMonnifyProductCode
+      );
+      const selectedProvider = useFoldedMonnify
+        ? 'monnify'
+        : (selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda');
+      const selectedBillerCode = useFoldedMonnify
+        ? foldedMonnifyBillerCode
+        : (selectedBillItem?.billerCode ?? selectedBiller.billerCode);
       // Monnify treats the selected bill item identifier as the vend product
       // code for some normalized products, so keep this fallback provider-scoped.
-      const selectedProductCode =
-        selectedBillItem?.productCode ??
-        (selectedProvider === 'monnify'
-          ? selectedBillItemIdentifier ?? undefined
-          : undefined);
+      const selectedProductCode = useFoldedMonnify
+        ? foldedMonnifyProductCode
+        : (selectedBillItem?.productCode ??
+          (selectedProvider === 'monnify'
+            ? (selectedBillItemIdentifier ?? undefined)
+            : undefined));
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,
