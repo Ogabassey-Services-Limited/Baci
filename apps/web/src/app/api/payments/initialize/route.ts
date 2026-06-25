@@ -1400,10 +1400,33 @@ export async function POST(request: NextRequest) {
       gateway === 'juicyway' &&
       juicywayCrypto?.expected_session_amount != null
     ) {
+      const { data: existingTransaction, error: metadataReadError } =
+        await supabase
+          .from('transactions')
+          .select('metadata')
+          .eq('gateway_reference', paymentResult.reference)
+          .maybeSingle();
+
+      if (metadataReadError) {
+        logger.warn({
+          message: 'Failed to read Juicyway transaction metadata before merge',
+          reference: paymentResult.reference,
+          error: metadataReadError,
+        });
+      }
+
+      const existingMetadata =
+        existingTransaction?.metadata &&
+        typeof existingTransaction.metadata === 'object' &&
+        !Array.isArray(existingTransaction.metadata)
+          ? (existingTransaction.metadata as Record<string, unknown>)
+          : {};
+
       const { error: metadataError } = await supabase
         .from('transactions')
         .update({
           metadata: {
+            ...existingMetadata,
             customer_email: paymentData.customer_email,
             customer_name: paymentData.customer_name,
             session_id: paymentResult.sessionId ?? null,

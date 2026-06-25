@@ -707,6 +707,82 @@ describe('POST /api/payments/juicyway/webhook', () => {
     expect(state.orderUpdated).toBe(false);
   });
 
+  it('rejects a missing settlement amount with 400 and does not mark paid', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload() as unknown as {
+      data: Partial<JuicywayWebhookPayload['data']>;
+    };
+    delete payload.data.amount;
+    payload.data.currency = 'USDT';
+    const response = await POST(
+      createWebhookRequest(payload as JuicywayWebhookPayload)
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Payment amount mismatch' });
+    expect(state.txnUpdated).toBe(false);
+    expect(state.orderUpdated).toBe(false);
+  });
+
+  it('rejects an invalid settlement amount with 400 and does not mark paid', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload() as unknown as {
+      data: Omit<JuicywayWebhookPayload['data'], 'amount'> & {
+        amount: unknown;
+      };
+    };
+    payload.data.amount = 'not-a-number';
+    payload.data.currency = 'USDT';
+    const response = await POST(
+      createWebhookRequest(payload as JuicywayWebhookPayload)
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Payment amount mismatch' });
+    expect(state.txnUpdated).toBe(false);
+    expect(state.orderUpdated).toBe(false);
+  });
+
+  it('rejects a missing settlement currency with 400 and does not mark paid', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload() as unknown as {
+      data: Partial<JuicywayWebhookPayload['data']>;
+    };
+    payload.data.amount = 10000;
+    delete payload.data.currency;
+    const response = await POST(
+      createWebhookRequest(payload as JuicywayWebhookPayload)
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Payment currency mismatch',
+    });
+    expect(state.txnUpdated).toBe(false);
+    expect(state.orderUpdated).toBe(false);
+  });
+
   it('accepts an exact stablecoin settlement and processes the payment', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
 

@@ -201,14 +201,38 @@ export async function POST(request: NextRequest) {
         : null;
     const settledAmount = Number(data.amount);
     const settledCurrency =
-      typeof data.currency === 'string' ? data.currency : null;
+      typeof data.currency === 'string' && data.currency.trim().length > 0
+        ? data.currency.trim()
+        : null;
 
     if (Number.isFinite(expectedAmount) && expectedAmount > 0) {
-      if (
-        expectedCurrency &&
-        settledCurrency &&
-        expectedCurrency.toUpperCase() !== settledCurrency.toUpperCase()
-      ) {
+      if (!Number.isFinite(settledAmount) || settledAmount <= 0) {
+        logger.error({
+          message: 'Juicyway payment amount missing or invalid',
+          reference,
+          expected: expectedAmount,
+          received: data.amount,
+        });
+        return NextResponse.json(
+          { error: 'Payment amount mismatch' },
+          { status: 400 }
+        );
+      }
+
+      if (!expectedCurrency || !settledCurrency) {
+        logger.error({
+          message: 'Juicyway payment currency missing or invalid',
+          reference,
+          expected: expectedCurrency,
+          received: data.currency,
+        });
+        return NextResponse.json(
+          { error: 'Payment currency mismatch' },
+          { status: 400 }
+        );
+      }
+
+      if (expectedCurrency.toUpperCase() !== settledCurrency.toUpperCase()) {
         logger.error({
           message: 'Juicyway payment currency mismatch',
           reference,
@@ -225,10 +249,7 @@ export async function POST(request: NextRequest) {
       // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
       // and the tolerance only absorbs on-chain rounding/dust.
       const UNDERPAYMENT_TOLERANCE = 0.01;
-      if (
-        Number.isFinite(settledAmount) &&
-        settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)
-      ) {
+      if (settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)) {
         logger.error({
           message: 'Juicyway payment amount mismatch (underpaid)',
           reference,
