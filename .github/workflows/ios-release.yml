@@ -249,7 +249,10 @@ jobs:
       # automatically. The build is already processed (the release lane waited),
       # so deliver can attach it.
       - name: Submit to App Store for review
-        if: steps.fastlane_release.outcome == 'success'
+        # !cancelled() drops the implicit success() so a transient failure of the
+        # preceding artifact-upload step can't skip submission once the build is
+        # already on TestFlight; gate purely on the fastlane release outcome.
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' }}
         working-directory: ${{ env.WORKING_DIR }}
         env:
           CI: '1'
