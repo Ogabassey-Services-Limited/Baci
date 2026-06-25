@@ -9,7 +9,6 @@ import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
-import type { CartItem } from '@/stores/cart-store';
 import type { NegotiationStatus } from './NegotiationModalView';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
 import {
@@ -25,30 +24,10 @@ import {
   computeCounterOffer,
   toNegotiationCartLine,
 } from './negotiation-offer-helpers';
+import type { UseNegotiationModalControllerParams } from './useNegotiationModalController.types';
 
 const log = createLogger('NegotiationModal');
 void ensureNegotiationNativeModules();
-
-interface NegotiationItemInfo {
-  currentPrice: number;
-  id?: string;
-  name: string;
-}
-
-interface UseNegotiationModalControllerParams {
-  currentPrice: number;
-  isNegotiable?: boolean;
-  itemInfo: NegotiationItemInfo | null;
-  merchantId: string | null;
-  onAcceptedPrice?: (price: number) => void;
-  successMessageFormatter: (price: number) => string;
-  type: 'single' | 'total';
-  visible: boolean;
-  /** Live cart lines to snapshot for whole-cart ("total") offers. */
-  cartItems?: CartItem[];
-  /** Phone to prefill the follow-up field with for signed-in customers. */
-  prefillPhone?: string;
-}
 
 export function useNegotiationModalController({
   currentPrice,
@@ -171,9 +150,12 @@ export function useNegotiationModalController({
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
-    const handleSubmitFailure = (error: unknown) => {
+    const handleSubmitFailure = (
+      error: unknown,
+      message = 'Failed to submit request. Please try again.'
+    ) => {
       log.error('Failed to submit request:', error);
-      Alert.alert('Error', 'Failed to submit request. Please try again.');
+      Alert.alert('Error', message);
       setStatus('upload');
     };
 
@@ -188,10 +170,25 @@ export function useNegotiationModalController({
         type === 'total' && cartItems
           ? buildCartSnapshot(cartItems.map(toNegotiationCartLine))
           : [];
+      if (type === 'total' && cartSnapshot.length === 0) {
+        handleSubmitFailure(
+          new Error('Missing cart snapshot'),
+          'Whole-cart negotiations require at least one cart item.'
+        );
+        return;
+      }
       const totalItemInfo =
         type === 'total'
           ? summarizeCartForItemInfo(cartSnapshot, currentPrice)
           : null;
+      const normalizedPhone = normalizePhoneToE164(phone);
+      if (phone.trim() && !normalizedPhone) {
+        handleSubmitFailure(
+          new Error('Invalid customer phone'),
+          'Enter a valid Phone / WhatsApp number.'
+        );
+        return;
+      }
 
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: merchantId,
@@ -211,7 +208,7 @@ export function useNegotiationModalController({
         evidence_url: evidenceUrl || null,
         // Optional follow-up number (null when blank/invalid) so the merchant
         // can reach guests who'd otherwise get no decision notification.
-        customer_phone: normalizePhoneToE164(phone),
+        customer_phone: normalizedPhone,
         status: 'pending',
       });
 

@@ -27,6 +27,16 @@ describe('normalizePhoneToE164', () => {
     expect(normalizePhoneToE164('002348031234567')).toBe('2348031234567');
   });
 
+  it('drops trunk zeros after the Nigerian country code', () => {
+    expect(normalizePhoneToE164('+234 0803 123 4567')).toBe('2348031234567');
+    expect(normalizePhoneToE164('23408031234567')).toBe('2348031234567');
+    expect(normalizePhoneToE164('0023408031234567')).toBe('2348031234567');
+  });
+
+  it('normalizes a mistaken plus-prefixed national number for the default market', () => {
+    expect(normalizePhoneToE164('+0803 123 4567')).toBe('2348031234567');
+  });
+
   it('respects a non-default dial code', () => {
     expect(normalizePhoneToE164('020 1234 5678', '44')).toBe('442012345678');
   });

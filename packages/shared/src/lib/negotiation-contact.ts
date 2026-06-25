@@ -42,16 +42,30 @@ export function normalizePhoneToE164(
     return null;
   }
 
+  const stripDialCodeTrunkZero = () => {
+    if (digits.startsWith(`${dialCode}0`)) {
+      digits = `${dialCode}${digits.slice(dialCode.length + 1)}`;
+    }
+  };
+
   if (hadPlus) {
-    // Already international (e.g. "+2348031234567"); trust the typed country code.
+    if (digits.startsWith('0')) {
+      // Mixed international marker + national trunk form, e.g. "+08031234567".
+      digits = dialCode + digits.slice(1);
+    } else {
+      // Already international (e.g. "+2348031234567"); trust the typed country code.
+      stripDialCodeTrunkZero();
+    }
   } else if (digits.startsWith('00')) {
     // International prefix form, e.g. "002348031234567".
     digits = digits.slice(2);
+    stripDialCodeTrunkZero();
   } else if (digits.startsWith('0')) {
     // National form with trunk 0, e.g. "08031234567" → drop 0, add dial code.
     digits = dialCode + digits.slice(1);
   } else if (digits.startsWith(dialCode)) {
     // Already prefixed with the dial code but no leading + or 0.
+    stripDialCodeTrunkZero();
   } else {
     // Bare national number without trunk 0, e.g. "8031234567".
     digits = dialCode + digits;

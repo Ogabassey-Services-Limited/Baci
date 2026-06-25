@@ -60,6 +60,7 @@ export function NegotiationUploadForm({
       </Text>
       <TextInput
         style={styles.linkInput}
+        accessibilityLabel="Phone or WhatsApp number (optional)"
         value={phone}
         onChangeText={onPhoneChange}
         placeholder="e.g. 0803 123 4567"

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CartItem } from '@/hooks/cart';
 import { NegotiationModal } from './NegotiationModal';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -409,6 +410,35 @@ describe('NegotiationModal', () => {
     expect(mockInsert.mock.calls[0][0].customer_phone).toBe('2348031234567');
   });
 
+  it('rejects an invalid customer_phone instead of silently storing null', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const phoneInput = screen.getByLabelText(
+      'Phone / WhatsApp (Optional)'
+    ) as HTMLInputElement;
+    fireEvent.change(phoneInput, { target: { value: 'not a phone' } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Enter a valid Phone / WhatsApp number.'
+    );
+    alertSpy.mockRestore();
+  });
+
   it('sends a null customer_phone when the field is left blank', async () => {
     render(<NegotiationModal {...defaultProps} />);
 
@@ -427,6 +457,135 @@ describe('NegotiationModal', () => {
 
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0][0].customer_phone).toBeNull();
+  });
+
+  it('snapshots total-cart offers with variant labels and zero-priced quiz gifts', async () => {
+    const cart = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Galaxy S24',
+        description: 'Phone',
+        status: 'active',
+        price: 900_000,
+        negotiatedPrice: 850_000,
+        manage_stock: true,
+        stock: 4,
+        quantity: 1,
+        image: '/s24.jpg',
+        imageLarge: '/s24.jpg',
+        imageHint: 'phone',
+        brand: 'Samsung',
+        gtin: '',
+        mpn: '',
+        variantId: 'variant-blue-256',
+        variantAttributes: { color: 'Blue', storage: '256GB' },
+        selectedColor: 'Blue',
+        selectedStorage: '256GB',
+        condition: 'new',
+      },
+      {
+        id: 'gift-1',
+        cartItemId: 'gift-1::quiz',
+        name: 'Quiz Gift',
+        description: 'Prize',
+        status: 'active',
+        price: 205_000,
+        manage_stock: true,
+        stock: 1,
+        quantity: 1,
+        image: '/gift.jpg',
+        imageLarge: '/gift.jpg',
+        imageHint: 'gift',
+        brand: 'Tecno',
+        gtin: '',
+        mpn: '',
+        quizAwardId: 'award-1',
+        quizVoucherToken: 'signed-token',
+      },
+    ] satisfies CartItem[];
+
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productName="Entire Cart"
+        currentPrice={850_000}
+        type="total"
+        cart={cart}
+      />
+    );
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0]).toMatchObject({
+      type: 'total',
+      cart_snapshot: [
+        {
+          product_id: 'p1',
+          name: 'Galaxy S24',
+          price: 850_000,
+          quantity: 1,
+          image: '/s24.jpg',
+          variant_id: 'variant-blue-256',
+          variant_name: 'color: Blue · storage: 256GB',
+          brand: 'Samsung',
+          condition: 'new',
+        },
+        {
+          product_id: 'gift-1',
+          name: 'Quiz Gift',
+          price: 0,
+          quantity: 1,
+        },
+      ],
+      item_info: {
+        current_price: 850_000,
+        image: '/s24.jpg',
+        name: '2 items: Galaxy S24, Quiz Gift',
+      },
+    });
+  });
+
+  it('fails closed when a total-cart offer has no cart snapshot', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productName="Entire Cart"
+        type="total"
+      />
+    );
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Whole-cart negotiations require at least one cart item.'
+    );
+    alertSpy.mockRestore();
   });
 
   it('sets customer_id to null for unauthenticated users', async () => {

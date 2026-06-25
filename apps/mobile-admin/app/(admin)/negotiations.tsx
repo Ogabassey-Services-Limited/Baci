@@ -41,6 +41,9 @@ interface NegotiationRequest {
   evidence_url?: string;
 }
 
+const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
+const EVIDENCE_SIGNED_URL_TTL_SECONDS = 60 * 60;
+
 // Module-scope helpers keep try/throw out of the component body so React
 // Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
 async function loadNegotiationRequests(
@@ -85,6 +88,11 @@ async function updateNegotiationStatus(
 // unsupported or malformed URL surfaces a friendly alert instead of throwing.
 async function openExternalUrl(url: string): Promise<void> {
   try {
+    if (/^tel:/i.test(url)) {
+      await Linking.openURL(url);
+      return;
+    }
+
     const supported = await Linking.canOpenURL(url);
     if (!supported) {
       Alert.alert('Cannot open link', url);
@@ -96,14 +104,38 @@ async function openExternalUrl(url: string): Promise<void> {
   }
 }
 
-// Customers attach evidence as a URL (competitor link) or an uploaded image
-// URL. Legacy/guest rows can hold non-URL placeholder text — show it as-is so
-// the merchant can still read what was submitted rather than opening nothing.
-function openEvidence(evidenceUrl: string): void {
-  if (/^https?:\/\//i.test(evidenceUrl)) {
-    void openExternalUrl(evidenceUrl);
+function isRemoteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function isStorageObjectPath(value: string): boolean {
+  return !value.includes('://') && value.includes('/') && value.length <= 1024;
+}
+
+// Customers attach evidence as a URL (competitor link), a durable Supabase
+// Storage object path, or legacy placeholder text. Storage paths are private, so
+// mint a fresh signed URL at view time; placeholders stay readable as text.
+async function openEvidence(evidenceUrl: string): Promise<void> {
+  if (isRemoteUrl(evidenceUrl)) {
+    await openExternalUrl(evidenceUrl);
     return;
   }
+
+  if (isStorageObjectPath(evidenceUrl)) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(NEGOTIATION_EVIDENCE_BUCKET)
+        .createSignedUrl(evidenceUrl, EVIDENCE_SIGNED_URL_TTL_SECONDS);
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error('Missing signed URL');
+      }
+      await openExternalUrl(data.signedUrl);
+    } catch {
+      Alert.alert('Cannot open evidence', 'Unable to open the uploaded proof.');
+    }
+    return;
+  }
+
   Alert.alert('Customer evidence', evidenceUrl);
 }
 
@@ -351,7 +383,7 @@ export default function NegotiationsScreen() {
       {item.evidence_url ? (
         <Pressable
           style={styles.evidenceButton}
-          onPress={() => openEvidence(item.evidence_url as string)}
+          onPress={() => void openEvidence(item.evidence_url as string)}
           accessibilityRole="button"
           accessibilityLabel="View customer evidence"
         >
@@ -471,6 +503,7 @@ export default function NegotiationsScreen() {
         data={requests}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        extraData={expandedId}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl

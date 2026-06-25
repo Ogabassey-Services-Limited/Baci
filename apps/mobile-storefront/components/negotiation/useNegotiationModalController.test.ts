@@ -262,6 +262,73 @@ describe('useNegotiationModalController', () => {
     );
   });
 
+  it('returns to upload state and alerts when the insert fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockInsert.mockResolvedValue({ error: new Error('permission denied') });
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Failed to submit request. Please try again.'
+    );
+    expect(result.current.message).not.toContain('Request submitted');
+  });
+
+  it('fails closed when a whole-cart request has no cart snapshot', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderController({
+      cartItems: [],
+      itemInfo: null,
+      type: 'total',
+    });
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Whole-cart negotiations require at least one cart item.'
+    );
+  });
+
+  it('rejects invalid phone input before inserting a merchant review request', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+      result.current.setPhone('not a phone');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Enter a valid Phone / WhatsApp number.'
+    );
+  });
+
   it('prefills the phone field from a signed-in customer', () => {
     const { result } = renderController({ prefillPhone: '08029998888' });
 

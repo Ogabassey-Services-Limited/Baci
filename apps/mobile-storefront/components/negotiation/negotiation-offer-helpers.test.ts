@@ -53,6 +53,33 @@ describe('toNegotiationCartLine', () => {
       condition: 'new',
     });
   });
+
+  it('uses negotiated prices and keeps quiz vouchers zero-priced', () => {
+    expect(
+      toNegotiationCartLine({
+        id: 'line-1',
+        name: 'iPhone 15 Pro',
+        price: 1_200_000,
+        negotiatedPrice: 1_100_000,
+        product_id: 'product-1',
+        quantity: 1,
+        slug: 'iphone-15-pro',
+      } as Parameters<typeof toNegotiationCartLine>[0]).price
+    ).toBe(1_100_000);
+
+    expect(
+      toNegotiationCartLine({
+        id: 'gift-1',
+        name: 'Quiz Gift',
+        price: 205_000,
+        product_id: 'product-2',
+        quantity: 1,
+        slug: 'quiz-gift',
+        voucher_award_id: 'award-1',
+        voucher_token: 'signed-token',
+      } as Parameters<typeof toNegotiationCartLine>[0]).price
+    ).toBe(0);
+  });
 });
 
 describe('computeCounterOffer', () => {

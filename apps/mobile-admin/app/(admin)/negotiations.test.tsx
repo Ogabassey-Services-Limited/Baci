@@ -7,6 +7,10 @@ const mocks = vi.hoisted(() => ({
   channelOn: vi.fn(),
   channelSubscribe: vi.fn(),
   canOpenURL: vi.fn().mockResolvedValue(true),
+  createSignedUrl: vi.fn().mockResolvedValue({
+    data: { signedUrl: 'https://signed.example/evidence.png' },
+    error: null,
+  }),
   merchant: { id: 'merchant-1' } as { id?: string } | null,
   notificationAsync: vi.fn().mockResolvedValue(undefined),
   openURL: vi.fn().mockResolvedValue(undefined),
@@ -52,6 +56,7 @@ function makeQueryChain() {
     chain[method] = passthrough(method);
   }
 
+  // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are thenable, so the mock must be too.
   chain.then = (
     resolve: (value: QueryResult) => unknown,
     reject?: (reason?: unknown) => unknown
@@ -83,6 +88,11 @@ vi.mock('@/lib/supabase', () => ({
     })),
     from: vi.fn(() => makeQueryChain()),
     removeChannel: (...args: unknown[]) => mocks.removeChannel(...args),
+    storage: {
+      from: vi.fn(() => ({
+        createSignedUrl: (...args: unknown[]) => mocks.createSignedUrl(...args),
+      })),
+    },
   },
 }));
 
@@ -110,13 +120,13 @@ vi.mock('@shopify/flash-list', () => ({
     keyExtractor?: (item: unknown, index: number) => string;
     renderItem: (input: { index: number; item: unknown }) => ReactNode;
   }) => (
-    <div aria-label="negotiation-list">
+    <ul aria-label="negotiation-list">
       {data.map((item, index) => (
-        <div key={keyExtractor?.(item, index) ?? index}>
+        <li key={keyExtractor?.(item, index) ?? index}>
           {renderItem({ item, index })}
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   ),
 }));
 
@@ -159,6 +169,11 @@ import NegotiationsScreen from './negotiations';
 describe('NegotiationsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.canOpenURL.mockResolvedValue(true);
+    mocks.createSignedUrl.mockResolvedValue({
+      data: { signedUrl: 'https://signed.example/evidence.png' },
+      error: null,
+    });
     mocks.merchant = { id: 'merchant-1' };
     mocks.queryCalls.length = 0;
     mocks.selectResult = { data: negotiationRows, error: null };
@@ -280,6 +295,7 @@ describe('NegotiationsScreen', () => {
     await waitFor(() => {
       expect(mocks.openURL).toHaveBeenCalledWith('tel:+2348031234567');
     });
+    expect(mocks.canOpenURL).not.toHaveBeenCalledWith('tel:+2348031234567');
   });
 
   it('hides contact buttons when no phone number was captured', async () => {
@@ -313,6 +329,69 @@ describe('NegotiationsScreen', () => {
     fireEvent.click(await screen.findByText('View customer evidence'));
     await waitFor(() => {
       expect(mocks.openURL).toHaveBeenCalledWith('https://x.com/i/status/123');
+    });
+  });
+
+  it('shows an error when an external evidence URL is unsupported', async () => {
+    mocks.canOpenURL.mockResolvedValueOnce(false);
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          customer_phone: null,
+          evidence_url: 'https://x.com/i/status/123',
+          id: 'negotiation-evidence-unsupported',
+          item_info: { name: 'Wireless Headphones' },
+          offered_price: 8_500,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('View customer evidence'));
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Cannot open link',
+        'https://x.com/i/status/123'
+      );
+    });
+    expect(mocks.openURL).not.toHaveBeenCalled();
+  });
+
+  it('opens stored evidence paths through a fresh signed URL', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          customer_phone: null,
+          evidence_url: 'merchant-1/1719260000000-proof.png',
+          id: 'negotiation-evidence-storage',
+          item_info: { name: 'Wireless Headphones' },
+          offered_price: 8_500,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('View customer evidence'));
+    await waitFor(() => {
+      expect(mocks.createSignedUrl).toHaveBeenCalledWith(
+        'merchant-1/1719260000000-proof.png',
+        3600
+      );
+      expect(mocks.openURL).toHaveBeenCalledWith(
+        'https://signed.example/evidence.png'
+      );
     });
   });
 

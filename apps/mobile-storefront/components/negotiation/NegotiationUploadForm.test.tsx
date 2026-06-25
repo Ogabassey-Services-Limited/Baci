@@ -51,7 +51,9 @@ describe('NegotiationUploadForm', () => {
       <NegotiationUploadForm {...createProps({ phone: '', onPhoneChange })} />
     );
 
-    const phoneInput = screen.getByPlaceholderText('e.g. 0803 123 4567');
+    const phoneInput = screen.getByLabelText(
+      'Phone or WhatsApp number (optional)'
+    );
     expect(phoneInput).toBeTruthy();
     fireEvent.changeText(phoneInput, '0803 123 4567');
     expect(onPhoneChange).toHaveBeenCalledWith('0803 123 4567');

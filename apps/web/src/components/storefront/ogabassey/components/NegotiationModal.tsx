@@ -14,6 +14,10 @@ import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CartItem } from '@/hooks/cart';
+import {
+  getCartItemCheckoutUnitPrice,
+  isQuizVoucherCartItem,
+} from '@/lib/checkout/cart-entitlement-sanitizer';
 import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
@@ -33,13 +37,36 @@ interface NegotiationModalProps {
 
 /** Map a web cart line into the platform-neutral negotiation snapshot shape. */
 function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
+  const variantParts =
+    item.variantAttributes
+      ? Object.entries(item.variantAttributes).map(
+          ([key, value]) => `${key}: ${value}`
+        )
+      : [];
+  const variantValues = new Set(
+    Object.values(item.variantAttributes ?? {}).map((value) =>
+      value.trim().toLowerCase()
+    )
+  );
+  for (const [label, value] of [
+    ['Color', item.selectedColor],
+    ['Secondary color', item.secondaryColor],
+    ['Storage', item.selectedStorage],
+  ] as const) {
+    const normalizedValue = value?.trim().toLowerCase();
+    if (value && normalizedValue && !variantValues.has(normalizedValue)) {
+      variantParts.push(`${label}: ${value}`);
+    }
+  }
+
   return {
     product_id: item.id,
     name: item.name,
-    price: item.price,
+    price: isQuizVoucherCartItem(item) ? 0 : getCartItemCheckoutUnitPrice(item),
     quantity: item.quantity,
     image: item.image,
     variant_id: item.variantId,
+    variant_name: [...new Set(variantParts)].join(' · ') || undefined,
     brand: item.brand,
     condition: item.condition,
   };
@@ -122,12 +149,20 @@ async function insertNegotiationRequest(
     console.warn('Auth check failed, continuing as guest:', authError.message);
   }
 
+  const normalizedPhone = normalizePhoneToE164(request.customerPhone);
+  if ((request.customerPhone ?? '').trim() && !normalizedPhone) {
+    throw new Error('Enter a valid Phone / WhatsApp number.');
+  }
+
   // Whole-cart offers snapshot the cart so the merchant can see what's being
   // negotiated; single offers keep their existing per-product item_info.
   const cartSnapshot =
-    request.type === 'total' && request.cart
-      ? buildCartSnapshot(request.cart.map(toNegotiationCartLine))
+    request.type === 'total'
+      ? buildCartSnapshot((request.cart ?? []).map(toNegotiationCartLine))
       : [];
+  if (request.type === 'total' && cartSnapshot.length === 0) {
+    throw new Error('Whole-cart negotiations require at least one cart item.');
+  }
   const totalItemInfo =
     request.type === 'total'
       ? summarizeCartForItemInfo(cartSnapshot, request.currentPrice)
@@ -151,7 +186,7 @@ async function insertNegotiationRequest(
     evidence_url: request.evidenceUrl || null,
     // Optional follow-up number (null when blank/invalid) so the merchant can
     // reach guests who'd otherwise get no decision notification.
-    customer_phone: normalizePhoneToE164(request.customerPhone),
+    customer_phone: normalizedPhone,
     status: 'pending',
   });
 
@@ -470,7 +505,13 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         return;
       }
 
-      alert('Failed to submit request. Please try again.');
+      alert(
+        error instanceof Error &&
+          (error.message.includes('Phone / WhatsApp') ||
+            error.message.includes('Whole-cart'))
+          ? error.message
+          : 'Failed to submit request. Please try again.'
+      );
       setStatus('upload');
     }
   };

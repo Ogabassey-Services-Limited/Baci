@@ -9,10 +9,12 @@ import { negotiationModalViewStyles as styles } from './NegotiationModalView.sty
 export function toNegotiationCartLine(
   item: CartItem
 ): Partial<NegotiationCartLine> {
+  const isQuizVoucher = Boolean(item.voucher_award_id && item.voucher_token);
+
   return {
     product_id: item.product_id,
     name: item.name,
-    price: item.price,
+    price: isQuizVoucher ? 0 : (item.negotiatedPrice ?? item.price),
     quantity: item.quantity,
     image: item.image_url,
     variant_id: item.variant_id,
