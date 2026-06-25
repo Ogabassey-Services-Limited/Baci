@@ -175,10 +175,9 @@ export async function getProducts(
             merchant_id: v.merchant_id as string,
             condition: v.condition as Product['condition'] | undefined,
             attributes: v.attributes as Record<string, string>,
-            price_override: v.price_override
-              ? Number(v.price_override)
-              : undefined,
-            cost_price: v.cost_price ? Number(v.cost_price) : undefined,
+            price_override:
+              v.price_override == null ? undefined : Number(v.price_override),
+            cost_price: v.cost_price == null ? undefined : Number(v.cost_price),
             stock_quantity: Number(v.stock_quantity || 0),
             sku: v.sku as string | undefined,
             primary_image: v.primary_image as string | undefined,
@@ -208,10 +207,12 @@ export async function getProducts(
         // Other fields
         sku: p.sku,
         slug: p.slug,
-        compare_at_price: p.compare_at_price
-          ? Number.parseFloat(p.compare_at_price)
-          : undefined,
-        cost_price: p.cost_price ? Number.parseFloat(p.cost_price) : undefined,
+        compare_at_price:
+          p.compare_at_price == null
+            ? undefined
+            : Number.parseFloat(p.compare_at_price),
+        cost_price:
+          p.cost_price == null ? undefined : Number.parseFloat(p.cost_price),
         low_stock_threshold: p.low_stock_threshold,
         variant_model:
           p.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',

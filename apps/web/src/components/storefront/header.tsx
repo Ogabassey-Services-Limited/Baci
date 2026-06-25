@@ -99,6 +99,7 @@ export function StorefrontHeader() {
             placeholder="Search products..."
             className="w-full max-w-md"
             countryCode={merchant.country}
+            payoutCurrency={merchant.payout_currency}
           />
         </div>
 
