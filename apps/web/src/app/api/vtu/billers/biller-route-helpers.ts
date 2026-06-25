@@ -65,8 +65,9 @@ export async function loadKudaBillers(type: string) {
         categoryName: biller.categoryName,
         provider: 'kuda' as const,
         // Forward the Kuda-supplied logo so the app can render it (the mobile
-        // BillerList reads billerIconUrl); previously dropped here.
-        billerIconUrl: biller.billerIconUrl,
+        // BillerList reads billerIconUrl); previously dropped here. Coerce null
+        // to undefined to satisfy the NormalizedBiller string|undefined type.
+        billerIconUrl: biller.billerIconUrl ?? undefined,
         billItems: biller.billItems?.map(normalizeKudaBillItem),
       })),
       error: null,
