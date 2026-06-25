@@ -17,38 +17,6 @@ describe('getFirstImageIndexForColor', () => {
     ).toBe(1);
   });
 
-  it('prefers the variant image over the color bucket when both are present', () => {
-    expect(
-      getFirstImageIndexForColor({
-        color: 'Gold',
-        colorImages: {
-          Gold: ['https://cdn.example.com/gold.jpg'],
-        },
-        images: [
-          'https://cdn.example.com/gold.jpg',
-          'https://cdn.example.com/gold-used.jpg',
-        ],
-        variantImage: 'https://cdn.example.com/gold-used.jpg',
-      })
-    ).toBe(1);
-  });
-
-  it('ignores a variant image that is not in the gallery and uses color', () => {
-    expect(
-      getFirstImageIndexForColor({
-        color: 'Gold',
-        colorImages: {
-          Gold: ['https://cdn.example.com/gold.jpg'],
-        },
-        images: [
-          'https://cdn.example.com/black.jpg',
-          'https://cdn.example.com/gold.jpg',
-        ],
-        variantImage: 'https://cdn.example.com/missing.jpg',
-      })
-    ).toBe(1);
-  });
-
   it('falls back to the first gallery image for missing color inputs', () => {
     expect(
       getFirstImageIndexForColor({

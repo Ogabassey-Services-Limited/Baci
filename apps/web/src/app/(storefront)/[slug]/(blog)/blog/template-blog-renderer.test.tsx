@@ -7,13 +7,11 @@ describe('TemplateBlogRenderer', () => {
     storeSlug,
     posts,
     categories,
-    category,
     searchQuery,
   }: {
     storeSlug?: string;
     posts?: Array<{ title: string }>;
     categories?: Array<{ name: string }>;
-    category?: string;
     searchQuery?: string;
   }) => (
     <div>
@@ -24,9 +22,6 @@ describe('TemplateBlogRenderer', () => {
       </div>
       <div data-testid="categories">
         {categories?.map((category) => category.name).join(',') ?? ''}
-      </div>
-      <div data-testid="active-category">
-        {category === undefined ? 'undefined' : category}
       </div>
       <div data-testid="search-query">
         {searchQuery === undefined ? 'undefined' : searchQuery}
@@ -55,7 +50,6 @@ describe('TemplateBlogRenderer', () => {
           },
         ]}
         categories={[{ name: 'News', slug: 'news' }]}
-        category="News"
         searchQuery="pixel"
       />
     );
@@ -63,7 +57,6 @@ describe('TemplateBlogRenderer', () => {
     expect(screen.getByTestId('store-slug')).toHaveTextContent('/ogabassey');
     expect(screen.getByTestId('post-titles')).toHaveTextContent('First Post');
     expect(screen.getByTestId('categories')).toHaveTextContent('News');
-    expect(screen.getByTestId('active-category')).toHaveTextContent('News');
     expect(screen.getByTestId('search-query')).toHaveTextContent('pixel');
     expect(
       container.querySelectorAll('script[type="application/ld+json"]')
@@ -100,9 +93,6 @@ describe('TemplateBlogRenderer', () => {
       />
     );
 
-    expect(screen.getByTestId('active-category')).toHaveTextContent(
-      'undefined'
-    );
     expect(screen.getByTestId('search-query')).toHaveTextContent('undefined');
   });
 

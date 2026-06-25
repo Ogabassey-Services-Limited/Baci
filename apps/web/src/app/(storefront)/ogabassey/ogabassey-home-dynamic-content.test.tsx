@@ -126,9 +126,7 @@ function createProduct(
     description: 'Apple flagship phone.',
     price: 2500000,
     compare_at_price: null,
-    images: [
-      'https://cdn.ogabassey.com/core-assets/products/iphone-17-pro-max.avif',
-    ],
+    images: null,
     category: 'Smartphones',
     brand: 'Apple',
     condition: 'new',

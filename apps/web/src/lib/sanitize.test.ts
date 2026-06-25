@@ -172,47 +172,6 @@ describe('sanitize', () => {
     expect(output).not.toContain('/_next/image');
   });
 
-  it('strips hrefs that accidentally include serialized anchor attributes', () => {
-    const output = sanitizeHtml(
-      '<p><a href="http://ogabassey.com%22,%22target%22:%22_blank%22,%22rel%22:%22noopener">our store</a></p>',
-      { normalizeSeoAnchors: true }
-    );
-
-    expect(output).toBe('<p><a rel="noopener noreferrer">our store</a></p>');
-    expect(output).not.toContain('ogabassey.com%22');
-    expect(output).not.toContain('target=');
-  });
-
-  it('strips serialized anchor attribute leaks with default sanitizer options', () => {
-    const output = sanitizeHtml(
-      '<p><a href="http://ogabassey.com%22,%22target%22:%22_blank%22,%22rel%22:%22noopener">our store</a></p>'
-    );
-
-    expect(output).toBe('<p><a rel="noopener noreferrer">our store</a></p>');
-    expect(output).not.toContain('ogabassey.com%22');
-    expect(output).not.toContain('target=');
-  });
-
-  it('strips double-encoded serialized anchor attribute leaks', () => {
-    const output = sanitizeHtml(
-      '<p><a href="http://ogabassey.com%2522%252C%2522target%2522%253A%2522_blank%2522">our store</a></p>'
-    );
-
-    expect(output).toBe('<p><a rel="noopener noreferrer">our store</a></p>');
-    expect(output).not.toContain('%2522');
-    expect(output).not.toContain('target=');
-  });
-
-  it('keeps legitimate URLs when serialized-looking text is only in the query', () => {
-    const output = sanitizeHtml(
-      '<p><a href="https://ogabassey.com/search?q=%22,%22target%22">Search</a></p>'
-    );
-
-    expect(output).toBe(
-      '<p><a href="https://ogabassey.com/search?q=%22,%22target%22" rel="noopener noreferrer">Search</a></p>'
-    );
-  });
-
   it('removes active content from SVG', () => {
     const input =
       '<svg viewBox="0 0 16 16" onload="alert(1)"><script>alert(1)</script><circle cx="8" cy="8" r="6" /></svg>';

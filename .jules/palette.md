@@ -112,7 +112,3 @@
 **Learning:** Icon-only toggle buttons and popover menus in React Native components (like `FilterBar`) often lack `accessibilityState` semantics and `accessibilityRole`. While visual cues like color changes are present, screen readers don't announce whether a toggle is expanded or which popover item is currently selected.
 **Action:** Always verify that interactive elements reflecting state changes use `accessibilityState={{ expanded: boolean }}` for toggles and `accessibilityState={{ selected: boolean }}` for lists/tabs, along with `accessibilityRole="button"` and a descriptive `accessibilityLabel`.
 **Source:** WCAG SC 4.1.2 Name, Role, Value
-## 2025-02-19 — Added accessibilityState to Cart Quantity Control
-**Learning:** By default, setting the `disabled` prop on a `Pressable` in React Native prevents interaction but does not automatically inform assistive technologies (like VoiceOver or TalkBack) of the disabled state.
-**Action:** When conditionally disabling an interactive element, always pair the functional `disabled` prop with the semantic `accessibilityState={{ disabled: boolean }}` prop.
-**Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API docs

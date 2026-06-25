@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isExternalPlaceholderImageUrl, isValidImageUrl } from './image-utils';
+import { isValidImageUrl } from './image-utils';
 
 describe('isValidImageUrl', () => {
   it('should return true for valid absolute HTTPS URLs', () => {
@@ -41,29 +41,5 @@ describe('isValidImageUrl', () => {
 
   it('should return false for empty string', () => {
     expect(isValidImageUrl('')).toBe(false);
-  });
-});
-
-describe('isExternalPlaceholderImageUrl', () => {
-  it('returns true for known external placeholder image hosts', () => {
-    expect(isExternalPlaceholderImageUrl('https://placehold.co/400x400')).toBe(
-      true
-    );
-    expect(
-      isExternalPlaceholderImageUrl('https://www.placehold.it/500x500')
-    ).toBe(true);
-    expect(
-      isExternalPlaceholderImageUrl(
-        'https://via.placeholder.com/600x600?text=No+Image'
-      )
-    ).toBe(true);
-  });
-
-  it('returns false for app-local placeholders and real image hosts', () => {
-    expect(isExternalPlaceholderImageUrl('/placeholder.svg')).toBe(false);
-    expect(
-      isExternalPlaceholderImageUrl('https://cdn.example.com/img.jpg')
-    ).toBe(false);
-    expect(isExternalPlaceholderImageUrl('not-a-url')).toBe(false);
   });
 });

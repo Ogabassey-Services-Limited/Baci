@@ -43,10 +43,6 @@ describe('OgabasseyPdpDeferredRailsIsland', () => {
 
     render(<OgabasseyPdpDeferredRailsIsland product={product} />);
 
-    // Behavior only: the rails chunk is neither imported nor rendered until the
-    // viewport activates. The activation timing (timeoutMs) is
-    // useViewportActivation's own concern, covered by its tests, not asserted
-    // here.
     expect(mockDeferredProductRails).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('region', { name: /related product rails/i })

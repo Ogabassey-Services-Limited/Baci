@@ -20,11 +20,7 @@ import {
   isPayOnDeliveryCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from './checkout/payment-gateway-availability';
-import {
-  isExternalPlaceholderImageUrl,
-  PLACEHOLDER_IMAGE,
-} from './image-utils';
-import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
+import { PLACEHOLDER_IMAGE } from './image-utils';
 import type {
   Product,
   ProductSchemaMarkup,
@@ -2056,14 +2052,12 @@ function toAbsoluteSchemaImageUrl(
     try {
       const url = new URL(trimmed, baseUrl);
       const isHttpImage = url.protocol === 'http:' || url.protocol === 'https:';
-      const absoluteImageUrl = url.toString();
       const isPlaceholder =
         url.pathname === PLACEHOLDER_IMAGE ||
-        url.pathname.endsWith(PLACEHOLDER_IMAGE) ||
-        isExternalPlaceholderImageUrl(absoluteImageUrl);
+        url.pathname.endsWith(PLACEHOLDER_IMAGE);
 
       if (isHttpImage && !isPlaceholder) {
-        return normalizeOgabasseyCdnImageUrl(absoluteImageUrl);
+        return url.toString();
       }
     } catch {
       // Ignore malformed image candidates and continue to the next fallback.
@@ -2087,8 +2081,13 @@ export function generateCollectionPageSchema(
         data.url,
         ...imageCandidates
       );
+      const hasImageCandidate = imageCandidates.some((value) =>
+        Boolean(value?.trim())
+      );
 
-      return productImage ? [{ product, productImage }] : [];
+      return hasImageCandidate && !productImage
+        ? []
+        : [{ product, productImage }];
     })
     .slice(0, 20);
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
@@ -2128,7 +2127,7 @@ export function generateCollectionPageSchema(
             description: product.description
               ? escapeHtml(generateMetaDescription(product.description, 100))
               : undefined,
-            image: [productImage],
+            image: productImage || undefined,
             url: productUrl || undefined,
             brand: {
               '@type': 'Brand',

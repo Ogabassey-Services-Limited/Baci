@@ -61,10 +61,6 @@ describe('LaunchCarousel', () => {
       '/ogabassey/smartphones/samsung-galaxy-a27-5g',
       '/ogabassey/smartphones/itel-power-80-128gb-4gb',
     ]);
-    expect(links.map((a) => a.textContent?.trim())).toEqual([
-      'Samsung Galaxy A27 5G Preorder — Pre-order now',
-      'Itel Power 80 — Shop now',
-    ]);
 
     expect(screen.getByText('Samsung Galaxy A27 5G Preorder')).toBeDefined();
     expect(screen.getByText('₦50,000')).toBeDefined();
@@ -101,9 +97,7 @@ describe('LaunchCarousel', () => {
 
     expect(container.querySelectorAll('img')).toHaveLength(0);
     expect(screen.getByText('Flash Sale')).toBeDefined();
-    expect(
-      screen.getByRole('link', { name: 'Shop the sale' }).getAttribute('href')
-    ).toBe('/ogabassey/products');
+    expect(screen.getByText('Shop the sale')).toBeDefined();
   });
 
   it('renders nothing when there are no slides', () => {

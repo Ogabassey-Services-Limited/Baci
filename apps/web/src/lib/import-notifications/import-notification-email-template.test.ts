@@ -180,24 +180,4 @@ describe('renderReceiptEmailHtml', () => {
     expect(html).toContain('color-scheme:light');
     expect(html).toContain('forced-color-adjust:none');
   });
-
-  it('renders an opaque logo directly with no white chip (Gmail dark-mode safe)', () => {
-    const html = renderReceiptEmailHtml(
-      baseInput({
-        logoUrl: 'https://cdn.example.com/opaque-logo.png',
-        logoIsOpaque: true,
-      })
-    );
-
-    expect(html).toContain(
-      '<img src="https://cdn.example.com/opaque-logo.png"'
-    );
-    expect(html).toContain('alt="Ogabassey"');
-    // Opaque-specific rendering: taller image, solid background, no chip border.
-    expect(html).toContain('height="28"');
-    expect(html).toContain('background-color:#ffffff');
-    expect(html).toContain('border-radius:8px');
-    // The opaque plate is baked into the image, so no CSS chip is emitted.
-    expect(html).not.toContain('class="r-logo-chip"');
-  });
 });

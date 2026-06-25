@@ -263,9 +263,9 @@ describe('ComparePageContent', () => {
     );
     const itemListSchema = JSON.parse(schemaScripts[1]?.textContent ?? '{}');
 
-    expect(itemListSchema.itemListElement[1].item.image).toEqual([
-      'https://ogabassey.com/media/samsung-galaxy-z-trifold.avif',
-    ]);
+    expect(itemListSchema.itemListElement[1].item.image).toBe(
+      'https://ogabassey.com/media/samsung-galaxy-z-trifold.avif'
+    );
   });
 
   it('suppresses product ItemList JSON-LD when a compared product has no image', async () => {

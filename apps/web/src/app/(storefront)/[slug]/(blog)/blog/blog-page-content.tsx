@@ -246,7 +246,6 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
               basePath={basePath}
               blogPosts={templateBlogUi.posts}
               categories={templateBlogUi.categories}
-              category={category}
               searchQuery={effectiveSearchQuery}
             />
             <BlogListingPagination

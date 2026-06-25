@@ -14,12 +14,36 @@ export function ProductSemanticSections({
   );
   const hasGuideLinks = model.guideLinks.length > 0;
 
-  if (!model.supportLinks.length && !hasGuideLinks && !hasCards) {
+  if (
+    !model.trustBullets.length &&
+    !model.supportLinks.length &&
+    !hasGuideLinks &&
+    !hasCards
+  ) {
     return null;
   }
 
   return (
     <section className="ogabassey-pdp-semantic-sections">
+      {model.trustBullets.length > 0 ? (
+        <section
+          aria-labelledby="product-buying-context"
+          className="ogabassey-pdp-semantic-card"
+        >
+          <h2
+            id="product-buying-context"
+            className="ogabassey-pdp-semantic-card__title"
+          >
+            Buying context
+          </h2>
+          <ul className="ogabassey-pdp-semantic-card__list">
+            {model.trustBullets.map((bullet) => (
+              <li key={bullet}>{bullet}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {hasGuideLinks ? (
         <section
           aria-labelledby="product-guide-links"

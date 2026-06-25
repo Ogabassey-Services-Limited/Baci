@@ -101,56 +101,6 @@ describe('useProductDetailsState', () => {
     expect(result.current.selectedImage).toBe(1);
   });
 
-  it('seeds the initial gallery image from the price-first variant color', () => {
-    const { result } = renderHook(() =>
-      useProductDetailsState({
-        ...baseProduct,
-        has_variants: true,
-        variant_attributes: { storage: ['128GB'] },
-        variants: [
-          {
-            id: 'variant-black-used',
-            condition: 'used',
-            attributes: { color: 'Black', storage: '128GB' },
-            price_override: 5000,
-            stock_quantity: 4,
-          },
-          {
-            id: 'variant-silver-open-box',
-            condition: 'open_box',
-            attributes: { color: 'Silver', storage: '128GB' },
-            price_override: 4000,
-            stock_quantity: 2,
-          },
-        ],
-      } as Product)
-    );
-
-    expect(result.current.currentVariantDisplaySelection?.variant.id).toBe(
-      'variant-silver-open-box'
-    );
-    expect(result.current.selectedColor).toBe(1);
-    expect(result.current.selectedImage).toBe(1);
-
-    let wasAdded = false;
-    act(() => {
-      wasAdded = result.current.validateAndAddToCart();
-    });
-
-    expect(wasAdded).toBe(true);
-    expect(mockAddToCart).toHaveBeenCalledWith(
-      expect.objectContaining({
-        image: 'https://example.com/silver.jpg',
-        imageLarge: 'https://example.com/silver.jpg',
-      }),
-      1,
-      expect.objectContaining({
-        color: 'Silver',
-        variantId: 'variant-silver-open-box',
-      })
-    );
-  });
-
   it('opens the selection modal when required selections are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 

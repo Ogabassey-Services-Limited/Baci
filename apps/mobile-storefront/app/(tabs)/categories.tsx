@@ -15,7 +15,6 @@ import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import { useCategories } from '@/hooks';
 import { useNetworkState } from '@/hooks/use-network-state';
 
@@ -94,7 +93,9 @@ export default function CategoriesScreen() {
                     size={18}
                     color={BRAND.onPrimary}
                   />
-                  <Text style={styles.retryButtonText}>Try Again</Text>
+                  <Text style={styles.retryButtonText}>
+                    Try Again
+                  </Text>
                 </>
               )}
             </Pressable>
@@ -143,7 +144,9 @@ export default function CategoriesScreen() {
     >
       <Image
         source={{
-          uri: item.image_url || PLACEHOLDER_IMAGE_URL,
+          uri:
+            item.image_url ||
+            'https://placehold.co/400x400/transparent/94a3b8/png?text=No+Image',
         }}
         style={[styles.categoryImage, { backgroundColor: colors.muted }]}
         contentFit="cover"

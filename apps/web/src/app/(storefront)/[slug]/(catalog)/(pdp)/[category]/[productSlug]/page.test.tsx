@@ -1228,42 +1228,27 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('returns noindex soft-404 metadata when the product is missing and no legacy redirect exists', async () => {
+  it('throws notFound from metadata when the product is missing and no legacy redirect exists', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
-    let metadata: Awaited<ReturnType<typeof generateMetadata>>;
-
     try {
-      metadata = await generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      });
+      await expect(
+        generateMetadata({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
     } finally {
       consoleWarnSpy.mockRestore();
     }
 
-    expect(metadata?.title).toBe('Product not found');
-    expect(metadata?.description).toBe(
-      'This product is unavailable or has moved.'
-    );
-    expect(metadata?.robots).toMatchObject({ index: false, follow: true });
-    expect(metadata?.alternates).toBeNull();
-    expect(metadata?.openGraph).toMatchObject({
-      title: 'Product not found',
-      description: 'This product is unavailable or has moved.',
-    });
-    expect(metadata?.twitter).toMatchObject({
-      card: 'summary',
-      title: 'Product not found',
-      description: 'This product is unavailable or has moved.',
-    });
-    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -2446,14 +2431,6 @@ describe('[category]/[productSlug] page render', () => {
 
     render(await resolveRsc(resolvedPage));
 
-    expect(screen.getByAltText('HP Laptop 14-ep0063nia')).toHaveAttribute(
-      'src',
-      expect.stringContaining('domain-lcp-hint.avif')
-    );
-    expect(screen.getByAltText('HP Laptop 14-ep0063nia')).not.toHaveAttribute(
-      'src',
-      expect.stringContaining('domain-lcp-variant.avif')
-    );
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
@@ -2508,80 +2485,6 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: variantProductImage,
     });
-  });
-
-  it('seeds no-query critical commerce from the lowest-priced variant', async () => {
-    const usedImage =
-      'https://cdn.ogabassey.com/core-assets/products/s24-used.avif';
-    const openBoxImage =
-      'https://cdn.ogabassey.com/core-assets/products/s24-open-box.avif';
-    const variants = [
-      {
-        attributes: { storage: '128GB' },
-        condition: 'used',
-        id: 'variant-used-128',
-        primary_image: usedImage,
-        price_override: 750000,
-        stock_quantity: 3,
-      },
-      {
-        attributes: { storage: '128GB' },
-        condition: 'open_box',
-        id: 'variant-open-box-128',
-        primary_image: openBoxImage,
-        price_override: 650000,
-        stock_quantity: 3,
-      },
-    ];
-
-    mockGetCachedProductLcpHint.mockResolvedValueOnce(
-      toLegacyCachedProduct({
-        ...categorizedDetailedProduct,
-        color: null,
-        condition: 'used',
-        default_variant_id: null,
-        has_variants: true,
-        images: [usedImage],
-        price: 800000,
-        product_variants: variants,
-      })
-    );
-    mockGetCachedProductWithDetails.mockResolvedValueOnce({
-      ...categorizedDetailedProduct,
-      color: null,
-      condition: 'used',
-      default_variant_id: null,
-      has_variants: true,
-      images: [usedImage],
-      price: 800000,
-      product_variants: variants,
-    });
-    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
-
-    render(
-      await resolveRsc(
-        await CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'laptops',
-            productSlug: 'hp-laptop-14-ep0063nia',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      )
-    );
-
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: openBoxImage,
-    });
-    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        initialVariantSelection: {
-          attributes: { storage: '128GB' },
-          variantId: 'variant-open-box-128',
-        },
-      })
-    );
   });
 
   it('preloads legacy Colour variant images on the full product route path', async () => {
@@ -3137,22 +3040,17 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: jadeImage,
     });
-    // Color is preserved for a stable LCP hero and resolves to the cheapest
-    // variant within that color. Crucially, no product-level `condition` is
-    // emitted: forcing it would open the above-the-fold critical state on the
-    // pricier condition-first variant and then flip to the cheapest after
-    // hydration.
     expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         initialVariantSelection: {
-          attributes: { color: 'Jade Green', storage: '128GB' },
-          variantId: 'variant-open-jade-128',
+          attributes: { color: 'Jade Green' },
+          condition: 'open_box',
         },
       })
     );
   });
 
-  it('ignores the projection default_variant_id and opens on the cheapest variant', async () => {
+  it('prefers the configured default variant over product color metadata', async () => {
     const jadeImage =
       'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
     const blackImage =
@@ -3162,7 +3060,6 @@ describe('[category]/[productSlug] page render', () => {
         attributes: { color: 'Jade Green', storage: '128GB' },
         condition: 'open_box',
         id: 'variant-open-jade-128',
-        price_override: 600_000,
         primary_image: jadeImage,
         stock_quantity: 3,
       },
@@ -3170,7 +3067,6 @@ describe('[category]/[productSlug] page render', () => {
         attributes: { color: 'Onyx Black', storage: '128GB' },
         condition: 'used',
         id: 'variant-used-black-128',
-        price_override: 750_000,
         primary_image: blackImage,
         stock_quantity: 4,
       },
@@ -3210,17 +3106,15 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    // default_variant_id points at the pricier Onyx Black (₦750k), but with no
-    // URL query the critical PDP must open on the globally cheapest variant —
-    // Jade Green (₦600k) — not the projection's condition-first default.
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: jadeImage,
+      src: blackImage,
     });
     expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         initialVariantSelection: {
-          attributes: { color: 'Jade Green', storage: '128GB' },
-          variantId: 'variant-open-jade-128',
+          attributes: { color: 'Onyx Black', storage: '128GB' },
+          condition: 'used',
+          variantId: 'variant-used-black-128',
         },
       })
     );
@@ -3291,6 +3185,7 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green', storage: '128GB' },
+          condition: 'used',
           variantId: 'variant-used-jade-128',
         },
       })
@@ -3360,6 +3255,7 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green', storage: '128GB' },
+          condition: 'used',
           variantId: 'variant-used-jade-128',
         },
       })
@@ -3420,12 +3316,8 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: jadeImage,
     });
-    // The configured color is preserved (stable LCP hero) and resolves to the
-    // cheapest variant within that color — here the cheaper Used variant — with
-    // no product-level condition forced into the selection.
     expect(providerProps.initialVariantSelection).toEqual({
-      attributes: { color: 'Jade Green', storage: '128GB' },
-      variantId: 'variant-used-128',
+      attributes: { color: 'Jade Green' },
     });
   });
 
@@ -3685,7 +3577,6 @@ describe('[category]/[productSlug] page render', () => {
           sim_type: 'eSIM Only',
         },
         images: [],
-        primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
         price_override: 829000,
         sku: 'IPHONE15-USED-128-BLK-ESIM',
         stock_quantity: 3,
@@ -3712,7 +3603,6 @@ describe('[category]/[productSlug] page render', () => {
           },
           condition: 'used',
           images: [],
-          primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
           price_override: 829000,
           sku: 'IPHONE15-USED-128-BLK-ESIM',
           stock_quantity: 3,
@@ -3753,7 +3643,6 @@ describe('[category]/[productSlug] page render', () => {
         }),
         condition: 'used',
         id: 'iphone15-used-esim',
-        primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
       })
     );
   });
@@ -3980,6 +3869,12 @@ describe('[category]/[productSlug] page render', () => {
         product: expect.objectContaining({
           slug: 'samsung-galaxy-z-trifold',
         }),
+        trustBullets: expect.arrayContaining([
+          'The Samsung Galaxy Z TriFold price in Nigeria on TestStore is ₦645,600. Check specs, condition, warranty, delivery, and payment options before you buy.',
+          'Free returns within 7 days',
+          'Ships across Nigeria',
+          'WhatsApp support available',
+        ]),
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(

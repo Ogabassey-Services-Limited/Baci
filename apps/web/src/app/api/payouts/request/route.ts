@@ -178,8 +178,7 @@ export async function POST(_request: Request) {
           completed_at:
             payoutData.status === 'success' ? new Date().toISOString() : null,
         })
-        .eq('id', payoutRequest.id)
-        .eq('merchant_id', merchantId);
+        .eq('id', payoutRequest.id);
 
       // Create transaction record
       const { error: transactionError } = await supabase
@@ -234,8 +233,7 @@ export async function POST(_request: Request) {
               ? korapayError.message
               : 'Unknown error',
         })
-        .eq('id', payoutRequest.id)
-        .eq('merchant_id', merchantId);
+        .eq('id', payoutRequest.id);
 
       throw korapayError;
     }

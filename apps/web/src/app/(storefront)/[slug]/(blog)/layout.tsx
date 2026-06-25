@@ -1,7 +1,7 @@
-import '@/app/(storefront)/storefront-blog.css';
+import '@/app/(storefront)/storefront-full.css';
 import type { ReactNode } from 'react';
 
-export default function StorefrontBlogCssLayout({
+export default function StorefrontFullCssLayout({
   children,
 }: {
   children: ReactNode;

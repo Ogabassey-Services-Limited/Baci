@@ -22,12 +22,6 @@ const CATEGORY_BLUR_COLORS: Record<string, string> = {
 // Served by apps/web/public/placeholder.svg.
 export const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
-const EXTERNAL_PLACEHOLDER_IMAGE_HOSTS = new Set([
-  'placehold.co',
-  'placehold.it',
-  'via.placeholder.com',
-]);
-
 /**
  * Generate a solid color blur data URL
  * Faster than image-based blur, good for product cards
@@ -98,23 +92,6 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
   try {
     new URL(url);
     return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Detect external placeholder services that should not be emitted as real
- * product imagery.
- */
-export function isExternalPlaceholderImageUrl(
-  url: string | null | undefined
-): boolean {
-  if (!url || typeof url !== 'string') return false;
-
-  try {
-    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
-    return EXTERNAL_PLACEHOLDER_IMAGE_HOSTS.has(hostname);
   } catch {
     return false;
   }

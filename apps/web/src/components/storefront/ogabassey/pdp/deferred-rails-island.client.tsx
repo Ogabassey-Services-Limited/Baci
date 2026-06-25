@@ -34,7 +34,7 @@ export function OgabasseyPdpDeferredRailsIsland({
 }: OgabasseyPdpDeferredRailsIslandProps) {
   const { ref, isActive } = useViewportActivation<HTMLDivElement>({
     rootMargin: '400px 0px',
-    timeoutMs: 0,
+    timeoutMs: 1600,
   });
   const [RailsComponent, setRailsComponent] =
     useState<DeferredProductRailsComponent | null>(null);

@@ -151,48 +151,15 @@ describe('import notification email content', () => {
     expect(content.htmlContent).toContain('alt="Future Merchant"');
   });
 
-  it('renders a configured opaque email_logo_url directly with no white chip (Gmail dark-mode safe)', () => {
-    // The merchant's own logo_url is a transparent PNG; Gmail's app darkens the
-    // white CSS chip behind it and the dark wordmark lands black-on-black. When
-    // a merchant configures a dedicated opaque email_logo_url, we render that
-    // plate directly instead (data-driven, no per-tenant branch).
-    const transparentMerchantLogo =
+  it('preserves the configured Ogabassey raster logo in receipt emails', () => {
+    const merchantLogoUrl =
       'https://cdn.ogabassey.com/media/ogabassey-logo.png';
-    const opaqueEmailLogo =
-      'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
-    const delivery = appFirstDelivery(merchant);
-
-    const content = buildReceiptNotificationEmailContent({
-      merchant: {
-        ...merchant,
-        logo_url: transparentMerchantLogo,
-        email_logo_url: opaqueEmailLogo,
-      },
-      recipientName: 'Ada',
-      delivery,
-      claimUrl: 'https://ogabassey.com/receipts/claim/claim-token',
-      devices: ['iPhone 16 Pro Max'],
-    });
-
-    expect(content.htmlContent).toContain(`<img src="${opaqueEmailLogo}"`);
-    expect(content.htmlContent).toContain('alt="Ogabassey"');
-    // Opaque logo is rendered directly — no CSS white chip (which Gmail inverts).
-    expect(content.htmlContent).not.toContain('class="r-logo-chip"');
-    // The transparent merchant logo must NOT be used for the email header.
-    expect(content.htmlContent).not.toContain(
-      `<img src="${transparentMerchantLogo}"`
-    );
-  });
-
-  it('falls back to the chip logo when no email_logo_url is configured', () => {
-    const merchantLogoUrl = 'https://cdn.example.com/media/merchant-logo.png';
     const delivery = appFirstDelivery(merchant);
 
     const content = buildReceiptNotificationEmailContent({
       merchant: {
         ...merchant,
         logo_url: merchantLogoUrl,
-        email_logo_url: null,
       },
       recipientName: 'Ada',
       delivery,
@@ -202,6 +169,7 @@ describe('import notification email content', () => {
 
     expect(content.htmlContent).toContain(`<img src="${merchantLogoUrl}"`);
     expect(content.htmlContent).toContain('class="r-logo-chip"');
+    expect(content.htmlContent).toContain('alt="Ogabassey"');
   });
 
   it('keeps configured logos for merchants with similar names', () => {
