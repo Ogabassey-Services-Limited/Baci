@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getBlogAuthorBySlug,
+  getBlogAuthorPageLinks,
   getBlogAuthorSameAs,
   getBlogAuthorSlugs,
   hasBlogAuthorPage,
@@ -74,5 +75,13 @@ describe('OgaBassey blog author profile helpers', () => {
 
   it('lists the known author slugs for OgaBassey static author routes', () => {
     expect(getBlogAuthorSlugs()).toEqual(['bassey-john', 'bolakale']);
+  });
+
+  it('returns crawlable author-page link metadata only for OgaBassey tenants', () => {
+    expect(getBlogAuthorPageLinks('ogabassey.com')).toEqual([
+      { name: 'Bassey John', slug: 'bassey-john' },
+      { name: 'Bolakale', slug: 'bolakale' },
+    ]);
+    expect(getBlogAuthorPageLinks('another-store')).toEqual([]);
   });
 });

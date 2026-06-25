@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
+import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
@@ -75,6 +76,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
   const basePath = isDomainIdentifier(slug)
     ? ''
     : getBlogStorefrontPathPrefix(await headers(), merchant);
+  const authorLinks = getBlogAuthorPageLinks(slug);
 
   if (currentPage > totalPages) {
     redirect(
@@ -258,6 +260,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
             <InformationalClusterIndex collections={guideCollections} />
             <BlogDiscoverySection
               baseUrl={baseUrl}
+              authors={authorLinks}
               categories={publicCategories}
               posts={posts}
             />
@@ -287,6 +290,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
       <InformationalClusterIndex collections={guideCollections} />
       <BlogDiscoverySection
         baseUrl={baseUrl}
+        authors={authorLinks}
         categories={publicCategories}
         posts={posts}
       />

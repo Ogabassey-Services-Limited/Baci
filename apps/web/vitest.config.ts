@@ -65,6 +65,10 @@ const sharedAliases = [
     replacement: path.join(sharedPackagePath, 'receipt/index.ts'),
   },
   {
+    find: /^@baci\/shared\/storefront$/,
+    replacement: path.join(sharedPackagePath, 'storefront/index.ts'),
+  },
+  {
     find: /^@baci\/shared\/gmc-feed$/,
     replacement: path.join(sharedPackagePath, 'gmc-feed/index.ts'),
   },
