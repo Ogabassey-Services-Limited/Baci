@@ -7,6 +7,11 @@ vi.mock('@/env', () => ({
 }));
 
 const mockNotify = vi.fn();
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({ from: vi.fn() }),
+}));
+
 vi.mock('@/lib/expo-push', () => ({
   notifyStorefrontUpdateAvailable: (...args: unknown[]) => mockNotify(...args),
 }));
@@ -19,8 +24,10 @@ vi.mock('@/lib/mobile-release-gate-store', async () => {
     typeof import('@/lib/mobile-update-gate')
   >('@/lib/mobile-update-gate');
   return {
-    readLatestLiveBuild: async (platform: 'android' | 'ios') =>
-      parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
+    readLatestLiveBuild: async (
+      platform: 'android' | 'ios',
+      _client: unknown
+    ) => parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
   };
 });
 
