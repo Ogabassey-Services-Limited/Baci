@@ -59,7 +59,7 @@ vi.mock('@/lib/csrf', () => ({
 
 import { POST } from './route';
 
-const ORDER_ID = 'order-123';
+const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-123';
 
 function createRequest(body: Record<string, unknown> = {}) {
@@ -70,8 +70,8 @@ function createRequest(body: Record<string, unknown> = {}) {
   });
 }
 
-function createParams() {
-  return { params: Promise.resolve({ id: ORDER_ID }) };
+function createParams(id = ORDER_ID) {
+  return { params: Promise.resolve({ id }) };
 }
 
 function createInsuranceDetails(overrides: Record<string, unknown> = {}) {
@@ -184,6 +184,19 @@ describe('POST /api/orders/[id]/confirm', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Invalid insurance details' });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid route ids before updating the order', async () => {
+    const response = await POST(
+      createRequest(createInsuranceDetails()),
+      createParams('not-a-valid-order-id')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid order id' });
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
   });

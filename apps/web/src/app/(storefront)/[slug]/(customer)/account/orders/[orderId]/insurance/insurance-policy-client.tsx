@@ -110,11 +110,7 @@ export function InsurancePolicyClient({
       pid: [claimProductId],
       policy_number: policy?.policyNumber, // Pass policy number if supported/required to pre-fill
       email: policy?.customer_email, // Pre-fill email
-      onClose: () => {
-        console.log('Claim modal closed');
-      },
-      callback: (response: unknown) => {
-        console.log('Claim submitted', response);
+      callback: () => {
         router.refresh();
       },
     });

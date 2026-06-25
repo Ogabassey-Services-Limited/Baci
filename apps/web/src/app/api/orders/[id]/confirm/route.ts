@@ -49,6 +49,10 @@ const strictPastDateOnlySchema = z.string().refine(isStrictPastDateOnly, {
   message: 'dateOfBirth must be a valid past date',
 });
 
+const confirmOrderRouteParamsSchema = z.object({
+  id: z.uuid(),
+});
+
 const deviceInsuranceDetailsSchema = z.object({
   imei: z.string().trim().min(1).max(64),
   serialNumber: z.string().trim().min(1).max(128),
@@ -76,8 +80,6 @@ export async function POST(
     const { valid, response } = await checkCsrfProtection(request);
     if (!valid) return response as NextResponse;
 
-    const { id } = await params;
-
     // Auth check (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -94,6 +96,12 @@ export async function POST(
     }
 
     const supabase = auth.supabase;
+
+    const routeParams = confirmOrderRouteParamsSchema.safeParse(await params);
+    if (!routeParams.success) {
+      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+    }
+    const { id } = routeParams.data;
 
     // Parse body for device details
     const body = await request.json();

@@ -21,8 +21,11 @@ import { GET } from './route';
 
 // ---- Helpers ----
 
-function createMockRequest(): NextRequest {
-  return new Request('http://localhost:3000/api/insurance/policy/order-123', {
+const ORDER_ID = '11111111-1111-4111-8111-111111111111';
+const MISSING_ORDER_ID = '22222222-2222-4222-8222-222222222222';
+
+function createMockRequest(orderId = ORDER_ID): NextRequest {
+  return new Request(`http://localhost:3000/api/insurance/policy/${orderId}`, {
     method: 'GET',
   }) as unknown as NextRequest;
 }
@@ -38,24 +41,43 @@ function createParams(orderId: string): {
  * `order_insurance_policies` (the policies) and `orders` (shipping status).
  */
 function mockDb({
+  customerRows = [{ id: 'customer-1' }] as Array<{ id: string }>,
+  customersError = null as unknown,
   policies = [] as unknown[],
   policiesError = null as unknown,
   shippingStatus = 'delivered' as string | null,
   ordersError = null as unknown,
+  orderCustomerId = 'customer-1',
 }) {
   mockFrom.mockImplementation((table: string) => {
+    if (table === 'customers') {
+      return {
+        select: () => ({
+          eq: () =>
+            Promise.resolve({
+              data: customerRows,
+              error: customersError,
+            }),
+        }),
+      };
+    }
     if (table === 'orders') {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: () =>
-              Promise.resolve({
-                data:
-                  shippingStatus === null
-                    ? null
-                    : { shipping_status: shippingStatus },
-                error: ordersError,
-              }),
+            in: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data:
+                    shippingStatus === null
+                      ? null
+                      : {
+                          customer_id: orderCustomerId,
+                          shipping_status: shippingStatus,
+                        },
+                  error: ordersError,
+                }),
+            }),
           }),
         }),
       };
@@ -73,7 +95,7 @@ function mockDb({
 
 const mockPolicyRow = {
   id: 'policy-db-1',
-  order_id: 'order-123',
+  order_id: ORDER_ID,
   mycover_policy_number: 'POL-2024-001',
   status: 'active',
   policy_start_date: '2024-01-01',
@@ -92,7 +114,7 @@ const mockPolicyRow = {
 
 const mockSecondPolicyRow = {
   id: 'policy-db-2',
-  order_id: 'order-123',
+  order_id: ORDER_ID,
   mycover_policy_number: 'POL-2024-002',
   status: 'active',
   policy_start_date: '2024-02-01',
@@ -123,7 +145,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       error: null,
     });
 
-    const response = await GET(createMockRequest(), createParams('order-123'));
+    const response = await GET(createMockRequest(), createParams(ORDER_ID));
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -131,14 +153,45 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('rejects invalid order id params before database reads', async () => {
+    const response = await GET(
+      createMockRequest('not-a-valid-order-id'),
+      createParams('not-a-valid-order-id')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid order id' });
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('returns found false when the session has no linked customer rows', async () => {
+    mockDb({ customerRows: [], policies: [mockPolicyRow] });
+
+    const response = await GET(createMockRequest(), createParams(ORDER_ID));
+    const body = await response.json();
+
+    expect(body).toEqual({ found: false, policies: [] });
+  });
+
+  it('returns 500 when customer scoping lookup fails', async () => {
+    mockDb({
+      customersError: { message: 'customer lookup failed' },
+      policies: [mockPolicyRow],
+    });
+
+    const response = await GET(createMockRequest(), createParams(ORDER_ID));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to fetch customer context' });
+  });
+
   describe('v2 response contract: array format', () => {
     it('returns { found: true, policies: [...] } when policies exist (array, not singular)', async () => {
       mockDb({ policies: [mockPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       // v2: response must be `policies` (array), NOT `policy` (object)
@@ -151,10 +204,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('returns multiple policies in the array when order has several', async () => {
       mockDb({ policies: [mockPolicyRow, mockSecondPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.found).toBe(true);
@@ -166,7 +216,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
 
       const response = await GET(
         createMockRequest(),
-        createParams('order-999')
+        createParams(MISSING_ORDER_ID)
       );
       const body = await response.json();
 
@@ -180,10 +230,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('each policy has policyType field', async () => {
       mockDb({ policies: [mockPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0]).toHaveProperty('policyType');
@@ -192,10 +239,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('each policy has policyNumber from DB', async () => {
       mockDb({ policies: [mockPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].policyNumber).toBe('POL-2024-001');
@@ -208,10 +252,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         ],
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       // v2: provider must come from DB `provider_name` column, NOT hardcoded
@@ -222,10 +263,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('each policy has certificateUrl from DB', async () => {
       mockDb({ policies: [mockPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].certificateUrl).toBe(
@@ -236,10 +274,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('each policy has all required v2 fields', async () => {
       mockDb({ policies: [mockPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       const policy = body.policies[0];
@@ -259,10 +294,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('exposes hosted claimLink and inspectionLink from DB', async () => {
       mockDb({ policies: [mockPolicyRow] });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].claimLink).toBe(
@@ -281,10 +313,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         ],
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].inspectionStatus).toBe('pending');
@@ -304,10 +333,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         ],
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].claimStage).toBe('Declined');
@@ -320,10 +346,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         policies: [{ ...mockPolicyRow, inspection_status: 'completed' }],
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].inspectionStatus).toBe('completed');
@@ -336,10 +359,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         ],
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].claimLink).toBeNull();
@@ -351,10 +371,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('marks orderDelivered true when the order is delivered', async () => {
       mockDb({ policies: [mockPolicyRow], shippingStatus: 'delivered' });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].orderDelivered).toBe(true);
@@ -363,10 +380,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('treats a completed order as delivered', async () => {
       mockDb({ policies: [mockPolicyRow], shippingStatus: 'completed' });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].orderDelivered).toBe(true);
@@ -375,10 +389,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('marks orderDelivered false when the order is not yet delivered', async () => {
       mockDb({ policies: [mockPolicyRow], shippingStatus: 'shipped' });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body.policies[0].orderDelivered).toBe(false);
@@ -387,10 +398,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
     it('marks orderDelivered false when the order row is missing', async () => {
       mockDb({ policies: [mockPolicyRow], shippingStatus: null });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
       const body = await response.json();
 
       expect(body).toEqual({ found: false, policies: [] });
@@ -402,10 +410,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         ordersError: { message: 'orders read failed' },
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
 
       expect(response.status).toBe(500);
     });
@@ -417,10 +422,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
         throw new Error('Unexpected DB crash');
       });
 
-      const response = await GET(
-        createMockRequest(),
-        createParams('order-123')
-      );
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
 
       expect(response.status).toBe(500);
       const body = await response.json();

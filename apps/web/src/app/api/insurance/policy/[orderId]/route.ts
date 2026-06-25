@@ -1,14 +1,17 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+
+const orderPolicyRouteParamsSchema = z.object({
+  orderId: z.uuid(),
+});
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = await params;
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -21,12 +24,43 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const routeParams = orderPolicyRouteParamsSchema.safeParse(await params);
+    if (!routeParams.success) {
+      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+    }
+    const { orderId } = routeParams.data;
+
+    const { data: customers, error: customerError } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (customerError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch customer context' },
+        { status: 500 }
+      );
+    }
+
+    const customerIds = (customers ?? [])
+      .map((customer) => customer.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    if (customerIds.length === 0) {
+      return NextResponse.json({
+        found: false,
+        policies: [],
+      });
+    }
+
     // Verify this session can read the order through RLS before returning any
-    // policy metadata or hosted claim/inspection links.
+    // policy metadata or hosted claim/inspection links. The explicit
+    // customer_id filter is defense in depth on top of RLS.
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('shipping_status')
+      .select('shipping_status, customer_id')
       .eq('id', orderId)
+      .in('customer_id', customerIds)
       .maybeSingle();
 
     if (orderError) {
