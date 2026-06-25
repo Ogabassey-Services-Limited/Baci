@@ -1560,23 +1560,25 @@ function getProviderCheckTransactionStatus(
 ) {
   const provider = metadata?.provider;
   if (provider === 'monnify') {
-    // Monnify requery resolves by its own vendReference (persisted at vend
-    // time), NOT by transactionReference. Prefer it; fall back to the passed
-    // reference for older rows that predate vendReference persistence.
+    // Monnify requery resolves ONLY by its own vendReference (persisted at vend
+    // time), NOT by transactionReference. Never fall back to the passed
+    // responseRef (transaction_id): requerying with a non-vendReference returns
+    // a business "not found", which normalizes to `failed` and would wrongly
+    // fail/refund a pending-or-delivered vend. Legacy rows that predate
+    // vendReference persistence stay in processing instead.
     const monnifyVendReference =
       typeof metadata?.monnifyVendReference === 'string'
         ? metadata.monnifyVendReference
         : undefined;
-    return async (responseRef?: string, _requestRef?: string) => {
-      const reference = monnifyVendReference ?? responseRef;
-      if (!reference) {
+    return async (_responseRef?: string, _requestRef?: string) => {
+      if (!monnifyVendReference) {
         return {
           status: 'PENDING',
           message:
-            'Missing Monnify vend reference; leaving in processing state',
+            'No Monnify vend reference to requery; leaving in processing state',
         };
       }
-      return await monnifyCheckTransactionStatus(reference);
+      return await monnifyCheckTransactionStatus(monnifyVendReference);
     };
   }
   return kudaCheckTransactionStatus;
