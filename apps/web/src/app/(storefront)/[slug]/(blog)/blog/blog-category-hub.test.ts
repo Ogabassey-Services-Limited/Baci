@@ -79,6 +79,16 @@ describe('resolveBlogCategoryHub', () => {
     expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
   });
 
+  it('returns null when the merchant is not found', async () => {
+    mockGetMerchantStrict.mockResolvedValue(null);
+
+    await expect(
+      resolveBlogCategoryHub('unknown.com', 'smartphones')
+    ).resolves.toBeNull();
+    expect(mockGetCachedFeatureSettings).not.toHaveBeenCalled();
+    expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
+  });
+
   it('returns null for unknown category slugs', async () => {
     const rpc = createCategoryRpc({
       data: [{ category: 'Smartphones' }],
