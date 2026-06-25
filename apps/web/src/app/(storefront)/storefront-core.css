@@ -105,6 +105,22 @@
     flex: 1 1 auto;
   }
 
+  .ogabassey-footer {
+    background: #111111;
+    border-top: 1px solid var(--store-border, rgb(214 32 39 / 24%));
+    color: var(--store-background, #ffffff);
+  }
+
+  @supports (background: color-mix(in srgb, white 50%, black)) {
+    .ogabassey-footer {
+      background: color-mix(
+        in srgb,
+        var(--store-background-text, #111827) 94%,
+        black
+      );
+    }
+  }
+
   .ogabassey-ad-slot {
     flex: 0 0 auto;
     height: var(--ad-slot-h);

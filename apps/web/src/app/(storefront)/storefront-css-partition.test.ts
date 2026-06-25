@@ -162,6 +162,16 @@ describe('storefront CSS partitioning', () => {
     expect(coreCss).not.toMatch(/\.ogabassey-chat-/);
   });
 
+  it('keeps OgaBassey footer contrast styles in the shared core stylesheet', () => {
+    const coreCss = readStorefrontFile('storefront-core.css');
+
+    expect(coreCss).toMatch(/\.ogabassey-footer\b/);
+    expect(coreCss).toMatch(
+      /background:\s*color-mix\(\s*in srgb,\s*var\(--store-background-text,\s*#111827\)\s*94%,\s*black\s*\)/
+    );
+    expect(coreCss).toMatch(/color:\s*var\(--store-background,\s*#ffffff\)/);
+  });
+
   it('loads deferred assistant launcher styles through the assistant chunk stylesheet', () => {
     const chatCss = readStorefrontFile('storefront-chat.css');
 
