@@ -200,6 +200,42 @@ function normalizeMonnifyStatus(status: string | null | undefined) {
   return status?.trim().toUpperCase();
 }
 
+/**
+ * Classifies a Monnify bill outcome from a response body.
+ *
+ * Monnify bill responses carry TWO statuses: a payment-level `status` (was the
+ * customer charged) and a delivery-level `vendStatus` (did the bill/token
+ * actually get delivered). For token-bearing bills — prepaid electricity above
+ * all — the token is produced by the vend completing, so `vendStatus` is the
+ * authoritative outcome. The payment `status` can read SUCCESS while the token
+ * is still being generated (`vendStatus` = IN_PROGRESS); reading `status` first
+ * finalized such a bill as "successful" with no token and no later retry/notify.
+ *
+ * So: treat the bill as still processing whenever EITHER status is in progress,
+ * and prefer `vendStatus` for the terminal outcome (falling back to `status`
+ * when the response omits `vendStatus`, e.g. some airtime/data vends).
+ */
+function classifyMonnifyBillStatus(body: {
+  status?: string | null;
+  vendStatus?: string | null;
+}) {
+  const paymentStatus = normalizeMonnifyStatus(body.status);
+  const vendStatus = normalizeMonnifyStatus(body.vendStatus);
+  const isProcessing =
+    (!!vendStatus && MONNIFY_PROCESSING_STATUSES.has(vendStatus)) ||
+    (!!paymentStatus && MONNIFY_PROCESSING_STATUSES.has(paymentStatus));
+  const terminalStatus = vendStatus ?? paymentStatus;
+  const isSuccess =
+    !isProcessing &&
+    !!terminalStatus &&
+    MONNIFY_SUCCESS_STATUSES.has(terminalStatus);
+  const isFailed =
+    !isProcessing &&
+    !!terminalStatus &&
+    MONNIFY_FAILED_STATUSES.has(terminalStatus);
+  return { isSuccess, isProcessing, isFailed };
+}
+
 interface MonnifyRequestOptions extends RequestInit {
   timeoutMs?: number;
 }
@@ -306,10 +342,6 @@ export async function getBillerProducts(
   billerCode: string,
   options: MonnifyDiscoveryOptions = {}
 ): Promise<BillerProduct[]> {
-  // Monnify's live biller-products endpoint silently ignores `billerCode`
-  // here and returns the unfiltered generic catalog; this endpoint requires
-  // snake_case `biller_code` even though sibling discovery endpoints remain
-  // camelCase.
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/biller-products?biller_code=${encodeURIComponent(billerCode)}`,
     {
@@ -516,13 +548,10 @@ export async function purchaseBill(
       );
     }
 
-    const statusVal = normalizeMonnifyStatus(body.status || body.vendStatus);
     const transactionReference = body.transactionReference || undefined;
 
-    const isSuccess = !!statusVal && MONNIFY_SUCCESS_STATUSES.has(statusVal);
-    const isProcessing =
-      !!statusVal && MONNIFY_PROCESSING_STATUSES.has(statusVal);
-    const isFailed = !!statusVal && MONNIFY_FAILED_STATUSES.has(statusVal);
+    const { isSuccess, isProcessing, isFailed } =
+      classifyMonnifyBillStatus(body);
 
     if ((isSuccess || isProcessing) && !transactionReference) {
       throw new MonnifyTransientVendError(
@@ -589,16 +618,16 @@ export async function checkTransactionStatus(
 
   if (isMonnifyBusinessSuccess(parsed) && parsed.responseBody) {
     const body = parsed.responseBody;
-    const statusVal = normalizeMonnifyStatus(body.status || body.vendStatus);
+    const { isSuccess, isProcessing } = classifyMonnifyBillStatus(body);
 
-    if (statusVal && MONNIFY_SUCCESS_STATUSES.has(statusVal)) {
+    if (isSuccess) {
       return {
         status: 'successful',
         message: parsed.responseMessage || 'success',
         pin: body.token || undefined,
       };
     }
-    if (statusVal && MONNIFY_PROCESSING_STATUSES.has(statusVal)) {
+    if (isProcessing) {
       return {
         status: 'processing',
         message: parsed.responseMessage || 'processing',

@@ -725,6 +725,45 @@ describe('Monnify Bills Client', () => {
       expect(result.success).toBe(true);
     });
 
+    it('stays pending when payment status is success but vendStatus is in progress', async () => {
+      // Regression: prepaid electricity where Monnify charged the customer
+      // (status PAID) but the token vend is still IN_PROGRESS. Reading the
+      // payment status finalized the bill as "successful" with no token; the
+      // delivery status must govern so it stays pending and the token is
+      // resolved (and the customer notified) once the vend completes.
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'Processing',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          paymentReference: 'BACI-REF-123',
+          status: 'PAID',
+          vendStatus: 'IN_PROGRESS',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123',
+        '08012345678',
+        'VAL-123'
+      );
+
+      expect(result.status).toBe('pending');
+      expect(result.success).toBe(true);
+      expect(result.pin).toBeUndefined();
+    });
+
     it('returns terminal failed status on business failure (requestSuccessful: false)', async () => {
       const mockResponse = {
         requestSuccessful: false,
@@ -1042,6 +1081,31 @@ describe('Monnify Bills Client', () => {
 
       const result = await checkTransactionStatus('MON-TX-123');
       expect(result.status).toBe('successful');
+    });
+
+    it('reports processing when vendStatus is in progress despite paid status', async () => {
+      // Regression: a requery during async token delivery — payment captured
+      // (status PAID) but vend still IN_PROGRESS. Must report processing (no
+      // pin) so reconciliation keeps polling instead of finalizing token-less.
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'processing',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          status: 'PAID',
+          vendStatus: 'IN_PROGRESS',
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result.status).toBe('processing');
+      expect(result.pin).toBeUndefined();
     });
 
     it('fails closed for HTTP OK non-zero responseCode', async () => {
