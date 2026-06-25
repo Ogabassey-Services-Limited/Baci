@@ -8,9 +8,11 @@ const mockRouter = { push: mockPush };
 const mockFetchWithCsrf = vi.fn();
 const mockUseCustomerAuth = vi.fn();
 const mockUseMerchant = vi.fn();
+const mockSearchParams = new URLSearchParams();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock('next/link', () => ({
@@ -72,6 +74,7 @@ function renderClient(
   return render(
     <ReceiptClaimPageClient
       initialClaim={preview}
+      initialEmailHint=""
       initialError={null}
       token="claim-token"
       {...props}
@@ -82,6 +85,7 @@ function renderClient(
 describe('ReceiptClaimPageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.delete('email');
     mockUseCustomerAuth.mockReturnValue({
       isAuthenticated: false,
       isLoading: false,
@@ -96,7 +100,7 @@ describe('ReceiptClaimPageClient', () => {
   });
 
   it('shows the personalized preview and routes guests to login with a return URL', () => {
-    renderClient();
+    renderClient({ initialEmailHint: 'basseybjohn@yahoo.co.uk' });
 
     expect(screen.getByText('Welcome Bassey John')).toBeInTheDocument();
     expect(screen.getByText('iPhone 16 Pro Max')).toBeInTheDocument();
@@ -106,9 +110,35 @@ describe('ReceiptClaimPageClient', () => {
       screen.getByRole('link', { name: 'Sign in to claim receipt' })
     ).toHaveAttribute(
       'href',
-      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
+      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token&email=basseybjohn%40yahoo.co.uk'
     );
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('prefers a sanitized legacy URL email hint when one is present', () => {
+    mockSearchParams.set('email', '  UrlHint@Yahoo.CO.UK  ');
+
+    renderClient({ initialEmailHint: 'server-hint@example.com' });
+
+    expect(
+      screen.getByRole('link', { name: 'Sign in to claim receipt' })
+    ).toHaveAttribute(
+      'href',
+      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token&email=urlhint%40yahoo.co.uk'
+    );
+  });
+
+  it('does not append invalid email hints to login links', () => {
+    mockSearchParams.set('email', 'https://evil.example');
+
+    renderClient();
+
+    expect(
+      screen.getByRole('link', { name: 'Sign in to claim receipt' })
+    ).toHaveAttribute(
+      'href',
+      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
+    );
   });
 
   it('redeems the claim and sends authenticated customers to receipts', async () => {

@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  loadReceiptClaimPreview,
+  loadReceiptClaimPreviewWithLoginEmailHint,
   parseReceiptClaimToken,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
@@ -64,11 +64,15 @@ function ReceiptClaimLoadingShell() {
 export async function ReceiptClaimPreviewSection({ token }: { token: string }) {
   try {
     const supabase = await createClient();
-    const preview = await loadReceiptClaimPreview({ supabase, token });
+    const preview = await loadReceiptClaimPreviewWithLoginEmailHint({
+      supabase,
+      token,
+    });
 
     return (
       <ReceiptClaimPageClient
         initialClaim={preview.ok ? preview.claim : null}
+        initialEmailHint={preview.ok ? preview.emailHint : ''}
         initialError={preview.ok ? null : preview.error}
         token={token}
       />
@@ -79,6 +83,7 @@ export async function ReceiptClaimPreviewSection({ token }: { token: string }) {
     return (
       <ReceiptClaimPageClient
         initialClaim={null}
+        initialEmailHint=""
         initialError="Failed to load receipt claim"
         token={token}
       />
@@ -94,11 +99,14 @@ export default async function ReceiptClaimPage({
 
   if (!token) {
     return (
-      <ReceiptClaimPageClient
-        initialClaim={null}
-        initialError="Invalid receipt claim link"
-        token=""
-      />
+      <Suspense fallback={<ReceiptClaimLoadingShell />}>
+        <ReceiptClaimPageClient
+          initialClaim={null}
+          initialEmailHint=""
+          initialError="Invalid receipt claim link"
+          token=""
+        />
+      </Suspense>
     );
   }
 
