@@ -14,10 +14,12 @@ import {
 } from './blog-category-routing';
 import { parseBlogListingPage } from './blog-listing-page-params';
 import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from './blog-search-params';
 
 const LOWERCASE_TITLE_WORDS = new Set(['and', 'for', 'of', 'the', 'to']);
-
-type BlogSearchParamValue = string | string[] | undefined;
 
 export interface BlogListingMetadataInput {
   canonicalUrl?: string;
@@ -32,12 +34,6 @@ export interface BlogListingMetadataInput {
 
 function normalizeBlogMetadataText(value: string | undefined): string {
   return value?.trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() ?? '';
-}
-
-function toSingleBlogSearchParam(
-  value: BlogSearchParamValue
-): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
 }
 
 function formatBlogFilterLabel(value: string): string {
@@ -100,6 +96,12 @@ export async function buildBlogListingMetadata({
         getBlogCategorySlug(normalizedCategory)
       )
     : null;
+  // Canonical cases:
+  // 1. Base blog: /blog.
+  // 2. Known category page 1: /blog/category/<slug>.
+  // 3. Known category page 2+: /blog?category=<label>&page=<n>.
+  // 4. Unknown category: /blog.
+  // 5. Category search: /blog?category=<label>&search=<query>.
   const shouldUseCleanCategoryCanonical =
     knownCategoryLabel && !normalizedSearch && canonicalPage === 1;
   const categoryCanonicalFilter =
@@ -129,7 +131,7 @@ export async function buildBlogListingMetadata({
   const metadataTitleBase = normalizedSearch
     ? `Search: ${normalizedSearch}${pageSuffix}`
     : knownCategoryLabel
-      ? `${knownCategoryLabel} Buying Guides and Comparisons${pageSuffix}`
+      ? `${knownCategoryLabel} Articles${pageSuffix}`
       : normalizedCategory
         ? `${categoryLabel} Articles${pageSuffix}`
         : `Blog${pageSuffix}`;

@@ -18,7 +18,6 @@ import {
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
 
-const { default: BlogPage } = await import('./page');
 const { BlogPageContent } = await import('./blog-page-content');
 
 describe('BlogPageContent', () => {
@@ -51,7 +50,7 @@ describe('BlogPageContent', () => {
     ));
 
     render(
-      await BlogPage({
+      await BlogPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({}),
       })

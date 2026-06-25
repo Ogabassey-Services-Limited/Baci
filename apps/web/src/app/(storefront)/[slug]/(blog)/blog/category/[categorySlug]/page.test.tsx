@@ -1,19 +1,43 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
   merchant,
-  mockDefaultBlogUi,
   mockGetCachedBlogListing,
   mockNotFound,
+  mockResolveBlogCategoryHub,
   resetBlogPageContentMocks,
 } from '../../blog-page-content.test-utils';
+
+interface MockBlogPageContentProps {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{
+    category: string;
+    page?: string;
+    search?: string;
+  }>;
+}
+
+const mockBlogPageContent = vi.hoisted(() =>
+  vi.fn((_props: MockBlogPageContentProps) => <div>Ogabassey blog</div>)
+);
+
+vi.mock('../../blog-page-content', () => ({
+  BlogPageContent: (props: unknown) =>
+    mockBlogPageContent(props as MockBlogPageContentProps),
+}));
 
 const { default: BlogCategoryPage, generateMetadata } = await import('./page');
 
 describe('blog category page', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
+    mockBlogPageContent.mockReset();
+    mockBlogPageContent.mockReturnValue(<div>Ogabassey blog</div>);
+    mockResolveBlogCategoryHub.mockResolvedValue({
+      canonicalUrl: 'https://ogabassey.com/blog/category/smartphones',
+      categoryLabel: 'Smartphones',
+    });
     mockGetCachedBlogListing.mockResolvedValue({
       ...buildListingResult({
         merchant: {
@@ -37,19 +61,28 @@ describe('blog category page', () => {
     );
 
     expect(screen.getByText('Ogabassey blog')).toBeInTheDocument();
-    expect(mockGetCachedBlogListing).toHaveBeenNthCalledWith(
-      1,
+    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
       'ogabassey.com',
-      { page: 1 }
+      'smartphones'
     );
-    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
       expect.objectContaining({
-        category: 'Smartphones',
+        params: expect.any(Promise),
+        searchParams: expect.any(Promise),
       })
     );
+    await expect(
+      mockBlogPageContent.mock.calls[0]?.[0].searchParams
+    ).resolves.toEqual({
+      category: 'Smartphones',
+      page: undefined,
+      search: undefined,
+    });
   });
 
   it('returns notFound for unknown category slugs', async () => {
+    mockResolveBlogCategoryHub.mockResolvedValueOnce(null);
+
     await expect(
       BlogCategoryPage({
         params: Promise.resolve({
@@ -61,7 +94,7 @@ describe('blog category page', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(mockNotFound).toHaveBeenCalledOnce();
-    expect(mockDefaultBlogUi).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
   it('uses indexable metadata with the clean category canonical', async () => {
@@ -73,9 +106,7 @@ describe('blog category page', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe(
-      'Smartphones Buying Guides and Comparisons | Ogabassey'
-    );
+    expect(metadata.title).toBe('Smartphones Articles | Ogabassey');
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/category/smartphones'
@@ -124,6 +155,8 @@ describe('blog category page', () => {
   });
 
   it('returns noindex metadata for unknown category slugs', async () => {
+    mockResolveBlogCategoryHub.mockResolvedValueOnce(null);
+
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: 'ogabassey.com',

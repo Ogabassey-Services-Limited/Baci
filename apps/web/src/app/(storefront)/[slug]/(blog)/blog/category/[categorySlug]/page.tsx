@@ -1,17 +1,13 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getCachedBlogListing } from '@/lib/cached-data';
-import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
-import { buildStoreUrl } from '@/lib/store-url';
-import {
-  buildBlogCategorySchemaUrl,
-  findBlogCategoryLabelBySlug,
-} from '../../blog-category-routing';
+import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogPageContent } from '../../blog-page-content';
-
-type BlogSearchParamValue = string | string[] | undefined;
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from '../../blog-search-params';
 
 interface BlogCategoryPageProps {
   params: Promise<{ slug: string; categorySlug: string }>;
@@ -21,48 +17,10 @@ interface BlogCategoryPageProps {
   }>;
 }
 
-interface ResolvedBlogCategoryHub {
-  canonicalUrl: string;
-  categoryLabel: string;
-}
-
 const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   title: 'Blog Category Not Found',
   robots: { index: false, follow: false },
 };
-
-function toSingleBlogSearchParam(
-  value: BlogSearchParamValue
-): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-async function resolveBlogCategoryHub(
-  slug: string,
-  categorySlug: string
-): Promise<ResolvedBlogCategoryHub | null> {
-  const data = await getCachedBlogListing(slug, { page: 1 });
-  if (!data) {
-    return null;
-  }
-
-  const publicCategories = filterPublicBlogCategories(data.categories);
-  const categoryLabel = findBlogCategoryLabelBySlug(
-    publicCategories,
-    categorySlug
-  );
-  if (!categoryLabel) {
-    return null;
-  }
-
-  return {
-    canonicalUrl: buildBlogCategorySchemaUrl(
-      buildStoreUrl(data.merchant),
-      categoryLabel
-    ),
-    categoryLabel,
-  };
-}
 
 export async function generateMetadata({
   params,
@@ -107,17 +65,13 @@ export default async function BlogCategoryPage({
   }
 
   return (
-    <>
-      {
-        await BlogPageContent({
-          params: Promise.resolve({ slug }),
-          searchParams: Promise.resolve({
-            category: hub.categoryLabel,
-            page: toSingleBlogSearchParam(resolvedSearchParams?.page),
-            search: toSingleBlogSearchParam(resolvedSearchParams?.search),
-          }),
-        })
-      }
-    </>
+    <BlogPageContent
+      params={Promise.resolve({ slug })}
+      searchParams={Promise.resolve({
+        category: hub.categoryLabel,
+        page: toSingleBlogSearchParam(resolvedSearchParams?.page),
+        search: toSingleBlogSearchParam(resolvedSearchParams?.search),
+      })}
+    />
   );
 }

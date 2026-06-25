@@ -17,8 +17,8 @@ export async function generateMetadata({
   });
 }
 
-export default async function BlogPage(props: BlogPageProps) {
+export default function BlogPage(props: BlogPageProps) {
   // Keep article links in the first HTML response. The deploy smoke check and
-  // crawlers parse raw /blog HTML, so a route-level Suspense shell hides posts.
-  return <>{await BlogPageContent(props)}</>;
+  // crawlers parse raw /blog HTML, so do not add a route-level Suspense shell.
+  return <BlogPageContent {...props} />;
 }

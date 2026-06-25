@@ -41,9 +41,7 @@ describe('blog listing metadata builder', () => {
       searchParams: { category: 'Smartphones' },
     });
 
-    expect(metadata.title).toBe(
-      'Smartphones Buying Guides and Comparisons | Ogabassey'
-    );
+    expect(metadata.title).toBe('Smartphones Articles | Ogabassey');
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/category/smartphones'

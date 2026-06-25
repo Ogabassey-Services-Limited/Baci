@@ -107,7 +107,7 @@ describe('DefaultBlogUi', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: 'Smartphones Buying Guides and Comparisons',
+        name: 'Smartphones Articles',
       })
     ).toBeInTheDocument();
     expect(

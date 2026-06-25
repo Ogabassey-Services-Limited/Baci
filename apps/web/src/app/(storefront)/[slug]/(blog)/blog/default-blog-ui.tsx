@@ -59,9 +59,7 @@ export function DefaultBlogUi({
 }: DefaultBlogUiProps) {
   const authorLinks = getBlogAuthorPageLinks(slug);
   const categoryHubTitle =
-    category && !searchQuery
-      ? `${category} Buying Guides and Comparisons`
-      : undefined;
+    category && !searchQuery ? `${category} Articles` : undefined;
   const heading = searchQuery
     ? `Search results for "${searchQuery}"`
     : categoryHubTitle || `${merchant.business_name} Blog`;

@@ -67,6 +67,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
 
+vi.mock('./blog-category-hub', () => ({
+  resolveBlogCategoryHub: vi.fn(),
+}));
+
 vi.mock('next/headers', () => ({
   headers: async () => mockHeaders(),
 }));
@@ -264,11 +268,15 @@ export function buildListingResult(
 }
 
 export const mockGetCachedBlogListing = vi.mocked(getCachedBlogListing);
+export const mockResolveBlogCategoryHub = vi.mocked(
+  (await import('./blog-category-hub')).resolveBlogCategoryHub
+);
 
 export function resetBlogPageContentMocks() {
   mockGetCachedBlogListing.mockReset();
   mockGetCachedBlogListing.mockResolvedValue(buildListingResult());
   mockPreloadBlogListingFeaturedImage.mockClear();
+  mockResolveBlogCategoryHub.mockReset();
   mockNotFound.mockClear();
   mockRedirect.mockClear();
   mockHeaders.mockReset();
