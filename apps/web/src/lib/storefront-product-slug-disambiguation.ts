@@ -1,4 +1,5 @@
 const MAX_SLUG_DISAMBIGUATOR_TOKENS = 3;
+// Keep this set in sync with appendCurrencyCodeToSymbolAmounts below.
 const CURRENCY_SLUG_DISAMBIGUATOR_TOKENS = new Set([
   'eur',
   'gbp',
@@ -62,6 +63,7 @@ function normalizeSeoProductDisplayName(
 ): string {
   const normalized = slugTokens.includes('plus')
     ? value
+        // Handle mid-word plus models before trailing plus models.
         .replace(/\b([a-z]*\d+[a-z]*)\+([a-z0-9]+)\b/gi, '$1 Plus $2')
         .replace(/\b([a-z0-9]+)\+(?=\s|$)/gi, '$1 Plus')
     : value;

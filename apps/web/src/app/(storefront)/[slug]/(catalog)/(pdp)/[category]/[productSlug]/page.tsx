@@ -1003,10 +1003,9 @@ function buildCategoryProductMetadata({
     priceSeoCopy.description,
     product
   );
-  const productDescriptionFallback = normalizeSeoProductText(
-    productDescription || generatedSeoDescription,
-    product
-  );
+  const productDescriptionFallback = productDescription
+    ? normalizeSeoProductText(productDescription, product)
+    : generatedSeoDescription;
   const seoDescriptionSource =
     productMetaDescription ||
     (priceSeoCopy.priceText

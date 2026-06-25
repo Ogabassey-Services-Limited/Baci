@@ -176,6 +176,14 @@ describe('normalizeSeoProductText', () => {
     ).toBe('');
   });
 
+  it('returns an empty string for empty product metadata text', () => {
+    expect(
+      normalizeSeoProductText('', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('');
+  });
+
   it('normalizes compact plus signs in explicit product metadata text', () => {
     expect(
       normalizeSeoProductText('Shop Samsung Galaxy Tab S9+ tablet today.', {
