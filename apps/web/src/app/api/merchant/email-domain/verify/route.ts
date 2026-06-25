@@ -6,6 +6,7 @@ import {
   emailDomainGate,
   resolveMerchantForEmailDomain,
 } from '@/lib/merchant-email-domain-access';
+import { isZeptomailDomainsConfigured } from '@/lib/zeptomail-domains';
 
 async function resolveEmailDomainRequest(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -62,6 +63,16 @@ export async function POST(request: NextRequest) {
   const resolved = await resolveEmailDomainRequest(request);
   if ('error' in resolved) {
     return resolved.error;
+  }
+
+  if (!isZeptomailDomainsConfigured()) {
+    return NextResponse.json(
+      {
+        error: 'Custom email-domain verification is not configured.',
+        code: 'email_domain_provider_unconfigured',
+      },
+      { status: 503 }
+    );
   }
 
   try {

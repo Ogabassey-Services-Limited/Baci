@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 import {
   BACI_BRANDING,
+  buildAuthEmailConfirmationUrl,
   extractMerchantLookup,
   generateEmailHtml,
   getCustomDomainCandidates,
@@ -214,29 +215,6 @@ async function fetchMerchantBranding(
   }
 }
 
-function canUseRedirectAsNext(
-  nextUrl: URL,
-  siteUrl: URL,
-  branding: MerchantBranding
-): boolean {
-  if (nextUrl.origin === siteUrl.origin) {
-    return true;
-  }
-
-  const nextLookup = extractMerchantLookup(nextUrl.toString());
-  if (nextLookup?.slug && branding.slug) {
-    return nextLookup.slug === branding.slug.toLowerCase();
-  }
-
-  if (nextLookup?.customDomain && branding.customDomain) {
-    return getCustomDomainCandidates(branding.customDomain).includes(
-      nextLookup.customDomain
-    );
-  }
-
-  return false;
-}
-
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -300,15 +278,15 @@ Deno.serve(async (req) => {
 
   const config = getEmailConfig(emailType, branding.businessName);
 
-  let confirmationUrl: URL;
-  try {
-    confirmationUrl = new URL('/auth/confirm', emailData.site_url);
-  } catch (error) {
-    console.error(
-      'Invalid site URL for auth email:',
-      emailData.site_url,
-      error
-    );
+  const confirmationUrl = buildAuthEmailConfirmationUrl({
+    branding,
+    emailType,
+    redirectTo: emailData.redirect_to,
+    siteUrl: emailData.site_url,
+    tokenHash: emailData.token_hash,
+  });
+  if (!confirmationUrl) {
+    console.error('Invalid site URL for auth email:', emailData.site_url);
     return new Response(
       JSON.stringify({ error: 'Invalid email configuration' }),
       {
@@ -318,35 +296,12 @@ Deno.serve(async (req) => {
     );
   }
 
-  confirmationUrl.searchParams.set('token_hash', emailData.token_hash);
-  confirmationUrl.searchParams.set('type', emailType);
-
-  if (emailData.redirect_to) {
-    if (/^https?:\/\//i.test(emailData.redirect_to)) {
-      try {
-        const nextUrl = new URL(emailData.redirect_to);
-        const siteUrl = new URL(emailData.site_url);
-
-        // Carry a same-storefront `next` so /auth/confirm redirects back into
-        // the storefront after it verifies the token. This includes custom
-        // domains where the auth handler itself is still on the platform host.
-        if (canUseRedirectAsNext(nextUrl, siteUrl, branding)) {
-          confirmationUrl.searchParams.set('next', nextUrl.toString());
-        }
-      } catch (error) {
-        console.warn('Ignoring invalid auth redirect target:', error);
-      }
-    } else {
-      confirmationUrl.searchParams.set('next', emailData.redirect_to);
-    }
-  }
-
   // The CTA points at /auth/confirm (token_hash), so clicking it verifies the
   // token and signs the user in directly — the 6-digit code stays as a manual
   // fallback for forwarded mail or a different browser/device.
   const htmlBody = generateEmailHtml(
     config,
-    confirmationUrl.toString(),
+    confirmationUrl,
     branding,
     emailData.token
   );
@@ -368,7 +323,7 @@ Deno.serve(async (req) => {
     config.subject,
     '',
     ...(emailData.token ? [`Your code: ${emailData.token}`] : []),
-    `Continue: ${confirmationUrl.toString()}`,
+    `Continue: ${confirmationUrl}`,
     '',
     'If you did not request this email, you can safely ignore it.',
   ];
@@ -386,24 +341,59 @@ Deno.serve(async (req) => {
 
   // Send via ZeptoMail
   try {
-    const response = await fetch('https://api.zeptomail.com/v1.1/email', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
-      },
-      body: JSON.stringify({
-        from: { address: fromAddress, name: senderName },
-        to: [{ email_address: { address: user.email } }],
-        subject: config.subject,
-        htmlbody: htmlBody,
-        textbody: textBody,
-      }),
-    });
+    const emailRequestBody = {
+      to: [{ email_address: { address: user.email } }],
+      subject: config.subject,
+      htmlbody: htmlBody,
+      textbody: textBody,
+    };
+    const sendWithFrom = (address: string) =>
+      fetch('https://api.zeptomail.com/v1.1/email', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
+        },
+        body: JSON.stringify({
+          ...emailRequestBody,
+          from: { address, name: senderName },
+        }),
+      });
 
-    const responseText = await response.text();
+    const response = await sendWithFrom(fromAddress);
+    let responseText = await response.text();
     console.log('ZeptoMail response:', response.status, responseText);
+
+    if (!response.ok && branding.sendingFromAddress) {
+      console.warn(
+        'Custom auth-email sender rejected; retrying with platform sender',
+        response.status
+      );
+      const fallbackResponse = await sendWithFrom('noreply@usebaci.com');
+      const fallbackText = await fallbackResponse.text();
+      console.log(
+        'ZeptoMail fallback response:',
+        fallbackResponse.status,
+        fallbackText
+      );
+
+      if (fallbackResponse.ok) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      responseText = fallbackText;
+      return new Response(
+        JSON.stringify({ error: 'ZeptoMail failed', details: responseText }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     if (!response.ok) {
       return new Response(

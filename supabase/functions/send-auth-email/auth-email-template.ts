@@ -188,6 +188,86 @@ export function getCustomDomainCandidates(
   return [normalized, `www.${normalized}`];
 }
 
+function isSameMerchantRedirect(
+  nextUrl: URL,
+  siteUrl: URL,
+  branding: MerchantBranding
+): boolean {
+  if (nextUrl.origin === siteUrl.origin) {
+    return true;
+  }
+
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+  if (nextLookup?.slug && branding.slug) {
+    return nextLookup.slug === branding.slug.toLowerCase();
+  }
+
+  if (nextLookup?.customDomain && branding.customDomain) {
+    return getCustomDomainCandidates(branding.customDomain).includes(
+      nextLookup.customDomain
+    );
+  }
+
+  return false;
+}
+
+export function buildAuthEmailConfirmationUrl({
+  branding,
+  emailType,
+  redirectTo,
+  siteUrl,
+  tokenHash,
+}: {
+  branding: MerchantBranding;
+  emailType: string;
+  redirectTo?: string;
+  siteUrl: string;
+  tokenHash: string;
+}): string | null {
+  let confirmationUrl: URL;
+  let parsedSiteUrl: URL;
+  try {
+    parsedSiteUrl = new URL(siteUrl);
+    confirmationUrl = new URL('/auth/confirm', parsedSiteUrl);
+  } catch {
+    return null;
+  }
+
+  confirmationUrl.searchParams.set('token_hash', tokenHash);
+  confirmationUrl.searchParams.set('type', emailType);
+
+  if (!redirectTo) {
+    return confirmationUrl.toString();
+  }
+
+  if (/^https?:\/\//i.test(redirectTo)) {
+    try {
+      const nextUrl = new URL(redirectTo);
+      if (isSameMerchantRedirect(nextUrl, parsedSiteUrl, branding)) {
+        // `/auth/confirm` only accepts same-origin absolute next URLs. For a
+        // same-merchant custom domain or subdomain, send the confirmation link
+        // on that origin and keep `next` route-relative so the validator keeps
+        // the intended post-login path instead of dropping to /dashboard.
+        if (nextUrl.origin !== parsedSiteUrl.origin) {
+          confirmationUrl = new URL('/auth/confirm', nextUrl.origin);
+          confirmationUrl.searchParams.set('token_hash', tokenHash);
+          confirmationUrl.searchParams.set('type', emailType);
+        }
+        confirmationUrl.searchParams.set(
+          'next',
+          `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+        );
+      }
+    } catch {
+      // Ignore malformed redirects; the confirmation link itself remains valid.
+    }
+    return confirmationUrl.toString();
+  }
+
+  confirmationUrl.searchParams.set('next', redirectTo);
+  return confirmationUrl.toString();
+}
+
 export function sanitizeUrl(url: string): string {
   if (!url) return '';
 

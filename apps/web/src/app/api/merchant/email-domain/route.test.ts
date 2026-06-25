@@ -9,6 +9,7 @@ const {
   mockRegister,
   mockSetEnabled,
   mockCheckCsrf,
+  mockIsZeptomailDomainsConfigured,
 } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockGetMerchant: vi.fn(),
@@ -17,6 +18,7 @@ const {
   mockRegister: vi.fn(),
   mockSetEnabled: vi.fn(),
   mockCheckCsrf: vi.fn(),
+  mockIsZeptomailDomainsConfigured: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -33,6 +35,9 @@ vi.mock('@/lib/merchant-email-domain', () => ({
   getMerchantEmailDomain: mockGetDomain,
   registerMerchantEmailDomain: mockRegister,
   setMerchantEmailDomainEnabled: mockSetEnabled,
+}));
+vi.mock('@/lib/zeptomail-domains', () => ({
+  isZeptomailDomainsConfigured: mockIsZeptomailDomainsConfigured,
 }));
 
 import { GET, PATCH, POST } from './route';
@@ -64,12 +69,14 @@ function signedInAs(planTier: string | null, slug = 'mystore') {
     staffAccess: { isOwner: true },
   });
   mockMerchantRow.mockReturnValue({ data: { plan_tier: planTier, slug } });
+  return supabase;
 }
 
 describe('POST /api/merchant/email-domain', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
+    mockIsZeptomailDomainsConfigured.mockReturnValue(true);
   });
 
   it('returns 403 when CSRF validation fails', async () => {
@@ -126,12 +133,26 @@ describe('POST /api/merchant/email-domain', () => {
     expect(res.status).toBe(200);
     expect(mockRegister).toHaveBeenCalledWith('m1', 'mystore.com');
   });
+
+  it('returns 503 when ZeptoMail domain credentials are not configured', async () => {
+    signedInAs('pro');
+    mockIsZeptomailDomainsConfigured.mockReturnValue(false);
+
+    const res = await POST(req({ domain: 'mystore.com' }));
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_provider_unconfigured',
+    });
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/merchant/email-domain', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
+    mockIsZeptomailDomainsConfigured.mockReturnValue(true);
   });
 
   it('returns 403 when the merchant lacks entitlement', async () => {
@@ -142,13 +163,14 @@ describe('GET /api/merchant/email-domain', () => {
   });
 
   it('returns the current domain config', async () => {
-    signedInAs('pro');
+    const supabase = signedInAs('pro');
     mockGetDomain.mockResolvedValue({
       domain: 'mystore.com',
       status: 'verified',
     });
     const res = await GET(req(null, 'GET'));
     expect(res.status).toBe(200);
+    expect(mockGetDomain).toHaveBeenCalledWith('m1', supabase);
     await expect(res.json()).resolves.toEqual({
       domain: { domain: 'mystore.com', status: 'verified' },
     });
@@ -169,6 +191,7 @@ describe('PATCH /api/merchant/email-domain', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
+    mockIsZeptomailDomainsConfigured.mockReturnValue(true);
   });
 
   it('returns 403 when CSRF validation fails', async () => {
@@ -211,5 +234,40 @@ describe('PATCH /api/merchant/email-domain', () => {
     );
     const res = await PATCH(req({ enabled: true }, 'PATCH'));
     expect(res.status).toBe(500);
+  });
+});
+
+describe('POST /api/merchant/email-domain business rules', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckCsrf.mockResolvedValue({ valid: true });
+    mockIsZeptomailDomainsConfigured.mockReturnValue(true);
+  });
+
+  it('returns 400 when the domain is not an active storefront domain', async () => {
+    signedInAs('pro');
+    mockRegister.mockRejectedValue(
+      new Error(
+        'Domain must be an active verified storefront domain before email sending can be configured'
+      )
+    );
+
+    const res = await POST(req({ domain: 'mystore.com' }));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining('active verified storefront domain'),
+    });
+  });
+
+  it('returns 409 when the domain is already reserved', async () => {
+    signedInAs('pro');
+    mockRegister.mockRejectedValue(
+      new Error('Domain is already registered by another merchant')
+    );
+
+    const res = await POST(req({ domain: 'mystore.com' }));
+
+    expect(res.status).toBe(409);
   });
 });

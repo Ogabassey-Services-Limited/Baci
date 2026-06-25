@@ -39,10 +39,12 @@ create table if not exists public.merchant_email_domains (
   constraint merchant_email_domains_merchant_key unique (merchant_id)
 );
 
--- Do not globally reserve unverified domains: only a verified domain is unique.
-create unique index if not exists merchant_email_domains_verified_domain_idx
-  on public.merchant_email_domains (domain)
-  where status = 'verified';
+-- Reserve every sending domain as soon as onboarding starts. Without this, two
+-- merchants can store the same pending ZeptoMail domain and whichever one
+-- verifies first can enable sending from the other merchant's domain.
+drop index if exists public.merchant_email_domains_verified_domain_idx;
+create unique index if not exists merchant_email_domains_domain_key
+  on public.merchant_email_domains (domain);
 
 -- Only the verified+enabled row matters to the sender; index it for the hook.
 create index if not exists merchant_email_domains_active_idx

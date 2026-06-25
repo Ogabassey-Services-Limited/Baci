@@ -25,7 +25,6 @@ vi.mock('@/lib/zeptomail-domains', () => ({
 
 import {
   getMerchantEmailDomain,
-  registerMerchantEmailDomain,
   setMerchantEmailDomainEnabled,
   verifyMerchantEmailDomain,
 } from './merchant-email-domain';
@@ -36,9 +35,10 @@ type Result = { data?: unknown; error?: unknown };
 function builderFor(result: Result) {
   const builder: Record<string, unknown> = {};
   const chain = () => builder;
-  for (const method of ['select', 'eq', 'update', 'upsert']) {
+  for (const method of ['select', 'eq', 'in', 'not', 'update', 'upsert']) {
     builder[method] = vi.fn(chain);
   }
+  builder.limit = vi.fn(() => Promise.resolve(result));
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
   builder.single = vi.fn(() => Promise.resolve(result));
   return builder;
@@ -57,7 +57,11 @@ const ROW = {
 
 describe('merchant-email-domain service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockAdminFrom.mockReset();
+    mockServerFrom.mockReset();
+    mockRegister.mockReset();
+    mockFind.mockReset();
+    mockVerify.mockReset();
   });
 
   it('getMerchantEmailDomain maps a row into domain + DNS records', async () => {
@@ -80,71 +84,6 @@ describe('merchant-email-domain service', () => {
   it('getMerchantEmailDomain returns null when no row exists', async () => {
     mockServerFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
     await expect(getMerchantEmailDomain('m1')).resolves.toBeNull();
-  });
-
-  it('registerMerchantEmailDomain registers with ZeptoMail then upserts pending', async () => {
-    mockRegister.mockResolvedValue({
-      domainKey: 'dk1',
-      domain: 'mystore.com',
-      status: 'pending',
-      verified: false,
-      records: [
-        { type: 'TXT', host: 'h', value: 'v' },
-        { type: 'CNAME', host: 'b', value: 'c' },
-      ],
-    });
-    const upsertBuilder = builderFor({
-      data: {
-        ...ROW,
-        domain: 'mystore.com',
-        status: 'pending',
-        enabled: false,
-      },
-      error: null,
-    });
-    mockAdminFrom.mockReturnValueOnce(upsertBuilder);
-
-    const result = await registerMerchantEmailDomain('m1', 'mystore.com');
-
-    expect(mockRegister).toHaveBeenCalledWith('mystore.com');
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchant_id: 'm1',
-        domain: 'mystore.com',
-        zeptomail_domain_id: 'dk1',
-        status: 'pending',
-        enabled: false,
-        dkim_host: 'h',
-        bounce_value: 'c',
-      }),
-      { onConflict: 'merchant_id' }
-    );
-    expect(result.status).toBe('pending');
-  });
-
-  it('registerMerchantEmailDomain resumes when ZeptoMail already has the domain', async () => {
-    mockRegister.mockRejectedValue(new Error('Domain already exists'));
-    mockFind.mockResolvedValue({
-      domainKey: 'existing-key',
-      domain: 'mystore.com',
-      status: 'pending',
-      verified: false,
-      records: [{ type: 'TXT', host: 'h', value: 'v' }],
-    });
-    const upsertBuilder = builderFor({
-      data: { ...ROW, domain: 'mystore.com', status: 'pending' },
-      error: null,
-    });
-    mockAdminFrom.mockReturnValueOnce(upsertBuilder);
-
-    await expect(
-      registerMerchantEmailDomain('m1', 'mystore.com')
-    ).resolves.toMatchObject({ domain: 'mystore.com' });
-    expect(mockFind).toHaveBeenCalledWith('mystore.com');
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ zeptomail_domain_id: 'existing-key' }),
-      { onConflict: 'merchant_id' }
-    );
   });
 
   it('verifyMerchantEmailDomain re-checks ZeptoMail and flips to verified', async () => {

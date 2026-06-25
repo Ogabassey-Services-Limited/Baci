@@ -6,12 +6,14 @@ const {
   mockGetMerchant,
   mockMerchantRow,
   mockVerify,
+  mockIsZeptomailDomainsConfigured,
 } = vi.hoisted(() => ({
   mockCheckCsrf: vi.fn(),
   mockAuth: vi.fn(),
   mockGetMerchant: vi.fn(),
   mockMerchantRow: vi.fn(),
   mockVerify: vi.fn(),
+  mockIsZeptomailDomainsConfigured: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -27,6 +29,9 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 vi.mock('@/lib/merchant-email-domain', () => ({
   verifyMerchantEmailDomain: mockVerify,
 }));
+vi.mock('@/lib/zeptomail-domains', () => ({
+  isZeptomailDomainsConfigured: mockIsZeptomailDomainsConfigured,
+}));
 
 import { POST } from './route';
 
@@ -40,6 +45,7 @@ function req() {
 describe('POST /api/merchant/email-domain/verify', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsZeptomailDomainsConfigured.mockReturnValue(true);
     mockCheckCsrf.mockResolvedValue({ valid: true });
     mockAuth.mockResolvedValue({
       user: { id: 'u1' },
@@ -89,6 +95,18 @@ describe('POST /api/merchant/email-domain/verify', () => {
     const res = await POST(req());
     expect(res.status).toBe(200);
     expect(mockVerify).toHaveBeenCalledWith('m1');
+  });
+
+  it('returns 503 when ZeptoMail domain credentials are not configured', async () => {
+    mockIsZeptomailDomainsConfigured.mockReturnValue(false);
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_provider_unconfigured',
+    });
+    expect(mockVerify).not.toHaveBeenCalled();
   });
 
   it('returns 502 when ZeptoMail verification fails', async () => {

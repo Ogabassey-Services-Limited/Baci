@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
@@ -45,6 +46,11 @@ interface DomainKeyRow {
   bounce_value: string | null;
 }
 
+interface DomainOwnerRow {
+  merchant_id: string;
+  status: 'pending' | 'verified' | 'failed';
+}
+
 function rowToDomain(row: Row): MerchantEmailDomain {
   const records: ZeptomailDnsRecord[] = [];
   if (row.dkim_host && row.dkim_value) {
@@ -86,8 +92,54 @@ function stateToColumns(state: SendingDomainState) {
   };
 }
 
-async function getRegisterableSendingDomain(
+function domainOwnershipCandidates(domain: string): string[] {
+  const normalized = domain.toLowerCase();
+  return normalized.startsWith('www.')
+    ? [normalized, normalized.slice(4)]
+    : [normalized, `www.${normalized}`];
+}
+
+async function assertMerchantOwnsActiveStorefrontDomain(
+  supabase: SupabaseClient,
+  merchantId: string,
   domain: string
+) {
+  const { data, error } = await supabase
+    .from('domains')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .in('domain', domainOwnershipCandidates(domain))
+    .eq('status', 'active')
+    .not('verified_at', 'is', null)
+    .limit(1);
+  if (error) {
+    throw new Error(`Failed to load storefront domain: ${error.message}`);
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error(
+      'Domain must be an active verified storefront domain before email sending can be configured'
+    );
+  }
+}
+
+async function getLocalDomainOwner(
+  supabase: SupabaseClient,
+  domain: string
+): Promise<DomainOwnerRow | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('merchant_id, status')
+    .eq('domain', domain)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Failed to load email domain: ${error.message}`);
+  }
+  return data as DomainOwnerRow | null;
+}
+
+async function getRegisterableSendingDomain(
+  domain: string,
+  options: { allowVerifiedReuse: boolean }
 ): Promise<SendingDomainState> {
   try {
     return await registerSendingDomain(domain);
@@ -102,15 +154,21 @@ async function getRegisterableSendingDomain(
     if (!existing) {
       throw error;
     }
+    if (existing.verified && !options.allowVerifiedReuse) {
+      throw new Error(
+        'Domain is already verified in ZeptoMail and cannot be claimed automatically'
+      );
+    }
     return existing;
   }
 }
 
 /** The merchant's current sending-domain config, or null if none registered. */
 export async function getMerchantEmailDomain(
-  merchantId: string
+  merchantId: string,
+  scopedSupabase?: SupabaseClient
 ): Promise<MerchantEmailDomain | null> {
-  const supabase = await createServerClient();
+  const supabase = scopedSupabase ?? (await createServerClient());
   const { data, error } = await supabase
     .from(TABLE)
     .select(SELECT)
@@ -127,8 +185,17 @@ export async function registerMerchantEmailDomain(
   merchantId: string,
   domain: string
 ): Promise<MerchantEmailDomain> {
-  const state = await getRegisterableSendingDomain(domain);
   const supabase = createAdminClient();
+  await assertMerchantOwnsActiveStorefrontDomain(supabase, merchantId, domain);
+
+  const localOwner = await getLocalDomainOwner(supabase, domain);
+  if (localOwner && localOwner.merchant_id !== merchantId) {
+    throw new Error('Domain is already registered by another merchant');
+  }
+
+  const state = await getRegisterableSendingDomain(domain, {
+    allowVerifiedReuse: localOwner?.merchant_id === merchantId,
+  });
   const { data, error } = await supabase
     .from(TABLE)
     .upsert(

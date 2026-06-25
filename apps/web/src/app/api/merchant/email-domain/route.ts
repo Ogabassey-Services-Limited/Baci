@@ -10,6 +10,7 @@ import {
   emailDomainGate,
   resolveMerchantForEmailDomain,
 } from '@/lib/merchant-email-domain-access';
+import { isZeptomailDomainsConfigured } from '@/lib/zeptomail-domains';
 import {
   registerEmailDomainSchema,
   setEmailDomainEnabledSchema,
@@ -37,13 +38,19 @@ async function resolveEmailDomainRequest(request: NextRequest) {
   if (denied) {
     return { error: denied };
   }
-  return resolved;
+  return { ...resolved, supabase: auth.supabase };
 }
 
 function isBusinessRuleError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
   return (
-    error instanceof Error &&
-    error.message.toLowerCase().includes('must be verified')
+    message.includes('must be verified') ||
+    message.includes('active verified storefront domain') ||
+    message.includes('already verified in zeptomail') ||
+    message.includes('already registered by another merchant')
   );
 }
 
@@ -66,7 +73,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const domain = await getMerchantEmailDomain(resolved.merchantId);
+    const domain = await getMerchantEmailDomain(
+      resolved.merchantId,
+      resolved.supabase
+    );
     return NextResponse.json({ domain });
   } catch {
     return NextResponse.json(
@@ -102,6 +112,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!isZeptomailDomainsConfigured()) {
+    return NextResponse.json(
+      {
+        error: 'Custom email-domain registration is not configured.',
+        code: 'email_domain_provider_unconfigured',
+      },
+      { status: 503 }
+    );
+  }
+
   try {
     const domain = await registerMerchantEmailDomain(
       resolved.merchantId,
@@ -109,6 +129,24 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ domain });
   } catch (error) {
+    if (isBusinessRuleError(error)) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to register domain',
+        },
+        {
+          status:
+            error instanceof Error &&
+            error.message.toLowerCase().includes('already')
+              ? 409
+              : 400,
+        }
+      );
+    }
+
     return NextResponse.json(
       {
         error:
