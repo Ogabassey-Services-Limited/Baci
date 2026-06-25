@@ -1,3 +1,4 @@
+import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import { z } from 'zod';
 import { getBillersByCategory } from '@/lib/kuda-bills';
 import {
@@ -56,8 +57,13 @@ export async function loadKudaBillers(type: string) {
       throw new Error('Kuda biller payload failed validation');
     }
 
+    // Inject the standard Prepaid/Postpaid items for electricity DISCOs here on
+    // the server (idempotent — only fills empty billItems) so cross-provider
+    // dedupe has items to match; the mobile app's own call then no-ops.
+    const hydratedKuda = withKudaElectricityBillItems(validatedKuda.data);
+
     return {
-      billers: validatedKuda.data.map((biller) => ({
+      billers: hydratedKuda.map((biller) => ({
         billerId: biller.billerId,
         billerName: biller.billerName,
         billerType: biller.billerType,
