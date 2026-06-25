@@ -39,21 +39,24 @@ function getMonnifyProductCode(biller: NormalizedBiller): string | undefined {
 
 export interface DedupeElectricityResult {
   billers: NormalizedBiller[];
-  /** Monnify billerCodes that were folded into a Kuda card (drop from display). */
-  matchedMonnifyBillerCodes: Set<string>;
+  /**
+   * Which Monnify productCodes were folded onto Kuda items, keyed by Monnify
+   * billerCode. The route prunes these products from any retained Monnify card
+   * (and drops cards that become empty), so a folded meter type never lingers as
+   * a duplicate and an unmatched/unclassifiable product is never hidden.
+   */
+  matchedMonnifyProducts: Map<string, Set<string>>;
 }
 
 export function dedupeElectricityBillers(
   kudaBillers: NormalizedBiller[],
   monnifyBillers: NormalizedBiller[]
 ): DedupeElectricityResult {
-  // Index Monnify products by `${disco}:${meterType}`, and track which keys each
-  // Monnify billerCode owns so we only drop a card once ALL its products folded.
+  // Index Monnify products by `${disco}:${meterType}`.
   const monnifyByKey = new Map<
     string,
     { billerCode: string; productCode: string }
   >();
-  const keysByBillerCode = new Map<string, Set<string>>();
 
   for (const monnify of monnifyBillers) {
     const billerCode = monnify.billerCode;
@@ -79,15 +82,19 @@ export function dedupeElectricityBillers(
       if (!(meterType && productCode)) {
         continue;
       }
-      const key = `${getDiscoKey(discoSource)}:${meterType}`;
-      monnifyByKey.set(key, { billerCode, productCode });
-      const owned = keysByBillerCode.get(billerCode) ?? new Set<string>();
-      owned.add(key);
-      keysByBillerCode.set(billerCode, owned);
+      monnifyByKey.set(`${getDiscoKey(discoSource)}:${meterType}`, {
+        billerCode,
+        productCode,
+      });
     }
   }
 
-  const matchedKeys = new Set<string>();
+  const matchedMonnifyProducts = new Map<string, Set<string>>();
+  const recordMatch = (billerCode: string, productCode: string) => {
+    const set = matchedMonnifyProducts.get(billerCode) ?? new Set<string>();
+    set.add(productCode);
+    matchedMonnifyProducts.set(billerCode, set);
+  };
 
   const billers = kudaBillers.map((kuda) => {
     if (!kuda.billItems?.length) {
@@ -104,12 +111,11 @@ export function dedupeElectricityBillers(
       const disco =
         getDiscoKey(kuda.billerName) ||
         getDiscoKey(item.itemName ?? item.itemCode);
-      const key = `${disco}:${meterType}`;
-      const monnify = monnifyByKey.get(key);
+      const monnify = monnifyByKey.get(`${disco}:${meterType}`);
       if (!monnify) {
         return item;
       }
-      matchedKeys.add(key);
+      recordMatch(monnify.billerCode, monnify.productCode);
       return {
         ...item,
         monnifyBillerCode: monnify.billerCode,
@@ -119,14 +125,5 @@ export function dedupeElectricityBillers(
     return { ...kuda, billItems };
   });
 
-  // Only drop a Monnify card when every product it owns was folded into a Kuda
-  // item — otherwise an unmatched meter type would silently disappear.
-  const matchedMonnifyBillerCodes = new Set<string>();
-  for (const [billerCode, owned] of keysByBillerCode) {
-    if ([...owned].every((key) => matchedKeys.has(key))) {
-      matchedMonnifyBillerCodes.add(billerCode);
-    }
-  }
-
-  return { billers, matchedMonnifyBillerCodes };
+  return { billers, matchedMonnifyProducts };
 }
