@@ -980,16 +980,14 @@ export async function POST(request: NextRequest) {
     // establish a session. The admin client bypasses RLS, which is safe here
     // because every data operation is scoped by validated order/merchant IDs
     // (enforced by the SECURITY DEFINER RPC below).
-    const supabase = createAdminClient();
+    const adminSupabase = createAdminClient();
 
     // Validate order context (order + email) before initiating payment
-    const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
-      'get_order_payment_snapshot',
-      {
+    const { data: snapshotRows, error: snapshotError } =
+      await adminSupabase.rpc('get_order_payment_snapshot', {
         p_order_id: data.order_id,
         p_email: data.customer_email,
-      }
-    );
+      });
 
     const orderSnapshot = Array.isArray(snapshotRows) ? snapshotRows[0] : null;
 
@@ -1035,12 +1033,13 @@ export async function POST(request: NextRequest) {
     }
     const merchantId = orderSnapshot.merchant_id;
 
-    const { data: orderPaymentRow, error: orderPaymentError } = await supabase
-      .from('orders')
-      .select('wallet_amount_used')
-      .eq('id', data.order_id)
-      .eq('merchant_id', merchantId)
-      .single();
+    const { data: orderPaymentRow, error: orderPaymentError } =
+      await adminSupabase
+        .from('orders')
+        .select('wallet_amount_used')
+        .eq('id', data.order_id)
+        .eq('merchant_id', merchantId)
+        .single();
 
     if (orderPaymentError || !orderPaymentRow) {
       return createErrorResponse(
@@ -1059,7 +1058,7 @@ export async function POST(request: NextRequest) {
       0
     );
 
-    const { data: savingsRows, error: savingsError } = await supabase
+    const { data: savingsRows, error: savingsError } = await adminSupabase
       .from('customer_savings_redemptions')
       .select('amount')
       .eq('order_id', data.order_id)
@@ -1084,7 +1083,7 @@ export async function POST(request: NextRequest) {
       : 0;
 
     // Fetch merchant
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant, error: merchantError } = await adminSupabase
       .from('merchants')
       .select('id, business_name, slug, paystack_subaccount_code')
       .eq('id', merchantId)
@@ -1104,7 +1103,7 @@ export async function POST(request: NextRequest) {
         : undefined;
 
     // Fetch gateway settings
-    const { data: featureSettings } = await supabase
+    const { data: featureSettings } = await adminSupabase
       .from('merchant_feature_settings')
       .select(
         'paystack_enabled, korapay_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
@@ -1291,7 +1290,7 @@ export async function POST(request: NextRequest) {
             const dvaExpiresAt = new Date(
               Date.now() + 90 * 60 * 1000
             ).toISOString();
-            const { error: dvaPersistError } = await supabase
+            const { error: dvaPersistError } = await adminSupabase
               .from('order_payment_accounts')
               .upsert(
                 {
@@ -1418,7 +1417,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create transaction record (via RPC) and update order status
-    const { error: transactionError } = await supabase.rpc(
+    const { error: transactionError } = await adminSupabase.rpc(
       'create_payment_transaction',
       {
         p_merchant_id: merchantId,
@@ -1454,7 +1453,9 @@ export async function POST(request: NextRequest) {
       gateway === 'juicyway' &&
       juicywayCrypto?.expected_session_amount != null
     ) {
-      const { error: metadataError } = await supabase.rpc(
+      // This RPC is granted only to service_role; keep it on the explicit
+      // admin client so Juicyway checkouts cannot fail under customer RLS.
+      const { error: metadataError } = await adminSupabase.rpc(
         'merge_transaction_metadata_by_reference',
         {
           p_gateway_reference: paymentResult.reference,
