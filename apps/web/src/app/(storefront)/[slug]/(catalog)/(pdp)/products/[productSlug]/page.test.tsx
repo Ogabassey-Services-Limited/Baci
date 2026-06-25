@@ -579,6 +579,66 @@ describe('products/[productSlug] page', () => {
         'https://ogabassey.com/products/mystery-item'
       );
     });
+
+    it('normalizes explicit plus-model product metadata before rendering', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        id: 'prod-plus',
+        name: 'Samsung Galaxy Tab S9+',
+        slug: 'samsung-galaxy-tab-s9-plus',
+        meta_title: 'Samsung Galaxy Tab S9+ Price in Nigeria',
+        meta_description:
+          'Shop Samsung Galaxy Tab S9+ tablet at Ogabassey before checkout.',
+      });
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'samsung-galaxy-tab-s9-plus',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      expect(metadata.title).toBe(
+        'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+      );
+      expect(metadata.description).toBe(
+        'Shop Samsung Galaxy Tab S9 Plus tablet at Ogabassey before checkout.'
+      );
+    });
+
+    it('normalizes explicit currency-symbol product metadata before rendering', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        id: 'prod-gift-card',
+        name: 'PSN Gift Card £50',
+        slug: 'psn-gift-card-gbp-50',
+        meta_title: 'PSN Gift Card £50 Price in Nigeria',
+        meta_description:
+          'PSN Gift Card £50 at Ogabassey: £50 value for PlayStation Store.',
+      });
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'psn-gift-card-gbp-50',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      expect(metadata.title).toBe(
+        'PSN Gift Card £50 GBP Price in Nigeria | TestStore'
+      );
+      expect(metadata.description).toBe(
+        'PSN Gift Card £50 GBP at Ogabassey: £50 GBP value for PlayStation Store.'
+      );
+    });
   });
 
   it('returns noindex metadata for attribute-only variant params (real redirect happens during page render)', async () => {

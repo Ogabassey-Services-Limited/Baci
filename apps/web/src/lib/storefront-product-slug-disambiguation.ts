@@ -20,6 +20,7 @@ const NON_IDENTIFYING_SLUG_DISAMBIGUATOR_TOKENS = new Set([
   'used',
   'with',
 ]);
+const SEO_HTML_TAG_PATTERN = /<[^>]{0,1000}>/g;
 
 function tokenizeProductIdentity(value: string): Set<string> {
   const normalized = value
@@ -131,6 +132,10 @@ function appendCurrencyCode(
   );
 }
 
+function stripSeoHtmlTags(value: string): string {
+  return value.includes('<') ? value.replace(SEO_HTML_TAG_PATTERN, ' ') : value;
+}
+
 function getSlugTokens(slug: string | null | undefined): string[] {
   return (slug || '')
     .toLowerCase()
@@ -224,7 +229,7 @@ export function normalizeSeoProductText(
 ): string {
   const slugTokens = getSlugTokens(product.slug);
   const normalizedText = normalizeSeoProductDisplayName(
-    value || '',
+    stripSeoHtmlTags(value || ''),
     slugTokens
   );
   return appendCurrencyCodeToSymbolAmounts(normalizedText, slugTokens);

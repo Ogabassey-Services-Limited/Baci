@@ -200,6 +200,14 @@ describe('normalizeSeoProductText', () => {
     ).toBe('Shop Samsung Galaxy Tab S9 Plus.');
   });
 
+  it('normalizes compact plus signs before stripped HTML tag boundaries', () => {
+    expect(
+      normalizeSeoProductText('<p>Shop Samsung Galaxy Tab S9+</p>', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus');
+  });
+
   it('adds matching currency codes to symbol amounts in explicit metadata text', () => {
     expect(
       normalizeSeoProductText('PSN Gift Card £50 at Ogabassey: £50 value.', {
