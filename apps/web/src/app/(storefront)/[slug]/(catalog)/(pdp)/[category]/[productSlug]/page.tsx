@@ -67,6 +67,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { stripVolatileProductPriceSentences } from '@/lib/storefront-product-description';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
+import { normalizeSeoProductText } from '@/lib/storefront-product-slug-disambiguation';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
@@ -994,15 +995,21 @@ function buildCategoryProductMetadata({
   const productDescription = stripVolatileProductPriceSentences(
     product.description
   );
-  const productMetaDescription = stripVolatileProductPriceSentences(
-    product.meta_description
+  const productMetaDescription = normalizeSeoProductText(
+    stripVolatileProductPriceSentences(product.meta_description),
+    product
   );
-  const productDescriptionFallback =
-    productDescription || priceSeoCopy.description;
+  const generatedSeoDescription = normalizeSeoProductText(
+    priceSeoCopy.description,
+    product
+  );
+  const productDescriptionFallback = productDescription
+    ? normalizeSeoProductText(productDescription, product)
+    : generatedSeoDescription;
   const seoDescriptionSource =
     productMetaDescription ||
     (priceSeoCopy.priceText
-      ? priceSeoCopy.description
+      ? generatedSeoDescription
       : productDescriptionFallback);
   const seoDescription = generateMetaDescription(seoDescriptionSource, 160, {
     minLength: 110,
@@ -1013,14 +1020,22 @@ function buildCategoryProductMetadata({
     product,
     currency
   );
-  const metadataTitle = generateMetaTitle(
-    product.meta_title || priceSeoCopy.title,
-    {
-      maxLength: 70,
-      suffix: merchantDisplayName,
-      fallback: product.name || productCategoryName,
-    }
+  const normalizedProductMetaTitle = normalizeSeoProductText(
+    product.meta_title,
+    product
   );
+  const normalizedGeneratedTitle = normalizeSeoProductText(
+    priceSeoCopy.title,
+    product
+  );
+  const metadataTitleSource =
+    normalizedProductMetaTitle || normalizedGeneratedTitle;
+  const metadataTitle = generateMetaTitle(metadataTitleSource, {
+    maxLength: 70,
+    suffix: merchantDisplayName,
+    fallback:
+      normalizeSeoProductText(product.name, product) || productCategoryName,
+  });
 
   const socialMedia = merchant?.social_media as
     | Record<string, string>

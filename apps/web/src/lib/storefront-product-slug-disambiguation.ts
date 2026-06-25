@@ -1,4 +1,5 @@
 const MAX_SLUG_DISAMBIGUATOR_TOKENS = 3;
+// Keep this set in sync with appendCurrencyCodeToSymbolAmounts below.
 const CURRENCY_SLUG_DISAMBIGUATOR_TOKENS = new Set([
   'eur',
   'gbp',
@@ -19,6 +20,9 @@ const NON_IDENTIFYING_SLUG_DISAMBIGUATOR_TOKENS = new Set([
   'used',
   'with',
 ]);
+const SEO_HTML_TAG_PATTERN = /<[^>]{0,1000}>/g;
+const SEO_SPACED_MODEL_PLUS_PATTERN =
+  /([a-z]+\d[a-z0-9]*|\d+[a-z][a-z0-9]*)\s+\+\s*(?=[a-z0-9]|[\s.,!?;:]|$)/gi;
 
 function tokenizeProductIdentity(value: string): Set<string> {
   const normalized = value
@@ -62,11 +66,86 @@ function normalizeSeoProductDisplayName(
 ): string {
   const normalized = slugTokens.includes('plus')
     ? value
+        // Handle mid-word plus models before trailing plus models.
         .replace(/\b([a-z]*\d+[a-z]*)\+([a-z0-9]+)\b/gi, '$1 Plus $2')
-        .replace(/\b([a-z0-9]+)\+(?=\s|$)/gi, '$1 Plus')
+        .replace(/\b([a-z0-9]+)\+(?=[\s.,!?;:]|$)/gi, '$1 Plus')
     : value;
 
   return normalized.replace(/\s{2,}/g, ' ').trim();
+}
+
+function appendCurrencyCodeToSymbolAmounts(
+  value: string,
+  slugTokens: readonly string[]
+): string {
+  let normalized = value;
+
+  if (slugTokens.includes('gbp')) {
+    normalized = appendCurrencyCode(
+      normalized,
+      /£\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
+      'GBP'
+    );
+  }
+
+  if (slugTokens.includes('eur')) {
+    normalized = appendCurrencyCode(
+      normalized,
+      /€\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
+      'EUR'
+    );
+  }
+
+  if (slugTokens.includes('usd')) {
+    normalized = appendCurrencyCode(
+      normalized,
+      /\$\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
+      'USD'
+    );
+  }
+
+  if (slugTokens.includes('ngn')) {
+    normalized = appendCurrencyCode(
+      normalized,
+      /₦\s?\d+(?:,\d+)*(?:\.\d+)?/gi,
+      'NGN'
+    );
+  }
+
+  return normalized.replace(/\s{2,}/g, ' ').trim();
+}
+
+function appendCurrencyCode(
+  value: string,
+  amountPattern: RegExp,
+  currencyCode: string
+): string {
+  return value.replace(
+    amountPattern,
+    (amount, offset: number, full: string) => {
+      const followingText = full.slice(offset + amount.length);
+      const nextText = followingText.trimStart();
+      const hasExistingCurrencyCode =
+        nextText.slice(0, currencyCode.length).toUpperCase() === currencyCode &&
+        !/[a-z0-9]/i.test(nextText.charAt(currencyCode.length));
+
+      return hasExistingCurrencyCode ? amount : `${amount} ${currencyCode}`;
+    }
+  );
+}
+
+function collapseSeoModelPlusSpacing(value: string): string {
+  return value.replace(SEO_SPACED_MODEL_PLUS_PATTERN, '$1+');
+}
+
+function stripSeoHtmlTags(value: string): string {
+  if (!value.includes('<')) {
+    return collapseSeoModelPlusSpacing(value);
+  }
+
+  return collapseSeoModelPlusSpacing(
+    value.replace(SEO_HTML_TAG_PATTERN, ' ').replace(/\s+([.,!?;:])/g, '$1')
+  );
 }
 
 function getSlugTokens(slug: string | null | undefined): string[] {
@@ -98,7 +177,7 @@ export function getSeoProductName(product: {
   slug?: string | null;
 }): string {
   const slugTokens = getSlugTokens(product.slug);
-  const productName = normalizeSeoProductDisplayName(product.name, slugTokens);
+  const productName = normalizeSeoProductText(product.name, product);
   if (!productName) {
     return '';
   }
@@ -152,4 +231,18 @@ export function getSeoProductName(product: {
     .join(' ');
 
   return suffix ? `${productName} ${suffix}` : productName;
+}
+
+export function normalizeSeoProductText(
+  value: string | null | undefined,
+  product: {
+    slug?: string | null;
+  }
+): string {
+  const slugTokens = getSlugTokens(product.slug);
+  const normalizedText = normalizeSeoProductDisplayName(
+    stripSeoHtmlTags(value || ''),
+    slugTokens
+  );
+  return appendCurrencyCodeToSymbolAmounts(normalizedText, slugTokens);
 }

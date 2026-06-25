@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getSeoProductName } from './storefront-product-slug-disambiguation';
+import {
+  getSeoProductName,
+  normalizeSeoProductText,
+} from './storefront-product-slug-disambiguation';
 
 describe('getSeoProductName', () => {
   it('adds trailing slug storage tokens to distinguish variant PDP titles', () => {
@@ -26,7 +29,7 @@ describe('getSeoProductName', () => {
         name: 'PSN Gift Card £50',
         slug: 'psn-gift-card-gbp-50',
       })
-    ).toBe('PSN Gift Card £50');
+    ).toBe('PSN Gift Card £50 GBP');
   });
 
   it('normalizes plus signs so plus-model PDP titles stay unique', () => {
@@ -113,6 +116,15 @@ describe('getSeoProductName', () => {
     ).toBe('PSN Gift Card €50 GBP');
   });
 
+  it('spells matching currency symbols with slug currency codes for crawler-stable titles', () => {
+    expect(
+      getSeoProductName({
+        name: 'PSN Gift Card €50',
+        slug: 'psn-gift-card-eur-50',
+      })
+    ).toBe('PSN Gift Card €50 EUR');
+  });
+
   it('does not append duplicate compact capacity tokens from the slug', () => {
     expect(
       getSeoProductName({
@@ -147,5 +159,124 @@ describe('getSeoProductName', () => {
     expect(getSeoProductName({ name: 'Test Device', slug: undefined })).toBe(
       'Test Device'
     );
+  });
+});
+
+describe('normalizeSeoProductText', () => {
+  it('returns an empty string for missing product metadata text', () => {
+    expect(
+      normalizeSeoProductText(null, {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('');
+    expect(
+      normalizeSeoProductText(undefined, {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('');
+  });
+
+  it('returns an empty string for empty product metadata text', () => {
+    expect(
+      normalizeSeoProductText('', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('');
+  });
+
+  it('normalizes compact plus signs in explicit product metadata text', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9+ tablet today.', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus tablet today.');
+  });
+
+  it('normalizes spaced model plus signs in explicit product metadata text', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9 + Case today.', {
+        slug: 'samsung-galaxy-tab-s9-plus-case',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus Case today.');
+  });
+
+  it('normalizes compact plus signs before sentence punctuation', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9+.', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+  });
+
+  it('normalizes compact plus signs before stripped HTML tag boundaries', () => {
+    expect(
+      normalizeSeoProductText('<p>Shop Samsung Galaxy Tab S9+</p>', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus');
+  });
+
+  it('preserves compact plus tokens when inline tags split model names', () => {
+    expect(
+      normalizeSeoProductText('Shop Samsung Galaxy Tab S9<sup>+</sup>.', {
+        slug: 'samsung-galaxy-tab-s9-plus',
+      })
+    ).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+  });
+
+  it('preserves separator plus signs after stripping inline tags', () => {
+    expect(
+      normalizeSeoProductText('<span>USB-C</span> + <span>Lightning</span>', {
+        slug: 'usb-c-plus-lightning-cable',
+      })
+    ).toBe('USB-C + Lightning');
+  });
+
+  it('preserves plain text separator plus signs in metadata text', () => {
+    expect(
+      normalizeSeoProductText('USB-C + Lightning Cable', {
+        slug: 'usb-c-plus-lightning-cable',
+      })
+    ).toBe('USB-C + Lightning Cable');
+  });
+
+  it('adds matching currency codes to symbol amounts in explicit metadata text', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50 at Ogabassey: £50 value.', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP at Ogabassey: £50 GBP value.');
+  });
+
+  it('adds matching currency codes before sentence punctuation', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50. Premium price £50.99.', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP. Premium price £50.99 GBP.');
+  });
+
+  it('adds matching currency codes before sentence commas', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50, today only.', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP, today only.');
+  });
+
+  it('preserves grouped currency amounts when adding currency codes', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £1,200, today only.', {
+        slug: 'psn-gift-card-gbp-1200',
+      })
+    ).toBe('PSN Gift Card £1,200 GBP, today only.');
+  });
+
+  it('does not duplicate currency codes that are already present', () => {
+    expect(
+      normalizeSeoProductText('PSN Gift Card £50 GBP Price in Nigeria', {
+        slug: 'psn-gift-card-gbp-50',
+      })
+    ).toBe('PSN Gift Card £50 GBP Price in Nigeria');
   });
 });
