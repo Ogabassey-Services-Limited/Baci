@@ -34,7 +34,7 @@ describe('readLatestLiveBuild', () => {
   it('returns the build stored in the DB', async () => {
     const { client } = makeReadClient({ data: { latest_live_build: 360 } });
 
-    const result = await readLatestLiveBuild('ios', client);
+    const result = await readLatestLiveBuild('storefront', 'ios', client);
 
     expect(result).toBe(360);
   });
@@ -43,16 +43,25 @@ describe('readLatestLiveBuild', () => {
     vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_BUILD', '371');
     const { client } = makeReadClient({ data: null });
 
-    const result = await readLatestLiveBuild('ios', client);
+    const result = await readLatestLiveBuild('storefront', 'ios', client);
 
     expect(result).toBe(371);
+  });
+
+  it('falls back to the admin env var when the DB has no row', async () => {
+    vi.stubEnv('MOBILE_ADMIN_IOS_LATEST_BUILD', '22');
+    const { client } = makeReadClient({ data: null });
+
+    const result = await readLatestLiveBuild('admin', 'ios', client);
+
+    expect(result).toBe(22);
   });
 
   it('falls back to env when the DB read errors', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
     const { client } = makeReadClient({ error: { message: 'boom' } });
 
-    const result = await readLatestLiveBuild('android', client);
+    const result = await readLatestLiveBuild('storefront', 'android', client);
 
     expect(result).toBe(646);
   });
@@ -60,7 +69,7 @@ describe('readLatestLiveBuild', () => {
   it('returns null when neither DB nor env has a value', async () => {
     const { client } = makeReadClient({ data: null });
 
-    const result = await readLatestLiveBuild('ios', client);
+    const result = await readLatestLiveBuild('storefront', 'ios', client);
 
     expect(result).toBeNull();
   });
@@ -70,8 +79,8 @@ describe('readLatestLiveBuild', () => {
       data: { latest_live_build: 360 },
     });
 
-    await readLatestLiveBuild('ios', client);
-    await readLatestLiveBuild('ios', client);
+    await readLatestLiveBuild('storefront', 'ios', client);
+    await readLatestLiveBuild('storefront', 'ios', client);
 
     expect(maybeSingle).toHaveBeenCalledTimes(1);
   });
@@ -89,7 +98,12 @@ describe('writeLatestLiveBuild', () => {
     } as unknown as SupabaseClient;
 
     await writeLatestLiveBuild(
-      { platform: 'ios', build: 372, source: 'app_store_connect' },
+      {
+        app: 'storefront',
+        platform: 'ios',
+        build: 372,
+        source: 'app_store_connect',
+      },
       client
     );
 
@@ -112,7 +126,12 @@ describe('writeLatestLiveBuild', () => {
 
     await expect(
       writeLatestLiveBuild(
-        { platform: 'ios', build: 372, source: 'app_store_connect' },
+        {
+          app: 'storefront',
+          platform: 'ios',
+          build: 372,
+          source: 'app_store_connect',
+        },
         client
       )
     ).rejects.toThrow('denied');
@@ -125,7 +144,12 @@ describe('writeLatestLiveBuild', () => {
     } as unknown as SupabaseClient;
 
     await writeLatestLiveBuild(
-      { platform: 'ios', build: 400, source: 'app_store_connect' },
+      {
+        app: 'storefront',
+        platform: 'ios',
+        build: 400,
+        source: 'app_store_connect',
+      },
       client
     );
 
@@ -135,6 +159,8 @@ describe('writeLatestLiveBuild', () => {
       }),
     } as unknown as SupabaseClient;
 
-    await expect(readLatestLiveBuild('ios', readClient)).resolves.toBe(400);
+    await expect(
+      readLatestLiveBuild('storefront', 'ios', readClient)
+    ).resolves.toBe(400);
   });
 });

@@ -46,12 +46,11 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   clearBadge,
-  getNotificationNavigationParams,
   registerForPushNotifications,
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
-import { navigateToNotificationTarget } from './push-notification-navigation';
+import { handleNotificationTap } from './push-notification-navigation';
 import { useAuth } from './useAuth';
 import { useMerchant } from './useMerchant';
 
@@ -205,10 +204,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
             // Clear badge on interaction
             void clearBadge();
-            navigateToNotificationTarget(
-              router,
-              getNotificationNavigationParams(response)
-            );
+            handleNotificationTap(router, response);
           }
         );
 
@@ -220,10 +216,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
           }
 
           void clearBadge();
-          navigateToNotificationTarget(
-            router,
-            getNotificationNavigationParams(response)
-          );
+          handleNotificationTap(router, response);
         })
         .catch((error) => {
           if (__DEV__) {

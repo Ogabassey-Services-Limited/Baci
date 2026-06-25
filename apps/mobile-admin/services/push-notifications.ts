@@ -11,6 +11,7 @@
  */
 
 import { getAdminNotificationNavigationTarget } from '@baci/shared';
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
@@ -20,6 +21,25 @@ import {
 } from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
 import { setupAndroidChannels } from './push-notification-channels';
+
+/**
+ * Parse the installed native build number (Android `versionCode`, iOS
+ * `CFBundleVersion`) into a non-negative integer for update-nudge targeting,
+ * or `null` when unavailable/malformed.
+ *
+ * Uses strict `Number(...)` (not `parseInt`) to mirror the server-side gate's
+ * parser, so a partially numeric build like `646-beta` or a dotted `646.1` is
+ * rejected as malformed rather than truncated to `646`.
+ */
+export function resolveNativeBuildNumber(
+  value: string | null = Application.nativeBuildVersion
+): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Device: typeof DeviceType | null = null;
@@ -146,30 +166,29 @@ export async function registerForPushNotifications(): Promise<string | null> {
 }
 
 /**
- * Save push token to Supabase for the current merchant
- * Uses upsert to handle token refresh (same token = update last_used_at)
+ * Save push token to Supabase for the current merchant.
+ *
+ * Registers via the SECURITY DEFINER RPC `register_push_token` instead of a raw
+ * upsert. Expo push tokens are device-unique, so when a different account signs
+ * in on the same device the upsert's UPDATE branch (on conflict: token) hits a
+ * row still owned by the previous user_id and is blocked by RLS (42501). The RPC
+ * re-claims the token for the authenticated caller atomically and records the
+ * native build number used by the release-policy update gate.
  */
 export async function savePushTokenToServer(
   token: string,
-  userId: string,
+  _userId: string,
   merchantId: string
 ): Promise<boolean> {
   try {
-    const { error } = await supabase.from('push_tokens').upsert(
-      {
-        user_id: userId,
-        merchant_id: merchantId,
-        token: token,
-        platform: getRuntimePlatform(),
-        device_name: Device?.modelName || 'Unknown Device',
-        app_type: 'admin',
-        is_active: true,
-        last_used_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'token',
-      }
-    );
+    const { error } = await supabase.rpc('register_push_token', {
+      p_token: token,
+      p_merchant_id: merchantId,
+      p_platform: getRuntimePlatform(),
+      p_device_name: Device?.modelName || 'Unknown Device',
+      p_app_type: 'admin',
+      p_build_number: resolveNativeBuildNumber(),
+    });
 
     if (error) {
       console.error('[Push] Failed to save push token:', error);

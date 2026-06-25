@@ -8,6 +8,7 @@ const runtimePlatformMock = {
 };
 
 const supabaseFromMock = vi.fn();
+const supabaseRpcMock = vi.fn();
 
 vi.mock('@baci/shared', () => ({
   getAdminNotificationNavigationTarget: vi.fn(() => null),
@@ -15,9 +16,14 @@ vi.mock('@baci/shared', () => ({
 
 vi.mock('@/config/runtime-platform', () => runtimePlatformMock);
 
+vi.mock('expo-application', () => ({
+  nativeBuildVersion: '42',
+}));
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: supabaseFromMock,
+    rpc: supabaseRpcMock,
   },
 }));
 
@@ -191,12 +197,35 @@ describe('push notification native loading', () => {
     await expect(registerForPushNotifications()).resolves.toBeNull();
   });
 
-  it('returns false when saving the push token fails', async () => {
-    const upsertMock = vi.fn(() =>
-      Promise.resolve({ error: { message: 'RLS policy violation' } })
+  it('registers the push token via the register_push_token RPC with the native build number', async () => {
+    supabaseRpcMock.mockResolvedValue({ error: null });
+
+    vi.doMock('expo-device', () => ({
+      isDevice: true,
+      modelName: 'Pixel 9',
+    }));
+    vi.doMock('expo-notifications', () => createNotificationModule());
+
+    const { savePushTokenToServer } = await import('./push-notifications');
+
+    await expect(
+      savePushTokenToServer('ExponentPushToken[test]', 'user-1', 'merchant-1')
+    ).resolves.toBe(true);
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      'register_push_token',
+      expect.objectContaining({
+        p_token: 'ExponentPushToken[test]',
+        p_merchant_id: 'merchant-1',
+        p_platform: 'android',
+        p_app_type: 'admin',
+        p_build_number: 42,
+      })
     );
-    supabaseFromMock.mockReturnValue({
-      upsert: upsertMock,
+  });
+
+  it('returns false when saving the push token fails', async () => {
+    supabaseRpcMock.mockResolvedValue({
+      error: { message: 'RLS policy violation' },
     });
 
     vi.doMock('expo-device', () => ({
@@ -210,7 +239,9 @@ describe('push notification native loading', () => {
     await expect(
       savePushTokenToServer('ExponentPushToken[test]', 'user-1', 'merchant-1')
     ).resolves.toBe(false);
-    expect(supabaseFromMock).toHaveBeenCalledWith('push_tokens');
-    expect(upsertMock).toHaveBeenCalled();
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      'register_push_token',
+      expect.any(Object)
+    );
   });
 });

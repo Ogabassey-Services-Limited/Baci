@@ -811,4 +811,35 @@ describe('notifyStorefrontUpdateAvailable', () => {
     expect(result.sent).toBe(1);
     expect(result.stampFailed).toBe(true);
   });
+
+  it('filters by app_type admin when appType is admin', async () => {
+    const selectChain = createChainableMock([
+      { id: 'id1', token: 'ExponentPushToken[a]' },
+    ]);
+    const ticketInsertChain = createChainableMock();
+    const stampChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain)
+        .mockReturnValueOnce(ticketInsertChain)
+        .mockReturnValueOnce(stampChain)
+        .mockReturnValueOnce(attemptInsertChain),
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 't1' },
+    ]);
+
+    const result = await notifyStorefrontUpdateAvailable({
+      appType: 'admin',
+      platform: 'ios',
+      latestBuild: 22,
+    });
+
+    expect(selectChain.eq).toHaveBeenCalledWith('app_type', 'admin');
+    expect(result).toMatchObject({ platform: 'ios', sent: 1 });
+  });
 });

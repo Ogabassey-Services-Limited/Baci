@@ -249,6 +249,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Upload to Google Play (full production rollout)
+        id: play_upload
         if: success() && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.upload_guard.outputs.allow_upload == 'true')
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
@@ -260,6 +261,35 @@ jobs:
           # Keep automatic releases in the normal Play review flow. Manual
           # recovery dispatches can set this after Play rejects automatic review.
           changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
+
+      # Point the admin in-app update gate at the build we just published so
+      # installs below this versionCode get prompted. The new value applies on
+      # the next production web deploy (Vercel snapshots env at deploy time).
+      # Non-fatal: a sync hiccup must never fail an otherwise-successful release.
+      - name: Sync Android build number to in-app update gate
+        if: steps.play_upload.outcome == 'success'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::warning::Vercel credentials missing — skipping update-gate sync"
+            exit 0
+          fi
+          TEAM_QS=""
+          if [ -n "$VERCEL_ORG_ID" ]; then TEAM_QS="&teamId=${VERCEL_ORG_ID}"; fi
+          HTTP_CODE=$(curl -sS -o /tmp/vercel_env.json -w '%{http_code}' -X POST \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?upsert=true${TEAM_QS}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"MOBILE_ADMIN_ANDROID_LATEST_BUILD\",\"value\":\"${VERSION_CODE}\",\"type\":\"encrypted\",\"target\":[\"production\"]}")
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Synced MOBILE_ADMIN_ANDROID_LATEST_BUILD=${VERSION_CODE} (HTTP ${HTTP_CODE})"
+          else
+            echo "::warning::Vercel env sync failed (HTTP ${HTTP_CODE}): $(cat /tmp/vercel_env.json)"
+          fi
 
       - name: Clean up keystore
         if: always()

@@ -18,9 +18,10 @@ vi.mock('@/lib/mobile-release-gate-store', async () => {
   >('@/lib/mobile-update-gate');
   return {
     readLatestLiveBuild: async (
+      app: 'storefront' | 'admin',
       platform: 'android' | 'ios',
       _client: unknown
-    ) => parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
+    ) => parseBuildNumber(readMobilePlatformEnv(app, platform, 'LATEST_BUILD')),
   };
 });
 
@@ -230,6 +231,43 @@ describe('GET /api/mobile/release-policy', () => {
       enabled: true,
       nativeUpdateRecommended: false,
       nativeUpdateRequired: false,
+    });
+  });
+
+  it('gates the admin app from MOBILE_ADMIN_* env vars', async () => {
+    vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_ADMIN_IOS_MIN_VERSION', '2.1.0');
+    vi.stubEnv('MOBILE_ADMIN_IOS_LATEST_VERSION', '2.2.0');
+    vi.stubEnv('MOBILE_ADMIN_IOS_LATEST_BUILD', '22');
+    vi.stubEnv(
+      'MOBILE_ADMIN_IOS_STORE_URL',
+      'https://apps.apple.com/app/id6480000000'
+    );
+    vi.stubEnv(
+      'MOBILE_ADMIN_UPDATE_MESSAGE',
+      'A newer admin build is available.'
+    );
+
+    const response = await callGet({
+      app: 'admin',
+      platform: 'ios',
+      runtimeVersion: '2.0.0',
+      nativeVersion: '2.0.0',
+      buildNumber: '9',
+      channel: 'production',
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.createClient).toHaveBeenCalledTimes(1);
+    expect(body).toMatchObject({
+      enabled: true,
+      latestNativeVersion: '2.2.0',
+      message: 'A newer admin build is available.',
+      minNativeVersion: '2.1.0',
+      nativeUpdateRecommended: true,
+      nativeUpdateRequired: true,
+      storeUrl: 'https://apps.apple.com/app/id6480000000',
     });
   });
 

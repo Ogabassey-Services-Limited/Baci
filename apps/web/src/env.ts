@@ -247,9 +247,11 @@ const serverSchema = z
     ASC_API_ISSUER_ID: z.string().optional(),
     ASC_API_PRIVATE_KEY: z.string().optional(),
     APP_STORE_CONNECT_BUNDLE_ID: z.string().default('com.ogabassey.app'),
-    // Secret configured when registering the App Store Connect webhook; used to
-    // verify the X-Apple-Signature HMAC on inbound webhook deliveries.
+    APP_STORE_CONNECT_ADMIN_BUNDLE_ID: z.string().default('com.ogabassey.baci'),
+    // Secrets configured when registering each App Store Connect webhook; used
+    // to verify the X-Apple-Signature HMAC on inbound webhook deliveries.
     APP_STORE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
+    APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET: z.string().optional(),
     IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
     IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
     IMPORT_JOB_TRIGGER_URL: httpsOrLocalhostUrl(
@@ -589,8 +591,12 @@ const getEnv = () => {
         ASC_API_ISSUER_ID: process.env.ASC_API_ISSUER_ID,
         ASC_API_PRIVATE_KEY: process.env.ASC_API_PRIVATE_KEY,
         APP_STORE_CONNECT_BUNDLE_ID: process.env.APP_STORE_CONNECT_BUNDLE_ID,
+        APP_STORE_CONNECT_ADMIN_BUNDLE_ID:
+          process.env.APP_STORE_CONNECT_ADMIN_BUNDLE_ID,
         APP_STORE_CONNECT_WEBHOOK_SECRET:
           process.env.APP_STORE_CONNECT_WEBHOOK_SECRET,
+        APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET:
+          process.env.APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
         IMPORT_JOB_TRIGGER_URL: process.env.IMPORT_JOB_TRIGGER_URL,
         IMPORT_JOB_TRIGGER_SECRET: process.env.IMPORT_JOB_TRIGGER_SECRET,
@@ -1203,11 +1209,19 @@ export const getAppStoreConnectCredentials = () => {
   return { keyId, issuerId, privateKey };
 };
 
-export const getAppStoreConnectBundleId = () =>
-  env?.APP_STORE_CONNECT_BUNDLE_ID ?? 'com.ogabassey.app';
+export const getAppStoreConnectBundleId = (
+  app: 'storefront' | 'admin' = 'storefront'
+) =>
+  app === 'admin'
+    ? (env?.APP_STORE_CONNECT_ADMIN_BUNDLE_ID ?? 'com.ogabassey.baci')
+    : (env?.APP_STORE_CONNECT_BUNDLE_ID ?? 'com.ogabassey.app');
 
-export const getAppStoreConnectWebhookSecret = () =>
-  env?.APP_STORE_CONNECT_WEBHOOK_SECRET;
+export const getAppStoreConnectWebhookSecret = (
+  app: 'storefront' | 'admin' = 'storefront'
+) =>
+  app === 'admin'
+    ? env?.APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET
+    : env?.APP_STORE_CONNECT_WEBHOOK_SECRET;
 
 export const getInternalApiSecret = () => {
   if (typeof window !== 'undefined')

@@ -972,6 +972,8 @@ export async function notifyPriceDrop(
 const DEFAULT_UPDATE_NUDGE_THROTTLE_DAYS = 7;
 
 export interface StorefrontUpdateNudgeParams {
+  /** Which app's installs to nudge (push_tokens.app_type). Defaults to storefront. */
+  appType?: 'storefront' | 'admin';
   platform: 'android' | 'ios';
   /** Latest published native build (Android versionCode / iOS CFBundleVersion). */
   latestBuild: number;
@@ -1021,6 +1023,7 @@ export async function notifyStorefrontUpdateAvailable(
   params: StorefrontUpdateNudgeParams
 ): Promise<StorefrontUpdateNudgeResult> {
   const {
+    appType = 'storefront',
     platform,
     latestBuild,
     storeUrl = null,
@@ -1028,7 +1031,7 @@ export async function notifyStorefrontUpdateAvailable(
     limit = DEFAULT_UPDATE_NUDGE_LIMIT,
     now = new Date(),
     title = 'Update available',
-    body = 'A new version of Ogabassey is ready — tap to update.',
+    body = 'A new version is ready — tap to update.',
   } = params;
 
   const supabase = createAdminClient();
@@ -1047,7 +1050,7 @@ export async function notifyStorefrontUpdateAvailable(
     result: StorefrontUpdateNudgeResult
   ): Promise<StorefrontUpdateNudgeResult> => {
     await recordPushAttempt(supabase, {
-      appType: 'storefront',
+      appType,
       channel: 'general',
       notificationType: 'mobile_update_available',
       title,
@@ -1064,7 +1067,7 @@ export async function notifyStorefrontUpdateAvailable(
   const { data: tokens, error } = await supabase
     .from('push_tokens')
     .select('id, token')
-    .eq('app_type', 'storefront')
+    .eq('app_type', appType)
     .eq('platform', platform)
     .eq('is_active', true)
     // Eligibility:
@@ -1130,7 +1133,7 @@ export async function notifyStorefrontUpdateAvailable(
       .filter((_, i) => tickets[i]?.status === 'ok')
       .map((t) => t.id);
     sendResult = await processTickets(tickets, tokens, supabase, {
-      appType: 'storefront',
+      appType,
       channel: 'general',
       notificationType: 'mobile_update_available',
     });
@@ -1160,7 +1163,7 @@ export async function notifyStorefrontUpdateAvailable(
   }
 
   await recordPushAttempt(supabase, {
-    appType: 'storefront',
+    appType,
     channel: 'general',
     notificationType: 'mobile_update_available',
     title,

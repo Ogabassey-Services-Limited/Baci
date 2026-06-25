@@ -1,5 +1,32 @@
+import type { NotificationResponse } from 'expo-notifications';
 import { describe, expect, it, vi } from 'vitest';
-import { navigateToNotificationTarget } from './push-notification-navigation';
+import {
+  handleNotificationTap,
+  navigateToNotificationTarget,
+} from './push-notification-navigation';
+
+vi.mock('@/services/push-notifications', () => ({
+  getNotificationNavigationParams: (response: NotificationResponse) => {
+    const data = response.notification.request.content.data as Record<
+      string,
+      unknown
+    >;
+    if (data?.screen === 'order') {
+      return { params: { id: String(data.id) }, screen: 'order' };
+    }
+    return null;
+  },
+}));
+
+function makeResponse(data: Record<string, unknown>): NotificationResponse {
+  return {
+    notification: {
+      request: {
+        content: { data },
+      },
+    },
+  } as unknown as NotificationResponse;
+}
 
 describe('navigateToNotificationTarget', () => {
   it('routes entity notifications with encoded ids', () => {
@@ -50,5 +77,35 @@ describe('navigateToNotificationTarget', () => {
 
     expect(router.push).toHaveBeenNthCalledWith(1, '/(admin)/negotiations');
     expect(router.push).toHaveBeenNthCalledWith(2, '/(admin)/negotiations');
+  });
+});
+
+describe('handleNotificationTap', () => {
+  it('requests an update check and does not navigate for mobile_update_available taps', () => {
+    const router = { push: vi.fn() };
+    const requestUpdateCheck = vi.fn();
+
+    handleNotificationTap(
+      router,
+      makeResponse({ type: 'mobile_update_available' }),
+      requestUpdateCheck
+    );
+
+    expect(requestUpdateCheck).toHaveBeenCalledWith('push-notification');
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the notification target for non-update notifications', () => {
+    const router = { push: vi.fn() };
+    const requestUpdateCheck = vi.fn();
+
+    handleNotificationTap(
+      router,
+      makeResponse({ screen: 'order', id: '42' }),
+      requestUpdateCheck
+    );
+
+    expect(requestUpdateCheck).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith('/(admin)/order/42');
   });
 });

@@ -19,6 +19,7 @@ import 'react-native-reanimated';
 import { StatusBar, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { MobileUpdateController } from '@/components/updates/MobileUpdateController';
 import { isRuntimePlatform } from '@/config/runtime-platform';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { NetworkProvider } from '@/context/NetworkContext';
@@ -114,6 +115,7 @@ export default function RootLayout() {
             <NetworkProvider>
               <OnboardingProvider>
                 <Slot />
+                <MobileUpdateController />
               </OnboardingProvider>
             </NetworkProvider>
           </ThemeProvider>
