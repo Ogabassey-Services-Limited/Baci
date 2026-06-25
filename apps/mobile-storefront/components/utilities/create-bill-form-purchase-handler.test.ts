@@ -248,6 +248,53 @@ describe('createBillFormPurchaseHandler', () => {
     );
   });
 
+  it('routes folded Kuda electricity display items through Monnify checkout codes', async () => {
+    mockInitializeVtuCheckout.mockResolvedValueOnce({
+      authorization_url: 'https://gateway/auth',
+      gateway: 'paystack',
+      reference: 'PAY-FOLDED-MONNIFY',
+    });
+    const handlePurchase = createValidHandler({
+      selectedBiller: {
+        billerId: 'IKEDC_KUDA',
+        billerName: 'Ikeja Electric',
+        billerType: 'Electricity',
+        categoryId: 'electricity',
+        categoryName: 'Electricity',
+        provider: 'kuda',
+      },
+      selectedBillItem: {
+        amount: 0,
+        isAmountFixed: false,
+        itemCode: 'KUD-ELE-IKEDC-PREPAID',
+        itemCurrencySymbol: 'NGN',
+        itemFee: 0,
+        itemName: 'Prepaid meter',
+        monnifyBillerCode: 'IKEDC',
+        monnifyProductCode: 'IKEDC_PREPAID',
+        provider: 'kuda',
+      },
+      selectedBillItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+      selectedBillItemPathLabel: 'Prepaid meter',
+      validationReference: 'VAL-FOLDED-123',
+      requireValidationRef: true,
+    });
+
+    await handlePurchase();
+
+    expect(mockInitializeVtuCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        billItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+        billerCode: 'IKEDC',
+        billerName: 'Ikeja Electric - Prepaid meter',
+        productCode: 'IKEDC_PREPAID',
+        provider: 'monnify',
+        requireValidationRef: true,
+        validationReference: 'VAL-FOLDED-123',
+      })
+    );
+  });
+
   describe('wallet flow', () => {
     it('clamps a stale walletSelection.amount that exceeds the current bill total', async () => {
       // The shopper enabled wallet for a ₦1500 plan, then changed to a
