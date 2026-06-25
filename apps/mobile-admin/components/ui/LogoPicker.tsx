@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   logoPlaceholderText: {
     fontSize: 32,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    },
+  },
   changeLogoButton: {
     flexDirection: 'row',
     alignItems: 'center',

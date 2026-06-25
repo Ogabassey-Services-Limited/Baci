@@ -15,6 +15,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { getBlogStorefrontPathPrefix } from '../../blog-storefront-path-prefix';
+import { BlogAuthorPagination } from './blog-author-pagination';
 
 interface BlogAuthorPageContentProps {
   params: Promise<{ slug: string; authorSlug: string }>;
@@ -72,10 +73,9 @@ export async function BlogAuthorPageContent({
   const baseUrl = buildStoreUrl(merchant);
   // Header-aware prefix (mirrors the blog listing) so the proxy's /{slug}
   // rewrite is not doubled on subdomains.
-  const headersList = await headers();
   const basePath = isDomainIdentifier(slug)
     ? ''
-    : getBlogStorefrontPathPrefix(headersList, merchant);
+    : getBlogStorefrontPathPrefix(await headers(), merchant);
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
   const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
 
@@ -260,38 +260,12 @@ export async function BlogAuthorPageContent({
             ))}
           </ul>
 
-          {totalPages > 1 && (
-            <nav
-              aria-label="Author articles pagination"
-              className="mt-8 flex items-center justify-between gap-4"
-            >
-              {currentPage > 1 ? (
-                <Link
-                  href={asRoute(buildAuthorPageHref(currentPage - 1))}
-                  rel="prev"
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  Previous
-                </Link>
-              ) : (
-                <span />
-              )}
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              {currentPage < totalPages ? (
-                <Link
-                  href={asRoute(buildAuthorPageHref(currentPage + 1))}
-                  rel="next"
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  Next
-                </Link>
-              ) : (
-                <span />
-              )}
-            </nav>
-          )}
+          <BlogAuthorPagination
+            authorName={author.name}
+            buildHref={buildAuthorPageHref}
+            currentPage={currentPage}
+            totalPages={totalPages}
+          />
         </main>
       </div>
     </>

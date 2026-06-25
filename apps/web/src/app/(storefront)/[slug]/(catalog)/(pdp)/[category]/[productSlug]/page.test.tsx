@@ -15,6 +15,103 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 vi.mock('server-only', () => ({}));
 
+const { mockReactCacheResetters, mockResetReactCacheStores } = vi.hoisted(
+  () => {
+    const resetters: Array<() => void> = [];
+
+    return {
+      mockReactCacheResetters: resetters,
+      mockResetReactCacheStores: () => {
+        for (const reset of resetters) {
+          reset();
+        }
+      },
+    };
+  }
+);
+
+vi.mock('react', async (importActual) => {
+  const actual = await importActual<typeof import('react')>();
+  type CacheableFunction<Args extends unknown[], Result> = (
+    ...args: Args
+  ) => Result;
+  type CacheNode<Result> = {
+    error?: unknown;
+    hasError: boolean;
+    hasResult: boolean;
+    objectChildren: WeakMap<object, CacheNode<Result>>;
+    primitiveChildren: Map<unknown, CacheNode<Result>>;
+    result?: Result;
+  };
+  const createCacheNode = <Result,>(): CacheNode<Result> => ({
+    hasError: false,
+    hasResult: false,
+    objectChildren: new WeakMap<object, CacheNode<Result>>(),
+    primitiveChildren: new Map<unknown, CacheNode<Result>>(),
+  });
+  const isObjectCacheKey = (value: unknown): value is object =>
+    (typeof value === 'object' && value !== null) ||
+    typeof value === 'function';
+  const getCacheNode = <Result,>(
+    root: CacheNode<Result>,
+    args: unknown[]
+  ): CacheNode<Result> => {
+    let node = root;
+
+    for (const arg of args) {
+      if (isObjectCacheKey(arg)) {
+        let child = node.objectChildren.get(arg);
+        if (!child) {
+          child = createCacheNode<Result>();
+          node.objectChildren.set(arg, child);
+        }
+        node = child;
+        continue;
+      }
+
+      let child = node.primitiveChildren.get(arg);
+      if (!child) {
+        child = createCacheNode<Result>();
+        node.primitiveChildren.set(arg, child);
+      }
+      node = child;
+    }
+
+    return node;
+  };
+
+  return {
+    ...actual,
+    cache: <Args extends unknown[], Result>(
+      fn: CacheableFunction<Args, Result>
+    ) => {
+      let root = createCacheNode<Result>();
+      mockReactCacheResetters.push(() => {
+        root = createCacheNode<Result>();
+      });
+
+      return (...args: Args) => {
+        const node = getCacheNode(root, args);
+        if (node.hasError) {
+          throw node.error;
+        }
+        if (!node.hasResult) {
+          try {
+            node.result = fn(...args);
+            node.hasResult = true;
+          } catch (error) {
+            node.error = error;
+            node.hasError = true;
+            throw error;
+          }
+        }
+
+        return node.result as Result;
+      };
+    },
+  };
+});
+
 const {
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
@@ -817,6 +914,10 @@ function mockDefaultCachedProductLcpHintLookup() {
   );
 }
 
+beforeEach(() => {
+  mockResetReactCacheStores();
+});
+
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1593,6 +1694,44 @@ describe('[category]/[productSlug] page render', () => {
       sameBrand: null,
       samePrice: null,
     });
+  });
+
+  it('reuses shared PDP route-control data across metadata and page rendering', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/shared-pdp-route-cache.avif';
+    const params = {
+      slug: 'teststore',
+      category: 'laptops',
+      productSlug: 'hp-laptop-14-ep0063nia',
+    };
+
+    mockGetCachedProductLcpHint.mockResolvedValue(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      images: [productImage],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve(params),
+      searchParams: Promise.resolve({}),
+    });
+
+    await CategoryProductPage({
+      params: Promise.resolve(params),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
+    );
+    expect(mockGetRequestScopedMerchant).toHaveBeenCalledTimes(1);
+    expect(mockGetCachedProductLcpHint).toHaveBeenCalledTimes(1);
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
   });
 
   it('renders the OgaBassey PDP hero into the static shell without forcing the leaf dynamic', async () => {

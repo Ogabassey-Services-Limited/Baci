@@ -47,6 +47,14 @@ describe('storefront-loading-ui', () => {
     expect(hero?.querySelector('[data-testid="tenant-hero"]')).toBeTruthy();
   });
 
+  it('can suppress the loading bar when a route owns exact fallback geometry', () => {
+    const { container } = render(<ShellChromeLoading showLoadingBar={false} />);
+
+    expect(
+      container.querySelector('.storefront-shell-loading__bar')
+    ).not.toBeInTheDocument();
+  });
+
   it('does not reserve the mobile hero area when no banner is provided', () => {
     const { container } = render(<ShellChromeLoading />);
 

@@ -7,6 +7,13 @@ interface OgabasseyHomeHeroSectionProps {
   pathPrefix: string;
 }
 
+/**
+ * Product-driven hero for the published, request-resolved storefront boundary.
+ * Keep this component uncached: `loadOgabasseyLaunchProducts()` intentionally
+ * degrades transient feed failures to `[]`, and caching this wrapper would make
+ * that temporary empty hero sticky. The underlying product loaders own their
+ * data caches and tags.
+ */
 export async function OgabasseyHomeHeroSection({
   merchantId,
   pathPrefix,

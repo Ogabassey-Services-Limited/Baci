@@ -39,7 +39,7 @@ describe('OgabasseyHomeHeroSection', () => {
     vi.mocked(loadOgabasseyLaunchProducts).mockResolvedValue([launchProduct]);
   });
 
-  it('loads launch products in its own streamed boundary and renders hero links', async () => {
+  it('loads launch products and renders hero links inside the published storefront boundary', async () => {
     const result = await OgabasseyHomeHeroSection({
       merchantId: 'merchant-1',
       pathPrefix: '/ogabassey',
@@ -55,7 +55,8 @@ describe('OgabasseyHomeHeroSection', () => {
 
   it('renders the hero with no slides when the launch feed degrades to empty', async () => {
     // loadOgabasseyLaunchProducts is best-effort and resolves [] on feed failure;
-    // the hero section must render (Hero falls back to empty geometry), not throw.
+    // the uncached wrapper must render (Hero falls back to empty geometry), not
+    // cache the transient empty state.
     vi.mocked(loadOgabasseyLaunchProducts).mockResolvedValue([]);
 
     const result = await OgabasseyHomeHeroSection({
