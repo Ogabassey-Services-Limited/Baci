@@ -24,31 +24,24 @@ const {
   mockStorageFrom: vi.fn(),
   mockUpload: vi.fn(),
 }));
-
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
-
 vi.mock('ai', () => ({
   generateText: mockGenerateText,
 }));
-
 vi.mock('@/ai/provider', () => ({
   activeImageModel: 'mock-image-model',
 }));
-
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mockCheckCsrfProtection,
 }));
-
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: mockGetMerchantForApiRequest,
 }));
-
 vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: mockCheckRateLimit,
 }));
-
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },

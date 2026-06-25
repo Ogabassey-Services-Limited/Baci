@@ -134,6 +134,24 @@ function numberOrDefault(value: unknown, fallback: number): number {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+function normalizeJuicywayStablecoin(
+  value: string | undefined,
+  fallback: JuicywayStablecoin
+): JuicywayStablecoin {
+  const normalized = value?.trim().toUpperCase();
+  return normalized === 'USDT' || normalized === 'USDC' ? normalized : fallback;
+}
+
+function normalizeJuicywayCurrency(
+  value: string | undefined,
+  fallback: string
+) {
+  const normalized = value?.trim();
+  return normalized && normalized.length > 0
+    ? normalized.toUpperCase()
+    : fallback;
+}
+
 function normalizeHostname(value: string) {
   return value
     .trim()
@@ -336,6 +354,8 @@ interface PaymentResult {
      * the webhook can reject underpaid/mismatched settlements.
      */
     expected_session_amount?: number;
+    /** Currency associated with expected_session_amount (payment/session currency). */
+    expected_session_currency?: string;
     /** NGN/USDT rate used for conversion */
     conversion_rate?: number;
     confirmation_time: string;
@@ -491,11 +511,37 @@ async function initializeJuicyway(
             payment?: {
               id?: string;
               amount?: number;
+              currency?: string;
               status?: string;
               payment_method?: Record<string, unknown>;
             };
           }
         | undefined;
+      let expectedSettlementAmount = sessionAmount;
+      let expectedSettlementCurrency = normalizeJuicywayCurrency(
+        paymentCurrency,
+        cryptoCurrency
+      );
+      const captureExpectedSettlement = (
+        payment:
+          | {
+              amount?: number;
+              currency?: string;
+            }
+          | undefined
+      ) => {
+        if (
+          typeof payment?.amount === 'number' &&
+          Number.isFinite(payment.amount) &&
+          payment.amount > 0
+        ) {
+          expectedSettlementAmount = payment.amount;
+        }
+        expectedSettlementCurrency = normalizeJuicywayCurrency(
+          payment?.currency,
+          expectedSettlementCurrency
+        );
+      };
 
       // Step 1: POST capture once to initiate address generation
       const captureResult = await capturePaymentWithCrypto(
@@ -511,6 +557,7 @@ async function initializeJuicyway(
       }
 
       cryptoData = captureResult.data;
+      captureExpectedSettlement(cryptoData.payment);
       // Juicyway returns address either at payment_method.address (docs) or
       // payment_method.params.address (live API). extractCryptoAddress handles both.
       const extractedAddr = extractCryptoAddress(
@@ -520,7 +567,10 @@ async function initializeJuicyway(
         paymentMethod = {
           address: extractedAddr.address,
           chain: extractedAddr.chain as JuicywayCryptoChain,
-          currency: extractedAddr.currency as JuicywayStablecoin,
+          currency: normalizeJuicywayStablecoin(
+            extractedAddr.currency,
+            cryptoCurrency
+          ),
           qrcode: extractedAddr.qrcode,
         };
       }
@@ -564,6 +614,7 @@ async function initializeJuicyway(
           }
 
           const polledSessionData = pollResult.data;
+          captureExpectedSettlement(polledSessionData.payment);
 
           // Update tracking variables — extract address from params or top-level
           cryptoData = polledSessionData;
@@ -574,7 +625,10 @@ async function initializeJuicyway(
             paymentMethod = {
               address: polledAddr.address,
               chain: polledAddr.chain as JuicywayCryptoChain,
-              currency: polledAddr.currency as JuicywayStablecoin,
+              currency: normalizeJuicywayStablecoin(
+                polledAddr.currency,
+                cryptoCurrency
+              ),
               qrcode: polledAddr.qrcode,
             };
           }
@@ -599,6 +653,7 @@ async function initializeJuicyway(
               );
               if (paymentCheck.success) {
                 const paymentDetails = paymentCheck.data;
+                captureExpectedSettlement(paymentDetails);
                 // The payment_method may include crypto fields (address, chain, currency)
                 // that aren't in the base JuicywayPaymentMethod schema
                 const pm = paymentDetails.payment_method as unknown as
@@ -624,9 +679,10 @@ async function initializeJuicyway(
                     chain: (pm?.chain ||
                       pm?.params?.chain ||
                       cryptoChain) as JuicywayCryptoChain,
-                    currency: (pm?.currency ||
-                      pm?.params?.currency ||
-                      cryptoCurrency) as JuicywayStablecoin,
+                    currency: normalizeJuicywayStablecoin(
+                      pm?.currency || pm?.params?.currency,
+                      cryptoCurrency
+                    ),
                   };
                 }
               }
@@ -666,11 +722,7 @@ async function initializeJuicyway(
 
       // payment.amount is in USDT/USDC cents (what we sent + Juicyway fee).
       // Convert to major units for display (e.g. 326 cents → "3.26").
-      const juicywayCryptoAmount = cryptoData?.payment?.amount;
-      const cryptoAmountStr =
-        juicywayCryptoAmount != null
-          ? (juicywayCryptoAmount / 100).toFixed(2)
-          : undefined;
+      const cryptoAmountStr = (expectedSettlementAmount / 100).toFixed(2);
 
       // If address is available, return it immediately
       if (paymentMethod?.address) {
@@ -682,7 +734,8 @@ async function initializeJuicyway(
             currency: paymentMethod.currency,
             amount: amountInMinor,
             crypto_amount: cryptoAmountStr,
-            expected_session_amount: juicywayCryptoAmount,
+            expected_session_amount: expectedSettlementAmount,
+            expected_session_currency: expectedSettlementCurrency,
             conversion_rate: conversionRate,
             confirmation_time: getChainConfirmationTime(paymentMethod.chain),
             qrcode: paymentMethod.qrcode,
@@ -705,7 +758,8 @@ async function initializeJuicyway(
           currency: cryptoCurrency,
           amount: amountInMinor,
           crypto_amount: cryptoAmountStr,
-          expected_session_amount: juicywayCryptoAmount,
+          expected_session_amount: expectedSettlementAmount,
+          expected_session_currency: expectedSettlementCurrency,
           conversion_rate: conversionRate,
           confirmation_time: getChainConfirmationTime(cryptoChain),
           payment_id: paymentId,
@@ -1413,7 +1467,9 @@ export async function POST(request: NextRequest) {
             session_id: paymentResult.sessionId ?? null,
             // Stablecoin minor units (cents), incl. Juicyway fee.
             juicyway_expected_amount: juicywayCrypto.expected_session_amount,
-            juicyway_expected_currency: juicywayCrypto.currency,
+            juicyway_expected_currency:
+              juicywayCrypto.expected_session_currency ??
+              juicywayCrypto.currency,
             juicyway_fx_rate: juicywayCrypto.conversion_rate ?? null,
           },
         }

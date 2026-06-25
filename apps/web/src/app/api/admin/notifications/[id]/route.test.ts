@@ -300,6 +300,31 @@ describe('/api/admin/notifications/[id]', () => {
     );
   });
 
+  it('accepts partial PATCH targeting when stored merchant IDs remain valid', async () => {
+    mockSupabase = createMockSupabase({
+      notification: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        sent_at: null,
+        target_merchant_ids: ['123e4567-e89b-12d3-a456-426614174111'],
+        target_segment: null,
+        target_type: 'specific',
+        title: 'Launch update',
+      },
+    });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PATCH(
+      createRequest('PATCH', { target_type: 'specific' }),
+      {
+        params: Promise.resolve({
+          id: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   it('deletes notifications after passing CSRF validation', async () => {
     const response = await DELETE(createRequest('DELETE'), {
       params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),

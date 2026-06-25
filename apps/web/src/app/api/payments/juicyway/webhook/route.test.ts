@@ -665,6 +665,7 @@ describe('POST /api/payments/juicyway/webhook', () => {
     platform_fee: '150',
     merchant_id: 'merchant-123',
     order_id: 'order-123',
+    created_at: '2026-06-25T15:00:00.000Z',
     metadata,
   });
 
@@ -837,6 +838,24 @@ describe('POST /api/payments/juicyway/webhook', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'Payment amount mismatch' });
     expect(state.orderUpdated).toBe(false);
+  });
+
+  it('processes legacy in-flight settlements created before expected metadata existed', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = {
+      ...pendingCryptoTxn({}),
+      created_at: '2026-06-25T14:00:00.000Z',
+    };
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload();
+    payload.data.amount = 5000;
+    payload.data.currency = 'USDT';
+    const response = await POST(createWebhookRequest(payload));
+
+    expect(response.status).toBe(200);
+    expect(state.orderUpdated).toBe(true);
   });
 
   it('suppresses side effects + settlement and files reconciliation when the order was clamped as cancelled', async () => {

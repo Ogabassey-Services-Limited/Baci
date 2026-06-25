@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
+  mergedNotificationTargetingSchema,
   notificationIdSchema,
   updateNotificationSchema,
 } from '@/schemas/notifications';
@@ -257,16 +258,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     const body = parsed.data;
 
-    const effectiveTargetingValidation = updateNotificationSchema.safeParse({
-      target_type: body.target_type ?? existing.target_type ?? undefined,
-      target_merchant_ids:
-        body.target_merchant_ids ??
-        (Array.isArray(existing.target_merchant_ids)
-          ? existing.target_merchant_ids
-          : undefined),
-      target_segment:
-        body.target_segment ?? existing.target_segment ?? undefined,
-    });
+    const effectiveTargetingValidation =
+      mergedNotificationTargetingSchema.safeParse({
+        target_type: body.target_type ?? existing.target_type ?? undefined,
+        target_merchant_ids:
+          body.target_merchant_ids ??
+          (Array.isArray(existing.target_merchant_ids)
+            ? existing.target_merchant_ids
+            : undefined),
+        target_segment:
+          body.target_segment ?? existing.target_segment ?? undefined,
+      });
     if (!effectiveTargetingValidation.success) {
       return NextResponse.json(
         {

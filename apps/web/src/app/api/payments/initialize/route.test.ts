@@ -1175,12 +1175,12 @@ describe('POST /api/payments/initialize', () => {
         data: {
           payment: {
             id: 'payment-456',
+            currency: 'USD',
             amount: 500000,
             status: 'processing',
             payment_method: {
               address: 'TRX_WALLET_ADDR_123',
               chain: 'TRX',
-              currency: 'USDT',
               qrcode: 'https://qr.example.com/qr.png',
             },
           },
@@ -1216,7 +1216,8 @@ describe('POST /api/payments/initialize', () => {
             customer_email: validBody.customer_email,
             customer_name: validBody.customer_name,
             session_id: 'session-123',
-            juicyway_expected_currency: 'USDT',
+            juicyway_expected_amount: 500000,
+            juicyway_expected_currency: 'USD',
           }),
         }),
       });
@@ -1234,6 +1235,7 @@ describe('POST /api/payments/initialize', () => {
         data: {
           payment: {
             id: 'payment-456',
+            currency: 'USDT',
             amount: 500000,
             status: 'pending',
             // No payment_method with address
@@ -1272,6 +1274,15 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.address).toBe('');
       expect(json.session_id).toBe('session-123');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
+      expect(rpcCalls.at(-1)).toEqual({
+        name: 'merge_transaction_metadata_by_reference',
+        args: expect.objectContaining({
+          p_metadata: expect.objectContaining({
+            juicyway_expected_amount: 500000,
+            juicyway_expected_currency: 'USDT',
+          }),
+        }),
+      });
     });
 
     it('fails checkout when Juicyway settlement metadata cannot be persisted', async () => {
