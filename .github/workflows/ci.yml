@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Required so the quality gate runs on merge-queue integration commits.
+  # Without this, an enabled merge queue would deadlock waiting for checks
+  # that never start. See the `changes` job for merge_group handling.
+  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -23,17 +27,20 @@ jobs:
   changes:
     runs-on: ubuntu-24.04
     outputs:
-      mobile_admin: ${{ steps.filter.outputs.mobile_admin }}
-      mobile_storefront: ${{ steps.filter.outputs.mobile_storefront }}
-      web: ${{ steps.filter.outputs.web }}
+      mobile_admin: ${{ steps.gate.outputs.mobile_admin }}
+      mobile_storefront: ${{ steps.gate.outputs.mobile_storefront }}
+      web: ${{ steps.gate.outputs.web }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           filter: blob:none
           persist-credentials: false
+      # paths-filter can't infer a base on merge_group events, so skip it there
+      # and run every gate (the queue validates the full integration anyway).
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
+        if: github.event_name != 'merge_group'
         with:
           token: ''
           filters: |
@@ -106,6 +113,29 @@ jobs:
               - 'biome.json'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
+      - name: Resolve change flags (run all gates in the merge queue)
+        id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FILTER_MOBILE_ADMIN: ${{ steps.filter.outputs.mobile_admin }}
+          FILTER_MOBILE_STOREFRONT: ${{ steps.filter.outputs.mobile_storefront }}
+          FILTER_WEB: ${{ steps.filter.outputs.web }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "merge_group" ]; then
+            mobile_admin=true
+            mobile_storefront=true
+            web=true
+          else
+            mobile_admin="${FILTER_MOBILE_ADMIN:-false}"
+            mobile_storefront="${FILTER_MOBILE_STOREFRONT:-false}"
+            web="${FILTER_WEB:-false}"
+          fi
+          {
+            echo "mobile_admin=$mobile_admin"
+            echo "mobile_storefront=$mobile_storefront"
+            echo "web=$web"
+          } >> "$GITHUB_OUTPUT"
 
   quality-lint:
     name: Quality Gate - Lint
