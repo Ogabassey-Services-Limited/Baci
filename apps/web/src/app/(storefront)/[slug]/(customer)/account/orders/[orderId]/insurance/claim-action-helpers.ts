@@ -35,7 +35,7 @@ export interface InsuranceActionPolicy {
 export type InsuranceCta =
   | { kind: 'awaiting_delivery' }
   | { kind: 'activation_pending' }
-  | { kind: 'claim_existing' }
+  | { kind: 'claim_existing'; url: string | null }
   | { kind: 'inspect'; url: string }
   | { kind: 'claim'; url: string | null };
 
@@ -52,11 +52,12 @@ function hasExistingClaim(policy: InsuranceActionPolicy): boolean {
 export function resolveInsuranceCta(
   policy: InsuranceActionPolicy
 ): InsuranceCta {
+  const claimUrl = resolveClaimUrl(policy);
+
   if (hasExistingClaim(policy)) {
-    return { kind: 'claim_existing' };
+    return { kind: 'claim_existing', url: claimUrl };
   }
 
-  const claimUrl = resolveClaimUrl(policy);
   const inspectionUrl = resolveInspectionUrl(policy);
   const inspectionStatus = policy.inspectionStatus?.trim().toLowerCase();
   const inspectionPending =

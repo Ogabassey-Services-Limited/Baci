@@ -80,7 +80,10 @@ async function hmacSha512Hex(secret: string, message: string): Promise<string> {
     .join('');
 }
 
-type MyCoverWebhookEventClaimResult = 'claimed' | 'duplicate';
+type MyCoverWebhookEventClaimResult =
+  | 'claimed'
+  | 'processed_duplicate'
+  | 'processing_duplicate';
 
 async function claimMyCoverWebhookEvent(
   supabase: SupabaseClient,
@@ -90,20 +93,59 @@ async function claimMyCoverWebhookEvent(
     return 'claimed';
   }
 
-  const { error } = await supabase
-    .from('mycover_webhook_events')
-    .insert({ event_id: payload.event_id, event: payload.event });
+  const { error } = await supabase.from('mycover_webhook_events').insert({
+    event_id: payload.event_id,
+    event: payload.event,
+    processing_status: 'processing',
+  });
 
   if (!error) {
     return 'claimed';
   }
 
-  if (error.code === '23505') {
-    return 'duplicate';
+  if (error.code !== '23505') {
+    console.error('[MyCover Webhook] Failed to claim event_id:', error);
+    throw error;
   }
 
-  console.error('[MyCover Webhook] Failed to claim event_id:', error);
-  throw error;
+  const { data, error: lookupError } = await supabase
+    .from('mycover_webhook_events')
+    .select('processing_status')
+    .eq('event_id', payload.event_id)
+    .maybeSingle<{ processing_status: string | null }>();
+
+  if (lookupError) {
+    console.error(
+      '[MyCover Webhook] Failed to inspect event_id claim:',
+      lookupError
+    );
+    throw lookupError;
+  }
+
+  return data?.processing_status === 'processed'
+    ? 'processed_duplicate'
+    : 'processing_duplicate';
+}
+
+async function completeMyCoverWebhookEventClaim(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('mycover_webhook_events')
+    .update({
+      processed_at: new Date().toISOString(),
+      processing_status: 'processed',
+    })
+    .eq('event_id', eventId);
+
+  if (error) {
+    console.error(
+      '[MyCover Webhook] Failed to complete event_id claim:',
+      error
+    );
+    throw error;
+  }
 }
 
 async function releaseMyCoverWebhookEventClaim(
@@ -190,10 +232,18 @@ export async function POST(request: NextRequest) {
     // side effects so concurrent retries cannot both process the same event.
     if (payload.event_id) {
       const claimResult = await claimMyCoverWebhookEvent(supabase, payload);
-      if (claimResult === 'duplicate') {
+      if (claimResult === 'processed_duplicate') {
         return NextResponse.json({ received: true, duplicate: true });
       }
+      if (claimResult === 'processing_duplicate') {
+        return NextResponse.json(
+          { error: 'Webhook event is still processing', retry: true },
+          { status: 409 }
+        );
+      }
     }
+
+    let releaseClaimOnError = true;
 
     try {
       // The top-level `status` is the operation outcome. Don't mutate state on a
@@ -203,6 +253,9 @@ export async function POST(request: NextRequest) {
           '[MyCover Webhook] Skipping failed-status event:',
           safeEvent
         );
+        if (payload.event_id) {
+          await completeMyCoverWebhookEventClaim(supabase, payload.event_id);
+        }
         return NextResponse.json({ received: true, skipped: 'failed_status' });
       }
 
@@ -256,8 +309,12 @@ export async function POST(request: NextRequest) {
         default:
           console.log('[MyCover Webhook] Unhandled event:', safeEvent);
       }
-    } catch (error) {
       if (payload.event_id) {
+        releaseClaimOnError = false;
+        await completeMyCoverWebhookEventClaim(supabase, payload.event_id);
+      }
+    } catch (error) {
+      if (payload.event_id && releaseClaimOnError) {
         await releaseMyCoverWebhookEventClaim(supabase, payload.event_id);
       }
       throw error;
@@ -353,9 +410,12 @@ async function handleInspectionCompleted(
     return;
   }
 
+  const { claim_link: claimLink } = getHostedFlowLinks(data);
+
   const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
+      ...(claimLink ? { claim_link: claimLink } : {}),
       inspection_status: 'completed',
       updated_at: new Date().toISOString(),
     })

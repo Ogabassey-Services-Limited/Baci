@@ -125,7 +125,7 @@ describe('resolveInsuranceCta', () => {
     });
   });
 
-  it('hides claim actions once MyCover has an existing claim state', () => {
+  it('keeps hosted claim actions available once MyCover has an existing claim state', () => {
     expect(
       resolveInsuranceCta({
         claimLink: 'https://mycover.ai/purchase?q=claim',
@@ -133,7 +133,10 @@ describe('resolveInsuranceCta', () => {
         claimStatus: 'offer_sent',
         inspectionStatus: 'completed',
       })
-    ).toEqual({ kind: 'claim_existing' });
+    ).toEqual({
+      kind: 'claim_existing',
+      url: 'https://mycover.ai/purchase?q=claim',
+    });
 
     expect(
       resolveInsuranceCta({
@@ -141,6 +144,18 @@ describe('resolveInsuranceCta', () => {
         claimStatus: 'pending',
         inspectionStatus: 'completed',
       })
-    ).toEqual({ kind: 'claim_existing' });
+    ).toEqual({
+      kind: 'claim_existing',
+      url: 'https://mycover.ai/purchase?q=claim',
+    });
+  });
+
+  it('keeps existing claim informational when no hosted claim link is stored', () => {
+    expect(
+      resolveInsuranceCta({
+        claimStatus: 'offer_sent',
+        inspectionStatus: 'completed',
+      })
+    ).toEqual({ kind: 'claim_existing', url: null });
   });
 });

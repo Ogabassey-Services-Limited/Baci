@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   dedupDelete: vi.fn(),
   dedupInsert: vi.fn(),
+  dedupSelect: vi.fn(),
+  dedupUpdate: vi.fn(),
   fetch: vi.fn(),
   getMyCoverWebhookSecret: vi.fn(),
   maybeNotifyActivateProtection: vi.fn(),
@@ -50,10 +52,17 @@ function createSupabaseMock({
   policyUpdateResult = { data: { id: 'policy-row' }, error: null },
   dedupDeleteResult = { error: null } as { error: unknown },
   dedupInsertResult = { error: null } as { error: unknown },
+  dedupSelectResult = {
+    data: { processing_status: 'processed' },
+    error: null,
+  } as { data: unknown; error: unknown },
+  dedupUpdateResult = { error: null } as { error: unknown },
 }: {
   policyUpdateResult?: { data: unknown; error: unknown };
   dedupDeleteResult?: { error: unknown };
   dedupInsertResult?: { error: unknown };
+  dedupSelectResult?: { data: unknown; error: unknown };
+  dedupUpdateResult?: { error: unknown };
 } = {}) {
   return {
     from: vi.fn((table: string) => {
@@ -69,6 +78,20 @@ function createSupabaseMock({
             mocks.dedupInsert(row);
             return Promise.resolve(dedupInsertResult);
           }),
+          select: vi.fn(() => ({
+            eq: vi.fn((column: string, value: string) => {
+              mocks.dedupSelect(column, value);
+              return {
+                maybeSingle: vi.fn().mockResolvedValue(dedupSelectResult),
+              };
+            }),
+          })),
+          update: vi.fn((row: unknown) => ({
+            eq: vi.fn((column: string, value: string) => {
+              mocks.dedupUpdate(row, column, value);
+              return Promise.resolve(dedupUpdateResult);
+            }),
+          })),
         };
       }
       if (table !== 'order_insurance_policies') {
@@ -273,6 +296,37 @@ describe('POST /api/webhooks/mycover', () => {
     >;
     expect(updatePayload).not.toHaveProperty('claim_link');
     expect(updatePayload).not.toHaveProperty('inspection_link');
+  });
+
+  it('persists the hosted claim link when preloss inspection.completed includes one', async () => {
+    const payload = {
+      data: {
+        essential: {
+          type: 'Gadget',
+          status: 'completed',
+          category: 'preloss',
+          policy_id: 'pol-abc',
+        },
+        meta: { policy_id: 'pol-abc' },
+        sdk: {
+          claim_link: 'https://mycover.ai/purchase?q=claim-after-inspect',
+        },
+      },
+      event: 'inspection.completed',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.policyUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claim_link: 'https://mycover.ai/purchase?q=claim-after-inspect',
+        inspection_status: 'completed',
+      })
+    );
   });
 
   it('marks the policy inspected on preloss inspection.completed', async () => {
@@ -921,11 +975,15 @@ describe('POST /api/webhooks/mycover', () => {
   });
 
   describe('idempotency', () => {
-    it('skips processing when the event_id was already claimed', async () => {
+    it('skips processing when the event_id was already processed', async () => {
       mocks.createServiceClient.mockReturnValue(
         createSupabaseMock({
           dedupInsertResult: {
             error: { code: '23505', message: 'duplicate key' },
+          },
+          dedupSelectResult: {
+            data: { processing_status: 'processed' },
+            error: null,
           },
         })
       );
@@ -946,11 +1004,45 @@ describe('POST /api/webhooks/mycover', () => {
       expect(mocks.dedupInsert).toHaveBeenCalledWith(
         expect.objectContaining({ event_id: 'evt-1' })
       );
+      expect(mocks.dedupSelect).toHaveBeenCalledWith('event_id', 'evt-1');
       expect(mocks.policyUpdate).not.toHaveBeenCalled();
       expect(mocks.dedupDelete).not.toHaveBeenCalled();
     });
 
-    it('claims the event_id before successful processing', async () => {
+    it('returns a retryable non-2xx response when the event_id is still processing', async () => {
+      mocks.createServiceClient.mockReturnValue(
+        createSupabaseMock({
+          dedupInsertResult: {
+            error: { code: '23505', message: 'duplicate key' },
+          },
+          dedupSelectResult: {
+            data: { processing_status: 'processing' },
+            error: null,
+          },
+        })
+      );
+      const payload = {
+        event_id: 'evt-processing',
+        event: 'purchase.successful',
+        data: { essential: { policy_id: 'pol-1' } },
+      };
+      const rawBody = JSON.stringify(payload);
+
+      const response = await POST(
+        createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toEqual({
+        error: 'Webhook event is still processing',
+        retry: true,
+      });
+      expect(mocks.policyUpdate).not.toHaveBeenCalled();
+      expect(mocks.dedupDelete).not.toHaveBeenCalled();
+    });
+
+    it('claims the event_id before successful processing and marks it processed after', async () => {
       const payload = {
         event_id: 'evt-2',
         event: 'purchase.successful',
@@ -968,6 +1060,14 @@ describe('POST /api/webhooks/mycover', () => {
       expect(mocks.policyUpdate).toHaveBeenCalled();
       expect(mocks.dedupInsert.mock.invocationCallOrder[0]).toBeLessThan(
         mocks.policyUpdate.mock.invocationCallOrder[0]
+      );
+      expect(mocks.policyUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.dedupUpdate.mock.invocationCallOrder[0]
+      );
+      expect(mocks.dedupUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ processing_status: 'processed' }),
+        'event_id',
+        'evt-2'
       );
       expect(mocks.dedupDelete).not.toHaveBeenCalled();
     });
