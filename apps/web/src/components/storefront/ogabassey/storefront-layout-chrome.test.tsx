@@ -58,9 +58,13 @@ vi.mock('./components/GoogleAdManager', () => ({
   ),
 }));
 
+vi.mock('./components/Footer', () => {
+  throw new Error('Full Footer must stay out of storefront-layout-chrome');
+});
+
 vi.mock('./components/MobileFooter', () => ({
   MobileFooter: ({ storeSlug }: { storeSlug: string }) => (
-    <footer>{storeSlug}</footer>
+    <nav aria-label="Mobile footer">{storeSlug}</nav>
   ),
 }));
 
@@ -75,6 +79,9 @@ vi.mock('./storefront-deferred-footer-chrome', () => ({
     basePath: string;
   }) => (
     <section aria-label="deferred footer commerce">
+      <footer aria-label="Full storefront footer">
+        <a href={`${basePath}/about`}>About Us</a>
+      </footer>
       <aside aria-label="FOOTER_BANNER">FOOTER_BANNER</aside>
       <section aria-label="dynamic slot" />
       <aside aria-label="cart sidebar" />
@@ -120,10 +127,24 @@ describe('OgabasseyLayoutChrome', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders mobile footer immediately and defers footer commerce chrome', () => {
+  it('renders mobile and lightweight semantic footer links immediately while deferring full footer commerce widgets', () => {
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
 
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('/ogabassey');
+    expect(
+      screen.getByRole('navigation', { name: /mobile footer/i })
+    ).toHaveTextContent('/ogabassey');
+    expect(
+      screen.getByRole('contentinfo', {
+        name: /semantic storefront footer/i,
+      })
+    ).toContainElement(screen.getByRole('link', { name: /about us/i }));
+    expect(screen.getByRole('link', { name: /all products/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/products'
+    );
+    expect(
+      screen.queryByRole('contentinfo', { name: /full storefront footer/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('complementary', { name: 'FOOTER_BANNER' })
     ).not.toBeInTheDocument();
@@ -145,6 +166,15 @@ describe('OgabasseyLayoutChrome', () => {
     ).toHaveAttribute('data-defer-interaction-until-next-paint', 'true');
   });
 
+  it('keeps immediate footer links root-relative for domain-routed storefronts', () => {
+    render(<OgabasseyLayoutChrome basePath="" section="footer" />);
+
+    expect(screen.getByRole('link', { name: /about us/i })).toHaveAttribute(
+      'href',
+      '/about'
+    );
+  });
+
   it('mounts deferred footer commerce chrome after activation', async () => {
     deferredShellActive = true;
 
@@ -155,6 +185,14 @@ describe('OgabasseyLayoutChrome', () => {
         name: /deferred footer commerce/i,
       })
     ).toHaveTextContent('/ogabassey');
+    expect(
+      screen.getByRole('contentinfo', { name: /full storefront footer/i })
+    ).toContainElement(screen.getByRole('link', { name: /about us/i }));
+    expect(
+      screen.queryByRole('contentinfo', {
+        name: /semantic storefront footer/i,
+      })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('complementary', { name: 'FOOTER_BANNER' })
     ).toHaveTextContent('FOOTER_BANNER');
@@ -275,7 +313,12 @@ describe('OgabasseyLayoutChrome', () => {
 
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
 
-    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: /mobile footer/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('contentinfo', { name: /full storefront footer/i })
+    ).toBeInTheDocument();
     expect(
       await screen.findByRole('region', {
         name: /deferred footer commerce/i,

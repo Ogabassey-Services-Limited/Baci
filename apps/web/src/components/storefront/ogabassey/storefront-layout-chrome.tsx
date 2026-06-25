@@ -40,6 +40,51 @@ interface OgabasseyLayoutChromeProps {
 
 export type OgabasseyLayoutChromeSection = OgabasseyChromeSection;
 
+function normalizeFooterBasePath(basePath: string): string {
+  const normalized = basePath.trim().replace(/\/+$/g, '');
+  return normalized === '/' ? '' : normalized;
+}
+
+function buildFooterHref(basePath: string, path: string): string {
+  const normalizedBasePath = normalizeFooterBasePath(basePath);
+  return `${normalizedBasePath}${path}`;
+}
+
+function StorefrontSemanticFooterFallback({ basePath }: { basePath: string }) {
+  const links = [
+    ['About Us', '/about'],
+    ['All Products', '/products'],
+    ['Blog', '/blog'],
+    ['Track Order', '/track-order'],
+    ['Contact Us', '/contact'],
+    ['FAQ', '/faq'],
+    ['Terms of Service', '/terms'],
+    ['Privacy Policy', '/privacy'],
+  ] as const;
+
+  return (
+    <footer
+      aria-label="Semantic storefront footer"
+      className="border-store-border border-t bg-store-background px-4 py-8 text-store-background-text"
+    >
+      <nav
+        aria-label="Footer navigation"
+        className="mx-auto flex max-w-[1400px] flex-wrap gap-x-6 gap-y-3 text-sm"
+      >
+        {links.map(([label, path]) => (
+          <a
+            className="text-store-background-text/75 underline-offset-4 hover:text-store-primary hover:underline"
+            href={buildFooterHref(basePath, path)}
+            key={path}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+    </footer>
+  );
+}
+
 export function OgabasseyLayoutChrome({
   merchant,
   basePath,
@@ -75,11 +120,14 @@ export function OgabasseyLayoutChrome({
         {!resolvedHideMobileFooter && <MobileFooter storeSlug={basePath} />}
 
         <DeferredShellFeature
+          fallback={<StorefrontSemanticFooterFallback basePath={basePath} />}
           timeoutMs={1600}
           activateOnInteraction
           deferInteractionActivationUntilNextPaint
         >
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={<StorefrontSemanticFooterFallback basePath={basePath} />}
+          >
             <StorefrontDeferredFooterChrome
               basePath={basePath}
               merchant={merchant}

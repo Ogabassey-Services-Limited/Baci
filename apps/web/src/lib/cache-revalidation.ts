@@ -86,7 +86,8 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   // 200 for a removed one. Every product mutation path funnels through here.
   revalidateTag(`product-slug-set-${normalizedMerchantId}`, 'products');
 
-  // Invalidate legacy product redirect cache
+  // Invalidate product redirect caches
+  revalidateTag('product-canonical-redirect', 'products');
   revalidateTag('product-legacy-redirect', 'products');
 
   // Invalidate merchant feed (OpenAI, Google Merchant)
@@ -107,6 +108,8 @@ export function revalidateCategories(
   revalidateTag(`categories-${merchantId}`, 'categories');
   revalidateTag('navigation-categories', 'categories');
   revalidateTag('category-page-data', 'storefront-page');
+  revalidateTag('product-canonical-redirect', 'products');
+  revalidateTag('product-legacy-redirect', 'products');
 
   if (categorySlug) {
     revalidateTag(`category-${merchantId}-${categorySlug}`, 'categories');

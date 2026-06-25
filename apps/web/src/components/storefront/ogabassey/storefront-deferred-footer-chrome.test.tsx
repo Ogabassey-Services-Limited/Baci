@@ -18,21 +18,28 @@ vi.mock('./components/chat/DeferredChatWidget', () => ({
 }));
 
 vi.mock('./components/Footer', () => ({
-  Footer: () => <footer aria-label="Store footer" />,
+  Footer: ({ storeSlug }: { storeSlug: string }) => (
+    <footer aria-label="Full storefront footer">
+      <a href={`${storeSlug}/about`}>About Us</a>
+    </footer>
+  ),
 }));
 
 import { StorefrontDeferredFooterChrome } from './storefront-deferred-footer-chrome';
 
 describe('StorefrontDeferredFooterChrome', () => {
-  it('mounts footer commerce features behind the deferred chrome boundary', async () => {
+  it('mounts the full footer and footer commerce widgets behind the deferred chrome boundary', async () => {
     render(<StorefrontDeferredFooterChrome basePath="/ogabassey" />);
+
+    expect(
+      await screen.findByRole('contentinfo', {
+        name: /full storefront footer/i,
+      })
+    ).toContainElement(screen.getByRole('link', { name: /about us/i }));
 
     expect(
       await screen.findByRole('complementary', { name: /footer ad unit/i })
     ).toHaveTextContent('FOOTER_BANNER');
-    expect(
-      await screen.findByRole('contentinfo', { name: /store footer/i })
-    ).toBeInTheDocument();
     expect(
       await screen.findByRole('dialog', { name: /deferred cart sidebar/i })
     ).toBeInTheDocument();
@@ -40,19 +47,6 @@ describe('StorefrontDeferredFooterChrome', () => {
       await screen.findByRole('complementary', {
         name: /deferred chat widget/i,
       })
-    ).toBeInTheDocument();
-  });
-
-  it('mounts the footer when merchant data is unavailable', async () => {
-    render(
-      <StorefrontDeferredFooterChrome
-        basePath="/ogabassey"
-        merchant={undefined}
-      />
-    );
-
-    expect(
-      await screen.findByRole('contentinfo', { name: /store footer/i })
     ).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from './config/storefront-metadata-cache-bots';
@@ -57,6 +58,14 @@ vi.mock('@/lib/storefront-product-slug-membership', () => ({
   resolveStorefrontProductSlugResolution: vi
     .fn()
     .mockResolvedValue({ kind: 'present-or-unknown' }),
+}));
+
+// Mock the canonical PDP redirect lookup. Defaults to "already canonical" so
+// existing rewrite/404 tests only opt into redirects when explicitly needed.
+vi.mock('@/lib/storefront-product-canonical-redirect', () => ({
+  getStorefrontProductCanonicalRedirectResult: vi
+    .fn()
+    .mockResolvedValue({ kind: 'unknown' }),
 }));
 
 // Mock rate limit
@@ -113,6 +122,9 @@ describe('Middleware Proxy', () => {
     // override does not leak into unrelated custom-domain tests.
     vi.mocked(resolveStorefrontProductSlugResolution).mockResolvedValue({
       kind: 'present-or-unknown',
+    });
+    vi.mocked(getStorefrontProductCanonicalRedirectResult).mockResolvedValue({
+      kind: 'unknown',
     });
   });
 
@@ -717,6 +729,175 @@ describe('Middleware Proxy', () => {
       resolutionMock.mockResolvedValue(
         missing ? { kind: 'missing' } : { kind: 'present-or-unknown' }
       );
+
+    const canonicalRedirectMock = vi.mocked(
+      getStorefrontProductCanonicalRedirectResult
+    );
+
+    it('308-redirects stale custom-domain category aliases before the App Router streams a 200 shell', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest('https://ogabassey.com/tecno/tecno-spark-40');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/tecno-spark-40'
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'tecno',
+          identifier: 'ogabassey',
+          productSlug: 'tecno-spark-40',
+          secret: 'test-internal-secret',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('308-redirects UUID-shaped PDP aliases before the App Router renders a duplicate 200', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/google-pixel-10',
+      });
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/123e4567-e89b-12d3-a456-426614174000'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/google-pixel-10'
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'smartphones',
+          identifier: 'ogabassey',
+          productSlug: '123e4567-e89b-12d3-a456-426614174000',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('preserves attribution query params on pre-streaming canonical redirects', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/tecno/tecno-spark-40?utm_source=email&gclid=abc123'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/smartphones/tecno-spark-40?utm_source=email&gclid=abc123'
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'tecno',
+          identifier: 'ogabassey',
+          productSlug: 'tecno-spark-40',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('308-redirects stale category aliases on merchant subdomains before the storefront rewrite', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/tecno/tecno-spark-40`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        `https://ogabassey.${ROOT_DOMAIN}/smartphones/tecno-spark-40`
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'tecno',
+          identifier: 'ogabassey',
+          productSlug: 'tecno-spark-40',
+          secret: 'test-internal-secret',
+        })
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
+
+    it('308-redirects archived variant slugs on root-domain slug paths while preserving the merchant prefix', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/samsung-galaxy-z-fold-6',
+      });
+      const req = new NextRequest(
+        'https://usebaci.com/ogabassey/smartphones/samsung-galaxy-z-fold-6-12gb-256gb'
+      );
+      req.headers.set('host', 'usebaci.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://usebaci.com/ogabassey/smartphones/samsung-galaxy-z-fold-6'
+      );
+      expect(canonicalRedirectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'smartphones',
+          identifier: 'ogabassey',
+          productSlug: 'samsung-galaxy-z-fold-6-12gb-256gb',
+        })
+      );
+    });
+
+    it('does not run the canonical redirect lookup for RSC/prefetch navigations', async () => {
+      canonicalRedirectMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/smartphones/tecno-spark-40',
+      });
+      const req = new NextRequest('https://ogabassey.com/tecno/tecno-spark-40');
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('RSC', '1');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(canonicalRedirectMock).not.toHaveBeenCalled();
+    });
+
+    it('skips the slug membership lookup when canonical preflight proves the PDP is already canonical', async () => {
+      canonicalRedirectMock.mockResolvedValue({ kind: 'checked-no-redirect' });
+      resolutionMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/smartphones/tecno-spark-40'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/smartphones/tecno-spark-40'
+      );
+      expect(resolutionMock).not.toHaveBeenCalled();
+    });
 
     it('returns a hard 404 for a confirmed-missing product slug on a custom domain', async () => {
       mockMissing(true);

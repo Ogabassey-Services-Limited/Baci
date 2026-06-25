@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -21,7 +20,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import {
+  type Customer,
+  useCustomerAuth,
+} from '@/contexts/customer-auth-context';
 import { useCurrency } from '@/hooks/use-currency';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
@@ -61,7 +63,13 @@ const accountLinks = [
   },
 ];
 
-export function AccountPageClient() {
+interface AccountPageClientProps {
+  initialCustomer?: Customer | null;
+}
+
+export function AccountPageClient({
+  initialCustomer = null,
+}: AccountPageClientProps = {}) {
   const router = useRouter();
   const { merchant, loading: merchantLoading, basePath } = useMerchant();
   const {
@@ -73,13 +81,12 @@ export function AccountPageClient() {
   const { currencySymbol } = useCurrency();
   const resolvedBasePath = basePath || '';
   const getHref = (path: string) => `${resolvedBasePath}${path}`;
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!merchantLoading && !authLoading && !isAuthenticated) {
-      router.push(asRoute(`${resolvedBasePath}/account/login`));
-    }
-  }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
+  const displayCustomer =
+    isAuthenticated && customer
+      ? customer
+      : authLoading
+        ? initialCustomer
+        : null;
 
   const handleLogout = async () => {
     try {
@@ -91,7 +98,7 @@ export function AccountPageClient() {
     }
   };
 
-  if (merchantLoading || authLoading) {
+  if (merchantLoading) {
     return (
       <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -109,8 +116,31 @@ export function AccountPageClient() {
     );
   }
 
-  if (!isAuthenticated || !customer) {
-    return null;
+  if (!displayCustomer) {
+    return (
+      <main className="min-h-screen bg-linear-to-b from-background to-muted/20">
+        <div className="container mx-auto max-w-xl px-4 py-16 text-center">
+          <h1 className="mb-4 text-3xl font-bold">
+            Sign in to view your account
+          </h1>
+          <p className="mb-8 text-muted-foreground">
+            Access your orders, receipts, saved addresses and account
+            preferences after signing in.
+          </p>
+          <Button asChild>
+            <Link
+              href={asRoute(
+                `${resolvedBasePath}/account/login?redirect=${encodeURIComponent(
+                  `${resolvedBasePath}/account`
+                )}`
+              )}
+            >
+              Sign in to your account
+            </Link>
+          </Button>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -138,9 +168,9 @@ export function AccountPageClient() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">
-                Welcome back, {customer.first_name || 'there'}!
+                Welcome back, {displayCustomer.first_name || 'there'}!
               </h1>
-              <p className="text-muted-foreground">{customer.email}</p>
+              <p className="text-muted-foreground">{displayCustomer.email}</p>
             </div>
           </div>
 
@@ -149,7 +179,7 @@ export function AccountPageClient() {
             <Card>
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">
-                  {customer.total_orders || 0}
+                  {displayCustomer.total_orders || 0}
                 </p>
                 <p className="text-sm text-muted-foreground">Orders</p>
               </CardContent>
@@ -158,7 +188,7 @@ export function AccountPageClient() {
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">
                   {currencySymbol}
-                  {(customer.total_spent || 0).toLocaleString()}
+                  {(displayCustomer.total_spent || 0).toLocaleString()}
                 </p>
                 <p className="text-sm text-muted-foreground">Total Spent</p>
               </CardContent>
@@ -167,7 +197,7 @@ export function AccountPageClient() {
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">
                   {currencySymbol}
-                  {(customer.store_credit || 0).toLocaleString()}
+                  {(displayCustomer.store_credit || 0).toLocaleString()}
                 </p>
                 <p className="text-sm text-muted-foreground">Store Credit</p>
               </CardContent>
@@ -175,7 +205,7 @@ export function AccountPageClient() {
             <Card>
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">
-                  {customer.saved_addresses?.length || 0}
+                  {displayCustomer.saved_addresses?.length || 0}
                 </p>
                 <p className="text-sm text-muted-foreground">Addresses</p>
               </CardContent>
@@ -206,7 +236,7 @@ export function AccountPageClient() {
         </div>
 
         {/* Recent activity hint */}
-        {(customer.total_orders || 0) === 0 && (
+        {(displayCustomer.total_orders || 0) === 0 && (
           <Card className="mt-8 bg-primary/5 border-primary/20">
             <CardContent className="p-6 text-center">
               <Package className="size-12 mx-auto mb-4 text-primary/60" />

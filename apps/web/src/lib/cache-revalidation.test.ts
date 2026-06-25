@@ -70,6 +70,10 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         'product-legacy-redirect',
         'products'
       );
@@ -85,7 +89,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(12);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(13);
     });
 
     it('revalidates specific product when slug provided', () => {
@@ -130,6 +134,10 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         'google-merchant-feed',
         'products'
       );
@@ -141,7 +149,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(13);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(14);
     });
 
     it('revalidates non-ASCII product slugs with ByteString-safe cache tags', () => {
@@ -157,7 +165,7 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidateTag).toHaveBeenCalledWith(expectedTag, 'products');
       expect(expectedTag).not.toContain('–');
       expect(expectedTag).not.toContain('”');
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(13);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(14);
     });
 
     it('handles empty slug gracefully', () => {
@@ -176,7 +184,7 @@ describe('cache-revalidation utilities', () => {
         `merchant-id-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(12);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(13);
     });
   });
 
@@ -196,7 +204,15 @@ describe('cache-revalidation utilities', () => {
         'category-page-data',
         'storefront-page'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
     });
 
     it('revalidates specific category when slug provided', () => {
@@ -220,7 +236,15 @@ describe('cache-revalidation utilities', () => {
         'category-page-data',
         'storefront-page'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(6);
     });
 
     it('handles empty slug gracefully', () => {
@@ -230,7 +254,15 @@ describe('cache-revalidation utilities', () => {
         `categories-${MERCHANT_ID}`,
         'categories'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-canonical-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
     });
   });
 
@@ -704,7 +736,7 @@ describe('cache-revalidation utilities', () => {
         }
       }).not.toThrow();
 
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1200); // 12 calls per invocation * 100
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1300); // 13 calls per invocation * 100
     });
 
     it('handles null/undefined merchant IDs gracefully', () => {

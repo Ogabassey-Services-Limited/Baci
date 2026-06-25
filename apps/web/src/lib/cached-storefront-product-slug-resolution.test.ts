@@ -194,6 +194,14 @@ const migrationSql = readFileSync(
   'utf8'
 );
 
+const uuidResolverMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260625053000_extend_product_slug_resolution_uuid.sql'
+  ),
+  'utf8'
+);
+
 describe('merchant product slug-resolution RPC migration contract', () => {
   it('uses a least-privilege security-definer function for public callers', () => {
     expect(migrationSql).toMatch(/SECURITY\s+DEFINER/i);
@@ -209,5 +217,15 @@ describe('merchant product slug-resolution RPC migration contract', () => {
     expect(migrationSql).toContain("parent.status = 'active'");
     expect(migrationSql).toContain('parent.id = matched.parent_product_id');
     expect(migrationSql).toContain('COALESCE(m.is_published, FALSE) = TRUE');
+  });
+
+  it('preserves slug lookup when adding UUID-shaped product id lookup', () => {
+    expect(uuidResolverMigrationSql).toContain('p.slug = input.slug');
+    expect(uuidResolverMigrationSql).toContain(
+      'OR (input.product_id IS NOT NULL AND p.id = input.product_id)'
+    );
+    expect(uuidResolverMigrationSql).not.toContain(
+      'input.product_id IS NULL AND p.slug = input.slug'
+    );
   });
 });

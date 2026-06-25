@@ -34,6 +34,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -380,6 +381,10 @@ function getStorefrontContentSegments(
   return isSlugPrefixedStorefrontRequest(hostname)
     ? pathSegments.slice(1)
     : pathSegments;
+}
+
+function normalizePathnameForCompare(pathname: string): string {
+  return (pathname.replace(/\/+$/g, '') || '/').toLowerCase();
 }
 
 function getNestedProductSubrouteSegment(
@@ -1352,6 +1357,104 @@ async function resolveStorefrontPdpHardNotFound(
     userAgent,
     hostname
   );
+}
+
+/**
+ * Canonical PDP redirect for stale category aliases and archived variant slugs.
+ *
+ * This runs in proxy before the App Router/PPR page streams. Relying on
+ * `permanentRedirect()` inside the streamed product route can produce a 200
+ * noindex shell that only changes after JS/rendering in Semrush/Google-style
+ * crawls. The internal endpoint performs the DB/cache lookup behind the
+ * platform host and fails open on uncertainty.
+ */
+interface StorefrontPdpCanonicalRedirectResolution {
+  response: NextResponse | null;
+  skipHardNotFound: boolean;
+}
+
+async function resolveStorefrontPdpCanonicalRedirect(
+  request: NextRequest,
+  pathname: string,
+  hostname: string | undefined,
+  identifier: string,
+  publicPathPrefix = ''
+): Promise<StorefrontPdpCanonicalRedirectResolution> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return { response: null, skipHardNotFound: false };
+  }
+  if (
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-state-tree')
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
+  if (fetchDest && fetchDest !== 'document') {
+    return { response: null, skipHardNotFound: false };
+  }
+
+  const routeType = getRouteType(pathname);
+  if (routeType !== 'storefront') {
+    return { response: null, skipHardNotFound: false };
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return { response: null, skipHardNotFound: false };
+  }
+
+  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
+  const productSlug = safeDecodeSegment(contentSegments[1]);
+  const isProductsFallbackPdp = firstSegment === 'products';
+
+  if (
+    !isProductsFallbackPdp &&
+    (!firstSegment || NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  if (
+    !productSlug ||
+    RESERVED_STOREFRONT_SEGMENTS.has(productSlug.toLowerCase())
+  ) {
+    return { response: null, skipHardNotFound: false };
+  }
+  const canonicalResult = await getStorefrontProductCanonicalRedirectResult({
+    origin: request.nextUrl.origin,
+    identifier,
+    category: firstSegment,
+    productSlug,
+    secret: getInternalApiSecret(),
+  });
+
+  if (canonicalResult.kind === 'unknown') {
+    return { response: null, skipHardNotFound: false };
+  }
+
+  if (canonicalResult.kind === 'checked-no-redirect') {
+    return { response: null, skipHardNotFound: true };
+  }
+
+  const publicTargetPath = `${publicPathPrefix}${canonicalResult.redirectPath}`;
+  if (
+    normalizePathnameForCompare(publicTargetPath) ===
+    normalizePathnameForCompare(pathname)
+  ) {
+    return { response: null, skipHardNotFound: true };
+  }
+
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = publicTargetPath;
+  return {
+    response: NextResponse.redirect(redirectUrl, 308),
+    skipHardNotFound: true,
+  };
 }
 
 function buildStrictCspResponse(
@@ -2333,18 +2436,30 @@ export async function proxy(request: NextRequest) {
         // Slug lookup failed — fall through to standard domain rewrite
       }
 
-      // Crawl-budget hard-404 (PR-B §3.2): a confirmed-missing PDP product slug
-      // gets a real 404 instead of a soft-404 shell. Fail-open; runs before the
-      // storefront rewrite so a true typo never reaches the dynamic route.
-      const pdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+      const pdpCanonicalRedirect = await resolveStorefrontPdpCanonicalRedirect(
         request,
         pathname,
         hostname,
-        userAgent,
         domainMerchantSlug ?? domain
       );
-      if (pdpHardNotFound) {
-        return pdpHardNotFound;
+      if (pdpCanonicalRedirect.response) {
+        return pdpCanonicalRedirect.response;
+      }
+
+      // Crawl-budget hard-404 (PR-B §3.2): a confirmed-missing PDP product slug
+      // gets a real 404 instead of a soft-404 shell. Fail-open; runs before the
+      // storefront rewrite so a true typo never reaches the dynamic route.
+      if (!pdpCanonicalRedirect.skipHardNotFound) {
+        const pdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          domainMerchantSlug ?? domain
+        );
+        if (pdpHardNotFound) {
+          return pdpHardNotFound;
+        }
       }
 
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
@@ -2518,19 +2633,32 @@ export async function proxy(request: NextRequest) {
       });
     }
 
+    const subdomainPdpCanonicalRedirect =
+      await resolveStorefrontPdpCanonicalRedirect(
+        request,
+        pathname,
+        hostname,
+        subdomain as string
+      );
+    if (subdomainPdpCanonicalRedirect.response) {
+      return subdomainPdpCanonicalRedirect.response;
+    }
+
     // Crawl-budget hard-404 (PR-B §3.2) for SUBDOMAIN storefronts
     // (`{slug}.usebaci.com/{category}/{product}`). Same fail-open guard as the
     // custom-domain branch; identifier is the subdomain. The subdomain host is
     // not a platform host, so content segments are not slug-sliced here.
-    const subdomainPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-      request,
-      pathname,
-      hostname,
-      userAgent,
-      subdomain as string
-    );
-    if (subdomainPdpHardNotFound) {
-      return subdomainPdpHardNotFound;
+    if (!subdomainPdpCanonicalRedirect.skipHardNotFound) {
+      const subdomainPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        subdomain as string
+      );
+      if (subdomainPdpHardNotFound) {
+        return subdomainPdpHardNotFound;
+      }
     }
 
     const url = request.nextUrl.clone();
@@ -2645,15 +2773,29 @@ export async function proxy(request: NextRequest) {
       isValidSubdomain(slug) &&
       !RESERVED_SUBDOMAINS.has(slug)
     ) {
-      const rootPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
-        request,
-        pathname,
-        hostname,
-        userAgent,
-        slug
-      );
-      if (rootPdpHardNotFound) {
-        return rootPdpHardNotFound;
+      const rootPdpCanonicalRedirect =
+        await resolveStorefrontPdpCanonicalRedirect(
+          request,
+          pathname,
+          hostname,
+          slug,
+          `/${slug}`
+        );
+      if (rootPdpCanonicalRedirect.response) {
+        return rootPdpCanonicalRedirect.response;
+      }
+
+      if (!rootPdpCanonicalRedirect.skipHardNotFound) {
+        const rootPdpHardNotFound = await resolveStorefrontPdpHardNotFound(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          slug
+        );
+        if (rootPdpHardNotFound) {
+          return rootPdpHardNotFound;
+        }
       }
     }
   }

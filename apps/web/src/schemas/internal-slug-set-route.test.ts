@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  internalProductCanonicalRedirectQuerySchema,
   internalSlugSetParamsSchema,
   internalSlugSetQuerySchema,
 } from '@/schemas/internal-slug-set-route';
@@ -51,5 +52,38 @@ describe('internalSlugSetQuerySchema', () => {
     expect(internalSlugSetQuerySchema.safeParse({ slug: '  ' }).success).toBe(
       false
     );
+  });
+});
+
+describe('internalProductCanonicalRedirectQuerySchema', () => {
+  it('accepts and trims category and product slug values', () => {
+    const result = internalProductCanonicalRedirectQuerySchema.safeParse({
+      category: ' smartphones ',
+      slug: ' iphone-15-pro ',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      category: 'smartphones',
+      slug: 'iphone-15-pro',
+    });
+  });
+
+  it('rejects missing or blank values', () => {
+    expect(
+      internalProductCanonicalRedirectQuerySchema.safeParse({
+        category: '',
+        slug: 'iphone-15-pro',
+      }).success
+    ).toBe(false);
+    expect(
+      internalProductCanonicalRedirectQuerySchema.safeParse({
+        category: 'smartphones',
+        slug: '   ',
+      }).success
+    ).toBe(false);
+    expect(
+      internalProductCanonicalRedirectQuerySchema.safeParse({}).success
+    ).toBe(false);
   });
 });
