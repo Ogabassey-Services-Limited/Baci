@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { permanentRedirect } from 'next/navigation';
+import { draftMode } from 'next/headers';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getCachedBlogPost } from '@/lib/cached-data';
@@ -143,6 +144,28 @@ export default async function BlogPostPage({ params }: PageProps) {
         )
       )
     );
+  }
+
+  const { isEnabled: isDraftMode } = await draftMode();
+  if (!isDraftMode) {
+    let publicPost: Awaited<ReturnType<typeof getCachedBlogPost>>;
+    try {
+      publicPost = await getCachedBlogPost(
+        resolvedParams.slug,
+        resolvedParams.postSlug,
+        false
+      );
+    } catch (error) {
+      console.error('Error fetching cached public blog post at page boundary', {
+        slug: resolvedParams.slug,
+        postSlug: resolvedParams.postSlug,
+        error,
+      });
+      throw error;
+    }
+    if (!publicPost) {
+      notFound();
+    }
   }
 
   return (

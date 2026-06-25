@@ -71,6 +71,10 @@ describe('DefaultBlogUi', () => {
       'href',
       '/ogabassey/blog'
     );
+    expect(screen.getByRole('link', { name: 'News' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog/category/news'
+    );
     expect(screen.getByText('BLOG_SIDEBAR')).toBeInTheDocument();
     expect(screen.getByText('BlogList:12')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bassey John' })).toHaveAttribute(
@@ -80,6 +84,40 @@ describe('DefaultBlogUi', () => {
     expect(screen.getByRole('link', { name: 'Bolakale' })).toHaveAttribute(
       'href',
       '/ogabassey/blog/author/bolakale'
+    );
+  });
+
+  it('renders category hub copy when a category filter is active', () => {
+    render(
+      <DefaultBlogUi
+        blogSchema={{ '@type': 'Blog' }}
+        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        basePath="/ogabassey"
+        categories={['Smartphones']}
+        category="Smartphones"
+        merchant={{
+          id: 'merchant-1',
+          business_name: 'Ogabassey',
+        }}
+        posts={[]}
+        slug="ogabassey"
+        totalPosts={0}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Smartphones Buying Guides and Comparisons',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Read articles, buying guides, comparisons, and shopping updates about smartphones from Ogabassey.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog/category/smartphones'
     );
   });
 

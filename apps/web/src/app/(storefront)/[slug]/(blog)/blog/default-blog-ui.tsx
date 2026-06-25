@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildBlogCategoryHref } from './blog-category-routing';
 import { BlogList } from './blog-list';
 
 interface BlogListPost {
@@ -57,6 +58,18 @@ export function DefaultBlogUi({
   currentPage = 1,
 }: DefaultBlogUiProps) {
   const authorLinks = getBlogAuthorPageLinks(slug);
+  const categoryHubTitle =
+    category && !searchQuery
+      ? `${category} Buying Guides and Comparisons`
+      : undefined;
+  const heading = searchQuery
+    ? `Search results for "${searchQuery}"`
+    : categoryHubTitle || `${merchant.business_name} Blog`;
+  const description = searchQuery
+    ? `${posts.length} post${posts.length !== 1 ? 's' : ''} found`
+    : category
+      ? `Read articles, buying guides, comparisons, and shopping updates about ${category.toLowerCase()} from ${merchant.business_name}.`
+      : 'Latest articles, news, and insights';
 
   return (
     <>
@@ -81,16 +94,8 @@ export function DefaultBlogUi({
           <div className="container mx-auto px-4 py-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold">
-                  {searchQuery
-                    ? `Search results for "${searchQuery}"`
-                    : `${merchant.business_name} Blog`}
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  {searchQuery
-                    ? `${posts.length} post${posts.length !== 1 ? 's' : ''} found`
-                    : 'Latest articles, news, and insights'}
-                </p>
+                <h1 className="text-3xl font-bold">{heading}</h1>
+                <p className="text-muted-foreground mt-2">{description}</p>
                 {searchQuery && (
                   <Link
                     href={asRoute(`${basePath}/blog`)}
@@ -125,12 +130,7 @@ export function DefaultBlogUi({
                 </Badge>
               </Link>
               {categories.map((cat) => (
-                <Link
-                  key={cat}
-                  href={asRoute(
-                    `${basePath}/blog?category=${encodeURIComponent(cat)}`
-                  )}
-                >
+                <Link key={cat} href={buildBlogCategoryHref(basePath, cat)}>
                   <Badge
                     variant={category === cat ? 'default' : 'outline'}
                     className="cursor-pointer"

@@ -191,7 +191,10 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata).toEqual({ title: 'Blog Not Found' });
+    expect(metadata).toEqual({
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    });
   });
 
   it('returns fallback metadata when the merchant blog is disabled', async () => {
@@ -202,7 +205,10 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata).toEqual({ title: 'Blog Not Found' });
+    expect(metadata).toEqual({
+      title: 'Blog Not Found',
+      robots: { index: false, follow: false },
+    });
   });
 
   it('clamps invalid page params back to the first page metadata', async () => {

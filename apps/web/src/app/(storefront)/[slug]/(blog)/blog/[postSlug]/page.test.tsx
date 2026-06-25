@@ -1,148 +1,30 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const {
+import {
   mockBlogPostPageContent,
-  mockBuildStoreUrl,
+  mockConnection,
+  mockDraftMode,
   mockGetBlogPostRedirect,
-  mockGetBlogPostTextPreview,
+  mockGetCachedBlogPost,
   mockPermanentRedirect,
-} = vi.hoisted(() => ({
-  mockBlogPostPageContent: vi.fn((_props: unknown) => (
-    <div>Blog post page content</div>
-  )),
-  mockBuildStoreUrl: vi.fn(
-    (merchant: { slug: string; custom_domain?: string | null }) =>
-      merchant.custom_domain
-        ? `https://${merchant.custom_domain}`
-        : `https://${merchant.slug}.usebaci.com`
-  ),
-  mockGetBlogPostRedirect: vi.fn(),
-  mockGetBlogPostTextPreview: vi.fn<(content: unknown) => string>(
-    () => 'Preview text'
-  ),
-  mockPermanentRedirect: vi.fn((url: string) => {
-    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
-  }),
-}));
+  resetBlogPostPageMocks,
+} from './page.test-utils';
 
-const mockDraftMode = vi.fn();
-const mockHeaders = vi.fn();
-const mockNotFound = vi.fn(() => {
-  throw new Error('NEXT_NOT_FOUND');
-});
-const mockGetCachedBlogPost = vi.fn();
-const mockConnection = vi.hoisted(() => vi.fn());
+async function loadBlogPostPage(postSlug: string) {
+  const { default: BlogPostPage } = await import('./page');
 
-vi.mock('next/headers', () => ({
-  draftMode: () => mockDraftMode(),
-  headers: () => mockHeaders(),
-}));
-
-vi.mock('next/navigation', () => ({
-  notFound: () => mockNotFound(),
-  permanentRedirect: (url: string) => mockPermanentRedirect(url),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
-vi.mock('@/lib/cached-data', () => ({
-  getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
-}));
-
-vi.mock('@/lib/blog-post-redirects', () => ({
-  getBlogPostRedirect: (...args: unknown[]) => mockGetBlogPostRedirect(...args),
-}));
-
-vi.mock('@/lib/store-url', () => ({
-  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
-    mockBuildStoreUrl(merchant),
-}));
-
-vi.mock('@/lib/routes', () => ({
-  asRoute: (value: string) => value,
-}));
-
-vi.mock('./blog-post-content', () => ({
-  buildBlogUrl: (baseUrl: string, basePath: string, postSlug?: string) =>
-    postSlug
-      ? `${baseUrl}${basePath}/blog/${postSlug}`
-      : `${baseUrl}${basePath}/blog`,
-  buildCanonicalBlogPostUrl: (
-    merchant: { slug: string; custom_domain?: string },
-    postSlug: string
-  ) =>
-    merchant.custom_domain
-      ? `https://${merchant.custom_domain}/blog/${postSlug}`
-      : `https://${merchant.slug}.usebaci.com/blog/${postSlug}`,
-  getBlogPostTextPreview: (content: unknown) =>
-    mockGetBlogPostTextPreview(content),
-}));
-
-vi.mock('./blog-post-page-content', () => ({
-  default: (props: unknown) => mockBlogPostPageContent(props),
-}));
-
-vi.mock('./BlogPostPageFallback', () => ({
-  BlogPostPageFallback: () => <div>Blog post page fallback</div>,
-}));
-
-import BlogPostPage, { generateMetadata } from './page';
-
-const liveBlogPost = {
-  merchant: {
-    id: 'merchant-1',
-    business_name: 'Ogabassey',
-    slug: 'ogabassey',
-    logo_url: null,
-    custom_domain: 'ogabassey.com',
-  },
-  post: {
-    id: 'post-1',
-    title: 'The Great 5K Stall',
-    slug: 'apple-studio-display-review',
-    content: '<p>Test</p>',
-    excerpt: 'Test excerpt',
-    featured_image_url: null,
-    featured_image_alt: null,
-    category: 'Reviews',
-    tags: ['reviews'],
-    author_name: 'Bolakale',
-    author_title: null,
-    author_bio: null,
-    published_at: '2026-03-16T10:05:33.654Z',
-    updated_at: '2026-03-16T10:05:33.654Z',
-    seo_title: null,
-    seo_description: null,
-    keywords: ['studio display'],
-    reading_time_minutes: 4,
-    word_count: 800,
-  },
-  relatedPosts: [],
-  relatedProducts: [],
-};
+  return BlogPostPage({
+    params: Promise.resolve({
+      slug: 'ogabassey.com',
+      postSlug,
+    }),
+  });
+}
 
 describe('storefront blog post page', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockHeaders.mockResolvedValue(new Headers());
-    mockBlogPostPageContent.mockReset();
-    mockBlogPostPageContent.mockImplementation(() => (
-      <div>Blog post page content</div>
-    ));
-    mockBuildStoreUrl.mockImplementation(
-      (merchant: { slug: string; custom_domain?: string | null }) =>
-        merchant.custom_domain
-          ? `https://${merchant.custom_domain}`
-          : `https://${merchant.slug}.usebaci.com`
-    );
-    mockGetBlogPostRedirect.mockResolvedValue(null);
-    mockGetBlogPostTextPreview.mockReset();
-    mockGetBlogPostTextPreview.mockReturnValue('Preview text');
-    mockConnection.mockReset();
+    resetBlogPostPageMocks();
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -163,14 +45,7 @@ describe('storefront blog post page', () => {
 
     render(
       <Suspense fallback={<div>Route loader fallback</div>}>
-        {
-          await BlogPostPage({
-            params: Promise.resolve({
-              slug: 'ogabassey.com',
-              postSlug: 'apple-studio-display-review',
-            }),
-          })
-        }
+        {await loadBlogPostPage('apple-studio-display-review')}
       </Suspense>
     );
 
@@ -183,17 +58,60 @@ describe('storefront blog post page', () => {
   });
 
   it('renders streamed blog post content without a page-level metadata marker', async () => {
-    render(
-      await BlogPostPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'apple-studio-display-review',
-        }),
-      })
-    );
+    render(await loadBlogPostPage('apple-studio-display-review'));
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
     expect(mockConnection).not.toHaveBeenCalled();
+  });
+
+  it('returns notFound for missing public blog post slugs outside draft mode', async () => {
+    mockGetCachedBlogPost.mockResolvedValueOnce(null);
+
+    await expect(loadBlogPostPage('smartphones')).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    );
+
+    expect(mockDraftMode).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'smartphones',
+      false
+    );
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+  });
+
+  it('propagates public post lookup errors outside draft mode', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const lookupError = new Error('public post cache unavailable');
+    mockGetCachedBlogPost.mockRejectedValueOnce(lookupError);
+
+    await expect(
+      loadBlogPostPage('apple-studio-display-review')
+    ).rejects.toThrow(lookupError);
+
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching cached public blog post at page boundary',
+      expect.objectContaining({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+        error: lookupError,
+      })
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('allows draft-mode blog slugs to render without a public post', async () => {
+    mockDraftMode.mockResolvedValueOnce({ isEnabled: true });
+    mockGetCachedBlogPost.mockResolvedValueOnce(null);
+
+    render(await loadBlogPostPage('draft-only-post'));
+
+    expect(screen.getByText('Blog post page content')).toBeInTheDocument();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
   });
 
   it('permanently redirects retired blog slugs before rendering the streamed shell', async () => {
@@ -207,14 +125,7 @@ describe('storefront blog post page', () => {
       targetSlug: 'canonical-post',
     });
 
-    await expect(
-      BlogPostPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'retired-post',
-        }),
-      })
-    ).rejects.toThrow(
+    await expect(loadBlogPostPage('retired-post')).rejects.toThrow(
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
     );
 
@@ -232,14 +143,7 @@ describe('storefront blog post page', () => {
     const redirectLookupError = new Error('redirect store unavailable');
     mockGetBlogPostRedirect.mockRejectedValueOnce(redirectLookupError);
 
-    render(
-      await BlogPostPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'apple-studio-display-review',
-        }),
-      })
-    );
+    render(await loadBlogPostPage('apple-studio-display-review'));
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
@@ -253,247 +157,5 @@ describe('storefront blog post page', () => {
     );
 
     consoleErrorSpy.mockRestore();
-  });
-
-  it('resolves public metadata without consulting draft request state', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: true });
-    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-
-    expect(mockDraftMode).not.toHaveBeenCalled();
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'apple-studio-display-review',
-      false
-    );
-    expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
-    expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/blog/apple-studio-display-review'
-    );
-  });
-
-  it('uses the cached blog query when metadata is already available', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'apple-studio-display-review',
-      false
-    );
-    expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
-  });
-
-  it('bounds long blog post title and description metadata', async () => {
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...liveBlogPost,
-      post: {
-        ...liveBlogPost.post,
-        title:
-          'Best Phones Under 500000 Naira in Nigeria With Camera Battery and Gaming Performance Compared',
-        excerpt:
-          'Compare the best phones under 500000 naira in Nigeria with camera quality, battery life, gaming performance, warranty coverage, delivery options, and flexible payment notes for shoppers.',
-      },
-    });
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'best-phones-under-500000',
-      }),
-    });
-
-    expect(String(metadata.title).length).toBeLessThanOrEqual(70);
-    expect(String(metadata.title)).toContain('Ogabassey');
-    expect(typeof metadata.description).toBe('string');
-    if (typeof metadata.description !== 'string') {
-      throw new TypeError('metadata.description must be a string');
-    }
-    expect(metadata.description.length).toBeLessThanOrEqual(160);
-  });
-
-  it('uses fallback blog description metadata when source text is empty', async () => {
-    mockGetBlogPostTextPreview.mockReturnValueOnce('');
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...liveBlogPost,
-      post: {
-        ...liveBlogPost.post,
-        seo_description: '',
-        excerpt: '',
-        content: '',
-      },
-    });
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'empty-description',
-      }),
-    });
-
-    expect(metadata.description).toContain(
-      'Read The Great 5K Stall from Ogabassey'
-    );
-    expect(typeof metadata.description).toBe('string');
-    if (typeof metadata.description !== 'string') {
-      throw new TypeError('metadata.description must be a string');
-    }
-    expect(metadata.description.length).toBeLessThanOrEqual(160);
-  });
-
-  it('preserves short blog metadata that is already within bounds', async () => {
-    const boundedDescription =
-      'A practical buying guide for Nigerian shoppers comparing display quality, delivery confidence, warranty support, and upgrade timing.';
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...liveBlogPost,
-      post: {
-        ...liveBlogPost.post,
-        seo_title: 'Studio Display Review',
-        seo_description: boundedDescription,
-      },
-    });
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'studio-display-review',
-      }),
-    });
-
-    expect(metadata.title).toBe('Studio Display Review | Ogabassey');
-    expect(metadata.description).toBe(boundedDescription);
-  });
-
-  it('keeps min-length blog descriptions when they are already descriptive', async () => {
-    const descriptiveSummary =
-      'Compare phone options by camera quality, battery life, warranty confidence, delivery timing, payment flexibility, and everyday value.';
-    expect(descriptiveSummary.length).toBeGreaterThanOrEqual(110);
-    expect(descriptiveSummary.length).toBeLessThanOrEqual(160);
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...liveBlogPost,
-      post: {
-        ...liveBlogPost.post,
-        seo_description: descriptiveSummary,
-      },
-    });
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'descriptive-summary',
-      }),
-    });
-
-    expect(metadata.description).toBe(descriptiveSummary);
-  });
-
-  it('returns noindex fallback metadata when the public cache lookup throws', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-
-    mockGetCachedBlogPost.mockRejectedValue(new Error('Cache lookup failed'));
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error fetching cached public blog metadata',
-      expect.objectContaining({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-        error: expect.any(Error),
-      })
-    );
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('returns noindex fallback metadata when only draft content may exist', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: true });
-    mockGetCachedBlogPost.mockResolvedValue(null);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'draft-only-post',
-      }),
-    });
-
-    expect(mockDraftMode).not.toHaveBeenCalled();
-    expect(mockNotFound).not.toHaveBeenCalled();
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
-  });
-
-  it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...liveBlogPost,
-      merchant: {
-        ...liveBlogPost.merchant,
-        custom_domain: 'ogabassey.com',
-      },
-    });
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-
-    expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/blog/apple-studio-display-review'
-    );
-  });
-
-  it('uses the explicit social image route for OpenGraph and Twitter metadata', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
-    mockGetCachedBlogPost.mockResolvedValue({
-      ...liveBlogPost,
-      merchant: {
-        ...liveBlogPost.merchant,
-        custom_domain: null,
-        slug: 'ogabassey',
-      },
-    });
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-
-    expect(metadata.openGraph?.images).toEqual([
-      {
-        alt: 'The Great 5K Stall — Ogabassey',
-        height: 630,
-        type: 'image/png',
-        url: 'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
-        width: 1200,
-      },
-    ]);
-    expect(metadata.twitter?.images).toEqual([
-      'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
-    ]);
   });
 });
