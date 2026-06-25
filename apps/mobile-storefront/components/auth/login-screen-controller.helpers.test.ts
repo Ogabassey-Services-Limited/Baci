@@ -38,10 +38,17 @@ const mockDeleteItemAsync = SecureStore.deleteItemAsync as jest.MockedFunction<
   typeof SecureStore.deleteItemAsync
 >;
 
+async function flushEmailHintLoader() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 let dismissAuthenticatedLogin: typeof import('./login-screen-controller.helpers').dismissAuthenticatedLogin;
 let fetchLoginEmailHintFromReturnTo: typeof import('./login-screen-controller.helpers').fetchLoginEmailHintFromReturnTo;
 let getReceiptClaimTokenFromReturnTo: typeof import('./login-screen-controller.helpers').getReceiptClaimTokenFromReturnTo;
 let getValidatedLoginEmailHint: typeof import('./login-screen-controller.helpers').getValidatedLoginEmailHint;
+let loadLoginEmailHintFromReturnTo: typeof import('./login-screen-controller.helpers').loadLoginEmailHintFromReturnTo;
 let normalizeEmail: typeof import('./login-screen-controller.helpers').normalizeEmail;
 let validateLoginEmailInput: typeof import('./login-screen-controller.helpers').validateLoginEmailInput;
 
@@ -52,6 +59,7 @@ describe('login screen controller helpers', () => {
     fetchLoginEmailHintFromReturnTo = helpers.fetchLoginEmailHintFromReturnTo;
     getReceiptClaimTokenFromReturnTo = helpers.getReceiptClaimTokenFromReturnTo;
     getValidatedLoginEmailHint = helpers.getValidatedLoginEmailHint;
+    loadLoginEmailHintFromReturnTo = helpers.loadLoginEmailHintFromReturnTo;
     normalizeEmail = helpers.normalizeEmail;
     validateLoginEmailInput = helpers.validateLoginEmailInput;
   });
@@ -111,6 +119,65 @@ describe('login screen controller helpers', () => {
       fetchLoginEmailHintFromReturnTo('/receipts', fetchImpl)
     ).resolves.toBe('');
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('loads a receipt claim email hint into empty login email state', async () => {
+    const setEmail = jest.fn();
+    const fetchImpl = jest.fn(async () => ({
+      json: async () => ({ emailHint: '  Shopper@Example.COM  ' }),
+      ok: true,
+    })) as unknown as typeof fetch;
+
+    loadLoginEmailHintFromReturnTo({
+      currentEmail: '',
+      fetchImpl,
+      initialEmail: '',
+      onError: jest.fn(),
+      returnTo: '/receipts/claim/token_123',
+      setEmail,
+    });
+    await flushEmailHintLoader();
+
+    expect(setEmail).toHaveBeenCalledWith('shopper@example.com');
+  });
+
+  it('skips loading a receipt claim email hint when login already has email state', () => {
+    const setEmail = jest.fn();
+    const fetchImpl = jest.fn() as unknown as typeof fetch;
+
+    const cleanup = loadLoginEmailHintFromReturnTo({
+      currentEmail: 'typed@example.com',
+      fetchImpl,
+      initialEmail: '',
+      onError: jest.fn(),
+      returnTo: '/receipts/claim/token_123',
+      setEmail,
+    });
+
+    expect(cleanup).toBeUndefined();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(setEmail).not.toHaveBeenCalled();
+  });
+
+  it('ignores loaded email hints after cleanup', async () => {
+    const setEmail = jest.fn();
+    const fetchImpl = jest.fn(async () => ({
+      json: async () => ({ emailHint: 'shopper@example.com' }),
+      ok: true,
+    })) as unknown as typeof fetch;
+
+    const cleanup = loadLoginEmailHintFromReturnTo({
+      currentEmail: '',
+      fetchImpl,
+      initialEmail: '',
+      onError: jest.fn(),
+      returnTo: '/receipts/claim/token_123',
+      setEmail,
+    });
+    cleanup?.();
+    await flushEmailHintLoader();
+
+    expect(setEmail).not.toHaveBeenCalled();
   });
 
   it('validates login email input and returns the normalized email', () => {

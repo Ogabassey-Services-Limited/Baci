@@ -130,9 +130,9 @@ export default function ReceiptClaimPageClient({
   const loginSearchParams = new URLSearchParams({
     redirect: loginRedirectPath,
   });
-  const emailHint = sanitizeCustomerLoginEmailPrefill(
-    searchParams.get('email')
-  ) || sanitizeCustomerLoginEmailPrefill(initialEmailHint);
+  const emailHint =
+    sanitizeCustomerLoginEmailPrefill(searchParams.get('email')) ||
+    sanitizeCustomerLoginEmailPrefill(initialEmailHint);
   if (emailHint) {
     loginSearchParams.set('email', emailHint);
   }

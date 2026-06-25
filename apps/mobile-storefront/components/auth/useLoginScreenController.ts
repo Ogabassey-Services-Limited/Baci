@@ -15,9 +15,9 @@ import {
 import {
   type AuthStep,
   dismissAuthenticatedLogin,
-  fetchLoginEmailHintFromReturnTo,
   getValidatedLoginEmailHint,
   getValidatedLoginMode,
+  loadLoginEmailHintFromReturnTo,
   normalizeEmail,
   returnToEmailFromAuthStep,
   validateLoginEmailInput,
@@ -100,25 +100,14 @@ export function useLoginScreenController() {
   }, [isInitialized, user, returnTo]);
 
   useEffect(() => {
-    if (initialEmail || email) {
-      return;
-    }
-
-    let isActive = true;
-
-    fetchLoginEmailHintFromReturnTo(returnTo)
-      .then((emailHint) => {
-        if (isActive && emailHint) {
-          setEmail(emailHint);
-        }
-      })
-      .catch((error) => {
-        log.warn('Failed to load receipt claim email hint', error);
-      });
-
-    return () => {
-      isActive = false;
-    };
+    return loadLoginEmailHintFromReturnTo({
+      currentEmail: email,
+      initialEmail,
+      onError: (error) =>
+        log.warn('Failed to load receipt claim email hint', error),
+      returnTo,
+      setEmail,
+    });
   }, [email, initialEmail, returnTo]);
 
   useEffect(() => {

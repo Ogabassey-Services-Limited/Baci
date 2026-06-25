@@ -15,6 +15,15 @@ interface AuthStepResetHandlers {
   setStep: Dispatch<SetStateAction<AuthStep>>;
 }
 
+interface LoginEmailHintLoaderOptions {
+  currentEmail: string;
+  fetchImpl?: typeof fetch;
+  initialEmail: string;
+  onError: (error: unknown) => void;
+  returnTo: string | string[] | undefined;
+  setEmail: Dispatch<SetStateAction<string>>;
+}
+
 export function getValidatedLoginMode(
   mode: string | string[] | undefined
 ): LoginMode | null {
@@ -91,6 +100,33 @@ export async function fetchLoginEmailHintFromReturnTo(
   } catch {
     return '';
   }
+}
+
+export function loadLoginEmailHintFromReturnTo({
+  currentEmail,
+  fetchImpl,
+  initialEmail,
+  onError,
+  returnTo,
+  setEmail,
+}: LoginEmailHintLoaderOptions) {
+  if (initialEmail || currentEmail) {
+    return undefined;
+  }
+
+  let isActive = true;
+
+  fetchLoginEmailHintFromReturnTo(returnTo, fetchImpl)
+    .then((emailHint) => {
+      if (isActive && emailHint) {
+        setEmail(emailHint);
+      }
+    })
+    .catch(onError);
+
+  return () => {
+    isActive = false;
+  };
 }
 
 export function validateLoginEmailInput(value: string) {
