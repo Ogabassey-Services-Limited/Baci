@@ -694,6 +694,41 @@ describe('Monnify Bills Client', () => {
       });
     });
 
+    it('extracts the prepaid token from nested responseBody.metaData.token', async () => {
+      // Regression: Monnify returns the electricity token under
+      // responseBody.metaData.token (not a flat `token`). Reading the flat
+      // field dropped the token on every prepaid electricity vend.
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          transactionReference: 'MFBP260625173742882d',
+          vendStatus: 'SUCCESS',
+          metaData: { token: '3772-0340-4164-5060-0336', unit: '4.5' },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await purchaseBill(
+        'biller-ekedc-pre',
+        'product-ekedc-pre',
+        '43901766923',
+        1000,
+        'JANE DOE',
+        'BACI-REF-123',
+        '08012345678',
+        'VAL-123'
+      );
+
+      expect(result.status).toBe('successful');
+      expect(result.pin).toBe('3772-0340-4164-5060-0336');
+    });
+
     it('honors vendStatus when status is missing', async () => {
       const mockResponse = {
         requestSuccessful: true,
@@ -1092,8 +1127,30 @@ describe('Monnify Bills Client', () => {
       });
 
       const lastFetchUrl = fetchSpy.mock.calls[0][0].toString();
-      expect(lastFetchUrl).toContain('transactionReference=MON-TX-123');
-      expect(lastFetchUrl).not.toContain('paymentReference=');
+      expect(lastFetchUrl).toContain('reference=MON-TX-123');
+      expect(lastFetchUrl).not.toContain('transactionReference=');
+    });
+
+    it('extracts the token from nested responseBody.metaData.token', async () => {
+      const mockResponse = {
+        requestSuccessful: true,
+        responseCode: '0',
+        responseMessage: 'success',
+        responseBody: {
+          transactionReference: 'MON-TX-123',
+          vendStatus: 'SUCCESS',
+          metaData: { token: '3772-0340-4164-5060-0336', unit: '4.5' },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockResponse),
+      });
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result.status).toBe('successful');
+      expect(result.pin).toBe('3772-0340-4164-5060-0336');
     });
 
     it('supports vendStatus when status is missing', async () => {

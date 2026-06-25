@@ -570,7 +570,9 @@ export async function purchaseBill(
       success: isSuccess || isProcessing,
       reference: requestReference,
       transactionId: transactionReference,
-      pin: body?.token || undefined,
+      // Token lives at responseBody.metaData.token for prepaid electricity;
+      // fall back to a flat token for billers that return it top-level.
+      pin: body?.metaData?.token || body?.token || undefined,
       message:
         parsedEnvelope.responseMessage ||
         (isFailed ? 'Vend request failed' : 'Vend request completed'),
@@ -608,8 +610,13 @@ export async function purchaseBill(
 export async function checkTransactionStatus(
   transactionReference: string
 ): Promise<{ status: string; message: string; pin?: string }> {
+  // Monnify's bills requery expects `reference`, not `transactionReference`
+  // (the latter 400s with "Required request parameter 'reference' is not
+  // present"). Note: the token is delivered inline in the vend response
+  // (responseBody.metaData.token), so requery is only a fallback for
+  // genuinely IN_PROGRESS vends.
   const envelope = await monnifyRequest(
-    `/api/v1/vas/bills-payment/requery?transactionReference=${encodeURIComponent(transactionReference)}`,
+    `/api/v1/vas/bills-payment/requery?reference=${encodeURIComponent(transactionReference)}`,
     { method: 'GET', timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS }
   );
 
@@ -625,7 +632,7 @@ export async function checkTransactionStatus(
       return {
         status: 'successful',
         message: parsed.responseMessage || 'success',
-        pin: body.token || undefined,
+        pin: body.metaData?.token || body.token || undefined,
       };
     }
     if (isProcessing) {
