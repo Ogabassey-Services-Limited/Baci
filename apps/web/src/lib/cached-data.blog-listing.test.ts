@@ -93,6 +93,7 @@ function setupBlogListingFetch({
   categories?: Array<{ category: string | null }>;
   count?: number | null;
   posts?: Array<{
+    featured?: boolean | null;
     id: string;
     slug: string | null;
     title: string | null;
@@ -209,6 +210,34 @@ describe('getCachedBlogListing', () => {
     expect(blogSelects[0]).toHaveBeenCalledWith(expect.any(String), {
       count: 'estimated',
     });
+  });
+
+  it('selects and preserves the featured flag for template hero/preload parity', async () => {
+    const { blogSelects } = setupBlogListingFetch({
+      posts: [
+        {
+          featured: true,
+          id: 'featured-post',
+          slug: 'featured-post',
+          title: 'Featured Post',
+        },
+      ],
+    });
+
+    const result = await getCachedBlogListing('ogabassey');
+
+    expect(blogSelects[0]).toHaveBeenCalledWith(
+      expect.stringContaining('featured, featured_image_url'),
+      { count: 'estimated' }
+    );
+    expect(result?.posts).toEqual([
+      {
+        featured: true,
+        id: 'featured-post',
+        slug: 'featured-post',
+        title: 'Featured Post',
+      },
+    ]);
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {

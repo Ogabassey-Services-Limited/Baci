@@ -13,6 +13,7 @@ import {
   mockNotFound,
   mockPreloadBlogListingFeaturedImage,
   mockRedirect,
+  mockTemplateBlogRenderer,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -103,6 +104,11 @@ describe('BlogPageContent', () => {
         posts: [regularPost, promotedPost],
       })
     );
+    mockGetTemplate.mockReturnValueOnce({
+      getComponents: async () => ({
+        Blog: () => <div>OgaBassey blog component</div>,
+      }),
+    });
 
     render(
       await BlogPageContent({
@@ -113,6 +119,16 @@ describe('BlogPageContent', () => {
 
     expect(mockPreloadBlogListingFeaturedImage).toHaveBeenCalledWith(
       'https://cdn.example.com/promoted.png'
+    );
+    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blogPosts: expect.arrayContaining([
+          expect.objectContaining({
+            featured: true,
+            slug: 'featured-post',
+          }),
+        ]),
+      })
     );
   });
 

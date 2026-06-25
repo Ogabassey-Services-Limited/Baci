@@ -226,6 +226,7 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
               author_name: p.author_name || merchant.business_name,
               published_at: p.published_at,
               featured_image_url: p.featured_image_url || '',
+              featured: p.featured,
               reading_time_minutes: p.reading_time_minutes || 3,
             })),
           };

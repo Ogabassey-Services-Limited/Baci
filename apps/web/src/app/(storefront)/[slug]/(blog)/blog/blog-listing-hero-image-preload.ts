@@ -1,3 +1,4 @@
+import 'server-only';
 import { getBlogListingImageSrc } from '@/components/storefront/ogabassey/pages/blog-listing-image-src';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { preloadBlogListingFeaturedImage } from './blog-listing-featured-image-preload';

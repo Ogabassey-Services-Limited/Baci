@@ -84,6 +84,7 @@
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "./[slug]/(blog)";
 @source "../../components/storefront/ogabassey/pages/blog.tsx";
+@source "../../components/storefront/ogabassey/pages/blog-featured-story.tsx";
 @source "../../components/storefront/ogabassey/pages/ad-unit.tsx";
 @source "../../components/storefront/ogabassey/pages/ad-config.ts";
 @source "../../components/storefront/ogabassey/seo/informational-cluster-index.tsx";

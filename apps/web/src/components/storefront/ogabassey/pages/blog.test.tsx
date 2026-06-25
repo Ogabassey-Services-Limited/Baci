@@ -132,10 +132,10 @@ describe('OgabasseyV2Blog', () => {
       />
     );
 
-    expect(screen.getByRole('img', { name: 'Featured Post' })).toHaveAttribute(
-      'src',
-      '/placeholder.png'
-    );
+    const featuredLink = screen.getByRole('link', { name: /featured post/i });
+    expect(featuredLink.querySelector('img')).toHaveAttribute('src', '/placeholder.png');
+    expect(screen.queryByRole('img', { name: 'Featured Post' })).not.toBeInTheDocument();
+
     expect(screen.getByRole('img', { name: 'Regular Post' })).toHaveAttribute(
       'src',
       '/placeholder.png'

@@ -56,8 +56,8 @@ describe('BlogFeaturedStory', () => {
     title: 'Featured Post',
   } as BlogPostData;
 
-  it('renders the featured story image as eager high-priority LCP content', () => {
-    render(
+  it('renders the featured story image as decorative eager high-priority LCP content', () => {
+    const { container } = render(
       <BlogFeaturedStory
         basePath="/ogabassey"
         featuredPost={featuredPost}
@@ -69,7 +69,10 @@ describe('BlogFeaturedStory', () => {
     const articleLink = screen.getByRole('link', { name: /featured post/i });
     expect(articleLink).toHaveAttribute('href', '/ogabassey/blog/featured-post');
 
-    const image = screen.getByRole('img', { name: 'Featured Post' });
+    expect(screen.queryByRole('img', { name: 'Featured Post' })).not.toBeInTheDocument();
+
+    const image = container.querySelector('img');
+    expect(image).toHaveAttribute('alt', '');
     expect(image).toHaveAttribute('src', 'https://example.com/featured.jpg');
     expect(image).toHaveAttribute('data-preload', 'false');
     expect(image).toHaveAttribute('data-loading', 'eager');
@@ -78,5 +81,25 @@ describe('BlogFeaturedStory', () => {
     expect(image).toHaveAttribute('data-fill', 'true');
     expect(image).toHaveAttribute('data-sizes', '100vw');
     expect(screen.getByText('24 Jun 2026')).toBeInTheDocument();
+  });
+
+  it('uses storefront theme color utilities for the badge and hover treatment', () => {
+    render(
+      <BlogFeaturedStory
+        basePath="/ogabassey"
+        featuredPost={featuredPost}
+        imageSrc="https://example.com/featured.jpg"
+        publishedDateLabel="24 Jun 2026"
+      />
+    );
+
+    const badge = screen.getByText('Featured Story');
+    expect(badge).toHaveClass('bg-store-primary');
+    expect(badge).toHaveClass('text-store-primary-text');
+    expect(badge).not.toHaveClass('bg-red-600');
+
+    const heading = screen.getByRole('heading', { name: 'Featured Post' });
+    expect(heading).toHaveClass('group-hover:text-store-primary');
+    expect(heading).not.toHaveClass('group-hover:text-red-50');
   });
 });

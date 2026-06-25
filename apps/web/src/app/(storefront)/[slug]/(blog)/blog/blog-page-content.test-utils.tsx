@@ -22,12 +22,13 @@ interface MockDefaultBlogUiProps {
   };
   categories: string[];
   merchant: { business_name: string };
-  posts: Array<{ slug: string; title: string }>;
+  posts: Array<{ featured?: boolean; slug: string; title: string }>;
   totalPosts: number;
   currentPage?: number;
 }
 
 interface MockTemplateBlogRendererProps {
+  blogPosts?: MockDefaultBlogUiProps['posts'];
   category?: string;
   itemListSchema?: MockDefaultBlogUiProps['itemListSchema'];
 }
@@ -203,6 +204,7 @@ export const postsPayload = [
     title: 'First Post',
     slug: 'first-post',
     excerpt: 'Latest store updates',
+    featured: false,
     featured_image_url: 'https://cdn.example.com/blog-cover.png',
     featured_image_variants: {
       landscape_16x9: 'https://cdn.example.com/blog-cover-16x9.png',
