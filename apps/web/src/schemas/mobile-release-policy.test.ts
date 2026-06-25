@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mobileReleasePolicyQuerySchema } from './mobile-release-policy';
+import {
+  appStoreWebhookQuerySchema,
+  mobileReleasePolicyQuerySchema,
+} from './mobile-release-policy';
 
 const validQuery = {
   app: 'storefront',
@@ -49,10 +52,22 @@ describe('mobileReleasePolicyQuerySchema', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it.each([
+    'storefront',
+    'admin',
+  ] as const)('accepts %s as a mobile app', (app) => {
+    const parsed = mobileReleasePolicyQuerySchema.safeParse({
+      ...validQuery,
+      app,
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
   it('rejects unsupported apps', () => {
     const parsed = mobileReleasePolicyQuerySchema.safeParse({
       ...validQuery,
-      app: 'admin',
+      app: 'desktop',
     });
 
     expect(parsed.success).toBe(false);
@@ -77,6 +92,29 @@ describe('mobileReleasePolicyQuerySchema', () => {
       ...validQuery,
       [field]: '   ',
     });
+
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe('appStoreWebhookQuerySchema', () => {
+  it('defaults to the storefront app when app is omitted', () => {
+    const parsed = appStoreWebhookQuerySchema.safeParse({});
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.app).toBe('storefront');
+    }
+  });
+
+  it('accepts the admin webhook app', () => {
+    const parsed = appStoreWebhookQuerySchema.safeParse({ app: 'admin' });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects unknown webhook apps', () => {
+    const parsed = appStoreWebhookQuerySchema.safeParse({ app: 'desktop' });
 
     expect(parsed.success).toBe(false);
   });

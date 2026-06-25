@@ -4,7 +4,7 @@ import { verifyAppleWebhookSignature } from '@/lib/apple-webhook-signature';
 import { reconcileIosLiveBuild } from '@/lib/ios-live-build-reconcile';
 import { logger } from '@/lib/logger';
 import { readMobileUpdatesEnabled } from '@/lib/mobile-update-gate';
-import { MOBILE_APPS } from '@/schemas/mobile-release-policy';
+import { appStoreWebhookQuerySchema } from '@/schemas/mobile-release-policy';
 
 // App Store Connect webhook (Users and Access > Integrations > Webhooks).
 // Apple POSTs here the moment an app version's state changes — most importantly
@@ -22,11 +22,14 @@ import { MOBILE_APPS } from '@/schemas/mobile-release-policy';
 export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
-  const appParam = request.nextUrl.searchParams.get('app') ?? 'storefront';
-  const app = MOBILE_APPS.find((candidate) => candidate === appParam);
-  if (!app) {
+  const query = appStoreWebhookQuerySchema.safeParse({
+    app: request.nextUrl.searchParams.get('app') ?? undefined,
+  });
+  if (!query.success) {
     return NextResponse.json({ error: 'Unknown app' }, { status: 400 });
   }
+
+  const { app } = query.data;
 
   // Fail-closed when the signing secret is not configured.
   const secret = getAppStoreConnectWebhookSecret(app);
