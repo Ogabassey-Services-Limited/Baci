@@ -28,11 +28,10 @@ type QueryResult = {
 const negotiationRows = [
   {
     created_at: '2026-06-05T12:00:00.000Z',
-    current_price: 10_000,
     customer_id: null,
     evidence_url: null,
     id: 'negotiation-1',
-    item_info: { name: 'Wireless Headphones' },
+    item_info: { name: 'Wireless Headphones', current_price: 10_000 },
     offered_price: 8_500,
     status: 'pending',
     type: 'single',
@@ -304,6 +303,25 @@ describe('NegotiationsScreen', () => {
     await screen.findByText('Accept Offer');
     expect(screen.queryByText('WhatsApp')).toBeNull();
     expect(screen.queryByText('Call')).toBeNull();
+  });
+
+  it('hides accept and reject actions for completed negotiations', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          ...negotiationRows[0],
+          id: 'negotiation-accepted-1',
+          status: 'accepted',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    expect(await screen.findByText('Accepted')).toBeInTheDocument();
+    expect(screen.queryByText('Accept Offer')).toBeNull();
+    expect(screen.queryByText('Reject')).toBeNull();
   });
 
   it('opens the evidence link in the OS handler', async () => {

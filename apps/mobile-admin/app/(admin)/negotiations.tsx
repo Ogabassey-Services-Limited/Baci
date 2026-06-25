@@ -2,6 +2,7 @@ import {
   buildTelLink,
   buildWhatsAppLink,
   type NegotiationCartLine,
+  type NegotiationItemInfo,
 } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
@@ -23,18 +24,16 @@ import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
 
+type NegotiationStatus = 'pending' | 'accepted' | 'rejected' | 'countered';
+
 interface NegotiationRequest {
   id: string;
   customer_id: string | null;
   type: 'single' | 'total';
-  status: 'pending' | 'accepted' | 'rejected' | 'countered';
+  status: NegotiationStatus;
   offered_price: number;
   current_price: number | null;
-  item_info: {
-    name: string;
-    image?: string;
-    current_price?: number;
-  } | null;
+  item_info: NegotiationItemInfo | null;
   cart_snapshot: NegotiationCartLine[] | null;
   customer_phone: string | null;
   created_at: string;
@@ -79,7 +78,8 @@ async function updateNegotiationStatus(
     .from('negotiation_requests')
     .update({ status })
     .eq('id', id)
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .eq('status', 'pending');
 
   if (error) throw error;
 }
@@ -141,6 +141,10 @@ async function openEvidence(evidenceUrl: string): Promise<void> {
 
 // Short WhatsApp/SMS opener referencing the offer so the merchant doesn't have
 // to retype context. Falls back to the item name or a generic cart label.
+function formatNegotiationStatus(status: NegotiationStatus): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 function buildFollowUpMessage(request: NegotiationRequest): string {
   const item = request.item_info?.name ?? 'your cart';
   return `Hi! About your negotiation offer on ${item} — `;
@@ -435,38 +439,63 @@ export default function NegotiationsScreen() {
         </View>
       ) : null}
 
-      <View style={styles.actionRow}>
-        <Pressable
-          style={[
-            styles.actionButton,
-            styles.rejectButton,
-            actionLoadingId === item.id && styles.disabledButton,
-          ]}
-          onPress={() => handleAction(item.id, 'rejected')}
-          disabled={actionLoadingId !== null}
-        >
-          {actionLoadingId === item.id ? (
-            <ActivityIndicator size="small" color={palette.gray[600]} />
-          ) : (
-            <Text style={styles.rejectButtonText}>Reject</Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={[
-            styles.actionButton,
-            styles.acceptButton,
-            actionLoadingId === item.id && styles.disabledButton,
-          ]}
-          onPress={() => handleAction(item.id, 'accepted')}
-          disabled={actionLoadingId !== null}
-        >
-          {actionLoadingId === item.id ? (
-            <ActivityIndicator size="small" color={palette.white} />
-          ) : (
-            <Text style={styles.acceptButtonText}>Accept Offer</Text>
-          )}
-        </Pressable>
-      </View>
+      {item.status === 'pending' ? (
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.rejectButton,
+              actionLoadingId === item.id && styles.disabledButton,
+            ]}
+            onPress={() => handleAction(item.id, 'rejected')}
+            disabled={actionLoadingId !== null}
+          >
+            {actionLoadingId === item.id ? (
+              <ActivityIndicator size="small" color={palette.gray[600]} />
+            ) : (
+              <Text style={styles.rejectButtonText}>Reject</Text>
+            )}
+          </Pressable>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.acceptButton,
+              actionLoadingId === item.id && styles.disabledButton,
+            ]}
+            onPress={() => handleAction(item.id, 'accepted')}
+            disabled={actionLoadingId !== null}
+          >
+            {actionLoadingId === item.id ? (
+              <ActivityIndicator size="small" color={palette.white} />
+            ) : (
+              <Text style={styles.acceptButtonText}>Accept Offer</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.statusOutcomeRow}>
+          <Text style={styles.statusOutcomeLabel}>Status</Text>
+          <View
+            style={[
+              styles.statusOutcomeBadge,
+              item.status === 'accepted' && styles.statusAcceptedBadge,
+              item.status === 'rejected' && styles.statusRejectedBadge,
+              item.status === 'countered' && styles.statusCounteredBadge,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusOutcomeText,
+                item.status === 'accepted' && styles.statusAcceptedText,
+                item.status === 'rejected' && styles.statusRejectedText,
+                item.status === 'countered' && styles.statusCounteredText,
+              ]}
+            >
+              {formatNegotiationStatus(item.status)}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -709,6 +738,44 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  statusOutcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statusOutcomeLabel: {
+    color: palette.gray[500],
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statusOutcomeBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  statusAcceptedBadge: {
+    backgroundColor: palette.emerald[400],
+  },
+  statusRejectedBadge: {
+    backgroundColor: palette.red[50],
+  },
+  statusCounteredBadge: {
+    backgroundColor: palette.amber[100],
+  },
+  statusOutcomeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  statusAcceptedText: {
+    color: palette.gray[950],
+  },
+  statusRejectedText: {
+    color: palette.red[700],
+  },
+  statusCounteredText: {
+    color: palette.amber[700],
   },
   actionButton: {
     flex: 1,
