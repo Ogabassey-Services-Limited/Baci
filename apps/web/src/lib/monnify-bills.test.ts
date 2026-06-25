@@ -725,6 +725,39 @@ describe('Monnify Bills Client', () => {
       expect(result.success).toBe(true);
     });
 
+    it('falls back to payment status when vendStatus is blank', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'Completed',
+          responseBody: {
+            transactionReference: 'MON-TX-123',
+            paymentReference: 'BACI-REF-123',
+            status: 'PAID',
+            vendStatus: '   ',
+            token: 'TOKEN-1234',
+          },
+        }),
+      });
+
+      const result = await purchaseBill(
+        'IKEDC',
+        'IKEDC-PREPAID',
+        '12345678',
+        2000,
+        'JANE DOE',
+        'BACI-REF-123',
+        '08012345678',
+        'VAL-123'
+      );
+
+      expect(result.status).toBe('successful');
+      expect(result.success).toBe(true);
+      expect(result.pin).toBe('TOKEN-1234');
+    });
+
     it('stays pending when payment status is success but vendStatus is in progress', async () => {
       // Regression: prepaid electricity where Monnify charged the customer
       // (status PAID) but the token vend is still IN_PROGRESS. Reading the
@@ -1081,6 +1114,30 @@ describe('Monnify Bills Client', () => {
 
       const result = await checkTransactionStatus('MON-TX-123');
       expect(result.status).toBe('successful');
+    });
+
+    it('falls back to payment status when requery vendStatus is blank', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          requestSuccessful: true,
+          responseCode: '0',
+          responseMessage: 'success',
+          responseBody: {
+            transactionReference: 'MON-TX-123',
+            status: 'PAID',
+            vendStatus: '',
+            token: 'TOKEN-1234',
+          },
+        }),
+      });
+
+      const result = await checkTransactionStatus('MON-TX-123');
+      expect(result).toEqual({
+        status: 'successful',
+        message: 'success',
+        pin: 'TOKEN-1234',
+      });
     });
 
     it('reports processing when vendStatus is in progress despite paid status', async () => {

@@ -197,7 +197,8 @@ function assertMonnifyBusinessSuccess(
 }
 
 function normalizeMonnifyStatus(status: string | null | undefined) {
-  return status?.trim().toUpperCase();
+  const normalized = status?.trim().toUpperCase();
+  return normalized || undefined;
 }
 
 /**
