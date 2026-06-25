@@ -322,7 +322,7 @@ describe('GET /api/vtu/billers', () => {
     }
   });
 
-  it('aggregates both Kuda and Monnify billers for electricity', async () => {
+  it('folds Monnify electricity into the Kuda card (Kuda display + Monnify fulfillment)', async () => {
     const { GET } = await import('./route');
 
     mockGetBillersByCategory.mockResolvedValue([
@@ -380,6 +380,8 @@ describe('GET /api/vtu/billers', () => {
       provider: string;
       billerCode?: string;
       productCode?: string;
+      monnifyBillerCode?: string;
+      monnifyProductCode?: string;
     }
 
     interface TestBiller {
@@ -408,7 +410,9 @@ describe('GET /api/vtu/billers', () => {
 
     const providers = billers.map((b) => b.provider);
     expect(providers).toContain('kuda');
-    expect(providers).toContain('monnify');
+    // Electricity dedups to a single Kuda card per DISCO; the Monnify card is
+    // folded in (not shown separately).
+    expect(providers).not.toContain('monnify');
     expect(mockMonnifyGetBillers).toHaveBeenCalledWith(
       'ELECTRICITY',
       expect.objectContaining({ signal: expect.any(Object) })
@@ -417,12 +421,9 @@ describe('GET /api/vtu/billers', () => {
     const kudaBiller = billers.find((b) => b.provider === 'kuda');
     expect(kudaBiller).toBeDefined();
     expect(kudaBiller?.billItems[0]?.provider).toBe('kuda');
-
-    const monnifyBiller = billers.find((b) => b.provider === 'monnify');
-    expect(monnifyBiller).toBeDefined();
-    expect(monnifyBiller?.billerCode).toBe('IKEDC');
-    expect(monnifyBiller?.billItems[0]?.provider).toBe('monnify');
-    expect(monnifyBiller?.billItems[0]?.productCode).toBe('IKEDC-PREPAID');
+    // The matching Monnify codes are folded onto the Kuda item for fulfillment.
+    expect(kudaBiller?.billItems[0]?.monnifyBillerCode).toBe('IKEDC');
+    expect(kudaBiller?.billItems[0]?.monnifyProductCode).toBe('IKEDC-PREPAID');
   });
 
   it('uses Monnify bill category codes for checkout-supported categories only', async () => {
