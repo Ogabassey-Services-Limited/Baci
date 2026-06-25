@@ -47,50 +47,69 @@ export function dedupeElectricityBillers(
   kudaBillers: NormalizedBiller[],
   monnifyBillers: NormalizedBiller[]
 ): DedupeElectricityResult {
-  // Index Monnify billers by `${disco}:${meterType}`.
+  // Index Monnify products by `${disco}:${meterType}`, and track which keys each
+  // Monnify billerCode owns so we only drop a card once ALL its products folded.
   const monnifyByKey = new Map<
     string,
     { billerCode: string; productCode: string }
   >();
+  const keysByBillerCode = new Map<string, Set<string>>();
+
   for (const monnify of monnifyBillers) {
-    const firstProduct = monnify.billItems?.[0];
-    // Meter type may live on the code (biller-ekedc-pre) OR only on the name /
-    // product (generic code "IKEDC" + "Prepaid" name) — check all.
-    const meterType =
-      getMeterType(monnify.billerCode) ??
-      getMeterType(monnify.billerName) ??
-      getMeterType(firstProduct?.itemName) ??
-      getMeterType(firstProduct?.productCode);
-    const discoSource =
-      monnify.billerCode ?? monnify.billerName ?? monnify.billerId;
     const billerCode = monnify.billerCode;
-    const productCode = getMonnifyProductCode(monnify);
-    if (!(meterType && billerCode && productCode)) {
+    if (!billerCode) {
       continue;
     }
-    monnifyByKey.set(`${getDiscoKey(discoSource)}:${meterType}`, {
-      billerCode,
-      productCode,
-    });
+    // A Monnify biller may carry multiple products (e.g. pre + post) — index each.
+    const products = monnify.billItems?.length
+      ? monnify.billItems
+      : [undefined];
+    for (const product of products) {
+      // Meter type may live on the code (biller-ekedc-pre) OR only on the name /
+      // product (generic code "IKEDC" + "Prepaid" name) — check all.
+      const meterType =
+        getMeterType(product?.itemName) ??
+        getMeterType(product?.productCode) ??
+        getMeterType(monnify.billerCode) ??
+        getMeterType(monnify.billerName);
+      const productCode =
+        product?.productCode ?? getMonnifyProductCode(monnify);
+      const discoSource =
+        monnify.billerCode ?? monnify.billerName ?? monnify.billerId;
+      if (!(meterType && productCode)) {
+        continue;
+      }
+      const key = `${getDiscoKey(discoSource)}:${meterType}`;
+      monnifyByKey.set(key, { billerCode, productCode });
+      const owned = keysByBillerCode.get(billerCode) ?? new Set<string>();
+      owned.add(key);
+      keysByBillerCode.set(billerCode, owned);
+    }
   }
 
-  const matchedMonnifyBillerCodes = new Set<string>();
+  const matchedKeys = new Set<string>();
 
   const billers = kudaBillers.map((kuda) => {
     if (!kuda.billItems?.length) {
       return kuda;
     }
     const billItems = kuda.billItems.map((item) => {
-      const source = item.itemName ?? item.itemCode;
-      const meterType = getMeterType(source);
+      const meterType =
+        getMeterType(item.itemName) ?? getMeterType(item.itemCode);
       if (!meterType) {
         return item;
       }
-      const monnify = monnifyByKey.get(`${getDiscoKey(source)}:${meterType}`);
+      // DISCO comes from the parent biller name (always carries the DISCO, e.g.
+      // "EKEDC NG" / "APLE NG"); fall back to the item label if absent.
+      const disco =
+        getDiscoKey(kuda.billerName) ||
+        getDiscoKey(item.itemName ?? item.itemCode);
+      const key = `${disco}:${meterType}`;
+      const monnify = monnifyByKey.get(key);
       if (!monnify) {
         return item;
       }
-      matchedMonnifyBillerCodes.add(monnify.billerCode);
+      matchedKeys.add(key);
       return {
         ...item,
         monnifyBillerCode: monnify.billerCode,
@@ -99,6 +118,15 @@ export function dedupeElectricityBillers(
     });
     return { ...kuda, billItems };
   });
+
+  // Only drop a Monnify card when every product it owns was folded into a Kuda
+  // item — otherwise an unmatched meter type would silently disappear.
+  const matchedMonnifyBillerCodes = new Set<string>();
+  for (const [billerCode, owned] of keysByBillerCode) {
+    if ([...owned].every((key) => matchedKeys.has(key))) {
+      matchedMonnifyBillerCodes.add(billerCode);
+    }
+  }
 
   return { billers, matchedMonnifyBillerCodes };
 }
