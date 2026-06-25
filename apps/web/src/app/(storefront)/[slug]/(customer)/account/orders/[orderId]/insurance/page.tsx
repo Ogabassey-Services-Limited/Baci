@@ -1,429 +1,155 @@
-'use client';
+import { cookies } from 'next/headers';
+import { getMerchantSafe } from '@/lib/cached-data';
+import { createClient } from '@/lib/supabase/server';
+import { InsurancePolicyClient } from './insurance-policy-client';
+import type { Policy, PolicyFetchResult } from './insurance-policy-types';
 
-import mycoverai from '@mycoverai/mca-javascript-sdk';
-import {
-  AlertTriangle,
-  ExternalLink,
-  FileText,
-  Loader2,
-  ShieldCheck,
-} from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import {
-  resolveClaimUrl,
-  resolveInspectionUrl,
-  resolveInsuranceCta,
-} from './claim-action-helpers';
-
-interface PolicyItemsInsured {
-  imei?: string | null;
-  product_id?: string | null;
-  product_name?: string | null;
-  [key: string]: unknown;
+interface InsurancePolicyPageProps {
+  params: Promise<{ orderId: string; slug: string }>;
 }
 
-interface Policy {
+interface PolicyRow {
   id: string;
-  policyNumber: string;
-  provider: string;
-  status: 'active' | 'expired' | 'pending';
-  startDate: string;
-  expiryDate: string;
-  premium: number;
-  coverage: number;
-  itemsInsured: PolicyItemsInsured | null;
-  claimStatus: string;
-  claimStage?: string | null;
-  claimProgress?: string | null;
-  claimComment?: string | null;
-  certificateUrl?: string;
-  claimLink?: string | null;
-  inspectionLink?: string | null;
-  inspectionStatus?: string | null;
-  orderDelivered?: boolean;
-  customer_email?: string; // Added for SDK
+  mycover_policy_number: string | null;
+  status: Policy['status'];
+  policy_start_date: string;
+  policy_expiry_date: string;
+  premium_amount: number;
+  coverage_amount: number;
+  items_insured: Policy['itemsInsured'];
+  claim_status: string | null;
+  claim_stage: string | null;
+  claim_progress: string | null;
+  claim_comment: string | null;
+  certificate_url: string | null;
+  provider_name: string | null;
+  claim_link: string | null;
+  inspection_link: string | null;
+  inspection_status: string | null;
 }
 
-interface PolicyFetchResult {
-  policy: Policy | null;
-  error: string;
+function mapPolicy(row: PolicyRow, orderDelivered: boolean): Policy {
+  return {
+    certificateUrl: row.certificate_url ?? undefined,
+    claimComment: row.claim_comment ?? null,
+    claimLink: row.claim_link ?? null,
+    claimProgress: row.claim_progress ?? null,
+    claimStage: row.claim_stage ?? null,
+    claimStatus: row.claim_status || 'None',
+    coverage: row.coverage_amount,
+    expiryDate: row.policy_expiry_date,
+    id: row.id,
+    inspectionLink: row.inspection_link ?? null,
+    inspectionStatus: row.inspection_status ?? null,
+    itemsInsured: row.items_insured ?? null,
+    orderDelivered,
+    policyNumber: row.mycover_policy_number ?? '',
+    premium: row.premium_amount,
+    provider: row.provider_name || 'Sovereign Trust Insurance Plc',
+    startDate: row.policy_start_date,
+    status: row.status,
+  };
 }
 
-// Module-scope helper: try/finally and throw-inside-try are not yet supported
-// by React Compiler inside component bodies, so the fetch lives here.
 async function fetchPolicyForOrder(
-  orderId: string
+  orderId: string,
+  storefrontIdentifier: string
 ): Promise<PolicyFetchResult> {
   try {
-    const res = await fetch(`/api/insurance/policy/${orderId}`);
-    const data = await res.json();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
-    if (!res.ok) throw new Error(data.error || 'Failed to load policy');
-    if (!data.found) {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { policy: null, error: 'Unauthorized' };
+    }
+
+    const merchant = await getMerchantSafe(storefrontIdentifier);
+    if (!merchant?.is_published) {
       return {
         policy: null,
         error: 'No active insurance policy found for this order.',
       };
     }
-    const policy = data.policies?.[0] ?? null;
-    if (!policy) {
+
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('merchant_id', merchant.id)
+      .eq('user_id', user.id)
+      .maybeSingle<{ id: string }>();
+
+    if (customerError) {
+      return { policy: null, error: 'Failed to fetch customer account' };
+    }
+    if (!customer) {
       return {
         policy: null,
         error: 'No active insurance policy found for this order.',
       };
     }
-    return { policy, error: '' };
-  } catch (err: unknown) {
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('shipping_status')
+      .eq('id', orderId)
+      .eq('merchant_id', merchant.id)
+      .eq('customer_id', customer.id)
+      .maybeSingle<{ shipping_status: string | null }>();
+
+    if (orderError) {
+      return { policy: null, error: 'Failed to fetch order delivery status' };
+    }
+    if (!order) {
+      return {
+        policy: null,
+        error: 'No active insurance policy found for this order.',
+      };
+    }
+
+    const { data: policies, error: policyError } = await supabase
+      .from('order_insurance_policies')
+      .select(
+        'id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, claim_link, inspection_link, inspection_status'
+      )
+      .eq('order_id', orderId);
+
+    if (policyError) {
+      return { policy: null, error: 'Failed to fetch policies' };
+    }
+    if (!policies || policies.length === 0) {
+      return {
+        policy: null,
+        error: 'No active insurance policy found for this order.',
+      };
+    }
+
+    const orderDelivered =
+      order.shipping_status === 'delivered' ||
+      order.shipping_status === 'completed';
+
+    return {
+      policy: mapPolicy(policies[0] as PolicyRow, orderDelivered),
+      error: '',
+    };
+  } catch (error) {
+    console.error('Failed to fetch insurance policy', error);
     return {
       policy: null,
-      error: err instanceof Error ? err.message : 'An unknown error occurred',
+      error: 'Internal server error',
     };
   }
 }
 
-export default function InsurancePolicyPage() {
-  const params = useParams();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [policy, setPolicy] = useState<Policy | null>(null);
-  const [error, setError] = useState('');
+export default async function InsurancePolicyPage({
+  params,
+}: InsurancePolicyPageProps) {
+  const { orderId, slug } = await params;
+  const initialResult = await fetchPolicyForOrder(orderId, slug);
 
-  const orderId = params.orderId as string;
-
-  useEffect(() => {
-    if (!orderId) return;
-
-    fetchPolicyForOrder(orderId).then((result) => {
-      if (result.policy) {
-        setPolicy(result.policy);
-      } else {
-        setError(result.error);
-      }
-      setLoading(false);
-    });
-  }, [orderId]);
-
-  const openHostedFlow = (url: string) => {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleCompleteInspection = () => {
-    if (!policy) return;
-    const inspectionUrl = resolveInspectionUrl(policy);
-    if (inspectionUrl) openHostedFlow(inspectionUrl);
-  };
-
-  const handleFileClaim = () => {
-    // Prefer MyCover's official hosted claim flow when we captured the link
-    // from the purchase webhook. The SDK modal below is a legacy fallback for
-    // policies created before links were persisted.
-    if (policy) {
-      const claimUrl = resolveClaimUrl(policy);
-      if (claimUrl) {
-        openHostedFlow(claimUrl);
-        return;
-      }
-    }
-
-    const publicKey = process.env.NEXT_PUBLIC_MYCOVER_PUBLIC_KEY;
-    if (!publicKey) {
-      alert(
-        'Claims system is currently unavailable (Missing Configuration). Please contact support.'
-      );
-      return;
-    }
-
-    const claimProductId =
-      policy?.itemsInsured?.product_id ||
-      process.env.NEXT_PUBLIC_MYCOVER_GADGET_PRODUCT_ID;
-    if (!claimProductId) {
-      alert(
-        'Claims system is currently unavailable (Missing Product Configuration). Please contact support.'
-      );
-      return;
-    }
-
-    // Initialize SDK
-    mycoverai({
-      action: 'claim',
-      pk: publicKey,
-      pid: [claimProductId],
-      policy_number: policy?.policyNumber, // Pass policy number if supported/required to pre-fill
-      email: policy?.customer_email, // Pre-fill email
-      onClose: () => {
-        console.log('Claim modal closed');
-      },
-      callback: (response: unknown) => {
-        console.log('Claim submitted', response);
-        // Refresh policy status
-        window.location.reload();
-      },
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex h-64 w-full items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error || !policy) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-y-4 py-12">
-        <AlertTriangle className="size-12 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Policy Not Found</h2>
-        <p className="text-muted-foreground text-center max-w-md">{error}</p>
-        <Button onClick={() => router.back()}>Go Back</Button>
-      </div>
-    );
-  }
-
-  const cta = resolveInsuranceCta(policy);
-
-  return (
-    <div className="container max-w-3xl py-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Standard Insurance Policy
-        </h1>
-        <p className="text-muted-foreground">
-          Managed by MyCover.ai • Underwritten by {policy.provider}
-        </p>
-      </div>
-
-      {cta.kind === 'inspect' && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
-          <AlertTriangle className="size-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold">Activate your protection</p>
-            <p>
-              Complete a quick device inspection (photos of your device) to
-              activate this policy. You can only file a claim once your
-              protection is active.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {cta.kind === 'awaiting_delivery' && (
-        <div className="flex items-start gap-3 rounded-lg border bg-muted/40 p-4 text-muted-foreground">
-          <ShieldCheck className="size-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold text-foreground">
-              Protection activates after delivery
-            </p>
-            <p>
-              Once your order is delivered, you&apos;ll be able to activate your
-              protection with a quick device inspection.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {cta.kind === 'activation_pending' && (
-        <div className="flex items-start gap-3 rounded-lg border bg-muted/40 p-4 text-muted-foreground">
-          <ShieldCheck className="size-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold text-foreground">
-              Activation link is being prepared
-            </p>
-            <p>
-              We&apos;re waiting for MyCover to send the inspection link for
-              this policy. You&apos;ll be able to file a claim after activation
-              is complete.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
-          <div className="space-y-1">
-            <CardTitle className="text-base font-medium">
-              Policy Status
-            </CardTitle>
-            <CardDescription>{policy.policyNumber}</CardDescription>
-          </div>
-          <Badge
-            variant={policy.status === 'active' ? 'default' : 'secondary'}
-            className="text-sm"
-          >
-            {policy.status.toUpperCase()}
-          </Badge>
-        </CardHeader>
-        <CardContent className="grid gap-4 pt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Start Date
-              </div>
-              <div className="font-semibold">
-                {new Date(policy.startDate).toLocaleDateString()}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Expiry Date
-              </div>
-              <div className="font-semibold">
-                {new Date(policy.expiryDate).toLocaleDateString()}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Coverage Amount
-              </div>
-              <div className="font-semibold">
-                ₦{policy.coverage.toLocaleString()}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Premium Paid
-              </div>
-              <div className="font-semibold">
-                ₦{policy.premium.toLocaleString()}
-              </div>
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-
-          <div>
-            <div className="text-sm font-medium text-muted-foreground mb-2">
-              Insured Item
-            </div>
-            <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/40">
-              <ShieldCheck className="size-5 text-green-600" />
-              <span className="font-medium">
-                {policy.itemsInsured?.product_name || 'Device'}
-              </span>
-              <span className="text-xs text-muted-foreground ml-auto">
-                IMEI: {policy.itemsInsured?.imei}
-              </span>
-            </div>
-          </div>
-
-          {(policy.claimStage ||
-            (policy.claimStatus && policy.claimStatus !== 'None')) && (
-            <>
-              <Separator className="my-2" />
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">
-                  Claim Status
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-sm capitalize">
-                    {policy.claimStage ||
-                      (policy.claimStatus ?? '').replace(/_/g, ' ')}
-                  </Badge>
-                </div>
-                {policy.claimComment && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {policy.claimComment}
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row gap-3 pt-4">
-          {policy.certificateUrl && (
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto gap-2"
-              asChild
-            >
-              <a
-                href={policy.certificateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <FileText className="size-4" /> Download Certificate
-              </a>
-            </Button>
-          )}
-
-          {cta.kind === 'inspect' && (
-            <Button
-              className="w-full sm:w-auto gap-2 sm:ml-auto"
-              onClick={handleCompleteInspection}
-            >
-              <ShieldCheck className="size-4" />
-              Activate Protection
-            </Button>
-          )}
-
-          {cta.kind === 'claim' && (
-            <Button
-              className="w-full sm:w-auto gap-2 sm:ml-auto"
-              onClick={handleFileClaim}
-            >
-              {/* Opens MyCover's hosted claim flow (or SDK modal fallback) */}
-              <ExternalLink className="size-4" />
-              File a Claim
-            </Button>
-          )}
-
-          {cta.kind === 'awaiting_delivery' && (
-            <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
-              Available after delivery
-            </p>
-          )}
-
-          {cta.kind === 'activation_pending' && (
-            <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
-              Activation link pending
-            </p>
-          )}
-
-          {cta.kind === 'claim_existing' && cta.url && (
-            <Button
-              className="w-full sm:w-auto gap-2 sm:ml-auto"
-              onClick={handleFileClaim}
-            >
-              <ExternalLink className="size-4" />
-              Continue Claim
-            </Button>
-          )}
-
-          {cta.kind === 'claim_existing' && !cta.url && (
-            <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
-              Existing claim in progress
-            </p>
-          )}
-        </CardFooter>
-      </Card>
-
-      <div className="rounded-lg border p-4 bg-muted/20">
-        <h3 className="font-semibold mb-2 flex items-center gap-2">
-          <AlertTriangle className="size-4" /> Important Information
-        </h3>
-        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-          <li>Claims must be reported within 48 hours of the incident.</li>
-          <li>
-            Digital proof of purchase and ID may be required during the claim
-            process.
-          </li>
-          <li>
-            Screen damage and liquid damage are covered under this policy.
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
+  return <InsurancePolicyClient initialResult={initialResult} />;
 }

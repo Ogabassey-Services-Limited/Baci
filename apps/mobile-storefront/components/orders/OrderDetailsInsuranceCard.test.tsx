@@ -204,7 +204,9 @@ describe('OrderDetailsInsuranceCard', () => {
     expect(screen.getByRole('button', { name: claimLabel })).toBeTruthy();
   });
 
-  it('hides File a Claim when a MyCover claim already exists', () => {
+  it('shows Continue Claim when a non-terminal MyCover claim already exists', () => {
+    const onFileClaim = jest.fn();
+
     render(
       <OrderDetailsInsuranceCard
         colors={colors}
@@ -218,13 +220,45 @@ describe('OrderDetailsInsuranceCard', () => {
         isDelivered
         isPaid
         onCompleteInspection={jest.fn()}
+        onFileClaim={onFileClaim}
+        onOpenCertificate={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Continue insurance claim' })
+    );
+    expect(onFileClaim).toHaveBeenCalledWith(
+      'https://mycover.ai/purchase?q=claim'
+    );
+    expect(screen.getByText('Offer sent')).toBeTruthy();
+  });
+
+  it('hides Continue Claim for terminal MyCover claim states', () => {
+    render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_stage: 'Paid',
+          claim_status: 'paid',
+          inspection_status: 'completed',
+        }}
+        isDelivered
+        isPaid
+        onCompleteInspection={jest.fn()}
         onFileClaim={jest.fn()}
         onOpenCertificate={jest.fn()}
       />
     );
 
     expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
-    expect(screen.getByText('Offer sent')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Continue insurance claim' })
+    ).toBeNull();
+    expect(screen.getByText('Paid')).toBeTruthy();
   });
 
   it('holds mobile claims while pending inspection links have not arrived', () => {

@@ -80,27 +80,48 @@ async function hmacSha512Hex(secret: string, message: string): Promise<string> {
     .join('');
 }
 
+const MYCOVER_WEBHOOK_PROCESSING_LEASE_MS = 10 * 60 * 1000;
+
 type MyCoverWebhookEventClaimResult =
-  | 'claimed'
-  | 'processed_duplicate'
-  | 'processing_duplicate';
+  | { receivedAt: string | null; status: 'claimed' }
+  | { status: 'processed_duplicate' }
+  | { status: 'processing_duplicate' };
+
+interface MyCoverWebhookEventClaimRow {
+  processing_status: string | null;
+  received_at?: string | null;
+}
+
+function isStaleWebhookClaim(row: MyCoverWebhookEventClaimRow): boolean {
+  if (row.processing_status !== 'processing' || !row.received_at) {
+    return false;
+  }
+
+  const receivedAtMs = Date.parse(row.received_at);
+  return (
+    Number.isFinite(receivedAtMs) &&
+    Date.now() - receivedAtMs > MYCOVER_WEBHOOK_PROCESSING_LEASE_MS
+  );
+}
 
 async function claimMyCoverWebhookEvent(
   supabase: SupabaseClient,
   payload: MyCoverWebhookPayload
 ): Promise<MyCoverWebhookEventClaimResult> {
   if (!payload.event_id) {
-    return 'claimed';
+    return { receivedAt: null, status: 'claimed' };
   }
 
+  const receivedAt = new Date().toISOString();
   const { error } = await supabase.from('mycover_webhook_events').insert({
     event_id: payload.event_id,
     event: payload.event,
     processing_status: 'processing',
+    received_at: receivedAt,
   });
 
   if (!error) {
-    return 'claimed';
+    return { receivedAt, status: 'claimed' };
   }
 
   if (error.code !== '23505') {
@@ -110,9 +131,9 @@ async function claimMyCoverWebhookEvent(
 
   const { data, error: lookupError } = await supabase
     .from('mycover_webhook_events')
-    .select('processing_status')
+    .select('processing_status, received_at')
     .eq('event_id', payload.event_id)
-    .maybeSingle<{ processing_status: string | null }>();
+    .maybeSingle<MyCoverWebhookEventClaimRow>();
 
   if (lookupError) {
     console.error(
@@ -122,22 +143,62 @@ async function claimMyCoverWebhookEvent(
     throw lookupError;
   }
 
-  return data?.processing_status === 'processed'
-    ? 'processed_duplicate'
-    : 'processing_duplicate';
+  if (data?.processing_status === 'processed') {
+    return { status: 'processed_duplicate' };
+  }
+
+  if (data && isStaleWebhookClaim(data)) {
+    const reclaimedAt = new Date().toISOString();
+    const { data: reclaimedRow, error: reclaimError } = await supabase
+      .from('mycover_webhook_events')
+      .update({
+        event: payload.event,
+        processed_at: null,
+        processing_status: 'processing',
+        received_at: reclaimedAt,
+      })
+      .match({
+        event_id: payload.event_id,
+        processing_status: 'processing',
+        received_at: data.received_at,
+      })
+      .select('processing_status')
+      .maybeSingle<MyCoverWebhookEventClaimRow>();
+
+    if (reclaimError) {
+      console.error(
+        '[MyCover Webhook] Failed to reclaim stale event_id claim:',
+        reclaimError
+      );
+      throw reclaimError;
+    }
+
+    return reclaimedRow
+      ? { receivedAt: reclaimedAt, status: 'claimed' }
+      : { status: 'processing_duplicate' };
+  }
+
+  return { status: 'processing_duplicate' };
 }
 
 async function completeMyCoverWebhookEventClaim(
   supabase: SupabaseClient,
-  eventId: string
+  eventId: string,
+  receivedAt: string | null
 ): Promise<void> {
-  const { error } = await supabase
+  let query = supabase
     .from('mycover_webhook_events')
     .update({
       processed_at: new Date().toISOString(),
       processing_status: 'processed',
     })
     .eq('event_id', eventId);
+
+  if (receivedAt) {
+    query = query.eq('received_at', receivedAt);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error(
@@ -150,12 +211,19 @@ async function completeMyCoverWebhookEventClaim(
 
 async function releaseMyCoverWebhookEventClaim(
   supabase: SupabaseClient,
-  eventId: string
+  eventId: string,
+  receivedAt: string | null
 ): Promise<void> {
-  const { error } = await supabase
+  let query = supabase
     .from('mycover_webhook_events')
     .delete()
     .eq('event_id', eventId);
+
+  if (receivedAt) {
+    query = query.eq('received_at', receivedAt);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('[MyCover Webhook] Failed to release event_id claim:', error);
@@ -230,17 +298,20 @@ export async function POST(request: NextRequest) {
 
     // MyCover documents `event_id` as the dedupe key. Claim it before any
     // side effects so concurrent retries cannot both process the same event.
+    let eventClaimReceivedAt: string | null = null;
+
     if (payload.event_id) {
       const claimResult = await claimMyCoverWebhookEvent(supabase, payload);
-      if (claimResult === 'processed_duplicate') {
+      if (claimResult.status === 'processed_duplicate') {
         return NextResponse.json({ received: true, duplicate: true });
       }
-      if (claimResult === 'processing_duplicate') {
+      if (claimResult.status === 'processing_duplicate') {
         return NextResponse.json(
           { error: 'Webhook event is still processing', retry: true },
           { status: 409 }
         );
       }
+      eventClaimReceivedAt = claimResult.receivedAt;
     }
 
     let releaseClaimOnError = true;
@@ -254,7 +325,11 @@ export async function POST(request: NextRequest) {
           safeEvent
         );
         if (payload.event_id) {
-          await completeMyCoverWebhookEventClaim(supabase, payload.event_id);
+          await completeMyCoverWebhookEventClaim(
+            supabase,
+            payload.event_id,
+            eventClaimReceivedAt
+          );
         }
         return NextResponse.json({ received: true, skipped: 'failed_status' });
       }
@@ -311,11 +386,19 @@ export async function POST(request: NextRequest) {
       }
       if (payload.event_id) {
         releaseClaimOnError = false;
-        await completeMyCoverWebhookEventClaim(supabase, payload.event_id);
+        await completeMyCoverWebhookEventClaim(
+          supabase,
+          payload.event_id,
+          eventClaimReceivedAt
+        );
       }
     } catch (error) {
       if (payload.event_id && releaseClaimOnError) {
-        await releaseMyCoverWebhookEventClaim(supabase, payload.event_id);
+        await releaseMyCoverWebhookEventClaim(
+          supabase,
+          payload.event_id,
+          eventClaimReceivedAt
+        );
       }
       throw error;
     }
@@ -776,6 +859,8 @@ async function handleClaimUpdate(
   };
   if (claimProgress !== undefined) updateData.claim_progress = claimProgress;
   if (claimComment !== undefined) updateData.claim_comment = claimComment;
+  const { claim_link: claimLink } = getHostedFlowLinks(data);
+  if (claimLink) updateData.claim_link = claimLink;
   if (data.claim_id) updateData.claim_id = data.claim_id;
   if (token === 'approved' || token === 'paid') {
     updateData.status = 'claimed';

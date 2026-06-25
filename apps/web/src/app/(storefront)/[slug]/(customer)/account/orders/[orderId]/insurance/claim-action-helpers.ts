@@ -36,11 +36,29 @@ export type InsuranceCta =
   | { kind: 'awaiting_delivery' }
   | { kind: 'activation_pending' }
   | { kind: 'claim_existing'; url: string | null }
+  | { kind: 'claim_terminal' }
   | { kind: 'inspect'; url: string }
   | { kind: 'claim'; url: string | null };
 
+const TERMINAL_CLAIM_STATUSES = new Set([
+  'declined',
+  'disapproved',
+  'offer_rejected',
+  'paid',
+  'rejected',
+]);
+
+function getClaimStatusToken(policy: InsuranceActionPolicy): string | null {
+  return policy.claimStatus?.trim().toLowerCase() || null;
+}
+
+export function isTerminalClaimStatus(policy: InsuranceActionPolicy): boolean {
+  const claimStatus = getClaimStatusToken(policy);
+  return claimStatus ? TERMINAL_CLAIM_STATUSES.has(claimStatus) : false;
+}
+
 function hasExistingClaim(policy: InsuranceActionPolicy): boolean {
-  const claimStatus = policy.claimStatus?.trim().toLowerCase();
+  const claimStatus = getClaimStatusToken(policy);
   return (
     Boolean(policy.claimStage?.trim()) ||
     Boolean(policy.claimProgress?.trim()) ||
@@ -53,6 +71,10 @@ export function resolveInsuranceCta(
   policy: InsuranceActionPolicy
 ): InsuranceCta {
   const claimUrl = resolveClaimUrl(policy);
+
+  if (isTerminalClaimStatus(policy)) {
+    return { kind: 'claim_terminal' };
+  }
 
   if (hasExistingClaim(policy)) {
     return { kind: 'claim_existing', url: claimUrl };

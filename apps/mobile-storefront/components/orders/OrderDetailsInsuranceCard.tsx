@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { resolveInsuranceCardActions } from './OrderDetailsInsuranceCard.actions';
 import { INSURANCE_COLORS, styles } from './OrderDetailsInsuranceCard.styles';
 import type {
   OrderDetailsInsuranceCardColors,
@@ -71,30 +72,28 @@ export function OrderDetailsInsuranceCard({
   const certificateUrl = insurancePolicy.certificate_url;
   const claimUrl = insurancePolicy.claim_link;
   const inspectionUrl = insurancePolicy.inspection_link;
-  const inspectionStatus = insurancePolicy.inspection_status?.toLowerCase();
   // Pre-loss inspection ("Activate Protection") gates claims and can only
   // happen after delivery: show nothing actionable until delivered, then
   // "Activate Protection" until inspection is done, then "File a Claim".
   // Claim-only policies can inherit the DB default `pending`; treat that as an
   // inspection gate only while the hosted claim link is still absent.
-  const inspectionPending =
-    inspectionStatus !== 'completed' &&
-    (!!inspectionUrl || (inspectionStatus === 'pending' && !claimUrl));
-  const claimStatus = insurancePolicy.claim_status?.trim().toLowerCase();
-  const claimAlreadyStarted =
-    !!insurancePolicy.claim_stage ||
-    !!insurancePolicy.claim_comment ||
-    (!!claimStatus && claimStatus !== 'none');
-  const showInspection =
-    inspectionPending &&
-    isDelivered &&
-    !!inspectionUrl &&
-    !!onCompleteInspection;
-  const showActivationPending =
-    inspectionPending && isDelivered && !inspectionUrl;
-  const showAwaitingDelivery = inspectionPending && !isDelivered;
-  const showClaim =
-    !inspectionPending && !claimAlreadyStarted && !!claimUrl && !!onFileClaim;
+  const {
+    showActivationPending,
+    showAwaitingDelivery,
+    showClaim,
+    showContinueClaim,
+    showInspection,
+  } = resolveInsuranceCardActions({
+    claimComment: insurancePolicy.claim_comment,
+    claimLink: claimUrl,
+    claimStage: insurancePolicy.claim_stage,
+    claimStatus: insurancePolicy.claim_status,
+    inspectionLink: inspectionUrl,
+    inspectionStatus: insurancePolicy.inspection_status,
+    isDelivered,
+    onCompleteInspection,
+    onFileClaim,
+  });
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -269,7 +268,7 @@ export function OrderDetailsInsuranceCard({
             complete a quick device inspection then.
           </Text>
         )}
-        {showClaim && (
+        {(showClaim || showContinueClaim) && (
           <TouchableOpacity
             style={[
               styles.fileClaimButton,
@@ -277,7 +276,11 @@ export function OrderDetailsInsuranceCard({
             ]}
             onPress={() => onFileClaim?.(claimUrl as string)}
             accessibilityRole="button"
-            accessibilityLabel="File an insurance claim"
+            accessibilityLabel={
+              showContinueClaim
+                ? 'Continue insurance claim'
+                : 'File an insurance claim'
+            }
           >
             <Ionicons
               name="shield-checkmark-outline"
@@ -285,7 +288,7 @@ export function OrderDetailsInsuranceCard({
               color="#ffffff"
             />
             <Text style={[styles.trackButtonText, { color: '#ffffff' }]}>
-              File a Claim
+              {showContinueClaim ? 'Continue Claim' : 'File a Claim'}
             </Text>
           </TouchableOpacity>
         )}

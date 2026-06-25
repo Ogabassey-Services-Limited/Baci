@@ -56,24 +56,42 @@ function createSupabaseMock({
     data: { processing_status: 'processed' },
     error: null,
   } as { data: unknown; error: unknown },
-  dedupUpdateResult = { error: null } as { error: unknown },
+  dedupUpdateResult = {
+    data: { processing_status: 'processed' },
+    error: null,
+  } as {
+    data: unknown;
+    error: unknown;
+  },
 }: {
   policyUpdateResult?: { data: unknown; error: unknown };
   dedupDeleteResult?: { error: unknown };
   dedupInsertResult?: { error: unknown };
   dedupSelectResult?: { data: unknown; error: unknown };
-  dedupUpdateResult?: { error: unknown };
+  dedupUpdateResult?: { data: unknown; error: unknown };
 } = {}) {
   return {
     from: vi.fn((table: string) => {
       if (table === 'mycover_webhook_events') {
         return {
-          delete: vi.fn(() => ({
-            eq: vi.fn((column: string, value: string) => {
-              mocks.dedupDelete(column, value);
-              return Promise.resolve(dedupDeleteResult);
-            }),
-          })),
+          delete: vi.fn(() => {
+            const chain = {
+              eq: vi.fn((column: string, value: string) => {
+                mocks.dedupDelete(column, value);
+                return chain;
+              }),
+              // biome-ignore lint/suspicious/noThenProperty: Supabase delete builders are awaitable, and this mock intentionally mirrors that contract.
+              then: (
+                onFulfilled?: (value: { error: unknown }) => unknown,
+                onRejected?: (reason: unknown) => unknown
+              ) =>
+                Promise.resolve(dedupDeleteResult).then(
+                  onFulfilled,
+                  onRejected
+                ),
+            };
+            return chain;
+          }),
           insert: vi.fn((row: unknown) => {
             mocks.dedupInsert(row);
             return Promise.resolve(dedupInsertResult);
@@ -86,12 +104,32 @@ function createSupabaseMock({
               };
             }),
           })),
-          update: vi.fn((row: unknown) => ({
-            eq: vi.fn((column: string, value: string) => {
-              mocks.dedupUpdate(row, column, value);
-              return Promise.resolve(dedupUpdateResult);
-            }),
-          })),
+          update: vi.fn((row: unknown) => {
+            const chain = {
+              eq: vi.fn((column: string, value: string) => {
+                mocks.dedupUpdate(row, column, value);
+                return chain;
+              }),
+              match: vi.fn((criteria: Record<string, unknown>) => {
+                mocks.dedupUpdate(row, 'match', criteria);
+                return {
+                  select: vi.fn(() => ({
+                    maybeSingle: vi.fn().mockResolvedValue(dedupUpdateResult),
+                  })),
+                };
+              }),
+              // biome-ignore lint/suspicious/noThenProperty: Supabase update builders are awaitable, and this mock intentionally mirrors that contract.
+              then: (
+                onFulfilled?: (value: { error: unknown }) => unknown,
+                onRejected?: (reason: unknown) => unknown
+              ) =>
+                Promise.resolve({ error: dedupUpdateResult.error }).then(
+                  onFulfilled,
+                  onRejected
+                ),
+            };
+            return chain;
+          }),
         };
       }
       if (table !== 'order_insurance_policies') {
@@ -757,6 +795,9 @@ describe('POST /api/webhooks/mycover', () => {
         data: {
           essential: { policy_id: 'pol-1', status: 'Offer sent' },
           meta: { policy_id: 'pol-1', progress: 'offer' },
+          sdk: {
+            claim_link: 'https://mycover.ai/purchase?q=continue-claim',
+          },
         },
       };
       const rawBody = JSON.stringify(payload);
@@ -770,6 +811,7 @@ describe('POST /api/webhooks/mycover', () => {
         expect.objectContaining({
           claim_status: 'offer_sent',
           claim_stage: 'Offer sent',
+          claim_link: 'https://mycover.ai/purchase?q=continue-claim',
           claim_progress: 'offer',
         })
       );
@@ -1070,6 +1112,95 @@ describe('POST /api/webhooks/mycover', () => {
         'evt-2'
       );
       expect(mocks.dedupDelete).not.toHaveBeenCalled();
+    });
+
+    it('reclaims stale processing event_ids and completes them after retry processing', async () => {
+      mocks.createServiceClient.mockReturnValue(
+        createSupabaseMock({
+          dedupInsertResult: {
+            error: { code: '23505', message: 'duplicate key' },
+          },
+          dedupSelectResult: {
+            data: {
+              processing_status: 'processing',
+              received_at: '2000-01-01T00:00:00.000Z',
+            },
+            error: null,
+          },
+          dedupUpdateResult: {
+            data: { processing_status: 'processing' },
+            error: null,
+          },
+        })
+      );
+      const payload = {
+        event_id: 'evt-stale',
+        event: 'claim.updated',
+        data: { policy_id: 'pol-1', status: 'Offer sent' },
+      };
+      const rawBody = JSON.stringify(payload);
+
+      const response = await POST(
+        createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+      );
+
+      expect(response.status).toBe(200);
+      expect(mocks.policyUpdate).toHaveBeenCalled();
+      expect(mocks.dedupUpdate).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          event: 'claim.updated',
+          processed_at: null,
+          processing_status: 'processing',
+        }),
+        'match',
+        {
+          event_id: 'evt-stale',
+          processing_status: 'processing',
+          received_at: '2000-01-01T00:00:00.000Z',
+        }
+      );
+      expect(mocks.dedupUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ processing_status: 'processed' }),
+        'event_id',
+        'evt-stale'
+      );
+      expect(mocks.dedupUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ processing_status: 'processed' }),
+        'received_at',
+        expect.any(String)
+      );
+    });
+
+    it('does not process when a stale event_id is completed before reclaim', async () => {
+      mocks.createServiceClient.mockReturnValue(
+        createSupabaseMock({
+          dedupInsertResult: {
+            error: { code: '23505', message: 'duplicate key' },
+          },
+          dedupSelectResult: {
+            data: {
+              processing_status: 'processing',
+              received_at: '2000-01-01T00:00:00.000Z',
+            },
+            error: null,
+          },
+          dedupUpdateResult: { data: null, error: null },
+        })
+      );
+      const payload = {
+        event_id: 'evt-raced',
+        event: 'claim.updated',
+        data: { policy_id: 'pol-1', status: 'Offer sent' },
+      };
+      const rawBody = JSON.stringify(payload);
+
+      const response = await POST(
+        createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+      );
+
+      expect(response.status).toBe(409);
+      expect(mocks.policyUpdate).not.toHaveBeenCalled();
     });
 
     it('releases the claimed event_id when processing fails so retries stay open', async () => {

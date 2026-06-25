@@ -150,6 +150,32 @@ describe('resolveInsuranceCta', () => {
     });
   });
 
+  it('suppresses hosted claim actions for terminal claim states', () => {
+    expect(
+      resolveInsuranceCta({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStatus: 'paid',
+        inspectionStatus: 'completed',
+      })
+    ).toEqual({ kind: 'claim_terminal' });
+
+    expect(
+      resolveInsuranceCta({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStatus: 'offer_rejected',
+        inspectionStatus: 'completed',
+      })
+    ).toEqual({ kind: 'claim_terminal' });
+
+    expect(
+      resolveInsuranceCta({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStatus: '  PAID  ',
+        inspectionStatus: 'completed',
+      })
+    ).toEqual({ kind: 'claim_terminal' });
+  });
+
   it('keeps existing claim informational when no hosted claim link is stored', () => {
     expect(
       resolveInsuranceCta({
