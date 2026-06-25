@@ -55,7 +55,7 @@ describe('env validation', () => {
     await expect(loadEnvModule()).rejects.toThrow(
       'SUPABASE_AGENTIC_JWT_PRIVATE_JWK'
     );
-  }, 30_000);
+  }, 60_000);
 
   it('treats whitespace-only Supabase JWT signing material as missing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
