@@ -52,8 +52,8 @@ AS $$
     WHERE p.merchant_id = p_merchant_id
       AND input.slug <> ''
       AND (
-        (input.product_id IS NOT NULL AND p.id = input.product_id)
-        OR (input.product_id IS NULL AND p.slug = input.slug)
+        p.slug = input.slug
+        OR (input.product_id IS NOT NULL AND p.id = input.product_id)
       )
       AND EXISTS (SELECT 1 FROM merchant_ok)
       AND (p.status = 'active' OR p.status = 'archived')

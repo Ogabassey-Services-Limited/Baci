@@ -129,6 +129,9 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
   it.each([
     'https://evil.test/x',
     '/\\evil.com',
+    '/category/../dashboard',
+    '/category/%2e%2e/dashboard',
+    '/category/%2e/dashboard',
   ])('rejects unsafe redirect path %s', async (redirectPath) => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({ hasError: false, redirectPath })

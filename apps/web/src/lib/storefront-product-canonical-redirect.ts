@@ -1,3 +1,4 @@
+import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
 
 interface ProductCanonicalRedirectOptions {
@@ -19,16 +20,6 @@ export type StorefrontProductCanonicalRedirectResult =
   | { kind: 'redirect'; redirectPath: string }
   | { kind: 'checked-no-redirect' }
   | { kind: 'unknown' };
-
-function isSafeRedirectPath(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    value.startsWith('/') &&
-    !value.startsWith('//') &&
-    !value.includes('\\') &&
-    !/[\r\n]/.test(value)
-  );
-}
 
 export async function getStorefrontProductCanonicalRedirectResult(
   opts: ProductCanonicalRedirectOptions
@@ -69,8 +60,9 @@ export async function getStorefrontProductCanonicalRedirectResult(
       return { kind: 'unknown' };
     }
 
-    if (isSafeRedirectPath(body.redirectPath)) {
-      return { kind: 'redirect', redirectPath: body.redirectPath };
+    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+    if (redirectPath) {
+      return { kind: 'redirect', redirectPath };
     }
 
     return body.matchedProduct === true
