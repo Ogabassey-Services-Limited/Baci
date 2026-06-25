@@ -16,6 +16,7 @@ import {
 import { IDENTIFIER_LABELS } from './bill-form.constants';
 import type { CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import { getBillPaymentAmountError } from './bill-payment-amount-validation';
+import { resolveBillFulfillment } from './resolve-bill-fulfillment';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';
@@ -118,27 +119,16 @@ export function createBillFormPurchaseHandler({
         buyerFullName ||
         customer?.email ||
         undefined;
-      // Kuda-display + Monnify-fulfillment: a folded electricity item carries the
-      // matching Monnify codes — vend through Monnify (instant) using them.
-      const foldedMonnifyBillerCode = selectedBillItem?.monnifyBillerCode;
-      const foldedMonnifyProductCode = selectedBillItem?.monnifyProductCode;
-      const useFoldedMonnify = Boolean(
-        foldedMonnifyBillerCode && foldedMonnifyProductCode
+      // Kuda-display + Monnify-fulfillment routing (folded items vend via Monnify).
+      const {
+        provider: selectedProvider,
+        billerCode: selectedBillerCode,
+        productCode: selectedProductCode,
+      } = resolveBillFulfillment(
+        selectedBillItem,
+        selectedBiller,
+        selectedBillItemIdentifier ?? undefined
       );
-      const selectedProvider = useFoldedMonnify
-        ? 'monnify'
-        : (selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda');
-      const selectedBillerCode = useFoldedMonnify
-        ? foldedMonnifyBillerCode
-        : (selectedBillItem?.billerCode ?? selectedBiller.billerCode);
-      // Monnify treats the selected bill item identifier as the vend product
-      // code for some normalized products, so keep this fallback provider-scoped.
-      const selectedProductCode = useFoldedMonnify
-        ? foldedMonnifyProductCode
-        : (selectedBillItem?.productCode ??
-          (selectedProvider === 'monnify'
-            ? (selectedBillItemIdentifier ?? undefined)
-            : undefined));
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,
