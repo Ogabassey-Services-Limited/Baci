@@ -51,7 +51,7 @@ export function buildBlogCategoryHref(
     basePath === '/' ? '' : basePath.replace(/\/+$/, '');
   const categorySlug = getBlogCategorySlug(category);
 
-  if (hasBlogCategorySlugCollision(categories, categorySlug)) {
+  if (!categorySlug || hasBlogCategorySlugCollision(categories, categorySlug)) {
     const query = new URLSearchParams({ category: category.trim() });
 
     return asRoute(`${normalizedBasePath}/blog?${query.toString()}`);
@@ -64,10 +64,15 @@ export function buildBlogCategorySchemaUrl(
   baseUrl: string,
   category: string
 ): string {
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const categorySlug = getBlogCategorySlug(category);
   const url = new URL(
-    `blog/category/${getBlogCategorySlug(category)}`,
-    baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+    categorySlug ? `blog/category/${categorySlug}` : 'blog',
+    normalizedBaseUrl
   );
+  if (!categorySlug) {
+    url.searchParams.set('category', category.trim());
+  }
 
   return url.toString();
 }

@@ -8,6 +8,7 @@ import {
   mockGetBlogPostRedirect,
   mockGetCachedBlogPost,
   mockGetLiveBlogPost,
+  mockNotFound,
   mockPermanentRedirect,
   resetBlogPostPageMocks,
 } from './page.test-utils';
@@ -123,6 +124,47 @@ describe('storefront blog post page', () => {
     );
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('retries redirect lookup before notFound when public post is missing', async () => {
+    const redirectLookupError = new Error('redirect store unavailable');
+    mockGetBlogPostRedirect
+      .mockRejectedValueOnce(redirectLookupError)
+      .mockResolvedValueOnce({
+        merchant: {
+          id: 'merchant-1',
+          business_name: 'Ogabassey',
+          slug: 'ogabassey',
+          custom_domain: 'ogabassey.com',
+        },
+        targetSlug: 'canonical-post',
+      });
+    mockGetCachedBlogPost.mockResolvedValueOnce(null);
+    mockGetLiveBlogPost.mockResolvedValueOnce(null);
+
+    await expect(loadBlogPostPage('retired-post')).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
+    );
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledTimes(2);
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+  });
+
+  it('propagates redirect retry errors before notFound when public post is missing', async () => {
+    const firstError = new Error('redirect store unavailable');
+    const retryError = new Error('redirect store still unavailable');
+    mockGetBlogPostRedirect
+      .mockRejectedValueOnce(firstError)
+      .mockRejectedValueOnce(retryError);
+    mockGetCachedBlogPost.mockResolvedValueOnce(null);
+    mockGetLiveBlogPost.mockResolvedValueOnce(null);
+
+    await expect(loadBlogPostPage('retired-post')).rejects.toThrow(retryError);
+
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledTimes(2);
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
   });
 
   it('allows draft-mode blog slugs to render without a public post', async () => {

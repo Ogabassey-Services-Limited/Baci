@@ -29,6 +29,13 @@ describe('blog category routing', () => {
     );
   });
 
+  it('falls back to query-string category hrefs when slug generation is empty', () => {
+    expect(buildBlogCategoryHref('/ogabassey', '🔥🔥')).toBe(
+      '/ogabassey/blog?category=%F0%9F%94%A5%F0%9F%94%A5'
+    );
+    expect(buildBlogCategoryHref('', '!!!')).toBe('/blog?category=%21%21%21');
+  });
+
   it('keeps colliding category slugs on query-string hrefs', () => {
     expect(
       buildBlogCategoryHref('/ogabassey', 'Cases Covers', [
@@ -45,6 +52,9 @@ describe('blog category routing', () => {
     expect(
       buildBlogCategorySchemaUrl('https://ogabassey.com/', 'Smartphones')
     ).toBe('https://ogabassey.com/blog/category/smartphones');
+    expect(buildBlogCategorySchemaUrl('https://ogabassey.com', '🔥🔥')).toBe(
+      'https://ogabassey.com/blog?category=%F0%9F%94%A5%F0%9F%94%A5'
+    );
   });
 
   it('throws when category schema URLs receive an invalid base URL', () => {

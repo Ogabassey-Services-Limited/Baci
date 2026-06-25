@@ -123,12 +123,14 @@ export async function generateMetadata({
 export default async function BlogPostPage({ params }: PageProps) {
   const resolvedParams = await params;
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
+  let redirectLookupError: unknown = null;
   try {
     redirectedPost = await getBlogPostRedirect(
       resolvedParams.slug,
       resolvedParams.postSlug
     );
   } catch (error) {
+    redirectLookupError = error;
     console.error('Blog redirect lookup failed at page boundary', {
       slug: resolvedParams.slug,
       postSlug: resolvedParams.postSlug,
@@ -165,6 +167,33 @@ export default async function BlogPostPage({ params }: PageProps) {
       throw error;
     }
     if (!publicPost) {
+      if (redirectLookupError) {
+        try {
+          redirectedPost = await getBlogPostRedirect(
+            resolvedParams.slug,
+            resolvedParams.postSlug
+          );
+        } catch (error) {
+          console.error('Blog redirect retry failed before notFound', {
+            slug: resolvedParams.slug,
+            postSlug: resolvedParams.postSlug,
+            error,
+          });
+          throw error;
+        }
+
+        if (redirectedPost) {
+          permanentRedirect(
+            asRoute(
+              buildCanonicalBlogPostUrl(
+                redirectedPost.merchant,
+                redirectedPost.targetSlug
+              )
+            )
+          );
+        }
+      }
+
       notFound();
     }
   }
