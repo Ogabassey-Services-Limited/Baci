@@ -102,20 +102,23 @@ export async function GET(request: NextRequest) {
     process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() ||
     'A newer version of Ogabassey is available.';
 
-  // Required/recommended is the OR of two independent signals: the marketing
-  // version (useful where it increments, e.g. iOS) and the build number (the
-  // only signal that moves on every Android release). Either crossing its
-  // threshold triggers the prompt.
+  // REQUIRED is an operator-forced floor: either the marketing version below
+  // MIN_VERSION or the build below MIN_BUILD. Both are deliberately set by an
+  // operator, so the version signal is safe here.
   const nativeUpdateRequired =
     (minNativeVersion !== null &&
       compareVersions(nativeVersion, minNativeVersion) < 0) ||
     (installedBuild !== null &&
       minNativeBuild !== null &&
       installedBuild < minNativeBuild);
+  // RECOMMENDED is driven ONLY by the live build number. The build gate is now
+  // sourced from the store's actual live build (mobile_release_gate, kept current
+  // by the reconciler), so it never prompts ahead of availability. We do NOT OR
+  // in LATEST_VERSION here: that env value can be set ahead of the App Store live
+  // version (e.g. a CI bump to 2.1.390 while build 360 is still live), which would
+  // recommend an unreleased version and defeat the live-build gate.
   const nativeUpdateRecommended =
     nativeUpdateRequired ||
-    (latestNativeVersion !== null &&
-      compareVersions(nativeVersion, latestNativeVersion) < 0) ||
     (installedBuild !== null &&
       latestNativeBuild !== null &&
       installedBuild < latestNativeBuild);
