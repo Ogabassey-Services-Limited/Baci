@@ -2,6 +2,9 @@
 -- product identifiers. The proxy canonical preflight reuses this RPC for
 -- archived-alias redirects, so UUID legacy URLs must stay least-privilege
 -- without falling back to a service-role client in public request handling.
+-- Timestamp note: this migration was authored on 2026-06-25 and intentionally
+-- uses Supabase's required <timestamp>_<name>.sql convention in chronological
+-- order with the surrounding June 2026 migration chain.
 
 CREATE OR REPLACE FUNCTION public.get_merchant_product_slug_resolution(
   p_merchant_id uuid,
