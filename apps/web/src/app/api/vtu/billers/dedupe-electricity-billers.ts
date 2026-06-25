@@ -77,8 +77,14 @@ export function dedupeElectricityBillers(
         getMeterType(monnify.billerName);
       const productCode =
         product?.productCode ?? getMonnifyProductCode(monnify);
+      // Prefer the descriptive name for the DISCO key — it always carries the
+      // DISCO (e.g. "Eko Electricity Distribution") even when the billerCode is
+      // opaque; fall back to the code/product label/id.
       const discoSource =
-        monnify.billerCode ?? monnify.billerName ?? monnify.billerId;
+        monnify.billerName ??
+        product?.itemName ??
+        monnify.billerCode ??
+        monnify.billerId;
       if (!(meterType && productCode)) {
         continue;
       }
