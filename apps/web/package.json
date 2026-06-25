@@ -116,6 +116,7 @@
     "hast-util-to-html": "^9.0.5",
     "iconoir-react": "^7.11.0",
     "input-otp": "^1.4.2",
+    "jose": "^5.10.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lowlight": "^3.3.0",
