@@ -719,10 +719,12 @@ async function handlePolicyRenewed(
   event: MyCoverWebhookPayload['event'],
   configuredSecret: string
 ) {
+  const resolvesDataIdAsPurchase =
+    event === 'purchase.renewed' || event === 'renewal.successful';
   let lookup = getPolicyLookup(data, {
-    dataIdColumn: event === 'renewal.successful' ? null : 'mycover_policy_id',
+    dataIdColumn: resolvesDataIdAsPurchase ? null : 'mycover_policy_id',
   });
-  if (!lookup && event === 'renewal.successful' && data.id) {
+  if (!lookup && resolvesDataIdAsPurchase && data.id) {
     lookup = await resolveRenewalPolicyLookup(data.id, configuredSecret);
   }
 

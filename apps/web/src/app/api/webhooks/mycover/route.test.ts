@@ -588,6 +588,52 @@ describe('POST /api/webhooks/mycover', () => {
     );
   });
 
+  it('resolves purchase.renewed payloads that only include a purchase id', async () => {
+    mocks.fetch.mockResolvedValue({
+      json: async () => ({
+        data: {
+          policy: {
+            id: 'policy-123',
+          },
+        },
+      }),
+      ok: true,
+    });
+    const payload = {
+      data: {
+        id: 'renewal-purchase-123',
+        essential: {
+          expiration_date: '2028-05-21T00:00:00.000Z',
+        },
+        sdk: {
+          claim_link: 'https://mycover.ai/purchase?q=renewed-claim',
+        },
+      },
+      event: 'purchase.renewed',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ received: true });
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://v2.api.mycover.ai/v2/purchases/renewal-purchase-123',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer mycover-api-secret',
+        }),
+      })
+    );
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_policy_id',
+      'policy-123'
+    );
+  });
+
   it('persists renewed hosted claim and inspection links', async () => {
     mocks.createServiceClient.mockReturnValue(
       createSupabaseMock({
