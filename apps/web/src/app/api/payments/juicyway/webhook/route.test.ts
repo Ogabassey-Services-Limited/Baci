@@ -560,6 +560,205 @@ describe('POST /api/payments/juicyway/webhook', () => {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // Settlement Amount Validation Tests (stablecoin underpayment guard)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Wires the full happy-path mock chain (transaction fetch + update, order
+   * update, merchant fetch, settlement RPC) so amount-validation accept tests
+   * can assert the payment is processed end-to-end.
+   */
+  function wireProcessingMocks(transaction: Record<string, unknown>) {
+    const order = {
+      id: 'order-123',
+      order_number: 'ORD-001',
+      customer_email: 'customer@example.com',
+      customer_name: 'Jane Doe',
+      customer_phone: '+2341234567890',
+      subtotal: '9500',
+      shipping_fee: '500',
+      total: '10000',
+      currency: 'NGN',
+      customer_id: 'customer-123',
+      shipping_address: {
+        address: '123 Main St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+      order_items: [],
+      ad_tracking: null,
+    };
+    const merchant = {
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test-store.com',
+      email_sender_name: 'Test Store',
+      email: 'admin@test-store.com',
+      offline_conversions_enabled: false,
+    };
+
+    const state = { txnUpdated: false, orderUpdated: false };
+    let transactionCallCount = 0;
+
+    const fromMock = vi.fn((table) => {
+      if (table === 'transactions') {
+        transactionCallCount++;
+        if (transactionCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: transaction, error: null }),
+          };
+        }
+        return {
+          update: vi.fn(() => {
+            state.txnUpdated = true;
+            return { eq: vi.fn().mockResolvedValue({ error: null }) };
+          }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          update: vi.fn(() => {
+            state.orderUpdated = true;
+            return {
+              eq: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ data: order, error: null }),
+            };
+          }),
+        };
+      }
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn(),
+      };
+    });
+
+    (mockSupabase as Record<string, unknown>).from = fromMock;
+    mockSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+    mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+    return state;
+  }
+
+  const pendingCryptoTxn = (metadata: Record<string, unknown>) => ({
+    id: 'txn-123',
+    status: 'pending',
+    gateway_reference: 'TXN-123456',
+    amount: '10000',
+    platform_fee: '150',
+    merchant_id: 'merchant-123',
+    order_id: 'order-123',
+    metadata,
+  });
+
+  it('rejects an underpaid stablecoin settlement with 400 and does not mark paid', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    // Settled 5000 cents against an expected 10000 — a 50% underpayment.
+    const payload = createSuccessPayload();
+    payload.data.amount = 5000;
+    payload.data.currency = 'USDT';
+    const response = await POST(createWebhookRequest(payload));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Payment amount mismatch' });
+    expect(state.txnUpdated).toBe(false);
+    expect(state.orderUpdated).toBe(false);
+    expect(mockAdminSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects a settlement in the wrong currency with 400', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload();
+    payload.data.amount = 10000;
+    payload.data.currency = 'NGN'; // expected USDT
+    const response = await POST(createWebhookRequest(payload));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Payment currency mismatch',
+    });
+    expect(state.orderUpdated).toBe(false);
+  });
+
+  it('accepts an exact stablecoin settlement and processes the payment', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload();
+    payload.data.amount = 10000;
+    payload.data.currency = 'USDT';
+    const response = await POST(createWebhookRequest(payload));
+
+    expect(response.status).toBe(200);
+    expect(state.orderUpdated).toBe(true);
+  });
+
+  it('accepts a settlement within the dust tolerance (<1% short)', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    const transaction = pendingCryptoTxn({
+      juicyway_expected_amount: 10000,
+      juicyway_expected_currency: 'USDT',
+    });
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload();
+    payload.data.amount = 9950; // 0.5% short — within tolerance
+    payload.data.currency = 'USDT';
+    const response = await POST(createWebhookRequest(payload));
+
+    expect(response.status).toBe(200);
+    expect(state.orderUpdated).toBe(true);
+  });
+
+  it('processes the payment (with a warning) when no expected amount is persisted', async () => {
+    mockVerifyWebhookSignature.mockResolvedValue(true);
+
+    // In-flight transaction created before expected-amount persistence.
+    const transaction = pendingCryptoTxn({});
+    const state = wireProcessingMocks(transaction);
+
+    const payload = createSuccessPayload();
+    payload.data.amount = 5000; // would be "underpaid" but no anchor to check
+    payload.data.currency = 'USDT';
+    const response = await POST(createWebhookRequest(payload));
+
+    expect(response.status).toBe(200);
+    expect(state.orderUpdated).toBe(true);
+  });
+
   it('suppresses side effects + settlement and files reconciliation when the order was clamped as cancelled', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
 

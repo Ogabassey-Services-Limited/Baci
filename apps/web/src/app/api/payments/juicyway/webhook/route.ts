@@ -46,7 +46,10 @@ const JUICYWAY_IPS = [
 ];
 
 /**
- * Verify the request comes from Juicyway IPs (optional extra security)
+ * Logs whether the request originates from a known Juicyway IP. This is
+ * observability only — it does NOT gate the request (the caller logs and
+ * continues on a miss). HMAC signature verification is the actual security
+ * control; the IP list can lag Juicyway's infra and proxies rewrite the source.
  */
 function isFromJuicywayIP(request: NextRequest): boolean {
   const forwardedFor = request.headers.get('x-forwarded-for');
@@ -143,7 +146,7 @@ export async function POST(request: NextRequest) {
         // Δ-0a: `gateway_fee` is not a column on `transactions`. Juicyway
         // verify webhooks have no fee field either, so settlement passes 0
         // (matches existing semantics).
-        'id, order_id, merchant_id, amount, platform_fee, status'
+        'id, order_id, merchant_id, amount, platform_fee, status, metadata'
       )
       .eq('gateway_reference', reference)
       .single();
@@ -182,6 +185,70 @@ export async function POST(request: NextRequest) {
 
       logger.info({ message: 'Transaction already processed', reference });
       return NextResponse.json({ message: 'Already processed' });
+    }
+
+    // Validate the settled amount against what we expected at session creation.
+    // Juicyway is a stablecoin rail, so `data.amount` is in session-currency
+    // minor units (USDT/USDC cents) — NOT the NGN order total — and the locked
+    // FX rate means the expected amount was computed at checkout time. Reject
+    // underpaid/wrong-currency settlements instead of trusting the success
+    // event blindly (every other gateway enforces an amount/currency match).
+    const txnMetadata = (transaction.metadata ?? {}) as Record<string, unknown>;
+    const expectedAmount = Number(txnMetadata.juicyway_expected_amount);
+    const expectedCurrency =
+      typeof txnMetadata.juicyway_expected_currency === 'string'
+        ? txnMetadata.juicyway_expected_currency
+        : null;
+    const settledAmount = Number(data.amount);
+    const settledCurrency =
+      typeof data.currency === 'string' ? data.currency : null;
+
+    if (Number.isFinite(expectedAmount) && expectedAmount > 0) {
+      if (
+        expectedCurrency &&
+        settledCurrency &&
+        expectedCurrency.toUpperCase() !== settledCurrency.toUpperCase()
+      ) {
+        logger.error({
+          message: 'Juicyway payment currency mismatch',
+          reference,
+          expected: expectedCurrency,
+          received: settledCurrency,
+        });
+        return NextResponse.json(
+          { error: 'Payment currency mismatch' },
+          { status: 400 }
+        );
+      }
+
+      // Allow overpayment + dust; reject clear underpayment (>1% short).
+      // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
+      // and the tolerance only absorbs on-chain rounding/dust.
+      const UNDERPAYMENT_TOLERANCE = 0.01;
+      if (
+        Number.isFinite(settledAmount) &&
+        settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)
+      ) {
+        logger.error({
+          message: 'Juicyway payment amount mismatch (underpaid)',
+          reference,
+          expected: expectedAmount,
+          received: settledAmount,
+          currency: settledCurrency,
+        });
+        return NextResponse.json(
+          { error: 'Payment amount mismatch' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // In-flight transactions created before expected-amount persistence (or a
+      // failed persist) have no anchor to validate against — log and proceed,
+      // mirroring the paystack/korapay "could not verify amount" path.
+      logger.warn({
+        message: 'Juicyway expected amount unavailable; skipping amount check',
+        reference,
+      });
     }
 
     // Update transaction status

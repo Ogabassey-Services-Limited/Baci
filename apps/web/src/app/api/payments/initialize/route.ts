@@ -330,6 +330,12 @@ interface PaymentResult {
     amount: number;
     /** Stablecoin amount for display (e.g. "3.26") */
     crypto_amount?: string;
+    /**
+     * Expected settlement amount in stablecoin minor units (cents), as charged
+     * by Juicyway (our amount + Juicyway fee). Persisted on the transaction so
+     * the webhook can reject underpaid/mismatched settlements.
+     */
+    expected_session_amount?: number;
     /** NGN/USDT rate used for conversion */
     conversion_rate?: number;
     confirmation_time: string;
@@ -676,6 +682,7 @@ async function initializeJuicyway(
             currency: paymentMethod.currency,
             amount: amountInMinor,
             crypto_amount: cryptoAmountStr,
+            expected_session_amount: juicywayCryptoAmount,
             conversion_rate: conversionRate,
             confirmation_time: getChainConfirmationTime(paymentMethod.chain),
             qrcode: paymentMethod.qrcode,
@@ -698,6 +705,7 @@ async function initializeJuicyway(
           currency: cryptoCurrency,
           amount: amountInMinor,
           crypto_amount: cryptoAmountStr,
+          expected_session_amount: juicywayCryptoAmount,
           conversion_rate: conversionRate,
           confirmation_time: getChainConfirmationTime(cryptoChain),
           payment_id: paymentId,
@@ -1380,6 +1388,42 @@ export async function POST(request: NextRequest) {
         'TRANSACTION_CREATE_FAILED',
         500
       );
+    }
+
+    // Juicyway is a stablecoin rail: the webhook reports the settled amount in
+    // the session currency (USDT/USDC cents), which is NOT comparable to the
+    // NGN order total. Persist the expected settlement amount + locked FX rate
+    // now so the webhook can reject underpaid/mismatched settlements instead of
+    // trusting a signature-valid success event blindly.
+    const juicywayCrypto = paymentResult.crypto_payment;
+    if (
+      gateway === 'juicyway' &&
+      juicywayCrypto?.expected_session_amount != null
+    ) {
+      const { error: metadataError } = await supabase
+        .from('transactions')
+        .update({
+          metadata: {
+            customer_email: paymentData.customer_email,
+            customer_name: paymentData.customer_name,
+            session_id: paymentResult.sessionId ?? null,
+            // Stablecoin minor units (cents), incl. Juicyway fee.
+            juicyway_expected_amount: juicywayCrypto.expected_session_amount,
+            juicyway_expected_currency: juicywayCrypto.currency,
+            juicyway_fx_rate: juicywayCrypto.conversion_rate ?? null,
+          },
+        })
+        .eq('gateway_reference', paymentResult.reference);
+
+      if (metadataError) {
+        // Non-fatal: the webhook falls back to a logged warning when the
+        // expected amount is absent, so a failed persist never blocks checkout.
+        logger.warn({
+          message: 'Failed to persist Juicyway expected settlement amount',
+          reference: paymentResult.reference,
+          error: metadataError,
+        });
+      }
     }
 
     // Return success response

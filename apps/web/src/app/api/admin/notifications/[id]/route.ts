@@ -1,12 +1,15 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { notificationIdSchema } from '@/schemas/notifications';
-import type { UpdateNotificationInput } from '@/types/notifications';
+import {
+  notificationIdSchema,
+  updateNotificationSchema,
+} from '@/schemas/notifications';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -245,7 +248,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Parse and validate request body
-    const body: UpdateNotificationInput = await request.json();
+    const parsed = updateNotificationSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
 
     // Build update object
     const updates: Record<string, unknown> = {};

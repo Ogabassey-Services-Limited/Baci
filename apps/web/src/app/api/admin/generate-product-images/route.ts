@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 interface GeminiAIResponse {
   candidates?: Array<{
@@ -74,6 +75,23 @@ export async function POST(req: NextRequest) {
 
     if (!adminCheck?.is_platform_admin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Cost control: Imagen/Gemini image generation is billed per request, so
+    // throttle per user (the middleware limiter is only per-IP). Matches the
+    // documented image-generation budget of 5 req/min/user.
+    const withinRateLimit = await checkRateLimit(
+      supabase,
+      user.id,
+      'admin_ai_image_gen',
+      5,
+      1
+    );
+    if (!withinRateLimit) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'rate_limited' },
+        { status: 429 }
+      );
     }
 
     // 2. Fetch products that need images
