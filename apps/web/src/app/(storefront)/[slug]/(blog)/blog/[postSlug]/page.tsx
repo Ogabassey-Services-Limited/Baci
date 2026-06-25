@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { cacheLife, cacheTag } from 'next/cache';
 import { draftMode } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import {
   getCachedBlogPost,
@@ -34,10 +36,14 @@ async function hasPublicBlogPost(
   identifier: string,
   postSlug: string
 ): Promise<boolean> {
+  'use cache';
   const normalizedPostSlug = postSlug.trim().toLowerCase();
   if (!normalizedPostSlug) {
     return false;
   }
+
+  cacheLife('blog');
+  cacheTag('blog-posts', getBlogCacheTag(identifier, normalizedPostSlug));
 
   const merchant = await getMerchantSafe(identifier.toLowerCase());
   if (!merchant) {

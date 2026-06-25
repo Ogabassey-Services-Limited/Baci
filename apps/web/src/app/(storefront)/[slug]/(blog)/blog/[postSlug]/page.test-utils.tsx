@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 
 const pageMockState = vi.hoisted(() => ({
+  mockCacheLife: vi.fn(),
+  mockCacheTag: vi.fn(),
   mockBlogPostPageContent: vi.fn((_props: unknown) => (
     <div>Blog post page content</div>
   )),
@@ -33,6 +35,8 @@ const pageMockState = vi.hoisted(() => ({
   mockConnection: vi.fn(),
 }));
 
+export const mockCacheLife = pageMockState.mockCacheLife;
+export const mockCacheTag = pageMockState.mockCacheTag;
 export const mockBlogPostPageContent = pageMockState.mockBlogPostPageContent;
 export const mockBlogPostExistenceMaybeSingle =
   pageMockState.mockBlogPostExistenceMaybeSingle;
@@ -55,6 +59,11 @@ export const mockConnection = pageMockState.mockConnection;
 vi.mock('next/headers', () => ({
   draftMode: () => pageMockState.mockDraftMode(),
   headers: () => pageMockState.mockHeaders(),
+}));
+
+vi.mock('next/cache', () => ({
+  cacheLife: (...args: unknown[]) => pageMockState.mockCacheLife(...args),
+  cacheTag: (...args: unknown[]) => pageMockState.mockCacheTag(...args),
 }));
 
 vi.mock('next/navigation', () => ({

@@ -13,6 +13,9 @@ import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
+const PRERENDER_PLACEHOLDER_STORE_SLUG = '__prerender_placeholder_store__';
+const PRERENDER_PLACEHOLDER_PRODUCT_SLUG = '__prerender_placeholder__';
+
 vi.mock('server-only', () => ({}));
 
 const { mockReactCacheResetters, mockResetReactCacheStores } = vi.hoisted(
@@ -970,7 +973,7 @@ describe('[category]/[productSlug] page metadata', () => {
       params: Promise.resolve({
         slug: OGABASSEY_DOMAIN,
         category: 'smartphones',
-        productSlug: '__prerender_placeholder__',
+        productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
       }),
       searchParams: Promise.resolve({}),
     });
@@ -990,6 +993,24 @@ describe('[category]/[productSlug] page metadata', () => {
         description: 'This product is unavailable or has moved.',
       },
     });
+    expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
+  it('returns notFound for the invalid-store prerender placeholder before merchant or product lookups', async () => {
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: PRERENDER_PLACEHOLDER_STORE_SLUG,
+          category: 'smartphones',
+          productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledOnce();
     expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
     expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
@@ -2417,7 +2438,7 @@ describe('[category]/[productSlug] page render', () => {
         params: Promise.resolve({
           slug: OGABASSEY_DOMAIN,
           category: 'smartphones',
-          productSlug: '__prerender_placeholder__',
+          productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
         }),
         searchParams: Promise.resolve({}),
       })) as ReactElement
@@ -2429,6 +2450,24 @@ describe('[category]/[productSlug] page render', () => {
     expect(
       screen.getByRole('link', { name: 'Continue shopping' })
     ).toHaveAttribute('href', '/');
+    expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
+  });
+
+  it('returns notFound for the invalid-store prerender placeholder without merchant or product lookups', async () => {
+    await expect(
+      CategoryProductPage({
+        params: Promise.resolve({
+          slug: PRERENDER_PLACEHOLDER_STORE_SLUG,
+          category: 'smartphones',
+          productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalledOnce();
     expect(mockGetRequestScopedMerchant).not.toHaveBeenCalled();
     expect(mockGetCachedProductLcpHint).not.toHaveBeenCalled();
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
@@ -4500,9 +4539,9 @@ describe('[category]/[productSlug] page render', () => {
 
 describe('[category]/[productSlug] generateStaticParams', () => {
   const PRERENDER_PLACEHOLDER = {
-    slug: '__prerender_placeholder_store__',
+    slug: PRERENDER_PLACEHOLDER_STORE_SLUG,
     category: 'smartphones',
-    productSlug: '__prerender_placeholder__',
+    productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
   };
 
   beforeEach(() => {

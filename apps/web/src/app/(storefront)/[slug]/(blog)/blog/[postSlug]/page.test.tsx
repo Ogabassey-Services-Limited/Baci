@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   mockBlogPostExistenceMaybeSingle,
   mockBlogPostPageContent,
+  mockCacheLife,
+  mockCacheTag,
   mockConnection,
   mockDraftMode,
   mockGetBlogPostRedirect,
@@ -88,6 +90,11 @@ describe('storefront blog post page', () => {
     render(await loadBlogPostPage('apple-studio-display-review'));
 
     expect(mockBlogPostExistenceMaybeSingle).toHaveBeenCalledOnce();
+    expect(mockCacheLife).toHaveBeenCalledWith('blog');
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      'blog-posts',
+      expect.stringContaining('blog-ogabassey.com-apple-studio-display-review')
+    );
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
     expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
