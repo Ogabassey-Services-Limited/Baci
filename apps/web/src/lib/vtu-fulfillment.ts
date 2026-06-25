@@ -1645,10 +1645,12 @@ export async function backfillVtuVoucherPin({
 
 async function resolveSuccessfulVtuTransaction({
   reconciledVoucherPin,
+  reconciledUnits,
   row,
   supabase,
 }: {
   reconciledVoucherPin?: string;
+  reconciledUnits?: string;
   row: VtuTransactionRow;
   supabase: SupabaseClient;
 }): Promise<FulfilledVtuResult> {
@@ -1656,7 +1658,9 @@ async function resolveSuccessfulVtuTransaction({
   let metadataChanged = false;
   const cashbackAmount = Number(row.customer_cashback ?? 0);
   let voucherPin = normalizeVoucherPin(reconciledVoucherPin);
-  let backfilledUnits: string | undefined;
+  // Units reconciled alongside the pin (e.g. from a requery during processing
+  // reconciliation) — kept so reconciled prepaid vends store units too.
+  let resolvedUnits = reconciledUnits?.trim() || undefined;
   if (!voucherPin) {
     if (canResolveBillVoucherPin(row.type)) {
       const backfilled = await backfillVtuVoucherPin({
@@ -1667,7 +1671,7 @@ async function resolveSuccessfulVtuTransaction({
         transactionId: row.id,
       });
       voucherPin = backfilled.voucherPin;
-      backfilledUnits = backfilled.units;
+      resolvedUnits = resolvedUnits ?? backfilled.units;
     } else {
       voucherPin = getVoucherPinFromMetadata(row.metadata);
     }
@@ -1676,9 +1680,9 @@ async function resolveSuccessfulVtuTransaction({
     metadataChanged =
       setMetadataValue(metadata, 'voucherPin', voucherPin) || metadataChanged;
   }
-  if (backfilledUnits) {
+  if (resolvedUnits) {
     metadataChanged =
-      setMetadataValue(metadata, 'units', backfilledUnits) || metadataChanged;
+      setMetadataValue(metadata, 'units', resolvedUnits) || metadataChanged;
   }
   const walletSettlement = await settleVtuWalletCredits({
     metadata,
@@ -1827,6 +1831,7 @@ async function reconcileFailedVtuRetry({
         action: 'return',
         result: await resolveSuccessfulVtuTransaction({
           reconciledVoucherPin: providerStatus.pin,
+          reconciledUnits: providerStatus.units,
           row: { ...row, error_message: null, status: 'successful' },
           supabase,
         }),
@@ -1912,10 +1917,12 @@ async function readCurrentVtuTransactionRow({
 
 async function resolveCurrentVtuTransactionState({
   reconciledVoucherPin,
+  reconciledUnits,
   row,
   supabase,
 }: {
   reconciledVoucherPin?: string;
+  reconciledUnits?: string;
   row: VtuTransactionRow;
   supabase: SupabaseClient;
 }): Promise<FulfilledVtuResult> {
@@ -1924,6 +1931,7 @@ async function resolveCurrentVtuTransactionState({
   if (currentRow.status === 'successful') {
     return resolveSuccessfulVtuTransaction({
       reconciledVoucherPin,
+      reconciledUnits,
       row: currentRow,
       supabase,
     });
@@ -2023,6 +2031,7 @@ async function reconcileProcessingVtuTransaction({
     if (currentRow.status !== 'processing') {
       return resolveCurrentVtuTransactionState({
         reconciledVoucherPin: providerStatus.pin,
+        reconciledUnits: providerStatus.units,
         row: currentRow,
         supabase,
       });
@@ -2033,6 +2042,10 @@ async function reconcileProcessingVtuTransaction({
       const voucherPin = normalizeVoucherPin(providerStatus.pin);
       if (voucherPin) {
         successMetadata.voucherPin = voucherPin;
+      }
+      const reconciledUnits = providerStatus.units?.trim() || undefined;
+      if (reconciledUnits) {
+        successMetadata.units = reconciledUnits;
       }
       const successPersistError = await updateVtuPurchaseResultWithRetry({
         payload: {
@@ -2048,6 +2061,7 @@ async function reconcileProcessingVtuTransaction({
       if (isVtuConcurrentUpdateError(successPersistError)) {
         return resolveCurrentVtuTransactionState({
           reconciledVoucherPin: voucherPin,
+          reconciledUnits,
           row: currentRow,
           supabase,
         });
@@ -2059,6 +2073,7 @@ async function reconcileProcessingVtuTransaction({
       }
       return resolveSuccessfulVtuTransaction({
         reconciledVoucherPin: voucherPin,
+        reconciledUnits,
         row: {
           ...currentRow,
           error_message: null,
@@ -2832,6 +2847,7 @@ export async function fulfillPendingVtuTransaction({
   if (isVtuConcurrentUpdateError(purchaseUpdateError)) {
     return resolveCurrentVtuTransactionState({
       reconciledVoucherPin: voucherPin,
+      reconciledUnits: units,
       row,
       supabase,
     });

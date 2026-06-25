@@ -811,6 +811,8 @@ describe('Monnify Bills Client', () => {
         responseMessage: 'Processing',
         responseBody: {
           transactionReference: 'MON-TX-123',
+          // A real pending vend carries the vendReference used to requery it.
+          vendReference: 'MFBP-MDR-12345678-260625154352b0b9',
           paymentReference: 'BACI-REF-123',
           status: 'PAID',
           vendStatus: 'IN_PROGRESS',
@@ -835,6 +837,9 @@ describe('Monnify Bills Client', () => {
 
       expect(result.status).toBe('pending');
       expect(result.success).toBe(true);
+      expect(result.providerVendReference).toBe(
+        'MFBP-MDR-12345678-260625154352b0b9'
+      );
       expect(result.pin).toBeUndefined();
     });
 
@@ -1102,7 +1107,7 @@ describe('Monnify Bills Client', () => {
           'JANE DOE',
           'BACI-REF-123'
         )
-      ).rejects.toThrow('missing both transaction and vend references');
+      ).rejects.toThrow('missing a requeryable vend reference');
     });
 
     it('accepts a success response that has vendReference but no transactionReference', async () => {

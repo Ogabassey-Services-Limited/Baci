@@ -555,16 +555,20 @@ export async function purchaseBill(
     const { isSuccess, isProcessing, isFailed } =
       classifyMonnifyBillStatus(body);
 
-    // We need at least one reference to track/requery the vend. Monnify resolves
-    // requery by vendReference, so accept the response when either reference is
-    // present; only treat a totally reference-less success/pending as transient.
-    if (
-      (isSuccess || isProcessing) &&
-      !transactionReference &&
-      !vendReference
-    ) {
+    // A successful vend delivers the token inline (metaData.token), so any
+    // reference is enough to track it. A PENDING vend, however, must be
+    // reconciled later via requery — and Monnify requery only resolves by
+    // `vendReference` (not `transactionReference`). So a pending vend without a
+    // vendReference is unreconcilable: treat it as transient so it retries
+    // rather than persisting a `processing` row whose token can never be fetched.
+    if (isSuccess && !transactionReference && !vendReference) {
       throw new MonnifyTransientVendError(
-        'Monnify vend response missing both transaction and vend references'
+        'Monnify success vend response missing both transaction and vend references'
+      );
+    }
+    if (isProcessing && !vendReference) {
+      throw new MonnifyTransientVendError(
+        'Monnify pending vend response missing a requeryable vend reference'
       );
     }
 

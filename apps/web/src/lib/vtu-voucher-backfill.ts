@@ -292,18 +292,37 @@ export async function scheduleVoucherPinBackfill({
         pinResolved = Boolean(voucherPin);
         // backfill persists the pin via RPC but returns units for the owner of
         // the metadata write to persist; this path has no later write, so do it.
+        // Re-fetch the latest metadata first and merge — other fulfillment paths
+        // (wallet/notification/payment-pending) may have written since our
+        // scheduling snapshot, and a blind write of currentMetadata would drop
+        // those keys.
         if (voucherPin && units) {
-          const { error: unitsError } = await supabase
+          const { data: latest, error: readError } = await supabase
             .from('vtu_transactions')
-            .update({
-              metadata: { ...currentMetadata, voucherPin, units },
-            })
-            .eq('id', transactionId);
-          if (unitsError) {
-            console.error('Failed to persist VTU units on backfill:', {
-              error: unitsError.message,
+            .select('metadata')
+            .eq('id', transactionId)
+            .single();
+          if (readError) {
+            console.error('Failed to read metadata before units persist:', {
+              error: readError.message,
               transactionId,
             });
+          } else {
+            const latestMetadata = isMetadataRecord(latest?.metadata)
+              ? latest.metadata
+              : currentMetadata;
+            const { error: unitsError } = await supabase
+              .from('vtu_transactions')
+              .update({
+                metadata: { ...latestMetadata, voucherPin, units },
+              })
+              .eq('id', transactionId);
+            if (unitsError) {
+              console.error('Failed to persist VTU units on backfill:', {
+                error: unitsError.message,
+                transactionId,
+              });
+            }
           }
         }
       }
