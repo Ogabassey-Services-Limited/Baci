@@ -110,13 +110,12 @@ export function createBillFormPurchaseHandler({
         .filter(Boolean)
         .join(' ')
         .trim();
-      // Receipts should show the BUYER's own name when they've set one — for
-      // electricity etc. the verified meter name is usually the landlord/owner,
-      // not the person paying. Fall back to the verified (meter-owner) name, then
-      // email, so legacy/no-name cases never go blank.
+      // customerName is the bill customer-of-record persisted on the VTU
+      // transaction (receipts/history/repeat), so prefer the verified meter/
+      // account holder; fall back to the buyer's name, then email.
       const customerName =
-        buyerFullName ||
         verifiedCustomerName?.trim() ||
+        buyerFullName ||
         customer?.email ||
         undefined;
       // Kuda-display + Monnify-fulfillment: a folded electricity item carries the
