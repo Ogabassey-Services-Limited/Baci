@@ -12,6 +12,13 @@ export interface BillItem {
   maxAmount?: number;
   minAmount?: number;
   productCode?: string;
+  /**
+   * Monnify fulfillment identifiers folded onto a Kuda-display electricity item
+   * (Kuda display + Monnify fulfillment). Present = the checkout may vend via
+   * Monnify for this DISCO/meter type while showing Kuda's card.
+   */
+  monnifyBillerCode?: string;
+  monnifyProductCode?: string;
   billItems?: BillItem[];
 }
 
@@ -56,6 +63,14 @@ export const BillItemSchema: z.ZodType<BillItem> = z.lazy(() =>
         .string()
         .optional()
         .describe('Monnify product code when provider is Monnify'),
+      monnifyBillerCode: z
+        .string()
+        .optional()
+        .describe('Folded Monnify biller code for a Kuda-display item'),
+      monnifyProductCode: z
+        .string()
+        .optional()
+        .describe('Folded Monnify product code for a Kuda-display item'),
       billItems: z
         .array(BillItemSchema)
         .optional()

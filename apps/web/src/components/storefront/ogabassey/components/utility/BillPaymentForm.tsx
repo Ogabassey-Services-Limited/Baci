@@ -85,12 +85,22 @@ function BillPaymentFormFields({
   const selectedBillItemIdentifier = requiresBillItemSelection
     ? selectedBillItem?.itemCode
     : selectedBiller?.billerId;
-  const selectedProvider =
-    selectedBillItem?.provider ?? selectedBiller?.provider ?? 'kuda';
-  const selectedBillerCode =
-    selectedBillItem?.billerCode ?? selectedBiller?.billerCode;
-  const selectedProductCode =
-    selectedProvider === 'monnify'
+  // Kuda-display + Monnify-fulfillment: a folded electricity item carries the
+  // matching Monnify codes — verify/vend through Monnify (instant) using them.
+  const foldedMonnifyBillerCode = selectedBillItem?.monnifyBillerCode;
+  const foldedMonnifyProductCode = selectedBillItem?.monnifyProductCode;
+  const useFoldedMonnify = Boolean(
+    foldedMonnifyBillerCode && foldedMonnifyProductCode
+  );
+  const selectedProvider = useFoldedMonnify
+    ? 'monnify'
+    : (selectedBillItem?.provider ?? selectedBiller?.provider ?? 'kuda');
+  const selectedBillerCode = useFoldedMonnify
+    ? foldedMonnifyBillerCode
+    : (selectedBillItem?.billerCode ?? selectedBiller?.billerCode);
+  const selectedProductCode = useFoldedMonnify
+    ? foldedMonnifyProductCode
+    : selectedProvider === 'monnify'
       ? (selectedBillItem?.productCode ?? selectedBillItem?.itemCode)
       : undefined;
   const currentVerificationKey = [

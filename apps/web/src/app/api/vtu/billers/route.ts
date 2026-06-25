@@ -4,12 +4,14 @@ import { billersQuerySchema } from '@/schemas/vtu';
 import {
   type BillersResponsePayload,
   getMonnifyCategoryCode,
+  type NormalizedBiller,
 } from './biller-normalizers';
 import {
   getErrorMessage,
   loadKudaBillers,
   loadMonnifyBillers,
 } from './biller-route-helpers';
+import { dedupeElectricityBillers } from './dedupe-electricity-billers';
 
 /**
  * GET /api/vtu/billers?type=electricity
@@ -72,7 +74,37 @@ export async function GET(request: NextRequest) {
 
     const monnifyBillers = monnifyResult.billers;
     const monnifyError = monnifyResult.error;
-    const mergedBillers = [...kudaBillers, ...monnifyBillers];
+    // Electricity: collapse to Kuda's cards and fold the matching Monnify pre/post
+    // codes onto each Kuda bill item (Kuda display + Monnify fulfillment), so the
+    // list shows one clean card per DISCO instead of Kuda+Monnify duplicates.
+    let mergedBillers: NormalizedBiller[];
+    if (type === 'electricity' && monnifyBillers.length > 0) {
+      const { billers, matchedMonnifyProducts } = dedupeElectricityBillers(
+        kudaBillers,
+        monnifyBillers
+      );
+      // Prune folded products from each Monnify card; drop a card only once it
+      // has no products left (keeps unmatched/unclassifiable meter types visible).
+      const leftoverMonnify = monnifyBillers.flatMap((biller) => {
+        const folded = biller.billerCode
+          ? matchedMonnifyProducts.get(biller.billerCode)
+          : undefined;
+        if (!folded || folded.size === 0) {
+          return [biller];
+        }
+        const remaining = (biller.billItems ?? []).filter(
+          (item) => !(item.productCode && folded.has(item.productCode))
+        );
+        // No items left (incl. single-product billers with no nested items) → drop.
+        if (remaining.length === 0) {
+          return [];
+        }
+        return [{ ...biller, billItems: remaining }];
+      });
+      mergedBillers = [...billers, ...leftoverMonnify];
+    } else {
+      mergedBillers = [...kudaBillers, ...monnifyBillers];
+    }
 
     if (mergedBillers.length === 0) {
       const providerError = kudaError ?? monnifyError;

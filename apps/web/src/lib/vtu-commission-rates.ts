@@ -245,7 +245,7 @@ const VTU_COMMISSION_PROVIDER_ALIASES = {
     ['KAEDCO', ['KAEDCO', 'KAEDC', 'KAED', 'KADUNA']],
     ['KEDCO', ['KEDCO', 'KEDC', 'KANO']],
     ['PHEDC', ['PHEDC', 'PHED', 'PORTHARCOURT']],
-    ['ABA', ['ABA']],
+    ['ABA', ['ABA', 'APLE']],
     ['YEDC', ['YEDC', 'YOLA']],
   ],
   CABLE: [
@@ -318,7 +318,7 @@ export function normalizeVtuCommissionCategory(
   return VTU_COMMISSION_CATEGORY_ALIASES[compactCategory] ?? 'AIRTIME';
 }
 
-function resolveProviderRateKey(
+export function resolveProviderRateKey(
   provider: unknown,
   category: VtuCommissionCategory
 ) {

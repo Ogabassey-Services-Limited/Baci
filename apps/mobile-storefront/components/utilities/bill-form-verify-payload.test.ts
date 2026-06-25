@@ -56,6 +56,35 @@ describe('createBillFormVerifyPayload', () => {
     });
   });
 
+  it('routes folded Kuda electricity items through Monnify verify codes', () => {
+    const selectedBillItem: BillItem = {
+      amount: 0,
+      isAmountFixed: false,
+      itemCode: 'KUD-ELE-IKEDC-PREPAID',
+      itemCurrencySymbol: 'NGN',
+      itemFee: 0,
+      itemName: 'Prepaid meter',
+      monnifyBillerCode: 'IKEDC',
+      monnifyProductCode: 'IKEDC_PREPAID',
+      provider: 'kuda',
+    };
+
+    expect(
+      createBillFormVerifyPayload({
+        customerIdentifier: '43901766923',
+        selectedBiller: baseBiller,
+        selectedBillItem,
+        selectedBillItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+      })
+    ).toEqual({
+      billItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+      billerCode: 'IKEDC',
+      customerIdentifier: '43901766923',
+      productCode: 'IKEDC_PREPAID',
+      provider: 'monnify',
+    });
+  });
+
   it('uses biller-level billerCode when there is no selected item', () => {
     expect(
       createBillFormVerifyPayload({

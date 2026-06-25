@@ -779,6 +779,98 @@ describe('BillPaymentForm', () => {
     });
   });
 
+  it('verifies and submits folded Kuda electricity items with Monnify fulfillment codes', async () => {
+    const user = userEvent.setup();
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billers: [
+              {
+                billerId: 'IKEDC-KUDA',
+                billerName: 'Ikeja Electric',
+                billerType: 'electricity',
+                categoryId: 'UTILITY_PAYMENT',
+                categoryName: 'electricity',
+                provider: 'kuda',
+                billItems: [
+                  {
+                    itemCode: 'KUD-ELE-IKEDC-PREPAID',
+                    itemName: 'Prepaid',
+                    amount: 0,
+                    itemCurrencySymbol: 'NGN',
+                    isAmountFixed: false,
+                    itemFee: 0,
+                    provider: 'kuda',
+                    monnifyBillerCode: 'IKEDC',
+                    monnifyProductCode: 'IKEDC_PREPAID',
+                  },
+                ],
+              },
+            ],
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            verified: true,
+            customerName: 'Jane Meter',
+            validationReference: 'VAL-FOLDED-123',
+            requireValidationRef: true,
+          }),
+      });
+
+    render(
+      <BillPaymentForm
+        type="power"
+        loading={false}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await user.click(await screen.findByText('Ikeja Electric'));
+    await user.type(
+      await screen.findByPlaceholderText('Enter meter number'),
+      '1234567890'
+    );
+    await user.click(screen.getByRole('button', { name: /Verify/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/vtu/verify',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: 'monnify',
+            billerCode: 'IKEDC',
+            productCode: 'IKEDC_PREPAID',
+            customerIdentifier: '1234567890',
+          }),
+        })
+      );
+    });
+
+    await screen.findByText('Customer verified');
+    await user.type(screen.getByPlaceholderText('0.00'), '5000');
+    await user.click(screen.getByRole('button', { name: /Pay ₦5,000/i }));
+
+    expect(mockOnSubmit).toHaveBeenCalledWith({
+      amount: 5000,
+      billItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+      billerCode: 'IKEDC',
+      customerIdentifier: '1234567890',
+      billerName: 'Ikeja Electric - Prepaid',
+      productCode: 'IKEDC_PREPAID',
+      provider: 'monnify',
+      requireValidationRef: true,
+      type: 'electricity',
+      validationReference: 'VAL-FOLDED-123',
+    });
+  });
+
   it('shows feedback instead of silently returning when Monnify validation reference is missing', async () => {
     const user = userEvent.setup();
     mockFetch

@@ -159,7 +159,7 @@ describe('createBillFormPurchaseHandler', () => {
     );
   });
 
-  it('sends the verified meter-owner name as customerName, overriding the buyer name', async () => {
+  it('prefers the verified meter/account holder as customerName (bill customer-of-record)', async () => {
     mockInitializeVtuCheckout.mockResolvedValueOnce({
       authorization_url: 'https://gateway/auth',
       gateway: 'paystack',
@@ -177,12 +177,14 @@ describe('createBillFormPurchaseHandler', () => {
     await handlePurchase();
 
     expect(mockInitializeVtuCheckout).toHaveBeenCalledTimes(1);
+    // customerName is the bill customer-of-record persisted on the transaction,
+    // so the verified meter/account holder wins over the buyer's profile name.
     expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
       customerName: 'JANE METER-OWNER',
     });
   });
 
-  it('falls back to the buyer name when no verified meter-owner name is provided', async () => {
+  it('falls back to the verified meter-owner name when the buyer has no name', async () => {
     mockInitializeVtuCheckout.mockResolvedValueOnce({
       authorization_url: 'https://gateway/auth',
       gateway: 'paystack',
@@ -190,17 +192,17 @@ describe('createBillFormPurchaseHandler', () => {
     });
     const handlePurchase = createValidHandler({
       customer: {
-        first_name: 'Bassey',
-        last_name: 'John',
+        first_name: null,
+        last_name: null,
         email: 'bassey@example.com',
       },
-      verifiedCustomerName: null,
+      verifiedCustomerName: 'JANE METER-OWNER',
     });
 
     await handlePurchase();
 
     expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
-      customerName: 'Bassey John',
+      customerName: 'JANE METER-OWNER',
     });
   });
 
@@ -242,6 +244,53 @@ describe('createBillFormPurchaseHandler', () => {
         billerCode: 'MTN',
         productCode: '13',
         provider: 'monnify',
+      })
+    );
+  });
+
+  it('routes folded Kuda electricity display items through Monnify checkout codes', async () => {
+    mockInitializeVtuCheckout.mockResolvedValueOnce({
+      authorization_url: 'https://gateway/auth',
+      gateway: 'paystack',
+      reference: 'PAY-FOLDED-MONNIFY',
+    });
+    const handlePurchase = createValidHandler({
+      selectedBiller: {
+        billerId: 'IKEDC_KUDA',
+        billerName: 'Ikeja Electric',
+        billerType: 'Electricity',
+        categoryId: 'electricity',
+        categoryName: 'Electricity',
+        provider: 'kuda',
+      },
+      selectedBillItem: {
+        amount: 0,
+        isAmountFixed: false,
+        itemCode: 'KUD-ELE-IKEDC-PREPAID',
+        itemCurrencySymbol: 'NGN',
+        itemFee: 0,
+        itemName: 'Prepaid meter',
+        monnifyBillerCode: 'IKEDC',
+        monnifyProductCode: 'IKEDC_PREPAID',
+        provider: 'kuda',
+      },
+      selectedBillItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+      selectedBillItemPathLabel: 'Prepaid meter',
+      validationReference: 'VAL-FOLDED-123',
+      requireValidationRef: true,
+    });
+
+    await handlePurchase();
+
+    expect(mockInitializeVtuCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        billItemIdentifier: 'KUD-ELE-IKEDC-PREPAID',
+        billerCode: 'IKEDC',
+        billerName: 'Ikeja Electric - Prepaid meter',
+        productCode: 'IKEDC_PREPAID',
+        provider: 'monnify',
+        requireValidationRef: true,
+        validationReference: 'VAL-FOLDED-123',
       })
     );
   });

@@ -21,6 +21,13 @@ export interface NormalizedBillItem {
   maxAmount?: number;
   minAmount?: number;
   productCode?: string;
+  /**
+   * Monnify fulfillment identifiers attached to a KUDA-display bill item when the
+   * same DISCO + meter type exists on Monnify. Lets the vend auto-router fulfill
+   * via Monnify (instant) while the app shows Kuda's card. Absent = Kuda-only.
+   */
+  monnifyBillerCode?: string;
+  monnifyProductCode?: string;
 }
 
 export interface NormalizedBiller {

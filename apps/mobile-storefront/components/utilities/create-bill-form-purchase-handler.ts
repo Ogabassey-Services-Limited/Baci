@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { HttpError } from '@/lib/fetch-with-timeout';
-import { type CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -15,7 +14,9 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { IDENTIFIER_LABELS } from './bill-form.constants';
+import type { CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import { getBillPaymentAmountError } from './bill-payment-amount-validation';
+import { resolveBillFulfillment } from './resolve-bill-fulfillment';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';
@@ -106,26 +107,28 @@ export function createBillFormPurchaseHandler({
         return;
       }
 
-      const buyerName =
-        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+      const buyerFullName = [customer?.first_name, customer?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      // customerName is the bill customer-of-record persisted on the VTU
+      // transaction (receipts/history/repeat), so prefer the verified meter/
+      // account holder; fall back to the buyer's name, then email.
+      const customerName =
+        verifiedCustomerName?.trim() ||
+        buyerFullName ||
         customer?.email ||
         undefined;
-      // The bill `customer_name` column represents the bill customer-of-record
-      // (meter owner / account holder), so prefer the verified name when we
-      // have it. Falls back to the buyer name only when verification produced
-      // no name — keeps existing legacy receipts from going blank.
-      const customerName = verifiedCustomerName?.trim() || buyerName;
-      const selectedProvider =
-        selectedBillItem?.provider ?? selectedBiller.provider ?? 'kuda';
-      const selectedBillerCode =
-        selectedBillItem?.billerCode ?? selectedBiller.billerCode;
-      // Monnify treats the selected bill item identifier as the vend product
-      // code for some normalized products, so keep this fallback provider-scoped.
-      const selectedProductCode =
-        selectedBillItem?.productCode ??
-        (selectedProvider === 'monnify'
-          ? selectedBillItemIdentifier ?? undefined
-          : undefined);
+      // Kuda-display + Monnify-fulfillment routing (folded items vend via Monnify).
+      const {
+        provider: selectedProvider,
+        billerCode: selectedBillerCode,
+        productCode: selectedProductCode,
+      } = resolveBillFulfillment(
+        selectedBillItem,
+        selectedBiller,
+        selectedBillItemIdentifier ?? undefined
+      );
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,
