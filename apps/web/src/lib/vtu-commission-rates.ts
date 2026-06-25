@@ -318,7 +318,7 @@ export function normalizeVtuCommissionCategory(
   return VTU_COMMISSION_CATEGORY_ALIASES[compactCategory] ?? 'AIRTIME';
 }
 
-function resolveProviderRateKey(
+export function resolveProviderRateKey(
   provider: unknown,
   category: VtuCommissionCategory
 ) {
