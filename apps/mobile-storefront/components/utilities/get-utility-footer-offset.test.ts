@@ -11,22 +11,25 @@ describe('getUtilityFooterOffset', () => {
     ).toBe(0);
   });
 
-  it('keeps the footer above the keyboard without double-counting the bottom inset', () => {
+  // Regression: AppKeyboardContainer (KeyboardAvoidingView) already lifts the
+  // form above the keyboard. The footer must NOT add its own keyboard offset, or
+  // it double-lifts and floats into the middle of the form while typing.
+  it('returns zero when the keyboard is visible (KeyboardAvoidingView owns the lift)', () => {
     expect(
       getUtilityFooterOffset({
         bottomInset: 34,
         isKeyboardVisible: true,
         keyboardHeight: 320,
       })
-    ).toBe(286);
+    ).toBe(0);
   });
 
-  it('keeps the footer at the container bottom when keyboard height is zero', () => {
+  it('returns zero for a large keyboard height (no manual lift, ever)', () => {
     expect(
       getUtilityFooterOffset({
-        bottomInset: 34,
+        bottomInset: 0,
         isKeyboardVisible: true,
-        keyboardHeight: 0,
+        keyboardHeight: 420,
       })
     ).toBe(0);
   });
