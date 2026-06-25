@@ -82,26 +82,24 @@ describe('BlogPageContent', () => {
     );
   });
 
-  it('preloads the same promoted post image used by the OgaBassey hero story', async () => {
-    const regularPost = {
+  it('preloads the same first listing image used by the OgaBassey hero story', async () => {
+    const firstPost = {
       ...postsPayload[0],
-      id: 'post-regular',
-      title: 'Regular Post',
-      slug: 'regular-post',
-      featured_image_url: 'https://cdn.example.com/regular.png',
-      featured: false,
+      id: 'post-first',
+      title: 'First Post',
+      slug: 'first-post',
+      featured_image_url: 'https://cdn.example.com/first.png',
     };
-    const promotedPost = {
+    const secondPost = {
       ...postsPayload[0],
-      id: 'post-featured',
-      title: 'Featured Post',
-      slug: 'featured-post',
-      featured_image_url: 'https://cdn.example.com/promoted.png',
-      featured: true,
+      id: 'post-second',
+      title: 'Second Post',
+      slug: 'second-post',
+      featured_image_url: 'https://cdn.example.com/second.png',
     };
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
-        posts: [regularPost, promotedPost],
+        posts: [firstPost, secondPost],
       })
     );
     mockGetTemplate.mockReturnValueOnce({
@@ -118,14 +116,13 @@ describe('BlogPageContent', () => {
     );
 
     expect(mockPreloadBlogListingFeaturedImage).toHaveBeenCalledWith(
-      'https://cdn.example.com/promoted.png'
+      'https://cdn.example.com/first.png'
     );
     expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
       expect.objectContaining({
         blogPosts: expect.arrayContaining([
           expect.objectContaining({
-            featured: true,
-            slug: 'featured-post',
+            slug: 'first-post',
           }),
         ]),
       })

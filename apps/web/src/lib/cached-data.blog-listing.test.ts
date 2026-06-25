@@ -212,32 +212,19 @@ describe('getCachedBlogListing', () => {
     });
   });
 
-  it('selects and preserves the featured flag for template hero/preload parity', async () => {
-    const { blogSelects } = setupBlogListingFetch({
-      posts: [
-        {
-          featured: true,
-          id: 'featured-post',
-          slug: 'featured-post',
-          title: 'Featured Post',
-        },
-      ],
-    });
+  it('does not select a missing featured column from blog_posts', async () => {
+    const { blogSelects } = setupBlogListingFetch();
 
-    const result = await getCachedBlogListing('ogabassey');
+    await getCachedBlogListing('ogabassey');
 
     expect(blogSelects[0]).toHaveBeenCalledWith(
-      expect.stringContaining('featured, featured_image_url'),
+      expect.not.stringContaining('featured,'),
       { count: 'estimated' }
     );
-    expect(result?.posts).toEqual([
-      {
-        featured: true,
-        id: 'featured-post',
-        slug: 'featured-post',
-        title: 'Featured Post',
-      },
-    ]);
+    expect(blogSelects[0]).toHaveBeenCalledWith(
+      expect.stringContaining('featured_image_url'),
+      { count: 'estimated' }
+    );
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
