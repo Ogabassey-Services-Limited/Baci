@@ -2741,7 +2741,16 @@ export async function fulfillPendingVtuTransaction({
     : row.metadata;
   let voucherPin = normalizeVoucherPin(result.pin);
   let backfilledUnits: string | undefined;
-  if (!voucherPin && result.success && canResolveBillVoucherPin(row.type)) {
+  // Only backfill the token for a TERMINAL success. A pending vend is persisted
+  // as `processing` below and reconciled later (which settles wallet + sends the
+  // token notification); backfilling a pin here would leave a processing row
+  // that carries a voucherPin — history scheduling skips pinned rows, so it
+  // would never settle/notify.
+  if (
+    !voucherPin &&
+    result.status === 'successful' &&
+    canResolveBillVoucherPin(row.type)
+  ) {
     const backfilled = await backfillVtuVoucherPin({
       billRequestRef: row.request_reference,
       billResponseReference: result.transactionId ?? row.transaction_id,

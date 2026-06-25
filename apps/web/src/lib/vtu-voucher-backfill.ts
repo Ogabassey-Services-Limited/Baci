@@ -311,18 +311,29 @@ export async function scheduleVoucherPinBackfill({
           } else {
             const latestMetadata = normalizeMetadata(latest?.metadata);
             if (latestMetadata.units !== units) {
-              const { error: unitsError } = await supabase
+              const { data: updatedRows, error: unitsError } = await supabase
                 .from('vtu_transactions')
                 .update({
                   metadata: { ...latestMetadata, units },
                 })
                 .eq('id', transactionId)
-                .filter('metadata', 'eq', stableJsonStringify(latestMetadata));
+                .filter('metadata', 'eq', stableJsonStringify(latestMetadata))
+                .select('id');
               if (unitsError) {
                 console.error('Failed to persist VTU units on backfill:', {
                   error: unitsError.message,
                   transactionId,
                 });
+              } else if (!updatedRows || updatedRows.length === 0) {
+                // CAS lost the race (another writer changed metadata). The pin
+                // is already persisted so history won't reschedule — log so the
+                // dropped units are observable rather than silent.
+                console.warn(
+                  'VTU units CAS update matched 0 rows (lost race):',
+                  {
+                    transactionId,
+                  }
+                );
               }
             }
           }
