@@ -50,6 +50,23 @@ describe('preloadOgabasseyRootBlogListingHeroImage', () => {
     );
   });
 
+  it('preloads when the explicit category matches the rendered All listing', () => {
+    preloadOgabasseyRootBlogListingHeroImage({
+      category: 'All',
+      posts: [
+        {
+          featured_image_url: 'https://cdn.example.com/all.png',
+        },
+      ],
+      searchQuery: undefined,
+      templateId: 'ogabassey',
+    });
+
+    expect(preloadBlogListingFeaturedImage).toHaveBeenCalledWith(
+      'https://cdn.example.com/all.png'
+    );
+  });
+
   it('skips non-root or non-OgaBassey listings', () => {
     const posts = [
       {
@@ -60,6 +77,12 @@ describe('preloadOgabasseyRootBlogListingHeroImage', () => {
 
     preloadOgabasseyRootBlogListingHeroImage({
       category: 'News',
+      posts,
+      searchQuery: undefined,
+      templateId: 'ogabassey',
+    });
+    preloadOgabasseyRootBlogListingHeroImage({
+      category: 'all',
       posts,
       searchQuery: undefined,
       templateId: 'ogabassey',

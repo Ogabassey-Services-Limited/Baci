@@ -19,13 +19,21 @@ function getBlogListingHeroPost(posts: readonly BlogListingHeroPost[]) {
   return posts.find((post) => post.featured === true) ?? posts[0];
 }
 
+function isRootBlogCategory(category?: string): boolean {
+  return category === undefined || category === 'All';
+}
+
 export function preloadOgabasseyRootBlogListingHeroImage({
   category,
   posts,
   searchQuery,
   templateId,
 }: BlogListingHeroImagePreloadOptions): void {
-  if (templateId !== OGABASSEY_TEMPLATE_ID || category || searchQuery) {
+  if (
+    templateId !== OGABASSEY_TEMPLATE_ID ||
+    !isRootBlogCategory(category) ||
+    searchQuery
+  ) {
     return;
   }
 

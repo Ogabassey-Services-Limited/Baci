@@ -39,6 +39,20 @@ describe('preloadBlogListingFeaturedImage', () => {
     );
   });
 
+  it('emits an early high-priority responsive preload for root-relative blog images', () => {
+    preloadBlogListingFeaturedImage('/uploads/blog/hero.jpg');
+
+    expect(preload).toHaveBeenCalledWith(
+      '/uploads/blog/hero.jpg?w=750&q=75',
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes: '100vw',
+        imageSrcSet: expect.stringContaining('/uploads/blog/hero.jpg?w=640'),
+      })
+    );
+  });
+
   it('skips invalid or local fallback image sources', () => {
     preloadBlogListingFeaturedImage('javascript:alert(1)');
     preloadBlogListingFeaturedImage('//cdn.example.com/image.jpg');

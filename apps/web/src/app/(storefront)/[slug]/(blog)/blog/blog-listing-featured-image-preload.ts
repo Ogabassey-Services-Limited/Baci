@@ -9,8 +9,12 @@ const BLOG_LISTING_FEATURED_IMAGE_PRELOAD_WIDTH = 750;
 
 function resolvePreloadableBlogImage(src: string | null | undefined) {
   const candidate = src?.trim();
-  if (!candidate || candidate.startsWith('/')) {
+  if (!candidate || candidate.startsWith('//')) {
     return null;
+  }
+
+  if (candidate.startsWith('/')) {
+    return candidate === '/placeholder.png' ? null : candidate;
   }
 
   try {

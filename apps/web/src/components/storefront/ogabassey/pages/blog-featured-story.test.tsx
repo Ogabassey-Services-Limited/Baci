@@ -83,8 +83,8 @@ describe('BlogFeaturedStory', () => {
     expect(screen.getByText('24 Jun 2026')).toBeInTheDocument();
   });
 
-  it('uses storefront theme color utilities for the badge and hover treatment', () => {
-    render(
+  it('uses theme-aware badge colors and contrast-safe image overlay classes', () => {
+    const { container } = render(
       <BlogFeaturedStory
         basePath="/ogabassey"
         featuredPost={featuredPost}
@@ -98,8 +98,15 @@ describe('BlogFeaturedStory', () => {
     expect(badge).toHaveClass('text-store-primary-text');
     expect(badge).not.toHaveClass('bg-red-600');
 
+    expect(
+      container.querySelector('.ogabassey-blog-featured-story__media')
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('.ogabassey-blog-featured-story__scrim')
+    ).toBeInTheDocument();
+
     const heading = screen.getByRole('heading', { name: 'Featured Post' });
-    expect(heading).toHaveClass('group-hover:text-store-primary');
+    expect(heading).toHaveClass('ogabassey-blog-featured-story__title');
     expect(heading).not.toHaveClass('group-hover:text-red-50');
   });
 });
