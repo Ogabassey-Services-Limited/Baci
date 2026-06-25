@@ -2327,7 +2327,7 @@ export const CheckoutPage: React.FC = () => {
 
   if (isLoadingResumedOrder || isAutoTriggerProcessing) {
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
+      <div className="ogabassey-checkout-page min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="size-12 animate-spin text-store-primary" />
           <p className="text-gray-500 font-medium animate-pulse">
@@ -2341,7 +2341,7 @@ export const CheckoutPage: React.FC = () => {
   // Error state for order resumption
   if (resumeOrderId && resumeOrderError) {
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
+      <div className="ogabassey-checkout-page min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="size-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <AlertCircle className="size-10 text-red-500" />
@@ -2402,7 +2402,7 @@ export const CheckoutPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-20 flex flex-col">
+    <div className="ogabassey-checkout-page min-h-screen bg-gray-50/50 pb-20 flex flex-col">
       {/* Checkout Navbar */}
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-sm supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

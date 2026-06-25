@@ -8,6 +8,10 @@ import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import {
+  resolveStorefrontAppearance,
+  type StorefrontAppearance,
+} from '@/components/storefront/storefront-appearance';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { WebMcpStorefrontTools } from '@/components/storefront/webmcp-storefront-tools';
 import { MOBILE_APPS } from '@/config/platform';
@@ -247,8 +251,18 @@ function StorefrontShellFrame({
   );
 }
 
-function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
-  return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
+function StorefrontThemeFrame({
+  appearance,
+  children,
+}: {
+  appearance: StorefrontAppearance;
+  children: React.ReactNode;
+}) {
+  return (
+    <StorefrontThemeProvider appearance={appearance}>
+      {children}
+    </StorefrontThemeProvider>
+  );
 }
 
 function StorefrontPprStaticShell({
@@ -282,6 +296,8 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
+  const appearance = resolveStorefrontAppearance(slug);
+
   const shellSnapshotBase = await getStorefrontShellSnapshotBase(slug);
 
   if (!shellSnapshotBase) {
@@ -291,9 +307,11 @@ export async function StorefrontLayoutContent(props: {
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
-      <StoreNotPublished
-        businessName={shellSnapshotBase.merchant.business_name}
-      />
+      <StorefrontThemeFrame appearance={appearance}>
+        <StoreNotPublished
+          businessName={shellSnapshotBase.merchant.business_name}
+        />
+      </StorefrontThemeFrame>
     );
   }
 
@@ -312,14 +330,16 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <StorefrontShellFrame
-      // Page-level resource hints own LCP preloads. Keeping the shared
-      // layout disabled prevents home hero hints from leaking onto nested routes.
-      preloadHeroLcpImages={false}
-      shellSnapshot={shellSnapshot}
-    >
-      {props.children}
-    </StorefrontShellFrame>
+    <StorefrontThemeFrame appearance={appearance}>
+      <StorefrontShellFrame
+        // Page-level resource hints own LCP preloads. Keeping the shared
+        // layout disabled prevents home hero hints from leaking onto nested routes.
+        preloadHeroLcpImages={false}
+        shellSnapshot={shellSnapshot}
+      >
+        {props.children}
+      </StorefrontShellFrame>
+    </StorefrontThemeFrame>
   );
 }
 
@@ -341,10 +361,8 @@ export default function StorefrontLayout(props: {
     loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
 
   return (
-    <StorefrontThemeFrame>
-      <StorefrontPprStaticShell loadingFallback={staticLoadingFallback}>
-        <StorefrontLayoutContent {...contentProps} />
-      </StorefrontPprStaticShell>
-    </StorefrontThemeFrame>
+    <StorefrontPprStaticShell loadingFallback={staticLoadingFallback}>
+      <StorefrontLayoutContent {...contentProps} />
+    </StorefrontPprStaticShell>
   );
 }

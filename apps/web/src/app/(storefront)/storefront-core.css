@@ -1,3 +1,5 @@
+@import "./storefront-ogabassey-dark-mode.css";
+
 @theme inline {
   --color-store-primary: var(--store-primary, #2a2c6e);
   --color-store-primary-text: var(--store-primary-text, #ffffff);

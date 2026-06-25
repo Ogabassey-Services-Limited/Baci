@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { OGABASSEY_DARK_TOKENS } from '@/components/storefront/ogabassey/dark-mode-tokens';
 
 const storefrontDir = dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +16,14 @@ function readStorefrontFile(fileName: string): string {
   }
 
   return readFileSync(filePath, 'utf8');
+}
+
+function readStorefrontDarkModeCss(): string {
+  return [
+    readStorefrontFile('storefront-ogabassey-dark-mode.css'),
+    readStorefrontFile('storefront-ogabassey-dark-mode-tokens.css'),
+    readStorefrontFile('storefront-ogabassey-dark-mode-utilities.css'),
+  ].join('\n');
 }
 
 describe('storefront CSS partitioning', () => {
@@ -47,6 +56,104 @@ describe('storefront CSS partitioning', () => {
     );
     expect(pdpCss).not.toMatch(
       /@source\s+["'][^"']*product-details-page\/deferred-product-details-sections\.tsx/
+    );
+  });
+
+  it('loads the OgaBassey dark-mode token layer from storefront core', () => {
+    const coreCss = readStorefrontFile('storefront-core.css');
+    const darkModeEntryCss = readStorefrontFile(
+      'storefront-ogabassey-dark-mode.css'
+    );
+
+    expect(coreCss).toMatch(
+      /@import\s+['"]\.\/storefront-ogabassey-dark-mode\.css['"];?/
+    );
+    expect(darkModeEntryCss).toMatch(
+      /@import\s+['"]\.\/storefront-ogabassey-dark-mode-tokens\.css['"];?/
+    );
+    expect(darkModeEntryCss).toMatch(
+      /@import\s+['"]\.\/storefront-ogabassey-dark-mode-utilities\.css['"];?/
+    );
+  });
+
+  it('keeps the CSS dark token literals aligned with the TS token contract', () => {
+    const darkModeCss = readStorefrontDarkModeCss().toLowerCase();
+    const expectedTokens = [
+      ['--storefront-dark-background', OGABASSEY_DARK_TOKENS.background],
+      ['--storefront-dark-foreground', OGABASSEY_DARK_TOKENS.foreground],
+      ['--storefront-dark-card', OGABASSEY_DARK_TOKENS.card],
+      [
+        '--storefront-dark-card-foreground',
+        OGABASSEY_DARK_TOKENS.cardForeground,
+      ],
+      ['--storefront-dark-muted', OGABASSEY_DARK_TOKENS.muted],
+      [
+        '--storefront-dark-muted-foreground',
+        OGABASSEY_DARK_TOKENS.mutedForeground,
+      ],
+      ['--storefront-dark-border', OGABASSEY_DARK_TOKENS.border],
+      ['--storefront-dark-primary', OGABASSEY_DARK_TOKENS.primary],
+      [
+        '--storefront-dark-primary-foreground',
+        OGABASSEY_DARK_TOKENS.primaryForeground,
+      ],
+      ['--storefront-dark-secondary', OGABASSEY_DARK_TOKENS.secondary],
+      [
+        '--storefront-dark-secondary-foreground',
+        OGABASSEY_DARK_TOKENS.secondaryForeground,
+      ],
+      ['--storefront-dark-accent', OGABASSEY_DARK_TOKENS.accent],
+      [
+        '--storefront-dark-accent-foreground',
+        OGABASSEY_DARK_TOKENS.accentForeground,
+      ],
+      ['--storefront-dark-price', OGABASSEY_DARK_TOKENS.price],
+      ['--storefront-dark-rating', OGABASSEY_DARK_TOKENS.rating],
+      ['--storefront-dark-success', OGABASSEY_DARK_TOKENS.success],
+      ['--storefront-dark-warning', OGABASSEY_DARK_TOKENS.warning],
+      ['--storefront-dark-error', OGABASSEY_DARK_TOKENS.error],
+    ] as const;
+
+    for (const [cssVariable, token] of expectedTokens) {
+      expect(darkModeCss).toContain(`${cssVariable}: ${token.toLowerCase()};`);
+    }
+  });
+
+  it('keeps the OgaBassey dark-mode layer browser-safe and cosmetic-only', () => {
+    const darkModeCss = readStorefrontDarkModeCss();
+    const normalizedDarkModeCss = darkModeCss.replace(/\s+/g, ' ');
+
+    expect(darkModeCss).toContain('@media (prefers-color-scheme: dark)');
+    expect(darkModeCss).toContain('color-scheme: dark');
+    expect(darkModeCss).toContain('caret-color: var(--store-accent');
+    expect(normalizedDarkModeCss).toContain(
+      '.storefront-variant-ogabassey.storefront-mode-dark .ogabassey-storefront-shell'
+    );
+    expect(normalizedDarkModeCss).toContain(
+      '.storefront-variant-ogabassey.storefront-mode-dark .ogabassey-storefront-shell :is(.bg-white'
+    );
+    expect(darkModeCss).toContain('--background: 0 0% 4% !important;');
+    expect(darkModeCss).toContain(
+      '--store-primary: var(--storefront-dark-primary) !important;'
+    );
+    expect(darkModeCss).toContain('background-color: #1a1a1a;');
+    expect(darkModeCss).toContain('@supports (background-color: color-mix(');
+    expect(darkModeCss).toContain('background-color: color-mix(');
+    expect(darkModeCss).toContain('.ogabassey-checkout-page');
+    expect(normalizedDarkModeCss).toContain(
+      '.storefront-variant-ogabassey.storefront-mode-dark .ogabassey-checkout-page'
+    );
+    expect(normalizedDarkModeCss).toContain(
+      '.storefront-variant-ogabassey.storefront-mode-system .ogabassey-checkout-page'
+    );
+    expect(darkModeCss).toContain(
+      'background-color: var(--storefront-dark-card);'
+    );
+    expect(darkModeCss).toContain('color: var(--storefront-dark-foreground);');
+    expect(darkModeCss).not.toMatch(/cursor\s*:\s*url\(/);
+    expect(darkModeCss).not.toMatch(/cursor\s*:\s*none/);
+    expect(darkModeCss).not.toMatch(
+      /filter\s*:\s*(invert|brightness|grayscale)/
     );
   });
 

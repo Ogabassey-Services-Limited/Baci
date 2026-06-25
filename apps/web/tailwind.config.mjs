@@ -14,7 +14,7 @@ const config = {
   // Reference: https://v3.tailwindcss.com/docs/dark-mode (custom variant form).
   darkMode: [
     'variant',
-    '&:where(.dark, .dark *):not(.light):not(.light *):not(.storefront-light):not(.storefront-light *)',
+    '&:where(.dark, .dark *):not(.light):not(.light *):not(.storefront-light):not(.storefront-light *):not(.storefront-theme-scope):not(.storefront-theme-scope *)',
   ],
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',

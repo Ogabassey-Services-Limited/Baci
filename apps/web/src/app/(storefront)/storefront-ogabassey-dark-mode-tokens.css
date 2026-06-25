@@ -1,0 +1,186 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: OgaBassey shell theme variables are set inline, so dark mode custom properties must override them. */
+
+@layer base {
+  .storefront-variant-ogabassey {
+    --storefront-dark-background: #0a0a0a;
+    --storefront-dark-foreground: #f9fafb;
+    --storefront-dark-card: #1a1a1a;
+    --storefront-dark-card-foreground: #f9fafb;
+    --storefront-dark-muted: #262626;
+    --storefront-dark-muted-foreground: #d1d5db;
+    --storefront-dark-border: #1f2937;
+    --storefront-dark-primary: #f59e0b;
+    --storefront-dark-primary-foreground: #000000;
+    --storefront-dark-secondary: #dc2626;
+    --storefront-dark-secondary-foreground: #ffffff;
+    --storefront-dark-accent: #f59e0b;
+    --storefront-dark-accent-foreground: #000000;
+    --storefront-dark-price: #f87171;
+    --storefront-dark-rating: #fbbf24;
+    --storefront-dark-success: #34d399;
+    --storefront-dark-warning: #fbbf24;
+    --storefront-dark-error: #f87171;
+  }
+
+  .storefront-variant-ogabassey.storefront-mode-system {
+    color-scheme: light dark;
+  }
+
+  .storefront-variant-ogabassey.storefront-mode-dark {
+    color-scheme: dark;
+  }
+
+  .storefront-variant-ogabassey.storefront-mode-dark
+    .ogabassey-storefront-shell {
+    --background: 0 0% 4% !important;
+    --foreground: 210 40% 98% !important;
+    --card: 0 0% 10% !important;
+    --card-foreground: 210 40% 98% !important;
+    --popover: 0 0% 10% !important;
+    --popover-foreground: 210 40% 98% !important;
+    --primary: 38 92% 50% !important;
+    --primary-foreground: 0 0% 0% !important;
+    --secondary: 0 72% 51% !important;
+    --secondary-foreground: 0 0% 100% !important;
+    --muted: 0 0% 15% !important;
+    --muted-foreground: 216 12% 84% !important;
+    --accent: 38 92% 50% !important;
+    --accent-foreground: 0 0% 0% !important;
+    --destructive: 0 91% 71% !important;
+    --destructive-foreground: 0 0% 0% !important;
+    --border: 215 28% 17% !important;
+    --input: 215 28% 17% !important;
+    --ring: 38 92% 50% !important;
+    --store-primary: var(--storefront-dark-primary) !important;
+    --store-primary-text: var(--storefront-dark-primary-foreground) !important;
+    --store-on-primary: var(--storefront-dark-primary-foreground) !important;
+    --store-secondary: var(--storefront-dark-secondary) !important;
+    --store-secondary-text: var(
+      --storefront-dark-secondary-foreground
+    ) !important;
+    --store-accent: var(--storefront-dark-accent) !important;
+    --store-accent-text: var(--storefront-dark-accent-foreground) !important;
+    --store-background: var(--storefront-dark-background) !important;
+    --store-background-text: var(--storefront-dark-foreground) !important;
+    --store-foreground: var(--storefront-dark-foreground) !important;
+    --store-border: var(--storefront-dark-border) !important;
+    --store-rating: var(--storefront-dark-rating) !important;
+    --store-option-secondary: var(--storefront-dark-muted) !important;
+    --store-surface: var(--storefront-dark-card) !important;
+    --storefront-shell-background: var(--storefront-dark-background) !important;
+    --ogabassey-shell-background: var(--storefront-dark-background) !important;
+    --ogabassey-shell-text: var(--storefront-dark-foreground) !important;
+    --ogabassey-surface: var(--storefront-dark-card) !important;
+    --ogabassey-surface-text: var(--storefront-dark-card-foreground) !important;
+    --ogabassey-surface-text-muted: var(
+      --storefront-dark-muted-foreground
+    ) !important;
+    --ogabassey-border: var(--storefront-dark-border) !important;
+    background-color: var(--storefront-dark-background);
+    color: var(--storefront-dark-foreground);
+  }
+
+  .storefront-variant-ogabassey.storefront-mode-dark
+    :is(input, textarea, [contenteditable="true"]) {
+    caret-color: var(--store-accent, var(--storefront-dark-accent));
+  }
+
+  .storefront-variant-ogabassey.storefront-mode-dark ::selection {
+    background-color: #1a1a1a;
+    color: var(--storefront-dark-foreground);
+  }
+
+  @supports (background-color: color-mix(in srgb, white 50%, transparent)) {
+    .storefront-variant-ogabassey.storefront-mode-dark ::selection {
+      background-color: color-mix(
+        in srgb,
+        var(--storefront-dark-accent) 35%,
+        transparent
+      );
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .storefront-variant-ogabassey.storefront-mode-system {
+      color-scheme: dark;
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell {
+      --background: 0 0% 4% !important;
+      --foreground: 210 40% 98% !important;
+      --card: 0 0% 10% !important;
+      --card-foreground: 210 40% 98% !important;
+      --popover: 0 0% 10% !important;
+      --popover-foreground: 210 40% 98% !important;
+      --primary: 38 92% 50% !important;
+      --primary-foreground: 0 0% 0% !important;
+      --secondary: 0 72% 51% !important;
+      --secondary-foreground: 0 0% 100% !important;
+      --muted: 0 0% 15% !important;
+      --muted-foreground: 216 12% 84% !important;
+      --accent: 38 92% 50% !important;
+      --accent-foreground: 0 0% 0% !important;
+      --destructive: 0 91% 71% !important;
+      --destructive-foreground: 0 0% 0% !important;
+      --border: 215 28% 17% !important;
+      --input: 215 28% 17% !important;
+      --ring: 38 92% 50% !important;
+      --store-primary: var(--storefront-dark-primary) !important;
+      --store-primary-text: var(
+        --storefront-dark-primary-foreground
+      ) !important;
+      --store-on-primary: var(--storefront-dark-primary-foreground) !important;
+      --store-secondary: var(--storefront-dark-secondary) !important;
+      --store-secondary-text: var(
+        --storefront-dark-secondary-foreground
+      ) !important;
+      --store-accent: var(--storefront-dark-accent) !important;
+      --store-accent-text: var(--storefront-dark-accent-foreground) !important;
+      --store-background: var(--storefront-dark-background) !important;
+      --store-background-text: var(--storefront-dark-foreground) !important;
+      --store-foreground: var(--storefront-dark-foreground) !important;
+      --store-border: var(--storefront-dark-border) !important;
+      --store-rating: var(--storefront-dark-rating) !important;
+      --store-option-secondary: var(--storefront-dark-muted) !important;
+      --store-surface: var(--storefront-dark-card) !important;
+      --storefront-shell-background: var(
+        --storefront-dark-background
+      ) !important;
+      --ogabassey-shell-background: var(
+        --storefront-dark-background
+      ) !important;
+      --ogabassey-shell-text: var(--storefront-dark-foreground) !important;
+      --ogabassey-surface: var(--storefront-dark-card) !important;
+      --ogabassey-surface-text: var(
+        --storefront-dark-card-foreground
+      ) !important;
+      --ogabassey-surface-text-muted: var(
+        --storefront-dark-muted-foreground
+      ) !important;
+      --ogabassey-border: var(--storefront-dark-border) !important;
+      background-color: var(--storefront-dark-background);
+      color: var(--storefront-dark-foreground);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      :is(input, textarea, [contenteditable="true"]) {
+      caret-color: var(--store-accent, var(--storefront-dark-accent));
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system ::selection {
+      background-color: #1a1a1a;
+      color: var(--storefront-dark-foreground);
+    }
+
+    @supports (background-color: color-mix(in srgb, white 50%, transparent)) {
+      .storefront-variant-ogabassey.storefront-mode-system ::selection {
+        background-color: color-mix(
+          in srgb,
+          var(--storefront-dark-accent) 35%,
+          transparent
+        );
+      }
+    }
+  }
+}
