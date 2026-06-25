@@ -28,6 +28,7 @@ export const kudaBillerSchema = z.object({
   billerType: z.string(),
   categoryId: z.string(),
   categoryName: z.string(),
+  billerIconUrl: z.string().optional(),
   billItems: z.array(kudaBillItemSchema).optional(),
 });
 
