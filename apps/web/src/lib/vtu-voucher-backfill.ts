@@ -292,10 +292,11 @@ export async function scheduleVoucherPinBackfill({
         pinResolved = Boolean(voucherPin);
         // backfill persists the pin via RPC but returns units for the owner of
         // the metadata write to persist; this path has no later write, so do it.
-        // Re-fetch the latest metadata first and merge — other fulfillment paths
-        // (wallet/notification/payment-pending) may have written since our
-        // scheduling snapshot, and a blind write of currentMetadata would drop
-        // those keys.
+        // Re-fetch the latest metadata and persist units with a compare-and-set
+        // (matching clearVoucherPinBackfillTimestamp) so a concurrent
+        // webhook/wallet/notification write between our read and write is never
+        // clobbered: if metadata changed, the filter matches 0 rows and we skip
+        // (the next history poll retries).
         if (voucherPin && units) {
           const { data: latest, error: readError } = await supabase
             .from('vtu_transactions')
@@ -308,20 +309,21 @@ export async function scheduleVoucherPinBackfill({
               transactionId,
             });
           } else {
-            const latestMetadata = isMetadataRecord(latest?.metadata)
-              ? latest.metadata
-              : currentMetadata;
-            const { error: unitsError } = await supabase
-              .from('vtu_transactions')
-              .update({
-                metadata: { ...latestMetadata, voucherPin, units },
-              })
-              .eq('id', transactionId);
-            if (unitsError) {
-              console.error('Failed to persist VTU units on backfill:', {
-                error: unitsError.message,
-                transactionId,
-              });
+            const latestMetadata = normalizeMetadata(latest?.metadata);
+            if (latestMetadata.units !== units) {
+              const { error: unitsError } = await supabase
+                .from('vtu_transactions')
+                .update({
+                  metadata: { ...latestMetadata, units },
+                })
+                .eq('id', transactionId)
+                .filter('metadata', 'eq', stableJsonStringify(latestMetadata));
+              if (unitsError) {
+                console.error('Failed to persist VTU units on backfill:', {
+                  error: unitsError.message,
+                  transactionId,
+                });
+              }
             }
           }
         }
