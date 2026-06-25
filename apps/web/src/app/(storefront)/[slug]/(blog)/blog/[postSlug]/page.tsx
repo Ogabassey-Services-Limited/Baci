@@ -1,11 +1,20 @@
 import type { Metadata } from 'next';
-import { permanentRedirect } from 'next/navigation';
+import { cacheLife, cacheTag } from 'next/cache';
+import { draftMode } from 'next/headers';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
-import { getCachedBlogPost } from '@/lib/cached-data';
+import {
+  getCachedBlogPost,
+  getCachedFeatureSettings,
+  getMerchantStrict,
+} from '@/lib/cached-data';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { asRoute } from '@/lib/routes';
 import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { createPublicClient } from '@/lib/supabase/anon';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
@@ -22,6 +31,71 @@ const SOCIAL_IMAGE_METADATA = {
   height: 630,
   type: 'image/png',
 } as const;
+
+async function hasPublicBlogPost(
+  identifier: string,
+  postSlug: string
+): Promise<boolean> {
+  'use cache';
+  const normalizedPostSlug = postSlug.trim().toLowerCase();
+  if (!normalizedPostSlug) {
+    return false;
+  }
+
+  cacheLife('blog');
+  cacheTag('blog-posts', getBlogCacheTag(identifier, normalizedPostSlug));
+
+  const merchant = await getMerchantStrict(identifier.toLowerCase());
+  if (!merchant) {
+    return false;
+  }
+
+  let features: Awaited<ReturnType<typeof getCachedFeatureSettings>>;
+  try {
+    features = await getCachedFeatureSettings(merchant.id);
+  } catch (error) {
+    console.error('Error checking blog feature flag at page boundary', {
+      slug: identifier,
+      postSlug,
+      error,
+    });
+    return true;
+  }
+  if (!features?.blog_enabled) {
+    return false;
+  }
+
+  const supabase = createPublicClient({
+    clientInfo: 'baci-web-blog-post-existence',
+    timeoutMs: 5000,
+  });
+
+  let query = supabase
+    .from('blog_posts')
+    .select('id, title, slug')
+    .eq('merchant_id', merchant.id)
+    .eq('slug', normalizedPostSlug)
+    .eq('status', 'published')
+    .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '');
+
+  query = applyPublicBlogSqlFilters(query);
+
+  const { data, error } = await query.maybeSingle();
+  if (error) {
+    console.error('Error checking public blog post at page boundary', {
+      slug: identifier,
+      postSlug,
+      error,
+    });
+    return true;
+  }
+
+  return Boolean(data);
+}
 
 export async function generateMetadata({
   params,
@@ -121,12 +195,14 @@ export async function generateMetadata({
 export default async function BlogPostPage({ params }: PageProps) {
   const resolvedParams = await params;
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
+  let redirectLookupError: unknown = null;
   try {
     redirectedPost = await getBlogPostRedirect(
       resolvedParams.slug,
       resolvedParams.postSlug
     );
   } catch (error) {
+    redirectLookupError = error;
     console.error('Blog redirect lookup failed at page boundary', {
       slug: resolvedParams.slug,
       postSlug: resolvedParams.postSlug,
@@ -143,6 +219,54 @@ export default async function BlogPostPage({ params }: PageProps) {
         )
       )
     );
+  }
+
+  const { isEnabled: isDraftMode } = await draftMode();
+  if (!isDraftMode) {
+    let hasPublicPost = false;
+    try {
+      hasPublicPost = await hasPublicBlogPost(
+        resolvedParams.slug,
+        resolvedParams.postSlug
+      );
+    } catch (error) {
+      console.error('Error checking public blog post at page boundary', {
+        slug: resolvedParams.slug,
+        postSlug: resolvedParams.postSlug,
+        error,
+      });
+      throw error;
+    }
+    if (!hasPublicPost) {
+      if (redirectLookupError) {
+        try {
+          redirectedPost = await getBlogPostRedirect(
+            resolvedParams.slug,
+            resolvedParams.postSlug
+          );
+        } catch (error) {
+          console.error('Blog redirect retry failed before notFound', {
+            slug: resolvedParams.slug,
+            postSlug: resolvedParams.postSlug,
+            error,
+          });
+          throw error;
+        }
+
+        if (redirectedPost) {
+          permanentRedirect(
+            asRoute(
+              buildCanonicalBlogPostUrl(
+                redirectedPost.merchant,
+                redirectedPost.targetSlug
+              )
+            )
+          );
+        }
+      }
+
+      notFound();
+    }
   }
 
   return (

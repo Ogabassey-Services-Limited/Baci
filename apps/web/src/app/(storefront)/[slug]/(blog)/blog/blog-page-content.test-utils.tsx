@@ -1,3 +1,4 @@
+import type React from 'react';
 import { vi } from 'vitest';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -67,6 +68,10 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
 
+vi.mock('./blog-category-hub', () => ({
+  resolveBlogCategoryHub: vi.fn(),
+}));
+
 vi.mock('next/headers', () => ({
   headers: async () => mockHeaders(),
 }));
@@ -74,6 +79,21 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -264,11 +284,15 @@ export function buildListingResult(
 }
 
 export const mockGetCachedBlogListing = vi.mocked(getCachedBlogListing);
+export const mockResolveBlogCategoryHub = vi.mocked(
+  (await import('./blog-category-hub')).resolveBlogCategoryHub
+);
 
 export function resetBlogPageContentMocks() {
   mockGetCachedBlogListing.mockReset();
   mockGetCachedBlogListing.mockResolvedValue(buildListingResult());
   mockPreloadBlogListingFeaturedImage.mockClear();
+  mockResolveBlogCategoryHub.mockReset();
   mockNotFound.mockClear();
   mockRedirect.mockClear();
   mockHeaders.mockReset();

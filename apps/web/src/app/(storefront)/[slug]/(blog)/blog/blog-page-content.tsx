@@ -22,13 +22,16 @@ import { parseBlogListingPage } from './blog-listing-page-params';
 import { BlogListingPagination } from './blog-listing-pagination';
 import { buildBlogListingRouteHref } from './blog-listing-route';
 import { buildBlogListingSchemaUrl } from './blog-listing-schema-url';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from './blog-search-params';
 import { getBlogStorefrontPathPrefix } from './blog-storefront-path-prefix';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
-type BlogSearchParamValue = string | string[] | undefined;
-
 export interface BlogPageProps {
+  itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
     category?: BlogSearchParamValue;
@@ -37,13 +40,11 @@ export interface BlogPageProps {
   }>;
 }
 
-function toSingleBlogSearchParam(
-  value: BlogSearchParamValue
-): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
+export async function BlogPageContent({
+  itemListSchemaUrl,
+  params,
+  searchParams,
+}: BlogPageProps) {
   const { slug } = await params;
   const searchParamValues = await searchParams;
   const category = toSingleBlogSearchParam(searchParamValues.category);
@@ -174,12 +175,14 @@ export async function BlogPageContent({ params, searchParams }: BlogPageProps) {
           '@context': 'https://schema.org',
           '@type': 'ItemList',
           name: `${merchant.business_name} Blog articles`,
-          url: buildBlogListingSchemaUrl({
-            baseUrl,
-            category,
-            page: currentPage,
-            search: effectiveSearchQuery,
-          }),
+          url:
+            itemListSchemaUrl ??
+            buildBlogListingSchemaUrl({
+              baseUrl,
+              category,
+              page: currentPage,
+              search: effectiveSearchQuery,
+            }),
           numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
             '@type': 'ListItem',

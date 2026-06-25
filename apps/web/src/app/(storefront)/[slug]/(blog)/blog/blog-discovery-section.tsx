@@ -1,3 +1,9 @@
+import Link from 'next/link';
+
+import { asRoute } from '@/lib/routes';
+
+import { buildBlogCategoryHref } from './blog-category-routing';
+
 interface BlogDiscoveryPost {
   id: string;
   title: string;
@@ -35,26 +41,26 @@ export function BlogDiscoverySection({
           Continue Exploring
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <a
+          <Link
             className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-            href={`${baseUrl}/products`}
+            href={asRoute(`${baseUrl}/products`)}
           >
             All Products
-          </a>
-          <a
+          </Link>
+          <Link
             className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-            href={`${baseUrl}/`}
+            href={asRoute(`${baseUrl}/`)}
           >
             Home
-          </a>
+          </Link>
           {categories.slice(0, 12).map((cat) => (
-            <a
+            <Link
               key={cat}
               className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
-              href={`${baseUrl}/blog?category=${encodeURIComponent(cat)}`}
+              href={asRoute(buildBlogCategoryHref(baseUrl, cat, categories))}
             >
               {cat}
-            </a>
+            </Link>
           ))}
         </div>
 
@@ -86,12 +92,14 @@ export function BlogDiscoverySection({
             <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
               {posts.slice(0, 24).map((post) => (
                 <li key={post.id}>
-                  <a
+                  <Link
                     className="text-xs text-store-primary underline-offset-4 hover:underline"
-                    href={`${baseUrl}/blog/${encodeURIComponent(post.slug)}`}
+                    href={asRoute(
+                      `${baseUrl}/blog/${encodeURIComponent(post.slug)}`
+                    )}
                   >
                     {post.title}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

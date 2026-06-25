@@ -3,12 +3,86 @@ import { headers } from 'next/headers';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedFeatureSettings } from '@/lib/cached-data';
-import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
+import {
+  filterPublicBlogPosts,
+  isPublicBlogCategory,
+} from '@/lib/public-blog-content-quality';
 import { resolveStorefrontSitemapContext } from '../../sitemap-data';
+import {
+  canUseCleanBlogCategorySlug,
+  getBlogCategorySlug,
+} from './blog-category-routing';
 
 export const preferredRegion = 'dub1';
 
 export const dynamic = 'force-dynamic';
+
+const MIN_CATEGORY_HUB_POSTS = 3;
+
+interface BlogCategorySitemapPost {
+  category?: string | null;
+  published_at?: string | null;
+  updated_at?: string | null;
+}
+
+interface BlogCategorySitemapEntry {
+  category: string;
+  lastModified: string;
+}
+
+function getBlogCategorySitemapEntries<TPost extends BlogCategorySitemapPost>(
+  posts: TPost[]
+): BlogCategorySitemapEntry[] {
+  const stats = new Map<
+    string,
+    {
+      category: string;
+      count: number;
+      labels: Set<string>;
+      lastModified: string;
+    }
+  >();
+
+  for (const post of posts) {
+    const category = post.category?.trim();
+    const lastModified = post.updated_at || post.published_at;
+    if (!category || !lastModified || !isPublicBlogCategory(category)) {
+      continue;
+    }
+
+    const key = getBlogCategorySlug(category);
+    if (!canUseCleanBlogCategorySlug(key)) {
+      continue;
+    }
+
+    const existing = stats.get(key);
+    if (!existing) {
+      stats.set(key, {
+        category,
+        count: 1,
+        labels: new Set([category]),
+        lastModified,
+      });
+      continue;
+    }
+
+    existing.count += 1;
+    existing.labels.add(category);
+    if (
+      new Date(lastModified).getTime() >
+      new Date(existing.lastModified).getTime()
+    ) {
+      existing.lastModified = lastModified;
+    }
+  }
+
+  return Array.from(stats.values())
+    .filter(
+      (entry) =>
+        entry.count >= MIN_CATEGORY_HUB_POSTS && entry.labels.size === 1
+    )
+    .map(({ category, lastModified }) => ({ category, lastModified }));
+}
 
 /**
  * Blog-specific sitemap for Search Console properties scoped to /blog.
@@ -32,7 +106,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data: posts, error } = await supabase
     .from('blog_posts')
     .select(
-      'slug, title, author_name, published_at, updated_at, featured_image_url, featured_image_variants'
+      'slug, title, category, author_name, published_at, updated_at, featured_image_url, featured_image_variants'
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
@@ -43,6 +117,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const publicPosts = filterPublicBlogPosts(posts || []);
+  const categoryEntries = getBlogCategorySitemapEntries(publicPosts);
 
   const entries: MetadataRoute.Sitemap = [
     {
@@ -52,6 +127,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
   ];
+
+  for (const categoryEntry of categoryEntries) {
+    entries.push({
+      url: `${storeUrl}/blog/category/${getBlogCategorySlug(categoryEntry.category)}`,
+      lastModified: new Date(categoryEntry.lastModified),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    });
+  }
 
   for (const post of publicPosts) {
     const lastModified = post.updated_at || post.published_at;

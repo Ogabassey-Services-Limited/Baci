@@ -18,7 +18,6 @@ import {
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
 
-const { default: BlogPage } = await import('./page');
 const { BlogPageContent } = await import('./blog-page-content');
 
 describe('BlogPageContent', () => {
@@ -51,7 +50,7 @@ describe('BlogPageContent', () => {
     ));
 
     render(
-      await BlogPage({
+      await BlogPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({}),
       })
@@ -251,6 +250,24 @@ describe('BlogPageContent', () => {
     expect(document.head.querySelector('link[rel="next"]')).toHaveAttribute(
       'href',
       'https://example.com/blog?category=Guides&page=3'
+    );
+  });
+
+  it('uses the provided canonical URL for ItemList schema URLs', async () => {
+    render(
+      await BlogPageContent({
+        itemListSchemaUrl: 'https://example.com/blog/category/smartphones',
+        params: Promise.resolve({ slug: 'example.com' }),
+        searchParams: Promise.resolve({ category: 'Smartphones' }),
+      })
+    );
+
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemListSchema: expect.objectContaining({
+          url: 'https://example.com/blog/category/smartphones',
+        }),
+      })
     );
   });
 

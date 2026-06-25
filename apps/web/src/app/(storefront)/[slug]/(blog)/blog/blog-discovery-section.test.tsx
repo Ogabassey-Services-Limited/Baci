@@ -1,5 +1,22 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import type React from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 import { BlogDiscoverySection } from '@/app/(storefront)/[slug]/(blog)/blog/blog-discovery-section';
 
 describe('BlogDiscoverySection', () => {
@@ -23,7 +40,7 @@ describe('BlogDiscoverySection', () => {
     );
     expect(screen.getByRole('link', { name: 'Phones' })).toHaveAttribute(
       'href',
-      'https://store.example/blog?category=Phones'
+      'https://store.example/blog/category/phones'
     );
     expect(screen.getByRole('link', { name: 'Buying guide' })).toHaveAttribute(
       'href',
@@ -55,7 +72,7 @@ describe('BlogDiscoverySection', () => {
       screen.getByRole('link', { name: 'Cases & Covers' })
     ).toHaveAttribute(
       'href',
-      'https://store.example/blog?category=Cases%20%26%20Covers'
+      'https://store.example/blog/category/cases-covers'
     );
     expect(screen.queryByRole('link', { name: 'Category 12' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Buying guide' })).toHaveAttribute(
@@ -78,5 +95,20 @@ describe('BlogDiscoverySection', () => {
     expect(
       screen.queryByRole('heading', { name: 'Latest Article Links' })
     ).toBeNull();
+  });
+
+  it('keeps ambiguous category slugs on absolute query links', () => {
+    render(
+      <BlogDiscoverySection
+        baseUrl="https://store.example"
+        categories={['Cases & Covers', 'Cases Covers']}
+        posts={[]}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Cases Covers' })).toHaveAttribute(
+      'href',
+      'https://store.example/blog?category=Cases+Covers'
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
@@ -61,15 +61,46 @@ mockEq.mockImplementation(
 const mockSelect = vi.fn((): EqChain => ({ eq: mockEq, not: mockNot }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
+vi.mock('../../sitemap-data', () => ({
+  resolveStorefrontSitemapContext: async (headersList: Headers) => {
+    const identifier =
+      headersList.get('x-custom-domain') ??
+      headersList.get('host') ??
+      headersList.get('x-merchant-slug') ??
+      '';
+    const merchant = await mockGetMerchantByIdentifier(identifier);
+    if (!merchant) return null;
+
+    const customDomain = merchant.custom_domain?.trim();
+    const storeUrl =
+      customDomain &&
+      (headersList.get('x-custom-domain') === customDomain ||
+        headersList.get('host') === customDomain)
+        ? `https://${customDomain}`
+        : `https://${merchant.slug}.usebaci.com`;
+
+    return {
+      merchant,
+      storeUrl,
+      supabase: { from: mockFrom },
+    };
+  },
+}));
+
 vi.mock('@/lib/supabase/anon', () => ({
   createAnonClient: vi.fn(() => ({
     from: mockFrom,
   })),
 }));
 
+let sitemap: typeof import('./sitemap').default;
+
 describe('blog sitemap', () => {
+  beforeAll(async () => {
+    ({ default: sitemap } = await import('./sitemap'));
+  }, 30_000);
+
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     mockHeaders = new Map();
     mockGetMerchantByIdentifier.mockResolvedValue({
@@ -79,6 +110,7 @@ describe('blog sitemap', () => {
     mockGetCachedFeatureSettings.mockImplementation(async () => ({
       blog_enabled: true,
     }));
+    mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
     mockNot.mockReset();
   });
 
@@ -117,8 +149,6 @@ describe('blog sitemap', () => {
       return { data: [], error: null };
     });
 
-    const { default: sitemap } = await import('./sitemap');
-
     const result = await sitemap();
 
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
@@ -146,8 +176,6 @@ describe('blog sitemap', () => {
     });
     mockNot.mockReturnValue({ data: [], error: null });
 
-    const { default: sitemap } = await import('./sitemap');
-
     const result = await sitemap();
 
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
@@ -157,8 +185,6 @@ describe('blog sitemap', () => {
   it('returns an empty sitemap when the merchant is not found', async () => {
     mockHeaders = new Map([['host', 'missing.example']]);
     mockGetMerchantByIdentifier.mockResolvedValue(null);
-
-    const { default: sitemap } = await import('./sitemap');
 
     await expect(sitemap()).resolves.toEqual([]);
   });
@@ -173,8 +199,6 @@ describe('blog sitemap', () => {
     mockGetCachedFeatureSettings.mockResolvedValueOnce({
       blog_enabled: false,
     });
-
-    const { default: sitemap } = await import('./sitemap');
 
     await expect(sitemap()).resolves.toEqual([]);
   });
@@ -195,8 +219,6 @@ describe('blog sitemap', () => {
       return { eq: mockEq, not: mockNot };
     });
     mockNot.mockReturnValue({ data: null, error: new Error('db') });
-
-    const { default: sitemap } = await import('./sitemap');
 
     await expect(sitemap()).rejects.toThrow(
       'Failed to fetch blog posts for sitemap'
@@ -235,8 +257,6 @@ describe('blog sitemap', () => {
       ],
       error: null,
     });
-
-    const { default: sitemap } = await import('./sitemap');
 
     const result = await sitemap();
 
@@ -300,7 +320,6 @@ describe('blog sitemap', () => {
       error: null,
     });
 
-    const { default: sitemap } = await import('./sitemap');
     const result = await sitemap();
 
     const bassey = result.find(
@@ -340,7 +359,6 @@ describe('blog sitemap', () => {
       error: null,
     });
 
-    const { default: sitemap } = await import('./sitemap');
     const result = await sitemap();
 
     expect(
@@ -375,7 +393,6 @@ describe('blog sitemap', () => {
       error: null,
     });
 
-    const { default: sitemap } = await import('./sitemap');
     const result = await sitemap();
 
     expect(result.some((e) => e.url.includes('/blog/author/'))).toBe(false);
