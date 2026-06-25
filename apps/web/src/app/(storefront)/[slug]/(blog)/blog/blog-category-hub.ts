@@ -5,12 +5,15 @@ import {
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
-import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   buildBlogCategorySchemaUrl,
   findBlogCategoryLabelBySlug,
 } from './blog-category-routing';
+
+interface PublicBlogCategoryRow {
+  category: string | null;
+}
 
 export interface ResolvedBlogCategoryHub {
   canonicalUrl: string;
@@ -37,23 +40,10 @@ export async function resolveBlogCategoryHub(
   }
 
   const supabase = getPublicSupabaseClient();
-  let categoriesQuery = supabase
-    .from('blog_posts')
-    .select('category')
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)
-    .not('title', 'is', null)
-    .not('slug', 'is', null)
-    .neq('title', '')
-    .neq('slug', '')
-    .not('category', 'is', null);
-
-  categoriesQuery = applyPublicBlogSqlFilters(categoriesQuery, {
-    includeCategoryFilters: true,
-  });
-
-  const { data: categories, error } = await categoriesQuery;
+  const { data: categories, error } = await supabase.rpc(
+    'get_public_blog_categories',
+    { p_merchant_id: merchant.id }
+  );
   if (error) {
     console.error('Failed to load blog categories for category hub', {
       merchantId: merchant.id,
@@ -64,11 +54,12 @@ export async function resolveBlogCategoryHub(
     });
   }
 
-  const uniqueCategories = [
-    ...new Set(categories?.map((entry) => entry.category).filter(Boolean)),
-  ];
+  const categoryRows = (categories ?? []) as PublicBlogCategoryRow[];
+  const publicCategories = filterPublicBlogCategories(
+    categoryRows.map((entry) => entry.category)
+  );
   const categoryLabel = findBlogCategoryLabelBySlug(
-    filterPublicBlogCategories(uniqueCategories),
+    publicCategories,
     categorySlug
   );
   if (!categoryLabel) {

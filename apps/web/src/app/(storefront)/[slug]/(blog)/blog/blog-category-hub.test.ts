@@ -28,25 +28,11 @@ vi.mock('@/lib/store-url', () => ({
 
 const { resolveBlogCategoryHub } = await import('./blog-category-hub');
 
-function createCategoryQuery(result: {
+function createCategoryRpc(result: {
   data: Array<{ category: string | null }>;
   error: unknown;
 }) {
-  const query = {
-    eq: vi.fn(() => query),
-    neq: vi.fn(() => query),
-    not: vi.fn(() => query),
-    select: vi.fn(() => query),
-  };
-
-  Object.defineProperty(query, 'then', {
-    value: (
-      resolve: (value: typeof result) => void,
-      reject?: (reason: unknown) => void
-    ) => Promise.resolve(result).then(resolve, reject),
-  });
-
-  return query;
+  return vi.fn(async () => result);
 }
 
 describe('resolveBlogCategoryHub', () => {
@@ -62,12 +48,11 @@ describe('resolveBlogCategoryHub', () => {
   });
 
   it('resolves a public category slug to its label and clean canonical URL', async () => {
-    const query = createCategoryQuery({
+    const rpc = createCategoryRpc({
       data: [{ category: 'Smartphones' }, { category: 'Laptops' }],
       error: null,
     });
-    const from = vi.fn(() => ({ select: query.select }));
-    mockGetPublicSupabaseClient.mockReturnValue({ from });
+    mockGetPublicSupabaseClient.mockReturnValue({ rpc });
 
     const hub = await resolveBlogCategoryHub('OGABASSEY.COM', 'smartphones');
 
@@ -80,8 +65,9 @@ describe('resolveBlogCategoryHub', () => {
       'blog-posts',
       'blog-category-hub-ogabassey.com'
     );
-    expect(from).toHaveBeenCalledWith('blog_posts');
-    expect(query.select).toHaveBeenCalledWith('category');
+    expect(rpc).toHaveBeenCalledWith('get_public_blog_categories', {
+      p_merchant_id: 'merchant-1',
+    });
   });
 
   it('returns null when the blog feature is disabled', async () => {
@@ -94,13 +80,11 @@ describe('resolveBlogCategoryHub', () => {
   });
 
   it('returns null for unknown category slugs', async () => {
-    const query = createCategoryQuery({
+    const rpc = createCategoryRpc({
       data: [{ category: 'Smartphones' }],
       error: null,
     });
-    mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => ({ select: query.select })),
-    });
+    mockGetPublicSupabaseClient.mockReturnValue({ rpc });
 
     await expect(
       resolveBlogCategoryHub('ogabassey.com', 'tablets')
@@ -108,13 +92,11 @@ describe('resolveBlogCategoryHub', () => {
   });
 
   it('returns null for ambiguous category slugs', async () => {
-    const query = createCategoryQuery({
+    const rpc = createCategoryRpc({
       data: [{ category: 'Cases & Covers' }, { category: 'Cases Covers' }],
       error: null,
     });
-    mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => ({ select: query.select })),
-    });
+    mockGetPublicSupabaseClient.mockReturnValue({ rpc });
 
     await expect(
       resolveBlogCategoryHub('ogabassey.com', 'cases-covers')
@@ -122,13 +104,11 @@ describe('resolveBlogCategoryHub', () => {
   });
 
   it('throws when category lookup fails instead of returning a false 404', async () => {
-    const query = createCategoryQuery({
+    const rpc = createCategoryRpc({
       data: [],
       error: { message: 'timeout' },
     });
-    mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => ({ select: query.select })),
-    });
+    mockGetPublicSupabaseClient.mockReturnValue({ rpc });
 
     await expect(
       resolveBlogCategoryHub('ogabassey.com', 'smartphones')
