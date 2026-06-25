@@ -212,6 +212,25 @@ describe('buildProductPriceSeoCopy', () => {
     expect(copy.title).toBe('Samsung Galaxy Tab S9 Plus Price in Nigeria');
   });
 
+  it('adds currency codes to symbol-denominated gift card SEO copy', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'PSN Gift Card £50',
+        slug: 'psn-gift-card-gbp-50',
+        price: 85000,
+      },
+      merchantDisplayName: 'Ogabassey',
+      categoryName: 'Gift Cards',
+      currency: 'NGN',
+      country: 'NG',
+    });
+
+    expect(copy.title).toBe('PSN Gift Card £50 GBP Price in Nigeria');
+    expect(copy.description).toContain(
+      'PSN Gift Card £50 GBP price in Nigeria is ₦85,000'
+    );
+  });
+
   it('builds generic check-price copy when no price is available', () => {
     const copy = buildProductPriceSeoCopy({
       product: {

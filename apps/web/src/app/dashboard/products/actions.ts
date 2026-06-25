@@ -47,6 +47,8 @@ export interface Change {
   details: {
     name: string;
     price: number;
+    cost_price?: number | null;
+    cost_price_was_edited?: boolean;
     sku?: string;
     description?: string;
     stock?: number;
@@ -134,6 +136,7 @@ Instructions:
 1.  Analyze the new price list. verify header rows vs data rows.
     - **Header Row Detection**: The first few rows might be titles/decorative (e.g., "Premium Used..."). Look for the actual header row containing "Product Name", "Price", etc.
     - **Currency Cleaning**: Prices may contain symbols like "₦" or ",". Strip these out to get raw numbers (e.g., "₦320,000.00" -> 320000).
+    - **Cost Price Extraction**: If a column is labeled "Cost Price", "Cost", "Buying Price", "Purchase Price", "Wholesale", "Supplier Price", or similar, map it to details.cost_price. Do not confuse cost price with the customer-facing product price.
     - **Category Extraction**: Try to infer the 'category' from the sheet constraints (e.g. if the sheet is "Samsung Phones", category is "Phones"). Or if there is a column for "Type" or "Category".
 2.  **Matching Logic**:
     - First, try to match by SKU if available.
@@ -251,6 +254,7 @@ export async function parseCSVDirectly(
   let stockIdx = -1;
   let categoryIdx = -1; // Added category index
   let imageIdx = -1; // Added image index
+  let costPriceIdx = -1;
 
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
     const row = parseCSVRow(lines[i].toLowerCase());
@@ -263,14 +267,7 @@ export async function parseCSVDirectly(
         h.includes('title') ||
         h.includes('model')
     );
-    const pIdx = row.findIndex(
-      (h) =>
-        h.includes('price') ||
-        h.includes('cost') ||
-        h.includes('amount') ||
-        h.includes('naira') ||
-        h.includes('ngn')
-    );
+    const pIdx = findSellingPriceColumnIndex(row);
 
     if (nIdx !== -1 && pIdx !== -1) {
       headerRowIdx = i;
@@ -306,6 +303,7 @@ export async function parseCSVDirectly(
           h.includes('url') ||
           h.includes('img')
       ); // Find image index
+      costPriceIdx = row.findIndex(isCostPriceHeader);
 
       break;
     }
@@ -329,23 +327,35 @@ export async function parseCSVDirectly(
 
   const changes: Change[] = [];
   const processedNames = new Set<string>();
+  const matchedProductIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const seenSkus = new Set<string>();
   let skippedCount = 0;
 
   // Process data rows (start after header row)
   for (let i = headerRowIdx + 1; i < lines.length; i++) {
     const row = parseCSVRow(lines[i]);
+    const rawName = row[nameIdx]?.trim() || '';
+    if (rawName) {
+      seenNames.add(normalizeName(rawName));
+    }
+
     if (row.length <= Math.max(nameIdx, priceIdx)) {
       skippedCount++;
       continue;
     }
 
-    const rawName = row[nameIdx]?.trim() || '';
     const rawPrice = row[priceIdx]?.trim() || '';
     const rawSku = skuIdx !== -1 ? row[skuIdx]?.trim() : undefined;
+    if (rawSku) {
+      seenSkus.add(rawSku.toLowerCase());
+    }
     const rawStock = stockIdx !== -1 ? row[stockIdx]?.trim() : undefined;
     const rawCategory =
       categoryIdx !== -1 ? row[categoryIdx]?.trim() : undefined;
     const rawImage = imageIdx !== -1 ? row[imageIdx]?.trim() : undefined; // Extract raw image
+    const rawCostPrice =
+      costPriceIdx !== -1 ? row[costPriceIdx]?.trim() : undefined;
 
     if (!rawName || !rawPrice) {
       skippedCount++;
@@ -354,11 +364,12 @@ export async function parseCSVDirectly(
 
     const normalizedName = normalizeName(rawName);
     const price = parsePrice(rawPrice);
+    const costPrice = parseOptionalPrice(rawCostPrice);
     const stock = rawStock
       ? Number.parseInt(rawStock.replace(/[^0-9]/g, ''), 10)
       : undefined;
 
-    if (Number.isNaN(price)) {
+    if (!Number.isFinite(price) || price < 0) {
       skippedCount++;
       continue;
     }
@@ -366,29 +377,53 @@ export async function parseCSVDirectly(
     processedNames.add(normalizedName);
 
     // Try to match by SKU first, then by name
-    let existingProduct = rawSku
+    const skuMatchedProduct = rawSku
       ? existingBySku.get(rawSku.toLowerCase())
       : undefined;
-    if (!existingProduct) {
-      existingProduct = existingByName.get(normalizedName);
-    }
+    const existingProduct =
+      skuMatchedProduct ?? existingByName.get(normalizedName);
 
     if (existingProduct) {
+      matchedProductIds.add(existingProduct.id);
       // Check if price changed
-      if (Math.abs(existingProduct.price - price) > 0.01) {
+      const costPriceChanged =
+        typeof costPrice === 'number' &&
+        (existingProduct.cost_price == null ||
+          Math.abs(existingProduct.cost_price - costPrice) > 0.01);
+      const priceChanged = Math.abs(existingProduct.price - price) > 0.01;
+      if (priceChanged || costPriceChanged) {
+        const shouldPreserveExistingName =
+          Boolean(skuMatchedProduct) &&
+          normalizeName(existingProduct.name) !== normalizedName;
+        const reasons = [];
+        if (priceChanged) {
+          reasons.push(
+            `Price changed from ${existingProduct.price} to ${price}`
+          );
+        }
+        if (costPriceChanged) {
+          if (existingProduct.cost_price == null) {
+            reasons.push(`Cost price set to ${costPrice}`);
+          } else {
+            reasons.push(
+              `Cost price changed from ${existingProduct.cost_price} to ${costPrice}`
+            );
+          }
+        }
         changes.push({
           type: 'update',
           productId: existingProduct.id,
           newPrice: price,
           details: {
-            name: rawName,
+            name: shouldPreserveExistingName ? existingProduct.name : rawName,
             price: existingProduct.price,
+            ...(typeof costPrice === 'number' ? { cost_price: costPrice } : {}),
             sku: rawSku || existingProduct.sku || undefined,
             stock: stock ?? existingProduct.stock,
             category: rawCategory, // Include category in update if new one provided
             image: rawImage, // Include image in update
           },
-          reason: `Price changed from ${existingProduct.price} to ${price}`,
+          reason: reasons.join('; '),
         });
       }
       // Could add stock change detection here if needed
@@ -399,6 +434,7 @@ export async function parseCSVDirectly(
         details: {
           name: rawName,
           price,
+          ...(typeof costPrice === 'number' ? { cost_price: costPrice } : {}),
           sku: rawSku,
           stock: stock ?? 0,
           category: rawCategory || 'General', // Default to General for new products if missing
@@ -416,7 +452,11 @@ export async function parseCSVDirectly(
   // Only suggest removals if CSV has at least 50% of catalog size (likely a full update)
   if (csvProductCount >= catalogCount * 0.5) {
     for (const product of validatedCurrentProducts) {
-      if (!processedNames.has(normalizeName(product.name))) {
+      if (
+        !matchedProductIds.has(product.id) &&
+        !seenNames.has(normalizeName(product.name)) &&
+        !(product.sku && seenSkus.has(product.sku.toLowerCase().trim()))
+      ) {
         changes.push({
           type: 'remove',
           productId: product.id,
@@ -470,12 +510,278 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-// Helper: Parse price string (handles currency symbols, commas)
+function isCostPriceHeader(header: string): boolean {
+  const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  const compactHeader = header.replace(/[^a-z0-9]/g, '');
+  const hasCost = words.includes('cost');
+  const hasConcatenatedCostPriceSignal = [
+    'buyingprice',
+    'costamount',
+    'costprice',
+    'costvalue',
+    'landedcost',
+    'purchaseprice',
+    'supplierprice',
+    'unitcost',
+    'wholesaleprice',
+  ].some((signal) => compactHeader.includes(signal));
+  const isLogisticsCost = words.some((word) =>
+    [
+      'courier',
+      'delivery',
+      'freight',
+      'logistics',
+      'postage',
+      'shipping',
+    ].includes(word)
+  );
+  const isConcatenatedLogisticsCost = [
+    'couriercost',
+    'deliverycost',
+    'freightcost',
+    'logisticscost',
+    'postagecost',
+    'shippingcost',
+  ].some((signal) => compactHeader.includes(signal));
+  const hasAmountSignal = words.some((word) =>
+    ['amount', 'cost', 'price', 'rate', 'unit', 'value', 'wholesale'].includes(
+      word
+    )
+  );
+  const hasCurrencySignal = words.some((word) =>
+    [
+      'aed',
+      'aud',
+      'brl',
+      'cad',
+      'chf',
+      'cny',
+      'eur',
+      'gbp',
+      'ghs',
+      'inr',
+      'jpy',
+      'kes',
+      'naira',
+      'ngn',
+      'usd',
+      'xaf',
+      'xof',
+      'zar',
+    ].includes(word)
+  );
+  const hasMonetarySignal =
+    hasCurrencySignal ||
+    words.some((word) =>
+      [
+        'amount',
+        'buying',
+        'landed',
+        'price',
+        'purchase',
+        'rate',
+        'unit',
+        'value',
+        'wholesale',
+      ].includes(word)
+    );
+  const hasSupplier = words.includes('supplier');
+  const isCustomerFacingPrice = words.some((word) =>
+    ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
+  );
+  const isConcatenatedCustomerFacingPrice = [
+    'customerprice',
+    'listprice',
+    'retailprice',
+    'saleprice',
+    'sellingprice',
+  ].some((signal) => compactHeader.includes(signal));
+
+  return (
+    (hasConcatenatedCostPriceSignal &&
+      !isConcatenatedCustomerFacingPrice &&
+      !isConcatenatedLogisticsCost) ||
+    (hasCost &&
+      !isCustomerFacingPrice &&
+      !isLogisticsCost &&
+      (words.length === 1 || words.includes('total') || hasMonetarySignal)) ||
+    words.includes('cogs') ||
+    (words.includes('buying') && hasAmountSignal) ||
+    (words.includes('purchase') && hasAmountSignal) ||
+    (words.includes('wholesale') && hasAmountSignal) ||
+    (!isLogisticsCost && hasSupplier && hasAmountSignal) ||
+    (words.includes('landed') && hasAmountSignal)
+  );
+}
+
+function isSellingRateHeader(header: string): boolean {
+  const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  return (
+    words.includes('rate') &&
+    words.some((word) =>
+      ['customer', 'list', 'retail', 'sale', 'selling', 'unit'].includes(word)
+    )
+  );
+}
+
+function isNonPriceAmountHeader(header: string): boolean {
+  const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  const isTaxOrVat = words.some((word) => ['tax', 'vat'].includes(word));
+  const isPriceColumn = words.some((word) =>
+    ['customer', 'list', 'price', 'retail', 'sale', 'selling'].includes(word)
+  );
+  const isTaxInclusiveAmount =
+    isTaxOrVat &&
+    words.some((word) => ['incl', 'including', 'inclusive'].includes(word)) &&
+    words.some((word) => ['amount', 'price', 'total', 'value'].includes(word));
+  return (
+    words.some((word) =>
+      [
+        'courier',
+        'delivery',
+        ...(!isPriceColumn ? ['discount'] : []),
+        'fee',
+        'fees',
+        'freight',
+        'logistics',
+        'postage',
+        'shipping',
+      ].includes(word)
+    ) ||
+    (isTaxOrVat && !isPriceColumn && !isTaxInclusiveAmount)
+  );
+}
+
+function isSellingPriceHeader(header: string): boolean {
+  const words = header.split(/[^a-z0-9]+/).filter(Boolean);
+  const hasPriceSignal = words.some((word) =>
+    ['amount', 'price', 'rate', 'total', 'value'].includes(word)
+  );
+  const isTaxInclusiveAmount =
+    words.some((word) => ['tax', 'vat'].includes(word)) &&
+    words.some((word) => ['incl', 'including', 'inclusive'].includes(word)) &&
+    hasPriceSignal;
+  return (
+    header.includes('selling price') ||
+    header.includes('sale price') ||
+    header.includes('list price') ||
+    header.includes('customer price') ||
+    isTaxInclusiveAmount ||
+    (hasPriceSignal &&
+      words.some((word) =>
+        ['customer', 'list', 'retail', 'sale', 'selling'].includes(word)
+      ))
+  );
+}
+
+function findSellingPriceColumnIndex(headers: string[]): number {
+  const customerPriceIdx = headers.findIndex(
+    (header) =>
+      !isCostPriceHeader(header) &&
+      !isNonPriceAmountHeader(header) &&
+      isSellingPriceHeader(header)
+  );
+  if (customerPriceIdx !== -1) return customerPriceIdx;
+
+  const explicitPriceIdx = headers.findIndex(
+    (header) =>
+      !isCostPriceHeader(header) &&
+      !isNonPriceAmountHeader(header) &&
+      (header.includes('price') ||
+        header.includes('naira') ||
+        header.includes('ngn'))
+  );
+  if (explicitPriceIdx !== -1) return explicitPriceIdx;
+
+  return headers.findIndex(
+    (header) =>
+      !isCostPriceHeader(header) &&
+      !isNonPriceAmountHeader(header) &&
+      (header.includes('amount') || isSellingRateHeader(header))
+  );
+}
+
+const PRIMARY_PRICE_TOKEN_PATTERN =
+  /[-+]?(?:(?:\d[\d,.]*|[,.]\d+)(?:[\s\u00a0\u202f]\d{3})*(?:[,.]\d+)?(?:[eE][-+]?\d+)?)/;
+
+function normalizeLocalizedNumericToken(token: string): string {
+  const numeric = token.replace(/[^\d,.\-+]/g, '');
+  const lastComma = numeric.lastIndexOf(',');
+  const lastDot = numeric.lastIndexOf('.');
+  const lastSeparator = Math.max(lastComma, lastDot);
+  let decimalSeparator = '';
+
+  if (lastSeparator !== -1) {
+    const separator = numeric[lastSeparator];
+    const digitsAfter = numeric
+      .slice(lastSeparator + 1)
+      .replace(/\D/g, '').length;
+    const hasBothSeparators = lastComma !== -1 && lastDot !== -1;
+    const hasRepeatedSeparator =
+      numeric.indexOf(separator) !== numeric.lastIndexOf(separator);
+
+    const digitsBefore = numeric.slice(0, lastSeparator).replace(/\D/g, '');
+    const hasLeadingZeroInteger = digitsBefore === '0';
+
+    if (
+      hasBothSeparators ||
+      (!hasRepeatedSeparator && (digitsAfter !== 3 || hasLeadingZeroInteger))
+    ) {
+      decimalSeparator = separator ?? '';
+    }
+  }
+
+  let normalized = '';
+  for (const char of numeric) {
+    if (/\d/.test(char)) {
+      normalized += char;
+    } else if ((char === '-' || char === '+') && normalized.length === 0) {
+      normalized += char;
+    } else if (char === decimalSeparator) {
+      normalized += '.';
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeLocalizedNumericString(value: string): string {
+  const normalizedValue = value
+    .replace(/\u2212/g, '-')
+    .replace(/([\p{L}\p{Sc}])\s*-\s*(?=\d)/gu, '$1');
+  const primaryTokenMatch = normalizedValue.match(PRIMARY_PRICE_TOKEN_PATTERN);
+  let primaryToken = primaryTokenMatch?.[0];
+
+  if (!primaryToken) {
+    return '';
+  }
+
+  const tokenPrefix = normalizedValue.slice(0, primaryTokenMatch?.index ?? 0);
+  if (!/^[+-]/.test(primaryToken) && tokenPrefix.trim().startsWith('-')) {
+    primaryToken = `-${primaryToken}`;
+  }
+
+  const exponentMatch = primaryToken.match(/^(.*?)[eE]([-+]?\d+)$/);
+  if (exponentMatch) {
+    const mantissa = normalizeLocalizedNumericToken(exponentMatch[1] ?? '');
+    const exponent = exponentMatch[2];
+    return mantissa && exponent ? `${mantissa}e${exponent}` : '';
+  }
+
+  return normalizeLocalizedNumericToken(primaryToken);
+}
+
+// Helper: Parse price string (handles currency symbols, ISO codes, commas)
 function parsePrice(priceStr: string): number {
-  const cleaned = priceStr
-    .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols and commas
-    .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
-  return Number.parseFloat(cleaned) || 0;
+  const cleaned = normalizeLocalizedNumericString(priceStr);
+  return Number.parseFloat(cleaned);
+}
+
+function parseOptionalPrice(priceStr?: string): number | undefined {
+  if (!priceStr?.trim()) return undefined;
+
+  const parsed = parsePrice(priceStr);
+  return !Number.isFinite(parsed) || parsed < 0 ? undefined : parsed;
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {

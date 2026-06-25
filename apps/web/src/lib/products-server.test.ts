@@ -496,6 +496,26 @@ describe('getProducts', () => {
     expect(result.products[0].cost_price).toBe(1200.75);
   });
 
+  it('preserves zero compare_at_price and cost_price values from strings', async () => {
+    // Arrange
+    const raw = makeRawProduct({
+      compare_at_price: '0',
+      cost_price: '0',
+    });
+    const { client } = createMockSupabase({
+      data: [raw],
+      error: null,
+      count: 1,
+    });
+
+    // Act
+    const result = await getProducts(client as never, merchantId, {});
+
+    // Assert
+    expect(result.products[0].compare_at_price).toBe(0);
+    expect(result.products[0].cost_price).toBe(0);
+  });
+
   it('returns undefined for null compare_at_price and cost_price', async () => {
     // Arrange
     const raw = makeRawProduct({
@@ -742,6 +762,41 @@ describe('getProducts', () => {
     expect(variant.price_override).toBeUndefined();
     expect(variant.cost_price).toBeUndefined();
     expect(variant.stock_quantity).toBe(0);
+  });
+
+  it('preserves zero variant price_override and cost_price values', async () => {
+    // Arrange
+    const raw = makeRawProduct({
+      has_variants: true,
+      variants: [
+        {
+          id: 'var-003',
+          product_id: 'prod-001',
+          merchant_id: 'merchant-123',
+          attributes: { size: 'S' },
+          price_override: '0',
+          cost_price: '0',
+          stock_quantity: '0',
+          sku: null,
+          primary_image: null,
+          images: null,
+        },
+      ],
+    });
+    const { client } = createMockSupabase({
+      data: [raw],
+      error: null,
+      count: 1,
+    });
+
+    // Act
+    const result = await getProducts(client as never, merchantId, {});
+    const variant = result.products[0].variants?.[0];
+
+    // Assert
+    expect(variant?.price_override).toBe(0);
+    expect(variant?.cost_price).toBe(0);
+    expect(variant?.stock_quantity).toBe(0);
   });
 
   // --- Denormalized variant attributes ---

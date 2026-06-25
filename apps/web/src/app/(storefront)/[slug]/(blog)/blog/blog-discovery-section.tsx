@@ -4,14 +4,21 @@ interface BlogDiscoveryPost {
   slug: string;
 }
 
+interface BlogDiscoveryAuthor {
+  name: string;
+  slug: string;
+}
+
 interface BlogDiscoverySectionProps {
   baseUrl: string;
+  authors?: BlogDiscoveryAuthor[];
   categories: string[];
   posts: BlogDiscoveryPost[];
 }
 
 export function BlogDiscoverySection({
   baseUrl,
+  authors = [],
   categories,
   posts,
 }: BlogDiscoverySectionProps) {
@@ -50,6 +57,26 @@ export function BlogDiscoverySection({
             </a>
           ))}
         </div>
+
+        {authors.length > 0 && (
+          <>
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-store-background-text/55">
+              Author Archives
+            </h3>
+            <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-2">
+              {authors.map((author) => (
+                <li key={author.slug}>
+                  <a
+                    className="text-xs text-store-primary underline-offset-4 hover:underline"
+                    href={`${baseUrl}/blog/author/${encodeURIComponent(author.slug)}`}
+                  >
+                    {author.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
         {posts.length > 0 && (
           <>

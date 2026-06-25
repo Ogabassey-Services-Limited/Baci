@@ -73,6 +73,14 @@ describe('DefaultBlogUi', () => {
     );
     expect(screen.getByText('BLOG_SIDEBAR')).toBeInTheDocument();
     expect(screen.getByText('BlogList:12')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Bassey John' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog/author/bassey-john'
+    );
+    expect(screen.getByRole('link', { name: 'Bolakale' })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog/author/bolakale'
+    );
   });
 
   it('renders the Organization entity when an organizationSchema is provided', () => {

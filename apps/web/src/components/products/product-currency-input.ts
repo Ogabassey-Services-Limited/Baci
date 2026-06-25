@@ -33,6 +33,10 @@ export function formatPriceInput(amount: number, locale: string): string {
   return getPriceFormatter(locale).format(amount);
 }
 
+function normalizeCurrencyLabelSeparatorDashes(value: string): string {
+  return value.replace(/([\p{L}\p{Sc}])\s*[-\u2212]\s*(?=\d)/gu, '$1');
+}
+
 export function getCurrencySymbol(locale: string, currency: string): string {
   return getCurrencySymbolFormatter(locale, currency)
     .formatToParts(0)
@@ -48,7 +52,38 @@ export function parsePriceInput(value: string, locale: string): number {
   const decimalSeparator =
     parts.find((part) => part.type === 'decimal')?.value ?? '.';
 
-  const normalized = value
+  const trimmedValue = normalizeCurrencyLabelSeparatorDashes(value).trim();
+  const dotIndex = trimmedValue.lastIndexOf('.');
+  const commaIndex = trimmedValue.lastIndexOf(',');
+
+  if (dotIndex !== -1 && commaIndex !== -1) {
+    const inputDecimalSeparator = dotIndex > commaIndex ? '.' : ',';
+    const inputGroupSeparator = inputDecimalSeparator === '.' ? ',' : '.';
+    const mixedLocaleNormalized = trimmedValue
+      .replaceAll(inputGroupSeparator, '')
+      .replaceAll(inputDecimalSeparator, '.')
+      .replace(/\s/g, '')
+      .replace(/[^\d.+-]/g, '');
+
+    return Number.parseFloat(mixedLocaleNormalized);
+  }
+
+  const hasLocaleDecimal = trimmedValue.includes(decimalSeparator);
+
+  if (decimalSeparator !== '.' && dotIndex !== -1 && !hasLocaleDecimal) {
+    const digitsAfterDot = trimmedValue
+      .slice(dotIndex + 1)
+      .replace(/\D/g, '').length;
+    const dotCount = [...trimmedValue].filter((char) => char === '.').length;
+
+    if (dotCount === 1 && digitsAfterDot !== 3) {
+      return Number.parseFloat(
+        trimmedValue.replace(/\s/g, '').replace(/[^\d.+-]/g, '')
+      );
+    }
+  }
+
+  const normalized = trimmedValue
     .replaceAll(groupSeparator, '')
     .replaceAll(decimalSeparator, '.')
     .replace(/\s/g, '')

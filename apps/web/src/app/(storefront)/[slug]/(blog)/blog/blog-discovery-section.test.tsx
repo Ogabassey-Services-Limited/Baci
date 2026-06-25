@@ -7,6 +7,7 @@ describe('BlogDiscoverySection', () => {
     render(
       <BlogDiscoverySection
         baseUrl="https://store.example"
+        authors={[{ name: 'Bassey John', slug: 'bassey-john' }]}
         categories={['Phones']}
         posts={[{ id: 'post-1', title: 'Buying guide', slug: 'buying-guide' }]}
       />
@@ -28,12 +29,17 @@ describe('BlogDiscoverySection', () => {
       'href',
       'https://store.example/blog/buying-guide'
     );
+    expect(screen.getByRole('link', { name: 'Bassey John' })).toHaveAttribute(
+      'href',
+      'https://store.example/blog/author/bassey-john'
+    );
   });
 
   it('encodes discovery URLs and caps generated category and post links', () => {
     render(
       <BlogDiscoverySection
         baseUrl="https://store.example"
+        authors={[]}
         categories={Array.from({ length: 13 }, (_, index) =>
           index === 0 ? 'Cases & Covers' : `Category ${index}`
         )}
@@ -63,6 +69,7 @@ describe('BlogDiscoverySection', () => {
     render(
       <BlogDiscoverySection
         baseUrl="https://store.example"
+        authors={[]}
         categories={[]}
         posts={[]}
       />

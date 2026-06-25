@@ -55,8 +55,9 @@ export interface UseCurrencyReturn {
 export function useCurrency(): UseCurrencyReturn {
   const merchantContext = useMerchantSafe();
   const countryCode = merchantContext?.merchant?.country ?? null;
+  const payoutCurrency = merchantContext?.merchant?.payout_currency ?? null;
 
-  const config = getCurrencyConfig(countryCode);
+  const config = getCurrencyConfig(countryCode, payoutCurrency);
 
   const formatCurrency = (amount: number) =>
     formatCurrencyWithConfigUtil(amount, config);
@@ -64,9 +65,9 @@ export function useCurrency(): UseCurrencyReturn {
   const formatCurrencyCompact = (amount: number) =>
     formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
-  const currencySymbol = getCurrencySymbolUtil(countryCode);
+  const currencySymbol = getCurrencySymbolUtil(countryCode, payoutCurrency);
 
-  const currencyCode = getCurrencyCodeUtil(countryCode);
+  const currencyCode = getCurrencyCodeUtil(countryCode, payoutCurrency);
 
   return {
     formatCurrency,
@@ -89,9 +90,10 @@ export function useCurrency(): UseCurrencyReturn {
  * }
  */
 export function useCurrencyWithCountry(
-  countryCode: string | null | undefined
+  countryCode: string | null | undefined,
+  payoutCurrency?: string | null
 ): UseCurrencyReturn {
-  const config = getCurrencyConfig(countryCode);
+  const config = getCurrencyConfig(countryCode, payoutCurrency);
 
   const formatCurrency = (amount: number) =>
     formatCurrencyWithConfigUtil(amount, config);
@@ -99,9 +101,9 @@ export function useCurrencyWithCountry(
   const formatCurrencyCompact = (amount: number) =>
     formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
-  const currencySymbol = getCurrencySymbolUtil(countryCode);
+  const currencySymbol = getCurrencySymbolUtil(countryCode, payoutCurrency);
 
-  const currencyCodeValue = getCurrencyCodeUtil(countryCode);
+  const currencyCodeValue = getCurrencyCodeUtil(countryCode, payoutCurrency);
 
   return {
     formatCurrency,

@@ -14,6 +14,7 @@ const ProductImportProductSchema = z.object({
   id: z.string().min(1).max(128),
   name: z.string().min(1).max(500),
   price: z.number().finite().nonnegative(),
+  cost_price: z.number().finite().nonnegative().nullable().optional(),
   sku: z.string().max(256).nullable().optional(),
   stock: z.number().finite().nonnegative().optional(),
 });
@@ -77,9 +78,12 @@ export const FetchGoogleSheetInputSchema = z.object({
   }),
 });
 
-const ChangeDetailsSchema = z.object({
-  name: z.string(),
-  price: z.number(),
+const RequiredProductNameSchema = z.string().trim().min(1);
+
+const SharedChangeDetailsShape = {
+  name: RequiredProductNameSchema,
+  price: z.number().finite().nonnegative(),
+  cost_price: z.number().finite().nonnegative().nullable().optional(),
   sku: z.string().optional(),
   description: z.string().optional(),
   stock: z.number().optional(),
@@ -90,24 +94,56 @@ const ChangeDetailsSchema = z.object({
     .record(z.string(), z.string())
     .optional()
     .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
+};
+
+const BulkChangeDetailsSchema = z.object({
+  ...SharedChangeDetailsShape,
+  cost_price_was_edited: z.boolean().optional(),
 });
 
-export const ChangeSchema = z.object({
-  type: z.enum(['update', 'new', 'remove']),
+const BulkUpdateChangeDetailsSchema = BulkChangeDetailsSchema.extend({
+  name: z.string().optional(),
+});
+
+const AIChangeDetailsSchema = z.strictObject(SharedChangeDetailsShape);
+
+const BulkChangeBaseSchema = z.object({
   productId: z
     .string()
     .optional()
     .describe('SKU or ID of the product to update or remove'),
   newPrice: z
     .number()
+    .finite()
+    .nonnegative()
     .optional()
     .describe('The new price for a product update'),
-  details: ChangeDetailsSchema,
   reason: z
     .string()
     .optional()
     .describe('Reasoning for the change, especially for removals'),
 });
+
+const BulkUpdateChangeSchema = BulkChangeBaseSchema.extend({
+  type: z.literal('update'),
+  details: BulkUpdateChangeDetailsSchema,
+});
+
+const BulkNewChangeSchema = BulkChangeBaseSchema.extend({
+  type: z.literal('new'),
+  details: BulkChangeDetailsSchema,
+});
+
+const BulkRemoveChangeSchema = BulkChangeBaseSchema.extend({
+  type: z.literal('remove'),
+  details: BulkUpdateChangeDetailsSchema,
+});
+
+export const ChangeSchema = z.discriminatedUnion('type', [
+  BulkUpdateChangeSchema,
+  BulkNewChangeSchema,
+  BulkRemoveChangeSchema,
+]);
 
 export const BulkUpdateChangesSchema = z.object({
   changes: z.array(ChangeSchema),
@@ -127,8 +163,27 @@ const MissingParameterRequestSchema = z
   })
   .optional();
 
-export const AIResponseSchema = z.object({
-  changes: z.array(ChangeSchema),
+const AIChangeSchema = z.strictObject({
+  type: z.enum(['update', 'new', 'remove']),
+  productId: z
+    .string()
+    .optional()
+    .describe('SKU or ID of the product to update or remove'),
+  newPrice: z
+    .number()
+    .finite()
+    .nonnegative()
+    .optional()
+    .describe('The new price for a product update'),
+  details: AIChangeDetailsSchema,
+  reason: z
+    .string()
+    .optional()
+    .describe('Reasoning for the change, especially for removals'),
+});
+
+export const AIResponseSchema = z.strictObject({
+  changes: z.array(AIChangeSchema),
   summary: z.string().describe('A human-readable summary of all changes'),
   clarificationRequest: ClarificationRequestSchema,
   missingParameterRequest: MissingParameterRequestSchema,

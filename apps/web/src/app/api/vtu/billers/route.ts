@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getBillerCategories } from '@/lib/monnify-bills';
 import { billersQuerySchema } from '@/schemas/vtu';
 import {
   type BillersResponsePayload,
@@ -38,6 +39,28 @@ export async function GET(request: NextRequest) {
     const monnifyCategory = includeMonnify
       ? getMonnifyCategoryCode(type)
       : undefined;
+
+    // TEMP DIAGNOSTIC: log the authoritative Monnify biller-categories list
+    // (codes/names only, no PII) to confirm which head categories Monnify
+    // actually supports. Gated behind an explicit query flag so normal billers
+    // requests take ZERO extra latency — only a manual probe call triggers it.
+    // Remove once answered.
+    if (includeMonnify && searchParams.get('_probeCategories') === '1') {
+      try {
+        const monnifyCategories = await getBillerCategories();
+        console.log(
+          '[monnify-bills] biller-categories:',
+          JSON.stringify(monnifyCategories)
+        );
+      } catch (categoriesError) {
+        console.log(
+          '[monnify-bills] biller-categories error:',
+          categoriesError instanceof Error
+            ? categoriesError.message
+            : String(categoriesError)
+        );
+      }
+    }
 
     const [{ billers: kudaBillers, error: kudaError }, monnifyResult] =
       await Promise.all([

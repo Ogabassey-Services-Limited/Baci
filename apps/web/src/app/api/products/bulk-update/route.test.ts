@@ -93,15 +93,19 @@ let authUser: { id: string } | null = { id: USER_ID };
 let merchant: {
   id: string;
   business_name: string;
-  country: string;
+  country: string | null;
+  payout_currency?: string | null;
 } | null = {
   id: MERCHANT_ID,
   business_name: 'Test Store',
   country: 'NG',
+  payout_currency: 'NGN',
 };
 let merchantError: unknown = null;
 let updateError: unknown = null;
 let insertError: unknown = null;
+let productInserts: unknown[] = [];
+let productUpdates: unknown[] = [];
 
 // Creates a query builder that supports chaining .eq() and resolves with { error }
 function createQueryBuilder(getError: () => unknown) {
@@ -154,8 +158,14 @@ vi.mock('@/lib/supabase/server', () => ({
       }
       if (table === 'products') {
         return {
-          update: vi.fn(() => createQueryBuilder(() => updateError)),
-          insert: vi.fn(() => Promise.resolve({ error: insertError })),
+          update: vi.fn((payload: unknown) => {
+            productUpdates.push(payload);
+            return createQueryBuilder(() => updateError);
+          }),
+          insert: vi.fn((payload: unknown) => {
+            productInserts.push(payload);
+            return Promise.resolve({ error: insertError });
+          }),
         };
       }
       return {
@@ -184,7 +194,12 @@ describe('POST /api/products/bulk-update', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authUser = { id: USER_ID };
-    merchant = { id: MERCHANT_ID, business_name: 'Test Store', country: 'NG' };
+    merchant = {
+      id: MERCHANT_ID,
+      business_name: 'Test Store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    };
     merchantContextMock.current = {
       merchantId: MERCHANT_ID,
       businessName: 'Test Store',
@@ -198,6 +213,8 @@ describe('POST /api/products/bulk-update', () => {
     merchantError = null;
     updateError = null;
     insertError = null;
+    productInserts = [];
+    productUpdates = [];
     csrfValid = true;
   });
 
@@ -300,6 +317,7 @@ describe('POST /api/products/bulk-update', () => {
         details: {
           name: 'Updated Product',
           price: 150,
+          cost_price: 90,
           category: 'Electronics',
         },
       },
@@ -311,7 +329,208 @@ describe('POST /api/products/bulk-update', () => {
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
     expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      category: 'Electronics',
+      name: 'Updated Product',
+      price: 150,
+      cost_price: 90,
+    });
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('does not persist whitespace-only product names during targeted updates', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              name: '   ',
+              price: 150,
+              category: 'Electronics',
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      category: 'Electronics',
+      price: 150,
+    });
+    expect(productUpdates[0]).not.toHaveProperty('name');
+  });
+
+  it('preserves existing product names when targeted updates omit the name field', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              price: 150,
+              category: 'Electronics',
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      category: 'Electronics',
+      price: 150,
+    });
+    expect(productUpdates[0]).not.toHaveProperty('name');
+  });
+
+  it('returns 400 when a new imported product omits a name', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              price: 200,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid changes data');
+    expect(productInserts).toEqual([]);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when a new imported product has a blank name', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: '   ',
+              price: 200,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid changes data');
+    expect(productInserts).toEqual([]);
+    expect(mockRevalidateProducts).not.toHaveBeenCalled();
+  });
+
+  it('skips update changes without a safe product selector', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: '   ',
+            details: {
+              name: '   ',
+              price: 150,
+              sku: '   ',
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(0);
+    expect(json.results.errors).toContain(
+      'Skipped update without a product id, SKU, or product name.'
+    );
+    expect(productUpdates).toEqual([]);
+  });
+
+  it('clears product cost price when update details explicitly set null', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              name: 'Updated Product',
+              price: 150,
+              cost_price: null,
+              cost_price_was_edited: true,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      cost_price: null,
+      name: 'Updated Product',
+      price: 150,
+    });
+  });
+
+  it('does not clear product cost price from AI-null details without an explicit edit marker', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'update',
+            productId: 'product-1',
+            newPrice: 150,
+            details: {
+              name: 'Updated Product',
+              price: 150,
+              cost_price: null,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.updated).toBe(1);
+    expect(productUpdates[0]).toMatchObject({
+      name: 'Updated Product',
+      price: 150,
+    });
+    expect(productUpdates[0]).not.toHaveProperty('cost_price');
   });
 
   it('processes new product changes', async () => {
@@ -320,7 +539,12 @@ describe('POST /api/products/bulk-update', () => {
     const changes = [
       {
         type: 'new',
-        details: { name: 'New Product', price: 200, stock: 10 },
+        details: {
+          name: 'New Product',
+          price: 200,
+          cost_price: 120,
+          stock: 10,
+        },
       },
     ];
 
@@ -329,7 +553,76 @@ describe('POST /api/products/bulk-update', () => {
 
     expect(res.status).toBe(200);
     expect(json.results.created).toBe(1);
+    expect(productInserts[0]).toMatchObject({
+      cost_price: 120,
+      price: 200,
+      schema_markup: {
+        offers: expect.objectContaining({
+          priceCurrency: 'NGN',
+        }),
+      },
+    });
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('persists zero cost price on new products', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: {
+              name: 'Zero Cost Product',
+              price: 200,
+              cost_price: 0,
+            },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.created).toBe(1);
+    expect(productInserts[0]).toMatchObject({
+      cost_price: 0,
+      name: 'Zero Cost Product',
+      price: 200,
+    });
+  });
+
+  it('uses payout currency for imported product schema when country is missing', async () => {
+    const { POST } = await import('./route');
+    merchant = {
+      id: MERCHANT_ID,
+      business_name: 'Test Store',
+      country: null,
+      payout_currency: 'NGN',
+    };
+
+    const res = await POST(
+      makeRequest({
+        changes: [
+          {
+            type: 'new',
+            details: { name: 'New Product', price: 200 },
+          },
+        ],
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results.created).toBe(1);
+    expect(productInserts[0]).toMatchObject({
+      schema_markup: {
+        offers: expect.objectContaining({
+          priceCurrency: 'NGN',
+        }),
+      },
+    });
   });
 
   it('processes remove changes', async () => {

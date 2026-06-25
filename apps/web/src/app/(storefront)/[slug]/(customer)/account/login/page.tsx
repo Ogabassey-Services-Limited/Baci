@@ -4,8 +4,8 @@ import { ArrowLeft, Loader2, Mail, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import { OgabasseyLoginPage } from '@/components/storefront/ogabassey/components/OgabasseyLoginPage';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { OgabasseyLoginPage } from '@/components/storefront/ogabassey/components/login/OgabasseyLoginPage';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -18,6 +18,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
+import {
+  fetchCustomerLoginEmailPrefillForRedirect,
+  sanitizeCustomerLoginEmailPrefill,
+} from '@/lib/customer-login-prefill';
 import { asRoute } from '@/lib/routes';
 
 // Validate redirect URL to prevent open redirect vulnerabilities
@@ -55,13 +59,31 @@ export default function CustomerLoginPage() {
   }
 
   // Default login page for other merchants
-  return <DefaultLoginPage />;
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <DefaultLoginPage />
+    </Suspense>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-store-background">
+      <Loader2 className="size-8 animate-spin text-store-primary" />
+      <p className="text-sm text-store-background-text/70">
+        Loading sign-in...
+      </p>
+    </div>
+  );
 }
 
 function DefaultLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = sanitizeRedirect(searchParams.get('redirect'));
+  const prefillEmail = sanitizeCustomerLoginEmailPrefill(
+    searchParams.get('email')
+  );
 
   const { merchant, loading: merchantLoading } = useMerchant();
   const {
@@ -73,7 +95,7 @@ function DefaultLoginPage() {
     signInWithGoogle,
   } = useCustomerAuth();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(prefillEmail);
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -88,6 +110,28 @@ function DefaultLoginPage() {
       router.push(asRoute(redirectTo));
     }
   }, [authLoading, isAuthenticated, router, redirectTo]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (prefillEmail) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void fetchCustomerLoginEmailPrefillForRedirect(redirectTo).then(
+      (emailHint) => {
+        if (!cancelled && emailHint) {
+          setEmail((currentEmail) => currentEmail || emailHint);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [prefillEmail, redirectTo]);
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
