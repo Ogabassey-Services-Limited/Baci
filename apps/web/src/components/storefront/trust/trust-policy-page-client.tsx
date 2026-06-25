@@ -157,6 +157,38 @@ function getPolicyFacts(
   }
 }
 
+function getPolicyGuidance(
+  kind: TrustPolicyKind,
+  merchantName: string
+): { heading: string; paragraphs: string[] } {
+  switch (kind) {
+    case 'returns':
+      return {
+        heading: 'Before you request a return',
+        paragraphs: [
+          `Use this page to confirm the current return window, accepted return method and any return fees before sending an item back to ${merchantName}. Keep the order number, receipt, original accessories and product packaging ready so support can verify the request quickly.`,
+          'For phones, laptops, consoles and accessories, inspect the item as soon as it arrives. Report defects or delivery damage early, avoid removing protective seals unless you are keeping the item, and contact support before dispatching anything to prevent avoidable delays.',
+        ],
+      };
+    case 'shipping':
+      return {
+        heading: 'How delivery works',
+        paragraphs: [
+          `Use this page to confirm the delivery regions, handling time, transit estimate and shipping fee method for ${merchantName}. Delivery timing can depend on stock status, payment confirmation, destination city and courier availability.`,
+          'Before checkout, confirm the exact delivery address, recipient phone number and selected product variant. For high-value electronics, keep the order reference available and inspect the package at delivery before accepting it where possible.',
+        ],
+      };
+    case 'warranty':
+      return {
+        heading: 'How warranty support works',
+        paragraphs: [
+          `Use this page to confirm the warranty coverage available from ${merchantName} before you complete a purchase or request service support. Warranty handling can vary by product condition, manufacturer policy and evidence supplied with the claim.`,
+          'Keep your order receipt, serial number, IMEI where applicable and photos or videos showing the fault. Warranty support usually excludes accidental damage, liquid damage and unauthorized repairs unless the product page or written policy says otherwise.',
+        ],
+      };
+  }
+}
+
 export function TrustPolicyPageClient({
   kind,
   merchantName,
@@ -165,6 +197,7 @@ export function TrustPolicyPageClient({
 }: TrustPolicyPageClientProps) {
   const summary = getPolicySummary(kind, trustProfile);
   const facts = getPolicyFacts(kind, trustProfile);
+  const guidance = getPolicyGuidance(kind, merchantName);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
@@ -178,6 +211,17 @@ export function TrustPolicyPageClient({
         {summary ? (
           <p className="mt-4 text-base leading-7 text-neutral-700">{summary}</p>
         ) : null}
+
+        <section className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+          <h2 className="text-lg font-semibold text-neutral-950">
+            {guidance.heading}
+          </h2>
+          <div className="mt-3 space-y-3 text-sm leading-6 text-neutral-700 sm:text-base sm:leading-7">
+            {guidance.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
 
         <dl className="mt-8 grid gap-4 sm:grid-cols-2">
           {facts.map((fact) => (

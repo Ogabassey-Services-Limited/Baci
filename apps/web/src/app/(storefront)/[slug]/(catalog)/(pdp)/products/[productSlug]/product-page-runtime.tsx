@@ -177,6 +177,7 @@ export async function ProductPageRuntime({
           ...semanticModel,
           contextParagraphs: buildProductContextParagraphs({
             categoryName,
+            categorySlug,
             currentProduct,
             displayPriceText: priceSeoCopy.priceText,
             merchantBusinessName: merchant.business_name || 'Baci Store',

@@ -205,6 +205,12 @@ describe('buildProductSemanticModel sections', () => {
         'Listed in Best Smartphones Under ₦500,000',
       ])
     );
+    expect(model.contextParagraphs?.join(' ')).toContain(
+      'iPhone 17 Pro Max is listed in Smartphones by Ogabassey'
+    );
+    expect(model.contextParagraphs?.join(' ')).toContain(
+      'confirm the exact model, color, storage or size option'
+    );
     expect(model.trustBullets.join(' ')).not.toMatch(
       /warranty|returns|delivery/i
     );

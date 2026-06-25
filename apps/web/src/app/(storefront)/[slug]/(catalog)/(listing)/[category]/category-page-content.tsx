@@ -31,6 +31,7 @@ import {
   resolveCategoryPageName,
   type StorefrontCategoryProduct,
 } from './category-page-content-helpers';
+import { CategoryPageCrawlSummary } from './category-page-crawl-summary';
 
 interface PageProps {
   params: Promise<{
@@ -273,6 +274,11 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           }
         />
       </V2ComparisonScope>
+      <CategoryPageCrawlSummary
+        categoryName={categoryName}
+        merchantName={merchant.business_name}
+        productNames={categoryPageProducts.map((product) => product.name)}
+      />
     </>
   );
 }

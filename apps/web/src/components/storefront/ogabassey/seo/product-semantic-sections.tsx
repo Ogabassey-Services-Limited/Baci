@@ -24,14 +24,14 @@ export function ProductSemanticSections({
     <section className="ogabassey-pdp-semantic-sections">
       {hasContext ? (
         <section
-          aria-labelledby="product-buying-context"
+          aria-labelledby="product-details-buying-checklist"
           className="ogabassey-pdp-semantic-card"
         >
           <h2
-            id="product-buying-context"
+            id="product-details-buying-checklist"
             className="ogabassey-pdp-semantic-card__title"
           >
-            Product buying context
+            Product details and buying checklist
           </h2>
           {contextParagraphs.map((paragraph, index) => (
             <p

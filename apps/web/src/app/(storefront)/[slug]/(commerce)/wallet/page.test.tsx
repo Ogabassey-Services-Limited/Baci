@@ -30,7 +30,7 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
 }));
 
-const { default: WalletPage } = await import('./page');
+const { default: WalletPage, metadata } = await import('./page');
 
 describe('WalletPage', () => {
   beforeEach(() => {
@@ -119,5 +119,9 @@ describe('WalletPage', () => {
     await vi.waitFor(() => {
       expect(notFound).toHaveBeenCalled();
     });
+  });
+
+  it('marks the customer wallet page as non-indexable', () => {
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
   });
 });

@@ -65,12 +65,15 @@ export async function generateMetadata({
       ...(author.imageUrl ? { images: [author.imageUrl] } : {}),
     },
     alternates: { canonical: canonicalUrl },
-    robots: {
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
+    robots:
+      page > 1
+        ? { index: false, follow: true }
+        : {
+            index: true,
+            follow: true,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+          },
   };
 }
 

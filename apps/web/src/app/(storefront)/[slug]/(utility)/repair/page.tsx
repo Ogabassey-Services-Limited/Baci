@@ -30,7 +30,7 @@ export async function generateMetadata({
 
   return {
     title: `Book a Repair - ${merchant.business_name}`,
-    description: `Schedule a repair service with ${merchant.business_name}`,
+    description: `Book phone, laptop, console and gadget repairs with ${merchant.business_name}. Check diagnosis, fault details, service expectations and support before submitting a repair request.`,
   };
 }
 
@@ -55,6 +55,25 @@ export default async function RepairPage({ params }: RepairPageProps) {
             for you.
           </p>
         </div>
+
+        <section className="mb-8 rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+          <h2 className="text-xl font-semibold">Before you book a repair</h2>
+          <div className="mt-3 space-y-3 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+            <p>
+              Use this repair request to describe the device model, visible
+              damage, fault symptoms and any recent repair attempts. Clear
+              details help {merchant.business_name} estimate the right diagnosis
+              path before you bring in or dispatch the device.
+            </p>
+            <p>
+              For phones, laptops, tablets, consoles and accessories, back up
+              important data where possible, remove passcodes only when support
+              asks for them, and keep proof of purchase or warranty information
+              available. Final pricing depends on inspection, parts availability
+              and the confirmed fault.
+            </p>
+          </div>
+        </section>
 
         <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
           <RepairBookingWizard
