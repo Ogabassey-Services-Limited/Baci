@@ -8,7 +8,7 @@ import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import {
   getCachedBlogPost,
   getCachedFeatureSettings,
-  getMerchantSafe,
+  getMerchantStrict,
 } from '@/lib/cached-data';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { asRoute } from '@/lib/routes';
@@ -45,7 +45,7 @@ async function hasPublicBlogPost(
   cacheLife('blog');
   cacheTag('blog-posts', getBlogCacheTag(identifier, normalizedPostSlug));
 
-  const merchant = await getMerchantSafe(identifier.toLowerCase());
+  const merchant = await getMerchantStrict(identifier.toLowerCase());
   if (!merchant) {
     return false;
   }

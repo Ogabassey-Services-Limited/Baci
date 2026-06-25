@@ -11,6 +11,7 @@ import {
   mockGetBlogPostRedirect,
   mockGetCachedBlogPost,
   mockGetLiveBlogPost,
+  mockGetMerchantStrict,
   mockNotFound,
   mockPermanentRedirect,
   resetBlogPostPageMocks,
@@ -84,6 +85,48 @@ describe('storefront blog post page', () => {
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
     expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
     expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+  });
+
+  it('returns notFound when the blog merchant is genuinely missing', async () => {
+    mockGetMerchantStrict.mockResolvedValueOnce(null);
+
+    await expect(loadBlogPostPage('smartphones')).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    );
+
+    expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+  });
+
+  it('propagates merchant lookup errors before caching a missing public post', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const lookupError = new Error('merchant lookup timeout');
+    mockGetMerchantStrict.mockRejectedValueOnce(lookupError);
+
+    await expect(
+      loadBlogPostPage('apple-studio-display-review')
+    ).rejects.toThrow(lookupError);
+
+    expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
+    expect(mockGetLiveBlogPost).not.toHaveBeenCalled();
+    expect(mockBlogPostPageContent).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error checking public blog post at page boundary',
+      expect.objectContaining({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+        error: lookupError,
+      })
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 
   it('streams public posts without resolving full post data at the page boundary', async () => {

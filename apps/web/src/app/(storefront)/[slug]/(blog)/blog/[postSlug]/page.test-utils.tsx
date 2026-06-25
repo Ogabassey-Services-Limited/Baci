@@ -31,7 +31,7 @@ const pageMockState = vi.hoisted(() => ({
   }),
   mockGetCachedBlogPost: vi.fn(),
   mockGetLiveBlogPost: vi.fn(),
-  mockGetMerchantSafe: vi.fn(),
+  mockGetMerchantStrict: vi.fn(),
   mockConnection: vi.fn(),
 }));
 
@@ -53,7 +53,7 @@ export const mockHeaders = pageMockState.mockHeaders;
 export const mockNotFound = pageMockState.mockNotFound;
 export const mockGetCachedBlogPost = pageMockState.mockGetCachedBlogPost;
 export const mockGetLiveBlogPost = pageMockState.mockGetLiveBlogPost;
-export const mockGetMerchantSafe = pageMockState.mockGetMerchantSafe;
+export const mockGetMerchantStrict = pageMockState.mockGetMerchantStrict;
 export const mockConnection = pageMockState.mockConnection;
 
 vi.mock('next/headers', () => ({
@@ -80,8 +80,8 @@ vi.mock('@/lib/cached-data', () => ({
     pageMockState.mockGetCachedBlogPost(...args),
   getCachedFeatureSettings: (...args: unknown[]) =>
     pageMockState.mockGetCachedFeatureSettings(...args),
-  getMerchantSafe: (...args: unknown[]) =>
-    pageMockState.mockGetMerchantSafe(...args),
+  getMerchantStrict: (...args: unknown[]) =>
+    pageMockState.mockGetMerchantStrict(...args),
 }));
 
 vi.mock('@/lib/supabase/anon', () => ({
@@ -196,7 +196,7 @@ export function resetBlogPostPageMocks() {
   mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
   mockGetLiveBlogPost.mockReset();
   mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
-  mockGetMerchantSafe.mockResolvedValue(liveBlogPost.merchant);
+  mockGetMerchantStrict.mockResolvedValue(liveBlogPost.merchant);
   mockHeaders.mockResolvedValue(new Headers());
   mockBlogPostPageContent.mockReset();
   mockBlogPostPageContent.mockImplementation(() => (
