@@ -1,5 +1,6 @@
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product } from '@/lib/products';
+import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import {
   getCachedProductSeoLinkData,
@@ -55,26 +56,39 @@ export async function OgabasseyPdpSemanticSections({
   }
 
   const { inventory, guidePosts, priorityGuidePostSlugs } = seoLinkData;
+  const currentProduct = {
+    slug: product.slug || String(product.id),
+    name: product.name,
+    brand: product.brand,
+    condition: product.condition,
+    price: product.price,
+    stock: product.stock,
+    category_slug: product.category_slug ?? categorySlug,
+    product_key_specs: product.product_key_specs,
+  };
   const semanticModel = buildProductSemanticModel({
     storeUrl,
     merchantBusinessName: merchant?.business_name || 'Baci Store',
     categorySlug,
     categoryName,
     countryCode: merchant.country,
-    currentProduct: {
-      slug: product.slug || String(product.id),
-      name: product.name,
-      brand: product.brand,
-      condition: product.condition,
-      price: product.price,
-      stock: product.stock,
-      category_slug: product.category_slug ?? categorySlug,
-      product_key_specs: product.product_key_specs,
-    },
+    currentProduct,
     inventory,
     guidePosts,
     priorityGuidePostSlugs,
   });
 
-  return <ProductSemanticSections model={semanticModel} />;
+  return (
+    <ProductSemanticSections
+      model={{
+        ...semanticModel,
+        contextParagraphs: buildProductContextParagraphs({
+          categoryName,
+          countryCode: merchant.country,
+          currentProduct,
+          merchantBusinessName: merchant?.business_name || 'Baci Store',
+        }),
+      }}
+    />
+  );
 }

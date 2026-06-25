@@ -12,14 +12,37 @@ export function ProductSemanticSections({
   const hasCards = Boolean(
     model.alternatives || model.sameBrand || model.samePrice,
   );
+  const hasContext = Boolean(model.contextParagraphs?.length);
   const hasGuideLinks = model.guideLinks.length > 0;
 
-  if (!model.supportLinks.length && !hasGuideLinks && !hasCards) {
+  if (!model.supportLinks.length && !hasContext && !hasGuideLinks && !hasCards) {
     return null;
   }
 
   return (
     <section className="ogabassey-pdp-semantic-sections">
+      {hasContext ? (
+        <section
+          aria-labelledby="product-buying-context"
+          className="ogabassey-pdp-semantic-card"
+        >
+          <h2
+            id="product-buying-context"
+            className="ogabassey-pdp-semantic-card__title"
+          >
+            Product buying context
+          </h2>
+          {model.contextParagraphs?.map((paragraph) => (
+            <p
+              key={paragraph}
+              className="ogabassey-pdp-semantic-card__description"
+            >
+              {paragraph}
+            </p>
+          ))}
+        </section>
+      ) : null}
+
       {hasGuideLinks ? (
         <section
           aria-labelledby="product-guide-links"
