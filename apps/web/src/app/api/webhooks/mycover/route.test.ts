@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
+  dedupDelete: vi.fn(),
   dedupInsert: vi.fn(),
   fetch: vi.fn(),
   getMyCoverWebhookSecret: vi.fn(),
@@ -47,24 +48,22 @@ function createRequest(body: Record<string, unknown>, signature?: string) {
 
 function createSupabaseMock({
   policyUpdateResult = { data: { id: 'policy-row' }, error: null },
+  dedupDeleteResult = { error: null } as { error: unknown },
   dedupInsertResult = { error: null } as { error: unknown },
-  dedupExisting = null as { event_id: string } | null,
 }: {
   policyUpdateResult?: { data: unknown; error: unknown };
+  dedupDeleteResult?: { error: unknown };
   dedupInsertResult?: { error: unknown };
-  dedupExisting?: { event_id: string } | null;
 } = {}) {
   return {
     from: vi.fn((table: string) => {
       if (table === 'mycover_webhook_events') {
         return {
-          // Dedup existence check: select(...).eq(...).maybeSingle()
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi
-                .fn()
-                .mockResolvedValue({ data: dedupExisting, error: null }),
-            })),
+          delete: vi.fn(() => ({
+            eq: vi.fn((column: string, value: string) => {
+              mocks.dedupDelete(column, value);
+              return Promise.resolve(dedupDeleteResult);
+            }),
           })),
           insert: vi.fn((row: unknown) => {
             mocks.dedupInsert(row);
@@ -922,9 +921,13 @@ describe('POST /api/webhooks/mycover', () => {
   });
 
   describe('idempotency', () => {
-    it('skips processing when the event_id was already recorded', async () => {
+    it('skips processing when the event_id was already claimed', async () => {
       mocks.createServiceClient.mockReturnValue(
-        createSupabaseMock({ dedupExisting: { event_id: 'evt-1' } })
+        createSupabaseMock({
+          dedupInsertResult: {
+            error: { code: '23505', message: 'duplicate key' },
+          },
+        })
       );
       const payload = {
         event_id: 'evt-1',
@@ -940,11 +943,14 @@ describe('POST /api/webhooks/mycover', () => {
 
       expect(response.status).toBe(200);
       expect(body).toEqual({ received: true, duplicate: true });
+      expect(mocks.dedupInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ event_id: 'evt-1' })
+      );
       expect(mocks.policyUpdate).not.toHaveBeenCalled();
-      expect(mocks.dedupInsert).not.toHaveBeenCalled();
+      expect(mocks.dedupDelete).not.toHaveBeenCalled();
     });
 
-    it('records the event_id only after successful processing', async () => {
+    it('claims the event_id before successful processing', async () => {
       const payload = {
         event_id: 'evt-2',
         event: 'purchase.successful',
@@ -956,13 +962,17 @@ describe('POST /api/webhooks/mycover', () => {
         createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
       );
 
-      expect(mocks.policyUpdate).toHaveBeenCalled();
       expect(mocks.dedupInsert).toHaveBeenCalledWith(
         expect.objectContaining({ event_id: 'evt-2' })
       );
+      expect(mocks.policyUpdate).toHaveBeenCalled();
+      expect(mocks.dedupInsert.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.policyUpdate.mock.invocationCallOrder[0]
+      );
+      expect(mocks.dedupDelete).not.toHaveBeenCalled();
     });
 
-    it('does NOT record the event_id when processing fails (retry stays open)', async () => {
+    it('releases the claimed event_id when processing fails so retries stay open', async () => {
       mocks.createServiceClient.mockReturnValue(
         createSupabaseMock({
           policyUpdateResult: { data: null, error: { message: 'boom' } },
@@ -980,7 +990,10 @@ describe('POST /api/webhooks/mycover', () => {
       );
 
       expect(response.status).toBe(500);
-      expect(mocks.dedupInsert).not.toHaveBeenCalled();
+      expect(mocks.dedupInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ event_id: 'evt-3' })
+      );
+      expect(mocks.dedupDelete).toHaveBeenCalledWith('event_id', 'evt-3');
     });
   });
 

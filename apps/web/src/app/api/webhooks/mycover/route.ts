@@ -80,6 +80,46 @@ async function hmacSha512Hex(secret: string, message: string): Promise<string> {
     .join('');
 }
 
+type MyCoverWebhookEventClaimResult = 'claimed' | 'duplicate';
+
+async function claimMyCoverWebhookEvent(
+  supabase: SupabaseClient,
+  payload: MyCoverWebhookPayload
+): Promise<MyCoverWebhookEventClaimResult> {
+  if (!payload.event_id) {
+    return 'claimed';
+  }
+
+  const { error } = await supabase
+    .from('mycover_webhook_events')
+    .insert({ event_id: payload.event_id, event: payload.event });
+
+  if (!error) {
+    return 'claimed';
+  }
+
+  if (error.code === '23505') {
+    return 'duplicate';
+  }
+
+  console.error('[MyCover Webhook] Failed to claim event_id:', error);
+  throw error;
+}
+
+async function releaseMyCoverWebhookEventClaim(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('mycover_webhook_events')
+    .delete()
+    .eq('event_id', eventId);
+
+  if (error) {
+    console.error('[MyCover Webhook] Failed to release event_id claim:', error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
@@ -146,90 +186,81 @@ export async function POST(request: NextRequest) {
     // Create admin Supabase client (2026 Best Practice: Use centralized factory)
     const supabase = createServiceClient();
 
-    // Idempotency: MyCover retries a delivery up to ~10 times with a stable
-    // `event_id`. Check first; we only record it AFTER successful processing
-    // (below) so a transient failure can still be retried.
+    // MyCover documents `event_id` as the dedupe key. Claim it before any
+    // side effects so concurrent retries cannot both process the same event.
     if (payload.event_id) {
-      const { data: alreadyProcessed } = await supabase
-        .from('mycover_webhook_events')
-        .select('event_id')
-        .eq('event_id', payload.event_id)
-        .maybeSingle();
-      if (alreadyProcessed) {
+      const claimResult = await claimMyCoverWebhookEvent(supabase, payload);
+      if (claimResult === 'duplicate') {
         return NextResponse.json({ received: true, duplicate: true });
       }
     }
 
-    // The top-level `status` is the operation outcome. Don't mutate state on a
-    // failed operation — acknowledge so MyCover stops retrying.
-    if (payload.status === 'failed') {
-      console.log('[MyCover Webhook] Skipping failed-status event:', safeEvent);
-      return NextResponse.json({ received: true, skipped: 'failed_status' });
-    }
-
-    switch (payload.event) {
-      // Purchase / activation. Documented event is `purchase.successful`; the
-      // others are legacy names kept for tolerance.
-      case 'purchase.successful':
-      case 'policy.purchased':
-      case 'policy.created':
-        await handlePolicyPurchased(supabase, payload.data, payload.event);
-        break;
-
-      // Renewal. Documented event is `purchase.renewed`.
-      case 'purchase.renewed':
-      case 'policy.renewed':
-      case 'renewal.successful':
-        await handlePolicyRenewed(
-          supabase,
-          payload.data,
-          payload.event,
-          myCoverWebhookSecret
+    try {
+      // The top-level `status` is the operation outcome. Don't mutate state on a
+      // failed operation — acknowledge so MyCover stops retrying.
+      if (payload.status === 'failed') {
+        console.log(
+          '[MyCover Webhook] Skipping failed-status event:',
+          safeEvent
         );
-        break;
-
-      // Certificate regeneration / policy detail edits.
-      case 'policy.updated':
-        await handlePolicyUpdated(supabase, payload.data);
-        break;
-
-      case 'policy.expired':
-        await handlePolicyExpired(supabase, payload.data);
-        break;
-
-      // Full claim lifecycle. `data.essential.status` carries the real state.
-      case 'claim.submitted':
-      case 'claim.approved':
-      case 'claim.disapproved':
-      case 'claim.offer_sent':
-      case 'claim.offer_accepted':
-      case 'claim.offer_rejected':
-      case 'claim.paid':
-      case 'claim.updated':
-      case 'claim.rejected':
-        await handleClaimUpdate(supabase, payload);
-        break;
-
-      case 'inspection.completed':
-        await handleInspectionCompleted(supabase, payload.data);
-        break;
-
-      default:
-        console.log('[MyCover Webhook] Unhandled event:', safeEvent);
-    }
-
-    // Processing succeeded — persist the event_id so retries are deduplicated.
-    // A unique-violation here just means a concurrent delivery won the race.
-    if (payload.event_id) {
-      const { error: recordError } = await supabase
-        .from('mycover_webhook_events')
-        .insert({ event_id: payload.event_id, event: payload.event });
-      if (recordError && recordError.code !== '23505') {
-        console.error(
-          '[MyCover Webhook] Failed to record event_id:',
-          recordError
-        );
+        return NextResponse.json({ received: true, skipped: 'failed_status' });
       }
+
+      switch (payload.event) {
+        // Purchase / activation. Documented event is `purchase.successful`; the
+        // others are legacy names kept for tolerance.
+        case 'purchase.successful':
+        case 'policy.purchased':
+        case 'policy.created':
+          await handlePolicyPurchased(supabase, payload.data, payload.event);
+          break;
+
+        // Renewal. Documented event is `purchase.renewed`.
+        case 'purchase.renewed':
+        case 'policy.renewed':
+        case 'renewal.successful':
+          await handlePolicyRenewed(
+            supabase,
+            payload.data,
+            payload.event,
+            myCoverWebhookSecret
+          );
+          break;
+
+        // Certificate regeneration / policy detail edits.
+        case 'policy.updated':
+          await handlePolicyUpdated(supabase, payload.data);
+          break;
+
+        case 'policy.expired':
+          await handlePolicyExpired(supabase, payload.data);
+          break;
+
+        // Full claim lifecycle. `data.essential.status` carries the real state.
+        case 'claim.submitted':
+        case 'claim.approved':
+        case 'claim.disapproved':
+        case 'claim.offer_sent':
+        case 'claim.offer_accepted':
+        case 'claim.offer_rejected':
+        case 'claim.paid':
+        case 'claim.updated':
+        case 'claim.rejected':
+          await handleClaimUpdate(supabase, payload);
+          break;
+
+        case 'inspection.completed':
+          await handleInspectionCompleted(supabase, payload.data);
+          break;
+
+        default:
+          console.log('[MyCover Webhook] Unhandled event:', safeEvent);
+      }
+    } catch (error) {
+      if (payload.event_id) {
+        await releaseMyCoverWebhookEventClaim(supabase, payload.event_id);
+      }
+      throw error;
     }
 
     return NextResponse.json({ received: true });
