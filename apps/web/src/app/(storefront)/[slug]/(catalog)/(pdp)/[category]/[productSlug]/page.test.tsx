@@ -4500,7 +4500,7 @@ describe('[category]/[productSlug] page render', () => {
 
 describe('[category]/[productSlug] generateStaticParams', () => {
   const PRERENDER_PLACEHOLDER = {
-    slug: OGABASSEY_DOMAIN,
+    slug: '__prerender_placeholder_store__',
     category: 'smartphones',
     productSlug: '__prerender_placeholder__',
   };
@@ -4590,7 +4590,7 @@ describe('[category]/[productSlug] generateStaticParams', () => {
     );
   });
 
-  it('falls back to the prerender placeholder when the index reports an error', async () => {
+  it('falls back to an invalid-store prerender placeholder when the index reports an error', async () => {
     mockGetCachedStorefrontProductIndex.mockResolvedValue({
       hasError: true,
       products: [],

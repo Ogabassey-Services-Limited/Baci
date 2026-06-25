@@ -1081,6 +1081,7 @@ function buildCategoryProductMetadata({
 // Params not listed here keep rendering on demand (the default PPR behavior
 // under cacheComponents — `dynamicParams` cannot be set with cacheComponents).
 const OGABASSEY_PRERENDER_LIMIT = 50;
+const PRERENDER_PLACEHOLDER_STORE_SLUG = '__prerender_placeholder_store__';
 const PRERENDER_PLACEHOLDER_PRODUCT_SLUG = '__prerender_placeholder__';
 // Keep the actively monitored, revenue-critical PDP in the prerender set even
 // when it is older than the newest-products window. This gives the route a
@@ -1100,7 +1101,7 @@ export async function generateStaticParams(): Promise<
   // empty/unavailable. Real, non-listed products still render on demand.
   const placeholder = [
     {
-      slug: OGABASSEY_DOMAIN,
+      slug: PRERENDER_PLACEHOLDER_STORE_SLUG,
       category: 'smartphones',
       productSlug: PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
     },
