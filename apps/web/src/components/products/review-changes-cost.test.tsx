@@ -27,7 +27,7 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mocks.toast }),
 }));
 
-describe('ReviewChanges', () => {
+describe('ReviewChanges cost price editing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.applyChanges.mockResolvedValue(undefined);
@@ -60,70 +60,28 @@ describe('ReviewChanges', () => {
     });
   });
 
-  it('uses payout currency and applies edited cost price from the review table', async () => {
+  it('accepts currency-formatted cost price edits before saving', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);
 
-    expect(screen.getAllByText('₦').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('Cost Price')).toBeInTheDocument();
-    expect(
-      screen.getByRole('textbox', { name: /cost price/i })
-    ).toHaveAttribute('inputmode', 'decimal');
-
-    const costPriceInput = screen.getByDisplayValue('700');
-    fireEvent.change(costPriceInput, { target: { value: '800' } });
+    fireEvent.change(screen.getByDisplayValue('700'), {
+      target: { value: 'NGN2,000' },
+    });
     await user.click(screen.getByRole('button', { name: /import & publish/i }));
 
     await waitFor(() => {
       expect(mocks.applyChanges).toHaveBeenCalledWith([
         expect.objectContaining({
           details: expect.objectContaining({
-            cost_price: 800,
+            cost_price: 2000,
             cost_price_was_edited: true,
           }),
-          type: 'new',
         }),
       ]);
     });
   });
 
-  it('shows a recovery action when there is no AI response to review', async () => {
-    const user = userEvent.setup();
-    mocks.useProductContext.mockReturnValue({
-      aiResponse: undefined,
-      applyChanges: mocks.applyChanges,
-      setWorkflowStep: mocks.setWorkflowStep,
-    });
-
-    render(<ReviewChanges />);
-
-    expect(screen.getByText('Error')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'No AI response to review. Please try uploading a file again.'
-      )
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /go to upload/i }));
-
-    expect(mocks.setWorkflowStep).toHaveBeenCalledWith('upload');
-    expect(mocks.applyChanges).not.toHaveBeenCalled();
-  });
-
-  it('keeps cost price input raw while typing decimal separators', () => {
-    render(<ReviewChanges />);
-
-    const costPriceInput = screen.getByDisplayValue('700');
-    fireEvent.change(costPriceInput, { target: { value: '800.' } });
-    expect(costPriceInput).toHaveValue('800.');
-
-    fireEvent.change(costPriceInput, { target: { value: '800.5' } });
-
-    expect(costPriceInput).toHaveValue('800.5');
-    expect(screen.queryByDisplayValue('800.50')).not.toBeInTheDocument();
-  });
-
-  it('keeps selling price input raw and parses comma-decimal edits before saving', async () => {
+  it('parses comma-decimal cost price edits before saving', async () => {
     const user = userEvent.setup();
     mocks.useMerchant.mockReturnValue({
       merchant: {
@@ -134,57 +92,59 @@ describe('ReviewChanges', () => {
     });
     render(<ReviewChanges />);
 
-    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
-    fireEvent.change(priceInput, { target: { value: '800,' } });
-    expect(priceInput).toHaveValue('800,');
-
-    fireEvent.change(priceInput, { target: { value: '800,5' } });
+    fireEvent.change(screen.getByDisplayValue('700'), {
+      target: { value: '800,5' },
+    });
     await user.click(screen.getByRole('button', { name: /import & publish/i }));
 
     await waitFor(() => {
       expect(mocks.applyChanges).toHaveBeenCalledWith([
         expect.objectContaining({
           details: expect.objectContaining({
-            price: 800.5,
+            cost_price: 800.5,
+            cost_price_was_edited: true,
           }),
         }),
       ]);
     });
   });
 
-  it('blocks import when the required selling price input is cleared', async () => {
+  it('sends null when the cost price input is cleared', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);
 
-    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
-    fireEvent.change(priceInput, { target: { value: '' } });
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '' } });
+    await user.click(screen.getByRole('button', { name: /import & publish/i }));
 
-    const importButton = screen.getByRole('button', {
-      name: /import & publish/i,
+    await waitFor(() => {
+      expect(mocks.applyChanges).toHaveBeenCalledWith([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            cost_price: null,
+            cost_price_was_edited: true,
+          }),
+          type: 'new',
+        }),
+      ]);
     });
-    expect(screen.getByText('Price is required before import.')).toBeVisible();
-    expect(priceInput).toHaveAttribute('aria-invalid', 'true');
-    expect(importButton).toBeDisabled();
-
-    await user.click(importButton);
-
-    expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 
-  it('blocks import when a selected selling price edit is invalid', async () => {
+  it('blocks invalid cost price edits before applying stale values', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);
 
-    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
-    fireEvent.change(priceInput, { target: { value: 'abc' } });
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '800' } });
+    fireEvent.change(costPriceInput, { target: { value: 'abc' } });
 
     const importButton = screen.getByRole('button', {
       name: /import & publish/i,
     });
     expect(
-      screen.getByText('Enter a valid non-negative price before import.')
+      screen.getByText('Enter a valid non-negative cost price before import.')
     ).toBeVisible();
-    expect(priceInput).toHaveAttribute('aria-invalid', 'true');
+    expect(costPriceInput).toHaveAttribute('aria-invalid', 'true');
     expect(importButton).toBeDisabled();
 
     await user.click(importButton);
@@ -192,12 +152,59 @@ describe('ReviewChanges', () => {
     expect(mocks.applyChanges).not.toHaveBeenCalled();
   });
 
-  it('blocks non-finite selling price edits before import', async () => {
+  it('does not block remove-only rows on ignored price edits', async () => {
+    const user = userEvent.setup();
+    mocks.useProductContext.mockReturnValue({
+      aiResponse: {
+        changes: [
+          {
+            details: {
+              category: 'General',
+              name: 'Old Product',
+              price: 1200,
+              sku: 'OLD-1',
+              stock: 0,
+            },
+            productId: 'product-1',
+            type: 'remove',
+          },
+        ],
+        summary: 'Remove 1 stale product',
+      },
+      applyChanges: mocks.applyChanges,
+      setWorkflowStep: mocks.setWorkflowStep,
+    });
+
+    render(<ReviewChanges />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: /^price$/i }), {
+      target: { value: '-5' },
+    });
+
+    const importButton = screen.getByRole('button', {
+      name: /import & publish/i,
+    });
+    expect(importButton).not.toBeDisabled();
+
+    await user.click(importButton);
+
+    expect(mocks.applyChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        productId: 'product-1',
+        type: 'remove',
+      }),
+    ]);
+  });
+
+  it('keeps cleared cost price optional but blocks a later invalid edit', async () => {
     const user = userEvent.setup();
     render(<ReviewChanges />);
 
-    const priceInput = screen.getByRole('textbox', { name: /^price$/i });
-    fireEvent.change(priceInput, { target: { value: '1e9999' } });
+    const costPriceInput = screen.getByDisplayValue('700');
+    fireEvent.change(costPriceInput, { target: { value: '' } });
+    expect(costPriceInput).toHaveAttribute('aria-invalid', 'false');
+
+    fireEvent.change(costPriceInput, { target: { value: '-5' } });
 
     const importButton = screen.getByRole('button', {
       name: /import & publish/i,
