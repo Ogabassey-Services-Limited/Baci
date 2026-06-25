@@ -201,22 +201,24 @@ export function TrustPolicyPageClient({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
-      <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500">
+      <section className="rounded-3xl border border-store-border bg-store-background p-6 shadow-sm sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-store-background-text/60">
           {merchantName}
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-store-background-text sm:text-4xl">
           {getPolicyTitle(kind)}
         </h1>
         {summary ? (
-          <p className="mt-4 text-base leading-7 text-neutral-700">{summary}</p>
+          <p className="mt-4 text-base leading-7 text-store-background-text/70">
+            {summary}
+          </p>
         ) : null}
 
-        <section className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
-          <h2 className="text-lg font-semibold text-neutral-950">
+        <section className="mt-6 rounded-2xl border border-store-border bg-store-background-text/5 p-4">
+          <h2 className="text-lg font-semibold text-store-background-text">
             {guidance.heading}
           </h2>
-          <div className="mt-3 space-y-3 text-sm leading-6 text-neutral-700 sm:text-base sm:leading-7">
+          <div className="mt-3 space-y-3 text-sm leading-6 text-store-background-text/70 sm:text-base sm:leading-7">
             {guidance.paragraphs.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
@@ -227,12 +229,12 @@ export function TrustPolicyPageClient({
           {facts.map((fact) => (
             <div
               key={fact.label}
-              className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4"
+              className="rounded-2xl border border-store-border bg-store-background-text/5 p-4"
             >
-              <dt className="text-sm font-medium text-neutral-500">
+              <dt className="text-sm font-medium text-store-background-text/60">
                 {fact.label}
               </dt>
-              <dd className="mt-2 text-base font-medium text-neutral-900">
+              <dd className="mt-2 text-base font-medium text-store-background-text">
                 {fact.value}
               </dd>
             </div>
@@ -243,7 +245,7 @@ export function TrustPolicyPageClient({
           <div className="mt-8">
             <a
               href={contactHref}
-              className="inline-flex items-center rounded-full border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
+              className="inline-flex items-center rounded-full border border-store-border px-4 py-2 text-sm font-medium text-store-background-text transition-colors hover:border-store-primary hover:bg-store-background-text/10"
             >
               Contact us
             </a>

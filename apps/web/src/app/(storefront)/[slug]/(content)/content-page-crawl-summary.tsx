@@ -35,9 +35,9 @@ export function ContentPageCrawlSummary({
   const paragraphs = getSummaryParagraphs(kind, merchantName);
 
   return (
-    <section className="bg-background px-4 pb-12 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
-        <div className="space-y-3 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+    <section className="bg-store-background px-4 pb-12 text-store-background-text sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl rounded-2xl border border-store-border bg-store-background-text/5 p-5 text-store-background-text shadow-sm">
+        <div className="space-y-3 text-sm leading-6 text-store-background-text/70 sm:text-base sm:leading-7">
           {paragraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}

@@ -50,15 +50,15 @@ export default async function RepairPage({ params }: RepairPageProps) {
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-4">Book a Repair Service</h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-store-background-text/70 text-lg">
             Have a broken device? Fill out the form below and we'll get it fixed
             for you.
           </p>
         </div>
 
-        <section className="mb-8 rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+        <section className="mb-8 rounded-xl border border-store-border bg-store-background-text/5 p-5 text-store-background-text shadow-sm">
           <h2 className="text-xl font-semibold">Before you book a repair</h2>
-          <div className="mt-3 space-y-3 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+          <div className="mt-3 space-y-3 text-sm leading-6 text-store-background-text/70 sm:text-base sm:leading-7">
             <p>
               Use this repair request to describe the device model, visible
               damage, fault symptoms and any recent repair attempts. Clear
@@ -75,7 +75,7 @@ export default async function RepairPage({ params }: RepairPageProps) {
           </div>
         </section>
 
-        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-store-background-text/5 border border-store-border rounded-xl shadow-sm overflow-hidden">
           <RepairBookingWizard
             merchantId={merchant.id}
             merchantName={merchant.business_name}

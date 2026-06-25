@@ -50,11 +50,11 @@ export default async function ImeiCheckPage({
     <>
       <OgabasseyImeiChecker />
       <section className="mx-auto max-w-[1400px] px-4 pb-20 md:px-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-          <h2 className="text-xl font-bold text-gray-900">
+        <div className="rounded-2xl border border-store-border bg-store-background-text/5 p-6 shadow-sm md:p-8">
+          <h2 className="text-xl font-bold text-store-background-text">
             What to confirm before running an IMEI check
           </h2>
-          <div className="mt-3 space-y-3 text-sm leading-6 text-gray-600 md:text-base md:leading-7">
+          <div className="mt-3 space-y-3 text-sm leading-6 text-store-background-text/70 md:text-base md:leading-7">
             <p>
               An IMEI check helps verify a phone identity before purchase,
               repair, swap or resale. Use the exact IMEI from the device
