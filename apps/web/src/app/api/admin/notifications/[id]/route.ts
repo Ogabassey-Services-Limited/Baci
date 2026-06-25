@@ -312,7 +312,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('notifications')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(
+        'id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, sent_at, expires_at, created_at, created_by'
+      )
       .single();
 
     if (updateError) {
