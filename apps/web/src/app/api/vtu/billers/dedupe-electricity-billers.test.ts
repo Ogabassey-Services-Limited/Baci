@@ -89,6 +89,35 @@ describe('dedupeElectricityBillers', () => {
     expect(billers[0]?.billerIconUrl).toBe('https://cdn.kuda.com/ekedc.png');
   });
 
+  it('derives meter type from the Monnify name when the code lacks it', () => {
+    const genericCodeBiller: NormalizedBiller = {
+      ...monnifyBiller('IKEDC-PRE', 'Ikeja Electricity Distribution Prepaid'),
+      billerCode: 'IKEDC-PRE',
+    };
+    const kuda: NormalizedBiller = {
+      ...kudaBiller(),
+      billerId: 'IKEDC',
+      billerName: 'IKEDC NG',
+      billItems: [
+        {
+          itemCode: 'KUD-ELE-IKED-002',
+          itemName: 'IKEDC PREPAID',
+          amount: 0,
+          itemCurrencySymbol: 'NGN',
+          isAmountFixed: false,
+          itemFee: 0,
+          provider: 'kuda',
+        },
+      ],
+    };
+
+    const { billers } = dedupeElectricityBillers([kuda], [genericCodeBiller]);
+    const prepaid = billers[0]?.billItems?.find(
+      (i) => i.itemName === 'IKEDC PREPAID'
+    );
+    expect(prepaid?.monnifyBillerCode).toBe('IKEDC-PRE');
+  });
+
   it('leaves Kuda items untouched when no Monnify DISCO matches', () => {
     const { billers, matchedMonnifyBillerCodes } = dedupeElectricityBillers(
       [kudaBiller()],
