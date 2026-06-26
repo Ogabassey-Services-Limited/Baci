@@ -5,21 +5,38 @@ import type {
 import { sanitizeText } from '@/lib/sanitize-core';
 
 const CONDITION_PATTERNS = [
-  { pattern: /\bpremium\s*used\b/i, value: 'Premium Used' },
-  { pattern: /\buk\s*used\b/i, value: 'UK Used' },
-  { pattern: /\bopen\s*box\b/i, value: 'Open Box' },
-  { pattern: /\bbrand\s*new\b|\bbrandnew\b/i, value: 'New' },
-  { pattern: /\bnew\b/i, value: 'New' },
-  { pattern: /\bused\b/i, value: 'Used' },
+  {
+    pattern: /\bpremium\s*used\b/i,
+    bracketPattern: /(?:\(|\[)[\s\S]*\bpremium\s*used\b[\s\S]*(?:\)|\])/i,
+    value: 'Premium Used',
+  },
+  {
+    pattern: /\buk\s*used\b/i,
+    bracketPattern: /(?:\(|\[)[\s\S]*\buk\s*used\b[\s\S]*(?:\)|\])/i,
+    value: 'UK Used',
+  },
+  {
+    pattern: /\bopen\s*box\b/i,
+    bracketPattern: /(?:\(|\[)[\s\S]*\bopen\s*box\b[\s\S]*(?:\)|\])/i,
+    value: 'Open Box',
+  },
+  {
+    pattern: /\bbrand\s*new\b|\bbrandnew\b/i,
+    bracketPattern:
+      /(?:\(|\[)[\s\S]*(?:\bbrand\s*new\b|\bbrandnew\b)[\s\S]*(?:\)|\])/i,
+    value: 'New',
+  },
+  {
+    pattern: /\bnew\b/i,
+    bracketPattern: /(?:\(|\[)[\s\S]*\bnew\b[\s\S]*(?:\)|\])/i,
+    value: 'New',
+  },
+  {
+    pattern: /\bused\b/i,
+    bracketPattern: /(?:\(|\[)[\s\S]*\bused\b[\s\S]*(?:\)|\])/i,
+    value: 'Used',
+  },
 ] as const;
-
-const CONDITION_MATCHERS = CONDITION_PATTERNS.map((conditionPattern) => ({
-  ...conditionPattern,
-  bracketPattern: new RegExp(
-    `[\\(\\[][\\s\\S]*(?:${conditionPattern.pattern.source})[\\s\\S]*[\\)\\]]`,
-    'i'
-  ),
-}));
 
 interface BumpaItemImportMetadata {
   raw_product_name: string;
@@ -144,7 +161,7 @@ function extractCondition(value: string) {
     pattern,
     bracketPattern,
     value: condition,
-  } of CONDITION_MATCHERS) {
+  } of CONDITION_PATTERNS) {
     if (!pattern.test(value)) continue;
 
     return {
