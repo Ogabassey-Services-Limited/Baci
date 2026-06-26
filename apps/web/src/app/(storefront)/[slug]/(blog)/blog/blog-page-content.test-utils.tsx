@@ -29,9 +29,19 @@ interface MockDefaultBlogUiProps {
 }
 
 interface MockTemplateBlogRendererProps {
+  BlogComponent?: React.ComponentType<{
+    categories?: Array<{ name: string; slug: string }>;
+    category?: string;
+    posts?: MockDefaultBlogUiProps['posts'];
+    searchQuery?: string;
+    storeSlug?: string;
+  }>;
+  basePath?: string;
   blogPosts?: MockDefaultBlogUiProps['posts'];
+  categories?: Array<{ name: string; slug: string }>;
   category?: string;
   itemListSchema?: MockDefaultBlogUiProps['itemListSchema'];
+  searchQuery?: string;
 }
 
 const hoistedMocks = vi.hoisted(() => ({
