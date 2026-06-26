@@ -220,6 +220,13 @@ BEGIN
         THEN v_order_patch->>'payment_method' ELSE payment_method END,
       notes = CASE WHEN v_order_patch ? 'notes'
         THEN v_order_patch->>'notes' ELSE notes END,
+      fulfillment_details = CASE WHEN v_order_patch ? 'fulfillment_details'
+        THEN CASE
+          WHEN jsonb_typeof(v_order_patch->'fulfillment_details') = 'null'
+            THEN '{}'::jsonb
+          ELSE v_order_patch->'fulfillment_details'
+        END
+        ELSE fulfillment_details END,
       shipping_address = CASE WHEN v_order_patch ? 'shipping_address'
         THEN v_order_patch->'shipping_address' ELSE shipping_address END,
       tracking_token = CASE WHEN v_order_patch ? 'tracking_token'
@@ -305,6 +312,18 @@ $$;
 
 COMMENT ON FUNCTION public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB) IS
   'Atomically updates one merchant-owned order and replaces its order_items rows from JSONB payloads. Import callers may override order and item timestamps and preserve rounded marketplace line totals; normal operational callers keep strict line-total validation.';
+
+ALTER FUNCTION public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB)
+  OWNER TO postgres;
+
+REVOKE ALL ON FUNCTION public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB)
+  FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB)
+  FROM anon;
+REVOKE ALL ON FUNCTION public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB)
+  FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB)
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION public.replace_imported_order_items(
   p_order_id uuid,
