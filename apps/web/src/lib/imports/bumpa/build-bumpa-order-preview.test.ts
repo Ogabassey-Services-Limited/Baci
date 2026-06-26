@@ -93,7 +93,16 @@ describe('buildBumpaOrderPreview', () => {
         },
       ],
       existingOrders: [],
-      existingProducts: [],
+      existingProducts: [
+        {
+          id: 'product-pixel',
+          name: 'Google Pixel 7a 128GB (Premium Used)',
+          sku: null,
+          price: 425000,
+          externalSource: null,
+          externalId: null,
+        },
+      ],
     });
 
     expect(result.rows[0]?.payload?.shippingAddress).toEqual({
@@ -120,6 +129,11 @@ describe('buildBumpaOrderPreview', () => {
           imeis: ['351183326811261'],
         },
       },
+    });
+    expect(result.rows[0]?.payload?.items[0]).toMatchObject({
+      productId: 'product-pixel',
+      matched: true,
+      matchSource: 'name',
     });
   });
 
