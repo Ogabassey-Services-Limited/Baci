@@ -16,9 +16,13 @@ vi.mock('./wishlist-content', () => ({
   },
 }));
 
-const { default: WishListPage } = await import('./page');
+const { default: WishListPage, metadata } = await import('./page');
 
 describe('WishListPage', () => {
+  it('opts the wishlist page out of indexing and following links', () => {
+    expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+
   beforeEach(() => {
     suspended = false;
   });

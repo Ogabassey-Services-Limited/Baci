@@ -2,24 +2,36 @@ import type { ReactNode } from 'react';
 import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredDetailClient } from './deferred-detail-island.client';
 import { OgabasseyPdpDeferredRailsIsland } from './deferred-rails-island.client';
+import { buildOgabasseyPdpDeferredProductPayload } from './deferred-product-payload';
 
 interface OgabasseyPdpDeferredDetailIslandProps {
   product: Product;
   semanticSections?: ReactNode;
+  serverPrimaryDetails?: ReactNode;
+  storeSlug: string;
 }
 
 export function OgabasseyPdpDeferredDetailIsland({
   product,
   semanticSections = null,
+  serverPrimaryDetails = null,
+  storeSlug,
 }: OgabasseyPdpDeferredDetailIslandProps) {
+  const { relatedProduct, tabProduct } =
+    buildOgabasseyPdpDeferredProductPayload(product);
+
   return (
     <section
       aria-label="Product details"
       className="ogabassey-pdp-details-region"
       data-ogabassey-pdp-semantics
     >
+      {serverPrimaryDetails}
       {/* Deferred client island #1: tabs / ad / video (rails excluded). */}
-      <OgabasseyPdpDeferredDetailClient product={product} />
+      <OgabasseyPdpDeferredDetailClient
+        productData={tabProduct}
+        storeSlug={storeSlug}
+      />
       {/*
         Server-render the semantic SEO sections (compare / price-band / guide
         internal links, trust bullets) in the static HTML, placed BETWEEN the
@@ -30,7 +42,7 @@ export function OgabasseyPdpDeferredDetailIsland({
       */}
       {semanticSections}
       {/* Deferred client island #2: related-product rails, loaded on scroll. */}
-      <OgabasseyPdpDeferredRailsIsland product={product} />
+      <OgabasseyPdpDeferredRailsIsland product={relatedProduct} />
     </section>
   );
 }

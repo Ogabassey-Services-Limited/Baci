@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { DeferredDetailsSkeleton } from '@/components/storefront/ogabassey/pages/product-details-page/deferred-details-skeleton';
-import type { Product } from '@/components/storefront/ogabassey/types';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
+import type { OgabasseyPdpDeferredTabProduct } from './deferred-product-payload';
 
 /**
- * The below-fold product details are loaded with a RUNTIME `import()` inside
+ * The below-fold product tabs are loaded with a RUNTIME `import()` inside
  * the activation effect rather than a top-level `next/dynamic`. A static
  * `dynamic(() => import('...product-details-page'))` is statically discovered
  * by Next, which injects a `<link rel="preload" as="style">` for the page's
@@ -17,32 +17,34 @@ import { useViewportActivation } from '@/components/storefront/use-viewport-acti
  * the chunk only once `isActive` keeps Next from discovering (and preheading)
  * it, deferring the CSS entirely until the details are actually needed.
  */
-type ProductDetailsPageComponent =
-  (typeof import('@/components/storefront/ogabassey/pages/product-details-page'))['ProductDetailsPage'];
+type DeferredTabsComponent =
+  (typeof import('./deferred-tabs.client'))['OgabasseyPdpDeferredTabsClient'];
 
-type ProductDetailsPageLoader = () => Promise<{
-  ProductDetailsPage: ProductDetailsPageComponent;
+type DeferredTabsLoader = () => Promise<{
+  OgabasseyPdpDeferredTabsClient: DeferredTabsComponent;
 }>;
 
-function loadProductDetailsPage() {
-  return import('@/components/storefront/ogabassey/pages/product-details-page');
+function loadDeferredTabs() {
+  return import('./deferred-tabs.client');
 }
 
 interface OgabasseyPdpDeferredDetailClientProps {
-  product: Product;
-  loadDetailsComponent?: ProductDetailsPageLoader;
+  productData: OgabasseyPdpDeferredTabProduct;
+  loadDetailsComponent?: DeferredTabsLoader;
+  storeSlug: string;
 }
 
 export function OgabasseyPdpDeferredDetailClient({
-  product,
-  loadDetailsComponent = loadProductDetailsPage,
+  productData,
+  loadDetailsComponent = loadDeferredTabs,
+  storeSlug,
 }: OgabasseyPdpDeferredDetailClientProps) {
   const { ref, isActive } = useViewportActivation<HTMLDivElement>({
     rootMargin: '400px 0px',
     timeoutMs: 1600,
   });
   const [DetailComponent, setDetailComponent] =
-    useState<ProductDetailsPageComponent | null>(null);
+    useState<DeferredTabsComponent | null>(null);
   const [hasLoadError, setHasLoadError] = useState(false);
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export function OgabasseyPdpDeferredDetailClient({
     void loadDetailsComponent()
       .then((mod) => {
         if (!cancelled) {
-          setDetailComponent(() => mod.ProductDetailsPage);
+          setDetailComponent(() => mod.OgabasseyPdpDeferredTabsClient);
         }
       })
       .catch(() => {
@@ -77,7 +79,7 @@ export function OgabasseyPdpDeferredDetailClient({
           Product details could not be loaded. Refresh to try again.
         </div>
       ) : isActive && DetailComponent ? (
-        <DetailComponent mode="belowFold" product={product} />
+        <DetailComponent productData={productData} storeSlug={storeSlug} />
       ) : (
         <DeferredDetailsSkeleton />
       )}

@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import AccountPage from '@/app/(storefront)/[slug]/(customer)/account/page';
+import AccountPage, {
+  metadata,
+} from '@/app/(storefront)/[slug]/(customer)/account/page';
 import type { Customer, CustomerUser } from '@/contexts/customer-auth-context';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
@@ -81,6 +83,10 @@ vi.mock('@/lib/storefront-account-initial-session', () => ({
 }));
 
 describe('AccountPage', () => {
+  it('opts the account page out of indexing and following links', () => {
+    expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+
   beforeEach(() => {
     push.mockReset();
     vi.mocked(useCustomerAuth).mockReturnValue(createCustomerAuthValue());
