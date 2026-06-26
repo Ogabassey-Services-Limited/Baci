@@ -3,7 +3,8 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { palette } from '@/constants/Colors';
-import { styles } from './FilterBar.styles';
+import { useTheme } from '@/hooks/useTheme';
+import { getFilterBarStyles } from './FilterBar.styles';
 
 type FilterType = 'price' | 'brand' | 'condition' | 'rating';
 const MAX_PRICE_CEILING = 3_000_000;
@@ -78,6 +79,8 @@ export function FilterBarActiveControls({
   );
   const [prevMinPrice, setPrevMinPrice] = useState(minPrice);
   const [prevMaxPrice, setPrevMaxPrice] = useState(maxPrice);
+  const { colors } = useTheme();
+  const styles = getFilterBarStyles(colors);
 
   // Re-sync the draft inputs inline during render (prev-prop comparison)
   // instead of in an effect, so the inputs never show a stale frame.
@@ -113,7 +116,7 @@ export function FilterBarActiveControls({
               placeholder="0"
               keyboardType="numeric"
               onBlur={handlePriceBlur}
-              placeholderTextColor={palette.gray[400]}
+              placeholderTextColor={colors.placeholder}
             />
           </View>
           <Text style={styles.dash}>-</Text>
@@ -128,7 +131,7 @@ export function FilterBarActiveControls({
               placeholder="Max"
               keyboardType="numeric"
               onBlur={handlePriceBlur}
-              placeholderTextColor={palette.gray[400]}
+              placeholderTextColor={colors.placeholder}
             />
           </View>
         </View>
@@ -159,7 +162,9 @@ export function FilterBarActiveControls({
                 <Feather
                   name="grid"
                   size={13}
-                  color={isActive ? palette.white : palette.gray[500]}
+                  color={
+                    isActive ? colors.primaryForeground : colors.textSecondary
+                  }
                   style={styles.brandChipIcon}
                 />
                 <Text

@@ -3,8 +3,8 @@ import Feather, {
 } from '@react-native-vector-icons/feather';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { BRAND, palette } from '@/constants/Colors';
-import { styles } from './FilterBar.styles';
+import { useTheme } from '@/hooks/useTheme';
+import { getFilterBarStyles } from './FilterBar.styles';
 import { FilterBarActiveControls } from './FilterBarActiveControls';
 
 interface FilterBarProps {
@@ -59,6 +59,8 @@ export function FilterBar({
 }: FilterBarProps) {
   const [activeFilterType, setActiveFilterType] = useState<FilterType>('price');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const { colors } = useTheme();
+  const styles = getFilterBarStyles(colors);
 
   const getActiveFilterLabel = () => {
     switch (activeFilterType) {
@@ -107,7 +109,7 @@ export function FilterBar({
               <Feather
                 name={icon}
                 size={15}
-                color={isActive ? palette.white : palette.gray[600]}
+                color={isActive ? colors.primaryForeground : colors.icon}
               />
               <Text
                 style={[styles.catText, isActive && styles.catTextActive]}
@@ -133,12 +135,12 @@ export function FilterBar({
               accessibilityLabel="Toggle filter menu"
               accessibilityState={{ expanded: isFilterMenuOpen }}
             >
-              <Feather name="sliders" size={16} color={BRAND.primary} />
+              <Feather name="sliders" size={16} color={colors.primary} />
               <Text style={styles.filterLabel}>{getActiveFilterLabel()}</Text>
               <Feather
                 name="chevron-down"
                 size={12}
-                color={BRAND.primary}
+                color={colors.primary}
                 style={[
                   styles.chevron,
                   {
@@ -174,15 +176,17 @@ export function FilterBar({
                     ]}
                     accessibilityRole="button"
                     accessibilityLabel={item.label}
-                    accessibilityState={{ selected: activeFilterType === item.id }}
+                    accessibilityState={{
+                      selected: activeFilterType === item.id,
+                    }}
                   >
                     <Feather
                       name={item.icon as FeatherIconName}
                       size={16}
                       color={
                         activeFilterType === item.id
-                          ? BRAND.primary
-                          : palette.gray[500]
+                          ? colors.primary
+                          : colors.textSecondary
                       }
                     />
                     <Text
@@ -198,7 +202,7 @@ export function FilterBar({
                       <Feather
                         name="check"
                         size={14}
-                        color={BRAND.primary}
+                        color={colors.primary}
                         style={styles.checkIcon}
                       />
                     )}
@@ -243,7 +247,9 @@ export function FilterBar({
               <Feather
                 name="grid"
                 size={15}
-                color={viewMode === 'grid' ? BRAND.primary : palette.gray[400]}
+                color={
+                  viewMode === 'grid' ? colors.primary : colors.mutedForeground
+                }
               />
             </Pressable>
             <Pressable
@@ -260,7 +266,9 @@ export function FilterBar({
               <Feather
                 name="list"
                 size={15}
-                color={viewMode === 'list' ? BRAND.primary : palette.gray[400]}
+                color={
+                  viewMode === 'list' ? colors.primary : colors.mutedForeground
+                }
               />
             </Pressable>
           </View>
