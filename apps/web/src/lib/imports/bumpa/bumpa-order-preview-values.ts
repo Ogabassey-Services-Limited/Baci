@@ -1,3 +1,4 @@
+import { buildBumpaProductNameCandidates } from '@/lib/imports/bumpa/bumpa-order-enrichment';
 import type {
   ExistingImportedProduct,
   NormalizedImportedCustomer,
@@ -89,12 +90,26 @@ function normalizePhoneKey(value: string) {
   return sanitizePhone(value).replace(/[\s()-]+/g, '');
 }
 
+function findProductByName(
+  productsByName: Map<string, ExistingImportedProduct>,
+  productName: string
+) {
+  for (const candidate of buildBumpaProductNameCandidates(productName)) {
+    const matchedProduct = productsByName.get(normalizeNameKey(candidate));
+    if (matchedProduct) return matchedProduct;
+  }
+
+  return null;
+}
+
 function splitPipeField(value: string) {
   return value.split(/(?<!\|)\|(?!\|)/).map((part) =>
-    part
-      .trim()
-      .replace(/^\|+|\|+$/g, '')
-      .trim()
+    part.trim() === '||'
+      ? '||'
+      : part
+          .trim()
+          .replace(/^\|+|\|+$/g, '')
+          .trim()
   );
 }
 
@@ -113,13 +128,43 @@ function trimEmptyEdges(parts: string[]) {
   return parts.slice(start, end);
 }
 
+function stripCustomerDoublePipePrefix(
+  parts: string[],
+  customerNameKey: string
+) {
+  if (!customerNameKey) return parts;
+
+  const separatorIndex = parts.indexOf('||');
+  if (separatorIndex > 0) {
+    const prefix = parts.slice(0, separatorIndex).filter(Boolean).join(' | ');
+    if (normalizeNameKey(prefix) === customerNameKey) {
+      return trimEmptyEdges(parts.slice(separatorIndex + 1));
+    }
+  }
+
+  const mergedName = parts.filter(Boolean).join(' | ');
+  const doublePipePrefixMatch = mergedName.match(/^(.+?)\s*\|\|\s*(.+)$/);
+
+  if (
+    doublePipePrefixMatch &&
+    normalizeNameKey(doublePipePrefixMatch[1] || '') === customerNameKey
+  ) {
+    return trimEmptyEdges(splitPipeField(doublePipePrefixMatch[2] || ''));
+  }
+
+  return parts;
+}
+
 function buildProductNames(
   value: string,
   expectedCount: number,
   customerName: string
 ) {
-  const rawParts = trimEmptyEdges(splitPipeField(value));
   const customerNameKey = normalizeNameKey(customerName);
+  const rawParts = stripCustomerDoublePipePrefix(
+    trimEmptyEdges(splitPipeField(value)),
+    customerNameKey
+  );
 
   if (rawParts.length === 0) {
     return [];
@@ -127,7 +172,6 @@ function buildProductNames(
 
   if (expectedCount <= 1) {
     const compactParts = rawParts.filter(Boolean);
-    const mergedName = compactParts.join(' | ');
 
     if (
       compactParts.length === 2 &&
@@ -136,7 +180,7 @@ function buildProductNames(
       return [compactParts[1] || ''];
     }
 
-    return [mergedName];
+    return [compactParts.join(' | ')];
   }
 
   const groupedParts = rawParts.reduce<string[][]>((groups, part) => {
@@ -337,7 +381,7 @@ export function buildItems(
     const rawSku = sanitizeText(skus[index] || '');
     const sku = rawSku || null;
     const matchedBySku = sku ? productsBySku.get(sku.toUpperCase()) : null;
-    const matchedByName = productsByName.get(normalizeNameKey(productName));
+    const matchedByName = findProductByName(productsByName, productName);
     const matchedProduct = matchedBySku || matchedByName || null;
 
     return {

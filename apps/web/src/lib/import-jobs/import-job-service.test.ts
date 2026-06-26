@@ -84,6 +84,7 @@ function createOrderPayload(
     updatedAt: '2026-03-22T00:00:00.000Z',
     couponCode: null,
     shippingOption: null,
+    shippingAddress: null,
     receiptReady: true,
     items: [],
     importMetadata: {},
@@ -166,6 +167,7 @@ function createSupabaseMock() {
         order_number: 'ORD-1',
         external_source: 'bumpa',
         external_id: 'bumpa-1',
+        updated_at: '2026-03-22T10:00:00.000Z',
       },
     ],
     error: null,
@@ -350,6 +352,7 @@ describe('import-job-service', () => {
           orderNumber: 'ORD-1',
           externalSource: 'bumpa',
           externalId: 'bumpa-1',
+          updatedAt: '2026-03-22T10:00:00.000Z',
         },
       ],
       existingProducts: [

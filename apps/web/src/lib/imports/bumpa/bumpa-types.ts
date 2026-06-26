@@ -36,6 +36,17 @@ export interface NormalizedImportedOrderItem {
   lineTotal: number;
   matched: boolean;
   matchSource: 'sku' | 'name' | 'unmatched';
+  importMetadata?: Record<string, unknown>;
+}
+
+export interface NormalizedImportedShippingAddress {
+  fullAddress: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  postalCode: string | null;
+  source: string;
 }
 
 export interface NormalizedImportedOrder {
@@ -62,6 +73,7 @@ export interface NormalizedImportedOrder {
   updatedAt: string | null;
   couponCode: string | null;
   shippingOption: string | null;
+  shippingAddress: NormalizedImportedShippingAddress | null;
   receiptReady: boolean;
   items: NormalizedImportedOrderItem[];
   importMetadata: Record<string, unknown>;
@@ -99,6 +111,7 @@ export interface ExistingImportedOrder {
   orderNumber: string;
   externalSource: string | null;
   externalId: string | null;
+  updatedAt?: string | null;
 }
 
 export interface ExistingImportedProduct {

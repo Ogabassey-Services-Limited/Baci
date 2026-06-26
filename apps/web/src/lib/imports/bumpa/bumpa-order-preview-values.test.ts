@@ -246,6 +246,31 @@ describe('buildItems', () => {
     expect(items[0].matchSource).toBe('name');
   });
 
+  it('matches existing products by normalized Bumpa item name when no SKU', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+        'Product SKU': '',
+      }),
+      [
+        {
+          id: 'pixel-7a',
+          name: 'Google Pixel 7a 128GB (Premium Used)',
+          sku: null,
+          price: 300000,
+          externalSource: null,
+          externalId: null,
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      matched: true,
+      matchSource: 'name',
+      productId: 'pixel-7a',
+    });
+  });
+
   it('marks items as unmatched when no product found', () => {
     const items = buildItems(
       makeRow({ Products: 'Unknown Product', 'Product SKU': 'NOPE' }),
@@ -282,6 +307,79 @@ describe('buildItems', () => {
     expect(items[0].productName).toBe(
       '*Lenovo Thinkpad T14 Gen 1 || 10th Gen || Intel core i5 || 16GB RAM'
     );
+  });
+
+  it('removes a matching customer-name prefix before a double-pipe product name', () => {
+    const row = makeRow({
+      Products:
+        'John Onuoha | || | Iphone 16pro 256gb Physical Sim (Premium Used)',
+      'Customer Name': 'John Onuoha',
+      'Product SKU': '',
+      'Product Quantity': '1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].productName).toBe(
+      'Iphone 16pro 256gb Physical Sim (Premium Used)'
+    );
+  });
+
+  it('removes a matching customer-name prefix before standalone double-pipe markers with extra fragments', () => {
+    const row = makeRow({
+      Products: 'Ada Lovelace | || | HP EliteBook | 8th Gen',
+      'Product SKU': '',
+      'Product Quantity': '1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].productName).toBe('HP EliteBook | 8th Gen');
+  });
+
+  it('removes a matching customer-name prefix before splitting multiple products', () => {
+    const row = makeRow({
+      Products: 'Ada Lovelace | || | iPhone 13 | Pouch',
+      'Product SKU': ' | ',
+      'Product Quantity': '1.00 | 1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(2);
+    expect(items[0].productName).toBe('iPhone 13');
+    expect(items[1].productName).toBe('Pouch');
+  });
+
+  it('removes an embedded customer-name double-pipe prefix before splitting multiple products', () => {
+    const row = makeRow({
+      Products: 'Ada Lovelace || iPhone 13 | Pouch',
+      'Product SKU': ' | ',
+      'Product Quantity': '1.00 | 1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(2);
+    expect(items[0].productName).toBe('iPhone 13');
+    expect(items[1].productName).toBe('Pouch');
+  });
+
+  it('preserves non-matching double-pipe prefixes before splitting products', () => {
+    const row = makeRow({
+      Products: 'Ada Lovelace | || | iPhone 13 | Pouch',
+      'Customer Name': 'Grace Hopper',
+      'Product SKU': ' | ',
+      'Product Quantity': '1.00 | 1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(2);
+    expect(items[0].productName).toBe('Ada Lovelace | || | iPhone 13');
+    expect(items[1].productName).toBe('Pouch');
   });
 
   it('trims stray trailing double pipes before product-name matching', () => {

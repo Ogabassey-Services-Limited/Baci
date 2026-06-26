@@ -73,6 +73,137 @@ describe('buildBumpaOrderPreview', () => {
     });
   });
 
+  it('carries rich address and product enrichment fields into the preview payload', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+          'Product SKU': '',
+          'Product Quantity': '1.00',
+          best_address_full: '10 Marina, Lagos, Nigeria',
+          best_address_street: '10 Marina',
+          best_address_city: 'Marina',
+          best_address_state: 'Lagos',
+          best_address_country: 'Nigeria',
+          best_address_zip: '100001',
+          address_source: 'shipping',
+          import_recommendation: 'review_phone_only',
+          contact_quality: 'phone_only',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [
+        {
+          id: 'product-pixel',
+          name: 'Google Pixel 7a 128GB (Premium Used)',
+          sku: null,
+          price: 425000,
+          externalSource: null,
+          externalId: null,
+        },
+      ],
+    });
+
+    expect(result.rows[0]?.payload?.shippingAddress).toEqual({
+      fullAddress: '10 Marina, Lagos, Nigeria',
+      address: '10 Marina',
+      city: 'Marina',
+      state: 'Lagos',
+      country: 'Nigeria',
+      postalCode: '100001',
+      source: 'shipping',
+    });
+    expect(result.rows[0]?.payload?.importMetadata).toMatchObject({
+      importRecommendation: 'review_phone_only',
+      customerProfile: {
+        contactQuality: 'phone_only',
+      },
+    });
+    expect(result.rows[0]?.payload?.items[0]?.importMetadata).toMatchObject({
+      bumpa: {
+        normalized_product_name: 'Google Pixel 7a 128GB (Premium Used)',
+        analytics_product_key: 'google-pixel-7a-128gb-premium-used',
+        product_family: 'Google Pixel',
+        fulfillment_identifiers: {
+          imeis: ['351183326811261'],
+        },
+      },
+    });
+    expect(result.rows[0]?.payload?.items[0]).toMatchObject({
+      productId: 'product-pixel',
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
+  it('matches rich Bumpa product lines to stripped original-brand catalog names', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: 'pixel-original-brand',
+          'Order Number': '06400',
+          Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+          'Product SKU': '',
+          'Product Quantity': '1.00',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [
+        {
+          id: 'product-pixel-original',
+          name: 'Pixel 7a 128GB (Premium Used)',
+          sku: null,
+          price: 425000,
+          externalSource: 'bumpa',
+          externalId: 'bumpa-product-pixel',
+        },
+      ],
+    });
+
+    expect(result.rows[0]?.payload?.items[0]).toMatchObject({
+      productId: 'product-pixel-original',
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
+  it('marks review-excluded rich import rows invalid before commit', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          'Customer Name': 'Keza Africa',
+          import_recommendation: 'exclude_proxy_or_company',
+          import_reason:
+            'Customer appears to be a company/proxy purchaser, not the final receipt owner.',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.summary.invalidRows).toBe(1);
+    expect(result.rows[0]).toMatchObject({
+      rowStatus: 'invalid',
+      payload: null,
+      meta: {
+        importRecommendation: 'exclude_proxy_or_company',
+      },
+    });
+    expect(result.rows[0]?.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          'Skipped by migration review (exclude_proxy_or_company)'
+        ),
+        expect.stringContaining(
+          'Customer appears to be a company/proxy purchaser, not the final receipt owner.'
+        ),
+      ])
+    );
+  });
+
   it('marks duplicate external ids in the same file', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [baseRow, { ...baseRow }],
@@ -80,6 +211,28 @@ describe('buildBumpaOrderPreview', () => {
       existingProducts: [],
     });
 
+    expect(result.rows[1]?.rowStatus).toBe('duplicate');
+    expect(result.summary.duplicateCount).toBe(1);
+  });
+
+  it('reserves skipped external ids for duplicate detection', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          import_recommendation: 'exclude_proxy_or_company',
+        },
+        {
+          ...baseRow,
+          'Order Number': '06398',
+          import_recommendation: '',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('invalid');
     expect(result.rows[1]?.rowStatus).toBe('duplicate');
     expect(result.summary.duplicateCount).toBe(1);
   });
@@ -117,6 +270,27 @@ describe('buildBumpaOrderPreview', () => {
 
     expect(result.rows[0]?.rowStatus).toBe('invalid');
     expect(result.rows[0]?.errors?.[0]).toContain('already exists');
+  });
+
+  it('stores preview-time updated_at for existing imported order updates', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [baseRow],
+      existingOrders: [
+        {
+          id: 'existing-order',
+          orderNumber: '06397',
+          externalSource: 'bumpa',
+          externalId: '4196546',
+          updatedAt: '2026-03-20T12:00:00.000Z',
+        },
+      ],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('update');
+    expect(result.rows[0]?.payload?.importMetadata).toMatchObject({
+      previewExistingOrderUpdatedAt: '2026-03-20T12:00:00.000Z',
+    });
   });
 
   it('classifies phone-only customers in the preview summary', async () => {
