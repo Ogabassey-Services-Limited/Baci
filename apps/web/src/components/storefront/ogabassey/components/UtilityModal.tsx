@@ -269,6 +269,7 @@ export const UtilityModal = ({
     amount: number;
     billItemIdentifier: string;
     billerCode?: string;
+    customerAddress?: string;
     customerIdentifier: string;
     billerName: string;
     productCode?: string;
@@ -282,6 +283,9 @@ export const UtilityModal = ({
       amount: data.amount,
       billItemIdentifier: data.billItemIdentifier,
       billerCode: data.billerCode,
+      ...(data.customerAddress
+        ? { customerAddress: data.customerAddress }
+        : {}),
       customerIdentifier: data.customerIdentifier,
       billerName: data.billerName,
       productCode: data.productCode,
