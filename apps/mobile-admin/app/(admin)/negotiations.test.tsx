@@ -201,6 +201,23 @@ describe('NegotiationsScreen', () => {
     });
   });
 
+  it('subscribes to all merchant negotiation row changes', async () => {
+    render(<NegotiationsScreen />);
+
+    await waitFor(() => {
+      expect(mocks.channelOn).toHaveBeenCalledWith(
+        'postgres_changes',
+        expect.objectContaining({
+          event: '*',
+          filter: 'merchant_id=eq.merchant-1',
+          schema: 'public',
+          table: 'negotiation_requests',
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+
   it('does not fetch or render negotiations when the merchant context is missing', async () => {
     mocks.merchant = null;
 
@@ -351,8 +368,8 @@ describe('NegotiationsScreen', () => {
     });
   });
 
-  it('shows an error when an external evidence URL is unsupported', async () => {
-    mocks.canOpenURL.mockResolvedValueOnce(false);
+  it('shows an error when an external evidence URL cannot be opened', async () => {
+    mocks.openURL.mockRejectedValueOnce(new Error('blocked'));
     mocks.selectResult = {
       data: [
         {
@@ -379,7 +396,10 @@ describe('NegotiationsScreen', () => {
         'https://x.com/i/status/123'
       );
     });
-    expect(mocks.openURL).not.toHaveBeenCalled();
+    expect(mocks.canOpenURL).not.toHaveBeenCalledWith(
+      'https://x.com/i/status/123'
+    );
+    expect(mocks.openURL).toHaveBeenCalledWith('https://x.com/i/status/123');
   });
 
   it('opens stored evidence paths through a fresh signed URL', async () => {
@@ -455,7 +475,7 @@ describe('NegotiationsScreen', () => {
     expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
   });
 
-  it('shows a stale-state error when the request was already handled', async () => {
+  it('shows a stale-state error and refreshes when the request was already handled', async () => {
     // The status='pending' filter matched zero rows (another admin acted first).
     mocks.updateResult = { data: [], error: null };
 
@@ -472,16 +492,21 @@ describe('NegotiationsScreen', () => {
     // Must NOT report success or notify the customer for a no-op update.
     expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
     expect(mocks.notificationAsync).not.toHaveBeenCalledWith('success');
+    await waitFor(() => {
+      expect(
+        mocks.queryCalls.filter(({ method }) => method === 'select').length
+      ).toBeGreaterThanOrEqual(2);
+    });
   });
 
-  it('shows a scheme-less competitor link as text instead of signing it', async () => {
+  it('shows a scheme-less competitor image link as text instead of signing it', async () => {
     mocks.selectResult = {
       data: [
         {
           created_at: '2026-06-24T23:58:50.000Z',
           customer_id: null,
           customer_phone: null,
-          evidence_url: 'www.example.com/listing',
+          evidence_url: 'www.example.com/product-image.jpg',
           id: 'negotiation-evidence-schemeless',
           item_info: { name: 'Wireless Headphones' },
           offered_price: 8_500,
@@ -497,7 +522,7 @@ describe('NegotiationsScreen', () => {
     fireEvent.click(await screen.findByText('View customer evidence'));
     expect(Alert.alert).toHaveBeenCalledWith(
       'Customer evidence',
-      'www.example.com/listing'
+      'www.example.com/product-image.jpg'
     );
     // It is NOT a storage object, so we never attempt to sign it.
     expect(mocks.createSignedUrl).not.toHaveBeenCalled();

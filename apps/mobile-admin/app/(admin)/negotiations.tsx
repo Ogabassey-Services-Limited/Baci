@@ -104,6 +104,11 @@ async function openExternalUrl(url: string): Promise<void> {
       return;
     }
 
+    if (isRemoteUrl(url)) {
+      await Linking.openURL(url);
+      return;
+    }
+
     const supported = await Linking.canOpenURL(url);
     if (!supported) {
       Alert.alert('Cannot open link', url);
@@ -120,11 +125,11 @@ function isRemoteUrl(value: string): boolean {
 }
 
 // Uploaded evidence is stored as `<merchantId>/<timestamp>-<rand>.<ext>` (see
-// uploadNegotiationEvidence). Match that exact shape — a single path segment
-// ending in a known image extension — so a scheme-less competitor link like
-// `www.example.com/listing` is NOT mistaken for a private Storage object.
+// uploadNegotiationEvidence). Match that exact shape — a first path segment with
+// no domain dot plus one image filename — so a scheme-less competitor image like
+// `www.example.com/image.png` is NOT mistaken for a private Storage object.
 const STORAGE_OBJECT_PATH =
-  /^[^/\s:]+\/[^/\s]+\.(?:png|jpe?g|webp|heic|heif)$/i;
+  /^[^/\s:.]+\/[^/\s]+\.(?:png|jpe?g|webp|heic|heif)$/i;
 
 function isStorageObjectPath(value: string): boolean {
   return value.length <= 1024 && STORAGE_OBJECT_PATH.test(value);
@@ -230,7 +235,7 @@ export default function NegotiationsScreen() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'negotiation_requests',
           filter: `merchant_id=eq.${merchantId}`,
@@ -277,6 +282,7 @@ export default function NegotiationsScreen() {
       const message =
         error instanceof Error ? error.message : `Failed to ${status} request`;
       Alert.alert('Error', message);
+      await fetchRequests();
     }
     setActionLoadingId(null);
   };
