@@ -76,6 +76,7 @@ export function useBillFormController({
   const resetVerification = () => {
     pendingVerificationKeyRef.current = null;
     setVerifiedSelectionKey(null);
+    setVerifiedCustomerAddress(null);
     setVerifiedValidationReference(null);
     setVerifiedRequireValidationRef(undefined);
     if (!verify.isPending) {
