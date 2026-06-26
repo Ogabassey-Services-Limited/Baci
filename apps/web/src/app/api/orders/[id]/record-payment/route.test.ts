@@ -396,7 +396,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
       } as any;
 
       if (table === 'merchants') {
@@ -407,6 +407,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       } else {
         chain.single = vi.fn().mockResolvedValue({ data: {}, error: null });
       }
+      chain.in = vi.fn().mockResolvedValue({ data: [], error: null });
       return chain;
     });
     mockSupabaseClient.from = mockFrom;
@@ -449,7 +450,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
       } as any;
 
       if (table === 'merchants') {
@@ -465,6 +466,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       } else {
         chain.single = vi.fn().mockResolvedValue({ data: {}, error: null });
       }
+      chain.in = vi.fn().mockResolvedValue({ data: [], error: null });
       return chain;
     });
     mockSupabaseClient.from = mockFrom;
@@ -538,7 +540,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 2) {
         // Second call: order
@@ -550,7 +552,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 3) {
         // Third call: transactions query (has TWO .eq() calls)
@@ -668,7 +670,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 2) {
         // Second call: order
@@ -680,17 +682,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 3) {
         // Third call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 4) {
         // Fourth call: transaction insert
@@ -705,7 +707,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           chain,
           Promise.resolve({ data: { id: 'txn-123' }, error: null })
         );
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
@@ -717,7 +719,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
     });
     mockSupabaseClient.from = mockFrom;
 
@@ -810,10 +812,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 4) {
         return {
@@ -936,10 +938,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 4) {
         return {
@@ -1047,7 +1049,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 2) {
         // Second call: order
@@ -1059,17 +1061,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 3) {
         // Third call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 4) {
         // Fourth call: transaction insert
@@ -1084,7 +1086,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           chain,
           Promise.resolve({ data: { id: 'txn-123' }, error: null })
         );
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
@@ -1096,7 +1098,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
     });
     mockSupabaseClient.from = mockFrom;
 
@@ -1193,7 +1195,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 2) {
         // Second call: order
@@ -1205,7 +1207,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 3) {
         // Third call: transactions query (existing payment of 4000)
@@ -1322,7 +1324,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 2) {
         // Second call: order
@@ -1334,17 +1336,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 3) {
         // Third call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 4) {
         // Fourth call: transaction insert
@@ -1359,7 +1361,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           chain,
           Promise.resolve({ data: { id: 'txn-123' }, error: null })
         );
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
@@ -1371,7 +1373,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
     });
     mockSupabaseClient.from = mockFrom;
 
@@ -1453,7 +1455,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 2) {
         // Second call: order
@@ -1465,17 +1467,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
             error: null,
           }),
         };
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 3) {
         // Third call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       if (callCount === 4) {
         // Fourth call: transaction insert
@@ -1490,7 +1492,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           chain,
           Promise.resolve({ data: { id: 'txn-123' }, error: null })
         );
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       // Fifth call: order update (returns the row read back via maybeSingle)
       const chain = {
@@ -1502,7 +1504,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
+      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
     });
     mockSupabaseClient.from = mockFrom;
 
@@ -1603,7 +1605,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           .mockResolvedValue({ data: mockOrder, error: null }),
       };
       Object.assign(chain, Promise.resolve({ data: null, error: null }));
-      return chain;
+      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
     });
 
     const request = createRequest({
@@ -1950,7 +1952,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
           limit: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
           single: vi
@@ -1966,7 +1968,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             Promise.resolve({ data: { id: 'txn-new' }, error: null })
           );
         }
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       throw new Error(`Unexpected table ${table}`);
     });
@@ -2039,7 +2041,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
           insert: vi.fn().mockReturnThis(),
           single: vi
             .fn()
@@ -2053,7 +2055,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
               : { data: { id: 'txn-new' }, error: null }
           )
         );
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       throw new Error(`Unexpected table ${table}`);
     });
@@ -2136,7 +2138,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
           insert: vi.fn().mockReturnThis(),
           single: vi
             .fn()
@@ -2154,7 +2156,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
             Promise.resolve({ data: { id: 'txn-new' }, error: null })
           );
         }
-        return chain;
+        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
       }
       throw new Error(`Unexpected table ${table}`);
     });
