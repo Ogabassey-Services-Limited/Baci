@@ -22,6 +22,10 @@ export function OgabasseyPdpDeferredTabsClient({
     Math.min(Number(productData.rating) || 0, 5)
   );
   const normalizedReviewRatingWidth = `${(normalizedReviewRating / 5) * 100}%`;
+  const normalizedProductData = {
+    ...productData,
+    rating: normalizedReviewRating,
+  };
 
   return (
     <div className="ogabassey-pdp-deferred-tabs-container">
@@ -29,7 +33,7 @@ export function OgabasseyPdpDeferredTabsClient({
         activeTab={activeTab}
         normalizedReviewRatingWidth={normalizedReviewRatingWidth}
         onSelectTab={setActiveTab}
-        productData={productData}
+        productData={normalizedProductData}
         showRails={false}
         storeSlug={storeSlug}
       />

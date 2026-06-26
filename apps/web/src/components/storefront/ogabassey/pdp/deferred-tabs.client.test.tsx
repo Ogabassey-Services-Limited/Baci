@@ -73,20 +73,20 @@ describe('OgabasseyPdpDeferredTabsClient', () => {
       expect.objectContaining({
         activeTab: 'description',
         normalizedReviewRatingWidth: '80%',
-        productData,
+        productData: expect.objectContaining({ rating: 4 }),
         showRails: false,
         storeSlug: 'ogabassey',
       })
     );
   });
 
-
   it('keeps deferred tabs inside the PDP content-width container', () => {
     renderTabs(productData);
 
-    expect(screen.getByRole('region', { name: 'Deferred tab sections' }).parentElement).toHaveClass(
-      'ogabassey-pdp-deferred-tabs-container'
-    );
+    expect(
+      screen.getByRole('region', { name: 'Deferred tab sections' })
+        .parentElement
+    ).toHaveClass('ogabassey-pdp-deferred-tabs-container');
   });
 
   it('clamps out-of-range review ratings to a full-width score', () => {
@@ -95,6 +95,7 @@ describe('OgabasseyPdpDeferredTabsClient', () => {
     expect(mockDeferredSections).toHaveBeenCalledWith(
       expect.objectContaining({
         normalizedReviewRatingWidth: '100%',
+        productData: expect.objectContaining({ rating: 5 }),
       })
     );
   });
@@ -105,6 +106,7 @@ describe('OgabasseyPdpDeferredTabsClient', () => {
     expect(mockDeferredSections).toHaveBeenCalledWith(
       expect.objectContaining({
         normalizedReviewRatingWidth: '0%',
+        productData: expect.objectContaining({ rating: 0 }),
       })
     );
   });
@@ -115,6 +117,7 @@ describe('OgabasseyPdpDeferredTabsClient', () => {
     expect(mockDeferredSections).toHaveBeenCalledWith(
       expect.objectContaining({
         normalizedReviewRatingWidth: '0%',
+        productData: expect.objectContaining({ rating: 0 }),
       })
     );
   });
