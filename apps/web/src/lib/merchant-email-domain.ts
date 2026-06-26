@@ -104,13 +104,17 @@ async function assertMerchantOwnsActiveStorefrontDomain(
   merchantId: string,
   domain: string
 ) {
+  // Ownership = an *active* storefront domain row for this merchant. Do NOT
+  // additionally require `verified_at`: most live custom domains in `domains`
+  // carry a null `verified_at`, so filtering on it would reject legitimately
+  // active storefronts (and mismatch the auth-branding lookup, which also keys
+  // on status='active' only).
   const { data, error } = await supabase
     .from('domains')
     .select('id')
     .eq('merchant_id', merchantId)
     .in('domain', domainOwnershipCandidates(domain))
     .eq('status', 'active')
-    .not('verified_at', 'is', null)
     .limit(1);
   if (error) {
     throw new Error(`Failed to load storefront domain: ${error.message}`);

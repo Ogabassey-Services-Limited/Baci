@@ -371,6 +371,39 @@ describe('zeptomail audit logging', () => {
     });
   });
 
+  it('fails open to the platform sender when the provider rejects the custom domain', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    // Non-retryable rejection for the custom sender; success for the platform one.
+    sendMailMock.mockImplementation((args: { from?: { address?: string } }) => {
+      if (args.from?.address === 'orders@ogabassey.com') {
+        return Promise.reject({
+          error: { code: 'TM_3201', message: 'Invalid sender domain' },
+        });
+      }
+      return Promise.resolve({ request_id: 'zepto-fellback' });
+    });
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+    });
+
+    expect(result).toEqual({ success: true, messageId: 'zepto-fellback' });
+    // Both senders were attempted: custom first, then platform fallback.
+    expect(sendMailMock.mock.calls.map((c) => c[0]?.from?.address)).toEqual([
+      'orders@ogabassey.com',
+      'orders@usebaci.com',
+    ]);
+    // Audit records the address that actually delivered.
+    expect(auditState.updates.at(-1)).toMatchObject({
+      patch: { status: 'accepted', from_address: 'orders@usebaci.com' },
+    });
+  });
+
   it('falls back to the platform domain for order mail without a custom domain', async () => {
     getActiveMerchantSendingDomainMock.mockResolvedValue(null);
     sendMailMock.mockResolvedValue({ request_id: 'zepto-fallback' });

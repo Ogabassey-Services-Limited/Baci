@@ -90,6 +90,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // CSRF is intentionally checked before auth here: forged cross-site requests
+  // are rejected cheaply without exercising the auth path. This ordering is
+  // covered by route.test.ts (auth is not invoked when CSRF fails).
   const csrf = await checkCsrfProtection(request);
   if (!csrf.valid) {
     return (
@@ -161,6 +164,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  // CSRF before auth — see the POST handler above; tested in route.test.ts.
   const csrf = await checkCsrfProtection(request);
   if (!csrf.valid) {
     return (

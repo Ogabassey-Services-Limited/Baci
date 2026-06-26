@@ -33,9 +33,9 @@ describe('getActiveMerchantSendingDomain', () => {
     vi.clearAllMocks();
   });
 
-  it('returns the domain for a verified, enabled merchant', async () => {
+  it('returns the domain for a verified, enabled, entitled merchant', async () => {
     const { eqCalls } = stubQuery({
-      data: { domain: 'ogabassey.com' },
+      data: { domain: 'ogabassey.com', merchants: { plan_tier: 'pro' } },
       error: null,
     });
 
@@ -48,6 +48,26 @@ describe('getActiveMerchantSendingDomain', () => {
       ['status', 'verified'],
       ['enabled', true],
     ]);
+  });
+
+  it('handles the joined merchant returned as an array', async () => {
+    stubQuery({
+      data: { domain: 'ogabassey.com', merchants: [{ plan_tier: 'business' }] },
+      error: null,
+    });
+
+    expect(await getActiveMerchantSendingDomain('merchant-1')).toBe(
+      'ogabassey.com'
+    );
+  });
+
+  it('returns null when the merchant plan no longer carries the entitlement', async () => {
+    stubQuery({
+      data: { domain: 'ogabassey.com', merchants: { plan_tier: 'free' } },
+      error: null,
+    });
+
+    expect(await getActiveMerchantSendingDomain('merchant-1')).toBeNull();
   });
 
   it('returns null when no verified+enabled row exists', async () => {
