@@ -1174,6 +1174,26 @@ describe('getIndexableRobotsMetadata', () => {
       },
     });
   });
+
+  it('noindexes storefront search query URLs while preserving follow directives', () => {
+    expect(getIndexableRobotsMetadata({ q: 'acc6.top' })).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
+
+    expect(getIndexableRobotsMetadata({ query: 'iphone 16' })).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
+  });
 });
 
 describe('getCanonicalStorefrontFilterSearchParams', () => {
