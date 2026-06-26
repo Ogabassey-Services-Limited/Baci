@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { mockAdminFrom, mockRegister, mockFind, mockVerify } = vi.hoisted(
-  () => ({
+const { mockAdminFrom, mockRegister, mockFind, mockVerify, mockAssociate } =
+  vi.hoisted(() => ({
     mockAdminFrom: vi.fn(),
     mockRegister: vi.fn(),
     mockFind: vi.fn(),
     mockVerify: vi.fn(),
-  })
-);
+    mockAssociate: vi.fn(),
+  }));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createClient: () => ({ from: mockAdminFrom }),
@@ -21,6 +21,7 @@ vi.mock('@/lib/zeptomail-domains', () => ({
   registerSendingDomain: mockRegister,
   findSendingDomainByName: mockFind,
   verifySendingDomain: mockVerify,
+  associateSendingDomainWithConfiguredMailagent: mockAssociate,
 }));
 
 import { registerMerchantEmailDomain } from './merchant-email-domain';
@@ -56,6 +57,8 @@ describe('registerMerchantEmailDomain', () => {
     mockRegister.mockReset();
     mockFind.mockReset();
     mockVerify.mockReset();
+    mockAssociate.mockReset();
+    mockAssociate.mockImplementation((state) => Promise.resolve(state));
   });
 
   it('registerMerchantEmailDomain registers with ZeptoMail then upserts pending', async () => {
@@ -160,6 +163,9 @@ describe('registerMerchantEmailDomain', () => {
       registerMerchantEmailDomain('m1', 'mystore.com')
     ).resolves.toMatchObject({ domain: 'mystore.com' });
     expect(mockFind).toHaveBeenCalledWith('mystore.com');
+    expect(mockAssociate).toHaveBeenCalledWith(
+      expect.objectContaining({ domainKey: 'existing-key' })
+    );
     expect(upsertBuilder.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ zeptomail_domain_id: 'existing-key' }),
       { onConflict: 'merchant_id' }
