@@ -23,6 +23,9 @@ const purchaseSchemaBase = z.object({
   billerName: z.string().optional(),
   // Bill customer info (electricity / cable / betting)
   customerName: z.string().min(1).optional(),
+  // Meter/customer address captured at verify (validate-customer); persisted to
+  // metadata so the receipt can show it.
+  customerAddress: z.string().min(1).optional(),
   customerPhone: z.string().min(1).optional(),
   // Common optional fields
   customerId: z.uuid().optional(),
