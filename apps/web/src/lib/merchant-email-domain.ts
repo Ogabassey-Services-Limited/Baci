@@ -253,7 +253,12 @@ export async function verifyMerchantEmailDomain(
   const state = await verifySendingDomain(domainKey);
   const { data, error } = await supabase
     .from(TABLE)
-    .update(stateToColumns(state))
+    .update({
+      ...stateToColumns(state),
+      // Persist status + enabled from the same transition: a domain that is no
+      // longer verified must never keep `enabled = true`.
+      ...(state.verified ? {} : { enabled: false }),
+    })
     .eq('merchant_id', merchantId)
     .select(SELECT)
     .single();
@@ -269,27 +274,26 @@ export async function setMerchantEmailDomainEnabled(
   enabled: boolean
 ): Promise<MerchantEmailDomain> {
   const supabase = createAdminClient();
-  if (enabled) {
-    const { data: existing, error: readError } = await supabase
-      .from(TABLE)
-      .select('status')
-      .eq('merchant_id', merchantId)
-      .maybeSingle();
-    if (readError) {
-      throw new Error(`Failed to load email domain: ${readError.message}`);
-    }
-    if ((existing as { status?: string } | null)?.status !== 'verified') {
-      throw new Error('Domain must be verified before enabling');
-    }
-  }
-  const { data, error } = await supabase
+  let query = supabase
     .from(TABLE)
     .update({ enabled })
-    .eq('merchant_id', merchantId)
-    .select(SELECT)
-    .single();
+    .eq('merchant_id', merchantId);
+  if (enabled) {
+    // Enforce the verified precondition in the same scoped write so we never
+    // persist `enabled = true` for a domain whose status is not 'verified'
+    // (no read-then-write race).
+    query = query.eq('status', 'verified');
+  }
+  const { data, error } = await query.select(SELECT).maybeSingle();
   if (error) {
     throw new Error(`Failed to update email domain: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error(
+      enabled
+        ? 'Domain must be verified before enabling'
+        : 'No sending domain to update'
+    );
   }
   return rowToDomain(data as Row);
 }

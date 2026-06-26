@@ -79,7 +79,7 @@ export function EmailDomainConfiguredView({
 
       {config.records.map((record) => (
         <RecordRow
-          key={`${record.type}:${record.host}`}
+          key={`${record.type}:${record.host}:${record.value}`}
           colors={colors}
           record={record}
           onCopy={onCopy}

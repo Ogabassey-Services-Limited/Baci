@@ -178,7 +178,8 @@ function toSendingDomainState(data: ZeptomailDomainData): SendingDomainState {
     });
   }
   const verified =
-    data.dkim?.status === 'verified' && data.cname?.status === 'verified';
+    data.dkim?.status?.toLowerCase() === 'verified' &&
+    data.cname?.status?.toLowerCase() === 'verified';
   const status = toVerificationStatus(data, verified);
   return {
     domainKey: data.domain_key,

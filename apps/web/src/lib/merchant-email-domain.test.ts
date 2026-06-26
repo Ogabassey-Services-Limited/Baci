@@ -200,23 +200,20 @@ describe('merchant-email-domain service', () => {
   });
 
   it('setMerchantEmailDomainEnabled refuses to enable an unverified domain', async () => {
-    mockAdminFrom.mockReturnValueOnce(
-      builderFor({ data: { status: 'pending' }, error: null })
-    );
+    // The scoped update (eq status='verified') matches no row -> null -> throws.
+    mockAdminFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
     await expect(setMerchantEmailDomainEnabled('m1', true)).rejects.toThrow(
       'must be verified'
     );
   });
 
-  it('setMerchantEmailDomainEnabled enables a verified domain', async () => {
-    mockAdminFrom.mockReturnValueOnce(
-      builderFor({ data: { status: 'verified' }, error: null })
-    );
+  it('setMerchantEmailDomainEnabled enables a verified domain via a scoped update', async () => {
     const updateBuilder = builderFor({ data: ROW, error: null });
     mockAdminFrom.mockReturnValueOnce(updateBuilder);
 
     await setMerchantEmailDomainEnabled('m1', true);
 
     expect(updateBuilder.update).toHaveBeenCalledWith({ enabled: true });
+    expect(updateBuilder.eq).toHaveBeenCalledWith('status', 'verified');
   });
 });

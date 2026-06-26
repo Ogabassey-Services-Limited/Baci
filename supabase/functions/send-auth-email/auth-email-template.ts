@@ -197,6 +197,13 @@ function isSameMerchantRedirect(
     return true;
   }
 
+  // A cross-origin redirect's origin is copied into a token-bearing confirmation
+  // link, so only allow the merchant's own routable HTTPS origin — never a
+  // plain http:// origin that could leak the token over the wire.
+  if (nextUrl.protocol !== 'https:') {
+    return false;
+  }
+
   const nextLookup = extractMerchantLookup(nextUrl.toString());
   if (nextLookup?.slug && branding.slug) {
     return nextLookup.slug === branding.slug.toLowerCase();

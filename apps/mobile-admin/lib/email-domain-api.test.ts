@@ -57,4 +57,15 @@ describe('email-domain-api', () => {
     mockApiClient.mockResolvedValue({ domain: null });
     await expect(getEmailDomain()).resolves.toBeNull();
   });
+
+  it.each([
+    ['getEmailDomain', () => getEmailDomain()],
+    ['registerEmailDomain', () => registerEmailDomain('mystore.com')],
+    ['verifyEmailDomain', () => verifyEmailDomain()],
+    ['setEmailDomainEnabled', () => setEmailDomainEnabled(true)],
+  ])('%s propagates an apiClient rejection unchanged', async (_name, call) => {
+    const failure = new Error('network unavailable');
+    mockApiClient.mockRejectedValue(failure);
+    await expect(call()).rejects.toBe(failure);
+  });
 });

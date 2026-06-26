@@ -235,7 +235,7 @@ export function hasPriceNegotiationEntitlement(
  */
 export function hasCustomEmailDomainEntitlement(
   planTier: string | null | undefined,
-  _merchantSlug: string | null | undefined
+  _merchantSlug?: string | null
 ): boolean {
   return isPlanTier(planTier)
     ? planHasFeature(planTier, FEATURES.CUSTOM_EMAIL_DOMAIN)

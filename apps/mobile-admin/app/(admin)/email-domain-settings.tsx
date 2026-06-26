@@ -3,6 +3,13 @@ import * as Clipboard from 'expo-clipboard';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Alert, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmailDomainConfiguredView } from '@/components/email-domain/email-domain-configured-view';
+import {
+  EmailDomainLoadError,
+  getEmailDomainErrorMessage,
+} from '@/components/email-domain/email-domain-load-error';
+import { EmailDomainRegistrationForm } from '@/components/email-domain/email-domain-registration-form';
+import { makeEmailDomainSettingsStyles } from '@/components/email-domain/email-domain-settings.styles';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type EmailDomainConfig,
@@ -11,13 +18,6 @@ import {
   setEmailDomainEnabled,
   verifyEmailDomain,
 } from '@/lib/email-domain-api';
-import { EmailDomainConfiguredView } from '@/components/email-domain/email-domain-configured-view';
-import {
-  EmailDomainLoadError,
-  getEmailDomainErrorMessage,
-} from '@/components/email-domain/email-domain-load-error';
-import { EmailDomainRegistrationForm } from '@/components/email-domain/email-domain-registration-form';
-import { makeEmailDomainSettingsStyles } from '@/components/email-domain/email-domain-settings.styles';
 
 const QUERY_KEY = ['merchant', 'email-domain'];
 
@@ -62,8 +62,12 @@ export default function EmailDomainSettingsScreen() {
   });
 
   const copy = async (value: string) => {
-    await Clipboard.setStringAsync(value);
-    Alert.alert('Copied', 'Value copied to clipboard.');
+    try {
+      await Clipboard.setStringAsync(value);
+      Alert.alert('Copied', 'Value copied to clipboard.');
+    } catch (error) {
+      handleError(error);
+    }
   };
 
   return (

@@ -361,9 +361,15 @@ Deno.serve(async (req) => {
         }),
       });
 
+    // Only status-level diagnostics are logged/returned — ZeptoMail response
+    // bodies can echo recipient PII, so they are never logged or exposed.
     const response = await sendWithFrom(fromAddress);
-    let responseText = await response.text();
-    console.log('ZeptoMail response:', response.status, responseText);
+    console.log('ZeptoMail response status:', response.status);
+
+    const deliveryFailed = new Response(
+      JSON.stringify({ error: 'Email delivery failed' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
 
     if (!response.ok && branding.sendingFromAddress) {
       console.warn(
@@ -371,11 +377,9 @@ Deno.serve(async (req) => {
         response.status
       );
       const fallbackResponse = await sendWithFrom('noreply@usebaci.com');
-      const fallbackText = await fallbackResponse.text();
       console.log(
-        'ZeptoMail fallback response:',
-        fallbackResponse.status,
-        fallbackText
+        'ZeptoMail fallback response status:',
+        fallbackResponse.status
       );
 
       if (fallbackResponse.ok) {
@@ -385,24 +389,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      responseText = fallbackText;
-      return new Response(
-        JSON.stringify({ error: 'ZeptoMail failed', details: responseText }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return deliveryFailed;
     }
 
     if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: 'ZeptoMail failed', details: responseText }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return deliveryFailed;
     }
 
     return new Response(JSON.stringify({ success: true }), {
