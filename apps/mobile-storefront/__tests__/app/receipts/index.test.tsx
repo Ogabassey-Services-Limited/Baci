@@ -47,6 +47,13 @@ jest.mock('@/components/receipts/ReceiptsView', () => ({
   ReceiptsView: (props: ViewProps) => mockReceiptsView(props),
 }));
 
+// Render the Devices page directly so this screen test stays focused on the
+// Devices receipts flow (the tabs/pager + Utilities list are tested separately).
+jest.mock('@/components/receipts/ReceiptsTabs', () => ({
+  ReceiptsTabs: ({ devicesContent }: { devicesContent: ReactNode }) =>
+    devicesContent,
+}));
+
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));

@@ -87,8 +87,12 @@ export function useUtilityHistoryActions({
     try {
       await shareUtilityReceipt({
         amount: transaction.amount,
+        billerName: transaction.biller_name ?? undefined,
         customerIdentifier,
         customerName: transaction.customer_name,
+        dateTime: transaction.created_at,
+        network: transaction.network_provider ?? undefined,
+        phoneNumber: transaction.phone_number ?? undefined,
         reference: transaction.request_reference,
         status: transaction.status,
         type: utilityRepeatHelpers.getRouteType(transaction.type),

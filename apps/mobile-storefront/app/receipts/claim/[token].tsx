@@ -1,6 +1,6 @@
 import { sanitizeCustomerLoginEmailHint } from '@baci/shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { type Href, Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
@@ -184,7 +184,8 @@ export default function ReceiptClaimScreen() {
         }
 
         if (!isActive) return;
-        router.replace(redirectPath);
+        // Validated server path (starts with '/'); typed routes need an Href.
+        router.replace(redirectPath as Href);
       } catch {
         if (!isActive) return;
         setStatus('error');
@@ -219,10 +220,12 @@ export default function ReceiptClaimScreen() {
 
     return (
       <Redirect
-        href={appendEmailHintToLoginRedirect(
-          String(redirectTo),
-          loginEmailHint
-        )}
+        href={
+          appendEmailHintToLoginRedirect(
+            String(redirectTo),
+            loginEmailHint
+          ) as Href
+        }
       />
     );
   }

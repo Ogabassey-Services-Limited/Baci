@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { getPaymentConfig } from '@/components/receipts/ReceiptCard';
+import { ReceiptsTabs } from '@/components/receipts/ReceiptsTabs';
 import { ReceiptsView } from '@/components/receipts/ReceiptsView';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -71,28 +72,33 @@ export default function ReceiptsScreen() {
       edges={['bottom']}
       style={{ backgroundColor: colors.background }}
     >
-      <ReceiptsView
+      <ReceiptsTabs
         colors={colors}
-        filteredReceipts={filteredReceipts}
-        hasError={Boolean(error)}
-        hasReceipts={(receipts ?? []).length > 0}
-        isLoading={isAuthLoading || isLoading}
-        isOnline={isOnline}
-        isPreviewLoading={preview.isLoading}
-        isPreviewOpen={preview.isOpen}
-        isReceiptPaid={preview.isPaid}
-        isRefreshing={isRefreshing}
-        onChangeSearch={setSearchQuery}
-        onClearSearch={() => setSearchQuery('')}
-        onClosePreview={preview.closePreview}
-        onOpenPreview={preview.openPreview}
-        onPrefetch={handlePrefetch}
-        onRefresh={handleRefresh}
-        onRetry={() => {
-          void refetch();
-        }}
-        previewHtml={preview.html}
-        searchQuery={searchQuery}
+        devicesContent={
+          <ReceiptsView
+            colors={colors}
+            filteredReceipts={filteredReceipts}
+            hasError={Boolean(error)}
+            hasReceipts={(receipts ?? []).length > 0}
+            isLoading={isAuthLoading || isLoading}
+            isOnline={isOnline}
+            isPreviewLoading={preview.isLoading}
+            isPreviewOpen={preview.isOpen}
+            isReceiptPaid={preview.isPaid}
+            isRefreshing={isRefreshing}
+            onChangeSearch={setSearchQuery}
+            onClearSearch={() => setSearchQuery('')}
+            onClosePreview={preview.closePreview}
+            onOpenPreview={preview.openPreview}
+            onPrefetch={handlePrefetch}
+            onRefresh={handleRefresh}
+            onRetry={() => {
+              void refetch();
+            }}
+            previewHtml={preview.html}
+            searchQuery={searchQuery}
+          />
+        }
       />
     </StorefrontScreenShell>
   );
