@@ -59,6 +59,7 @@ const VTUHistoryTransactionSchema = z.object({
   payment_status: z.enum(VTU_HISTORY_PAYMENT_STATUSES).nullable().optional(),
   repeat_data_plan_code: z.string().nullable().optional(),
   voucher_pin: z.string().nullable().optional(),
+  units: z.string().nullable().optional(),
 });
 
 const VTUHistoryResponseSchema = z.object({
