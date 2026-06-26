@@ -392,15 +392,21 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockFrom = vi.fn(() => {
+    const mockFrom = vi.fn((table: string) => {
       const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
+        in: vi.fn().mockReturnThis(),
+      } as any;
+
+      if (table === 'merchants') {
+        chain.single = vi.fn().mockResolvedValue({
           data: null,
           error: { message: 'Merchant not found' },
-        }),
-      };
+        });
+      } else {
+        chain.single = vi.fn().mockResolvedValue({ data: {}, error: null });
+      }
       return chain;
     });
     mockSupabaseClient.from = mockFrom;
@@ -439,30 +445,26 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn(() => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return chain;
-      }
-      // Second call: order
+    const mockFrom = vi.fn((table: string) => {
       const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
+        in: vi.fn().mockReturnThis(),
+      } as any;
+
+      if (table === 'merchants') {
+        chain.single = vi.fn().mockResolvedValue({
+          data: mockMerchant,
+          error: null,
+        });
+      } else if (table === 'orders') {
+        chain.single = vi.fn().mockResolvedValue({
           data: null,
           error: { message: 'Order not found' },
-        }),
-      };
+        });
+      } else {
+        chain.single = vi.fn().mockResolvedValue({ data: {}, error: null });
+      }
       return chain;
     });
     mockSupabaseClient.from = mockFrom;

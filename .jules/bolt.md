@@ -49,3 +49,7 @@
 ## 2024-06-14 - Optimize Location Picker FlatLists
 **Learning:** In the mobile-storefront app, dynamically heighted list items inside modals can cause UI thread asynchronous measurement cycles when rendered by FlatList, leading to slow rendering of pickers like City and State.
 **Action:** Always fix the height of simple picker row items (e.g., changing `minHeight` to `height` in stylesheets) and implement explicit `getItemLayout` on the corresponding `FlatList` to bypass runtime measurements and dramatically speed up rendering.
+## 2024-05-18 — Use Promise.all() for sequential independent queries
+**Learning:** Sequential independent queries like fetching `merchants` and `orders` add unnecessary round trips and increase latency, especially in hot paths like order payment recording API.
+**Action:** Always group independent queries (e.g. `supabase.from('A')` and `supabase.from('B')`) into `Promise.all()` to fetch them concurrently.
+**Measurement:** Removed sequential blocking latency and improved execution time for `apps/web/src/app/api/orders/[id]/record-payment/route.ts` API.

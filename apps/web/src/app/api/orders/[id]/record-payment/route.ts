@@ -116,14 +116,36 @@ export async function POST(
       );
     }
 
-    // Fetch full Merchant details for email
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', merchantId)
-      .single();
+    // ⚡ Bolt Performance Optimization: Use Promise.all to fetch independent queries concurrently
+    const [merchantResult, orderResult, txnsResult] = await Promise.all([
+      supabase
+        .from('merchants')
+        .select(
+          'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+        )
+        .eq('id', merchantId)
+        .single(),
+      supabase
+        .from('orders')
+        .select(ORDER_WITH_ITEMS_QUERY)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .single(),
+      // Δ-36 (A3): widen the existing completed-only fetch to also cover
+      // pending/processing rows so we can guard against shadowing a real
+      // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
+      // Direct, Juicyway) with a parallel manual transaction. One DB
+      // round-trip serves both purposes — filter in TS below.
+      supabase
+        .from('transactions')
+        .select('amount, gateway, gateway_reference, status')
+        .eq('order_id', id)
+        .in('status', ['completed', 'pending', 'processing']),
+    ]);
+
+    const { data: merchant, error: merchantError } = merchantResult;
+    const { data: order, error: orderError } = orderResult;
+    const { data: relevantTxns, error: txError } = txnsResult;
 
     if (merchantError || !merchant) {
       logger.error({
@@ -138,34 +160,15 @@ export async function POST(
       );
     }
 
-    // 2. Fetch Order & Items & Existing Transactions
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select(ORDER_WITH_ITEMS_QUERY)
-      .eq('id', id)
-      .eq('merchant_id', merchant.id)
-      .single();
-
     if (orderError || !order) {
       logger.error({
         message: 'RecordPayment order not found',
         error: orderError,
         orderId: id,
-        merchantId: merchant.id,
+        merchantId,
       });
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
-
-    // Δ-36 (A3): widen the existing completed-only fetch to also cover
-    // pending/processing rows so we can guard against shadowing a real
-    // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
-    // Direct, Juicyway) with a parallel manual transaction. One DB
-    // round-trip serves both purposes — filter in TS below.
-    const { data: relevantTxns, error: txError } = await supabase
-      .from('transactions')
-      .select('amount, gateway, gateway_reference, status')
-      .eq('order_id', id)
-      .in('status', ['completed', 'pending', 'processing']);
 
     if (txError) {
       logger.error({
