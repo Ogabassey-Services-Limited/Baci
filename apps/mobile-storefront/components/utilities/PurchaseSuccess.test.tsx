@@ -51,6 +51,7 @@ jest.mock('@/lib/utility-receipt', () => ({
   shareUtilityReceipt: (input: unknown) => mockShareUtilityReceipt(input),
   buildUtilityReceiptHtml: (input: unknown) =>
     `RECEIPT:${JSON.stringify(input)}`,
+  buildReceiptMessage: (input: unknown) => `RECEIPT_TEXT:${JSON.stringify(input)}`,
 }));
 
 jest.mock('@/components/receipts/ReceiptPreviewModal', () => {

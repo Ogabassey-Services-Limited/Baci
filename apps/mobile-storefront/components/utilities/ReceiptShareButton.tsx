@@ -4,7 +4,11 @@ import { Pressable, Text } from 'react-native';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
-import { buildUtilityReceiptHtml } from '@/lib/utility-receipt';
+import {
+  buildReceiptMessage,
+  buildUtilityReceiptHtml,
+  type UtilityReceiptData,
+} from '@/lib/utility-receipt';
 import { styles } from './purchase-success.styles';
 
 // Keeps known receipt types autocomplete-friendly while still accepting backend-added string types.
@@ -39,28 +43,28 @@ export default function ReceiptShareButton({
   network,
   customerName,
 }: ReceiptShareButtonProps) {
-  // Holds the rendered receipt HTML while the preview is open (null = closed).
-  const [receiptHtml, setReceiptHtml] = useState<string | null>(null);
+  // Holds the receipt data while the preview is open (null = closed).
+  const [receiptData, setReceiptData] = useState<UtilityReceiptData | null>(
+    null
+  );
   const isDisabled = !txReference;
   const actionColor = colors.primary ?? BRAND.primary;
 
   const handleViewReceipt = () => {
     if (!txReference) return;
     const isAirtimeLike = type === 'airtime' || type === 'data';
-    setReceiptHtml(
-      buildUtilityReceiptHtml({
-        amount,
-        customerIdentifier: identifier,
-        customerName: customerName ?? undefined,
-        dateTime: new Date().toISOString(),
-        network: network ?? undefined,
-        phoneNumber: isAirtimeLike ? identifier : undefined,
-        reference: txReference,
-        status,
-        token: voucherPin,
-        type,
-      })
-    );
+    setReceiptData({
+      amount,
+      customerIdentifier: identifier,
+      customerName: customerName ?? undefined,
+      dateTime: new Date().toISOString(),
+      network: network ?? undefined,
+      phoneNumber: isAirtimeLike ? identifier : undefined,
+      reference: txReference,
+      status,
+      token: voucherPin,
+      type,
+    });
   };
 
   return (
@@ -80,9 +84,11 @@ export default function ReceiptShareButton({
         <Text style={styles.shareButtonText}>View receipt</Text>
       </Pressable>
       <ReceiptPreviewModal
-        visible={receiptHtml !== null}
-        html={receiptHtml ?? ''}
-        onClose={() => setReceiptHtml(null)}
+        visible={receiptData !== null}
+        html={receiptData ? buildUtilityReceiptHtml(receiptData) : ''}
+        shareText={receiptData ? buildReceiptMessage(receiptData) : undefined}
+        documentType="receipt"
+        onClose={() => setReceiptData(null)}
         isPaid={status === 'successful'}
       />
     </>

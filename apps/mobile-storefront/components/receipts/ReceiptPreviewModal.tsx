@@ -5,6 +5,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -19,11 +20,23 @@ interface ReceiptPreviewModalProps {
   html: string;
   onClose: () => void;
   isPaid: boolean;
+  // Whether the document is a paid receipt or an unpaid invoice. Controls the
+  // title/share labels independently of `isPaid` (which only drives the accent),
+  // because a utility record is always a "receipt" regardless of vend status.
+  documentType?: 'receipt' | 'invoice';
+  // Plain-text fallback shared when PDF generation/sharing is unavailable.
+  shareText?: string;
 }
 
 // Module-scope helper: dynamic import expressions and try/catch are not yet
 // supported by React Compiler inside component bodies. Never rejects.
-const shareReceiptPdf = async (html: string, isPaid: boolean) => {
+const shareReceiptPdf = async (
+  html: string,
+  documentType: 'receipt' | 'invoice',
+  shareText?: string
+) => {
+  const dialogTitle =
+    documentType === 'invoice' ? 'Share Invoice' : 'Share Receipt';
   try {
     // Dynamic import: avoids crash if native modules aren't linked yet
     // (requires dev client rebuild after adding expo-print/expo-sharing)
@@ -33,18 +46,28 @@ const shareReceiptPdf = async (html: string, isPaid: boolean) => {
     const { uri } = await Print.printToFileAsync({ html });
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
-      dialogTitle: isPaid ? 'Share Receipt' : 'Share Invoice',
+      dialogTitle,
       UTI: 'com.adobe.pdf',
     });
   } catch (err) {
     // User cancelled the share dialog — not an error
     if (
       err instanceof Error &&
-      !err.message.includes('cancelled') &&
-      !err.message.includes('canceled')
+      (err.message.includes('cancelled') || err.message.includes('canceled'))
     ) {
-      Alert.alert('Share Failed', 'Could not generate PDF. Please try again.');
+      return;
     }
+    // PDF unavailable (expo-print/sharing missing or failed) — fall back to
+    // sharing the receipt details as plain text so the customer can still share.
+    if (shareText) {
+      try {
+        await Share.share({ message: shareText });
+        return;
+      } catch {
+        // fall through to the alert below
+      }
+    }
+    Alert.alert('Share Failed', 'Could not share the receipt. Please try again.');
   }
 };
 
@@ -53,6 +76,8 @@ export function ReceiptPreviewModal({
   html,
   onClose,
   isPaid,
+  documentType = 'receipt',
+  shareText,
 }: ReceiptPreviewModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -62,7 +87,7 @@ export function ReceiptPreviewModal({
   const handleShare = async () => {
     if (!html || isSharing) return;
     setIsSharing(true);
-    await shareReceiptPdf(html, isPaid);
+    await shareReceiptPdf(html, documentType, shareText);
     setIsSharing(false);
   };
 
@@ -99,7 +124,7 @@ export function ReceiptPreviewModal({
             </Pressable>
           </View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {isPaid ? 'Receipt Preview' : 'Invoice Preview'}
+            {documentType === 'invoice' ? 'Invoice Preview' : 'Receipt Preview'}
           </Text>
           <View style={styles.headerRight} />
         </View>

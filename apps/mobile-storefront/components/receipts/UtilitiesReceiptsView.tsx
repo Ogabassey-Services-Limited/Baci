@@ -14,7 +14,11 @@ import {
   useVTUHistory,
   type VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
-import { buildUtilityReceiptHtml } from '@/lib/utility-receipt';
+import {
+  buildReceiptMessage,
+  buildUtilityReceiptHtml,
+  type UtilityReceiptData,
+} from '@/lib/utility-receipt';
 import { utilityRepeatHelpers } from '@/lib/utility-repeat';
 import { ReceiptPreviewModal } from './ReceiptPreviewModal';
 import { UtilityReceiptCard } from './UtilityReceiptCard';
@@ -23,10 +27,11 @@ interface UtilitiesReceiptsViewProps {
   colors: typeof Colors.light;
 }
 
-function toReceiptHtml(transaction: VTUHistoryTransaction): string {
-  return buildUtilityReceiptHtml({
+function toReceiptData(transaction: VTUHistoryTransaction): UtilityReceiptData {
+  return {
     amount: transaction.amount,
     billerName: transaction.biller_name ?? undefined,
+    cashback: transaction.customer_cashback,
     customerIdentifier:
       transaction.customer_identifier ?? transaction.phone_number ?? undefined,
     customerName: transaction.customer_name,
@@ -37,7 +42,7 @@ function toReceiptHtml(transaction: VTUHistoryTransaction): string {
     status: transaction.status,
     token: transaction.voucher_pin,
     type: utilityRepeatHelpers.getRouteType(transaction.type),
-  });
+  };
 }
 
 export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
@@ -120,7 +125,11 @@ export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
       />
       <ReceiptPreviewModal
         visible={selected !== null}
-        html={selected ? toReceiptHtml(selected) : ''}
+        html={selected ? buildUtilityReceiptHtml(toReceiptData(selected)) : ''}
+        shareText={
+          selected ? buildReceiptMessage(toReceiptData(selected)) : undefined
+        }
+        documentType="receipt"
         onClose={() => setSelected(null)}
         isPaid={selected?.status === 'successful'}
       />

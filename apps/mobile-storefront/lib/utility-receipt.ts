@@ -135,7 +135,7 @@ function renderRows(rows: [string, string][]): string {
     .join('');
 }
 
-function buildReceiptMessage(data: UtilityReceiptData) {
+export function buildReceiptMessage(data: UtilityReceiptData) {
   const token = getReceiptToken(data);
   return [
     `${getTypeLabel(data.type)} receipt`,

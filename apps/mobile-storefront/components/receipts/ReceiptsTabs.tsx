@@ -66,10 +66,10 @@ export function ReceiptsTabs({ colors, devicesContent }: ReceiptsTabsProps) {
         initialPage={0}
         onPageSelected={(e) => setActiveIndex(e.nativeEvent.position)}
       >
-        <View key="devices" style={styles.page}>
+        <View key="devices" collapsable={false} style={styles.page}>
           {devicesContent}
         </View>
-        <View key="utilities" style={styles.page}>
+        <View key="utilities" collapsable={false} style={styles.page}>
           <UtilitiesReceiptsView colors={colors} />
         </View>
       </PagerView>
