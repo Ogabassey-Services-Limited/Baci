@@ -97,7 +97,7 @@ platform :ios do
     setup_ci if ENV["CI"]
   end
 
-  desc "Build signed IPA and upload to TestFlight (no review submission)"
+  desc "Build signed IPA, upload to TestFlight, and wait for build processing"
   lane :release do
     api_key = asc_api_key
     ensure_required_env!(%w[
