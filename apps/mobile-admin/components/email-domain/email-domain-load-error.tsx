@@ -30,6 +30,8 @@ export function EmailDomainLoadError({
         disabled={refreshing}
         onPress={onRetry}
         accessibilityRole="button"
+        accessibilityLabel="Retry"
+        accessibilityState={{ busy: refreshing, disabled: refreshing }}
       >
         {refreshing ? (
           <ActivityIndicator color={colors.primary} />

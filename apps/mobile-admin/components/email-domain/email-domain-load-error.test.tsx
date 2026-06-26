@@ -36,4 +36,19 @@ describe('EmailDomainLoadError', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalled();
   });
+
+  it('keeps an accessible name while refreshing (spinner replaces the label)', () => {
+    render(
+      <EmailDomainLoadError
+        colors={colors}
+        error={new Error('network unavailable')}
+        refreshing={true}
+        onRetry={vi.fn()}
+      />
+    );
+
+    // The visible "Retry" text is swapped for a spinner, so the button must
+    // still expose a stable accessible name for screen readers.
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
 });

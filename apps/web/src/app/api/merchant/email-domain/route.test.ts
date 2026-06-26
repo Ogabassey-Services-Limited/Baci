@@ -270,4 +270,30 @@ describe('POST /api/merchant/email-domain business rules', () => {
 
     expect(res.status).toBe(409);
   });
+
+  it('returns 500 with email_domain_storage_failed when persistence fails', async () => {
+    signedInAs('pro');
+    mockRegister.mockRejectedValue(
+      new Error('Failed to save email domain: db unavailable')
+    );
+
+    const res = await POST(req({ domain: 'mystore.com' }));
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_storage_failed',
+    });
+  });
+
+  it('returns 502 with email_domain_upstream_failed when the provider fails', async () => {
+    signedInAs('pro');
+    mockRegister.mockRejectedValue(new Error('ZeptoMail API error (500)'));
+
+    const res = await POST(req({ domain: 'mystore.com' }));
+
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_upstream_failed',
+    });
+  });
 });
