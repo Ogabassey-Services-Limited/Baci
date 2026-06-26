@@ -33,6 +33,17 @@ describe('notification schemas', () => {
     expect(parsed.success).toBe(false);
   });
 
+  it('allows update payloads to clear merchant ID targeting with null', () => {
+    const parsed = updateNotificationSchema.safeParse({
+      target_merchant_ids: null,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.target_merchant_ids).toBeNull();
+    }
+  });
+
   it('requires merchant IDs for specific create targeting', () => {
     const parsed = createNotificationSchema.safeParse({
       ...validCreateNotification,

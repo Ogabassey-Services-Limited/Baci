@@ -50,6 +50,8 @@ function createMockSupabase(options?: {
     target_type?: string;
     title?: string;
   } | null;
+  updatedNotification?: Record<string, unknown>;
+  updateReturnsRow?: boolean;
 }) {
   const notification = options?.notification ?? {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -59,6 +61,9 @@ function createMockSupabase(options?: {
     target_type: 'all',
     title: 'Launch update',
   };
+  const updateReturnsRow = options?.updateReturnsRow ?? true;
+  const updatedNotification = options?.updatedNotification ?? notification;
+  const notificationUpdates: Record<string, unknown>[] = [];
 
   const merchantsQuery = {
     eq: vi.fn(() => merchantsQuery),
@@ -71,15 +76,25 @@ function createMockSupabase(options?: {
 
   const notificationsQuery = {
     eq: vi.fn(() => notificationsQuery),
+    is: vi.fn(() => notificationsQuery),
+    maybeSingle: vi.fn(async () => ({
+      data: updateReturnsRow ? updatedNotification : null,
+      error: null,
+    })),
     single: vi.fn(async () => ({
       data: notification,
       error: notification ? null : { message: 'not found' },
     })),
     select: vi.fn(() => notificationsQuery),
-    update: vi.fn(() => notificationsQuery),
+    update: vi.fn((payload: Record<string, unknown>) => {
+      notificationUpdates.push(payload);
+      return notificationsQuery;
+    }),
   };
 
   return {
+    __notificationUpdates: notificationUpdates,
+    __notificationsQuery: notificationsQuery,
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
@@ -194,5 +209,90 @@ describe('PATCH /api/admin/notifications/[id]', () => {
     });
 
     expect(response.status).toBe(200);
+  });
+
+  it('rejects the update when a notification is sent after the preflight read', async () => {
+    mockSupabase = createMockSupabase({ updateReturnsRow: false });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PATCH(createRequest({ title: 'Race-safe update' }), {
+      params: Promise.resolve({
+        id: '123e4567-e89b-12d3-a456-426614174000',
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe(
+      'Cannot update a notification that has already been sent'
+    );
+    expect(mockSupabase.__notificationsQuery.is).toHaveBeenCalledWith(
+      'sent_at',
+      null
+    );
+  });
+
+  it('allows all-target notifications to clear stored merchant IDs with null', async () => {
+    mockSupabase = createMockSupabase({
+      notification: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        sent_at: null,
+        target_merchant_ids: ['123e4567-e89b-12d3-a456-426614174111'],
+        target_segment: null,
+        target_type: 'specific',
+        title: 'Launch update',
+      },
+      updatedNotification: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        sent_at: null,
+        target_merchant_ids: null,
+        target_segment: null,
+        target_type: 'all',
+        title: 'Launch update',
+      },
+    });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PATCH(
+      createRequest({ target_type: 'all', target_merchant_ids: null }),
+      {
+        params: Promise.resolve({
+          id: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSupabase.__notificationUpdates.at(-1)).toMatchObject({
+      target_merchant_ids: null,
+      target_type: 'all',
+    });
+  });
+
+  it('rejects clearing merchant IDs when effective targeting remains specific', async () => {
+    mockSupabase = createMockSupabase({
+      notification: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        sent_at: null,
+        target_merchant_ids: ['123e4567-e89b-12d3-a456-426614174111'],
+        target_segment: null,
+        target_type: 'specific',
+        title: 'Launch update',
+      },
+    });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PATCH(createRequest({ target_merchant_ids: null }), {
+      params: Promise.resolve({
+        id: '123e4567-e89b-12d3-a456-426614174000',
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid input');
+    expect(body.details.fieldErrors.target_merchant_ids).toContain(
+      'Target merchant IDs required for specific targeting'
+    );
   });
 });

@@ -1416,6 +1416,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Juicyway is a stablecoin rail: the webhook reports the settled amount in
+    // the session currency (USDT/USDC cents), which is NOT comparable to the
+    // NGN order total. Persist the expected settlement amount + locked FX rate
+    // inside the initial transaction insert so a fast webhook can never observe
+    // a transaction row without the strict validation metadata.
+    const juicywayCrypto = paymentResult.crypto_payment;
+    const transactionMetadata =
+      gateway === 'juicyway' && juicywayCrypto?.expected_session_amount != null
+        ? {
+            // Stablecoin minor units (cents), incl. Juicyway fee.
+            juicyway_expected_amount: juicywayCrypto.expected_session_amount,
+            juicyway_expected_currency:
+              juicywayCrypto.expected_session_currency ??
+              juicywayCrypto.currency,
+            juicyway_fx_rate: juicywayCrypto.conversion_rate ?? null,
+          }
+        : {};
+
     // Create transaction record (via RPC) and update order status
     const { error: transactionError } = await adminSupabase.rpc(
       'create_payment_transaction',
@@ -1431,6 +1449,7 @@ export async function POST(request: NextRequest) {
         p_customer_email: paymentData.customer_email,
         p_customer_name: paymentData.customer_name,
         p_session_id: paymentResult.sessionId || null,
+        p_metadata: transactionMetadata,
       }
     );
 
@@ -1441,53 +1460,6 @@ export async function POST(request: NextRequest) {
         'TRANSACTION_CREATE_FAILED',
         500
       );
-    }
-
-    // Juicyway is a stablecoin rail: the webhook reports the settled amount in
-    // the session currency (USDT/USDC cents), which is NOT comparable to the
-    // NGN order total. Persist the expected settlement amount + locked FX rate
-    // now so the webhook can reject underpaid/mismatched settlements instead of
-    // trusting a signature-valid success event blindly.
-    const juicywayCrypto = paymentResult.crypto_payment;
-    if (
-      gateway === 'juicyway' &&
-      juicywayCrypto?.expected_session_amount != null
-    ) {
-      // This RPC is granted only to service_role; keep it on the explicit
-      // admin client so Juicyway checkouts cannot fail under customer RLS.
-      const { error: metadataError } = await adminSupabase.rpc(
-        'merge_transaction_metadata_by_reference',
-        {
-          p_gateway_reference: paymentResult.reference,
-          p_session_id: paymentResult.sessionId,
-          p_order_id: paymentData.order_id,
-          p_merchant_id: merchantId,
-          p_metadata: {
-            customer_email: paymentData.customer_email,
-            customer_name: paymentData.customer_name,
-            session_id: paymentResult.sessionId ?? null,
-            // Stablecoin minor units (cents), incl. Juicyway fee.
-            juicyway_expected_amount: juicywayCrypto.expected_session_amount,
-            juicyway_expected_currency:
-              juicywayCrypto.expected_session_currency ??
-              juicywayCrypto.currency,
-            juicyway_fx_rate: juicywayCrypto.conversion_rate ?? null,
-          },
-        }
-      );
-
-      if (metadataError) {
-        logger.error({
-          message: 'Failed to persist Juicyway expected settlement amount',
-          reference: paymentResult.reference,
-          error: metadataError,
-        });
-        return createErrorResponse(
-          'Failed to secure payment validation',
-          'JUICYWAY_METADATA_PERSIST_FAILED',
-          500
-        );
-      }
     }
 
     // Return success response

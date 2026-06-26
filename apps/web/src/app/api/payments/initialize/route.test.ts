@@ -104,7 +104,6 @@ const ORDER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 let rpcResult: { data: unknown; error: unknown };
 let rpcTransactionResult: { data: unknown; error: unknown };
-let rpcMergeMetadataResult: { data: unknown; error: unknown };
 const rpcCalls: Array<{ args?: unknown; name: string }> = [];
 
 function createMockSupabase() {
@@ -115,8 +114,6 @@ function createMockSupabase() {
         return Promise.resolve(rpcResult);
       if (name === 'create_payment_transaction')
         return Promise.resolve(rpcTransactionResult);
-      if (name === 'merge_transaction_metadata_by_reference')
-        return Promise.resolve(rpcMergeMetadataResult);
       return Promise.resolve({ data: null, error: null });
     }),
   };
@@ -275,7 +272,6 @@ function setupDefaults() {
     error: null,
   };
   rpcTransactionResult = { data: null, error: null };
-  rpcMergeMetadataResult = { data: null, error: null };
   merchantResult = {
     data: {
       id: MERCHANT_ID,
@@ -1205,19 +1201,17 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.currency).toBe('USDT');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
       expect(json.crypto_address_pending).toBeUndefined();
-      expect(rpcCalls.at(-1)).toEqual({
-        name: 'merge_transaction_metadata_by_reference',
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall).toEqual({
+        name: 'create_payment_transaction',
         args: expect.objectContaining({
-          p_gateway_reference: expect.any(String),
           p_session_id: 'session-123',
-          p_order_id: ORDER_ID,
-          p_merchant_id: MERCHANT_ID,
           p_metadata: expect.objectContaining({
-            customer_email: validBody.customer_email,
-            customer_name: validBody.customer_name,
-            session_id: 'session-123',
             juicyway_expected_amount: 500000,
             juicyway_expected_currency: 'USD',
+            juicyway_fx_rate: expect.any(Number),
           }),
         }),
       });
@@ -1274,18 +1268,23 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.address).toBe('');
       expect(json.session_id).toBe('session-123');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
-      expect(rpcCalls.at(-1)).toEqual({
-        name: 'merge_transaction_metadata_by_reference',
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall).toEqual({
+        name: 'create_payment_transaction',
         args: expect.objectContaining({
+          p_session_id: 'session-123',
           p_metadata: expect.objectContaining({
             juicyway_expected_amount: 500000,
             juicyway_expected_currency: 'USDT',
+            juicyway_fx_rate: expect.any(Number),
           }),
         }),
       });
     });
 
-    it('fails checkout when Juicyway settlement metadata cannot be persisted', async () => {
+    it('fails checkout when the initial transaction insert rejects Juicyway validation metadata', async () => {
       mockInitializeJuicyway.mockResolvedValue({
         id: 'session-123',
         status: 'pending',
@@ -1305,9 +1304,9 @@ describe('POST /api/payments/initialize', () => {
           },
         },
       });
-      rpcMergeMetadataResult = {
+      rpcTransactionResult = {
         data: null,
-        error: { message: 'metadata merge failed' },
+        error: { message: 'transaction insert failed' },
       };
 
       const res = await POST(
@@ -1322,8 +1321,17 @@ describe('POST /api/payments/initialize', () => {
 
       expect(res.status).toBe(500);
       expect(json).toMatchObject({
-        code: 'JUICYWAY_METADATA_PERSIST_FAILED',
-        error: 'Failed to secure payment validation',
+        code: 'TRANSACTION_CREATE_FAILED',
+        error: 'Failed to create transaction',
+      });
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_metadata: expect.objectContaining({
+          juicyway_expected_amount: 500000,
+          juicyway_expected_currency: 'USDT',
+        }),
       });
     });
 

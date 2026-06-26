@@ -269,10 +269,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       mergedNotificationTargetingSchema.safeParse({
         target_type: body.target_type ?? existing.target_type ?? undefined,
         target_merchant_ids:
-          body.target_merchant_ids ??
-          (Array.isArray(existing.target_merchant_ids)
-            ? existing.target_merchant_ids
-            : undefined),
+          body.target_merchant_ids !== undefined
+            ? (body.target_merchant_ids ?? undefined)
+            : Array.isArray(existing.target_merchant_ids)
+              ? existing.target_merchant_ids
+              : undefined,
         target_segment:
           body.target_segment ?? existing.target_segment ?? undefined,
       });
@@ -319,10 +320,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('notifications')
       .update(updates)
       .eq('id', id)
+      .is('sent_at', null)
       .select(
         'id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, sent_at, expires_at, created_at, created_by'
       )
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       logger.error({
@@ -333,6 +335,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: 'Failed to update notification' },
         { status: 500 }
+      );
+    }
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Cannot update a notification that has already been sent' },
+        { status: 400 }
       );
     }
 

@@ -89,7 +89,7 @@ export const updateNotificationSchema = z.object({
   notification_type: z.enum(['info', 'success', 'warning', 'error']).optional(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   target_type: z.enum(['all', 'specific', 'segment']).optional(),
-  target_merchant_ids: z.array(z.uuid()).optional(),
+  target_merchant_ids: z.array(z.uuid()).optional().nullable(),
   target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
   channels: z
     .array(z.enum(['in_app', 'banner', 'push']))
