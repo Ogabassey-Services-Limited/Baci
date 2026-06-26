@@ -6,6 +6,7 @@ WORKSPACE = "ios/BaciTheEcommerceBuilder.xcworkspace"
 SCHEME = "BaciTheEcommerceBuilder"
 BUNDLE_ID = "com.ogabassey.baci"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
+APP_STORE_RELEASE_NOTES_MAX_LENGTH = 4000
 
 def ensure_required_env!(keys)
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
@@ -27,7 +28,7 @@ def asc_api_key
   )
 end
 
-def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
+def upload_ipa_with_altool!(ipa_path)
   absolute_ipa_path = File.expand_path(ipa_path)
   UI.user_error!("Expected IPA does not exist: #{absolute_ipa_path}") unless File.file?(absolute_ipa_path)
 
@@ -58,13 +59,37 @@ def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
     "normal",
     "--show-progress"
   ]
-  command << "--wait" if wait_for_processing
-
   system({ "API_PRIVATE_KEYS_DIR" => File.dirname(key_path) }, *command)
   status = $CHILD_STATUS
   return if status&.success?
 
   UI.user_error!("altool upload failed with exit status #{status&.exitstatus || 'unknown'}")
+end
+
+def app_store_release_notes(text)
+  notes = text.to_s.gsub(/\r\n?/, "\n").strip
+  notes = "Bug fixes and performance improvements." if notes.empty?
+  notes[0, APP_STORE_RELEASE_NOTES_MAX_LENGTH]
+end
+
+def wait_for_app_store_build_processing!(api_key:, app_version:, build_number:)
+  wait_opts = {
+    api_key: api_key,
+    app_identifier: BUNDLE_ID,
+    app_platform: "ios",
+    distribute_only: true,
+    skip_submission: true,
+    distribute_external: false,
+    notify_external_testers: false,
+    skip_waiting_for_build_processing: false,
+    wait_processing_interval: 30,
+    wait_processing_timeout_duration: 7200
+  }
+
+  wait_opts[:app_version] = app_version unless app_version.empty?
+  wait_opts[:build_number] = build_number unless build_number.empty?
+
+  upload_to_testflight(wait_opts)
 end
 
 platform :ios do
@@ -118,20 +143,15 @@ platform :ios do
 
     # fastlane be56dd5 currently drops --file when wrapping Xcode 26 altool.
     # Keep the Faraday 2 pin and own the upload arguments until that wrapper is fixed upstream.
-    # Wait here because the workflow runs `fastlane ios submit` immediately afterwards,
-    # and App Store Connect cannot attach a build that is still processing.
-    upload_ipa_with_altool!(
-      File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      wait_for_processing: true
-    )
+    # The submit lane performs a separate App Store Connect processing wait before deliver.
+    upload_ipa_with_altool!(File.join(OUTPUT_DIR, "#{SCHEME}.ipa"))
   end
 
   desc "Submit the latest (or specified) TestFlight build for App Store review"
   lane :submit do
     api_key = asc_api_key
 
-    release_notes_text = ENV["IOS_RELEASE_NOTES"].to_s.strip
-    release_notes_text = "Bug fixes and performance improvements." if release_notes_text.empty?
+    release_notes_text = app_store_release_notes(ENV["IOS_RELEASE_NOTES"])
 
     deliver_opts = {
       api_key: api_key,
@@ -143,8 +163,16 @@ platform :ios do
       force: true,
       reject_if_possible: true,
       precheck_include_in_app_purchases: false,
+      # Production admin builds include the TikTok Business SDK when the release
+      # secrets are configured. Match App Store Connect's IDFA declaration to the
+      # actual ATT-gated attribution runtime instead of auto-submitting a false
+      # IDFA answer. The app does not serve ads.
       submission_information: {
-        add_id_info_uses_idfa: false,
+        add_id_info_uses_idfa: true,
+        add_id_info_serves_ads: false,
+        add_id_info_tracks_action: true,
+        add_id_info_tracks_install: true,
+        add_id_info_limits_tracking: true,
         export_compliance_uses_encryption: false,
         export_compliance_encryption_updated: false
       }
@@ -162,6 +190,12 @@ platform :ios do
 
     deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
+
+    wait_for_app_store_build_processing!(
+      api_key: api_key,
+      app_version: app_version,
+      build_number: build_number
+    )
 
     changelog_opts = { api_key: api_key, changelog: release_notes_text }
     changelog_opts[:version] = app_version unless app_version.empty?
