@@ -65,7 +65,7 @@ export function AuthInput({
       <View
         style={[
           styles.inputWrapper,
-          { backgroundColor: wrapperColor, borderColor, opacity: editable ? 1 : 0.6 },
+          { backgroundColor: wrapperColor, borderColor, opacity: editable !== false ? 1 : 0.6 },
         ]}
       >
         <Ionicons
@@ -77,7 +77,7 @@ export function AuthInput({
         <NativeTextInput
           ref={inputRef}
           accessibilityLabel={label}
-          accessibilityState={{ disabled: !editable }}
+          accessibilityState={{ disabled: editable === false }}
           style={[styles.input, { color: textColor }]}
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor}

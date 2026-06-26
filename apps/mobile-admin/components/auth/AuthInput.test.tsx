@@ -131,4 +131,24 @@ describe('AuthInput', () => {
 
     expect(screen.getByLabelText('Email').getAttribute('aria-disabled')).toBe('true');
   });
+
+  it('renders active state programmatically when editable is omitted (defaults to true)', () => {
+    render(
+      <AuthInput
+        borderColor="#ddd"
+        iconColor="#666"
+        iconName="mail-outline"
+        label="Email"
+        labelColor="#111"
+        onChangeText={() => {}}
+        placeholder="you@example.com"
+        placeholderTextColor="#888"
+        textColor="#111"
+        value=""
+        wrapperColor="#fff"
+      />
+    );
+
+    expect(screen.getByLabelText('Email').getAttribute('aria-disabled')).toBeFalsy();
+  });
 });
