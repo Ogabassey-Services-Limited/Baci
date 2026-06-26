@@ -246,8 +246,21 @@ jobs:
       - name: Guard App Store submission against stale main builds
         if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         id: submit_guard
+        shell: bash
+        env:
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          CURRENT_MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          CURRENT_MAIN_SHA="$({
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["object"]["sha"])'
+          })"
           if [ -z "$CURRENT_MAIN_SHA" ]; then
             echo "::error::Unable to determine current main HEAD"
             exit 1
@@ -259,8 +272,6 @@ jobs:
             echo "allow_submit=false" >> "$GITHUB_OUTPUT"
             echo "Skipping App Store review submission because this run is not for the current main HEAD."
           fi
-        env:
-          GITHUB_SHA: ${{ github.sha }}
 
       - name: Resolve release notes
         if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.submit_guard.outputs.allow_submit == 'true') }}
@@ -292,6 +303,7 @@ jobs:
         env:
           CI: '1'
           FASTLANE_DISABLE_COLORS: '1'
+          FASTLANE_HIDE_CHANGELOG: '1'
           FASTLANE_SKIP_UPDATE_CHECK: '1'
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
