@@ -249,7 +249,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Parse and validate request body
-    const parsed = updateNotificationSchema.safeParse(await request.json());
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = updateNotificationSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: z.flattenError(parsed.error) },

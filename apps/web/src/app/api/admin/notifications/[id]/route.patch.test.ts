@@ -130,6 +130,23 @@ describe('PATCH /api/admin/notifications/[id]', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed JSON bodies', async () => {
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/notifications/123', {
+        method: 'PATCH',
+        body: '{not-json',
+        headers: { 'Content-Type': 'application/json' },
+      }) as NextRequest,
+      {
+        params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
+      }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid JSON body');
+  });
+
   it('rejects updates that would leave specific targeting without merchants', async () => {
     mockSupabase = createMockSupabase({
       notification: {

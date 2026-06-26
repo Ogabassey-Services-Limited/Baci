@@ -32,4 +32,43 @@ describe('notification schemas', () => {
 
     expect(parsed.success).toBe(false);
   });
+
+  it('requires merchant IDs for specific create targeting', () => {
+    const parsed = createNotificationSchema.safeParse({
+      ...validCreateNotification,
+      target_type: 'specific',
+      target_merchant_ids: [],
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.flatten().fieldErrors.target_merchant_ids).toContain(
+        'Target merchant IDs required for specific targeting'
+      );
+    }
+  });
+
+  it('requires a segment for segment create targeting', () => {
+    const parsed = createNotificationSchema.safeParse({
+      ...validCreateNotification,
+      target_type: 'segment',
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.flatten().fieldErrors.target_segment).toContain(
+        'Target segment required for segment targeting'
+      );
+    }
+  });
+
+  it('accepts valid targeted create notifications', () => {
+    const parsed = createNotificationSchema.safeParse({
+      ...validCreateNotification,
+      target_type: 'specific',
+      target_merchant_ids: ['123e4567-e89b-12d3-a456-426614174000'],
+    });
+
+    expect(parsed.success).toBe(true);
+  });
 });
