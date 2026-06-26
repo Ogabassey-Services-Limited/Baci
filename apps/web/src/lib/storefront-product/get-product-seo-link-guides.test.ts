@@ -143,6 +143,11 @@ describe('getSeoGuidePosts', () => {
   });
 
   it('fails open when the cluster guide query is temporarily unavailable', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {
+        // Suppress expected error logging in this fail-open regression test.
+      });
     blogPostsResponses = [{ data: [], error: { message: 'timeout' } }];
 
     await expect(
@@ -151,9 +156,23 @@ describe('getSeoGuidePosts', () => {
       clusterGuidePosts: [],
       productGuidePosts: [expect.objectContaining({ slug: 'legion-guide' })],
     });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to load SEO cluster guide posts',
+      {
+        merchantId: 'merchant-1',
+        categorySlug: 'laptops',
+        error: { message: 'timeout' },
+      }
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('fails open when the product guide query is temporarily unavailable', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {
+        // Suppress expected error logging in this fail-open regression test.
+      });
     productGuidePostsResponse = { data: [], error: { message: 'timeout' } };
 
     await expect(
@@ -162,6 +181,15 @@ describe('getSeoGuidePosts', () => {
       clusterGuidePosts: clusterPosts,
       productGuidePosts: [],
     });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to load SEO product guide posts',
+      {
+        merchantId: 'merchant-1',
+        productId: 'prod-1',
+        error: { message: 'timeout' },
+      }
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('skips guide queries when the blog feature is disabled', async () => {

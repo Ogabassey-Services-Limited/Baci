@@ -93,7 +93,16 @@ async function getSeoClusterGuidePosts(
     SEO_LINK_CLUSTER_POST_CANDIDATE_LIMIT
   );
 
-  return error ? [] : ((data ?? []) as PublishedClusterPost[]);
+  if (error) {
+    console.error('Failed to load SEO cluster guide posts', {
+      merchantId,
+      categorySlug,
+      error,
+    });
+    return [];
+  }
+
+  return (data ?? []) as PublishedClusterPost[];
 }
 
 async function getSeoProductGuidePosts(
@@ -116,11 +125,18 @@ async function getSeoProductGuidePosts(
     .order('created_at', { ascending: false })
     .limit(SEO_LINK_PRODUCT_GUIDE_LIMIT);
 
-  return error
-    ? []
-    : (data ?? [])
-        .map((row) => normalizeLinkedPost(row))
-        .filter((post): post is PublishedClusterPost => Boolean(post));
+  if (error) {
+    console.error('Failed to load SEO product guide posts', {
+      merchantId,
+      productId,
+      error,
+    });
+    return [];
+  }
+
+  return (data ?? [])
+    .map((row) => normalizeLinkedPost(row))
+    .filter((post): post is PublishedClusterPost => Boolean(post));
 }
 
 function normalizeLinkedPost(
