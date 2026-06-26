@@ -2910,9 +2910,19 @@ function applySecurityHeaders(
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Storefront checkout embeds the Credit Direct BNPL flow in an in-page iframe
+  // (see CSP frame-src) that runs camera-based identity verification. A blanket
+  // `camera=()` allowlist disables the camera for the page AND every nested
+  // iframe, so getUserMedia is hard-blocked before the browser can prompt.
+  // Delegate camera/microphone to self + the Credit Direct verification origins
+  // on storefront routes; keep them fully disabled everywhere else.
+  const cameraAllowlist =
+    routeType === 'storefront'
+      ? 'camera=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng"), microphone=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng")'
+      : 'camera=(), microphone=()';
   response.headers.set(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), browsing-topics=()'
+    `${cameraAllowlist}, geolocation=(), browsing-topics=()`
   );
 
   // Set x-nonce header for server components (admin/auth routes only)

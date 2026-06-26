@@ -155,6 +155,17 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
 
+    // Storefront checkout embeds the Credit Direct BNPL iframe for camera-based
+    // identity verification, so camera/microphone must be delegated to those
+    // origins (a blanket `camera=()` would block getUserMedia in the iframe).
+    const permissionsPolicy = res.headers.get('Permissions-Policy') || '';
+    expect(permissionsPolicy).toContain(
+      'camera=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng")'
+    );
+    expect(permissionsPolicy).toContain(
+      'microphone=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng")'
+    );
+
     // Storefront specific CSP
     const csp = res.headers.get('Content-Security-Policy') || '';
     expect(csp).toContain("frame-ancestors 'self'");
