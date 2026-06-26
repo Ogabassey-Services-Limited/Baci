@@ -24,6 +24,7 @@ function domainResponse(dkimStatus: string, cnameStatus: string) {
             domain_name: 'ogabassey.com',
             domain_key: 'dk1',
             domain_status: 'active',
+            associated_mailagents: [{ mailagent_key: 'mail_agent_1' }],
             dkim: {
               host: '24132322._domainkey.ogabassey.com',
               public_key: 'k=rsa; p=AAA',
@@ -123,6 +124,7 @@ describe('zeptomail-domains client', () => {
             domain_name: 'ogabassey.com',
             domain_key: 'dk1',
             status: 'unverified',
+            associated_mailagents: [{ mailagent_key: 'mail_agent_1' }],
             dkim: {
               host: '24132322._domainkey.ogabassey.com',
               public_key: 'k=rsa; p=AAA',
@@ -184,6 +186,7 @@ describe('zeptomail-domains client', () => {
     ).resolves.toMatchObject({
       domainKey: 'dk1',
       verified: true,
+      associatedMailagentKeys: ['mail_agent_1'],
     });
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).endsWith('/domains'))
@@ -193,6 +196,98 @@ describe('zeptomail-domains client', () => {
         String(call[0]).endsWith('/domains/dk1')
       )
     ).toBe(true);
+  });
+
+  it('associates an existing domain with the configured mail agent before reuse', async () => {
+    fetchMock.mockImplementation(
+      (url: string | URL | Request, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes('accounts.zoho.com')) {
+          return Promise.resolve(TOKEN_OK);
+        }
+        if (href.endsWith('/domains') && init?.method === 'GET') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: [
+                  {
+                    domain_name: 'ogabassey.com',
+                    domain_key: 'dk1',
+                    associated_mailagents: [],
+                    dkim: { host: 'h', public_key: 'v', status: 'verified' },
+                    cname: {
+                      host: 'bounce-zem.ogabassey.com',
+                      cname_record: 'cluster89.zeptomail.com',
+                      status: 'verified',
+                    },
+                  },
+                ],
+              }),
+          });
+        }
+        if (href.endsWith('/domains/dk1') && init?.method === 'GET') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: {
+                  domain_name: 'ogabassey.com',
+                  domain_key: 'dk1',
+                  associated_mailagents: [],
+                  dkim: { host: 'h', public_key: 'v', status: 'verified' },
+                  cname: {
+                    host: 'bounce-zem.ogabassey.com',
+                    cname_record: 'cluster89.zeptomail.com',
+                    status: 'verified',
+                  },
+                },
+              }),
+          });
+        }
+        if (href.endsWith('/domains/dk1') && init?.method === 'PUT') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: {
+                  domain_name: 'ogabassey.com',
+                  domain_key: 'dk1',
+                  associated_mailagents: [{ mailagent_key: 'mail_agent_1' }],
+                  dkim: { host: 'h', public_key: 'v', status: 'verified' },
+                  cname: {
+                    host: 'bounce-zem.ogabassey.com',
+                    cname_record: 'cluster89.zeptomail.com',
+                    status: 'verified',
+                  },
+                },
+              }),
+          });
+        }
+        throw new Error(`Unexpected request ${href}`);
+      }
+    );
+    const mod = await load();
+
+    const existing = await mod.findSendingDomainByName('ogabassey.com');
+    expect(existing).not.toBeNull();
+    if (!existing) {
+      throw new Error('expected existing sending domain');
+    }
+    const associated =
+      await mod.associateSendingDomainWithConfiguredMailagent(existing);
+
+    expect(associated.associatedMailagentKeys).toEqual(['mail_agent_1']);
+    const attachCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/domains/dk1') &&
+        (init as RequestInit).method === 'PUT'
+    );
+    expect(JSON.parse((attachCall?.[1] as RequestInit).body as string)).toEqual(
+      {
+        associate_mailagents: ['mail_agent_1'],
+      }
+    );
   });
 
   it('marks failed DNS checks as failed', async () => {

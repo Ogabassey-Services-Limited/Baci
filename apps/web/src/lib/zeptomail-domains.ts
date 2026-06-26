@@ -35,6 +35,7 @@ export interface SendingDomainState {
   status: 'pending' | 'verified' | 'failed';
   verified: boolean;
   records: ZeptomailDnsRecord[];
+  associatedMailagentKeys: string[];
 }
 
 interface ZeptomailDomainData {
@@ -42,6 +43,15 @@ interface ZeptomailDomainData {
   domain_key: string;
   status?: string;
   domain_status?: string;
+  associated_mailagents?: Array<
+    | string
+    | {
+        mailagent_key?: string;
+        mailagentKey?: string;
+        key?: string;
+      }
+  >;
+  mailagent_keys?: string[];
   dkim?: {
     host: string;
     public_key: string;
@@ -201,7 +211,54 @@ function toSendingDomainState(data: ZeptomailDomainData): SendingDomainState {
     status,
     verified,
     records,
+    associatedMailagentKeys: extractAssociatedMailagentKeys(data),
   };
+}
+
+function extractAssociatedMailagentKeys(data: ZeptomailDomainData): string[] {
+  const keys = new Set<string>();
+  for (const key of data.mailagent_keys ?? []) {
+    if (key) keys.add(key);
+  }
+  for (const agent of data.associated_mailagents ?? []) {
+    if (typeof agent === 'string') {
+      keys.add(agent);
+      continue;
+    }
+    const key = agent.mailagent_key ?? agent.mailagentKey ?? agent.key;
+    if (key) keys.add(key);
+  }
+  return [...keys];
+}
+
+export function isAssociatedWithConfiguredMailagent(
+  state: SendingDomainState
+): boolean {
+  const mailagentKey = getZeptoMailAgentKey();
+  return Boolean(
+    mailagentKey && state.associatedMailagentKeys.includes(mailagentKey)
+  );
+}
+
+export async function associateSendingDomainWithConfiguredMailagent(
+  state: SendingDomainState
+): Promise<SendingDomainState> {
+  if (isAssociatedWithConfiguredMailagent(state)) {
+    return state;
+  }
+
+  const { mailagentKey } = getCredentials();
+  const json = await zeptomailRequest(`/domains/${state.domainKey}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      associate_mailagents: [mailagentKey],
+    }),
+  });
+  const updated = toSendingDomainState(firstDomain(json));
+  if (!isAssociatedWithConfiguredMailagent(updated)) {
+    throw new Error('Sending domain is not associated with this mail agent');
+  }
+  return updated;
 }
 
 function toVerificationStatus(

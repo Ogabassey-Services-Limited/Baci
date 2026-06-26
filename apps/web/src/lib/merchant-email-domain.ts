@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
+  associateSendingDomainWithConfiguredMailagent,
   findSendingDomainByName,
   registerSendingDomain,
   type SendingDomainState,
@@ -164,7 +165,7 @@ async function getRegisterableSendingDomain(
         'Domain is already verified in ZeptoMail and cannot be claimed automatically'
       );
     }
-    return existing;
+    return associateSendingDomainWithConfiguredMailagent(existing);
   }
 }
 
@@ -279,6 +280,28 @@ export async function setMerchantEmailDomainEnabled(
   enabled: boolean
 ): Promise<MerchantEmailDomain> {
   const supabase = createAdminClient();
+  if (enabled) {
+    const { data: existing, error: readError } = await supabase
+      .from(TABLE)
+      .select('domain, status')
+      .eq('merchant_id', merchantId)
+      .maybeSingle();
+    if (readError) {
+      throw new Error(`Failed to load email domain: ${readError.message}`);
+    }
+    const existingRow = existing as {
+      domain: string;
+      status: Row['status'];
+    } | null;
+    if (existingRow?.status !== 'verified') {
+      throw new Error('Domain must be verified before enabling');
+    }
+    await assertMerchantOwnsActiveStorefrontDomain(
+      supabase,
+      merchantId,
+      existingRow.domain
+    );
+  }
   let query = supabase
     .from(TABLE)
     .update({ enabled })
