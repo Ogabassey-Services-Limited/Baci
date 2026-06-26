@@ -2626,6 +2626,41 @@ export async function proxy(request: NextRequest) {
         );
       }
 
+      // Auth confirmation links (one-click magic-link / signup / recovery)
+      // emitted for custom-domain storefronts point at
+      // https://<custom-domain>/auth/confirm. Like /api, this route lives at
+      // /auth/confirm (not /{domain}/auth/confirm), so pass it through instead
+      // of storefront-rewriting it — otherwise the token never reaches the
+      // verifier and the session cookie is never set on the custom domain.
+      // Scoped to /auth/confirm only; the rest of /auth stays storefront-bound.
+      if (
+        pathname === '/auth/confirm' ||
+        pathname.startsWith('/auth/confirm/')
+      ) {
+        const requestHeaders = buildProxyRequestHeaders(request);
+        requestHeaders.set('x-custom-domain', domain);
+        requestHeaders.set('x-merchant-domain', domain);
+
+        const response = NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        });
+
+        const routeType = getRouteType(pathname); // returns 'auth'
+        const isLocal = isLocalhost(hostname);
+        return applySecurityHeaders(
+          response,
+          pathname,
+          userAgent,
+          routeType,
+          isLocal,
+          undefined,
+          request,
+          hostname
+        );
+      }
+
       // Prevent redirect loop: if the path already starts with the domain,
       // it means we've already rewritten. Just let it pass through.
       // Use segment boundary check to avoid false positives (e.g., /shop.common matching /shop.com)

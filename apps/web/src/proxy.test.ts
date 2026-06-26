@@ -592,6 +592,33 @@ describe('Middleware Proxy', () => {
     expect(getSlugForCustomDomain).not.toHaveBeenCalled();
   });
 
+  it('passes /auth/confirm through on custom domains so tokens reach the verifier', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    // Passed through (NextResponse.next), not storefront-rewritten to /<domain>/auth/confirm.
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('still storefront-rewrites other /auth paths on custom domains (scoping)', async () => {
+    const req = new NextRequest('https://ogabassey.com/auth/login');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // Only /auth/confirm is exempted; /auth/login falls through to the
+    // storefront rewrite (proving the passthrough is narrowly scoped).
+    expect(res.headers.get('x-middleware-rewrite')).toContain(
+      '/ogabassey.com/auth/login'
+    );
+  });
+
   it('strips app credentials from PostHog relay requests', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/baci-relay/e/capture/`
