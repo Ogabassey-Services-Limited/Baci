@@ -21,6 +21,7 @@ import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
@@ -138,6 +139,13 @@ export async function ProductPageRuntime({
     inventory: inventoryCandidates,
     guidePosts,
   });
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant.business_name || 'Baci Store',
+    categoryName,
+    currency,
+    country: merchant.country,
+  });
   const categoryUrl = `${baseUrl}/${categorySlug}`;
   const breadcrumbItems = [
     { name: merchant.business_name || 'Home', url: baseUrl },
@@ -169,9 +177,10 @@ export async function ProductPageRuntime({
           ...semanticModel,
           contextParagraphs: buildProductContextParagraphs({
             categoryName,
-            countryCode: merchant.country,
             currentProduct,
+            displayPriceText: priceSeoCopy.priceText,
             merchantBusinessName: merchant.business_name || 'Baci Store',
+            semanticModel,
           }),
         }}
       />

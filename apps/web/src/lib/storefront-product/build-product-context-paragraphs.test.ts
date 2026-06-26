@@ -7,7 +7,39 @@ describe('buildProductContextParagraphs', () => {
       buildProductContextParagraphs({
         merchantBusinessName: 'Ogabassey',
         categoryName: 'Smartphones',
-        countryCode: 'NG',
+        displayPriceText: '$950 - $1,050',
+        semanticModel: {
+          supportLinks: [{ href: '/smartphones', label: 'Shop Smartphones' }],
+          guideLinks: [
+            {
+              href: '/blog/guide',
+              title: 'Phone Guide',
+              description: 'Phone buying guide',
+              kind: 'buyer-guide',
+            },
+          ],
+          alternatives: {
+            heading: 'More smartphones',
+            cards: [
+              {
+                title: 'iPhone 15',
+                description: 'Apple option',
+                href: '/smartphones/iphone-15',
+              },
+            ],
+          },
+          sameBrand: {
+            heading: 'More Samsung',
+            cards: [
+              {
+                title: 'Samsung Galaxy S24',
+                description: 'Samsung option',
+                href: '/smartphones/samsung-galaxy-s24',
+              },
+            ],
+          },
+          samePrice: null,
+        },
         currentProduct: {
           slug: 'samsung-galaxy-s25',
           name: 'Samsung Galaxy S25',
@@ -20,8 +52,8 @@ describe('buildProductContextParagraphs', () => {
         },
       })
     ).toEqual([
-      'Samsung Galaxy S25 is listed by Ogabassey in Smartphones, with the current price shown as ₦950,000. Use this product page to review Open Box condition, compare the key details, and decide whether it fits your budget before checkout.',
-      'For buyers comparing Samsung options, the related links on this page connect Samsung Galaxy S25 with same-brand, similar-price, and category alternatives from Ogabassey. Check the page for current availability, delivery, and checkout options.',
+      'Samsung Galaxy S25 is listed by Ogabassey in Smartphones, with pricing shown on this page as $950 - $1,050. Use this product page to review Open Box condition, compare the key details, and decide whether it fits your budget before checkout.',
+      'For buyers comparing Samsung options, use the comparison links, buyer guides, same-brand options and smartphones alternatives on this page to move from Samsung Galaxy S25 to relevant options from Ogabassey. Check the page for current availability, delivery, and checkout options.',
     ]);
   });
 
@@ -29,7 +61,6 @@ describe('buildProductContextParagraphs', () => {
     const paragraphs = buildProductContextParagraphs({
       merchantBusinessName: 'Ogabassey',
       categoryName: 'Portable Gaming',
-      countryCode: 'NG',
       currentProduct: {
         slug: 'steam-deck',
         name: 'Steam Deck',
@@ -39,9 +70,10 @@ describe('buildProductContextParagraphs', () => {
     });
 
     expect(paragraphs[0]).toContain('review the listed condition');
-    expect(paragraphs[1]).toContain(
-      'For buyers comparing portable gaming alternatives'
-    );
+    expect(paragraphs[0]).toContain('with pricing shown on this page');
+    expect(paragraphs[0]).not.toContain('current price');
+    expect(paragraphs[1]).toContain('use the visible details on this page');
+    expect(paragraphs[1]).not.toContain('related links on this page connect');
     expect(paragraphs[1]).toContain(
       'Check the page for current availability before planning checkout.'
     );

@@ -94,6 +94,8 @@ describe('OgabasseyPdpSemanticSections', () => {
         merchant: {
           id: 'merchant-1',
           business_name: 'OgaBassey',
+          country: 'NG',
+          payout_currency: 'USD',
         },
         product,
         storeSlug: 'ogabassey',
@@ -132,6 +134,12 @@ describe('OgabasseyPdpSemanticSections', () => {
     );
     expect(screen.getByLabelText('semantic sections')).toHaveTextContent(
       'Lenovo Legion is listed by OgaBassey in Laptops'
+    );
+    expect(screen.getByLabelText('semantic sections').textContent).toMatch(
+      /US\$3,500,000|\$3,500,000/
+    );
+    expect(screen.getByLabelText('semantic sections')).not.toHaveTextContent(
+      '₦3,500,000'
     );
     expect(mockProductSemanticSections).toHaveBeenCalledWith({
       model: expect.objectContaining({

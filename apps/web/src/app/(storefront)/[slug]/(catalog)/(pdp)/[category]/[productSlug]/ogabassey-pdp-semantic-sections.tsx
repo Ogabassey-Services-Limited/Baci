@@ -6,11 +6,13 @@ import {
   getCachedProductSeoLinkData,
   type ProductSeoLinkData,
 } from '@/lib/storefront-product/get-cached-product-seo-link-data';
+import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 
 interface OgabasseyPdpSemanticMerchant {
   business_name?: string | null;
   country?: string | null;
   id: string;
+  payout_currency?: string | null;
 }
 
 interface OgabasseyPdpSemanticSectionsProps {
@@ -77,6 +79,13 @@ export async function OgabasseyPdpSemanticSections({
     guidePosts,
     priorityGuidePostSlugs,
   });
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant.business_name || 'Baci Store',
+    categoryName,
+    currency: merchant.payout_currency || 'NGN',
+    country: merchant.country,
+  });
 
   return (
     <ProductSemanticSections
@@ -84,9 +93,10 @@ export async function OgabasseyPdpSemanticSections({
         ...semanticModel,
         contextParagraphs: buildProductContextParagraphs({
           categoryName,
-          countryCode: merchant.country,
           currentProduct,
+          displayPriceText: priceSeoCopy.priceText,
           merchantBusinessName: merchant.business_name || 'Baci Store',
+          semanticModel,
         }),
       }}
     />

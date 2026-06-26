@@ -1,12 +1,18 @@
-import { formatCurrencyCompact } from '@/lib/currency';
-import type { ProductSemanticCandidate } from './product-semantic-types';
+import type {
+  ProductSemanticCandidate,
+  ProductSemanticModel,
+  ProductSemanticSection,
+} from './product-semantic-types';
 
 interface BuildProductContextParagraphsInput {
   categoryName: string;
-  /** Falls back to NG when the merchant country is not available. */
-  countryCode?: string | null;
   currentProduct: ProductSemanticCandidate;
+  displayPriceText?: string | null;
   merchantBusinessName: string;
+  semanticModel?: Pick<
+    ProductSemanticModel,
+    'alternatives' | 'guideLinks' | 'sameBrand' | 'samePrice' | 'supportLinks'
+  >;
 }
 
 function cleanText(value: string | null | undefined) {
@@ -29,11 +35,66 @@ function buildAvailabilitySentence(stock: number | null | undefined) {
   return 'Check the page for current availability, delivery, and checkout options.';
 }
 
+function hasSectionCards(section: ProductSemanticSection | null | undefined) {
+  return Boolean(section?.cards.length);
+}
+
+function joinList(parts: string[]) {
+  if (parts.length <= 1) {
+    return parts[0] ?? '';
+  }
+
+  return `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+}
+
+function buildPricePhrase(displayPriceText: string | null | undefined) {
+  const cleanPrice = cleanText(displayPriceText);
+
+  return cleanPrice
+    ? `with pricing shown on this page as ${cleanPrice}`
+    : 'with pricing shown on this page';
+}
+
+function buildComparisonSentence({
+  categoryLabel,
+  comparisonSubject,
+  merchantName,
+  productName,
+  semanticModel,
+}: {
+  categoryLabel: string;
+  comparisonSubject: string;
+  merchantName: string;
+  productName: string;
+  semanticModel?: BuildProductContextParagraphsInput['semanticModel'];
+}) {
+  const renderedSections = [
+    semanticModel?.supportLinks.length ? 'comparison links' : '',
+    semanticModel?.guideLinks.length ? 'buyer guides' : '',
+    hasSectionCards(semanticModel?.sameBrand) ? 'same-brand options' : '',
+    hasSectionCards(semanticModel?.samePrice)
+      ? 'similar-price alternatives'
+      : '',
+    hasSectionCards(semanticModel?.alternatives)
+      ? `${categoryLabel.toLowerCase()} alternatives`
+      : '',
+  ].filter(Boolean);
+
+  if (renderedSections.length === 0) {
+    return `For buyers comparing ${comparisonSubject}, use the visible details on this page to compare ${productName} with relevant options from ${merchantName}.`;
+  }
+
+  return `For buyers comparing ${comparisonSubject}, use the ${joinList(
+    renderedSections
+  )} on this page to move from ${productName} to relevant options from ${merchantName}.`;
+}
+
 export function buildProductContextParagraphs({
   categoryName,
-  countryCode,
   currentProduct,
+  displayPriceText,
   merchantBusinessName,
+  semanticModel,
 }: BuildProductContextParagraphsInput): [string, string] {
   const productName = cleanText(currentProduct.name) || 'This product';
   const merchantName = cleanText(merchantBusinessName) || 'this store';
@@ -43,19 +104,21 @@ export function buildProductContextParagraphs({
   const conditionPhrase = condition
     ? `${toTitleCase(condition)} condition`
     : 'the listed condition';
-  const price = formatCurrencyCompact(
-    currentProduct.price,
-    countryCode || 'NG'
-  );
 
   const comparisonSubject = brandName
     ? `${brandName} options`
     : `${categoryLabel.toLowerCase()} alternatives`;
 
   return [
-    `${productName} is listed by ${merchantName} in ${categoryLabel}, with the current price shown as ${price}. Use this product page to review ${conditionPhrase}, compare the key details, and decide whether it fits your budget before checkout.`,
-    `For buyers comparing ${comparisonSubject}, the related links on this page connect ${productName} with same-brand, similar-price, and category alternatives from ${merchantName}. ${buildAvailabilitySentence(
-      currentProduct.stock
-    )}`,
+    `${productName} is listed by ${merchantName} in ${categoryLabel}, ${buildPricePhrase(
+      displayPriceText
+    )}. Use this product page to review ${conditionPhrase}, compare the key details, and decide whether it fits your budget before checkout.`,
+    `${buildComparisonSentence({
+      categoryLabel,
+      comparisonSubject,
+      merchantName,
+      productName,
+      semanticModel,
+    })} ${buildAvailabilitySentence(currentProduct.stock)}`,
   ];
 }
