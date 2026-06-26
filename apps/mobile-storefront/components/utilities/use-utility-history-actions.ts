@@ -87,6 +87,7 @@ export function useUtilityHistoryActions({
     try {
       await shareUtilityReceipt({
         amount: transaction.amount,
+        address: transaction.address ?? undefined,
         billerName: transaction.biller_name ?? undefined,
         cashback: transaction.customer_cashback,
         customerIdentifier,

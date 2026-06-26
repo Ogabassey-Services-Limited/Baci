@@ -54,6 +54,7 @@ export function createBillFormPurchaseHandler({
   type,
   validationReference,
   verifiedCustomerName,
+  verifiedCustomerAddress,
 }: CreateBillFormPurchaseHandlerInput) {
   return async () => {
     dismissKeyboard();
@@ -119,6 +120,10 @@ export function createBillFormPurchaseHandler({
         buyerFullName ||
         customer?.email ||
         undefined;
+      // Verified meter/customer address (electricity), persisted to metadata so
+      // the receipt can show it. Only the verify step provides it — no buyer
+      // fallback, since the buyer's address isn't the meter address.
+      const customerAddress = verifiedCustomerAddress?.trim() || undefined;
       // Kuda-display + Monnify-fulfillment routing (folded items vend via Monnify).
       const {
         provider: selectedProvider,
@@ -138,6 +143,7 @@ export function createBillFormPurchaseHandler({
           : selectedBiller.billerName,
         customerIdentifier: customerId,
         customerName,
+        ...(customerAddress ? { customerAddress } : {}),
         customerPhone: customer?.phone || undefined,
         productCode: selectedProductCode,
         provider: selectedProvider,
@@ -157,6 +163,7 @@ export function createBillFormPurchaseHandler({
             billerName: payload.billerName,
             customerIdentifier: customerId,
             customerName,
+            ...(customerAddress ? { customerAddress } : {}),
             customerPhone: payload.customerPhone,
             productCode: payload.productCode,
             provider: payload.provider,

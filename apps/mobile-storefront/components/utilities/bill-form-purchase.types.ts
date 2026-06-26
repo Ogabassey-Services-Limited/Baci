@@ -37,4 +37,10 @@ export interface CreateBillFormPurchaseHandlerInput {
    * column reflects the bill recipient, not the buyer.
    */
   verifiedCustomerName: string | null;
+  /**
+   * Verified meter/customer address from the verify step (validate-customer).
+   * Sent as the API payload's `customerAddress` and persisted to metadata so the
+   * receipt can show it. Null when the provider doesn't return an address.
+   */
+  verifiedCustomerAddress: string | null;
 }
