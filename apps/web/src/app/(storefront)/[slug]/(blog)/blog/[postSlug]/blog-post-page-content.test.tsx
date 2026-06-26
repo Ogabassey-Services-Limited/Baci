@@ -16,6 +16,7 @@ const {
   mockGetBlogPostRedirect,
   mockBuildInformationalClusterModel,
   mockGenerateBlogPostSchema,
+  mockSafeJsonLdStringify,
   mockNextImage,
   mockBlogPostHeader,
   mockBlogPostBody,
@@ -34,6 +35,7 @@ const {
   mockGenerateBlogPostSchema: vi.fn<(data: unknown) => Record<string, unknown>>(
     () => ({})
   ),
+  mockSafeJsonLdStringify: vi.fn<(_schema: unknown) => string>(() => '{}'),
   mockNextImage: vi.fn((_props: Record<string, unknown>) => null),
   mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
     <h1>{title}</h1>
@@ -120,7 +122,9 @@ vi.mock('@/lib/routes', () => ({
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: () => '{}',
+  safeJsonLdStringify: (schema: unknown) => mockSafeJsonLdStringify(schema),
+  sanitizeSchemaUrl: (url: string) =>
+    url.startsWith('http://') || url.startsWith('https://') ? url : '',
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -251,10 +255,12 @@ describe('BlogPostPageContent', () => {
     mockBlogPostBodyFallback.mockReset();
     mockNextImage.mockReset();
     mockGenerateBlogPostSchema.mockReset();
+    mockSafeJsonLdStringify.mockReset();
     mockHasBlogAuthorPage.mockReset();
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
     mockGenerateBlogPostSchema.mockReturnValue({});
+    mockSafeJsonLdStringify.mockReturnValue('{}');
     mockHasBlogAuthorPage.mockReturnValue(true);
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
@@ -433,6 +439,48 @@ describe('BlogPostPageContent', () => {
             'https://instagram.com/ogabassey',
             'https://www.tiktok.com/@ogabassey',
           ],
+        }),
+      })
+    );
+  });
+
+  it('emits VideoObject structured data and passes lazy video metadata to the body', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        content:
+          '<p>Watch the unboxing: <a href="https://youtu.be/tp-AlU5FVpE?si=RGB">YouTube</a></p>',
+        title: 'Google Pixel 9 Pro Fold Unboxing',
+      },
+    });
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockSafeJsonLdStringify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        '@type': 'VideoObject',
+        embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+        thumbnailUrl: [
+          'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
+          'https://i.ytimg.com/vi/tp-AlU5FVpE/maxresdefault.jpg',
+        ],
+        uploadDate: '2026-03-16T10:05:33.654Z',
+      })
+    );
+    expect(mockBlogPostBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        video: expect.objectContaining({
+          embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+          videoId: 'tp-AlU5FVpE',
+          watchUrl: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
         }),
       })
     );

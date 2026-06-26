@@ -250,6 +250,46 @@ describe('BlogPostBody', () => {
     );
   });
 
+  it('renders a lazy video panel when video metadata is provided', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [],
+        relatedPosts: [],
+        video: {
+          embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+          thumbnailUrl: 'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
+          title: 'Pixel 9 Pro Fold Unboxing',
+          videoId: 'tp-AlU5FVpE',
+          watchUrl: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
+        },
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: /watch the related video/i })
+    ).toBeInTheDocument();
+    expect(screen.getByTitle('Pixel 9 Pro Fold Unboxing')).toHaveAttribute(
+      'loading',
+      'lazy'
+    );
+  });
+
   it('renders related product links using category-aware and fallback product routes', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
