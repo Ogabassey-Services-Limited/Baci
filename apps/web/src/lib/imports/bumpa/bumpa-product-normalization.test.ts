@@ -89,6 +89,13 @@ describe('createBumpaProductProfile', () => {
     ).toBe('iPhone 12 5G 128GB');
   });
 
+  it('preserves gram weights for non-electronics products', () => {
+    const profile = createBumpaProductProfile('Shea Butter 250g');
+
+    expect(profile.normalizedProductName).toBe('Shea Butter 250g');
+    expect(profile.analyticsProductKey).toBe('shea-butter-250g');
+  });
+
   it('preserves iPhone XS Max casing', () => {
     expect(
       createBumpaProductProfile('iPhone xs max 64gb').normalizedProductName

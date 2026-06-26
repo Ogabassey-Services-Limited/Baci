@@ -1,7 +1,7 @@
 const BUMPA_CONTACT_EMAIL_PATTERN =
   /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const BUMPA_NIGERIAN_PHONE_PATTERN =
-  /(^|[^\d])(?:\+?234[\s.-]*|0)?[789]\d(?:[\s.-]*\d){8}\b/g;
+  /(^|[^\d])(?:\+?234[\s.-]*[789]\d(?:[\s.-]*\d){8}|0[789]\d(?:[\s.-]*\d){8})\b/g;
 
 interface BumpaContactTextReplacements {
   email: string;

@@ -51,12 +51,22 @@ function analyticsKey(value: string) {
     .replace(/^-|-$/g, '');
 }
 
+const BARE_G_STORAGE_CONTEXT_PATTERN =
+  /\b(?:iphone|ipad|mac\s*book|macbook|pixel|google\s+pixel|samsung|galaxy|redmi|xiaomi|tecno|infinix|dell|lenovo|elitebook|thinkpad|hp|ps5|playstation|laptop|phone|tablet|ssd|hdd|ram|rom|storage|gb|tb)\b/i;
+const COMMON_BARE_G_STORAGE_SIZE_PATTERN =
+  /\b(16|32|64|128|256|512|1024|2048)\s*g\b/gi;
+
 function titleizeMemoryUnits(value: string) {
-  return value
+  let text = value
     .replace(/\b(\d+)\s*gb\b/gi, '$1GB')
-    .replace(/\b(\d{2,})\s*g\b/gi, '$1GB')
     .replace(/\b(\d+)\s*tb\b/gi, '$1TB')
     .replace(/\b(\d+)GB\s*\/\s*(\d+)GB\b/gi, '$1GB/$2GB');
+
+  if (BARE_G_STORAGE_CONTEXT_PATTERN.test(value)) {
+    text = text.replace(COMMON_BARE_G_STORAGE_SIZE_PATTERN, '$1GB');
+  }
+
+  return text;
 }
 
 function normalizeBrandAliases(value: string) {

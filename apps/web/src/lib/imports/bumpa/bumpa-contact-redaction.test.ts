@@ -25,6 +25,15 @@ describe('replaceBumpaContactText', () => {
     );
   });
 
+  it('does not redact bare 10-digit identifiers without a Nigerian phone prefix', () => {
+    expect(
+      replaceBumpaContactText('Google Pixel catalog 7890123456', {
+        email: '[redacted-email]',
+        phone: '[redacted-phone]',
+      })
+    ).toBe('Google Pixel catalog 7890123456');
+  });
+
   it('preserves phone boundary text when removing contact details', () => {
     const result = replaceBumpaContactText(
       'iPhone 12 / 0801-234-5678 ada@example.com',
