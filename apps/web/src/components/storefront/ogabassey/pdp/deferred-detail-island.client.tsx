@@ -17,26 +17,26 @@ import type { OgabasseyPdpDeferredTabProduct } from './deferred-product-payload'
  * the chunk only once `isActive` keeps Next from discovering (and preheading)
  * it, deferring the CSS entirely until the details are actually needed.
  */
-type ProductDetailsPageComponent =
+type DeferredTabsComponent =
   (typeof import('./deferred-tabs.client'))['OgabasseyPdpDeferredTabsClient'];
 
-type ProductDetailsPageLoader = () => Promise<{
-  OgabasseyPdpDeferredTabsClient: ProductDetailsPageComponent;
+type DeferredTabsLoader = () => Promise<{
+  OgabasseyPdpDeferredTabsClient: DeferredTabsComponent;
 }>;
 
-function loadProductDetailsPage() {
+function loadDeferredTabs() {
   return import('./deferred-tabs.client');
 }
 
 interface OgabasseyPdpDeferredDetailClientProps {
   productData: OgabasseyPdpDeferredTabProduct;
-  loadDetailsComponent?: ProductDetailsPageLoader;
+  loadDetailsComponent?: DeferredTabsLoader;
   storeSlug: string;
 }
 
 export function OgabasseyPdpDeferredDetailClient({
   productData,
-  loadDetailsComponent = loadProductDetailsPage,
+  loadDetailsComponent = loadDeferredTabs,
   storeSlug,
 }: OgabasseyPdpDeferredDetailClientProps) {
   const { ref, isActive } = useViewportActivation<HTMLDivElement>({
@@ -44,7 +44,7 @@ export function OgabasseyPdpDeferredDetailClient({
     timeoutMs: 1600,
   });
   const [DetailComponent, setDetailComponent] =
-    useState<ProductDetailsPageComponent | null>(null);
+    useState<DeferredTabsComponent | null>(null);
   const [hasLoadError, setHasLoadError] = useState(false);
 
   useEffect(() => {

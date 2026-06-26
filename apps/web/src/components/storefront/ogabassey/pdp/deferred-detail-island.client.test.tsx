@@ -49,7 +49,7 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
     mockUseViewportActivation.mockReset();
   });
 
-  it('does not import or render ProductDetailsPage before viewport activation', () => {
+  it('does not import or render deferred tabs before viewport activation', () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
       isActive: false,
