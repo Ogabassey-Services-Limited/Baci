@@ -218,6 +218,25 @@ function isSameMerchantRedirect(
   return false;
 }
 
+function buildMerchantRelativeNext(nextUrl: URL, branding: MerchantBranding) {
+  const route = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+
+  if (
+    nextLookup?.slug &&
+    branding.slug &&
+    nextLookup.slug === branding.slug.toLowerCase()
+  ) {
+    const slugPrefix = `/${nextLookup.slug}`;
+    return nextUrl.pathname === slugPrefix ||
+      nextUrl.pathname.startsWith(`${slugPrefix}/`)
+      ? route
+      : `${slugPrefix}${route.startsWith('/') ? route : `/${route}`}`;
+  }
+
+  return route;
+}
+
 // Only a verified CUSTOM domain may carry the token-bearing confirmation link
 // on its own origin: proxy.ts passes `/auth/confirm` through on custom domains
 // with the query string intact. Platform subdomains instead match
@@ -290,7 +309,7 @@ export function buildAuthEmailConfirmationUrl({
         }
         confirmationUrl.searchParams.set(
           'next',
-          `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+          buildMerchantRelativeNext(nextUrl, branding)
         );
       }
     } catch {

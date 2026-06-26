@@ -48,6 +48,7 @@ function isBusinessRuleError(error: unknown): boolean {
   const message = error.message.toLowerCase();
   return (
     message.includes('must be verified') ||
+    message.includes('no sending domain to update') ||
     message.includes('active verified storefront domain') ||
     message.includes('already verified in zeptomail') ||
     message.includes('already registered by another merchant')

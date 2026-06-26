@@ -260,6 +260,18 @@ describe('PATCH /api/merchant/email-domain', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 when toggling after the sending-domain row was removed', async () => {
+    signedInAs('pro');
+    mockSetEnabled.mockRejectedValue(new Error('No sending domain to update'));
+
+    const res = await PATCH(req({ enabled: false }, 'PATCH'));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'No sending domain to update',
+    });
+  });
+
   it('returns 500 for storage failures when toggling', async () => {
     signedInAs('pro');
     mockSetEnabled.mockRejectedValue(

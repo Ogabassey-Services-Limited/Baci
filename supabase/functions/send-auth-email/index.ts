@@ -85,6 +85,27 @@ function hasCustomEmailDomainEntitlement(planTier: string | null): boolean {
   );
 }
 
+async function merchantStillOwnsSendingDomain(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string,
+  domain: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('domains')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .in('domain', getCustomDomainCandidates(domain))
+    .eq('status', 'active')
+    .limit(1);
+
+  if (error) {
+    console.log('Sending-domain ownership lookup failed:', error.message);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
 async function fetchMerchantSendingAddress(
   supabase: ReturnType<typeof createClient>,
   merchant: Pick<MerchantBrandingRow, 'id' | 'plan_tier'>
@@ -109,6 +130,16 @@ async function fetchMerchantSendingAddress(
   if (!data?.domain) {
     return null;
   }
+
+  const stillOwnsDomain = await merchantStillOwnsSendingDomain(
+    supabase,
+    merchant.id,
+    data.domain as string
+  );
+  if (!stillOwnsDomain) {
+    return null;
+  }
+
   const localPart = (data.sender_local_part as string) || 'noreply';
   return `${localPart}@${data.domain}`;
 }

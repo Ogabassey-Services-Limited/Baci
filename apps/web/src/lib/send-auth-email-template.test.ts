@@ -67,6 +67,30 @@ describe('send-auth-email template helpers', () => {
     expect(url.searchParams.get('next')).toBe('/account/verify?from=email');
   });
 
+  it('keeps same-merchant subdomain confirmation on the platform host and routes next through the slug', () => {
+    for (const build of [
+      buildAuthEmailConfirmationUrl,
+      buildAppLocalAuthEmailConfirmationUrl,
+    ]) {
+      const url = build({
+        branding: ogabasseyBranding,
+        emailType: 'magiclink',
+        redirectTo: 'https://ogabassey.usebaci.com/account/verify?from=email',
+        siteUrl: 'https://usebaci.com',
+        tokenHash: 'hash-123',
+      });
+
+      const parsed = new URL(url ?? '');
+      expect(parsed.origin).toBe('https://usebaci.com');
+      expect(parsed.pathname).toBe('/auth/confirm');
+      expect(parsed.searchParams.get('token_hash')).toBe('hash-123');
+      expect(parsed.searchParams.get('type')).toBe('magiclink');
+      expect(parsed.searchParams.get('next')).toBe(
+        '/ogabassey/account/verify?from=email'
+      );
+    }
+  });
+
   it('drops external confirmation next targets', () => {
     const url = buildAuthEmailConfirmationUrl({
       branding: ogabasseyBranding,

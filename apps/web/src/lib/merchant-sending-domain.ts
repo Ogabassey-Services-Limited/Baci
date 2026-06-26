@@ -21,16 +21,45 @@ function planTierOf(row: SendingDomainRow): string | null {
   return rel?.plan_tier ?? null;
 }
 
+function domainOwnershipCandidates(domain: string): string[] {
+  const normalized = domain.toLowerCase();
+  return normalized.startsWith('www.')
+    ? [normalized, normalized.slice(4)]
+    : [normalized, `www.${normalized}`];
+}
+
+async function merchantStillOwnsActiveStorefrontDomain(
+  supabase: ReturnType<typeof createAdminClient>,
+  merchantId: string,
+  domain: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('domains')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .in('domain', domainOwnershipCandidates(domain))
+    .eq('status', 'active')
+    .limit(1);
+
+  if (error) {
+    console.error('Failed to verify merchant sending domain ownership:', error);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
 /**
  * Resolve a merchant's active custom sending domain (e.g. `ogabassey.com`).
  *
  * Returns the domain only when the merchant has a row that is both
  * `status = 'verified'` AND `enabled = true` AND the merchant's plan still
- * carries the `custom_email_domain` entitlement — the same gate the
+ * carries the `custom_email_domain` entitlement AND the domain is still an
+ * active storefront domain owned by the merchant — the same gate the
  * send-auth-email edge function applies. The plan check guards against a
- * merchant enabling the feature on Pro and later downgrading: the row stays
- * `enabled`, so without it order mail would keep using the custom domain after
- * the entitlement lapsed.
+ * merchant enabling the feature on Pro and later downgrading, while the active
+ * storefront-domain check closes the stale-row gap when a domain is removed or
+ * transferred after the email-domain row was verified.
  *
  * Reads through the service-role client because transactional sends run in
  * webhook/cron contexts with no user session. Fails open (returns `null`) so a
@@ -63,6 +92,15 @@ export async function getActiveMerchantSendingDomain(
       !isPlanTier(planTier) ||
       !planHasFeature(planTier, FEATURES.CUSTOM_EMAIL_DOMAIN)
     ) {
+      return null;
+    }
+
+    const stillOwnsDomain = await merchantStillOwnsActiveStorefrontDomain(
+      supabase,
+      merchantId,
+      data.domain
+    );
+    if (!stillOwnsDomain) {
       return null;
     }
 
