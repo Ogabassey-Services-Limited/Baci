@@ -151,15 +151,15 @@ describe('sanitize', () => {
     expect(output).not.toContain('<a');
   });
 
-  it('keeps resource source labels but removes crawlable resource links when SEO anchor normalization is enabled', () => {
+  it('keeps legitimate resource links when SEO anchor normalization is enabled', () => {
     const output = sanitizeHtml(
       '<p>Source: <a href="https://example.com/assets/specs.json">Product data JSON</a> and <a href="https://example.com/app.js">App JS</a>.</p>',
       { normalizeSeoAnchors: true }
     );
 
-    expect(output).toBe('<p>Source: Product data JSON and App JS.</p>');
-    expect(output).not.toContain('.json');
-    expect(output).not.toContain('.js');
+    expect(output).toBe(
+      '<p>Source: <a href="https://example.com/assets/specs.json" rel="noopener noreferrer">Product data JSON</a> and <a href="https://example.com/app.js" rel="noopener noreferrer">App JS</a>.</p>'
+    );
   });
 
   it('keeps labels but removes Next image optimizer links when SEO anchor normalization is enabled', () => {
