@@ -116,3 +116,7 @@
 **Learning:** By default, setting the `disabled` prop on a `Pressable` in React Native prevents interaction but does not automatically inform assistive technologies (like VoiceOver or TalkBack) of the disabled state.
 **Action:** When conditionally disabling an interactive element, always pair the functional `disabled` prop with the semantic `accessibilityState={{ disabled: boolean }}` prop.
 **Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API docs
+## 2024-05-18 — [AuthInput Disabled State]
+**Learning:** In React Native, setting `editable={false}` on a `TextInput` does not automatically announce the input as disabled to screen readers, nor does it provide an automatic visual indication.
+**Action:** When a custom input wrapper accepts an `editable` prop, explicitly pass `accessibilityState={{ disabled: !editable }}` to the underlying input and apply a visual styling change (e.g., `opacity: 0.6`) to the wrapper to satisfy WCAG 4.1.2 (Name, Role, Value) and interaction completeness.
+**Source:** WCAG 4.1.2 Name, Role, Value

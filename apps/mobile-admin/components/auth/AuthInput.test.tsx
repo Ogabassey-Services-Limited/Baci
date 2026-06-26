@@ -29,17 +29,20 @@ vi.mock('react-native', async () => {
       React.createElement('span', null, children),
     TextInput: ({
       accessibilityLabel,
+      accessibilityState,
       onChangeText,
       placeholder,
       value,
     }: {
       accessibilityLabel?: string;
+      accessibilityState?: { disabled?: boolean };
       onChangeText?: (text: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
         'aria-label': accessibilityLabel,
+        'aria-disabled': accessibilityState?.disabled ? 'true' : undefined,
         placeholder,
         value: value ?? '',
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -106,5 +109,26 @@ describe('AuthInput', () => {
     fireEvent.click(screen.getByLabelText('Show password'));
 
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders disabled state programmatically when editable is false', () => {
+    render(
+      <AuthInput
+        borderColor="#ddd"
+        editable={false}
+        iconColor="#666"
+        iconName="mail-outline"
+        label="Email"
+        labelColor="#111"
+        onChangeText={() => {}}
+        placeholder="you@example.com"
+        placeholderTextColor="#888"
+        textColor="#111"
+        value=""
+        wrapperColor="#fff"
+      />
+    );
+
+    expect(screen.getByLabelText('Email').getAttribute('aria-disabled')).toBe('true');
   });
 });
