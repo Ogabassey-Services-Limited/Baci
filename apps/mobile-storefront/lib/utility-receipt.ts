@@ -149,6 +149,7 @@ export function buildReceiptMessage(data: UtilityReceiptData) {
     data.reference ? `Reference: ${data.reference}` : null,
     data.status ? `Status: ${data.status}` : null,
     data.units ? `Units: ${data.units}` : null,
+    data.address ? `Address: ${data.address}` : null,
     token ? `Token: ${token}` : null,
   ]
     .filter(Boolean)

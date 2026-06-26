@@ -28,6 +28,7 @@ interface BillPaymentFormProps {
     amount: number;
     billItemIdentifier: string;
     billerCode?: string;
+    customerAddress?: string;
     customerIdentifier: string;
     billerName: string;
     productCode?: string;
@@ -237,6 +238,9 @@ function BillPaymentFormFields({
           }
         : { provider: 'kuda' as const }),
       customerIdentifier: customerId,
+      ...(visibleVerification.address
+        ? { customerAddress: visibleVerification.address }
+        : {}),
       billerName: selectedBillItemPathLabel
         ? `${selectedBiller.billerName} - ${selectedBillItemPathLabel}`
         : selectedBiller.billerName,

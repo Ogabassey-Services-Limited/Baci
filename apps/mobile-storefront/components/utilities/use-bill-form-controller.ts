@@ -5,7 +5,7 @@ import { SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { type VerifyResult, useVTUVerify } from '@/hooks/use-vtu-verify';
+import { useVTUVerify } from '@/hooks/use-vtu-verify';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import { useAuthStore } from '@/stores/auth-store';
 import {
@@ -14,11 +14,12 @@ import {
   BILL_TYPE_MAP,
   IDENTIFIER_LABELS,
 } from './bill-form.constants';
-import { createBillFormVerifyPayload } from './bill-form-verify-payload';
 import { parseUtilityAmount } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import type { BillFormController } from './bill-form-controller.types';
+import { createBillFormVerifyPayload } from './bill-form-verify-payload';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';
+import { createBillFormVerifySuccessHandler } from './create-bill-form-verify-success-handler';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import {
   type BillFormBeneficiarySaveRequest,
@@ -54,6 +55,9 @@ export function useBillFormController({
   const [verifiedCustomerName, setVerifiedCustomerName] = useState<
     string | null
   >(initialCustomerName ?? null);
+  const [verifiedCustomerAddress, setVerifiedCustomerAddress] = useState<
+    string | null
+  >(null);
   const [verifiedValidationReference, setVerifiedValidationReference] =
     useState<string | null>(null);
   const [verifiedRequireValidationRef, setVerifiedRequireValidationRef] =
@@ -73,6 +77,7 @@ export function useBillFormController({
   const resetVerification = () => {
     pendingVerificationKeyRef.current = null;
     setVerifiedSelectionKey(null);
+    setVerifiedCustomerAddress(null);
     setVerifiedValidationReference(null);
     setVerifiedRequireValidationRef(undefined);
     if (!verify.isPending) {
@@ -82,6 +87,7 @@ export function useBillFormController({
   const deactivateRepeatPayment = () => {
     setIsRepeatPaymentActive(false);
     setVerifiedCustomerName(null);
+    setVerifiedCustomerAddress(null);
   };
   const {
     billItemSelection,
@@ -131,36 +137,19 @@ export function useBillFormController({
     selectedBillItemIdentifier,
   });
 
-  // Runs as the verify mutation's onSuccess callback (event time) instead of
-  // an effect that mirrors verify.data into state. resetVerification nulls
-  // pendingVerificationKeyRef on any selection/identifier change, so a stale
-  // response can never apply to inputs that changed mid-flight.
-  const handleVerifySuccess = (data: VerifyResult) => {
-    if (!(data.verified && pendingVerificationKeyRef.current)) {
-      return;
-    }
-    setVerifiedSelectionKey(pendingVerificationKeyRef.current);
-    pendingVerificationKeyRef.current = null;
-    const customerName = data.customerName?.trim() || null;
-    setVerifiedCustomerName(customerName);
-    setVerifiedValidationReference(data.validationReference?.trim() || null);
-    setVerifiedRequireValidationRef(data.requireValidationRef);
-
-    const biller = selectedBiller;
-    const billItemId = selectedBillItemIdentifier;
-    if (!(biller && billItemId && customerName)) {
-      setBeneficiarySaveRequest(null);
-      return;
-    }
-    setBeneficiarySaveRequest({
-      authenticatedCustomerId,
-      billerId: biller.billerId,
-      billerName: biller.billerName,
-      billItemIdentifier: billItemId,
-      customerId: normalizedCustomerId,
-      customerName,
-    });
-  };
+  const handleVerifySuccess = createBillFormVerifySuccessHandler({
+    authenticatedCustomerId,
+    normalizedCustomerId,
+    pendingVerificationKeyRef,
+    selectedBiller,
+    selectedBillItemIdentifier,
+    setBeneficiarySaveRequest,
+    setVerifiedCustomerAddress,
+    setVerifiedCustomerName,
+    setVerifiedRequireValidationRef,
+    setVerifiedSelectionKey,
+    setVerifiedValidationReference,
+  });
 
   const handleVerify = () => {
     dismissKeyboard();
@@ -222,6 +211,7 @@ export function useBillFormController({
       type,
       validationReference: verifiedValidationReference ?? undefined,
       verifiedCustomerName,
+      verifiedCustomerAddress,
     })();
 
   const handlePaymentLayout = (event: LayoutChangeEvent) => {

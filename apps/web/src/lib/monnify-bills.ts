@@ -380,33 +380,6 @@ export async function getCachedBillerProducts(billerCode: string) {
   return await getBillerProducts(billerCode);
 }
 
-// TEMP DIAGNOSTIC HELPER: returns the nested field-name paths of a Monnify
-// envelope (values are intentionally omitted) so we can see whether the biller
-// returns an address/units field that our Zod schema strips — without ever
-// logging customer PII or prepaid meter tokens. Remove with the call sites once
-// the address question is resolved.
-function collectEnvelopeKeyPaths(
-  value: unknown,
-  prefix = '',
-  out: string[] = [],
-  depth = 0
-): string[] {
-  if (depth > 5 || value === null || typeof value !== 'object') {
-    return out;
-  }
-  for (const key of Object.keys(value as Record<string, unknown>)) {
-    const path = prefix ? `${prefix}.${key}` : key;
-    out.push(path);
-    collectEnvelopeKeyPaths(
-      (value as Record<string, unknown>)[key],
-      path,
-      out,
-      depth + 1
-    );
-  }
-  return out;
-}
-
 export async function verifyBillCustomer(
   _billerCode: string,
   productCode: string,
@@ -414,6 +387,7 @@ export async function verifyBillCustomer(
 ): Promise<{
   verified: boolean;
   customerName?: string;
+  address?: string;
   message: string;
   validationReference?: string;
   requireValidationRef?: boolean;
@@ -431,15 +405,6 @@ export async function verifyBillCustomer(
         timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS,
         body: JSON.stringify(payload),
       }
-    );
-
-    // TEMP DIAGNOSTIC: log only the STRUCTURE (field-name paths) of the Monnify
-    // validate-customer envelope — never the values — to reveal whether it carries
-    // a customer-address field that our Zod schema strips. No PII/PINs are logged.
-    // Remove once the address question is resolved.
-    console.log(
-      '[monnify-bills] validate-customer envelope keys:',
-      JSON.stringify({ productCode, keys: collectEnvelopeKeyPaths(envelope) })
     );
 
     const parsed = monnifyEnvelopeSchema(
@@ -460,6 +425,7 @@ export async function verifyBillCustomer(
       return {
         verified: true,
         customerName: body.customerName || undefined,
+        address: body.address || undefined,
         validationReference,
         requireValidationRef,
         message: parsed.responseMessage || 'Validation successful',
@@ -514,15 +480,6 @@ export async function purchaseBill(
       timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS,
       body: JSON.stringify(payload),
     });
-
-    // TEMP DIAGNOSTIC: log only the STRUCTURE (field-name paths) of the Monnify
-    // vend envelope — never the values — to reveal whether the biller returns an
-    // address/units field our schema strips. No tokens/PINs/PII are logged.
-    // Remove once the address question is resolved.
-    console.log(
-      '[monnify-bills] vend envelope keys:',
-      JSON.stringify({ productCode, keys: collectEnvelopeKeyPaths(envelope) })
-    );
 
     const parsedEnvelope = monnifyEnvelopeSchema(vendResponseBodySchema).parse(
       envelope
