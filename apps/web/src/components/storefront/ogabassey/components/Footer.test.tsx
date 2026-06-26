@@ -73,7 +73,7 @@ describe('Ogabassey Footer', () => {
     vi.clearAllMocks();
   });
 
-  it('uses a footer background fallback and contrast text independent of primary text', () => {
+  it('uses named footer contrast styles instead of generated arbitrary color utilities', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
       socialLinks: {},
       derivedLinks: {},
@@ -84,12 +84,11 @@ describe('Ogabassey Footer', () => {
     );
     const footer = container.querySelector('footer');
 
-    expect(footer?.className).toContain(
-      'var(--store-background-text,#111827)'
-    );
-    expect(footer?.className).toContain(
-      'text-[color:var(--store-background,#ffffff)]'
-    );
+    expect(footer?.className).toContain('ogabassey-footer');
+    expect(footer?.className).toContain('border-t');
+    expect(footer?.className).toContain('border-store-border/40');
+    expect(footer?.className).not.toContain('bg-[color');
+    expect(footer?.className).not.toContain('text-[color');
     expect(footer?.className).not.toContain('text-store-primary-text');
   });
 

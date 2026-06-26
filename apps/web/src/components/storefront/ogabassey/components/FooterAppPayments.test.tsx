@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +9,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // merchants don't inherit the CTAs). Getters let each test drive the URLs.
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.ogabassey.store';
+const PUBLIC_BADGE_ASSETS = [
+  {
+    alt: 'Download on the App Store',
+    path: 'badges/app-store-black.svg',
+  },
+  {
+    alt: 'Get it on Google Play',
+    path: 'badges/google-play.svg',
+  },
+] as const;
 const mockPlatform = vi.hoisted(() => ({
   appStoreUrl: 'https://apps.apple.com/app/id6472735367',
   playStoreUrl:
@@ -81,6 +93,20 @@ describe('FooterAppPayments', () => {
     expect(appStoreBadge).toHaveAttribute('data-height', '40');
     expect(googlePlayBadge).toHaveAttribute('data-width', '135');
     expect(googlePlayBadge).toHaveAttribute('data-height', '40');
+  });
+
+  it('ships the public SVG badge files referenced by the footer', () => {
+    for (const asset of PUBLIC_BADGE_ASSETS) {
+      const badgeSource = readFileSync(
+        resolve(process.cwd(), 'public', asset.path),
+        'utf8'
+      );
+
+      expect(badgeSource, `${asset.alt} should be an SVG`).toMatch(/<svg\b/);
+      expect(badgeSource, `${asset.alt} should not fall back to HTML`).not.toMatch(
+        /<!doctype html/i
+      );
+    }
   });
 
   it('keeps Google Play available when the App Store URL is absent', () => {
