@@ -11,6 +11,16 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
     tab: 'full',
   },
   {
+    // Korapay is the alternate card gateway. Without this row a Korapay-only
+    // merchant (paystack disabled) renders an empty payment selector, because
+    // the selector only shows methods present in this list.
+    id: 'korapay',
+    label: 'Pay with Card',
+    description: 'Visa, Mastercard, Verve',
+    icon: 'card-outline',
+    tab: 'full',
+  },
+  {
     id: 'bank_transfer',
     label: 'Bank Transfer',
     description: 'Pay via direct bank transfer',

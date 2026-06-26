@@ -222,18 +222,16 @@ export function CustomTabBarChrome({
           };
 
           const handlePress = () => {
+            // press-in already committed this tap (snappy capsule + tabPress).
+            // Clear the guard here — NOT in onPressOut, which RN fires before
+            // onPress and would otherwise let this re-commit (double tabPress →
+            // e.g. the auth listener pushing /auth/login twice).
             if (pressInHandledRouteKeyRef.current === route.key) {
               pressInHandledRouteKeyRef.current = null;
               return;
             }
 
             commitTabSelection(!isActiveRoute);
-          };
-
-          const handlePressOut = () => {
-            if (pressInHandledRouteKeyRef.current === route.key) {
-              pressInHandledRouteKeyRef.current = null;
-            }
           };
 
           return (
@@ -245,7 +243,6 @@ export function CustomTabBarChrome({
               colors={colors}
               onPress={handlePress}
               onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
             />
           );
         })}
