@@ -37,15 +37,6 @@ export interface BlogPageProps {
   }>;
 }
 
-function getTemplateBlogBasePath(baseUrl: string): string {
-  try {
-    const pathname = new URL(baseUrl).pathname.replace(/\/+$/g, '');
-    return pathname === '/' ? '' : pathname;
-  } catch {
-    return '';
-  }
-}
-
 export async function BlogPageContent({
   itemListSchemaUrl,
   params,
@@ -79,7 +70,7 @@ export async function BlogPageContent({
       ? organizationSchema['@id']
       : buildBlogOrganizationId(baseUrl);
   const basePath = baseUrl;
-  const templateBasePath = getTemplateBlogBasePath(baseUrl);
+  const templateBasePath = baseUrl;
   const authorLinks = getBlogAuthorPageLinks(slug);
 
   if (currentPage > totalPages) {

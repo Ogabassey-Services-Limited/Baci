@@ -32,6 +32,15 @@ describe('joinRouteBasePath', () => {
     );
   });
 
+  it('joins internal paths onto absolute canonical base URLs', () => {
+    expect(
+      joinRouteBasePath('https://ogabassey.usebaci.com', '/blog/first-post')
+    ).toBe('https://ogabassey.usebaci.com/blog/first-post');
+    expect(joinRouteBasePath('http://localhost:3000/ogabassey/', 'blog')).toBe(
+      'http://localhost:3000/ogabassey/blog'
+    );
+  });
+
   it('leaves external URLs unchanged', () => {
     expect(joinRouteBasePath('/ogabassey', 'https://example.com')).toBe(
       'https://example.com'

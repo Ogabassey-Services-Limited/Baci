@@ -214,13 +214,30 @@ export function normalizeRouteBasePath(basePath: string): string {
     : `/${normalizedBasePath}`;
 }
 
+function isAbsoluteHttpUrl(value: string): boolean {
+  const normalizedValue = value.trim().toLowerCase();
+  return (
+    normalizedValue.startsWith('https://') ||
+    normalizedValue.startsWith('http://')
+  );
+}
+
 /**
  * Join a normalized storefront base path with an internal path while preserving
  * absolute external URLs.
  */
 export function joinRouteBasePath(basePath: string, path: string): string {
-  if (path.startsWith('http')) {
+  if (isAbsoluteHttpUrl(path)) {
     return path;
+  }
+
+  if (isAbsoluteHttpUrl(basePath)) {
+    const normalizedBaseUrl = basePath.trim().replace(/\/+$/, '');
+    if (!path || path === '/') {
+      return normalizedBaseUrl;
+    }
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${normalizedBaseUrl}${normalizedPath}`;
   }
 
   const routeBasePath = normalizeRouteBasePath(basePath);

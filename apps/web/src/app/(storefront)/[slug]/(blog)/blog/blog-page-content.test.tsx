@@ -21,6 +21,16 @@ import {
 const { BlogPageContent } = await import('./blog-page-content');
 
 function joinTemplateProbeHref(basePath: string, path: string): string {
+  if (path.startsWith('https://') || path.startsWith('http://')) {
+    return path;
+  }
+
+  if (basePath.startsWith('https://') || basePath.startsWith('http://')) {
+    const normalizedBaseUrl = basePath.trim().replace(/\/+$/g, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${normalizedBaseUrl}${normalizedPath}`;
+  }
+
   const normalizedBasePath = basePath.trim().replace(/\/+$/g, '');
   const routeBasePath = normalizedBasePath
     ? normalizedBasePath.startsWith('/')
@@ -180,7 +190,7 @@ describe('BlogPageContent', () => {
     );
   });
 
-  it('renders template blog links from a route-relative root base path', async () => {
+  it('renders template blog links with canonical absolute storefront URLs', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -205,10 +215,10 @@ describe('BlogPageContent', () => {
 
     expect(
       screen.getByRole('link', { name: 'Template First Post' })
-    ).toHaveAttribute('href', '/blog/first-post');
+    ).toHaveAttribute('href', 'https://ogabassey.usebaci.com/blog/first-post');
   });
 
-  it('renders template blog links with path-prefixed canonical store URLs', async () => {
+  it('renders template blog links with canonical path-prefixed storefront URLs', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -234,7 +244,10 @@ describe('BlogPageContent', () => {
 
     expect(
       screen.getByRole('link', { name: 'Template First Post' })
-    ).toHaveAttribute('href', '/ogabassey/blog/first-post');
+    ).toHaveAttribute(
+      'href',
+      'http://localhost:3000/ogabassey/blog/first-post'
+    );
   });
 
   it('does not preload a template-specific hero image for non-Ogabassey templates', async () => {
