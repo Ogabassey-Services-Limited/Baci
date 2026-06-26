@@ -168,9 +168,16 @@ export function JustLaunchedCarousel() {
           <Text style={[styles.price, { color: colors.text }]}>
             {formatNgnCurrency(item.price)}
           </Text>
-          <Text style={[styles.cta, { color: colors.primary }]}>
-            {ctaLabel}
-          </Text>
+          <View style={[styles.ctaButton, { backgroundColor: colors.primary }]}>
+            <Text
+              style={[
+                styles.ctaButtonText,
+                { color: colors.primaryForeground },
+              ]}
+            >
+              {ctaLabel}
+            </Text>
+          </View>
         </View>
       </Pressable>
     );
@@ -248,8 +255,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  cta: {
-    marginTop: 6,
+  ctaButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  ctaButtonText: {
     fontSize: 13,
     fontWeight: '700',
   },
