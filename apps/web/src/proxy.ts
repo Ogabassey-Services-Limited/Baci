@@ -2914,11 +2914,18 @@ function applySecurityHeaders(
   // (see CSP frame-src) that runs camera-based identity verification. A blanket
   // `camera=()` allowlist disables the camera for the page AND every nested
   // iframe, so getUserMedia is hard-blocked before the browser can prompt.
-  // Delegate camera/microphone to self + the Credit Direct verification origins
-  // on storefront routes; keep them fully disabled everywhere else.
+  //
+  // Delegate camera/microphone to the Credit Direct verification origins on
+  // storefront routes; everything else stays fully disabled. We intentionally
+  // do NOT grant `self`: the camera is used by the cross-origin Credit Direct
+  // iframe, never by Baci pages, and getRouteType() buckets all marketing /
+  // product / category pages as "storefront" — granting `self` would hand
+  // camera/mic to every storefront page (and its third-party scripts). The
+  // test host (cdl.test.lendastack.io) is included so non-live checkout works
+  // too, matching the CSP frame-src allowlist.
   const cameraAllowlist =
     routeType === 'storefront'
-      ? 'camera=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng"), microphone=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng")'
+      ? 'camera=("https://checkout.creditdirect.ng" "https://app.creditdirect.ng" "https://cdl.test.lendastack.io"), microphone=("https://checkout.creditdirect.ng" "https://app.creditdirect.ng" "https://cdl.test.lendastack.io")'
       : 'camera=(), microphone=()';
   response.headers.set(
     'Permissions-Policy',
