@@ -82,6 +82,14 @@ describe('buildBumpaItemImportMetadata', () => {
     );
   });
 
+  it('removes international phone numbers without leaving a plus residue', () => {
+    const metadata = buildBumpaItemImportMetadata(
+      'iPhone 12 +2348012345678 (UK Used)'
+    );
+
+    expect(metadata.normalized_product_name).toBe('iPhone 12 (UK Used)');
+  });
+
   it('extracts serial numbers without dropping the raw product name', () => {
     const metadata = buildBumpaItemImportMetadata(
       '16" MacBook Pro M1 16gb 512gb (premium Used) S/N: C02GR0WHQ05N'

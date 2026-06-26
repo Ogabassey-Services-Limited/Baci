@@ -247,7 +247,7 @@ function removeContactText(value: string) {
   return sanitizeText(
     value
       .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, ' ')
-      .replace(/\b(?:\+?234|0)?[789][01]\d{8}\b/g, ' ')
+      .replace(/(^|[^\d])(?:\+?234|0)?[789][01]\d{8}\b/g, '$1')
   );
 }
 
