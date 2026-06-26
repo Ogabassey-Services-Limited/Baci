@@ -332,6 +332,12 @@ export async function* buildBumpaOrderPreviewChunks({
             receiptReady: paymentStatus === 'paid',
             items,
             importMetadata: {
+              ...(existingImportedOrder?.updatedAt
+                ? {
+                    previewExistingOrderUpdatedAt:
+                      existingImportedOrder.updatedAt,
+                  }
+                : {}),
               rawStatus: row.Status,
               rawShippingStatus: row['Shipping Status'],
               rawChannel: row.Channel,

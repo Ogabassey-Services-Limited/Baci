@@ -272,6 +272,27 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.rows[0]?.errors?.[0]).toContain('already exists');
   });
 
+  it('stores preview-time updated_at for existing imported order updates', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [baseRow],
+      existingOrders: [
+        {
+          id: 'existing-order',
+          orderNumber: '06397',
+          externalSource: 'bumpa',
+          externalId: '4196546',
+          updatedAt: '2026-03-20T12:00:00.000Z',
+        },
+      ],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('update');
+    expect(result.rows[0]?.payload?.importMetadata).toMatchObject({
+      previewExistingOrderUpdatedAt: '2026-03-20T12:00:00.000Z',
+    });
+  });
+
   it('classifies phone-only customers in the preview summary', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [

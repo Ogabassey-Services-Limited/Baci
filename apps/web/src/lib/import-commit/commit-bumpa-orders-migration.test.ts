@@ -18,6 +18,22 @@ function extractReplaceOrderItemsFunction() {
   );
 }
 
+function extractReplaceImportedOrderItemsFunction() {
+  return (
+    migrationSql.match(
+      /CREATE OR REPLACE FUNCTION public\.replace_imported_order_items\([\s\S]*?\n\$\$;/i
+    )?.[0] ?? ''
+  );
+}
+
+function extractPopulateOrderItemTaxFunction() {
+  return (
+    migrationSql.match(
+      /CREATE OR REPLACE FUNCTION public\.populate_order_item_tax\(\)[\s\S]*?\n\$\$;/i
+    )?.[0] ?? ''
+  );
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -32,6 +48,34 @@ describe('Bumpa imported order item RPC migration', () => {
     expect(
       replaceOrderItemsFunction.indexOf('fulfillment_details =')
     ).toBeLessThan(replaceOrderItemsFunction.indexOf('shipping_address ='));
+  });
+
+  it('preserves explicit null fulfillment fields when merging imported order patches', () => {
+    const replaceImportedOrderItemsFunction =
+      extractReplaceImportedOrderItemsFunction();
+
+    expect(replaceImportedOrderItemsFunction).toContain(
+      "THEN v_order_patch->'fulfillment_details'"
+    );
+    expect(
+      replaceImportedOrderItemsFunction.includes(
+        "jsonb_strip_nulls(v_order_patch->'fulfillment_details')"
+      )
+    ).toBe(false);
+  });
+
+  it('preserves supplied imported line totals through the order item tax trigger', () => {
+    const triggerFunction = extractPopulateOrderItemTaxFunction();
+
+    expect(triggerFunction).toMatch(
+      /o\.external_source IS NOT NULL OR o\.import_job_id IS NOT NULL/i
+    );
+    expect(triggerFunction).toMatch(
+      /IF NEW\.line_extension_amount IS NOT NULL AND is_imported_order THEN[\s\S]*NEW\.line_extension_amount := ROUND\(NEW\.line_extension_amount, 2\)/i
+    );
+    expect(triggerFunction).toMatch(
+      /ELSE[\s\S]*NEW\.line_extension_amount := ROUND\(NEW\.quantity \* NEW\.price, 2\)/i
+    );
   });
 
   it('restricts public imported-order replacement RPCs to the service role', () => {

@@ -18,6 +18,7 @@ interface ExistingOrderRecord {
   updated_at?: string | null;
   fulfillment_details: Record<string, unknown> | null;
   shipping_address: Record<string, unknown> | null;
+  loaded_from_database?: boolean;
 }
 
 interface CommitBumpaOrdersResult {
@@ -163,7 +164,25 @@ async function loadExistingImportedOrders(
     );
   }
 
-  return (data || []) as ExistingOrderRecord[];
+  return (data || []).map(
+    (order) =>
+      ({
+        ...order,
+        loaded_from_database: true,
+      }) satisfies ExistingOrderRecord
+  );
+}
+
+function getPreviewExistingOrderUpdatedAt(order: NormalizedImportedOrder) {
+  const value = order.importMetadata.previewExistingOrderUpdatedAt;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function buildPersistedImportMetadata(order: NormalizedImportedOrder) {
+  const { previewExistingOrderUpdatedAt: _previewUpdatedAt, ...metadata } =
+    order.importMetadata;
+
+  return metadata;
 }
 
 function buildOrderInsertPayload(
@@ -235,7 +254,7 @@ function buildOrderInsertPayload(
     external_id: order.externalSourceId,
     import_job_id: importJobId,
     imported_at: new Date().toISOString(),
-    import_metadata: order.importMetadata,
+    import_metadata: buildPersistedImportMetadata(order),
   };
 }
 
@@ -279,6 +298,7 @@ function buildCachedOrderRecord(
     shipping_address:
       selectedShippingAddress ??
       (isRecord(payload.shipping_address) ? payload.shipping_address : null),
+    loaded_from_database: false,
   };
 }
 
@@ -397,13 +417,23 @@ export async function commitBumpaOrders({
 
     let orderId = existingOrder?.id || null;
     if (existingOrder) {
+      const expectedUpdatedAt = existingOrder.loaded_from_database
+        ? getPreviewExistingOrderUpdatedAt(order)
+        : existingOrder.updated_at;
+
+      if (!expectedUpdatedAt) {
+        throw new Error(
+          `Imported order ${order.externalSourceId} is missing its preview timestamp; regenerate the preview before committing updates`
+        );
+      }
+
       const updatedOrder = await replaceImportedOrderItems(
         supabase,
         merchantId,
         existingOrder.id,
         order,
         payload,
-        existingOrder.updated_at
+        expectedUpdatedAt
       );
       updatedOrders += 1;
       ordersByExternalId.set(

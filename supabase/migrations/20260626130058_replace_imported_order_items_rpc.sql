@@ -1,3 +1,70 @@
+CREATE OR REPLACE FUNCTION public.populate_order_item_tax()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public'
+AS $$
+DECLARE
+  product_vat_category TEXT;
+  product_vat_rate DECIMAL(5, 2);
+  product_unit TEXT;
+  merchant_vat_status TEXT;
+  next_line_id INTEGER;
+  is_imported_order BOOLEAN;
+BEGIN
+  SELECT COALESCE(MAX(line_id), 0) + 1
+  INTO next_line_id
+  FROM order_items
+  WHERE order_id = NEW.order_id;
+
+  IF NEW.line_id IS NULL THEN
+    NEW.line_id := next_line_id;
+  END IF;
+
+  IF NEW.product_id IS NOT NULL THEN
+    SELECT p.vat_category_code, p.vat_rate, p.unit_code, p.sku
+    INTO product_vat_category, product_vat_rate, product_unit, NEW.sellers_item_id
+    FROM products p
+    WHERE p.id = NEW.product_id;
+
+    IF product_vat_category IS NOT NULL THEN
+      NEW.vat_category_code := product_vat_category;
+    END IF;
+    IF product_vat_rate IS NOT NULL THEN
+      NEW.vat_rate := product_vat_rate;
+    END IF;
+    IF product_unit IS NOT NULL THEN
+      NEW.unit_code := product_unit;
+    END IF;
+  END IF;
+
+  SELECT
+    m.vat_registration_status,
+    (o.external_source IS NOT NULL OR o.import_job_id IS NOT NULL)
+  INTO merchant_vat_status, is_imported_order
+  FROM orders o
+  JOIN merchants m ON o.merchant_id = m.id
+  WHERE o.id = NEW.order_id;
+
+  IF NEW.line_extension_amount IS NOT NULL AND is_imported_order THEN
+    NEW.line_extension_amount := ROUND(NEW.line_extension_amount, 2);
+  ELSE
+    NEW.line_extension_amount := ROUND(NEW.quantity * NEW.price, 2);
+  END IF;
+
+  IF merchant_vat_status = 'registered' AND NEW.vat_category_code = 'S' THEN
+    NEW.vat_amount := ROUND(NEW.line_extension_amount * NEW.vat_rate / 100, 2);
+  ELSE
+    NEW.vat_amount := 0;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION public.populate_order_item_tax()
+  OWNER TO postgres;
+
 CREATE OR REPLACE FUNCTION public.replace_order_items(
   p_order_id UUID,
   p_items JSONB,
@@ -421,7 +488,7 @@ BEGIN
       THEN COALESCE(o.fulfillment_details, '{}'::jsonb)
         || CASE
           WHEN jsonb_typeof(v_order_patch->'fulfillment_details') = 'object'
-            THEN jsonb_strip_nulls(v_order_patch->'fulfillment_details')
+            THEN v_order_patch->'fulfillment_details'
           ELSE '{}'::jsonb
         END
       ELSE o.fulfillment_details END,

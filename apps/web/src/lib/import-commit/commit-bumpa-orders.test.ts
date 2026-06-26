@@ -45,7 +45,9 @@ function createOrder(
     sourceChannel: 'instagram',
     sourceOrigin: 'manual',
     receiptReady: true,
-    importMetadata: {},
+    importMetadata: {
+      previewExistingOrderUpdatedAt: '2026-03-21T10:00:00.000Z',
+    },
     items: [
       {
         productId: 'product-1',
@@ -101,15 +103,18 @@ function createSupabaseMock({
 
   function mergeJsonObject(
     current: Record<string, unknown> | null | undefined,
-    incoming: unknown
+    incoming: unknown,
+    { stripNulls = false }: { stripNulls?: boolean } = {}
   ): Record<string, unknown> | null | undefined {
     if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
       return current;
     }
 
-    const compactIncoming = Object.fromEntries(
-      Object.entries(incoming).filter(([, value]) => value !== null)
-    );
+    const compactIncoming = stripNulls
+      ? Object.fromEntries(
+          Object.entries(incoming).filter(([, value]) => value !== null)
+        )
+      : incoming;
 
     return {
       ...(current ?? {}),
@@ -159,7 +164,9 @@ function createSupabaseMock({
           : order.fulfillment_details,
       shipping_address:
         'shipping_address' in patch
-          ? mergeJsonObject(order.shipping_address, patch.shipping_address)
+          ? mergeJsonObject(order.shipping_address, patch.shipping_address, {
+              stripNulls: true,
+            })
           : order.shipping_address,
     };
   }
@@ -489,6 +496,111 @@ describe('commitBumpaOrders', () => {
     expect(rpcArgs.p_order_patch.fulfillment_details).not.toHaveProperty(
       'shipping_address_source'
     );
+    expect(rpcArgs.p_order_patch.import_metadata).not.toHaveProperty(
+      'previewExistingOrderUpdatedAt'
+    );
+  });
+
+  it('uses preview-time updated_at for imported order stale checks', async () => {
+    const { supabase, rpc } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          updated_at: '2026-03-22T10:00:00.000Z',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          importMetadata: {
+            previewExistingOrderUpdatedAt: '2026-03-21T10:00:00.000Z',
+          },
+        }),
+      ],
+    });
+
+    expect(getReplaceImportedOrderItemsArgs(rpc).p_expected_updated_at).toBe(
+      '2026-03-21T10:00:00.000Z'
+    );
+  });
+
+  it('requires update rows to come from a fresh preview with an updated_at marker', async () => {
+    const { supabase } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          updated_at: '2026-03-22T10:00:00.000Z',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      ],
+    });
+
+    await expect(
+      commitBumpaOrders({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        orders: [
+          createOrder({
+            importMetadata: {},
+          }),
+        ],
+      })
+    ).rejects.toThrow('missing its preview timestamp');
+  });
+
+  it('sends explicit null fulfillment fields so re-imports clear stale values', async () => {
+    const { supabase, rpc } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          updated_at: '2026-03-22T10:00:00.000Z',
+          fulfillment_details: {
+            shipping_option: 'Old option',
+            source_channel: 'old-channel',
+            source_origin: 'old-origin',
+          },
+          shipping_address: null,
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingOption: null,
+          sourceChannel: null,
+          sourceOrigin: null,
+          importMetadata: {
+            previewExistingOrderUpdatedAt: '2026-03-22T10:00:00.000Z',
+          },
+        }),
+      ],
+    });
+
+    const rpcArgs = getReplaceImportedOrderItemsArgs(rpc);
+    expect(rpcArgs.p_order_patch.fulfillment_details).toEqual({
+      shipping_option: null,
+      source_channel: null,
+      source_origin: null,
+    });
   });
 
   it('preserves existing shipping addresses when an update only has partial enrichment', async () => {

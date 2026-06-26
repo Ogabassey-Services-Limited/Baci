@@ -111,6 +111,7 @@ export interface ExistingImportedOrder {
   orderNumber: string;
   externalSource: string | null;
   externalId: string | null;
+  updatedAt?: string | null;
 }
 
 export interface ExistingImportedProduct {
