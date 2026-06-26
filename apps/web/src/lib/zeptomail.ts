@@ -1,5 +1,6 @@
 import { SendMailClient } from 'zeptomail';
 import { getZeptoMailFromDomain, getZeptoMailToken } from '@/env';
+import { getActiveMerchantSendingDomain } from '@/lib/merchant-sending-domain';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Lazy-initialized client
@@ -55,6 +56,41 @@ function getSenderAddress(
   };
 }
 
+// Customer-facing email types that should send from the merchant's own verified
+// sending domain (e.g. orders@ogabassey.com) when one is configured. Platform→
+// merchant mail (settlement, sales summaries — sent as `noreply`) deliberately
+// stays on the platform domain even though it carries a merchantId.
+const MERCHANT_DOMAIN_EMAIL_TYPES: ReadonlySet<EmailType> = new Set(['orders']);
+
+/**
+ * Resolve the From address for a send, preferring the merchant's verified
+ * custom sending domain for customer-facing mail and falling back to the
+ * platform domain otherwise. Keeps the per-type prefix (orders@, etc.) and the
+ * resolved display name; only the domain swaps.
+ */
+async function resolveSenderAddress(
+  emailType: EmailType,
+  customName: string | undefined,
+  merchantId: string | null | undefined
+): Promise<{ address: string; name: string }> {
+  const base = getSenderAddress(emailType, customName);
+
+  if (!merchantId || !MERCHANT_DOMAIN_EMAIL_TYPES.has(emailType)) {
+    return base;
+  }
+
+  const customDomain = await getActiveMerchantSendingDomain(merchantId);
+  if (!customDomain) {
+    return base;
+  }
+
+  const prefix = (EMAIL_SENDERS[emailType] || EMAIL_SENDERS.noreply).prefix;
+  return {
+    address: `${prefix}@${customDomain}`,
+    name: base.name,
+  };
+}
+
 /**
  * Validate email address format
  * Uses length limit and simpler pattern to prevent ReDoS
@@ -87,6 +123,9 @@ interface SendEmailParams {
   emailType?: EmailType;
   fromName?: string;
   auditContext?: EmailAuditContext;
+  // When set (or via auditContext.merchantId), customer-facing mail is sent
+  // from this merchant's verified custom sending domain if one is configured.
+  merchantId?: string | null;
   // Δ-64 (A1): forwarded to ZeptoMail's documented `client_reference`
   // field. The outbox helper sets this to `order:<id>:paid_email` so we
   // have a server-side audit trail showing which sends actually went out
@@ -111,6 +150,7 @@ interface SendEmailWithTemplateParams {
   emailType?: EmailType;
   fromName?: string;
   auditContext?: EmailAuditContext;
+  merchantId?: string | null;
 }
 
 interface EmailResult {
@@ -336,9 +376,14 @@ export async function sendEmail({
   emailType = 'noreply',
   fromName,
   auditContext,
+  merchantId,
   clientReference,
 }: SendEmailParams): Promise<EmailResult> {
-  const sender = getSenderAddress(emailType, fromName);
+  const sender = await resolveSenderAddress(
+    emailType,
+    fromName,
+    merchantId ?? auditContext?.merchantId
+  );
 
   // Validate email
   if (!isValidEmail(to)) {
@@ -493,8 +538,13 @@ export async function sendEmailWithTemplate({
   emailType = 'noreply',
   fromName,
   auditContext,
+  merchantId,
 }: SendEmailWithTemplateParams): Promise<EmailResult> {
-  const sender = getSenderAddress(emailType, fromName);
+  const sender = await resolveSenderAddress(
+    emailType,
+    fromName,
+    merchantId ?? auditContext?.merchantId
+  );
 
   // Validate email
   if (!isValidEmail(to)) {
