@@ -30,6 +30,8 @@ function buildShippingAddressPayload(order: NormalizedImportedOrder) {
     return null;
   }
 
+  // Rich Bumpa exports can provide only a formatted full address. Use it as
+  // line 1 so receipts and order details still have a printable address.
   const addressLine =
     order.shippingAddress.address || order.shippingAddress.fullAddress;
 

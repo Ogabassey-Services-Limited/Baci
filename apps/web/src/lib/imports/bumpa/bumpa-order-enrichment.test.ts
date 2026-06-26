@@ -60,6 +60,28 @@ describe('buildBumpaItemImportMetadata', () => {
     expect(metadata.normalized_product_name).toBe('Renewed iPhone 12 128GB');
   });
 
+  it('removes bracketed condition groups without leaving bracket residue', () => {
+    const metadata = buildBumpaItemImportMetadata(
+      'HP EliteBook (UK Used) [New Screen]'
+    );
+
+    expect(metadata.normalized_product_name).toBe(
+      'HP EliteBook [New Screen] (UK Used)'
+    );
+  });
+
+  it('does not infer conditions from bracketed repair notes', () => {
+    const metadata = buildBumpaItemImportMetadata(
+      'HP EliteBook [New Screen] [Used Parts]'
+    );
+
+    expect(metadata.condition).toBeNull();
+    expect(metadata.condition_source).toBeNull();
+    expect(metadata.normalized_product_name).toBe(
+      'HP EliteBook [New Screen] [Used Parts]'
+    );
+  });
+
   it('extracts serial numbers without dropping the raw product name', () => {
     const metadata = buildBumpaItemImportMetadata(
       '16" MacBook Pro M1 16gb 512gb (premium Used) S/N: C02GR0WHQ05N'
