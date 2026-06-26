@@ -41,7 +41,7 @@ jobs:
   build-and-submit:
     name: Build IPA & Submit to App Store Connect
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 150
 
     steps:
       - name: Checkout
@@ -243,16 +243,51 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Guard App Store submission against stale main builds
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        id: submit_guard
+        run: |
+          CURRENT_MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ -z "$CURRENT_MAIN_SHA" ]; then
+            echo "::error::Unable to determine current main HEAD"
+            exit 1
+          fi
+
+          if [ "${GITHUB_SHA}" = "$CURRENT_MAIN_SHA" ]; then
+            echo "allow_submit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "allow_submit=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping App Store review submission because this run is not for the current main HEAD."
+          fi
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Resolve release notes
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.submit_guard.outputs.allow_submit == 'true') }}
+        shell: bash
+        env:
+          WORKFLOW_NOTES: ${{ vars.IOS_ADMIN_RELEASE_NOTES }}
+        run: |
+          NOTES="${WORKFLOW_NOTES:-Bug fixes and performance improvements.}"
+          NOTES="${NOTES:0:4000}"
+          DELIM="EOF_$(uuidgen | tr -d '-')"
+          {
+            echo "IOS_RELEASE_NOTES<<$DELIM"
+            echo "$NOTES"
+            echo "$DELIM"
+          } >> "$GITHUB_ENV"
+
       # Auto-submit the freshly-uploaded build for App Store review, mirroring
       # the storefront pipeline. `fastlane ios submit` runs deliver with
       # submit_for_review + automatic_release, so once Apple approves it releases
-      # automatically. The build is already processed (the release lane waited),
-      # so deliver can attach it.
+      # automatically. The submit lane waits for App Store Connect processing,
+      # so deliver can attach the build without relying on altool wait flags.
       - name: Submit to App Store for review
         # !cancelled() drops the implicit success() so a transient failure of the
         # preceding artifact-upload step can't skip submission once the build is
-        # already on TestFlight; gate purely on the fastlane release outcome.
-        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' }}
+        # already on TestFlight; gate purely on the fastlane release outcome and
+        # the stale-main guard.
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.submit_guard.outputs.allow_submit == 'true') }}
         working-directory: ${{ env.WORKING_DIR }}
         env:
           CI: '1'
@@ -263,7 +298,7 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
-          IOS_RELEASE_NOTES: ${{ vars.IOS_ADMIN_RELEASE_NOTES }}
+          IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets
