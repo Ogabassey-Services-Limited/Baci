@@ -383,6 +383,41 @@ describe('createBillFormPurchaseHandler', () => {
       expect(resetWalletIdempotencyKey).toHaveBeenCalledTimes(1);
     });
 
+    it('forwards the verified meter address on the wallet-only path', async () => {
+      mockChargeWalletForVtu.mockResolvedValueOnce({
+        status: 'successful',
+        amount: 1000,
+        reference: 'WAL-ADDR',
+      });
+      const handlePurchase = createValidHandler({
+        amount: '1000',
+        numericAmount: 1000,
+        verifiedCustomerName: 'JANE METER-OWNER',
+        verifiedCustomerAddress: '12 Marina Road, Lagos',
+        payment: {
+          cards: [],
+          isLoadingCards: false,
+          refetchCards: jest.fn<PaymentState['refetchCards']>(),
+          selectGateway: jest.fn(),
+          selectSavedCard: jest.fn(),
+          selectedGateway: 'paystack',
+          selectedSavedCardId: null,
+          supportedGateways: ['paystack'],
+          walletBalance: 1000,
+          walletSelection: { use: true, amount: 1000 },
+          setWalletSelection: jest.fn(),
+          getWalletIdempotencyKey: jest.fn(() => 'idem-key-addr'),
+          resetWalletIdempotencyKey: jest.fn(),
+        },
+      });
+
+      await handlePurchase();
+
+      expect(mockChargeWalletForVtu.mock.calls[0]?.[0]).toMatchObject({
+        customerAddress: '12 Marina Road, Lagos',
+      });
+    });
+
     it('keeps the idempotency key on a 5xx server error (server may have persisted state)', async () => {
       // Critical: rotating the key here would let the user's retry
       // bypass the route's dedupe table and create a duplicate
