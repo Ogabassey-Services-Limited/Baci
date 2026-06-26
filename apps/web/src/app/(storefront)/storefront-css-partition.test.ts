@@ -166,6 +166,8 @@ describe('storefront CSS partitioning', () => {
     const coreCss = readStorefrontFile('storefront-core.css');
 
     expect(coreCss).toMatch(/\.ogabassey-footer\b/);
+    expect(coreCss).toMatch(/\.ogabassey-footer\s*\{[^}]*color:\s*#ffffff/);
+    expect(coreCss).not.toMatch(/\.ogabassey-footer\s*\{[^}]*border-top:/s);
     expect(coreCss).toMatch(
       /background:\s*color-mix\(\s*in srgb,\s*var\(--store-background-text,\s*#111827\)\s*94%,\s*black\s*\)/
     );

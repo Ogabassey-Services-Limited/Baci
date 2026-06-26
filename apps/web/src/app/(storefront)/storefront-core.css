@@ -107,8 +107,7 @@
 
   .ogabassey-footer {
     background: #111111;
-    border-top: 1px solid var(--store-border, rgb(214 32 39 / 24%));
-    color: var(--store-background, #ffffff);
+    color: #ffffff;
   }
 
   @supports (background: color-mix(in srgb, white 50%, black)) {
@@ -118,6 +117,7 @@
         var(--store-background-text, #111827) 94%,
         black
       );
+      color: var(--store-background, #ffffff);
     }
   }
 

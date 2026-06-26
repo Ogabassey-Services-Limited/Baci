@@ -85,6 +85,8 @@ describe('Ogabassey Footer', () => {
     const footer = container.querySelector('footer');
 
     expect(footer?.className).toContain('ogabassey-footer');
+    expect(footer?.className).toContain('border-t');
+    expect(footer?.className).toContain('border-store-border/40');
     expect(footer?.className).not.toContain('bg-[color');
     expect(footer?.className).not.toContain('text-[color');
     expect(footer?.className).not.toContain('text-store-primary-text');

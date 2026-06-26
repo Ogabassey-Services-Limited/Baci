@@ -115,7 +115,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   };
 
   return (
-    <footer className="ogabassey-footer pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans">
+    <footer className="ogabassey-footer border-t border-store-border/40 pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans">
       {/* Pattern Overlay - Same as Navbar */}
       <div
         className="absolute inset-0 opacity-10 pointer-events-none"
