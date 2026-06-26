@@ -1802,6 +1802,49 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.description).not.toContain('in Nigeria');
   });
 
+  it('formats OgaBassey PDP product display with the merchant payout currency', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      country: 'GH',
+      payout_currency: 'GHS',
+      template_id: OGABASSEY_TEMPLATE_ID,
+    });
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Pixel 10',
+      slug: 'pixel-10',
+      description: 'Google Pixel phone.',
+      price: 999,
+      category: 'Smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+    });
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'pixel-10',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    const ogabasseyProps = mockOgabasseyPdpDeferredDetailIsland.mock.calls
+      .at(-1)
+      ?.at(0) as { product?: { price?: string } } | undefined;
+
+    expect(ogabasseyProps?.product?.price).toBe('GHS 999');
+    expect(ogabasseyProps?.product?.price).not.toContain('₦');
+  });
+
   it('leaves variant query redirects to page rendering, not metadata generation', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
