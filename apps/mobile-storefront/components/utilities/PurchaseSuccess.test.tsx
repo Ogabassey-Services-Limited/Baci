@@ -47,6 +47,12 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: (text: string) => mockSetClipboardString(text),
 }));
 
+jest.mock('@/hooks/use-receipts', () => ({
+  useMerchantReceiptInfo: () => ({
+    data: { business_name: 'Ogabassey', logo_url: 'https://cdn.test/logo.png' },
+  }),
+}));
+
 jest.mock('@/lib/utility-receipt', () => ({
   shareUtilityReceipt: (input: unknown) => mockShareUtilityReceipt(input),
   buildUtilityReceiptHtml: (input: unknown) =>

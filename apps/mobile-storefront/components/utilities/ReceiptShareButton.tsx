@@ -2,6 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
+import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import {
@@ -47,6 +48,7 @@ export default function ReceiptShareButton({
   const [receiptData, setReceiptData] = useState<UtilityReceiptData | null>(
     null
   );
+  const { data: merchantInfo } = useMerchantReceiptInfo();
   const isDisabled = !txReference;
   const actionColor = colors.primary ?? BRAND.primary;
 
@@ -57,7 +59,10 @@ export default function ReceiptShareButton({
       amount,
       customerIdentifier: identifier,
       customerName: customerName ?? undefined,
-      dateTime: new Date().toISOString(),
+      // No reliable purchase timestamp on the success screen — omit rather than
+      // stamp the moment the preview was opened (gateway return / delay / idle).
+      logoUrl: merchantInfo?.logo_url,
+      merchantName: merchantInfo?.business_name,
       network: network ?? undefined,
       phoneNumber: isAirtimeLike ? identifier : undefined,
       reference: txReference,

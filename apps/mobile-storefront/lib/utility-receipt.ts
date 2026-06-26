@@ -3,11 +3,6 @@ import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { sanitizePlainTextForHtml } from '@/lib/sanitize-plain-text';
 import { UTILITY_RECEIPT_CSS } from './utility-receipt-styles';
 
-// Full Ogabassey wordmark logo (PNG on the CDN) — renders in the WebView preview
-// and the generated PDF, unlike a bundled asset which can't be referenced by URL.
-const OGABASSEY_RECEIPT_LOGO =
-  'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png';
-
 type UtilityReceiptType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
 
 const TYPE_LABELS = {
@@ -54,6 +49,10 @@ export interface UtilityReceiptData {
   voucherPin?: string | null;
   /** Generic identifier fallback when a type-specific field is not supplied. */
   customerIdentifier?: string | null;
+  /** Merchant display name for branding (falls back to "Baci"). */
+  merchantName?: string | null;
+  /** Merchant logo URL for branding (omitted → name shown as text). */
+  logoUrl?: string | null;
 }
 
 function formatReceiptDateTime(value?: string | null): string | null {
@@ -196,6 +195,15 @@ export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
       )}</div></div>`
     : '';
 
+  // Merchant branding — dynamic per storefront (falls back to neutral "Baci").
+  const merchantName = data.merchantName?.trim() || 'Baci';
+  const logoUrl = data.logoUrl?.trim();
+  const logoBlock = logoUrl
+    ? `<img class="logo" src="${sanitizePlainTextForHtml(
+        logoUrl
+      )}" alt="${sanitizePlainTextForHtml(merchantName)}" />`
+    : `<div class="logo-text">${sanitizePlainTextForHtml(merchantName)}</div>`;
+
   return `<!doctype html>
 <html>
   <head>
@@ -211,7 +219,7 @@ export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
         <span class="bar-red"></span>
       </div>
       <div class="head">
-        <img class="logo" src="${OGABASSEY_RECEIPT_LOGO}" alt="Ogabassey" />
+        ${logoBlock}
         <div class="doc">${sanitizePlainTextForHtml(serviceLabel)} Receipt</div>
         <div class="status" style="color:${status.color}">${status.label}</div>
       </div>
@@ -220,7 +228,9 @@ export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
       ${tokenBlock}
       ${cashbackBlock}
       <div class="foot">
-        <div class="thanks">Thank you for using Ogabassey</div>
+        <div class="thanks">Thank you for using ${sanitizePlainTextForHtml(
+          merchantName
+        )}</div>
         Need help? Contact support with your reference above.
       </div>
     </section>

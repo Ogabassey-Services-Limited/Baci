@@ -3,6 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import ReceiptShareButton from './ReceiptShareButton';
 
+jest.mock('@/hooks/use-receipts', () => ({
+  useMerchantReceiptInfo: () => ({
+    data: { business_name: 'Ogabassey', logo_url: 'https://cdn.test/logo.png' },
+  }),
+}));
+
 // Render the preview modal as a simple text node exposing its props so we can
 // assert it opens with the built receipt HTML (the real modal uses a WebView).
 jest.mock('@/components/receipts/ReceiptPreviewModal', () => {

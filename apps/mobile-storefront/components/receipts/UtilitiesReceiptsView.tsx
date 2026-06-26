@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND, SPACING } from '@/constants/Colors';
+import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import {
   useVTUHistory,
   type VTUHistoryTransaction,
@@ -27,7 +28,10 @@ interface UtilitiesReceiptsViewProps {
   colors: typeof Colors.light;
 }
 
-function toReceiptData(transaction: VTUHistoryTransaction): UtilityReceiptData {
+function toReceiptData(
+  transaction: VTUHistoryTransaction,
+  merchant?: { business_name?: string | null; logo_url?: string | null }
+): UtilityReceiptData {
   return {
     amount: transaction.amount,
     billerName: transaction.biller_name ?? undefined,
@@ -36,6 +40,8 @@ function toReceiptData(transaction: VTUHistoryTransaction): UtilityReceiptData {
       transaction.customer_identifier ?? transaction.phone_number ?? undefined,
     customerName: transaction.customer_name,
     dateTime: transaction.created_at,
+    logoUrl: merchant?.logo_url,
+    merchantName: merchant?.business_name,
     network: transaction.network_provider ?? undefined,
     phoneNumber: transaction.phone_number ?? undefined,
     reference: transaction.request_reference,
@@ -47,6 +53,7 @@ function toReceiptData(transaction: VTUHistoryTransaction): UtilityReceiptData {
 
 export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
   const { data, isLoading, isError, refetch } = useVTUHistory('all', 50);
+  const { data: merchantInfo } = useMerchantReceiptInfo();
   const [isRefreshing, setIsRefreshing] = useState(false);
   // Keep the whole selected transaction so the preview can reflect its real
   // paid/failed/pending status (history includes non-successful rows).
@@ -125,9 +132,15 @@ export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
       />
       <ReceiptPreviewModal
         visible={selected !== null}
-        html={selected ? buildUtilityReceiptHtml(toReceiptData(selected)) : ''}
+        html={
+          selected
+            ? buildUtilityReceiptHtml(toReceiptData(selected, merchantInfo))
+            : ''
+        }
         shareText={
-          selected ? buildReceiptMessage(toReceiptData(selected)) : undefined
+          selected
+            ? buildReceiptMessage(toReceiptData(selected, merchantInfo))
+            : undefined
         }
         documentType="receipt"
         onClose={() => setSelected(null)}

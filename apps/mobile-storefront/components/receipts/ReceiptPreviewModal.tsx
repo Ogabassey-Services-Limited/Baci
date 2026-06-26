@@ -76,18 +76,22 @@ export function ReceiptPreviewModal({
   html,
   onClose,
   isPaid,
-  documentType = 'receipt',
+  documentType,
   shareText,
 }: ReceiptPreviewModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const [isSharing, setIsSharing] = useState(false);
+  // Default the document label from paid status (preserves the devices/orders
+  // invoice flow). Utility callers pass documentType='receipt' explicitly.
+  const resolvedDocumentType =
+    documentType ?? (isPaid ? 'receipt' : 'invoice');
 
   const handleShare = async () => {
     if (!html || isSharing) return;
     setIsSharing(true);
-    await shareReceiptPdf(html, documentType, shareText);
+    await shareReceiptPdf(html, resolvedDocumentType, shareText);
     setIsSharing(false);
   };
 
@@ -124,7 +128,9 @@ export function ReceiptPreviewModal({
             </Pressable>
           </View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {documentType === 'invoice' ? 'Invoice Preview' : 'Receipt Preview'}
+            {resolvedDocumentType === 'invoice'
+              ? 'Invoice Preview'
+              : 'Receipt Preview'}
           </Text>
           <View style={styles.headerRight} />
         </View>

@@ -57,6 +57,12 @@ export const UTILITY_RECEIPT_CSS = `
     max-width: 70%;
     object-fit: contain;
   }
+  .logo-text {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #111827;
+  }
   .head .doc { margin-top: 10px; font-size: 13px; color: #6b7280; letter-spacing: 0.3px; }
   .status {
     display: inline-block;
