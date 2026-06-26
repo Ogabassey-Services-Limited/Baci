@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildBumpaItemImportMetadata,
+  buildBumpaProductNameCandidates,
   buildBumpaShippingAddress,
   enrichBumpaOrderItems,
 } from './bumpa-order-enrichment';
@@ -39,6 +40,18 @@ describe('buildBumpaItemImportMetadata', () => {
     );
     expect(metadata.brand).toBe('Google');
     expect(metadata.product_family).toBe('Google Pixel');
+  });
+
+  it('offers stripped original-brand and alias-normalized names for product matching', () => {
+    expect(
+      buildBumpaProductNameCandidates(
+        'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261'
+      )
+    ).toEqual([
+      'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+      'Pixel 7a 128GB (Premium Used)',
+      'Google Pixel 7a 128GB (Premium Used)',
+    ]);
   });
 
   it('does not strip condition words inside larger product terms', () => {

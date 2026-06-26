@@ -1,4 +1,4 @@
-import { buildBumpaItemImportMetadata } from '@/lib/imports/bumpa/bumpa-order-enrichment';
+import { buildBumpaProductNameCandidates } from '@/lib/imports/bumpa/bumpa-order-enrichment';
 import type {
   ExistingImportedProduct,
   NormalizedImportedCustomer,
@@ -94,12 +94,12 @@ function findProductByName(
   productsByName: Map<string, ExistingImportedProduct>,
   productName: string
 ) {
-  const matchedRawName = productsByName.get(normalizeNameKey(productName));
-  if (matchedRawName) return matchedRawName;
+  for (const candidate of buildBumpaProductNameCandidates(productName)) {
+    const matchedProduct = productsByName.get(normalizeNameKey(candidate));
+    if (matchedProduct) return matchedProduct;
+  }
 
-  const normalizedProductName =
-    buildBumpaItemImportMetadata(productName).normalized_product_name;
-  return productsByName.get(normalizeNameKey(normalizedProductName)) || null;
+  return null;
 }
 
 function splitPipeField(value: string) {

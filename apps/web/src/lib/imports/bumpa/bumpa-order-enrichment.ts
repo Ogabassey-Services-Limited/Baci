@@ -222,22 +222,54 @@ function removeIdentifiers(value: string) {
   );
 }
 
+function removeContactText(value: string) {
+  return sanitizeText(
+    value
+      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, ' ')
+      .replace(/\b(?:\+?234|0)?[789][01]\d{8}\b/g, ' ')
+  );
+}
+
+function buildCleanProductName(itemName: string, useBrandAliases: boolean) {
+  const rawProductName = sanitizeText(itemName);
+  const { condition } = extractCondition(rawProductName);
+  const withoutIdentifiers = removeContactText(
+    removeIdentifiers(rawProductName)
+  );
+  const withoutCondition = removeConditionText(withoutIdentifiers);
+  const baseName = (
+    useBrandAliases
+      ? normalizeBrandAliases(withoutCondition)
+      : titleizeMemoryUnits(withoutCondition)
+  ).replace(/\s+/g, ' ');
+  const kind = productKind(baseName);
+
+  if (condition && (kind === 'device' || kind === 'accessory_device')) {
+    return sanitizeText(`${baseName} (${condition})`);
+  }
+
+  return sanitizeText(baseName || rawProductName);
+}
+
+export function buildBumpaProductNameCandidates(itemName: string) {
+  const rawProductName = sanitizeText(itemName);
+  const candidates = [
+    rawProductName,
+    buildCleanProductName(rawProductName, false),
+    buildCleanProductName(rawProductName, true),
+  ];
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
 export function buildBumpaItemImportMetadata(
   itemName: string
 ): BumpaItemImportMetadata {
   const rawProductName = sanitizeText(itemName);
   const identifiers = extractIdentifiers(rawProductName);
   const { condition, conditionSource } = extractCondition(rawProductName);
-  const withoutIdentifiers = removeIdentifiers(rawProductName)
-    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, ' ')
-    .replace(/\b(?:\+?234|0)?[789][01]\d{8}\b/g, ' ');
-  const withoutCondition = removeConditionText(withoutIdentifiers);
-  const baseName = normalizeBrandAliases(withoutCondition).replace(/\s+/g, ' ');
-  const kind = productKind(baseName);
-  const normalizedProductName =
-    condition && (kind === 'device' || kind === 'accessory_device')
-      ? sanitizeText(`${baseName} (${condition})`)
-      : sanitizeText(baseName || rawProductName);
+  const normalizedProductName = buildCleanProductName(rawProductName, true);
+  const kind = productKind(normalizedProductName);
   const { brand, family } = inferBrandFamily(normalizedProductName);
 
   return {

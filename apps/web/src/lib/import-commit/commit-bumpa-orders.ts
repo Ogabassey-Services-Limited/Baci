@@ -44,6 +44,14 @@ function buildShippingAddressPayload(order: NormalizedImportedOrder) {
   };
 }
 
+function isCompleteShippingAddress(
+  shippingAddress: ReturnType<typeof buildShippingAddressPayload>
+) {
+  return Boolean(
+    shippingAddress?.address && shippingAddress.city && shippingAddress.state
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -67,7 +75,9 @@ function buildBumpaFulfillmentFields(
   const identifiers = isRecord(bumpaMetadata?.fulfillment_identifiers)
     ? bumpaMetadata.fulfillment_identifiers
     : null;
-  const imei = firstString(identifiers?.imeis);
+  const imei =
+    firstString(identifiers?.imeis) ||
+    firstString(identifiers?.unlabeledIdentifiers);
   const serialNumber = firstString(identifiers?.serialNumbers);
 
   return {
@@ -108,6 +118,8 @@ function buildOrderInsertPayload(
     order.sourceChannel
   );
   const shippingAddress = buildShippingAddressPayload(order);
+  const shouldWriteShippingAddress =
+    !existingOrder || isCompleteShippingAddress(shippingAddress);
   const existingFulfillmentDetails = isRecord(
     existingOrder?.fulfillment_details
   )
@@ -118,7 +130,7 @@ function buildOrderInsertPayload(
     shipping_option: order.shippingOption,
     source_channel: order.sourceChannel,
     source_origin: order.sourceOrigin,
-    ...(order.shippingAddress || !existingOrder
+    ...(shouldWriteShippingAddress
       ? { shipping_address_source: order.shippingAddress?.source ?? null }
       : {}),
   };
@@ -147,7 +159,7 @@ function buildOrderInsertPayload(
       ? `Imported from Bumpa (${order.shippingOption})`
       : 'Imported from Bumpa',
     fulfillment_details: fulfillmentDetails,
-    ...(shippingAddress || !existingOrder
+    ...(shouldWriteShippingAddress
       ? { shipping_address: shippingAddress }
       : {}),
     tracking_token: trackingToken,

@@ -317,6 +317,91 @@ describe('commitBumpaOrders', () => {
     expect(insertItemsQuery.insert).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves existing shipping addresses when an update only has partial enrichment', async () => {
+    const { supabase, updateOrderQuery } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          fulfillment_details: {
+            shipping_address_source: 'previous-rich-import',
+          },
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: null,
+            address: null,
+            city: 'Lekki',
+            state: null,
+            country: 'Nigeria',
+            postalCode: null,
+            source: 'partial-bumpa-import',
+          },
+        }),
+      ],
+    });
+
+    const updatePayload = updateOrderQuery.update.mock.calls[0]?.[0];
+    expect(updatePayload).not.toHaveProperty('shipping_address');
+    expect(updatePayload).toMatchObject({
+      fulfillment_details: expect.objectContaining({
+        shipping_address_source: 'previous-rich-import',
+      }),
+    });
+  });
+
+  it('promotes bare numeric Bumpa identifiers into receipt fulfillment data', async () => {
+    const { supabase, insertItemsQuery } = createSupabaseMock();
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          items: [
+            {
+              productId: null,
+              productName: 'iPhone 12 351183326811261',
+              sku: null,
+              quantity: 1,
+              unitPrice: 300000,
+              lineTotal: 300000,
+              matched: false,
+              matchSource: 'unmatched',
+              importMetadata: {
+                bumpa: {
+                  fulfillment_identifiers: {
+                    imeis: [],
+                    serialNumbers: [],
+                    unlabeledIdentifiers: ['351183326811261'],
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(insertItemsQuery.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        fulfillment_data: expect.objectContaining({
+          imei: '351183326811261',
+        }),
+      }),
+    ]);
+  });
+
   it('increments createdCustomers when the importer creates a new customer', async () => {
     vi.mocked(createImportCustomerResolver).mockResolvedValue({
       resolveCustomerId: vi.fn().mockResolvedValue({

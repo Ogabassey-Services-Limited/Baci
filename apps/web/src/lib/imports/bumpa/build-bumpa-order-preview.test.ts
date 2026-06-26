@@ -137,6 +137,38 @@ describe('buildBumpaOrderPreview', () => {
     });
   });
 
+  it('matches rich Bumpa product lines to stripped original-brand catalog names', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: 'pixel-original-brand',
+          'Order Number': '06400',
+          Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+          'Product SKU': '',
+          'Product Quantity': '1.00',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [
+        {
+          id: 'product-pixel-original',
+          name: 'Pixel 7a 128GB (Premium Used)',
+          sku: null,
+          price: 425000,
+          externalSource: 'bumpa',
+          externalId: 'bumpa-product-pixel',
+        },
+      ],
+    });
+
+    expect(result.rows[0]?.payload?.items[0]).toMatchObject({
+      productId: 'product-pixel-original',
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
   it('marks review-excluded rich import rows invalid before commit', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [
