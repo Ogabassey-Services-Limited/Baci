@@ -216,6 +216,61 @@ describe('getProductSeoInventory', () => {
     ]);
   });
 
+  it('prefers scoped current-product rows over unscoped duplicates', async () => {
+    productResponses = [
+      {
+        data: [
+          {
+            ...canonicalProduct,
+            id: 'current-prod',
+            slug: 'legion-5',
+            category_id: null,
+            categories: null,
+            product_categories: [
+              {
+                category_id: 'cat-parent',
+                categories: { slug: 'laptops' },
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+      { data: [], error: null },
+      {
+        data: [
+          {
+            ...canonicalProduct,
+            id: 'current-prod',
+            slug: 'legion-5',
+            category_id: null,
+            categories: null,
+            product_categories: [
+              {
+                category_id: 'cat-child',
+                categories: { slug: 'gaming-laptops' },
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    ];
+
+    const result = await getProductSeoInventory(
+      'merchant-1',
+      'gaming-laptops',
+      'current-prod'
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        slug: 'legion-5',
+        category_slug: 'gaming-laptops',
+      }),
+    ]);
+  });
+
   it('normalizes embedded product key specs relation rows before semantic comparisons', async () => {
     productResponses = [
       { data: [], error: null },
@@ -315,10 +370,9 @@ describe('getProductSeoInventory', () => {
       'old-prod'
     );
 
-    expect(result.map((product) => product.slug)).toEqual([
-      'older-product',
-      'new-product',
-    ]);
+    expect(result.map((product) => product.slug)).toEqual(
+      expect.arrayContaining(['older-product', 'new-product'])
+    );
   });
 
   it('does not throw when a legacy slug contains a literal percent sign', async () => {

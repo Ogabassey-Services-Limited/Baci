@@ -68,7 +68,7 @@ export async function getProductSeoInventory(
     scope
   );
   return mergeProductCandidates(
-    currentProduct ? [currentProduct, ...scopedProducts] : scopedProducts
+    currentProduct ? [...scopedProducts, currentProduct] : scopedProducts
   );
 }
 

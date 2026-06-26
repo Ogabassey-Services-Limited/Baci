@@ -74,7 +74,9 @@ export function toProductSemanticCandidate(
     condition: product.condition,
     price,
     stock: product.stock_quantity ?? product.stock,
-    category_slug: getJoinedCategorySlug(product) ?? fallbackCategorySlug,
+    category_slug:
+      getJoinedCategorySlug(product, fallbackCategorySlug) ??
+      fallbackCategorySlug,
     product_key_specs: normalizeProductKeySpecs(product.product_key_specs),
   };
 }
@@ -102,7 +104,18 @@ function getCategorySlug(
   return category?.slug?.trim() || null;
 }
 
-function getJoinedCategorySlug(product: ProductSeoRow): string | null {
+function getJoinedCategorySlug(
+  product: ProductSeoRow,
+  preferredCategorySlug: string
+): string | null {
+  const preferredJoinedSlug =
+    product.product_categories
+      ?.map((join) => getCategorySlug(join.categories))
+      .find((slug): slug is string => slug === preferredCategorySlug) ?? null;
+  if (preferredJoinedSlug) {
+    return preferredJoinedSlug;
+  }
+
   const directSlug = getCategorySlug(product.categories);
   if (directSlug) {
     return directSlug;

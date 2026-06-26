@@ -133,6 +133,12 @@ describe('getSeoGuidePosts', () => {
     expect(createdQueries[0].or).toHaveBeenCalledWith(
       expect.stringContaining('excerpt.ilike.%mobile phones%')
     );
+    expect(createdQueries[0].or).toHaveBeenCalledWith(
+      expect.stringContaining('tags.cs.{phones}')
+    );
+    expect(createdQueries[0].or).toHaveBeenCalledWith(
+      expect.stringContaining('keywords.cs.{"mobile phones"}')
+    );
     expect(result.clusterGuidePosts).toEqual([phoneGuide]);
   });
 

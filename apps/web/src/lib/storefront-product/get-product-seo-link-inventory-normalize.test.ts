@@ -35,6 +35,26 @@ describe('toProductSemanticCandidate', () => {
     );
   });
 
+  it('prefers a joined category slug that matches the requested scoped category', () => {
+    const candidate = toProductSemanticCandidate(
+      {
+        slug: 'legion-5',
+        name: 'Legion 5',
+        price: 1500,
+        categories: { slug: 'laptops' },
+        product_categories: [{ categories: { slug: 'gaming-laptops' } }],
+      },
+      'gaming-laptops'
+    );
+
+    expect(candidate).toEqual(
+      expect.objectContaining({
+        slug: 'legion-5',
+        category_slug: 'gaming-laptops',
+      })
+    );
+  });
+
   it('returns null for rows without crawlable product identity or finite price', () => {
     expect(
       toProductSemanticCandidate(

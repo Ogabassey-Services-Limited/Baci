@@ -143,11 +143,16 @@ function buildGuideCategoryFilter(categorySlug: string): string | null {
   }
 
   const slugTerm = normalizeGuideCategorySlug(categorySlug);
-  const filters = searchTerms.flatMap((searchTerm) => [
-    `category.ilike.%${searchTerm}%`,
-    `title.ilike.%${searchTerm}%`,
-    `excerpt.ilike.%${searchTerm}%`,
-  ]);
+  const filters = searchTerms.flatMap((searchTerm) => {
+    const arrayTerm = formatPostgrestArrayTerm(searchTerm);
+    return [
+      `category.ilike.%${searchTerm}%`,
+      `title.ilike.%${searchTerm}%`,
+      `excerpt.ilike.%${searchTerm}%`,
+      `tags.cs.{${arrayTerm}}`,
+      `keywords.cs.{${arrayTerm}}`,
+    ];
+  });
 
   if (slugTerm) {
     filters.push(
@@ -158,6 +163,11 @@ function buildGuideCategoryFilter(categorySlug: string): string | null {
   }
 
   return filters.length ? filters.join(',') : null;
+}
+
+function formatPostgrestArrayTerm(term: string): string {
+  const escapedTerm = term.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return /[\s,{}"]/u.test(escapedTerm) ? `"${escapedTerm}"` : escapedTerm;
 }
 
 function getGuideCategorySearchTerms(categorySlug: string): string[] {
