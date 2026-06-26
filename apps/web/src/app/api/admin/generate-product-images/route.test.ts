@@ -79,17 +79,22 @@ function createProductsQuery(result: unknown) {
 function mockSupabaseTables({
   admin = true,
   products = [],
+  productsError = null,
   updateError = null,
 }: {
   admin?: boolean;
   products?: Record<string, unknown>[];
+  productsError?: unknown;
   updateError?: unknown;
 } = {}) {
   const merchantsChain = {
     select: vi.fn(() => createEqChain({ data: { is_platform_admin: admin } })),
   };
 
-  const productsQuery = createProductsQuery({ data: products, error: null });
+  const productsQuery = createProductsQuery({
+    data: products,
+    error: productsError,
+  });
   const updateEq = vi.fn();
   const updateChain = {
     eq: updateEq,
@@ -295,6 +300,20 @@ describe('POST /api/admin/generate-product-images', () => {
     expect(body).toEqual({
       message: 'No eligible products found needing images.',
     });
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the products query fails', async () => {
+    mockSupabaseTables({
+      admin: true,
+      productsError: { message: 'products query failed' },
+    });
+
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'products query failed' });
     expect(mockGenerateText).not.toHaveBeenCalled();
   });
 });

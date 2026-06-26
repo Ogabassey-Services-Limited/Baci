@@ -124,8 +124,6 @@ let featureSettingsResult: { data: unknown; error: unknown };
 let orderPaymentResult: { data: unknown; error: unknown };
 let savingsRedemptionsResult: { data: unknown; error: unknown };
 let dvaUpsertResult: { data: unknown; error: unknown };
-let transactionMetadataResult: { data: unknown; error: unknown };
-const transactionMetadataUpdateCalls: Record<string, unknown>[] = [];
 
 // B1 (Δ-10): the route persists the DVA assignment via upsert.
 // Capture every upsert payload + onConflict so tests can assert the
@@ -186,21 +184,6 @@ function createMockAdminClient() {
           ) => {
             dvaUpsertCalls.push({ payload, options });
             return Promise.resolve(dvaUpsertResult);
-          },
-        };
-      }
-      if (table === 'transactions') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve(transactionMetadataResult),
-            }),
-          }),
-          update: (payload: Record<string, unknown>) => {
-            transactionMetadataUpdateCalls.push(payload);
-            return {
-              eq: () => Promise.resolve({ error: null }),
-            };
           },
         };
       }
@@ -285,12 +268,7 @@ function setupDefaults() {
   orderPaymentResult = { data: { wallet_amount_used: 0 }, error: null };
   savingsRedemptionsResult = { data: [], error: null };
   dvaUpsertResult = { data: null, error: null };
-  transactionMetadataResult = {
-    data: { metadata: { existing_key: 'preserved' } },
-    error: null,
-  };
   dvaUpsertCalls.length = 0;
-  transactionMetadataUpdateCalls.length = 0;
   rpcCalls.length = 0;
 }
 
