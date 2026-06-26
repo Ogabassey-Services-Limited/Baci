@@ -88,6 +88,7 @@ export function useUtilityHistoryActions({
       await shareUtilityReceipt({
         amount: transaction.amount,
         billerName: transaction.biller_name ?? undefined,
+        cashback: transaction.customer_cashback,
         customerIdentifier,
         customerName: transaction.customer_name,
         dateTime: transaction.created_at,
@@ -96,6 +97,7 @@ export function useUtilityHistoryActions({
         reference: transaction.request_reference,
         status: transaction.status,
         type: utilityRepeatHelpers.getRouteType(transaction.type),
+        units: transaction.units,
         voucherPin: transaction.voucher_pin,
       });
     } catch (shareError) {

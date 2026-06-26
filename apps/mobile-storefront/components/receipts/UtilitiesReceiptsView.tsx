@@ -36,6 +36,7 @@ function toReceiptData(
     amount: transaction.amount,
     billerName: transaction.biller_name ?? undefined,
     cashback: transaction.customer_cashback,
+    units: transaction.units,
     customerIdentifier:
       transaction.customer_identifier ?? transaction.phone_number ?? undefined,
     customerName: transaction.customer_name,

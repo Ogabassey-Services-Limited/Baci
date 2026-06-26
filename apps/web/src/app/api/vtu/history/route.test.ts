@@ -201,6 +201,7 @@ describe('GET /api/vtu/history', () => {
           gateway: 'paystack',
           paymentReference: 'VTU-PAYSTACK-123',
           voucherPin: '1234-5678',
+          units: '4.5',
         },
         request_reference: 'VTU-123',
         customer_cashback: '0',
@@ -283,6 +284,7 @@ describe('GET /api/vtu/history', () => {
         payment_status: 'completed',
         repeat_data_plan_code: 'KUD-DATA-001',
         voucher_pin: '1234-5678',
+        units: '4.5',
       }),
     ]);
     expect(transactionEqCalls).toContainEqual(['merchant_id', 'merchant-1']);
