@@ -23,6 +23,22 @@ interface CommitBumpaOrdersResult {
   createdCustomers: number;
 }
 
+function buildShippingAddressPayload(order: NormalizedImportedOrder) {
+  if (!order.shippingAddress) {
+    return null;
+  }
+
+  return {
+    address: order.shippingAddress.address,
+    full_address: order.shippingAddress.fullAddress,
+    city: order.shippingAddress.city,
+    state: order.shippingAddress.state,
+    country: order.shippingAddress.country,
+    postal_code: order.shippingAddress.postalCode,
+    source: order.shippingAddress.source,
+  };
+}
+
 async function loadExistingImportedOrders(
   supabase: SupabaseClient,
   merchantId: string
@@ -53,6 +69,7 @@ function buildOrderInsertPayload(
     order.sourceOrigin,
     order.sourceChannel
   );
+  const shippingAddress = buildShippingAddressPayload(order);
 
   return {
     merchant_id: merchantId,
@@ -81,7 +98,9 @@ function buildOrderInsertPayload(
       shipping_option: order.shippingOption,
       source_channel: order.sourceChannel,
       source_origin: order.sourceOrigin,
+      shipping_address_source: order.shippingAddress?.source ?? null,
     },
+    shipping_address: shippingAddress,
     tracking_token: trackingToken,
     created_at: order.createdAt,
     updated_at: order.updatedAt ?? order.createdAt,
@@ -108,6 +127,7 @@ function buildOrderItems(orderId: string, order: NormalizedImportedOrder) {
       source_platform: order.sourcePlatform,
       match_source: item.matchSource,
       matched: item.matched,
+      ...(item.importMetadata || {}),
     },
     created_at: order.createdAt,
   }));

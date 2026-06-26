@@ -284,6 +284,22 @@ describe('buildItems', () => {
     );
   });
 
+  it('removes a matching customer-name prefix before a double-pipe product name', () => {
+    const row = makeRow({
+      Products: 'John Onuoha || Iphone 16pro 256gb Physical Sim (Premium Used)',
+      'Customer Name': 'John Onuoha',
+      'Product SKU': '',
+      'Product Quantity': '1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].productName).toBe(
+      'Iphone 16pro 256gb Physical Sim (Premium Used)'
+    );
+  });
+
   it('trims stray trailing double pipes before product-name matching', () => {
     const row = makeRow({
       Products:

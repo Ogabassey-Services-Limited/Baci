@@ -41,6 +41,7 @@ function createOrder(
     updatedAt: '2026-03-21T10:00:00.000Z',
     couponCode: null,
     shippingOption: 'Door delivery',
+    shippingAddress: null,
     sourceChannel: 'instagram',
     sourceOrigin: 'manual',
     receiptReady: true,
@@ -147,6 +148,120 @@ describe('commitBumpaOrders', () => {
     );
   });
 
+  it('stores rich imported address and product metadata during commit', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq
+      .mockReturnValueOnce(loadQuery)
+      .mockResolvedValueOnce({ data: [], error: null });
+
+    const insertOrderQuery = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    insertOrderQuery.insert.mockReturnValue(insertOrderQuery);
+    insertOrderQuery.select.mockReturnValue(insertOrderQuery);
+    insertOrderQuery.single.mockResolvedValue({
+      data: {
+        id: 'order-new',
+        external_id: 'ext-1',
+        tracking_token: 'tracking-1',
+      },
+      error: null,
+    });
+
+    const deleteItemsQuery = {
+      delete: vi.fn(),
+      eq: vi.fn(),
+    };
+    deleteItemsQuery.delete.mockReturnValue(deleteItemsQuery);
+    deleteItemsQuery.eq.mockResolvedValue({ error: null });
+
+    const insertItemsQuery = {
+      insert: vi.fn(),
+    };
+    insertItemsQuery.insert.mockResolvedValue({ error: null });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertOrderQuery)
+        .mockReturnValueOnce(deleteItemsQuery)
+        .mockReturnValueOnce(insertItemsQuery),
+    } as unknown as SupabaseClient;
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: '10 Marina, Lagos, Nigeria',
+            address: '10 Marina',
+            city: 'Marina',
+            state: 'Lagos',
+            country: 'Nigeria',
+            postalCode: '100001',
+            source: 'shipping',
+          },
+          items: [
+            {
+              productId: null,
+              productName: 'Google Pixel 7a 128GB (Premium Used)',
+              sku: null,
+              quantity: 1,
+              unitPrice: 300000,
+              lineTotal: 300000,
+              matched: false,
+              matchSource: 'unmatched',
+              importMetadata: {
+                bumpa: {
+                  analytics_product_key: 'google-pixel-7a-128gb-premium-used',
+                  fulfillment_identifiers: {
+                    imeis: ['351183326811261'],
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(insertOrderQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_address: expect.objectContaining({
+          address: '10 Marina',
+          city: 'Marina',
+          postal_code: '100001',
+          source: 'shipping',
+        }),
+        fulfillment_details: expect.objectContaining({
+          shipping_address_source: 'shipping',
+        }),
+      })
+    );
+    expect(insertItemsQuery.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        fulfillment_data: expect.objectContaining({
+          matched: false,
+          bumpa: {
+            analytics_product_key: 'google-pixel-7a-128gb-premium-used',
+            fulfillment_identifiers: {
+              imeis: ['351183326811261'],
+            },
+          },
+        }),
+      }),
+    ]);
+  });
+
   it('updates existing imported orders and replaces order_items wholesale', async () => {
     const loadQuery = {
       select: vi.fn(),
@@ -209,6 +324,10 @@ describe('commitBumpaOrders', () => {
         merchant_id: 'merchant-1',
         payment_status: 'paid',
         shipping_status: 'delivered',
+        shipping_address: null,
+        fulfillment_details: expect.objectContaining({
+          shipping_address_source: null,
+        }),
         import_job_id: 'job-1',
         external_id: 'ext-1',
         source: 'manual',

@@ -1,5 +1,9 @@
 import { buildBumpaOrderPreviewSummary } from '@/lib/imports/bumpa/build-bumpa-order-preview-summary';
 import {
+  buildBumpaShippingAddress,
+  enrichBumpaOrderItems,
+} from '@/lib/imports/bumpa/bumpa-order-enrichment';
+import {
   buildCustomer,
   buildItems,
   mapPaymentStatus,
@@ -64,6 +68,22 @@ async function maybeReportProgress(
 
 function createEmptyOrderPreviewSummary() {
   return buildBumpaOrderPreviewSummary([]);
+}
+
+function getImportRecommendation(rawRow: Record<string, string>) {
+  return sanitizeText(rawRow.import_recommendation || '').toLowerCase();
+}
+
+function getExcludedImportError(rawRow: Record<string, string>) {
+  const recommendation = getImportRecommendation(rawRow);
+  if (!recommendation.startsWith('exclude_')) {
+    return null;
+  }
+
+  const reason = sanitizeText(rawRow.import_reason || '');
+  return reason
+    ? `Skipped by migration review (${recommendation}): ${reason}`
+    : `Skipped by migration review (${recommendation})`;
 }
 
 function updateOrderPreviewSummary(
@@ -190,6 +210,29 @@ export async function* buildBumpaOrderPreviewChunks({
     const row = validationResult.data;
     const errors: string[] = [];
     const externalSourceId = row.id;
+    const excludedImportError = getExcludedImportError(rawRow);
+
+    if (excludedImportError) {
+      const previewRow = {
+        rowNumber,
+        sourceExternalId: externalSourceId,
+        rowStatus: 'invalid',
+        errors: [excludedImportError],
+        payload: null,
+        meta: {
+          importRecommendation: getImportRecommendation(rawRow),
+        },
+      } satisfies ImportPreviewRow<NormalizedImportedOrder>;
+      previewRows.push(previewRow);
+      updateOrderPreviewSummary(runningSummary, previewRow);
+      queuePendingRow(previewRow);
+      await maybeReportProgress(onProgress, index + 1, rows.length);
+      const chunk = buildChunk(index + 1, index + 1 === rows.length);
+      if (chunk) {
+        yield chunk;
+      }
+      continue;
+    }
 
     if (seenExternalIds.has(externalSourceId)) {
       const previewRow = {
@@ -247,7 +290,7 @@ export async function* buildBumpaOrderPreviewChunks({
     }
 
     const customer = buildCustomer(row);
-    const items = buildItems(row, existingProducts);
+    const items = enrichBumpaOrderItems(buildItems(row, existingProducts));
 
     if (items.some((item) => !item.productName)) {
       errors.push('One or more imported items are missing a product name');
@@ -284,6 +327,7 @@ export async function* buildBumpaOrderPreviewChunks({
             updatedAt: parseIsoDate(row['Updated At']),
             couponCode: sanitizeText(row['Coupon Code']) || null,
             shippingOption: sanitizeText(row['Shipping Option']) || null,
+            shippingAddress: buildBumpaShippingAddress(rawRow),
             receiptReady: paymentStatus === 'paid',
             items,
             importMetadata: {
@@ -291,6 +335,22 @@ export async function* buildBumpaOrderPreviewChunks({
               rawShippingStatus: row['Shipping Status'],
               rawChannel: row.Channel,
               rawOrigin: row.Origin,
+              importRecommendation: getImportRecommendation(rawRow),
+              importReason: sanitizeText(rawRow.import_reason || ''),
+              customerProfile: {
+                canonicalCustomerKey: sanitizeText(
+                  rawRow.canonical_customer_key || ''
+                ),
+                isCompanyOrProxy:
+                  sanitizeText(
+                    rawRow.is_company_or_proxy || ''
+                  ).toLowerCase() === 'yes',
+                companyOrProxyReason: sanitizeText(
+                  rawRow.company_or_proxy_reason || ''
+                ),
+                contactQuality: sanitizeText(rawRow.contact_quality || ''),
+                addressQuality: sanitizeText(rawRow.address_quality || ''),
+              },
             },
           } satisfies NormalizedImportedOrder)
         : null;

@@ -73,6 +73,87 @@ describe('buildBumpaOrderPreview', () => {
     });
   });
 
+  it('carries rich address and product enrichment fields into the preview payload', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+          'Product SKU': '',
+          'Product Quantity': '1.00',
+          best_address_full: '10 Marina, Lagos, Nigeria',
+          best_address_street: '10 Marina',
+          best_address_city: 'Marina',
+          best_address_state: 'Lagos',
+          best_address_country: 'Nigeria',
+          best_address_zip: '100001',
+          address_source: 'shipping',
+          import_recommendation: 'review_phone_only',
+          contact_quality: 'phone_only',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.payload?.shippingAddress).toEqual({
+      fullAddress: '10 Marina, Lagos, Nigeria',
+      address: '10 Marina',
+      city: 'Marina',
+      state: 'Lagos',
+      country: 'Nigeria',
+      postalCode: '100001',
+      source: 'shipping',
+    });
+    expect(result.rows[0]?.payload?.importMetadata).toMatchObject({
+      importRecommendation: 'review_phone_only',
+      customerProfile: {
+        contactQuality: 'phone_only',
+      },
+    });
+    expect(result.rows[0]?.payload?.items[0]?.importMetadata).toMatchObject({
+      bumpa: {
+        normalized_product_name: 'Google Pixel 7a 128GB (Premium Used)',
+        analytics_product_key: 'google-pixel-7a-128gb-premium-used',
+        product_family: 'Google Pixel',
+        fulfillment_identifiers: {
+          imeis: ['351183326811261'],
+        },
+      },
+    });
+  });
+
+  it('marks review-excluded rich import rows invalid before commit', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          'Customer Name': 'Keza Africa',
+          import_recommendation: 'exclude_proxy_or_company',
+          import_reason:
+            'Customer appears to be a company/proxy purchaser, not the final receipt owner.',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.summary.invalidRows).toBe(1);
+    expect(result.rows[0]).toMatchObject({
+      rowStatus: 'invalid',
+      payload: null,
+      meta: {
+        importRecommendation: 'exclude_proxy_or_company',
+      },
+    });
+    expect(result.rows[0]?.errors[0]).toContain(
+      'Skipped by migration review (exclude_proxy_or_company)'
+    );
+    expect(result.rows[0]?.errors[0]).toContain(
+      'Customer appears to be a company/proxy purchaser, not the final receipt owner.'
+    );
+  });
+
   it('marks duplicate external ids in the same file', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [baseRow, { ...baseRow }],

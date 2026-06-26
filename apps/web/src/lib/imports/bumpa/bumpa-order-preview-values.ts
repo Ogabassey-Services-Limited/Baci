@@ -128,6 +128,14 @@ function buildProductNames(
   if (expectedCount <= 1) {
     const compactParts = rawParts.filter(Boolean);
     const mergedName = compactParts.join(' | ');
+    const doublePipePrefixMatch = mergedName.match(/^(.+?)\s*\|\|\s*(.+)$/);
+
+    if (
+      doublePipePrefixMatch &&
+      normalizeNameKey(doublePipePrefixMatch[1] || '') === customerNameKey
+    ) {
+      return [doublePipePrefixMatch[2] || ''];
+    }
 
     if (
       compactParts.length === 2 &&

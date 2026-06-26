@@ -84,6 +84,7 @@ function createOrderPayload(
     updatedAt: '2026-03-22T00:00:00.000Z',
     couponCode: null,
     shippingOption: null,
+    shippingAddress: null,
     receiptReady: true,
     items: [],
     importMetadata: {},
