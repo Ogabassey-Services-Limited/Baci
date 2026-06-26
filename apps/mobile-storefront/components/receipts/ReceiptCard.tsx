@@ -1,4 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { Image } from 'expo-image';
 import type React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND, SHADOWS } from '@/constants/Colors';
@@ -64,6 +65,11 @@ export function ReceiptCard({
 }: ReceiptCardProps) {
   const config = getPaymentConfig(item.payment_status);
   const firstItem = item.items[0];
+  const productTitle = firstItem
+    ? `${firstItem.product_name}${
+        item.items.length > 1 ? ` +${item.items.length - 1} more` : ''
+      }`
+    : `Order #${item.order_number}`;
 
   return (
     <TouchableOpacity
@@ -72,21 +78,46 @@ export function ReceiptCard({
       onPressIn={() => onPrefetch?.(item.id)}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={`${config.label} for order ${item.order_number}`}
+      accessibilityLabel={`${config.label} for ${productTitle}, order ${item.order_number}`}
     >
       <View style={styles.cardHeader}>
-        <View>
-          <Text style={[styles.orderNumber, { color: colors.text }]}>
-            #{item.order_number}
+        <View style={[styles.thumb, { backgroundColor: `${BRAND.primary}12` }]}>
+          {firstItem?.image_url ? (
+            <Image
+              source={{ uri: firstItem.image_url }}
+              style={styles.thumbImage}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              transition={150}
+              accessibilityLabel={firstItem.product_name}
+            />
+          ) : (
+            <Ionicons
+              name="phone-portrait-outline"
+              size={22}
+              color={BRAND.primary}
+            />
+          )}
+        </View>
+        <View style={styles.headerCopy}>
+          {/* Product name is the primary line; order # is secondary metadata. */}
+          <Text
+            style={[styles.productName, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {productTitle}
           </Text>
-          <Text style={[styles.date, { color: colors.textSecondary }]}>
-            {formatDate(item.created_at)}
+          <Text
+            style={[styles.metaLine, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            #{item.order_number} · {formatDate(item.created_at)}
           </Text>
         </View>
         <View style={[styles.badge, { backgroundColor: `${config.color}15` }]}>
           <Ionicons
             name={config.icon as React.ComponentProps<typeof Ionicons>['name']}
-            size={14}
+            size={13}
             color={config.color}
           />
           <Text style={[styles.badgeText, { color: config.color }]}>
@@ -95,38 +126,27 @@ export function ReceiptCard({
         </View>
       </View>
 
-      {firstItem && (
-        <Text
-          style={[styles.itemName, { color: colors.textSecondary }]}
-          numberOfLines={1}
-        >
-          {firstItem.product_name}
-          {item.items.length > 1 && ` +${item.items.length - 1} more`}
-        </Text>
-      )}
-
       <View style={styles.cardFooter}>
-        <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
-          {item.payment_status === 'paid' ? 'Paid' : 'Total'}
-        </Text>
-        <Text style={[styles.totalAmount, { color: colors.text }]}>
-          {formatPrice(item.total, item.currency)}
-        </Text>
-      </View>
-
-      {item.payment_status === 'partially_paid' && (
-        <View style={styles.balanceRow}>
-          <Text style={[styles.balanceLabel, { color: '#D97706' }]}>
-            Balance: {formatPrice(item.total - item.amount_paid, item.currency)}
+        <View>
+          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
+            {item.payment_status === 'paid' ? 'Paid' : 'Total'}
           </Text>
+          <Text style={[styles.totalAmount, { color: colors.text }]}>
+            {formatPrice(item.total, item.currency)}
+          </Text>
+          {item.payment_status === 'partially_paid' && (
+            <Text style={[styles.balanceLabel, { color: '#D97706' }]}>
+              Balance:{' '}
+              {formatPrice(item.total - item.amount_paid, item.currency)}
+            </Text>
+          )}
         </View>
-      )}
-
-      <View style={styles.viewAction}>
-        <Text style={[styles.viewActionText, { color: BRAND.primary }]}>
-          View {config.label}
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={BRAND.primary} />
+        <View style={styles.viewAction}>
+          <Text style={[styles.viewActionText, { color: BRAND.primary }]}>
+            View {config.label}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={BRAND.primary} />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -134,71 +154,79 @@ export function ReceiptCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 12,
   },
-  orderNumber: {
+  thumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+    padding: 4,
+  },
+  headerCopy: {
+    flex: 1,
+  },
+  productName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  date: {
-    fontSize: 13,
-    marginTop: 2,
+  metaLine: {
+    fontSize: 12,
+    marginTop: 3,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 999,
     gap: 4,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  itemName: {
-    fontSize: 14,
-    marginBottom: 10,
+    fontSize: 11,
+    fontWeight: '700',
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 10,
+    alignItems: 'flex-end',
+    paddingTop: 12,
+    marginTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5E5E5',
   },
   totalLabel: {
-    fontSize: 14,
+    fontSize: 12,
   },
   totalAmount: {
     fontSize: 18,
     fontWeight: '700',
-  },
-  balanceRow: {
-    marginTop: 6,
-    alignItems: 'flex-end',
+    marginTop: 2,
   },
   balanceLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    marginTop: 3,
   },
   viewAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 12,
+    gap: 2,
   },
   viewActionText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

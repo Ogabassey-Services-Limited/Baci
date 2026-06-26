@@ -16,6 +16,7 @@ const OrderItemSchema = z.object({
   product_name: z.string(),
   quantity: z.number(),
   price: z.number(),
+  image_url: z.string().nullable().optional(),
 });
 
 const ShippingAddressSchema = z.object({

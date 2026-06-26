@@ -108,6 +108,19 @@ describe('utility-receipt', () => {
     expect(html).toContain('₦0');
   });
 
+  it('renders the branded angular accent bar', () => {
+    const html = buildUtilityReceiptHtml({
+      amount: 500,
+      customerIdentifier: '08012345678',
+      reference: 'ref-123',
+      status: 'successful',
+      type: 'airtime',
+    });
+
+    expect(html).toContain('class="brandbar"');
+    expect(html).toContain('bar-red');
+  });
+
   it('falls back to native share with zero amount when file sharing is unavailable', async () => {
     mockIsAvailableAsync.mockResolvedValue(false);
 

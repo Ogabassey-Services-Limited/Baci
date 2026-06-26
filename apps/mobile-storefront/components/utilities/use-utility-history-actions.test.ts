@@ -202,8 +202,12 @@ describe('useUtilityHistoryActions', () => {
 
     expect(mockShareUtilityReceipt).toHaveBeenCalledWith({
       amount: 2500,
+      billerName: undefined,
       customerIdentifier: '43901766923',
       customerName: 'Jane Customer',
+      dateTime: '2026-04-08T12:00:00.000Z',
+      network: undefined,
+      phoneNumber: '08012345678',
       reference: 'VTU-123',
       status: 'successful',
       type: 'power',

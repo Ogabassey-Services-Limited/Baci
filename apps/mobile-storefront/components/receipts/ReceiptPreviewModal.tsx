@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -82,7 +81,7 @@ export function ReceiptPreviewModal({
             {
               backgroundColor: colors.card,
               borderBottomColor: colors.border,
-              paddingTop: Platform.OS === 'ios' ? insets.top : 12,
+              paddingTop: 12,
             },
           ]}
         >

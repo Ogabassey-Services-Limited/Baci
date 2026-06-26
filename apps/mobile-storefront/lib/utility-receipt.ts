@@ -1,6 +1,12 @@
 import { Share } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { sanitizePlainTextForHtml } from '@/lib/sanitize-plain-text';
+import { UTILITY_RECEIPT_CSS } from './utility-receipt-styles';
+
+// Full Ogabassey wordmark logo (PNG on the CDN) — renders in the WebView preview
+// and the generated PDF, unlike a bundled asset which can't be referenced by URL.
+const OGABASSEY_RECEIPT_LOGO =
+  'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png';
 
 type UtilityReceiptType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
 
@@ -21,28 +27,103 @@ function getTypeLabel(type: UtilityReceiptData['type']): string {
 }
 
 export interface UtilityReceiptData {
-  amount?: number;
-  customerIdentifier?: string;
-  customerName?: string | null;
-  reference?: string | null;
-  status?: string;
   type: UtilityReceiptType | (string & {});
+  status?: string;
+  amount?: number;
+  reference?: string | null;
+  customerName?: string | null;
+  /** ISO string (or any Date-parseable value) of when the purchase happened. */
+  dateTime?: string | null;
+  /** e.g. "Wallet", "Card". */
+  paidVia?: string | null;
+  /** Cashback earned on this purchase, in naira. */
+  cashback?: number | null;
+  // Airtime / Data
+  network?: string | null;
+  phoneNumber?: string | null;
+  dataPlan?: string | null;
+  // Electricity / bills
+  billerName?: string | null;
+  meterNumber?: string | null;
+  beneficiaryId?: string | null;
+  address?: string | null;
+  units?: string | null;
+  // Prepaid meter token / voucher PIN (rendered prominently).
+  token?: string | null;
+  /** Back-compat alias for `token`. */
   voucherPin?: string | null;
+  /** Generic identifier fallback when a type-specific field is not supplied. */
+  customerIdentifier?: string | null;
 }
 
-function buildReceiptRows(data: UtilityReceiptData) {
-  const rows = [
-    ['Service', getTypeLabel(data.type)],
-    data.amount !== undefined && data.amount !== null
-      ? ['Amount', formatNgnCurrency(data.amount)]
-      : null,
-    data.customerIdentifier ? ['Customer ID', data.customerIdentifier] : null,
-    data.customerName ? ['Customer Name', data.customerName] : null,
-    data.reference ? ['Reference', data.reference] : null,
-    data.status ? ['Status', data.status] : null,
-    data.voucherPin ? ['Voucher / Token', data.voucherPin] : null,
-  ].filter((row): row is [string, string] => Boolean(row));
+function formatReceiptDateTime(value?: string | null): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  try {
+    return parsed.toLocaleString('en-NG', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return parsed.toISOString();
+  }
+}
 
+function getStatusMeta(status?: string): { label: string; color: string } {
+  const normalized = (status ?? 'successful').toLowerCase();
+  if (normalized === 'failed' || normalized === 'error') {
+    return { label: 'Failed', color: '#DC2626' };
+  }
+  if (normalized === 'pending' || normalized === 'processing') {
+    return { label: 'Pending', color: '#D97706' };
+  }
+  return { label: 'Successful', color: '#059669' };
+}
+
+function getReceiptToken(data: UtilityReceiptData): string | null {
+  return data.token ?? data.voucherPin ?? null;
+}
+
+// Type-aware detail rows. The generic `customerIdentifier` is used as a labeled
+// fallback (Phone Number / Meter Number) when a specific field is not supplied,
+// so older callers keep working.
+function getDetailRows(data: UtilityReceiptData): [string, string][] {
+  const isAirtimeLike = data.type === 'airtime' || data.type === 'data';
+  const isPower = data.type === 'power';
+
+  const entries: ([string, string | null | undefined] | null)[] = [];
+
+  if (isAirtimeLike) {
+    entries.push(['Network', data.network]);
+    entries.push(['Phone Number', data.phoneNumber ?? data.customerIdentifier]);
+    if (data.type === 'data') entries.push(['Data Plan', data.dataPlan]);
+  } else if (isPower) {
+    entries.push(['Biller', data.billerName]);
+    entries.push(['Meter Number', data.meterNumber ?? data.customerIdentifier]);
+    entries.push(['Beneficiary ID', data.beneficiaryId]);
+    entries.push(['Units', data.units]);
+    entries.push(['Address', data.address]);
+  } else {
+    entries.push(['Biller', data.billerName]);
+    entries.push(['Customer ID', data.customerIdentifier]);
+  }
+
+  entries.push(['Customer Name', data.customerName]);
+  entries.push(['Date & Time', formatReceiptDateTime(data.dateTime)]);
+  entries.push(['Reference', data.reference]);
+  entries.push(['Paid With', data.paidVia]);
+
+  return entries
+    .filter((row): row is [string, string] => Boolean(row?.[1]))
+    .map(([label, value]) => [label, String(value)]);
+}
+
+function renderRows(rows: [string, string][]): string {
   return rows
     .map(
       ([label, value]) => `
@@ -55,16 +136,20 @@ function buildReceiptRows(data: UtilityReceiptData) {
 }
 
 function buildReceiptMessage(data: UtilityReceiptData) {
+  const token = getReceiptToken(data);
   return [
     `${getTypeLabel(data.type)} receipt`,
     data.amount !== undefined && data.amount !== null
       ? `Amount: ${formatNgnCurrency(data.amount)}`
       : null,
+    data.network ? `Network: ${data.network}` : null,
+    data.phoneNumber ? `Phone: ${data.phoneNumber}` : null,
+    data.billerName ? `Biller: ${data.billerName}` : null,
     data.customerIdentifier ? `Customer ID: ${data.customerIdentifier}` : null,
     data.customerName ? `Customer: ${data.customerName}` : null,
     data.reference ? `Reference: ${data.reference}` : null,
     data.status ? `Status: ${data.status}` : null,
-    data.voucherPin ? `Voucher / Token: ${data.voucherPin}` : null,
+    token ? `Token: ${token}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -82,56 +167,62 @@ function isCancellationError(error: unknown) {
 
 export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
   const serviceLabel = getTypeLabel(data.type);
-  const rows = buildReceiptRows(data);
+  const status = getStatusMeta(data.status);
+  const rows = renderRows(getDetailRows(data));
+  const token = getReceiptToken(data);
+  const amountText =
+    data.amount !== undefined && data.amount !== null
+      ? formatNgnCurrency(data.amount)
+      : null;
+
+  const tokenBlock = token
+    ? `<div class="token">
+        <div class="label">${data.type === 'power' ? 'Meter Token' : 'Token'}</div>
+        <div class="value">${sanitizePlainTextForHtml(token)}</div>
+        <div class="note">Keep this safe — you'll need it to recharge.</div>
+      </div>`
+    : '';
+
+  const cashbackBlock =
+    data.cashback && data.cashback > 0
+      ? `<div class="cashback"><span>Cashback earned</span><span>${sanitizePlainTextForHtml(
+          formatNgnCurrency(data.cashback)
+        )}</span></div>`
+      : '';
+
+  const amountBlock = amountText
+    ? `<div class="hero"><div class="label">Amount</div><div class="amount">${sanitizePlainTextForHtml(
+        amountText
+      )}</div></div>`
+    : '';
 
   return `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body {
-        color: #111827;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        margin: 0;
-        padding: 32px;
-      }
-      .receipt {
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 28px;
-      }
-      h1 {
-        font-size: 24px;
-        margin: 0 0 4px;
-      }
-      .subtitle {
-        color: #6b7280;
-        font-size: 14px;
-        margin-bottom: 24px;
-      }
-      .row {
-        border-top: 1px solid #f3f4f6;
-        display: flex;
-        gap: 16px;
-        justify-content: space-between;
-        padding: 14px 0;
-      }
-      .row span {
-        color: #6b7280;
-      }
-      .row strong {
-        max-width: 58%;
-        text-align: right;
-        word-break: break-word;
-      }
-    </style>
+    <style>${UTILITY_RECEIPT_CSS}</style>
   </head>
   <body>
-    <section class="receipt">
-      <h1>${sanitizePlainTextForHtml(serviceLabel)} Receipt</h1>
-      <div class="subtitle">Generated from your Baci utility purchase</div>
-      ${rows}
+    <section class="sheet">
+      <div class="brandbar">
+        <span class="bar-black"></span>
+        <span class="bar-gap"></span>
+        <span class="bar-red"></span>
+      </div>
+      <div class="head">
+        <img class="logo" src="${OGABASSEY_RECEIPT_LOGO}" alt="Ogabassey" />
+        <div class="doc">${sanitizePlainTextForHtml(serviceLabel)} Receipt</div>
+        <div class="status" style="color:${status.color}">${status.label}</div>
+      </div>
+      ${amountBlock}
+      <div class="body">${rows}</div>
+      ${tokenBlock}
+      ${cashbackBlock}
+      <div class="foot">
+        <div class="thanks">Thank you for using Ogabassey</div>
+        Need help? Contact support with your reference above.
+      </div>
     </section>
   </body>
 </html>`;
