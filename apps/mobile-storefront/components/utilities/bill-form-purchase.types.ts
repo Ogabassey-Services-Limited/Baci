@@ -4,7 +4,7 @@ import type { BillFormProps } from './bill-form.types';
 
 export type PaymentState = ReturnType<typeof useUtilityPayment>;
 
-interface BillCustomer {
+export interface BillCustomer {
   first_name?: string | null;
   last_name?: string | null;
   email?: string | null;

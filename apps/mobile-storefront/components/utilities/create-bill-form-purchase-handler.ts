@@ -16,6 +16,7 @@ import {
 import { IDENTIFIER_LABELS } from './bill-form.constants';
 import type { CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import { getBillPaymentAmountError } from './bill-payment-amount-validation';
+import { resolveBillCustomerOfRecord } from './resolve-bill-customer-of-record';
 import { resolveBillFulfillment } from './resolve-bill-fulfillment';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
@@ -108,22 +109,11 @@ export function createBillFormPurchaseHandler({
         return;
       }
 
-      const buyerFullName = [customer?.first_name, customer?.last_name]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-      // customerName is the bill customer-of-record persisted on the VTU
-      // transaction (receipts/history/repeat), so prefer the verified meter/
-      // account holder; fall back to the buyer's name, then email.
-      const customerName =
-        verifiedCustomerName?.trim() ||
-        buyerFullName ||
-        customer?.email ||
-        undefined;
-      // Verified meter/customer address (electricity), persisted to metadata so
-      // the receipt can show it. Only the verify step provides it — no buyer
-      // fallback, since the buyer's address isn't the meter address.
-      const customerAddress = verifiedCustomerAddress?.trim() || undefined;
+      const { customerName, customerAddress } = resolveBillCustomerOfRecord({
+        customer,
+        verifiedCustomerName,
+        verifiedCustomerAddress,
+      });
       // Kuda-display + Monnify-fulfillment routing (folded items vend via Monnify).
       const {
         provider: selectedProvider,
