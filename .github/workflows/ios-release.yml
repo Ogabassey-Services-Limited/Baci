@@ -254,7 +254,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           CURRENT_MAIN_SHA="$({
-            curl --fail --silent --show-error \
+            curl --fail-with-body --silent --show-error \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
