@@ -13,6 +13,14 @@ const CONDITION_PATTERNS = [
   { pattern: /\bused\b/i, value: 'Used' },
 ] as const;
 
+const CONDITION_MATCHERS = CONDITION_PATTERNS.map((conditionPattern) => ({
+  ...conditionPattern,
+  bracketPattern: new RegExp(
+    `[\\(\\[][\\s\\S]*(?:${conditionPattern.pattern.source})[\\s\\S]*[\\)\\]]`,
+    'i'
+  ),
+}));
+
 interface BumpaItemImportMetadata {
   raw_product_name: string;
   normalized_product_name: string;
@@ -64,9 +72,7 @@ function normalizeBrandAliases(value: string) {
     .replace(/\biphone\b/gi, 'iPhone')
     .replace(/\bipad\b/gi, 'iPad')
     .replace(/\bmac\s*book\b/gi, 'MacBook')
-    .replace(/\bmacbook\b/gi, 'MacBook')
     .replace(/\bair\s*pods?\b/gi, 'AirPods')
-    .replace(/\bairpods\b/gi, 'AirPods')
     .replace(/\bphysical\s*sim\b/gi, 'Physical SIM')
     .replace(/\bpremium\s*used\b/gi, 'Premium Used')
     .replace(/\bopen\s*box\b/gi, 'Open Box')
@@ -93,6 +99,7 @@ function productKind(value: string) {
   if (/\b(delivery|dispatch|shipping)\b/.test(text)) return 'delivery_fee';
   if (/\b(insurance|warranty)\b/.test(text)) return 'protection';
   if (
+    // "screengaurd" preserves a Bumpa CSV misspelling seen in exports.
     /\b(screen guard|screen protector|screengaurd|pouch|case|charger|cable|adapter)\b/.test(
       text
     )
@@ -133,17 +140,16 @@ function inferBrandFamily(value: string) {
 }
 
 function extractCondition(value: string) {
-  for (const { pattern, value: condition } of CONDITION_PATTERNS) {
+  for (const {
+    pattern,
+    bracketPattern,
+    value: condition,
+  } of CONDITION_MATCHERS) {
     if (!pattern.test(value)) continue;
-
-    const bracketed = new RegExp(
-      `[\\(\\[][\\s\\S]*${pattern.source}[\\s\\S]*[\\)\\]]`,
-      'i'
-    ).test(value);
 
     return {
       condition,
-      conditionSource: bracketed ? 'bracketed' : 'plain',
+      conditionSource: bracketPattern.test(value) ? 'bracketed' : 'plain',
     };
   }
 

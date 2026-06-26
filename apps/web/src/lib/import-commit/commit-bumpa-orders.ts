@@ -15,6 +15,7 @@ interface ExistingOrderRecord {
   id: string;
   external_id: string | null;
   tracking_token: string;
+  fulfillment_details: Record<string, unknown> | null;
 }
 
 interface CommitBumpaOrdersResult {
@@ -28,8 +29,12 @@ function buildShippingAddressPayload(order: NormalizedImportedOrder) {
     return null;
   }
 
+  const addressLine =
+    order.shippingAddress.address || order.shippingAddress.fullAddress;
+
   return {
-    address: order.shippingAddress.address,
+    address: addressLine,
+    address_line1: addressLine,
     full_address: order.shippingAddress.fullAddress,
     city: order.shippingAddress.city,
     state: order.shippingAddress.state,
@@ -39,13 +44,45 @@ function buildShippingAddressPayload(order: NormalizedImportedOrder) {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function firstString(value: unknown) {
+  if (!Array.isArray(value)) return null;
+
+  const found = value.find(
+    (candidate) => typeof candidate === 'string' && candidate.trim()
+  );
+
+  return typeof found === 'string' ? found.trim() : null;
+}
+
+function buildBumpaFulfillmentFields(
+  item: NormalizedImportedOrder['items'][0]
+) {
+  const bumpaMetadata = isRecord(item.importMetadata?.bumpa)
+    ? item.importMetadata.bumpa
+    : null;
+  const identifiers = isRecord(bumpaMetadata?.fulfillment_identifiers)
+    ? bumpaMetadata.fulfillment_identifiers
+    : null;
+  const imei = firstString(identifiers?.imeis);
+  const serialNumber = firstString(identifiers?.serialNumbers);
+
+  return {
+    ...(imei ? { imei } : {}),
+    ...(serialNumber ? { serialNumber, serial_number: serialNumber } : {}),
+  };
+}
+
 async function loadExistingImportedOrders(
   supabase: SupabaseClient,
   merchantId: string
 ) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, external_id, tracking_token')
+    .select('id, external_id, tracking_token, fulfillment_details')
     .eq('merchant_id', merchantId)
     .eq('external_source', 'bumpa');
 
@@ -63,13 +100,28 @@ function buildOrderInsertPayload(
   importJobId: string,
   customerId: string,
   order: NormalizedImportedOrder,
-  trackingToken: string
+  trackingToken: string,
+  existingOrder: ExistingOrderRecord | null = null
 ) {
   const orderSource = mapBumpaOrderSource(
     order.sourceOrigin,
     order.sourceChannel
   );
   const shippingAddress = buildShippingAddressPayload(order);
+  const existingFulfillmentDetails = isRecord(
+    existingOrder?.fulfillment_details
+  )
+    ? existingOrder.fulfillment_details
+    : {};
+  const fulfillmentDetails = {
+    ...existingFulfillmentDetails,
+    shipping_option: order.shippingOption,
+    source_channel: order.sourceChannel,
+    source_origin: order.sourceOrigin,
+    ...(order.shippingAddress || !existingOrder
+      ? { shipping_address_source: order.shippingAddress?.source ?? null }
+      : {}),
+  };
 
   return {
     merchant_id: merchantId,
@@ -94,13 +146,10 @@ function buildOrderInsertPayload(
     notes: order.shippingOption
       ? `Imported from Bumpa (${order.shippingOption})`
       : 'Imported from Bumpa',
-    fulfillment_details: {
-      shipping_option: order.shippingOption,
-      source_channel: order.sourceChannel,
-      source_origin: order.sourceOrigin,
-      shipping_address_source: order.shippingAddress?.source ?? null,
-    },
-    shipping_address: shippingAddress,
+    fulfillment_details: fulfillmentDetails,
+    ...(shippingAddress || !existingOrder
+      ? { shipping_address: shippingAddress }
+      : {}),
     tracking_token: trackingToken,
     created_at: order.createdAt,
     updated_at: order.updatedAt ?? order.createdAt,
@@ -124,10 +173,11 @@ function buildOrderItems(orderId: string, order: NormalizedImportedOrder) {
     item_description: item.productName,
     sellers_item_id: item.sku,
     fulfillment_data: {
+      ...(item.importMetadata || {}),
       source_platform: order.sourcePlatform,
       match_source: item.matchSource,
       matched: item.matched,
-      ...(item.importMetadata || {}),
+      ...buildBumpaFulfillmentFields(item),
     },
     created_at: order.createdAt,
   }));
@@ -168,7 +218,8 @@ export async function commitBumpaOrders({
       importJobId,
       customerId,
       order,
-      existingOrder?.tracking_token || nanoid(32)
+      existingOrder?.tracking_token || nanoid(32),
+      existingOrder
     );
 
     let orderId = existingOrder?.id || null;

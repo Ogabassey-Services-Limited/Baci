@@ -20,6 +20,15 @@ describe('buildBumpaItemImportMetadata', () => {
     expect(metadata.fulfillment_identifiers.imeis).toEqual(['351183326811261']);
   });
 
+  it('marks non-bracketed condition text as plain', () => {
+    const metadata = buildBumpaItemImportMetadata(
+      'iPhone 12 128gb Premium Used'
+    );
+
+    expect(metadata.condition).toBe('Premium Used');
+    expect(metadata.condition_source).toBe('plain');
+  });
+
   it('normalizes Pixel to Google Pixel for analytics grouping', () => {
     const metadata = buildBumpaItemImportMetadata(
       'Pixel 7a 128gb (Premium Used)'

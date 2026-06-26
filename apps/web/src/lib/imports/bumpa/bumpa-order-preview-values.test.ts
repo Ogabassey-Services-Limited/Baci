@@ -246,6 +246,31 @@ describe('buildItems', () => {
     expect(items[0].matchSource).toBe('name');
   });
 
+  it('matches existing products by normalized Bumpa item name when no SKU', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
+        'Product SKU': '',
+      }),
+      [
+        {
+          id: 'pixel-7a',
+          name: 'Google Pixel 7a 128GB (Premium Used)',
+          sku: null,
+          price: 300000,
+          externalSource: null,
+          externalId: null,
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      matched: true,
+      matchSource: 'name',
+      productId: 'pixel-7a',
+    });
+  });
+
   it('marks items as unmatched when no product found', () => {
     const items = buildItems(
       makeRow({ Products: 'Unknown Product', 'Product SKU': 'NOPE' }),

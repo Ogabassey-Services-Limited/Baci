@@ -46,7 +46,7 @@ export interface NormalizedImportedShippingAddress {
   state: string | null;
   country: string | null;
   postalCode: string | null;
-  source: string | null;
+  source: string;
 }
 
 export interface NormalizedImportedOrder {
