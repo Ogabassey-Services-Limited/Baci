@@ -1,3 +1,14 @@
+CREATE SEQUENCE IF NOT EXISTS public.order_items_fallback_line_id_seq;
+
+SELECT setval(
+  'public.order_items_fallback_line_id_seq',
+  GREATEST((SELECT COALESCE(MAX(line_id), 0) FROM public.order_items), 1),
+  TRUE
+);
+
+ALTER SEQUENCE public.order_items_fallback_line_id_seq
+  OWNER TO postgres;
+
 CREATE OR REPLACE FUNCTION public.populate_order_item_tax()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -9,16 +20,10 @@ DECLARE
   product_vat_rate DECIMAL(5, 2);
   product_unit TEXT;
   merchant_vat_status TEXT;
-  next_line_id INTEGER;
   is_imported_order BOOLEAN;
 BEGIN
-  SELECT COALESCE(MAX(line_id), 0) + 1
-  INTO next_line_id
-  FROM order_items
-  WHERE order_id = NEW.order_id;
-
   IF NEW.line_id IS NULL THEN
-    NEW.line_id := next_line_id;
+    NEW.line_id := nextval('public.order_items_fallback_line_id_seq')::INTEGER;
   END IF;
 
   IF NEW.product_id IS NOT NULL THEN

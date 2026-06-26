@@ -98,6 +98,18 @@ describe('Bumpa imported order item RPC migration', () => {
     );
   });
 
+  it('uses a sequence-backed fallback for missing line IDs', () => {
+    const triggerFunction = extractPopulateOrderItemTaxFunction();
+
+    expect(migrationSql).toMatch(
+      /CREATE SEQUENCE IF NOT EXISTS public\.order_items_fallback_line_id_seq/i
+    );
+    expect(triggerFunction).toMatch(
+      /NEW\.line_id := nextval\('public\.order_items_fallback_line_id_seq'\)::INTEGER/i
+    );
+    expect(triggerFunction).not.toMatch(/MAX\(line_id\)/i);
+  });
+
   it('restricts public imported-order replacement RPCs to the service role', () => {
     for (const signature of [
       'public.replace_order_items(UUID, JSONB, UUID, BOOLEAN, JSONB)',
