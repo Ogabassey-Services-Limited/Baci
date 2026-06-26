@@ -89,7 +89,12 @@ function parseSemanticProductPrice(value: unknown): number | null {
     return null;
   }
 
-  const parsed = Number(value.replace(/,/g, '').trim());
+  const normalizedValue = value.replace(/,/g, '').trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsed = Number(normalizedValue);
   return Number.isFinite(parsed) ? parsed : null;
 }
 

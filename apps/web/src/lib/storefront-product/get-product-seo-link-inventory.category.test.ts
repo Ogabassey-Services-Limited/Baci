@@ -32,19 +32,6 @@ const canonicalProduct = {
   category: 'Laptops',
   product_key_specs: { ram: '16GB' },
 };
-const olderProduct = {
-  id: 'old-prod',
-  slug: 'older-product',
-  name: 'Older Product',
-  brand: 'Lenovo',
-  condition: 'used',
-  price: 1_000,
-  category_id: 'cat-1',
-  stock: 1,
-  stock_quantity: null,
-  category: null,
-  product_key_specs: { ram: '8GB' },
-};
 
 let categoryResponses: QueryResponse[];
 let productResponses: QueryResponse[];
@@ -83,7 +70,7 @@ function setupSupabaseMock() {
   });
 }
 
-describe('getProductSeoInventory enrichment rows', () => {
+describe('getProductSeoInventory category scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     categoryResponses = [
@@ -103,18 +90,42 @@ describe('getProductSeoInventory enrichment rows', () => {
     setupSupabaseMock();
   });
 
-  it('normalizes embedded product key specs relation rows before semantic comparisons', async () => {
+  it('uses canonical category membership before legacy text matching', async () => {
+    productResponses = [{ data: [] }, { data: [canonicalProduct] }].map(
+      (response) => ({ ...response, error: null })
+    );
+    const result = await getProductSeoInventory('merchant-1', 'laptops', '');
+
+    expect(productQueries).toHaveLength(2);
+    expect(productQueries[0].in).toHaveBeenCalledWith('category_id', [
+      'cat-1',
+      'cat-child',
+    ]);
+    expect(productQueries[1].in).toHaveBeenCalledWith(
+      'product_categories.category_id',
+      ['cat-1', 'cat-child']
+    );
+    expect(productQueries[0].or).not.toHaveBeenCalled();
+    expect(productQueries[1].or).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        slug: 'new-product',
+        category_slug: 'laptops',
+      }),
+    ]);
+  });
+
+  it('uses joined child-category slugs for canonical semantic product links', async () => {
     productResponses = [
       { data: [], error: null },
       {
         data: [
           {
             ...canonicalProduct,
-            product_key_specs: [
+            product_categories: [
               {
-                ram: '16GB',
-                storage: '512GB',
-                processor: 'M3',
+                category_id: 'cat-child',
+                categories: { slug: 'gaming-laptops' },
               },
             ],
           },
@@ -128,22 +139,53 @@ describe('getProductSeoInventory enrichment rows', () => {
     expect(result).toEqual([
       expect.objectContaining({
         slug: 'new-product',
-        product_key_specs: {
-          ram: '16GB',
-          storage: '512GB',
-          processor: 'M3',
-        },
+        category_slug: 'gaming-laptops',
       }),
     ]);
   });
 
-  it('preserves products whose price arrives as a numeric string', async () => {
+  it('includes products assigned only through the direct category_id relation', async () => {
     productResponses = [
       {
         data: [
           {
             ...canonicalProduct,
-            price: '2000',
+            product_categories: [],
+            categories: { slug: 'laptops' },
+          },
+        ],
+        error: null,
+      },
+      { data: [], error: null },
+    ];
+
+    const result = await getProductSeoInventory('merchant-1', 'laptops', '');
+
+    expect(productQueries[0].in).toHaveBeenCalledWith('category_id', [
+      'cat-1',
+      'cat-child',
+    ]);
+    expect(result).toEqual([
+      expect.objectContaining({
+        slug: 'new-product',
+        category_slug: 'laptops',
+      }),
+    ]);
+  });
+
+  it('prefers the direct canonical category slug over secondary memberships', async () => {
+    productResponses = [
+      {
+        data: [
+          {
+            ...canonicalProduct,
+            categories: { slug: 'laptops' },
+            product_categories: [
+              {
+                category_id: 'secondary-cat',
+                categories: { slug: 'secondary-laptops' },
+              },
+            ],
           },
         ],
         error: null,
@@ -156,94 +198,63 @@ describe('getProductSeoInventory enrichment rows', () => {
     expect(result).toEqual([
       expect.objectContaining({
         slug: 'new-product',
-        price: 2000,
+        category_slug: 'laptops',
       }),
     ]);
   });
 
-  it('selects and prefers current stock_quantity over stale legacy stock', async () => {
+  it('prefers scoped current-product rows over unscoped duplicates', async () => {
     productResponses = [
+      {
+        data: [
+          {
+            ...canonicalProduct,
+            id: 'current-prod',
+            slug: 'legion-5',
+            category_id: null,
+            categories: null,
+            product_categories: [
+              {
+                category_id: 'cat-parent',
+                categories: { slug: 'laptops' },
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
       { data: [], error: null },
       {
         data: [
           {
             ...canonicalProduct,
-            stock: 0,
-            stock_quantity: 5,
+            id: 'current-prod',
+            slug: 'legion-5',
+            category_id: null,
+            categories: null,
+            product_categories: [
+              {
+                category_id: 'cat-child',
+                categories: { slug: 'gaming-laptops' },
+              },
+            ],
           },
         ],
         error: null,
       },
-    ];
-
-    const result = await getProductSeoInventory('merchant-1', 'laptops', '');
-
-    expect(productQueries[0].select).toHaveBeenCalledWith(
-      expect.stringContaining('stock_quantity')
-    );
-    expect(result).toEqual([
-      expect.objectContaining({
-        slug: 'new-product',
-        stock: 5,
-      }),
-    ]);
-  });
-
-  it('force-includes the current PDP product beyond the bounded inventory slice', async () => {
-    productResponses = [
-      { data: [olderProduct], error: null },
-      { data: [], error: null },
-      { data: [canonicalProduct], error: null },
     ];
 
     const result = await getProductSeoInventory(
       'merchant-1',
-      'laptops',
-      'old-prod'
+      'gaming-laptops',
+      'current-prod'
     );
 
-    expect(result.map((product) => product.slug)).toEqual(
-      expect.arrayContaining(['older-product', 'new-product'])
-    );
-  });
-
-  it('does not throw when a legacy slug contains a literal percent sign', async () => {
-    categoryResponses = [{ data: null, error: null }];
-    rpcResponses = [{ data: [{ is_active: true }], error: null }];
-    productResponses = [{ data: [], error: null }];
-
-    await expect(
-      getProductSeoInventory('merchant-1', '50%-off-sale', '')
-    ).resolves.toEqual([]);
-    expect(productQueries[0].or).toHaveBeenCalledWith(
-      'category.ilike.%50 off sale%,brand.ilike.%50 off sale%,name.ilike.%50 off sale%'
-    );
-  });
-
-  it('does not use legacy text fallback for RLS-hidden inactive categories', async () => {
-    categoryResponses = [{ data: null, error: null }];
-    rpcResponses = [{ data: [{ is_active: false }], error: null }];
-    productResponses = [{ data: [canonicalProduct], error: null }];
-
-    await expect(
-      getProductSeoInventory('merchant-1', 'inactive-laptops', '')
-    ).resolves.toEqual([]);
-
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      'get_storefront_category_slug_state',
-      {
-        p_merchant_id: 'merchant-1',
-        p_slug: 'inactive-laptops',
-      }
-    );
-    expect(productQueries).toHaveLength(0);
-  });
-
-  it('throws on transient inventory failures so degraded results are not cached', async () => {
-    productResponses = [{ data: [], error: { message: 'timeout' } }];
-
-    await expect(
-      getProductSeoInventory('merchant-1', 'laptops', '')
-    ).rejects.toThrow(/transient/i);
+    expect(result).toEqual([
+      expect.objectContaining({
+        slug: 'legion-5',
+        category_slug: 'gaming-laptops',
+      }),
+    ]);
   });
 });

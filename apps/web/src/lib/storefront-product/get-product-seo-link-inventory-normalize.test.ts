@@ -68,6 +68,18 @@ describe('toProductSemanticCandidate', () => {
         'fallback'
       )
     ).toBeNull();
+    expect(
+      toProductSemanticCandidate(
+        { slug: 'macbook-pro', name: 'MacBook Pro', price: '' },
+        'fallback'
+      )
+    ).toBeNull();
+    expect(
+      toProductSemanticCandidate(
+        { slug: 'macbook-pro', name: 'MacBook Pro', price: '   ' },
+        'fallback'
+      )
+    ).toBeNull();
   });
 
   it('deduplicates semantic candidates by slug in source order', () => {
