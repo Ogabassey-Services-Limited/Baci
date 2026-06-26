@@ -1,3 +1,4 @@
+import { replaceBumpaContactText } from '@/lib/imports/bumpa/bumpa-contact-redaction';
 import { createBumpaProductProfile } from '@/lib/imports/bumpa/bumpa-product-normalization';
 
 interface BumpaItemImportMetadata {
@@ -17,9 +18,10 @@ interface BumpaItemImportMetadata {
 }
 
 function redactContactText(value: string) {
-  return value
-    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[redacted-email]')
-    .replace(/(^|[^\d])(?:\+?234|0)?[789][01]\d{8}\b/g, '$1[redacted-phone]');
+  return replaceBumpaContactText(value, {
+    email: '[redacted-email]',
+    phone: '[redacted-phone]',
+  });
 }
 
 export function buildBumpaItemImportMetadata(

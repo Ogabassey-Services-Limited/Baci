@@ -1,4 +1,5 @@
 import { sanitizeText } from '@/lib/sanitize-core';
+import { replaceBumpaContactText } from './bumpa-contact-redaction';
 import { classifyBumpaProductProfile } from './bumpa-product-taxonomy';
 
 const CONDITION_PATTERNS = [
@@ -227,9 +228,10 @@ function removeIdentifiers(value: string) {
 
 function removeContactText(value: string) {
   return sanitizeText(
-    value
-      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, ' ')
-      .replace(/(^|[^\d])(?:\+?234|0)?[789][01]\d{8}\b/g, '$1')
+    replaceBumpaContactText(value, {
+      email: ' ',
+      phone: '',
+    })
   );
 }
 

@@ -128,13 +128,43 @@ function trimEmptyEdges(parts: string[]) {
   return parts.slice(start, end);
 }
 
+function stripCustomerDoublePipePrefix(
+  parts: string[],
+  customerNameKey: string
+) {
+  if (!customerNameKey) return parts;
+
+  const separatorIndex = parts.indexOf('||');
+  if (separatorIndex > 0) {
+    const prefix = parts.slice(0, separatorIndex).filter(Boolean).join(' | ');
+    if (normalizeNameKey(prefix) === customerNameKey) {
+      return trimEmptyEdges(parts.slice(separatorIndex + 1));
+    }
+  }
+
+  const mergedName = parts.filter(Boolean).join(' | ');
+  const doublePipePrefixMatch = mergedName.match(/^(.+?)\s*\|\|\s*(.+)$/);
+
+  if (
+    doublePipePrefixMatch &&
+    normalizeNameKey(doublePipePrefixMatch[1] || '') === customerNameKey
+  ) {
+    return trimEmptyEdges(splitPipeField(doublePipePrefixMatch[2] || ''));
+  }
+
+  return parts;
+}
+
 function buildProductNames(
   value: string,
   expectedCount: number,
   customerName: string
 ) {
-  const rawParts = trimEmptyEdges(splitPipeField(value));
   const customerNameKey = normalizeNameKey(customerName);
+  const rawParts = stripCustomerDoublePipePrefix(
+    trimEmptyEdges(splitPipeField(value)),
+    customerNameKey
+  );
 
   if (rawParts.length === 0) {
     return [];
@@ -142,26 +172,6 @@ function buildProductNames(
 
   if (expectedCount <= 1) {
     const compactParts = rawParts.filter(Boolean);
-    const doublePipeSeparatorIndex = compactParts.indexOf('||');
-
-    if (doublePipeSeparatorIndex > 0) {
-      const prefix = compactParts
-        .slice(0, doublePipeSeparatorIndex)
-        .join(' | ');
-      if (normalizeNameKey(prefix) === customerNameKey) {
-        return [compactParts.slice(doublePipeSeparatorIndex + 1).join(' | ')];
-      }
-    }
-
-    const mergedName = compactParts.join(' | ');
-    const doublePipePrefixMatch = mergedName.match(/^(.+?)\s*\|\|\s*(.+)$/);
-
-    if (
-      doublePipePrefixMatch &&
-      normalizeNameKey(doublePipePrefixMatch[1] || '') === customerNameKey
-    ) {
-      return [doublePipePrefixMatch[2] || ''];
-    }
 
     if (
       compactParts.length === 2 &&
@@ -170,7 +180,7 @@ function buildProductNames(
       return [compactParts[1] || ''];
     }
 
-    return [mergedName];
+    return [compactParts.join(' | ')];
   }
 
   const groupedParts = rawParts.reduce<string[][]>((groups, part) => {

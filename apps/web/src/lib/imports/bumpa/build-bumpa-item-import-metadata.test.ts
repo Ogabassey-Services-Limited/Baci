@@ -56,12 +56,20 @@ describe('buildBumpaItemImportMetadata', () => {
 
   it('redacts contact details from raw product names while keeping identifiers', () => {
     const metadata = buildBumpaItemImportMetadata(
-      'iPhone 12 ada@example.com +2348012345678 IMEI: 351183326811261'
+      'iPhone 12 ada@example.com +234 801 234 5678 IMEI: 351183326811261'
     );
 
     expect(metadata.raw_product_name).toBe(
       'iPhone 12 [redacted-email] [redacted-phone] IMEI: 351183326811261'
     );
     expect(metadata.fulfillment_identifiers.imeis).toEqual(['351183326811261']);
+
+    const otherPrefixMetadata = buildBumpaItemImportMetadata(
+      'iPhone 13 0803-234-5678'
+    );
+
+    expect(otherPrefixMetadata.raw_product_name).toBe(
+      'iPhone 13 [redacted-phone]'
+    );
   });
 });

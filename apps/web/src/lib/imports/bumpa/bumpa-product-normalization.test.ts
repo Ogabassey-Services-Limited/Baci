@@ -47,6 +47,42 @@ describe('createBumpaProductProfile', () => {
     expect(profile.analyticsProductKey).toBe('unidentified-product');
   });
 
+  it('strips formatted phone numbers from normalized analytics fields', () => {
+    const spaced = createBumpaProductProfile('iPhone 12 0801 234 5678');
+    const dashed = createBumpaProductProfile('iPhone 13 0801-234-5678');
+    const dotted = createBumpaProductProfile('iPhone 14 0801.234.5678');
+    const countryCode = createBumpaProductProfile(
+      'iPhone 15 +234 801 234 5678'
+    );
+    const dashedCountryCode = createBumpaProductProfile(
+      'iPhone 16 +234-801-234-5678'
+    );
+    const dottedCountryCode = createBumpaProductProfile(
+      'iPhone 17 +234.801.234.5678'
+    );
+    const otherPrefix = createBumpaProductProfile('iPhone 18 0803 234 5678');
+    const otherCountryCodePrefix = createBumpaProductProfile(
+      'iPhone 19 +234 813 234 5678'
+    );
+
+    expect(spaced.normalizedProductName).toBe('iPhone 12');
+    expect(spaced.analyticsProductKey).toBe('iphone-12');
+    expect(dashed.normalizedProductName).toBe('iPhone 13');
+    expect(dashed.analyticsProductKey).toBe('iphone-13');
+    expect(dotted.normalizedProductName).toBe('iPhone 14');
+    expect(dotted.analyticsProductKey).toBe('iphone-14');
+    expect(countryCode.normalizedProductName).toBe('iPhone 15');
+    expect(countryCode.analyticsProductKey).toBe('iphone-15');
+    expect(dashedCountryCode.normalizedProductName).toBe('iPhone 16');
+    expect(dashedCountryCode.analyticsProductKey).toBe('iphone-16');
+    expect(dottedCountryCode.normalizedProductName).toBe('iPhone 17');
+    expect(dottedCountryCode.analyticsProductKey).toBe('iphone-17');
+    expect(otherPrefix.normalizedProductName).toBe('iPhone 18');
+    expect(otherPrefix.analyticsProductKey).toBe('iphone-18');
+    expect(otherCountryCodePrefix.normalizedProductName).toBe('iPhone 19');
+    expect(otherCountryCodePrefix.analyticsProductKey).toBe('iphone-19');
+  });
+
   it('does not convert cellular generation labels into memory units', () => {
     expect(
       createBumpaProductProfile('iPhone 12 5G 128g').normalizedProductName

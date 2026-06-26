@@ -15,6 +15,7 @@ interface ExistingOrderRecord {
   id: string;
   external_id: string | null;
   tracking_token: string;
+  updated_at?: string | null;
   fulfillment_details: Record<string, unknown> | null;
   shipping_address: Record<string, unknown> | null;
 }
@@ -32,18 +33,21 @@ function buildShippingAddressPayload(order: NormalizedImportedOrder) {
 
   // Rich Bumpa exports can provide only a formatted full address. Use it as
   // line 1 so receipts and order details still have a printable address.
+  const fullAddress = normalizeOptionalString(
+    order.shippingAddress.fullAddress
+  );
   const addressLine =
-    order.shippingAddress.address || order.shippingAddress.fullAddress;
+    normalizeOptionalString(order.shippingAddress.address) || fullAddress;
 
   return {
     address: addressLine,
     address_line1: addressLine,
-    full_address: order.shippingAddress.fullAddress,
-    city: order.shippingAddress.city,
-    state: order.shippingAddress.state,
-    country: order.shippingAddress.country,
-    postal_code: order.shippingAddress.postalCode,
-    source: order.shippingAddress.source,
+    full_address: fullAddress,
+    city: normalizeOptionalString(order.shippingAddress.city),
+    state: normalizeOptionalString(order.shippingAddress.state),
+    country: normalizeOptionalString(order.shippingAddress.country),
+    postal_code: normalizeOptionalString(order.shippingAddress.postalCode),
+    source: normalizeOptionalString(order.shippingAddress.source),
   };
 }
 
@@ -55,24 +59,60 @@ function isCompleteShippingAddress(
   );
 }
 
+function hasIncomingShippingAddressComponent(
+  shippingAddress: ReturnType<typeof buildShippingAddressPayload>
+) {
+  return Boolean(
+    normalizeShippingAddressValue(shippingAddress?.address) ||
+      normalizeShippingAddressValue(shippingAddress?.full_address) ||
+      normalizeShippingAddressValue(shippingAddress?.city) ||
+      normalizeShippingAddressValue(shippingAddress?.state) ||
+      normalizeShippingAddressValue(shippingAddress?.country) ||
+      normalizeShippingAddressValue(shippingAddress?.postal_code)
+  );
+}
+
+function hasPrintableStoredShippingAddress(
+  shippingAddress: Record<string, unknown> | null
+) {
+  return Boolean(
+    normalizeShippingAddressValue(shippingAddress?.address) ||
+      normalizeShippingAddressValue(shippingAddress?.address_line1) ||
+      normalizeShippingAddressValue(shippingAddress?.full_address)
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function mergeShippingAddressPayload(
-  existingShippingAddress: Record<string, unknown> | null,
+function normalizeOptionalString(value: string | null | undefined) {
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function normalizeShippingAddressValue(value: unknown) {
+  if (typeof value !== 'string') return value ?? null;
+
+  return normalizeOptionalString(value);
+}
+
+function compactShippingAddressPayload(
   incomingShippingAddress: ReturnType<typeof buildShippingAddressPayload>
 ) {
   if (!incomingShippingAddress) return null;
-  const merged = { ...(existingShippingAddress ?? {}) };
+  const compact: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(incomingShippingAddress)) {
-    if (value !== null && value !== undefined && value !== '') {
-      merged[key] = value;
+    const normalizedValue = normalizeShippingAddressValue(value);
+    if (normalizedValue !== null && normalizedValue !== undefined) {
+      compact[key] = normalizedValue;
     }
   }
 
-  return merged;
+  return Object.keys(compact).length > 0 ? compact : null;
 }
 
 function firstString(value: unknown) {
@@ -112,7 +152,7 @@ async function loadExistingImportedOrders(
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, external_id, tracking_token, fulfillment_details, shipping_address'
+      'id, external_id, tracking_token, updated_at, fulfillment_details, shipping_address'
     )
     .eq('merchant_id', merchantId)
     .eq('external_source', 'bumpa');
@@ -142,24 +182,17 @@ function buildOrderInsertPayload(
   const existingShippingAddress = isRecord(existingOrder?.shipping_address)
     ? existingOrder.shipping_address
     : null;
-  const hasIncomingShippingAddress = Boolean(
-    shippingAddress?.address || shippingAddress?.full_address
-  );
+  const hasIncomingShippingAddress =
+    hasIncomingShippingAddressComponent(shippingAddress);
   const shouldWriteShippingAddress =
     hasIncomingShippingAddress &&
     (!existingOrder ||
-      !existingShippingAddress ||
+      !hasPrintableStoredShippingAddress(existingShippingAddress) ||
       isCompleteShippingAddress(shippingAddress));
   const shippingAddressToWrite = shouldWriteShippingAddress
-    ? mergeShippingAddressPayload(existingShippingAddress, shippingAddress)
+    ? compactShippingAddressPayload(shippingAddress)
     : null;
-  const existingFulfillmentDetails = isRecord(
-    existingOrder?.fulfillment_details
-  )
-    ? existingOrder.fulfillment_details
-    : {};
   const fulfillmentDetails = {
-    ...existingFulfillmentDetails,
     shipping_option: order.shippingOption,
     source_channel: order.sourceChannel,
     source_origin: order.sourceOrigin,
@@ -232,12 +265,20 @@ function buildCachedOrderRecord(
       typeof selectedRecord?.tracking_token === 'string'
         ? selectedRecord.tracking_token
         : trackingToken,
-    fulfillment_details: isRecord(payload.fulfillment_details)
-      ? payload.fulfillment_details
-      : selectedFulfillmentDetails,
-    shipping_address: isRecord(payload.shipping_address)
-      ? payload.shipping_address
-      : selectedShippingAddress,
+    updated_at:
+      typeof selectedRecord?.updated_at === 'string'
+        ? selectedRecord.updated_at
+        : typeof payload.updated_at === 'string'
+          ? payload.updated_at
+          : null,
+    fulfillment_details:
+      selectedFulfillmentDetails ??
+      (isRecord(payload.fulfillment_details)
+        ? payload.fulfillment_details
+        : null),
+    shipping_address:
+      selectedShippingAddress ??
+      (isRecord(payload.shipping_address) ? payload.shipping_address : null),
   };
 }
 
@@ -261,6 +302,57 @@ function buildOrderItems(orderId: string, order: NormalizedImportedOrder) {
     },
     created_at: order.createdAt,
   }));
+}
+
+async function replaceOrderItems(
+  supabase: SupabaseClient,
+  merchantId: string,
+  orderId: string,
+  order: NormalizedImportedOrder
+) {
+  const { error } = await supabase.rpc('replace_order_items', {
+    p_order_id: orderId,
+    p_items: buildOrderItems(orderId, order),
+    p_merchant_id: merchantId,
+    p_is_import: true,
+  });
+
+  if (error) {
+    throw new Error(`Failed to replace imported order items: ${error.message}`);
+  }
+}
+
+function firstReturnedOrderRecord(value: unknown) {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return isRecord(value) ? value : null;
+}
+
+async function replaceImportedOrderItems(
+  supabase: SupabaseClient,
+  merchantId: string,
+  orderId: string,
+  order: NormalizedImportedOrder,
+  orderPatch: ReturnType<typeof buildOrderInsertPayload>,
+  expectedUpdatedAt: string | null | undefined
+) {
+  const { data, error } = await supabase.rpc('replace_imported_order_items', {
+    p_order_id: orderId,
+    p_items: buildOrderItems(orderId, order),
+    p_merchant_id: merchantId,
+    p_order_patch: orderPatch,
+    p_expected_updated_at: expectedUpdatedAt ?? null,
+  });
+
+  if (error) {
+    throw new Error(`Failed to update imported order: ${error.message}`);
+  }
+
+  const updatedOrder = firstReturnedOrderRecord(data);
+  if (!updatedOrder) {
+    throw new Error('Failed to update imported order: no updated row returned');
+  }
+
+  return updatedOrder as ExistingOrderRecord;
 }
 
 export async function commitBumpaOrders({
@@ -305,24 +397,23 @@ export async function commitBumpaOrders({
 
     let orderId = existingOrder?.id || null;
     if (existingOrder) {
-      const { error } = await supabase
-        .from('orders')
-        .update(payload)
-        .eq('id', existingOrder.id);
-
-      if (error) {
-        throw new Error(`Failed to update imported order: ${error.message}`);
-      }
-
+      const updatedOrder = await replaceImportedOrderItems(
+        supabase,
+        merchantId,
+        existingOrder.id,
+        order,
+        payload,
+        existingOrder.updated_at
+      );
       updatedOrders += 1;
       ordersByExternalId.set(
         order.externalSourceId,
         buildCachedOrderRecord(
-          existingOrder.id,
+          updatedOrder.id,
           order,
           trackingToken,
           payload,
-          existingOrder
+          updatedOrder
         )
       );
     } else {
@@ -330,7 +421,7 @@ export async function commitBumpaOrders({
         .from('orders')
         .insert(payload)
         .select(
-          'id, external_id, tracking_token, fulfillment_details, shipping_address'
+          'id, external_id, tracking_token, updated_at, fulfillment_details, shipping_address'
         )
         .single();
 
@@ -357,30 +448,28 @@ export async function commitBumpaOrders({
       throw new Error('Imported order is missing an id after commit');
     }
 
-    const { error: deleteItemsError } = await supabase
-      .from('order_items')
-      .delete()
-      .eq('order_id', orderId);
+    if (!existingOrder) {
+      try {
+        await replaceOrderItems(supabase, merchantId, orderId, order);
+      } catch (error) {
+        const { data: deletedOrder, error: cleanupError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId)
+          .eq('merchant_id', merchantId)
+          .select('id')
+          .maybeSingle();
 
-    if (deleteItemsError) {
-      throw new Error(
-        `Failed to reset imported order items: ${deleteItemsError.message}`
-      );
-    }
+        if (cleanupError || !deletedOrder) {
+          throw new Error(
+            `${error instanceof Error ? error.message : String(error)}; also failed to delete incomplete imported order ${orderId}: ${
+              cleanupError?.message ?? 'no matching row was deleted'
+            }`
+          );
+        }
 
-    const orderItems = buildOrderItems(orderId, order);
-    if (orderItems.length === 0) {
-      continue;
-    }
-
-    const { error: insertItemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
-
-    if (insertItemsError) {
-      throw new Error(
-        `Failed to insert imported order items: ${insertItemsError.message}`
-      );
+        throw error;
+      }
     }
   }
 

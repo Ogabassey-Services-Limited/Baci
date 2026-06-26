@@ -66,6 +66,7 @@ interface ExistingOrderFixture {
   id: string;
   external_id: string | null;
   tracking_token: string;
+  updated_at?: string | null;
   fulfillment_details?: Record<string, unknown> | null;
   shipping_address?: Record<string, unknown> | null;
 }
@@ -74,9 +75,10 @@ interface CreateSupabaseMockOptions {
   existingOrders?: ExistingOrderFixture[];
   insertedOrder?: ExistingOrderFixture | null;
   insertOrderError?: { message: string } | null;
-  updateOrderError?: { message: string } | null;
-  deleteItemsError?: { message: string } | null;
-  insertItemsError?: { message: string } | null;
+  replaceOrderItemsError?: { message: string } | null;
+  replaceImportedOrderItemsError?: { message: string } | null;
+  cleanupOrderError?: { message: string } | null;
+  cleanupDeletedOrder?: { id: string } | null;
 }
 
 function createSupabaseMock({
@@ -85,14 +87,83 @@ function createSupabaseMock({
     id: 'order-new',
     external_id: 'ext-1',
     tracking_token: 'tracking-1',
+    updated_at: '2026-03-21T10:00:00.000Z',
     fulfillment_details: null,
     shipping_address: null,
   },
   insertOrderError = null,
-  updateOrderError = null,
-  deleteItemsError = null,
-  insertItemsError = null,
+  replaceOrderItemsError = null,
+  replaceImportedOrderItemsError = null,
+  cleanupOrderError = null,
+  cleanupDeletedOrder = { id: 'order-new' },
 }: CreateSupabaseMockOptions = {}) {
+  let updatedAtTick = 0;
+
+  function mergeJsonObject(
+    current: Record<string, unknown> | null | undefined,
+    incoming: unknown
+  ): Record<string, unknown> | null | undefined {
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return current;
+    }
+
+    const compactIncoming = Object.fromEntries(
+      Object.entries(incoming).filter(([, value]) => value !== null)
+    );
+
+    return {
+      ...(current ?? {}),
+      ...compactIncoming,
+    };
+  }
+
+  function nextUpdatedAt(previous: string | null | undefined) {
+    const base = previous
+      ? Date.parse(previous)
+      : Date.parse('2026-03-21T10:00:00.000Z');
+    updatedAtTick += 1;
+    return new Date(base + updatedAtTick).toISOString();
+  }
+
+  function updatedOrderFromRpcArgs(args: Record<string, unknown>) {
+    const orderId = typeof args.p_order_id === 'string' ? args.p_order_id : '';
+    const patch =
+      args.p_order_patch &&
+      typeof args.p_order_patch === 'object' &&
+      !Array.isArray(args.p_order_patch)
+        ? (args.p_order_patch as Record<string, unknown>)
+        : {};
+    const order =
+      existingOrders.find((candidate) => candidate.id === orderId) ||
+      (insertedOrder?.id === orderId ? insertedOrder : null);
+
+    if (!order) return null;
+
+    return {
+      ...order,
+      external_id:
+        typeof patch.external_id === 'string'
+          ? patch.external_id
+          : order.external_id,
+      tracking_token:
+        typeof patch.tracking_token === 'string'
+          ? patch.tracking_token
+          : order.tracking_token,
+      updated_at: nextUpdatedAt(order.updated_at),
+      fulfillment_details:
+        'fulfillment_details' in patch
+          ? mergeJsonObject(
+              order.fulfillment_details,
+              patch.fulfillment_details
+            )
+          : order.fulfillment_details,
+      shipping_address:
+        'shipping_address' in patch
+          ? mergeJsonObject(order.shipping_address, patch.shipping_address)
+          : order.shipping_address,
+    };
+  }
+
   const loadQuery = {
     select: vi.fn(),
     eq: vi.fn(),
@@ -114,46 +185,86 @@ function createSupabaseMock({
     error: insertOrderError,
   });
 
-  const updateOrderQuery = {
-    update: vi.fn(),
-    eq: vi.fn(),
-  };
-  updateOrderQuery.update.mockReturnValue(updateOrderQuery);
-  updateOrderQuery.eq.mockResolvedValue({ error: updateOrderError });
-
-  const deleteItemsQuery = {
+  const deleteOrderQuery = {
     delete: vi.fn(),
     eq: vi.fn(),
+    select: vi.fn(),
+    maybeSingle: vi.fn(),
   };
-  deleteItemsQuery.delete.mockReturnValue(deleteItemsQuery);
-  deleteItemsQuery.eq.mockResolvedValue({ error: deleteItemsError });
-
-  const insertItemsQuery = {
-    insert: vi.fn(),
-  };
-  insertItemsQuery.insert.mockResolvedValue({ error: insertItemsError });
+  deleteOrderQuery.delete.mockReturnValue(deleteOrderQuery);
+  deleteOrderQuery.eq.mockReturnValue(deleteOrderQuery);
+  deleteOrderQuery.select.mockReturnValue(deleteOrderQuery);
+  deleteOrderQuery.maybeSingle.mockResolvedValue({
+    data: cleanupOrderError ? null : cleanupDeletedOrder,
+    error: cleanupOrderError,
+  });
 
   const ordersTable = {
     select: loadQuery.select,
     insert: insertOrderQuery.insert,
-    update: updateOrderQuery.update,
-  };
-  const orderItemsTable = {
-    delete: deleteItemsQuery.delete,
-    insert: insertItemsQuery.insert,
+    delete: deleteOrderQuery.delete,
   };
   const from = vi.fn((tableName: string) => {
     if (tableName === 'orders') return ordersTable;
-    if (tableName === 'order_items') return orderItemsTable;
     throw new Error(`Unexpected table: ${tableName}`);
+  });
+  const rpc = vi.fn((functionName: string, args: Record<string, unknown>) => {
+    if (functionName === 'replace_order_items') {
+      return Promise.resolve({ error: replaceOrderItemsError });
+    }
+
+    if (functionName === 'replace_imported_order_items') {
+      const updatedOrder = updatedOrderFromRpcArgs(args);
+
+      return Promise.resolve({
+        data: updatedOrder ? [updatedOrder] : [],
+        error: replaceImportedOrderItemsError,
+      });
+    }
+
+    throw new Error(`Unexpected rpc: ${functionName}`);
   });
 
   return {
-    supabase: { from } as unknown as SupabaseClient,
+    supabase: { from, rpc } as unknown as SupabaseClient,
     insertOrderQuery,
-    updateOrderQuery,
-    deleteItemsQuery,
-    insertItemsQuery,
+    deleteOrderQuery,
+    rpc,
+  };
+}
+
+function getReplaceImportedOrderItemsArgs(rpc: ReturnType<typeof vi.fn>) {
+  const call = rpc.mock.calls.find(
+    ([functionName]) => functionName === 'replace_imported_order_items'
+  );
+
+  if (!call) {
+    throw new Error('replace_imported_order_items was not called');
+  }
+
+  return call[1] as {
+    p_order_id: string;
+    p_items: Record<string, unknown>[];
+    p_merchant_id: string;
+    p_order_patch: Record<string, unknown>;
+    p_expected_updated_at: string | null;
+  };
+}
+
+function getReplaceOrderItemsArgs(rpc: ReturnType<typeof vi.fn>) {
+  const call = rpc.mock.calls.find(
+    ([functionName]) => functionName === 'replace_order_items'
+  );
+
+  if (!call) {
+    throw new Error('replace_order_items was not called');
+  }
+
+  return call[1] as {
+    p_order_id: string;
+    p_items: Record<string, unknown>[];
+    p_merchant_id: string;
+    p_is_import?: boolean;
   };
 }
 
@@ -169,8 +280,7 @@ describe('commitBumpaOrders', () => {
   });
 
   it('creates imported orders and inserts snapshot order items', async () => {
-    const { supabase, insertOrderQuery, insertItemsQuery } =
-      createSupabaseMock();
+    const { supabase, insertOrderQuery, rpc } = createSupabaseMock();
 
     const result = await commitBumpaOrders({
       supabase,
@@ -189,20 +299,63 @@ describe('commitBumpaOrders', () => {
         source: 'manual',
       })
     );
-    expect(insertItemsQuery.insert).toHaveBeenCalledWith(
-      expect.arrayContaining([
+    expect(rpc).toHaveBeenCalledWith('replace_order_items', {
+      p_order_id: 'order-new',
+      p_items: expect.arrayContaining([
         expect.objectContaining({
           order_id: 'order-new',
           name: 'Imported Phone',
           quantity: 2,
         }),
-      ])
-    );
+      ]),
+      p_merchant_id: 'merchant-1',
+      p_is_import: true,
+    });
+  });
+
+  it('preserves rounded imported line totals and item timestamps for new orders', async () => {
+    const { supabase, rpc } = createSupabaseMock();
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          createdAt: '2022-03-20T10:00:00.000Z',
+          items: [
+            {
+              productId: null,
+              productName: 'Imported Rounded Bundle',
+              sku: null,
+              quantity: 3,
+              unitPrice: 333.33,
+              lineTotal: 1000,
+              matched: false,
+              matchSource: 'unmatched',
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(getReplaceOrderItemsArgs(rpc)).toMatchObject({
+      p_order_id: 'order-new',
+      p_merchant_id: 'merchant-1',
+      p_is_import: true,
+      p_items: [
+        expect.objectContaining({
+          price: 333.33,
+          quantity: 3,
+          line_extension_amount: 1000,
+          created_at: '2022-03-20T10:00:00.000Z',
+        }),
+      ],
+    });
   });
 
   it('stores rich imported address and product metadata during commit', async () => {
-    const { supabase, insertOrderQuery, insertItemsQuery } =
-      createSupabaseMock();
+    const { supabase, insertOrderQuery, rpc } = createSupabaseMock();
 
     await commitBumpaOrders({
       supabase,
@@ -259,39 +412,44 @@ describe('commitBumpaOrders', () => {
         }),
       })
     );
-    expect(insertItemsQuery.insert).toHaveBeenCalledWith([
-      expect.objectContaining({
-        fulfillment_data: expect.objectContaining({
-          matched: false,
-          imei: '351183326811261',
-          serialNumber: 'SN-PIXEL-7A',
-          serial_number: 'SN-PIXEL-7A',
-          bumpa: {
-            analytics_product_key: 'google-pixel-7a-128gb-premium-used',
-            fulfillment_identifiers: {
-              imeis: ['351183326811261'],
-              serialNumbers: ['SN-PIXEL-7A'],
+    expect(rpc).toHaveBeenCalledWith('replace_order_items', {
+      p_order_id: 'order-new',
+      p_items: [
+        expect.objectContaining({
+          fulfillment_data: expect.objectContaining({
+            matched: false,
+            imei: '351183326811261',
+            serialNumber: 'SN-PIXEL-7A',
+            serial_number: 'SN-PIXEL-7A',
+            bumpa: {
+              analytics_product_key: 'google-pixel-7a-128gb-premium-used',
+              fulfillment_identifiers: {
+                imeis: ['351183326811261'],
+                serialNumbers: ['SN-PIXEL-7A'],
+              },
             },
-          },
+          }),
         }),
-      }),
-    ]);
+      ],
+      p_merchant_id: 'merchant-1',
+      p_is_import: true,
+    });
   });
 
   it('updates existing imported orders and replaces order_items wholesale', async () => {
-    const { supabase, updateOrderQuery, deleteItemsQuery, insertItemsQuery } =
-      createSupabaseMock({
-        existingOrders: [
-          {
-            id: 'order-existing',
-            external_id: 'ext-1',
-            tracking_token: 'tracking-existing',
-            fulfillment_details: {
-              shipping_address_source: 'previous-rich-import',
-            },
+    const { supabase, rpc } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          updated_at: '2026-03-21T10:00:00.000Z',
+          fulfillment_details: {
+            shipping_address_source: 'previous-rich-import',
           },
-        ],
-      });
+        },
+      ],
+    });
 
     const result = await commitBumpaOrders({
       supabase,
@@ -305,30 +463,36 @@ describe('commitBumpaOrders', () => {
       updatedOrders: 1,
       createdCustomers: 0,
     });
-    expect(updateOrderQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
+    const rpcArgs = getReplaceImportedOrderItemsArgs(rpc);
+    expect(rpcArgs).toMatchObject({
+      p_order_id: 'order-existing',
+      p_merchant_id: 'merchant-1',
+      p_expected_updated_at: '2026-03-21T10:00:00.000Z',
+      p_items: expect.arrayContaining([
+        expect.objectContaining({ order_id: 'order-existing' }),
+      ]),
+      p_order_patch: expect.objectContaining({
         merchant_id: 'merchant-1',
         payment_status: 'paid',
         shipping_status: 'delivered',
         fulfillment_details: expect.objectContaining({
-          shipping_address_source: 'previous-rich-import',
+          shipping_option: 'Door delivery',
+          source_channel: 'instagram',
+          source_origin: 'manual',
         }),
         import_job_id: 'job-1',
         external_id: 'ext-1',
         source: 'manual',
-      })
+      }),
+    });
+    expect(rpcArgs.p_order_patch).not.toHaveProperty('shipping_address');
+    expect(rpcArgs.p_order_patch.fulfillment_details).not.toHaveProperty(
+      'shipping_address_source'
     );
-    const updatePayload = updateOrderQuery.update.mock.calls[0]?.[0];
-    expect(updatePayload).not.toHaveProperty('shipping_address');
-    expect(deleteItemsQuery.eq).toHaveBeenCalledWith(
-      'order_id',
-      'order-existing'
-    );
-    expect(insertItemsQuery.insert).toHaveBeenCalledTimes(1);
   });
 
   it('preserves existing shipping addresses when an update only has partial enrichment', async () => {
-    const { supabase, updateOrderQuery } = createSupabaseMock({
+    const { supabase, rpc } = createSupabaseMock({
       existingOrders: [
         {
           id: 'order-existing',
@@ -365,17 +529,15 @@ describe('commitBumpaOrders', () => {
       ],
     });
 
-    const updatePayload = updateOrderQuery.update.mock.calls[0]?.[0];
-    expect(updatePayload).not.toHaveProperty('shipping_address');
-    expect(updatePayload).toMatchObject({
-      fulfillment_details: expect.objectContaining({
-        shipping_address_source: 'previous-rich-import',
-      }),
-    });
+    const rpcArgs = getReplaceImportedOrderItemsArgs(rpc);
+    expect(rpcArgs.p_order_patch).not.toHaveProperty('shipping_address');
+    expect(rpcArgs.p_order_patch.fulfillment_details).not.toHaveProperty(
+      'shipping_address_source'
+    );
   });
 
   it('merges complete incoming addresses with richer existing address fields', async () => {
-    const { supabase, updateOrderQuery } = createSupabaseMock({
+    const { supabase, rpc } = createSupabaseMock({
       existingOrders: [
         {
           id: 'order-existing',
@@ -417,34 +579,46 @@ describe('commitBumpaOrders', () => {
       ],
     });
 
-    expect(updateOrderQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
+    const rpcArgs = getReplaceImportedOrderItemsArgs(rpc);
+    expect(rpcArgs.p_order_patch).toMatchObject({
+      shipping_address: {
+        address: '12 Admiralty Way',
+        address_line1: '12 Admiralty Way',
+        city: 'Lekki',
+        state: 'Lagos',
+        source: 'shipping',
+      },
+    });
+    expect(rpcArgs.p_order_patch.shipping_address).not.toHaveProperty(
+      'full_address'
+    );
+    expect(rpcArgs.p_order_patch.shipping_address).not.toHaveProperty(
+      'country'
+    );
+    expect(rpcArgs.p_order_patch.shipping_address).not.toHaveProperty(
+      'postal_code'
+    );
+  });
+
+  it('caches inserted orders with merge fields for duplicate orders in the same batch', async () => {
+    const { supabase, insertOrderQuery, rpc } = createSupabaseMock({
+      insertedOrder: {
+        id: 'order-new',
+        external_id: 'ext-1',
+        tracking_token: 'tracking-1',
+        fulfillment_details: null,
         shipping_address: {
-          address: '12 Admiralty Way',
-          address_line1: '12 Admiralty Way',
+          address: '10 Marina',
+          address_line1: '10 Marina',
           full_address: '10 Marina, Lagos, Nigeria',
-          city: 'Lekki',
+          city: 'Marina',
           state: 'Lagos',
           country: 'Nigeria',
           postal_code: '100001',
           source: 'shipping',
         },
-      })
-    );
-  });
-
-  it('caches inserted orders with merge fields for duplicate orders in the same batch', async () => {
-    const { supabase, insertOrderQuery, updateOrderQuery } = createSupabaseMock(
-      {
-        insertedOrder: {
-          id: 'order-new',
-          external_id: 'ext-1',
-          tracking_token: 'tracking-1',
-          fulfillment_details: null,
-          shipping_address: null,
-        },
-      }
-    );
+      },
+    });
 
     await commitBumpaOrders({
       supabase,
@@ -477,20 +651,27 @@ describe('commitBumpaOrders', () => {
     });
 
     expect(insertOrderQuery.insert).toHaveBeenCalledTimes(1);
-    expect(updateOrderQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        shipping_address: expect.objectContaining({
-          address: '12 Admiralty Way',
-          full_address: '10 Marina, Lagos, Nigeria',
-          country: 'Nigeria',
-          postal_code: '100001',
-        }),
-      })
+    const rpcArgs = getReplaceImportedOrderItemsArgs(rpc);
+    expect(rpcArgs.p_order_patch).toMatchObject({
+      shipping_address: expect.objectContaining({
+        address: '12 Admiralty Way',
+        city: 'Lekki',
+        state: 'Lagos',
+      }),
+    });
+    expect(rpcArgs.p_order_patch.shipping_address).not.toHaveProperty(
+      'full_address'
+    );
+    expect(rpcArgs.p_order_patch.shipping_address).not.toHaveProperty(
+      'country'
+    );
+    expect(rpcArgs.p_order_patch.shipping_address).not.toHaveProperty(
+      'postal_code'
     );
   });
 
   it('writes a partial incoming address when an existing imported order has no stored address', async () => {
-    const { supabase, updateOrderQuery } = createSupabaseMock({
+    const { supabase, rpc } = createSupabaseMock({
       existingOrders: [
         {
           id: 'order-existing',
@@ -521,22 +702,150 @@ describe('commitBumpaOrders', () => {
       ],
     });
 
-    expect(updateOrderQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        shipping_address: expect.objectContaining({
-          address: '12 Admiralty Way, Lekki',
-          address_line1: '12 Admiralty Way, Lekki',
-          full_address: '12 Admiralty Way, Lekki',
+    expect(getReplaceImportedOrderItemsArgs(rpc).p_order_patch).toMatchObject({
+      shipping_address: expect.objectContaining({
+        address: '12 Admiralty Way, Lekki',
+        address_line1: '12 Admiralty Way, Lekki',
+        full_address: '12 Admiralty Way, Lekki',
+      }),
+      fulfillment_details: expect.objectContaining({
+        shipping_address_source: 'partial-bumpa-import',
+      }),
+    });
+  });
+
+  it('treats incomplete stored addresses as missing when incoming Bumpa address is printable', async () => {
+    const { supabase, rpc } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          fulfillment_details: null,
+          shipping_address: {
+            city: 'Old City',
+          },
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: '12 Admiralty Way, Lekki',
+            address: null,
+            city: null,
+            state: null,
+            country: 'Nigeria',
+            postalCode: null,
+            source: 'partial-bumpa-import',
+          },
         }),
-        fulfillment_details: expect.objectContaining({
-          shipping_address_source: 'partial-bumpa-import',
+      ],
+    });
+
+    expect(getReplaceImportedOrderItemsArgs(rpc).p_order_patch).toMatchObject({
+      shipping_address: expect.objectContaining({
+        address: '12 Admiralty Way, Lekki',
+        address_line1: '12 Admiralty Way, Lekki',
+        full_address: '12 Admiralty Way, Lekki',
+      }),
+      fulfillment_details: expect.objectContaining({
+        shipping_address_source: 'partial-bumpa-import',
+      }),
+    });
+  });
+
+  it('writes location-only incoming address data when no stored address exists', async () => {
+    const { supabase, rpc } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: null,
+            address: null,
+            city: 'Lekki',
+            state: 'Lagos',
+            country: 'Nigeria',
+            postalCode: null,
+            source: 'location-only-bumpa-import',
+          },
         }),
-      })
+      ],
+    });
+
+    expect(getReplaceImportedOrderItemsArgs(rpc).p_order_patch).toMatchObject({
+      shipping_address: expect.objectContaining({
+        city: 'Lekki',
+        state: 'Lagos',
+        country: 'Nigeria',
+        source: 'location-only-bumpa-import',
+      }),
+      fulfillment_details: expect.objectContaining({
+        shipping_address_source: 'location-only-bumpa-import',
+      }),
+    });
+  });
+
+  it('drops whitespace-only incoming address fields', async () => {
+    const { supabase, rpc } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: '   ',
+            address: '   ',
+            city: '   ',
+            state: '   ',
+            country: '   ',
+            postalCode: '   ',
+            source: '   ',
+          },
+        }),
+      ],
+    });
+
+    const rpcArgs = getReplaceImportedOrderItemsArgs(rpc);
+    expect(rpcArgs.p_order_patch).not.toHaveProperty('shipping_address');
+    expect(rpcArgs.p_order_patch.fulfillment_details).not.toHaveProperty(
+      'shipping_address_source'
     );
   });
 
   it('promotes bare numeric Bumpa identifiers into receipt fulfillment data', async () => {
-    const { supabase, insertItemsQuery } = createSupabaseMock();
+    const { supabase, rpc } = createSupabaseMock();
 
     await commitBumpaOrders({
       supabase,
@@ -569,13 +878,18 @@ describe('commitBumpaOrders', () => {
       ],
     });
 
-    expect(insertItemsQuery.insert).toHaveBeenCalledWith([
-      expect.objectContaining({
-        fulfillment_data: expect.objectContaining({
-          imei: '351183326811261',
+    expect(rpc).toHaveBeenCalledWith('replace_order_items', {
+      p_order_id: 'order-new',
+      p_items: [
+        expect.objectContaining({
+          fulfillment_data: expect.objectContaining({
+            imei: '351183326811261',
+          }),
         }),
-      }),
-    ]);
+      ],
+      p_merchant_id: 'merchant-1',
+      p_is_import: true,
+    });
   });
 
   it('increments createdCustomers when the importer creates a new customer', async () => {
@@ -618,7 +932,7 @@ describe('commitBumpaOrders', () => {
     ).rejects.toThrow('Failed to create imported order: insert failed');
   });
 
-  it('throws when replacing imported order items fails', async () => {
+  it('throws when atomically updating an existing imported order fails', async () => {
     const { supabase } = createSupabaseMock({
       existingOrders: [
         {
@@ -627,7 +941,7 @@ describe('commitBumpaOrders', () => {
           tracking_token: 'tracking-existing',
         },
       ],
-      insertItemsError: { message: 'items failed' },
+      replaceImportedOrderItemsError: { message: 'items failed' },
     });
 
     await expect(
@@ -637,7 +951,48 @@ describe('commitBumpaOrders', () => {
         importJobId: 'job-1',
         orders: [createOrder()],
       })
-    ).rejects.toThrow('Failed to insert imported order items: items failed');
+    ).rejects.toThrow('Failed to update imported order: items failed');
+  });
+
+  it('deletes a newly created order with merchant scope when item replacement fails', async () => {
+    const { supabase, deleteOrderQuery } = createSupabaseMock({
+      replaceOrderItemsError: { message: 'items failed' },
+    });
+
+    await expect(
+      commitBumpaOrders({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        orders: [createOrder()],
+      })
+    ).rejects.toThrow('Failed to replace imported order items: items failed');
+
+    expect(deleteOrderQuery.eq).toHaveBeenCalledWith('id', 'order-new');
+    expect(deleteOrderQuery.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(deleteOrderQuery.select).toHaveBeenCalledWith('id');
+    expect(deleteOrderQuery.maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws when cleanup delete does not remove the incomplete order', async () => {
+    const { supabase } = createSupabaseMock({
+      replaceOrderItemsError: { message: 'items failed' },
+      cleanupDeletedOrder: null,
+    });
+
+    await expect(
+      commitBumpaOrders({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        orders: [createOrder()],
+      })
+    ).rejects.toThrow(
+      'also failed to delete incomplete imported order order-new: no matching row was deleted'
+    );
   });
 
   it('maps Bumpa origins to native Baci order sources', async () => {
