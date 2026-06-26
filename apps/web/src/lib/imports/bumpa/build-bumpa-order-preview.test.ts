@@ -192,11 +192,15 @@ describe('buildBumpaOrderPreview', () => {
         importRecommendation: 'exclude_proxy_or_company',
       },
     });
-    expect(result.rows[0]?.errors[0]).toContain(
-      'Skipped by migration review (exclude_proxy_or_company)'
-    );
-    expect(result.rows[0]?.errors[0]).toContain(
-      'Customer appears to be a company/proxy purchaser, not the final receipt owner.'
+    expect(result.rows[0]?.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          'Skipped by migration review (exclude_proxy_or_company)'
+        ),
+        expect.stringContaining(
+          'Customer appears to be a company/proxy purchaser, not the final receipt owner.'
+        ),
+      ])
     );
   });
 

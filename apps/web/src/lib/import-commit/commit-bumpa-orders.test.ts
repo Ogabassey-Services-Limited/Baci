@@ -67,6 +67,7 @@ interface ExistingOrderFixture {
   external_id: string | null;
   tracking_token: string;
   fulfillment_details?: Record<string, unknown> | null;
+  shipping_address?: Record<string, unknown> | null;
 }
 
 interface CreateSupabaseMockOptions {
@@ -327,6 +328,11 @@ describe('commitBumpaOrders', () => {
           fulfillment_details: {
             shipping_address_source: 'previous-rich-import',
           },
+          shipping_address: {
+            address: '10 Marina',
+            city: 'Marina',
+            state: 'Lagos',
+          },
         },
       ],
     });
@@ -338,9 +344,9 @@ describe('commitBumpaOrders', () => {
       orders: [
         createOrder({
           shippingAddress: {
-            fullAddress: null,
+            fullAddress: '12 Admiralty Way',
             address: null,
-            city: 'Lekki',
+            city: null,
             state: null,
             country: 'Nigeria',
             postalCode: null,
@@ -357,6 +363,52 @@ describe('commitBumpaOrders', () => {
         shipping_address_source: 'previous-rich-import',
       }),
     });
+  });
+
+  it('writes a partial incoming address when an existing imported order has no stored address', async () => {
+    const { supabase, updateOrderQuery } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: '12 Admiralty Way, Lekki',
+            address: null,
+            city: null,
+            state: null,
+            country: 'Nigeria',
+            postalCode: null,
+            source: 'partial-bumpa-import',
+          },
+        }),
+      ],
+    });
+
+    expect(updateOrderQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_address: expect.objectContaining({
+          address: '12 Admiralty Way, Lekki',
+          address_line1: '12 Admiralty Way, Lekki',
+          full_address: '12 Admiralty Way, Lekki',
+        }),
+        fulfillment_details: expect.objectContaining({
+          shipping_address_source: 'partial-bumpa-import',
+        }),
+      })
+    );
   });
 
   it('promotes bare numeric Bumpa identifiers into receipt fulfillment data', async () => {

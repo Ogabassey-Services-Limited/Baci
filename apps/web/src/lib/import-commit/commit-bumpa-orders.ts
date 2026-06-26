@@ -16,6 +16,7 @@ interface ExistingOrderRecord {
   external_id: string | null;
   tracking_token: string;
   fulfillment_details: Record<string, unknown> | null;
+  shipping_address: Record<string, unknown> | null;
 }
 
 interface CommitBumpaOrdersResult {
@@ -92,7 +93,9 @@ async function loadExistingImportedOrders(
 ) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, external_id, tracking_token, fulfillment_details')
+    .select(
+      'id, external_id, tracking_token, fulfillment_details, shipping_address'
+    )
     .eq('merchant_id', merchantId)
     .eq('external_source', 'bumpa');
 
@@ -118,8 +121,17 @@ function buildOrderInsertPayload(
     order.sourceChannel
   );
   const shippingAddress = buildShippingAddressPayload(order);
+  const existingShippingAddress = isRecord(existingOrder?.shipping_address)
+    ? existingOrder.shipping_address
+    : null;
+  const hasIncomingShippingAddress = Boolean(
+    shippingAddress?.address || shippingAddress?.full_address
+  );
   const shouldWriteShippingAddress =
-    !existingOrder || isCompleteShippingAddress(shippingAddress);
+    hasIncomingShippingAddress &&
+    (!existingOrder ||
+      !existingShippingAddress ||
+      isCompleteShippingAddress(shippingAddress));
   const existingFulfillmentDetails = isRecord(
     existingOrder?.fulfillment_details
   )

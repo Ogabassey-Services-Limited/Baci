@@ -311,7 +311,8 @@ describe('buildItems', () => {
 
   it('removes a matching customer-name prefix before a double-pipe product name', () => {
     const row = makeRow({
-      Products: 'John Onuoha || Iphone 16pro 256gb Physical Sim (Premium Used)',
+      Products:
+        'John Onuoha | || | Iphone 16pro 256gb Physical Sim (Premium Used)',
       'Customer Name': 'John Onuoha',
       'Product SKU': '',
       'Product Quantity': '1.00',

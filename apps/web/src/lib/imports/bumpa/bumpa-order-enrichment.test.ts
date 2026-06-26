@@ -144,6 +144,24 @@ describe('enrichBumpaOrderItems', () => {
 });
 
 describe('buildBumpaShippingAddress', () => {
+  it('falls back to customer address columns and defaults the source', () => {
+    expect(
+      buildBumpaShippingAddress({
+        bumpa_customer_full_address: '12 Allen Ave, Ikeja, Nigeria',
+        bumpa_customer_city: 'Ikeja',
+        bumpa_customer_state: 'Lagos',
+      })
+    ).toEqual({
+      fullAddress: '12 Allen Ave, Ikeja, Nigeria',
+      address: null,
+      city: 'Ikeja',
+      state: 'Lagos',
+      country: null,
+      postalCode: null,
+      source: 'bumpa_import',
+    });
+  });
+
   it('builds a shipping address from the rich import columns', () => {
     expect(
       buildBumpaShippingAddress({

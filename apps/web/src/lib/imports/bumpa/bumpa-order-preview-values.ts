@@ -140,6 +140,17 @@ function buildProductNames(
 
   if (expectedCount <= 1) {
     const compactParts = rawParts.filter(Boolean);
+    const doublePipeSeparatorIndex = compactParts.indexOf('||');
+
+    if (doublePipeSeparatorIndex > 0) {
+      const prefix = compactParts
+        .slice(0, doublePipeSeparatorIndex)
+        .join(' | ');
+      if (normalizeNameKey(prefix) === customerNameKey) {
+        return [compactParts.slice(doublePipeSeparatorIndex + 1).join(' | ')];
+      }
+    }
+
     const mergedName = compactParts.join(' | ');
     const doublePipePrefixMatch = mergedName.match(/^(.+?)\s*\|\|\s*(.+)$/);
 
