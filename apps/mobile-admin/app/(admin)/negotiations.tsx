@@ -65,6 +65,9 @@ async function loadNegotiationRequests(
 
   return (data ?? []).map((row) => ({
     ...row,
+    // cart_snapshot is arbitrary client-supplied JSONB; coerce anything that
+    // isn't an array to null so one malformed row can't crash the list on .map.
+    cart_snapshot: Array.isArray(row.cart_snapshot) ? row.cart_snapshot : null,
     current_price: row.item_info?.current_price ?? null,
   })) as NegotiationRequest[];
 }
@@ -74,14 +77,22 @@ async function updateNegotiationStatus(
   status: 'accepted' | 'rejected',
   merchantId: string
 ): Promise<void> {
-  const { error } = await supabase
+  // Scope to still-pending rows so we don't clobber a decision another admin
+  // already made. `.select()` returns the affected rows: zero means the request
+  // was no longer pending, which must surface as an error rather than a silent
+  // "success" (which would fire success haptics + notify the customer).
+  const { data, error } = await supabase
     .from('negotiation_requests')
     .update({ status })
     .eq('id', id)
     .eq('merchant_id', merchantId)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('id');
 
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('This request was already handled. Pull to refresh.');
+  }
 }
 
 // Open a link in the OS handler (browser, dialer, WhatsApp). Best-effort: an
@@ -108,8 +119,15 @@ function isRemoteUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
 }
 
+// Uploaded evidence is stored as `<merchantId>/<timestamp>-<rand>.<ext>` (see
+// uploadNegotiationEvidence). Match that exact shape — a single path segment
+// ending in a known image extension — so a scheme-less competitor link like
+// `www.example.com/listing` is NOT mistaken for a private Storage object.
+const STORAGE_OBJECT_PATH =
+  /^[^/\s:]+\/[^/\s]+\.(?:png|jpe?g|webp|heic|heif)$/i;
+
 function isStorageObjectPath(value: string): boolean {
-  return !value.includes('://') && value.includes('/') && value.length <= 1024;
+  return value.length <= 1024 && STORAGE_OBJECT_PATH.test(value);
 }
 
 // Customers attach evidence as a URL (competitor link), a durable Supabase
@@ -131,7 +149,9 @@ async function openEvidence(evidenceUrl: string): Promise<void> {
       }
       await openExternalUrl(data.signedUrl);
     } catch {
-      Alert.alert('Cannot open evidence', 'Unable to open the uploaded proof.');
+      // Signing failed (expired bucket policy, deleted object, …). Don't dead-end
+      // the merchant — show the raw value so they can still read what was sent.
+      Alert.alert('Customer evidence', evidenceUrl);
     }
     return;
   }

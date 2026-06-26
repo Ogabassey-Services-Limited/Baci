@@ -176,7 +176,8 @@ describe('NegotiationsScreen', () => {
     mocks.merchant = { id: 'merchant-1' };
     mocks.queryCalls.length = 0;
     mocks.selectResult = { data: negotiationRows, error: null };
-    mocks.updateResult = { data: null, error: null };
+    // Default: the update affected one still-pending row (success path).
+    mocks.updateResult = { data: [{ id: 'negotiation-1' }], error: null };
   });
 
   it('scopes negotiation status updates to the active merchant', async () => {
@@ -452,5 +453,80 @@ describe('NegotiationsScreen', () => {
       expect(Alert.alert).toHaveBeenCalledWith('Error', 'permission denied');
     });
     expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
+  });
+
+  it('shows a stale-state error when the request was already handled', async () => {
+    // The status='pending' filter matched zero rows (another admin acted first).
+    mocks.updateResult = { data: [], error: null };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Accept Offer'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Error',
+        'This request was already handled. Pull to refresh.'
+      );
+    });
+    // Must NOT report success or notify the customer for a no-op update.
+    expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
+    expect(mocks.notificationAsync).not.toHaveBeenCalledWith('success');
+  });
+
+  it('shows a scheme-less competitor link as text instead of signing it', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          customer_phone: null,
+          evidence_url: 'www.example.com/listing',
+          id: 'negotiation-evidence-schemeless',
+          item_info: { name: 'Wireless Headphones' },
+          offered_price: 8_500,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('View customer evidence'));
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Customer evidence',
+      'www.example.com/listing'
+    );
+    // It is NOT a storage object, so we never attempt to sign it.
+    expect(mocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('does not crash when cart_snapshot is malformed (non-array)', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-06-24T23:58:50.000Z',
+          customer_id: null,
+          customer_phone: null,
+          cart_snapshot: 'definitely-not-an-array',
+          evidence_url: null,
+          id: 'negotiation-bad-snapshot',
+          item_info: { name: '3 items' },
+          offered_price: 420_000,
+          status: 'pending',
+          type: 'total',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    // Row still renders (no crash); the malformed snapshot is dropped, so no
+    // "View … items" toggle appears.
+    expect(await screen.findByText('Accept Offer')).toBeInTheDocument();
+    expect(screen.queryByText(/View \d+ items?/)).toBeNull();
   });
 });
