@@ -161,10 +161,38 @@ export function getCustomerOrderStatusKey(
   }
 }
 
-export function getCustomerOrderStatusMeta(
-  status: string | null | undefined
+// Personalize the merchant-referencing copy with the store's name when known,
+// e.g. "Ogabassey has confirmed your order…" instead of "The merchant has…".
+// Falls back to the generic "the merchant" wording when no name is available.
+function withMerchantName(
+  meta: CustomerOrderStatusMeta,
+  merchantName?: string | null
 ): CustomerOrderStatusMeta {
-  return CUSTOMER_ORDER_STATUS_META[getCustomerOrderStatusKey(status)];
+  const name = merchantName?.trim();
+  if (!name) {
+    return meta;
+  }
+  if (meta.key === 'confirmed') {
+    return {
+      ...meta,
+      description: `${name} has confirmed your order and is getting it ready.`,
+    };
+  }
+  if (meta.key === 'shipped') {
+    return {
+      ...meta,
+      description: `Your order has left ${name} and is heading to you.`,
+    };
+  }
+  return meta;
+}
+
+export function getCustomerOrderStatusMeta(
+  status: string | null | undefined,
+  merchantName?: string | null
+): CustomerOrderStatusMeta {
+  const meta = CUSTOMER_ORDER_STATUS_META[getCustomerOrderStatusKey(status)];
+  return withMerchantName(meta, merchantName);
 }
 
 export function getCustomerOrderStatusPalette(
