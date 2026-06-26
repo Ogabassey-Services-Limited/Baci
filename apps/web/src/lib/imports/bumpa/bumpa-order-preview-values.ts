@@ -104,10 +104,12 @@ function findProductByName(
 
 function splitPipeField(value: string) {
   return value.split(/(?<!\|)\|(?!\|)/).map((part) =>
-    part
-      .trim()
-      .replace(/^\|+|\|+$/g, '')
-      .trim()
+    part.trim() === '||'
+      ? '||'
+      : part
+          .trim()
+          .replace(/^\|+|\|+$/g, '')
+          .trim()
   );
 }
 

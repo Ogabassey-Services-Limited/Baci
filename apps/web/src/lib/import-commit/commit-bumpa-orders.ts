@@ -59,6 +59,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function mergeShippingAddressPayload(
+  existingShippingAddress: Record<string, unknown> | null,
+  incomingShippingAddress: ReturnType<typeof buildShippingAddressPayload>
+) {
+  if (!incomingShippingAddress) return null;
+  const merged = { ...(existingShippingAddress ?? {}) };
+
+  for (const [key, value] of Object.entries(incomingShippingAddress)) {
+    if (value !== null && value !== undefined && value !== '') {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
+}
+
 function firstString(value: unknown) {
   if (!Array.isArray(value)) return null;
 
@@ -134,6 +150,9 @@ function buildOrderInsertPayload(
     (!existingOrder ||
       !existingShippingAddress ||
       isCompleteShippingAddress(shippingAddress));
+  const shippingAddressToWrite = shouldWriteShippingAddress
+    ? mergeShippingAddressPayload(existingShippingAddress, shippingAddress)
+    : null;
   const existingFulfillmentDetails = isRecord(
     existingOrder?.fulfillment_details
   )
@@ -145,7 +164,7 @@ function buildOrderInsertPayload(
     source_channel: order.sourceChannel,
     source_origin: order.sourceOrigin,
     ...(shouldWriteShippingAddress
-      ? { shipping_address_source: order.shippingAddress?.source ?? null }
+      ? { shipping_address_source: shippingAddressToWrite?.source ?? null }
       : {}),
   };
 
@@ -173,8 +192,8 @@ function buildOrderInsertPayload(
       ? `Imported from Bumpa (${order.shippingOption})`
       : 'Imported from Bumpa',
     fulfillment_details: fulfillmentDetails,
-    ...(shouldWriteShippingAddress
-      ? { shipping_address: shippingAddress }
+    ...(shippingAddressToWrite
+      ? { shipping_address: shippingAddressToWrite }
       : {}),
     tracking_token: trackingToken,
     created_at: order.createdAt,
@@ -184,6 +203,41 @@ function buildOrderInsertPayload(
     import_job_id: importJobId,
     imported_at: new Date().toISOString(),
     import_metadata: order.importMetadata,
+  };
+}
+
+function buildCachedOrderRecord(
+  orderId: string,
+  order: NormalizedImportedOrder,
+  trackingToken: string,
+  payload: ReturnType<typeof buildOrderInsertPayload>,
+  selectedRecord: Partial<ExistingOrderRecord> | null
+): ExistingOrderRecord {
+  const selectedFulfillmentDetails = isRecord(
+    selectedRecord?.fulfillment_details
+  )
+    ? selectedRecord.fulfillment_details
+    : null;
+  const selectedShippingAddress = isRecord(selectedRecord?.shipping_address)
+    ? selectedRecord.shipping_address
+    : null;
+
+  return {
+    id: orderId,
+    external_id:
+      typeof selectedRecord?.external_id === 'string'
+        ? selectedRecord.external_id
+        : order.externalSourceId,
+    tracking_token:
+      typeof selectedRecord?.tracking_token === 'string'
+        ? selectedRecord.tracking_token
+        : trackingToken,
+    fulfillment_details: isRecord(payload.fulfillment_details)
+      ? payload.fulfillment_details
+      : selectedFulfillmentDetails,
+    shipping_address: isRecord(payload.shipping_address)
+      ? payload.shipping_address
+      : selectedShippingAddress,
   };
 }
 
@@ -239,12 +293,13 @@ export async function commitBumpaOrders({
     }
 
     const existingOrder = ordersByExternalId.get(order.externalSourceId);
+    const trackingToken = existingOrder?.tracking_token || nanoid(32);
     const payload = buildOrderInsertPayload(
       merchantId,
       importJobId,
       customerId,
       order,
-      existingOrder?.tracking_token || nanoid(32),
+      trackingToken,
       existingOrder
     );
 
@@ -260,11 +315,23 @@ export async function commitBumpaOrders({
       }
 
       updatedOrders += 1;
+      ordersByExternalId.set(
+        order.externalSourceId,
+        buildCachedOrderRecord(
+          existingOrder.id,
+          order,
+          trackingToken,
+          payload,
+          existingOrder
+        )
+      );
     } else {
       const { data, error } = await supabase
         .from('orders')
         .insert(payload)
-        .select('id, external_id, tracking_token')
+        .select(
+          'id, external_id, tracking_token, fulfillment_details, shipping_address'
+        )
         .single();
 
       if (error || !data) {
@@ -273,7 +340,16 @@ export async function commitBumpaOrders({
 
       const createdOrder = data as ExistingOrderRecord;
       orderId = createdOrder.id;
-      ordersByExternalId.set(order.externalSourceId, createdOrder);
+      ordersByExternalId.set(
+        order.externalSourceId,
+        buildCachedOrderRecord(
+          createdOrder.id,
+          order,
+          trackingToken,
+          payload,
+          createdOrder
+        )
+      );
       createdOrders += 1;
     }
 

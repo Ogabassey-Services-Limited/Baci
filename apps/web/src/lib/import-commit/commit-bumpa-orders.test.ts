@@ -85,6 +85,8 @@ function createSupabaseMock({
     id: 'order-new',
     external_id: 'ext-1',
     tracking_token: 'tracking-1',
+    fulfillment_details: null,
+    shipping_address: null,
   },
   insertOrderError = null,
   updateOrderError = null,
@@ -131,13 +133,20 @@ function createSupabaseMock({
   };
   insertItemsQuery.insert.mockResolvedValue({ error: insertItemsError });
 
-  const from = vi.fn().mockReturnValueOnce(loadQuery);
-  from.mockReturnValueOnce(
-    existingOrders.length > 0 ? updateOrderQuery : insertOrderQuery
-  );
-  from
-    .mockReturnValueOnce(deleteItemsQuery)
-    .mockReturnValueOnce(insertItemsQuery);
+  const ordersTable = {
+    select: loadQuery.select,
+    insert: insertOrderQuery.insert,
+    update: updateOrderQuery.update,
+  };
+  const orderItemsTable = {
+    delete: deleteItemsQuery.delete,
+    insert: insertItemsQuery.insert,
+  };
+  const from = vi.fn((tableName: string) => {
+    if (tableName === 'orders') return ordersTable;
+    if (tableName === 'order_items') return orderItemsTable;
+    throw new Error(`Unexpected table: ${tableName}`);
+  });
 
   return {
     supabase: { from } as unknown as SupabaseClient,
@@ -363,6 +372,121 @@ describe('commitBumpaOrders', () => {
         shipping_address_source: 'previous-rich-import',
       }),
     });
+  });
+
+  it('merges complete incoming addresses with richer existing address fields', async () => {
+    const { supabase, updateOrderQuery } = createSupabaseMock({
+      existingOrders: [
+        {
+          id: 'order-existing',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-existing',
+          fulfillment_details: {
+            shipping_address_source: 'previous-rich-import',
+          },
+          shipping_address: {
+            address: '10 Marina',
+            address_line1: '10 Marina',
+            full_address: '10 Marina, Lagos, Nigeria',
+            city: 'Marina',
+            state: 'Lagos',
+            country: 'Nigeria',
+            postal_code: '100001',
+            source: 'previous-rich-import',
+          },
+        },
+      ],
+    });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: null,
+            address: '12 Admiralty Way',
+            city: 'Lekki',
+            state: 'Lagos',
+            country: null,
+            postalCode: null,
+            source: 'shipping',
+          },
+        }),
+      ],
+    });
+
+    expect(updateOrderQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_address: {
+          address: '12 Admiralty Way',
+          address_line1: '12 Admiralty Way',
+          full_address: '10 Marina, Lagos, Nigeria',
+          city: 'Lekki',
+          state: 'Lagos',
+          country: 'Nigeria',
+          postal_code: '100001',
+          source: 'shipping',
+        },
+      })
+    );
+  });
+
+  it('caches inserted orders with merge fields for duplicate orders in the same batch', async () => {
+    const { supabase, insertOrderQuery, updateOrderQuery } = createSupabaseMock(
+      {
+        insertedOrder: {
+          id: 'order-new',
+          external_id: 'ext-1',
+          tracking_token: 'tracking-1',
+          fulfillment_details: null,
+          shipping_address: null,
+        },
+      }
+    );
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          shippingAddress: {
+            fullAddress: '10 Marina, Lagos, Nigeria',
+            address: '10 Marina',
+            city: 'Marina',
+            state: 'Lagos',
+            country: 'Nigeria',
+            postalCode: '100001',
+            source: 'shipping',
+          },
+        }),
+        createOrder({
+          shippingAddress: {
+            fullAddress: null,
+            address: '12 Admiralty Way',
+            city: 'Lekki',
+            state: 'Lagos',
+            country: null,
+            postalCode: null,
+            source: 'shipping',
+          },
+        }),
+      ],
+    });
+
+    expect(insertOrderQuery.insert).toHaveBeenCalledTimes(1);
+    expect(updateOrderQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_address: expect.objectContaining({
+          address: '12 Admiralty Way',
+          full_address: '10 Marina, Lagos, Nigeria',
+          country: 'Nigeria',
+          postal_code: '100001',
+        }),
+      })
+    );
   });
 
   it('writes a partial incoming address when an existing imported order has no stored address', async () => {

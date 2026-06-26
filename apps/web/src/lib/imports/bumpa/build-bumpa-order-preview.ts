@@ -210,6 +210,29 @@ export async function* buildBumpaOrderPreviewChunks({
     const row = validationResult.data;
     const errors: string[] = [];
     const externalSourceId = row.id;
+
+    if (seenExternalIds.has(externalSourceId)) {
+      const previewRow = {
+        rowNumber,
+        sourceExternalId: externalSourceId,
+        rowStatus: 'duplicate',
+        errors: ['Duplicate Bumpa order id in the same file'],
+        payload: null,
+        meta: {},
+      } satisfies ImportPreviewRow<NormalizedImportedOrder>;
+      previewRows.push(previewRow);
+      updateOrderPreviewSummary(runningSummary, previewRow);
+      queuePendingRow(previewRow);
+      await maybeReportProgress(onProgress, index + 1, rows.length);
+      const chunk = buildChunk(index + 1, index + 1 === rows.length);
+      if (chunk) {
+        yield chunk;
+      }
+      continue;
+    }
+
+    seenExternalIds.add(externalSourceId);
+
     const excludedImportError = getExcludedImportError(rawRow);
 
     if (excludedImportError) {
@@ -233,28 +256,6 @@ export async function* buildBumpaOrderPreviewChunks({
       }
       continue;
     }
-
-    if (seenExternalIds.has(externalSourceId)) {
-      const previewRow = {
-        rowNumber,
-        sourceExternalId: externalSourceId,
-        rowStatus: 'duplicate',
-        errors: ['Duplicate Bumpa order id in the same file'],
-        payload: null,
-        meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedOrder>;
-      previewRows.push(previewRow);
-      updateOrderPreviewSummary(runningSummary, previewRow);
-      queuePendingRow(previewRow);
-      await maybeReportProgress(onProgress, index + 1, rows.length);
-      const chunk = buildChunk(index + 1, index + 1 === rows.length);
-      if (chunk) {
-        yield chunk;
-      }
-      continue;
-    }
-
-    seenExternalIds.add(externalSourceId);
 
     const orderNumber = sanitizeText(row['Order Number']);
     const existingImportedOrder =

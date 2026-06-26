@@ -54,6 +54,12 @@ describe('buildBumpaItemImportMetadata', () => {
     ]);
   });
 
+  it('strips parenthesized identifiers before building product candidates', () => {
+    expect(
+      buildBumpaProductNameCandidates('iPhone 12 128gb (IMEI: 351183326811261)')
+    ).toEqual(['iPhone 12 128gb (IMEI: 351183326811261)', 'iPhone 12 128GB']);
+  });
+
   it('does not strip condition words inside larger product terms', () => {
     const metadata = buildBumpaItemImportMetadata('Renewed iPhone 12 128gb');
 
@@ -99,6 +105,17 @@ describe('buildBumpaItemImportMetadata', () => {
     expect(metadata.normalized_product_name).toBe(
       '16" MacBook Pro M1 16GB 512GB (Premium Used)'
     );
+    expect(metadata.fulfillment_identifiers.serialNumbers).toEqual([
+      'C02GR0WHQ05N',
+    ]);
+  });
+
+  it('extracts actual serials from Serial Number labels', () => {
+    const metadata = buildBumpaItemImportMetadata(
+      'MacBook Air M1 8gb 256gb Serial Number: C02GR0WHQ05N'
+    );
+
+    expect(metadata.normalized_product_name).toBe('MacBook Air M1 8GB 256GB');
     expect(metadata.fulfillment_identifiers.serialNumbers).toEqual([
       'C02GR0WHQ05N',
     ]);

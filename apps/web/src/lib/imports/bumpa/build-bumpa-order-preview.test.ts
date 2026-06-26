@@ -215,6 +215,28 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.summary.duplicateCount).toBe(1);
   });
 
+  it('reserves skipped external ids for duplicate detection', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          import_recommendation: 'exclude_proxy_or_company',
+        },
+        {
+          ...baseRow,
+          'Order Number': '06398',
+          import_recommendation: '',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('invalid');
+    expect(result.rows[1]?.rowStatus).toBe('duplicate');
+    expect(result.summary.duplicateCount).toBe(1);
+  });
+
   it('marks duplicate order numbers in the same upload as invalid for both rows', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [baseRow, { ...baseRow, id: '4196547' }],

@@ -326,6 +326,19 @@ describe('buildItems', () => {
     );
   });
 
+  it('removes a matching customer-name prefix before standalone double-pipe markers with extra fragments', () => {
+    const row = makeRow({
+      Products: 'Ada Lovelace | || | HP EliteBook | 8th Gen',
+      'Product SKU': '',
+      'Product Quantity': '1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].productName).toBe('HP EliteBook | 8th Gen');
+  });
+
   it('trims stray trailing double pipes before product-name matching', () => {
     const row = makeRow({
       Products:
