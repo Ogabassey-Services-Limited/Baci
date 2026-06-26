@@ -232,6 +232,42 @@ describe('zeptomail-domains client', () => {
     );
   });
 
+  it('surfaces the nested error.message from ZeptoMail rejections', async () => {
+    routeFetch({
+      domains: {
+        ok: false,
+        status: 400,
+        json: () =>
+          Promise.resolve({
+            error: { code: 'TM_3601', message: 'Domain already exists' },
+          }),
+      },
+    });
+    const mod = await load();
+    // Must surface the provider message (so the "already" recovery path can
+    // detect it) rather than an opaque "ZeptoMail API error (400)".
+    await expect(mod.registerSendingDomain('x.com')).rejects.toThrow(
+      'Domain already exists'
+    );
+  });
+
+  it('falls back to error.details[].message when no top-level message exists', async () => {
+    routeFetch({
+      domains: {
+        ok: false,
+        status: 400,
+        json: () =>
+          Promise.resolve({
+            error: { details: [{ message: 'Domain already verified' }] },
+          }),
+      },
+    });
+    const mod = await load();
+    await expect(mod.registerSendingDomain('x.com')).rejects.toThrow(
+      'Domain already verified'
+    );
+  });
+
   it('throws when credentials are missing', async () => {
     vi.stubEnv('ZOHO_CLIENT_ID', '');
     const mod = await load();

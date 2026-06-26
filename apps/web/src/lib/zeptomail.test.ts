@@ -398,9 +398,14 @@ describe('zeptomail audit logging', () => {
       'orders@ogabassey.com',
       'orders@usebaci.com',
     ]);
-    // Audit records the address that actually delivered.
+    // Audit records the address that actually delivered, and the attempt count
+    // reflects actual sends (1 primary + 1 fallback = 2), not an inflated 5.
     expect(auditState.updates.at(-1)).toMatchObject({
-      patch: { status: 'accepted', from_address: 'orders@usebaci.com' },
+      patch: {
+        status: 'accepted',
+        from_address: 'orders@usebaci.com',
+        attempt_count: 2,
+      },
     });
   });
 

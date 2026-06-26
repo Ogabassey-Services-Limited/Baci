@@ -137,8 +137,22 @@ async function zeptomailRequest(
   });
   const json = await response.json().catch(() => null);
   if (!response.ok) {
+    // ZeptoMail error responses nest the human-readable message under `error`
+    // (see Zoho's error-codes docs), e.g. the "domain already exists/verified"
+    // case. Read the nested message first so callers like
+    // getRegisterableSendingDomain can detect it and recover, rather than
+    // surfacing an opaque "ZeptoMail API error (400)".
+    const errorBody = json as {
+      message?: string;
+      error?: {
+        message?: string;
+        details?: Array<{ message?: string }>;
+      };
+    } | null;
     const message =
-      (json as { message?: string } | null)?.message ??
+      errorBody?.error?.message ??
+      errorBody?.error?.details?.find((detail) => detail?.message)?.message ??
+      errorBody?.message ??
       `ZeptoMail API error (${response.status})`;
     throw new Error(message);
   }

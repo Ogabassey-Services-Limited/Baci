@@ -218,6 +218,29 @@ function isSameMerchantRedirect(
   return false;
 }
 
+// Only a verified CUSTOM domain may carry the token-bearing confirmation link
+// on its own origin: proxy.ts passes `/auth/confirm` through on custom domains
+// with the query string intact. Platform subdomains instead match
+// MAIN_APP_ROUTES and are redirected via `new URL(pathname, ...)`, which DROPS
+// the query (token_hash/type) before the verifier runs — so their confirmation
+// must stay on the platform host.
+function isCustomDomainRedirect(
+  nextUrl: URL,
+  branding: MerchantBranding
+): boolean {
+  if (nextUrl.protocol !== 'https:') {
+    return false;
+  }
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+  return Boolean(
+    nextLookup?.customDomain &&
+      branding.customDomain &&
+      getCustomDomainCandidates(branding.customDomain).includes(
+        nextLookup.customDomain
+      )
+  );
+}
+
 export function buildAuthEmailConfirmationUrl({
   branding,
   emailType,
@@ -251,11 +274,16 @@ export function buildAuthEmailConfirmationUrl({
     try {
       const nextUrl = new URL(redirectTo);
       if (isSameMerchantRedirect(nextUrl, parsedSiteUrl, branding)) {
-        // `/auth/confirm` only accepts same-origin absolute next URLs. For a
-        // same-merchant custom domain or subdomain, send the confirmation link
-        // on that origin and keep `next` route-relative so the validator keeps
-        // the intended post-login path instead of dropping to /dashboard.
-        if (nextUrl.origin !== parsedSiteUrl.origin) {
+        // `/auth/confirm` only accepts same-origin absolute next URLs. Move the
+        // token-bearing link onto the merchant origin ONLY for a custom domain,
+        // which the proxy passes through with the query intact. Same-merchant
+        // subdomains keep the confirmation on the platform host (their /auth
+        // redirect drops the query). `next` stays route-relative either way so
+        // the validator keeps the intended post-login path.
+        if (
+          nextUrl.origin !== parsedSiteUrl.origin &&
+          isCustomDomainRedirect(nextUrl, branding)
+        ) {
           confirmationUrl = new URL('/auth/confirm', nextUrl.origin);
           confirmationUrl.searchParams.set('token_hash', tokenHash);
           confirmationUrl.searchParams.set('type', emailType);

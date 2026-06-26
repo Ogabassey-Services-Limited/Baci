@@ -547,10 +547,10 @@ export async function sendEmail({
     console.warn(
       `ZeptoMail custom sender rejected (${lastError.code ?? 'unknown'}); retrying from platform sender`
     );
-    const fallback = await dispatch(
-      platformSender,
-      RETRY_CONFIG.maxRetries + 1
-    );
+    // Offset the fallback attempt counter by the primary's actual tries (not a
+    // fixed maxRetries+1) so a fallback that succeeds on its first send records
+    // attempt_count as primary.attempts + 1, not an inflated 5.
+    const fallback = await dispatch(platformSender, primary.attempts);
     if ('ok' in fallback) {
       return fallback.ok;
     }
@@ -749,10 +749,9 @@ export async function sendEmailWithTemplate({
     console.warn(
       `ZeptoMail custom template sender rejected (${lastError?.code ?? 'unknown'}); retrying from platform sender`
     );
-    const fallback = await dispatchTemplate(
-      platformSender,
-      RETRY_CONFIG.maxRetries + 1
-    );
+    // Offset by the primary's actual tries (see sendEmail) so a first-try
+    // fallback success records attempt_count as primary.attempts + 1.
+    const fallback = await dispatchTemplate(platformSender, primary.attempts);
     if ('ok' in fallback) {
       return fallback.ok;
     }
