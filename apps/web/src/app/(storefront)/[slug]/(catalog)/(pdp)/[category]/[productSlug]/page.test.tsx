@@ -2537,7 +2537,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('strips HTML tags from hidden summary description text', async () => {
+  it('strips HTML tags from crawlable summary and visible overview text', async () => {
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
       description:
@@ -2558,8 +2558,8 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(
-      screen.getByText('A premium laptop built for creators.')
-    ).toBeInTheDocument();
+      screen.getAllByText('A premium laptop built for creators.')
+    ).not.toHaveLength(0);
     expect(screen.queryByText(/<strong>/)).not.toBeInTheDocument();
   });
 
