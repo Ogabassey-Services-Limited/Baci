@@ -29,6 +29,14 @@ function createTrustedPriorityImageSourceSet(
   );
 }
 
+function isSyntheticTechnicalResourcePath(pathname: string): boolean {
+  return (
+    pathname === '/_next/image' ||
+    pathname.startsWith('/_next/data/') ||
+    pathname.startsWith('/_next/static/')
+  );
+}
+
 function isTechnicalResourceHref(href: string | undefined): boolean {
   const normalizedHref = href?.trim().toLowerCase();
   if (!normalizedHref) {
@@ -36,12 +44,9 @@ function isTechnicalResourceHref(href: string | undefined): boolean {
   }
   try {
     const { pathname } = new URL(normalizedHref, 'https://example.invalid');
-    if (pathname === '/_next/image') {
-      return true;
-    }
-    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
+    return isSyntheticTechnicalResourcePath(pathname);
   } catch {
-    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
+    return isSyntheticTechnicalResourcePath(stripQueryAndHash(normalizedHref));
   }
 }
 
@@ -95,9 +100,17 @@ function isSerializedAttributeLeakHref(href: string | undefined): boolean {
 }
 
 function sanitizeAnchorTag(_tagName: string, attribs: sanitizeLib.Attributes) {
+  const relTokens = new Set(
+    typeof attribs.rel === 'string'
+      ? attribs.rel.split(/\s+/).filter(Boolean)
+      : []
+  );
+  relTokens.add('noopener');
+  relTokens.add('noreferrer');
+
   const nextAttribs: sanitizeLib.Attributes = {
     ...attribs,
-    rel: 'noopener noreferrer',
+    rel: Array.from(relTokens).join(' '),
   };
 
   if (isSerializedAttributeLeakHref(nextAttribs.href)) {

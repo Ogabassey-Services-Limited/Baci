@@ -8,12 +8,9 @@ describe('sanitize heading hierarchy normalization', () => {
       { normalizeHeadingHierarchy: true }
     );
 
-    expect(output).toContain('<h2>Buying advice</h2>');
-    expect(output).toContain('<h3>Battery checks</h3>');
-    expect(output).toContain('<h2>Duplicate imported title</h2>');
-    expect(output).toContain('<h3>Camera details</h3>');
-    expect(output).not.toContain('<h1>');
-    expect(output).not.toContain('<h4>Battery checks</h4>');
+    expect(output).toBe(
+      '<h2>Buying advice</h2><h3>Battery checks</h3><h2>Duplicate imported title</h2><h3>Camera details</h3>'
+    );
   });
 
   it('keeps repeated skipped sibling headings at the same normalized level', () => {
@@ -22,10 +19,9 @@ describe('sanitize heading hierarchy normalization', () => {
       { normalizeHeadingHierarchy: true }
     );
 
-    expect(output).toContain('<h2>Main section</h2>');
-    expect(output).toContain('<h3>First sibling</h3>');
-    expect(output).toContain('<h3>Second sibling</h3>');
-    expect(output).not.toContain('<h4>');
+    expect(output).toBe(
+      '<h2>Main section</h2><h3>First sibling</h3><h3>Second sibling</h3>'
+    );
   });
 
   it('promotes all top-level body headings when content starts at h3', () => {
@@ -34,9 +30,9 @@ describe('sanitize heading hierarchy normalization', () => {
       { normalizeHeadingHierarchy: true }
     );
 
-    expect(output).toContain('<h2>Battery</h2>');
-    expect(output).toContain('<h2>Camera</h2>');
-    expect(output).toContain('<h3>Low-light notes</h3>');
+    expect(output).toBe(
+      '<h2>Battery</h2><h2>Camera</h2><h3>Low-light notes</h3>'
+    );
   });
 
   it('preserves valid deeper legacy heading levels', () => {
@@ -45,10 +41,9 @@ describe('sanitize heading hierarchy normalization', () => {
       { normalizeHeadingHierarchy: true }
     );
 
-    expect(output).toContain('<h2>Section</h2>');
-    expect(output).toContain('<h3>Topic</h3>');
-    expect(output).toContain('<h4>Detail</h4>');
-    expect(output).toContain('<h5>Fine print</h5>');
+    expect(output).toBe(
+      '<h2>Section</h2><h3>Topic</h3><h4>Detail</h4><h5>Fine print</h5>'
+    );
   });
 
   it('normalizes the first visible heading even when a later h2 exists', () => {
@@ -57,9 +52,9 @@ describe('sanitize heading hierarchy normalization', () => {
       { normalizeHeadingHierarchy: true }
     );
 
-    expect(output).toContain('<h2>Intro</h2>');
-    expect(output).toContain('<h2>Specs</h2>');
-    expect(output).toContain('<h3>Battery</h3>');
+    expect(output).toBe(
+      '<h2>Intro</h2><p>Copy</p><h2>Specs</h2><h3>Battery</h3>'
+    );
   });
 
   it('keeps subsections nested under imported h1 titles', () => {
@@ -68,8 +63,8 @@ describe('sanitize heading hierarchy normalization', () => {
       { normalizeHeadingHierarchy: true }
     );
 
-    expect(output).toContain('<h2>Imported title</h2>');
-    expect(output).toContain('<h3>Specs</h3>');
-    expect(output).toContain('<h3>Pricing</h3>');
+    expect(output).toBe(
+      '<h2>Imported title</h2><h3>Specs</h3><h3>Pricing</h3>'
+    );
   });
 });

@@ -32,12 +32,34 @@ describe('sanitize HTML config', () => {
     expect(sanitized).not.toContain('body.jpg" fetchpriority');
   });
 
-  it('unwraps technical resource anchors when SEO anchor normalization is enabled', () => {
+  it('unwraps synthetic Next image anchors when SEO anchor normalization is enabled', () => {
     const sanitized = sanitizeLib(
       '<p><a href="/_next/image?url=https%3A%2F%2Fexample.com%2Fphone.avif">Phone image</a></p>',
       createSanitizeHtmlOptions({ normalizeSeoAnchors: true })
     );
 
     expect(sanitized).toBe('<p>Phone image</p>');
+  });
+
+  it('unwraps synthetic Next static resource anchors without stripping real resource links', () => {
+    const sanitized = sanitizeLib(
+      '<p><a href="/_next/static/chunks/app.js">App chunk</a> <a href="/schema.json">Schema JSON</a> <a href="https://cdn.example.com/sdk.js">SDK</a></p>',
+      createSanitizeHtmlOptions({ normalizeSeoAnchors: true })
+    );
+
+    expect(sanitized).toBe(
+      '<p>App chunk <a href="/schema.json" rel="noopener noreferrer">Schema JSON</a> <a href="https://cdn.example.com/sdk.js" rel="noopener noreferrer">SDK</a></p>'
+    );
+  });
+
+  it('preserves existing rel tokens while adding noopener noreferrer', () => {
+    const sanitized = sanitizeLib(
+      '<a href="https://example.com" rel="nofollow ugc">Example</a>',
+      createSanitizeHtmlOptions()
+    );
+
+    expect(sanitized).toBe(
+      '<a href="https://example.com" rel="nofollow ugc noopener noreferrer">Example</a>'
+    );
   });
 });

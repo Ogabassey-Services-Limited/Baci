@@ -205,12 +205,11 @@ describe('BlogPostBody', () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { level: 2, name: 'Imported Section' })
+      screen.getByRole('heading', { level: 3, name: 'Imported Section' })
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: 'Product data JSON' })
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/Product data JSON/)).toBeInTheDocument();
+      screen.getByRole('link', { name: 'Product data JSON' })
+    ).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('uses canonical postUrl for subdomain share links without doubled slug', async () => {
