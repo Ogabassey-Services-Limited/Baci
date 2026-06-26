@@ -31,7 +31,6 @@ const BLOG_AUTHOR_PROFILES: Record<string, BlogAuthorProfile> = {
     sameAs: [
       'https://www.instagram.com/bassey__j',
       'https://www.linkedin.com/in/bassey-john-6a277885',
-      'https://twitter.com/digitalogaa',
     ],
   },
   bolakale: {
@@ -39,7 +38,6 @@ const BLOG_AUTHOR_PROFILES: Record<string, BlogAuthorProfile> = {
     sameAs: [
       'https://www.instagram.com/earthmover007',
       'https://www.linkedin.com/in/michael-bolakale',
-      'https://twitter.com/earthmover007',
     ],
   },
 };

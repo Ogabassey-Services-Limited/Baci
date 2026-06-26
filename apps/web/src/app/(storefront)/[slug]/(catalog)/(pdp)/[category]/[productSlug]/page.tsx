@@ -310,12 +310,14 @@ type TemplateProductRenderMode = 'full' | 'belowFold';
  * Renders the correct template's product page based on merchant's template_id
  */
 async function renderTemplateProductPage({
+  currency = 'NGN',
   product,
   serverPrimaryDetails,
   semanticSections,
   storeSlug,
   templateId,
 }: {
+  currency?: string;
   product: Product;
   renderMode?: TemplateProductRenderMode;
   serverPrimaryDetails: ReactNode;
@@ -325,7 +327,7 @@ async function renderTemplateProductPage({
 }) {
   // Ogabassey template
   if (templateId === OGABASSEY_TEMPLATE_ID) {
-    const ogabasseyProduct = toOgabasseyProduct(product);
+    const ogabasseyProduct = toOgabasseyProduct(product, currency);
 
     return (
       <OgabasseyPdpBelowFoldIsland
@@ -1381,6 +1383,7 @@ async function CategoryProductPageContent({
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
   const productPage = await renderTemplateProductPage({
+    currency,
     product: renderableProduct,
     renderMode,
     serverPrimaryDetails: (

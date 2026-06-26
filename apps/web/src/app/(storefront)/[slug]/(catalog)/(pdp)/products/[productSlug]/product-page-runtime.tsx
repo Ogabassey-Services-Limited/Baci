@@ -19,7 +19,9 @@ import {
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
@@ -117,24 +119,32 @@ export async function ProductPageRuntime({
       product_key_specs: productCandidate.product_key_specs,
     };
   });
+  const currentProduct = {
+    slug: product.slug || String(product.id),
+    name: product.name,
+    brand: product.brand,
+    condition: product.condition,
+    price: product.price,
+    stock: product.stock,
+    category_slug: product.category_slug ?? categorySlug,
+    product_key_specs: product.product_key_specs,
+  };
   const semanticModel = buildProductSemanticModel({
     storeUrl: baseUrl,
     merchantBusinessName: merchant.business_name || 'Baci Store',
     categorySlug,
     categoryName,
     countryCode: merchant.country,
-    currentProduct: {
-      slug: product.slug || String(product.id),
-      name: product.name,
-      brand: product.brand,
-      condition: product.condition,
-      price: product.price,
-      stock: product.stock,
-      category_slug: product.category_slug ?? categorySlug,
-      product_key_specs: product.product_key_specs,
-    },
+    currentProduct,
     inventory: inventoryCandidates,
     guidePosts,
+  });
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant.business_name || 'Baci Store',
+    categoryName,
+    currency,
+    country: merchant.country,
   });
   const categoryUrl = `${baseUrl}/${categorySlug}`;
   const breadcrumbItems = [
@@ -162,7 +172,18 @@ export async function ProductPageRuntime({
         </script>
       )}
       <ProductDetailClient product={product} faqs={productFaqs} />
-      <ProductSemanticSections model={semanticModel} />
+      <ProductSemanticSections
+        model={{
+          ...semanticModel,
+          contextParagraphs: buildProductContextParagraphs({
+            categoryName,
+            currentProduct,
+            displayPriceText: priceSeoCopy.priceText,
+            merchantBusinessName: merchant.business_name || 'Baci Store',
+            semanticModel,
+          }),
+        }}
+      />
     </>
   );
 }
