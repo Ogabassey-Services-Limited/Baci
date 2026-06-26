@@ -671,7 +671,14 @@ export function getDataProviders(): Promise<Biller[]> {
 export async function verifyBillCustomer(
   kudaBillItemIdentifier: string,
   customerIdentification: string
-): Promise<{ verified: boolean; customerName?: string; message: string }> {
+): Promise<{
+  verified: boolean;
+  customerName?: string;
+  // Kuda's verify response does not include an address today; kept optional so
+  // the cross-provider verify result shape is uniform.
+  address?: string;
+  message: string;
+}> {
   try {
     const response = await kudaRequest<{
       CustomerName?: string;
