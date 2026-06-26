@@ -37,6 +37,7 @@ const shareReceiptPdf = async (
 ) => {
   const dialogTitle =
     documentType === 'invoice' ? 'Share Invoice' : 'Share Receipt';
+  let pdfUri: string | null = null;
   try {
     // Dynamic import: avoids crash if native modules aren't linked yet
     // (requires dev client rebuild after adding expo-print/expo-sharing)
@@ -44,7 +45,8 @@ const shareReceiptPdf = async (
     const Sharing = await import('expo-sharing');
 
     const { uri } = await Print.printToFileAsync({ html });
-    await Sharing.shareAsync(uri, {
+    pdfUri = uri;
+    await Sharing.shareAsync(pdfUri, {
       mimeType: 'application/pdf',
       dialogTitle,
       UTI: 'com.adobe.pdf',
@@ -68,6 +70,16 @@ const shareReceiptPdf = async (
       }
     }
     Alert.alert('Share Failed', 'Could not share the receipt. Please try again.');
+  } finally {
+    // Remove the generated temp PDF so repeated shares don't leave cache files.
+    if (pdfUri) {
+      try {
+        const FileSystem = await import('expo-file-system');
+        await FileSystem.deleteAsync(pdfUri, { idempotent: true });
+      } catch {
+        // Best-effort cleanup; sharing must not fail on a temp-file delete.
+      }
+    }
   }
 };
 
