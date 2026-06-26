@@ -1,4 +1,4 @@
-import { SafeHtml } from '@/components/ui/safe-html';
+import { sanitizeText } from '@/lib/sanitize-core';
 import type { ProductSpecSection } from '@/components/storefront/ogabassey/types';
 
 interface OgabasseyPdpServerPrimaryDetailsProps {
@@ -18,6 +18,17 @@ function getRenderableSpecSections(detailedSpecs: ProductSpecSection[]) {
     .filter((section) => section.items.length > 0);
 }
 
+
+function getPlainOverviewText(description: string) {
+  return sanitizeText(
+    description
+      .replace(/<\s*br\s*\/?\s*>/gi, ' ')
+      .replace(/<\/\s*(p|div|li|h[1-6]|section|article)\s*>/gi, ' ')
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function getSpecHeadingId(category: string, index: number) {
   const normalizedCategory = category
     .toLowerCase()
@@ -33,7 +44,8 @@ export function OgabasseyPdpServerPrimaryDetails({
   productName,
 }: OgabasseyPdpServerPrimaryDetailsProps) {
   const specSections = getRenderableSpecSections(detailedSpecs);
-  const hasDescription = description.trim().length > 0;
+  const overviewText = getPlainOverviewText(description);
+  const hasDescription = overviewText.length > 0;
 
   if (!hasDescription && specSections.length === 0) {
     return null;
@@ -52,11 +64,9 @@ export function OgabasseyPdpServerPrimaryDetails({
           <h2 data-ogabassey-pdp-server-details-title>
             {productName} product overview
           </h2>
-          <SafeHtml
-            html={description}
-            headingLevelOffset={1}
-            className="ogabassey-pdp-server-details__rich-text"
-          />
+          <p className="ogabassey-pdp-server-details__rich-text">
+            {overviewText}
+          </p>
         </div>
       ) : null}
 

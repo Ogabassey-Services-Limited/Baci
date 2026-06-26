@@ -36,6 +36,20 @@ describe('OgabasseyPdpServerPrimaryDetails', () => {
     expect(within(region).getByText('20W USB-C')).toBeVisible();
   });
 
+
+  it('renders rich descriptions as text-only overview copy so inline images stay deferred', () => {
+    render(
+      <OgabasseyPdpServerPrimaryDetails
+        description='<p>Clean iPhone with warranty.</p><img src="https://cdn.example.com/offscreen.jpg" alt="Gallery"><p>Ready for dispatch.</p>'
+        detailedSpecs={[]}
+        productName="iPhone 16 Pro"
+      />
+    );
+
+    expect(screen.getByText('Clean iPhone with warranty. Ready for dispatch.')).toBeVisible();
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
   it('renders nothing when there is no useful product copy', () => {
     const { container } = render(
       <OgabasseyPdpServerPrimaryDetails

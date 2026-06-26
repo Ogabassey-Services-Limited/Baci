@@ -24,13 +24,15 @@ export function OgabasseyPdpDeferredTabsClient({
   const normalizedReviewRatingWidth = `${(normalizedReviewRating / 5) * 100}%`;
 
   return (
-    <DeferredProductDetailsSections
-      activeTab={activeTab}
-      normalizedReviewRatingWidth={normalizedReviewRatingWidth}
-      onSelectTab={setActiveTab}
-      productData={productData}
-      showRails={false}
-      storeSlug={storeSlug}
-    />
+    <div className="ogabassey-pdp-deferred-tabs-container">
+      <DeferredProductDetailsSections
+        activeTab={activeTab}
+        normalizedReviewRatingWidth={normalizedReviewRatingWidth}
+        onSelectTab={setActiveTab}
+        productData={productData}
+        showRails={false}
+        storeSlug={storeSlug}
+      />
+    </div>
   );
 }

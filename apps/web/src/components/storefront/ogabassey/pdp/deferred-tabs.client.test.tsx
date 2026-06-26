@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpDeferredTabsClient } from './deferred-tabs.client';
 import type { OgabasseyPdpDeferredTabProduct } from './deferred-product-payload';
@@ -77,6 +77,15 @@ describe('OgabasseyPdpDeferredTabsClient', () => {
         showRails: false,
         storeSlug: 'ogabassey',
       })
+    );
+  });
+
+
+  it('keeps deferred tabs inside the PDP content-width container', () => {
+    renderTabs(productData);
+
+    expect(screen.getByRole('region', { name: 'Deferred tab sections' }).parentElement).toHaveClass(
+      'ogabassey-pdp-deferred-tabs-container'
     );
   });
 
