@@ -5,6 +5,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import type Colors from '@/constants/Colors';
@@ -42,7 +43,9 @@ function toReceiptHtml(transaction: VTUHistoryTransaction): string {
 export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
   const { data, isLoading, isError, refetch } = useVTUHistory('all', 50);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [receiptHtml, setReceiptHtml] = useState<string | null>(null);
+  // Keep the whole selected transaction so the preview can reflect its real
+  // paid/failed/pending status (history includes non-successful rows).
+  const [selected, setSelected] = useState<VTUHistoryTransaction | null>(null);
 
   const transactions = data ?? [];
 
@@ -68,8 +71,18 @@ export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
     return (
       <View style={styles.centered}>
         <Text style={[styles.muted, { color: colors.textSecondary }]}>
-          Couldn't load your utility receipts. Pull to retry.
+          Couldn't load your utility receipts.
         </Text>
+        <TouchableOpacity
+          onPress={handleRefresh}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading utility receipts"
+          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+        >
+          <Text style={styles.retryLabel}>
+            {isRefreshing ? 'Retrying…' : 'Try again'}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -85,7 +98,7 @@ export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
           <UtilityReceiptCard
             transaction={item}
             colors={colors}
-            onView={(transaction) => setReceiptHtml(toReceiptHtml(transaction))}
+            onView={setSelected}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -106,10 +119,10 @@ export function UtilitiesReceiptsView({ colors }: UtilitiesReceiptsViewProps) {
         }
       />
       <ReceiptPreviewModal
-        visible={receiptHtml !== null}
-        html={receiptHtml ?? ''}
-        onClose={() => setReceiptHtml(null)}
-        isPaid
+        visible={selected !== null}
+        html={selected ? toReceiptHtml(selected) : ''}
+        onClose={() => setSelected(null)}
+        isPaid={selected?.status === 'successful'}
       />
     </View>
   );
@@ -137,5 +150,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  retryButton: {
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: 999,
+  },
+  retryLabel: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

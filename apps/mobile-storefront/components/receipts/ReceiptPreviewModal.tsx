@@ -81,7 +81,9 @@ export function ReceiptPreviewModal({
             {
               backgroundColor: colors.card,
               borderBottomColor: colors.border,
-              paddingTop: 12,
+              // Keep the header clear of the status bar / notch when the modal
+              // presents fullscreen on iOS.
+              paddingTop: Math.max(insets.top, 12),
             },
           ]}
         >

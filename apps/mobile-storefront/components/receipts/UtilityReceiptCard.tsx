@@ -12,6 +12,7 @@ const TYPE_META: Record<string, { icon: IoniconName; label: string }> = {
   airtime: { icon: 'call-outline', label: 'Airtime' },
   data: { icon: 'wifi-outline', label: 'Data' },
   tv: { icon: 'tv-outline', label: 'TV' },
+  cable_tv: { icon: 'tv-outline', label: 'TV' },
   power: { icon: 'flash-outline', label: 'Electricity' },
   electricity: { icon: 'flash-outline', label: 'Electricity' },
   gaming: { icon: 'game-controller-outline', label: 'Betting' },
