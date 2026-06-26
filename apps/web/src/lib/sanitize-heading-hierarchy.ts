@@ -27,12 +27,13 @@ export function createHeadingHierarchyNormalizer() {
       normalizedLevel = 2;
       stack.length = 0;
     } else {
-      const sameLevelEntry = [...stack]
-        .reverse()
-        .find((entry) => entry.sourceLevel === sourceLevel);
-      const parentEntry = [...stack]
-        .reverse()
-        .find((entry) => entry.sourceLevel < sourceLevel);
+      const reversedStack = [...stack].reverse();
+      const sameLevelEntry = reversedStack.find(
+        (entry) => entry.sourceLevel === sourceLevel
+      );
+      const parentEntry = reversedStack.find(
+        (entry) => entry.sourceLevel < sourceLevel
+      );
 
       if (sameLevelEntry) {
         normalizedLevel = sameLevelEntry.normalizedLevel;
