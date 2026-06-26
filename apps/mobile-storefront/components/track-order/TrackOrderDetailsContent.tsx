@@ -35,7 +35,7 @@ export function TrackOrderDetailsContent({
     estimated_delivery,
     merchant,
   } = data;
-  const statusMeta = getCustomerOrderStatusMeta(order.status);
+  const statusMeta = getCustomerOrderStatusMeta(order.status, merchant?.name);
   const badge = getTrackOrderBadge(order.status);
 
   return (
