@@ -19,6 +19,7 @@ describe('PostHog client config', () => {
       ui_host: 'https://eu.posthog.com',
       defaults: '2026-05-30',
       autocapture: true,
+      person_profiles: 'identified_only',
       capture_pageview: false,
       capture_pageleave: false,
       capture_dead_clicks: true,
@@ -29,6 +30,11 @@ describe('PostHog client config', () => {
         capture_console_errors: false,
       },
       capture_performance: false,
+      rate_limiting: {
+        events_per_second: 8,
+        events_burst_limit: 64,
+      },
+      tracing_headers: ['usebaci.com', 'www.usebaci.com'],
       mask_all_text: true,
       mask_all_element_attributes: true,
       session_recording: expect.objectContaining({
@@ -78,6 +84,10 @@ describe('PostHog client config', () => {
     const config = buildPostHogClientConfig({
       NODE_ENV: 'production',
       NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com',
+      NEXT_PUBLIC_POSTHOG_RELEASE_VERSION: 'web-release',
+      NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: 'main',
+      NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: 'public-sha',
+      NEXT_PUBLIC_VERCEL_URL: 'baci-git-main.vercel.app',
     });
     const register = vi.fn();
     vi.stubGlobal('location', {
@@ -92,8 +102,13 @@ describe('PostHog client config', () => {
     expect(register).toHaveBeenCalledWith({
       app_surface: 'web',
       deployment_environment: 'production',
+      release_version: 'web-release',
+      git_commit_ref: 'main',
+      git_commit_sha: 'public-sha',
       merchant_domain: 'ogabassey.usebaci.com',
       merchant_slug: 'ogabassey',
+      vercel_environment: 'production',
+      vercel_url: 'baci-git-main.vercel.app',
     });
     vi.unstubAllGlobals();
   });

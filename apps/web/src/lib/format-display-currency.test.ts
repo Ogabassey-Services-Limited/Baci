@@ -59,6 +59,27 @@ describe('formatDisplayCurrency', () => {
     expect(jpy).not.toContain('.00');
   });
 
+  it('normalizes invalid or conflicting fraction digit options before constructing Intl formatters', () => {
+    expect(() =>
+      formatDisplayCurrency(1500, 'NGN', {
+        minimumFractionDigits: Number.NaN,
+        maximumFractionDigits: Number.POSITIVE_INFINITY,
+      })
+    ).not.toThrow();
+
+    const conflictingDigits = formatDisplayCurrency(1500, 'NGN', {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 1,
+    });
+
+    expect(conflictingDigits).toContain('1,500.000');
+    expect(
+      formatDisplayCurrency(1500, 'NGN', {
+        minimumFractionDigits: 3,
+      })
+    ).toContain('1,500.000');
+  });
+
   it('throws for unsupported currency codes', () => {
     expect(() => formatDisplayCurrency(250, 'NOT_REAL')).toThrow();
   });

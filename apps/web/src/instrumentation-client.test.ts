@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   capturePostHogPageview: vi.fn(),
+  initializeChunkLoadRecovery: vi.fn(),
   initializePostHogBrowser: vi.fn(),
+}));
+
+vi.mock('@/lib/chunk-load-recovery', () => ({
+  initializeChunkLoadRecovery: mocks.initializeChunkLoadRecovery,
 }));
 
 vi.mock('@/lib/posthog/browser', () => ({
@@ -39,6 +44,14 @@ describe('instrumentation-client', () => {
       })
     );
     expect(mocks.capturePostHogPageview).toHaveBeenCalledOnce();
+  });
+
+  it('initializes chunk-load recovery once during module evaluation', async () => {
+    vi.stubGlobal('location', { pathname: '/', href: 'https://usebaci.com/' });
+
+    await importInstrumentationClient();
+
+    expect(mocks.initializeChunkLoadRecovery).toHaveBeenCalledOnce();
   });
 
   it('does not initialize if imported without a browser window', async () => {

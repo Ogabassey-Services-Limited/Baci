@@ -19,12 +19,29 @@ export type PostHogEnv = Record<string, string | undefined>;
 
 export function getPostHogBrowserEnv(): PostHogEnv {
   return {
+    NEXT_PUBLIC_POSTHOG_RELEASE_VERSION:
+      process.env.NEXT_PUBLIC_POSTHOG_RELEASE_VERSION,
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:
       process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
     NEXT_PUBLIC_POSTHOG_PROXY_PATH: process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH,
     NEXT_PUBLIC_POSTHOG_UI_HOST: process.env.NEXT_PUBLIC_POSTHOG_UI_HOST,
     NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-    NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: firstNonEmptyEnvValue(
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF,
+      process.env.VERCEL_GIT_COMMIT_REF
+    ),
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: firstNonEmptyEnvValue(
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+      process.env.VERCEL_GIT_COMMIT_SHA
+    ),
+    NEXT_PUBLIC_VERCEL_ENV: firstNonEmptyEnvValue(
+      process.env.NEXT_PUBLIC_VERCEL_ENV,
+      process.env.VERCEL_ENV
+    ),
+    NEXT_PUBLIC_VERCEL_URL: firstNonEmptyEnvValue(
+      process.env.NEXT_PUBLIC_VERCEL_URL,
+      process.env.VERCEL_URL
+    ),
     NODE_ENV: process.env.NODE_ENV,
   };
 }
@@ -87,13 +104,75 @@ export function isPostHogSourceMapUploadEnabled(
   return Boolean(env.POSTHOG_API_KEY?.trim() && env.POSTHOG_PROJECT_ID?.trim());
 }
 
+function firstNonEmptyEnvValue(
+  ...values: Array<string | undefined>
+): string | undefined {
+  return values
+    .map((value) => value?.trim())
+    .find((value): value is string => Boolean(value));
+}
+
+function normalizeVercelDeploymentUrl(
+  value: string | undefined
+): string | undefined {
+  const rawValue = firstNonEmptyEnvValue(value);
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const candidate = /^https?:\/\//i.test(rawValue)
+    ? rawValue
+    : `https://${rawValue}`;
+
+  try {
+    return new URL(candidate).host;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getPostHogReleaseVersion(
   env: PostHogEnv = process.env
 ): string | undefined {
-  return (
-    env.POSTHOG_RELEASE_VERSION?.trim() ||
-    env.VERCEL_GIT_COMMIT_SHA?.trim() ||
-    env.GITHUB_SHA?.trim() ||
-    undefined
+  return firstNonEmptyEnvValue(
+    env.POSTHOG_RELEASE_VERSION,
+    env.NEXT_PUBLIC_POSTHOG_RELEASE_VERSION,
+    env.VERCEL_GIT_COMMIT_SHA,
+    env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+    env.GITHUB_SHA
+  );
+}
+
+export function getPostHogReleaseContext(
+  env: PostHogEnv = process.env
+): Record<string, string> {
+  const releaseVersion = getPostHogReleaseVersion(env);
+  const gitCommitSha = firstNonEmptyEnvValue(
+    env.VERCEL_GIT_COMMIT_SHA,
+    env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+    env.GITHUB_SHA
+  );
+  const gitCommitRef = firstNonEmptyEnvValue(
+    env.VERCEL_GIT_COMMIT_REF,
+    env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF,
+    env.GITHUB_REF_NAME
+  );
+  const vercelEnvironment = firstNonEmptyEnvValue(
+    env.VERCEL_ENV,
+    env.NEXT_PUBLIC_VERCEL_ENV,
+    env.NODE_ENV
+  );
+  const vercelUrl = normalizeVercelDeploymentUrl(
+    firstNonEmptyEnvValue(env.VERCEL_URL, env.NEXT_PUBLIC_VERCEL_URL)
+  );
+
+  return Object.fromEntries(
+    Object.entries({
+      release_version: releaseVersion,
+      git_commit_sha: gitCommitSha,
+      git_commit_ref: gitCommitRef,
+      vercel_environment: vercelEnvironment,
+      vercel_url: vercelUrl,
+    }).filter((entry): entry is [string, string] => Boolean(entry[1]))
   );
 }

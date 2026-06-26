@@ -1,4 +1,7 @@
 const formatterCache = new Map<string, Intl.NumberFormat>();
+const currencyFractionDigitsCache = new Map<string, number>();
+const MIN_FRACTION_DIGITS = 0;
+const MAX_FRACTION_DIGITS = 20;
 const CURRENCY_LOCALE_MAP: Record<string, string> = {
   NGN: 'en-NG',
   INR: 'en-IN',
@@ -25,26 +28,69 @@ function getFormatterCacheKey(
   currency: string,
   options: DisplayCurrencyOptions
 ) {
-  const normalizedOptions = normalizeDisplayCurrencyOptions(options);
   return [
     currency,
-    normalizedOptions.currencyDisplay,
-    normalizedOptions.minimumFractionDigits,
-    normalizedOptions.maximumFractionDigits,
+    options.currencyDisplay,
+    options.minimumFractionDigits,
+    options.maximumFractionDigits,
   ].join(':');
 }
 
-function normalizeDisplayCurrencyOptions(options: DisplayCurrencyOptions = {}) {
+function normalizeFractionDigits(value: number | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return Math.min(
+    MAX_FRACTION_DIGITS,
+    Math.max(MIN_FRACTION_DIGITS, Math.trunc(value))
+  );
+}
+
+function getDefaultMaximumFractionDigits(currency: string, locale: string) {
+  const cacheKey = `${locale}:${currency}`;
+  const cached = currencyFractionDigitsCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const resolved = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+  }).resolvedOptions().maximumFractionDigits;
+  const normalized = normalizeFractionDigits(resolved) ?? 2;
+  currencyFractionDigitsCache.set(cacheKey, normalized);
+  return normalized;
+}
+
+function normalizeDisplayCurrencyOptions(
+  options: DisplayCurrencyOptions,
+  defaultMaximumFractionDigits: number
+) {
   const normalizedOptions: DisplayCurrencyOptions = {
     currencyDisplay: options.currencyDisplay ?? 'symbol',
   };
+  const minimumFractionDigits = normalizeFractionDigits(
+    options.minimumFractionDigits
+  );
+  const maximumFractionDigits = normalizeFractionDigits(
+    options.maximumFractionDigits
+  );
 
-  if (options.minimumFractionDigits !== undefined) {
-    normalizedOptions.minimumFractionDigits = options.minimumFractionDigits;
+  if (minimumFractionDigits !== undefined) {
+    normalizedOptions.minimumFractionDigits = minimumFractionDigits;
   }
 
-  if (options.maximumFractionDigits !== undefined) {
-    normalizedOptions.maximumFractionDigits = options.maximumFractionDigits;
+  if (maximumFractionDigits !== undefined) {
+    normalizedOptions.maximumFractionDigits = Math.max(
+      maximumFractionDigits,
+      minimumFractionDigits ?? MIN_FRACTION_DIGITS
+    );
+  } else if (minimumFractionDigits !== undefined) {
+    normalizedOptions.maximumFractionDigits = Math.max(
+      defaultMaximumFractionDigits,
+      minimumFractionDigits
+    );
   }
 
   return normalizedOptions;
@@ -60,12 +106,20 @@ export function formatDisplayCurrency(
   options: DisplayCurrencyOptions = {}
 ) {
   const normalizedCurrency = currency.toUpperCase();
-  const normalizedOptions = normalizeDisplayCurrencyOptions(options);
+  const locale = getDisplayCurrencyLocale(normalizedCurrency);
+  const defaultMaximumFractionDigits = getDefaultMaximumFractionDigits(
+    normalizedCurrency,
+    locale
+  );
+  const normalizedOptions = normalizeDisplayCurrencyOptions(
+    options,
+    defaultMaximumFractionDigits
+  );
   const cacheKey = getFormatterCacheKey(normalizedCurrency, normalizedOptions);
   let formatter = formatterCache.get(cacheKey);
 
   if (!formatter) {
-    formatter = new Intl.NumberFormat(getDisplayCurrencyLocale(currency), {
+    formatter = new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: normalizedCurrency,
       ...normalizedOptions,
