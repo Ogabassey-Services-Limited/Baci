@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
+import { useRef } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -76,6 +77,14 @@ export default function OrdersScreen() {
     customerId: customer?.id,
     onReconnect,
   });
+  const listRef = useRef<FlashListRef<(typeof orders)[number]>>(null);
+
+  // Reset scroll to the top when switching filters, so a shorter filtered set
+  // doesn't leave the list parked mid-scroll on blank space.
+  const handleSelectFilter = (filter: typeof selectedFilter) => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    setSelectedFilter(filter);
+  };
 
   // Declarative auth-gate: redirect to login if not authenticated
   if (redirectTo) {
@@ -216,6 +225,7 @@ export default function OrdersScreen() {
         )}
 
         <FlashList
+          ref={listRef}
           style={styles.list}
           data={filteredOrders}
           renderItem={({ item }) => (
@@ -268,7 +278,7 @@ export default function OrdersScreen() {
             colors={colors}
             orderFilters={orderFilters}
             selectedFilter={selectedFilter}
-            onSelectFilter={setSelectedFilter}
+            onSelectFilter={handleSelectFilter}
             bottomInset={insets.bottom}
           />
         )}
