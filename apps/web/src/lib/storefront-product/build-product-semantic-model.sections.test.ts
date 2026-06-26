@@ -206,7 +206,7 @@ describe('buildProductSemanticModel sections', () => {
       ])
     );
     expect(model.contextParagraphs?.join(' ')).toContain(
-      'iPhone 17 Pro Max is listed in Smartphones by Ogabassey'
+      'iPhone 17 Pro Max is listed by Ogabassey in Smartphones'
     );
     expect(model.contextParagraphs?.join(' ')).toContain(
       'confirm the exact model, color, storage or size option'

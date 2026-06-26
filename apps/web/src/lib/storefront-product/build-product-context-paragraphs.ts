@@ -4,7 +4,7 @@ import type {
 } from '@/lib/storefront-specs/spec-taxonomy';
 import { KEY_SPEC_CATEGORIES } from '@/lib/storefront-specs/spec-taxonomy';
 import type {
-  BuildProductSemanticModelInput,
+  ProductSemanticCandidate,
   ProductSemanticModel,
   ProductSemanticSection,
 } from './product-semantic-types';
@@ -28,9 +28,12 @@ const SPEC_FIELDS_BY_KEY = new Map<string, SpecField>(
   ])
 );
 
-interface BuildProductContextParagraphsInput
-  extends BuildProductSemanticModelInput {
+interface BuildProductContextParagraphsInput {
+  categoryName: string;
+  categorySlug: string;
+  currentProduct: ProductSemanticCandidate;
   displayPriceText?: string | null;
+  merchantBusinessName: string;
   semanticModel?: Pick<
     ProductSemanticModel,
     'alternatives' | 'guideLinks' | 'sameBrand' | 'samePrice' | 'supportLinks'

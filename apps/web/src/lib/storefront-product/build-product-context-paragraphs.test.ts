@@ -33,12 +33,10 @@ describe('buildProductContextParagraphs', () => {
   it('builds factual PDP context copy from product, merchant, category, and link data', () => {
     expect(
       buildProductContextParagraphs({
-        storeUrl: 'https://ogabassey.com',
         merchantBusinessName: 'Ogabassey',
         categorySlug: 'smartphones',
         categoryName: 'Smartphones',
         displayPriceText: '$950 - $1,050',
-        inventory: [],
         semanticModel: {
           supportLinks: [{ href: '/smartphones', label: 'Shop Smartphones' }],
           guideLinks: [
@@ -90,11 +88,9 @@ describe('buildProductContextParagraphs', () => {
 
   it('falls back cleanly when optional brand, condition, stock, and display price are missing', () => {
     const paragraphs = buildProductContextParagraphs({
-      storeUrl: 'https://ogabassey.com',
       merchantBusinessName: 'Ogabassey',
       categorySlug: 'portable-gaming',
       categoryName: 'Portable Gaming',
-      inventory: [],
       currentProduct: {
         slug: 'steam-deck',
         name: 'Steam Deck',
