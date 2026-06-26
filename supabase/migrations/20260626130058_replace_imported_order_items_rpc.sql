@@ -53,6 +53,7 @@ BEGIN
   END IF;
 
   IF merchant_vat_status = 'registered' AND NEW.vat_category_code = 'S' THEN
+    NEW.vat_rate := COALESCE(NEW.vat_rate, 0);
     NEW.vat_amount := ROUND(NEW.line_extension_amount * NEW.vat_rate / 100, 2);
   ELSE
     NEW.vat_amount := 0;
@@ -493,12 +494,11 @@ BEGIN
         END
       ELSE o.fulfillment_details END,
     shipping_address = CASE WHEN v_order_patch ? 'shipping_address'
-      THEN COALESCE(o.shipping_address, '{}'::jsonb)
-        || CASE
-          WHEN jsonb_typeof(v_order_patch->'shipping_address') = 'object'
-            THEN jsonb_strip_nulls(v_order_patch->'shipping_address')
-          ELSE '{}'::jsonb
-        END
+      THEN CASE
+        WHEN jsonb_typeof(v_order_patch->'shipping_address') = 'object'
+          THEN jsonb_strip_nulls(v_order_patch->'shipping_address')
+        ELSE '{}'::jsonb
+      END
       ELSE o.shipping_address END,
     tracking_token = CASE WHEN v_order_patch ? 'tracking_token'
       THEN v_order_patch->>'tracking_token' ELSE o.tracking_token END,

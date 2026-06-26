@@ -101,20 +101,27 @@ function createSupabaseMock({
 }: CreateSupabaseMockOptions = {}) {
   let updatedAtTick = 0;
 
-  function mergeJsonObject(
-    current: Record<string, unknown> | null | undefined,
+  function compactJsonObject(
     incoming: unknown,
     { stripNulls = false }: { stripNulls?: boolean } = {}
   ): Record<string, unknown> | null | undefined {
     if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
-      return current;
+      return null;
     }
 
-    const compactIncoming = stripNulls
+    return stripNulls
       ? Object.fromEntries(
           Object.entries(incoming).filter(([, value]) => value !== null)
         )
-      : incoming;
+      : (incoming as Record<string, unknown>);
+  }
+
+  function mergeJsonObject(
+    current: Record<string, unknown> | null | undefined,
+    incoming: unknown
+  ): Record<string, unknown> | null | undefined {
+    const compactIncoming = compactJsonObject(incoming);
+    if (!compactIncoming) return current;
 
     return {
       ...(current ?? {}),
@@ -164,7 +171,7 @@ function createSupabaseMock({
           : order.fulfillment_details,
       shipping_address:
         'shipping_address' in patch
-          ? mergeJsonObject(order.shipping_address, patch.shipping_address, {
+          ? compactJsonObject(patch.shipping_address, {
               stripNulls: true,
             })
           : order.shipping_address,

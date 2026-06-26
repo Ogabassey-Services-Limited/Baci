@@ -64,6 +64,18 @@ describe('Bumpa imported order item RPC migration', () => {
     ).toBe(false);
   });
 
+  it('replaces accepted imported shipping address patches instead of merging stale keys', () => {
+    const replaceImportedOrderItemsFunction =
+      extractReplaceImportedOrderItemsFunction();
+
+    expect(replaceImportedOrderItemsFunction).toMatch(
+      /shipping_address = CASE WHEN v_order_patch \? 'shipping_address'[\s\S]*THEN CASE[\s\S]*jsonb_strip_nulls\(v_order_patch->'shipping_address'\)[\s\S]*ELSE '\{\}'::jsonb[\s\S]*ELSE o\.shipping_address END/i
+    );
+    expect(
+      replaceImportedOrderItemsFunction.includes('COALESCE(o.shipping_address')
+    ).toBe(false);
+  });
+
   it('preserves supplied imported line totals through the order item tax trigger', () => {
     const triggerFunction = extractPopulateOrderItemTaxFunction();
 
@@ -75,6 +87,14 @@ describe('Bumpa imported order item RPC migration', () => {
     );
     expect(triggerFunction).toMatch(
       /ELSE[\s\S]*NEW\.line_extension_amount := ROUND\(NEW\.quantity \* NEW\.price, 2\)/i
+    );
+  });
+
+  it('defaults missing standard VAT rates to zero before VAT amount math', () => {
+    const triggerFunction = extractPopulateOrderItemTaxFunction();
+
+    expect(triggerFunction).toMatch(
+      /NEW\.vat_rate := COALESCE\(NEW\.vat_rate, 0\);[\s\S]*NEW\.vat_amount := ROUND\(NEW\.line_extension_amount \* NEW\.vat_rate \/ 100, 2\)/i
     );
   });
 
