@@ -155,9 +155,35 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
 
+    // Non-checkout storefront pages must NOT expose camera/microphone — the
+    // delegation is scoped to the checkout flow only.
+    const permissionsPolicy = res.headers.get('Permissions-Policy') || '';
+    expect(permissionsPolicy).toContain('camera=()');
+    expect(permissionsPolicy).toContain('microphone=()');
+    expect(permissionsPolicy).not.toContain('creditdirect');
+
     // Storefront specific CSP
     const csp = res.headers.get('Content-Security-Policy') || '';
     expect(csp).toContain("frame-ancestors 'self'");
+  });
+
+  it('delegates camera/microphone to Credit Direct on storefront checkout', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/checkout`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    // Credit Direct BNPL runs camera-based identity verification in an in-page
+    // iframe. Per the Permissions Policy spec, cross-origin delegation requires
+    // `self` in the allowlist (otherwise the embedding document can't delegate),
+    // alongside the live + test verification origins.
+    const permissionsPolicy = res.headers.get('Permissions-Policy') || '';
+    expect(permissionsPolicy).toContain(
+      'camera=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng" "https://cdl.test.lendastack.io")'
+    );
+    expect(permissionsPolicy).toContain(
+      'microphone=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng" "https://cdl.test.lendastack.io")'
+    );
   });
 
   it('allows Klump checkout hosts on storefront CSP', async () => {

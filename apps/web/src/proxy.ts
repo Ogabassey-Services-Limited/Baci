@@ -2910,9 +2910,29 @@ function applySecurityHeaders(
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Storefront checkout embeds the Credit Direct BNPL flow in an in-page iframe
+  // (see CSP frame-src) that runs camera-based identity verification. A blanket
+  // `camera=()` allowlist disables the camera for the page AND every nested
+  // iframe, so getUserMedia is hard-blocked before the browser can prompt.
+  //
+  // Per the Permissions Policy spec, a cross-origin iframe only gets a feature
+  // if the embedding document has it enabled for its OWN origin — i.e. `self`
+  // MUST be in the allowlist, otherwise delegation to the listed origins fails.
+  // So we grant `self` plus the Credit Direct verification origins (live + the
+  // cdl.test.lendastack.io test host used when isLive=false, matching the CSP
+  // frame-src allowlist).
+  //
+  // To avoid handing camera/mic to every storefront page (getRouteType() buckets
+  // all marketing/product/category pages as "storefront"), this is scoped to
+  // checkout paths only. Everywhere else stays fully disabled.
+  const isCheckoutRoute =
+    routeType === 'storefront' && /\/checkout(\/|$)/.test(pathname);
+  const cameraAllowlist = isCheckoutRoute
+    ? 'camera=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng" "https://cdl.test.lendastack.io"), microphone=(self "https://checkout.creditdirect.ng" "https://app.creditdirect.ng" "https://cdl.test.lendastack.io")'
+    : 'camera=(), microphone=()';
   response.headers.set(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), browsing-topics=()'
+    `${cameraAllowlist}, geolocation=(), browsing-topics=()`
   );
 
   // Set x-nonce header for server components (admin/auth routes only)
