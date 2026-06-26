@@ -829,6 +829,11 @@ export async function preparePendingVtuTransaction({
           : {}),
         originalPhoneNumber: input.phoneNumber,
         customerPhone: normalizedCustomerPhone ?? null,
+        // Meter/customer address from verify (validate-customer), shown on the
+        // receipt. Only present for bills where the provider returns it.
+        ...(input.customerAddress?.trim()
+          ? { address: input.customerAddress.trim() }
+          : {}),
         originalMerchantCommission: commissions.merchantEarning,
         customerCashbackEnabled,
         customerCashbackRate,

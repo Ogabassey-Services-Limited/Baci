@@ -34,6 +34,7 @@ function toReceiptData(
 ): UtilityReceiptData {
   return {
     amount: transaction.amount,
+    address: transaction.address ?? undefined,
     billerName: transaction.biller_name ?? undefined,
     cashback: transaction.customer_cashback,
     units: transaction.units,

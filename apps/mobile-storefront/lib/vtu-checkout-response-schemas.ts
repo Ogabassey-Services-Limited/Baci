@@ -122,6 +122,7 @@ export interface VTUCheckoutPayload {
   billerName?: string;
   customerIdentifier?: string;
   customerName?: string;
+  customerAddress?: string;
   customerPhone?: string;
   dataPlanCode?: string;
   gateway: VTUPaymentGateway;

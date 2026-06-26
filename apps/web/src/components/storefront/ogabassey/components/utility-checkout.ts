@@ -3,6 +3,7 @@ export interface UtilityCheckoutPayload {
   billerName?: string;
   billItemIdentifier?: string;
   billerCode?: string;
+  customerAddress?: string;
   customerIdentifier?: string;
   dataPlanCode?: string;
   networkProvider?: string;
