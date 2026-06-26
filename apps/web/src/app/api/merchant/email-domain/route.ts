@@ -90,20 +90,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // CSRF is intentionally checked before auth here: forged cross-site requests
-  // are rejected cheaply without exercising the auth path. This ordering is
-  // covered by route.test.ts (auth is not invoked when CSRF fails).
+  const resolved = await resolveEmailDomainRequest(request);
+  if ('error' in resolved) {
+    return resolved.error;
+  }
+
   const csrf = await checkCsrfProtection(request);
   if (!csrf.valid) {
     return (
       csrf.response ??
       NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
     );
-  }
-
-  const resolved = await resolveEmailDomainRequest(request);
-  if ('error' in resolved) {
-    return resolved.error;
   }
 
   const body = await request.json().catch(() => null);
@@ -165,18 +162,17 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  // CSRF before auth — see the POST handler above; tested in route.test.ts.
+  const resolved = await resolveEmailDomainRequest(request);
+  if ('error' in resolved) {
+    return resolved.error;
+  }
+
   const csrf = await checkCsrfProtection(request);
   if (!csrf.valid) {
     return (
       csrf.response ??
       NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
     );
-  }
-
-  const resolved = await resolveEmailDomainRequest(request);
-  if ('error' in resolved) {
-    return resolved.error;
   }
 
   const body = await request.json().catch(() => null);

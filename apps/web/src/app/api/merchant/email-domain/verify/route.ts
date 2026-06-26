@@ -52,17 +52,17 @@ function verifyErrorStatus(error: unknown): number {
 
 /** Re-check the merchant's sending domain against ZeptoMail and update status. */
 export async function POST(request: NextRequest) {
+  const resolved = await resolveEmailDomainRequest(request);
+  if ('error' in resolved) {
+    return resolved.error;
+  }
+
   const csrf = await checkCsrfProtection(request);
   if (!csrf.valid) {
     return (
       csrf.response ??
       NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
     );
-  }
-
-  const resolved = await resolveEmailDomainRequest(request);
-  if ('error' in resolved) {
-    return resolved.error;
   }
 
   if (!isZeptomailDomainsConfigured()) {

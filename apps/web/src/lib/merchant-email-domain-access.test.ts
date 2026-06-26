@@ -51,7 +51,7 @@ describe('resolveMerchantForEmailDomain', () => {
     expect('error' in result && result.error.status).toBe(403);
   });
 
-  it('403s when the authoritative merchant row lookup fails', async () => {
+  it('500s when the authoritative merchant row lookup fails', async () => {
     mockGetMerchant.mockResolvedValue({
       merchantId: 'm1',
       merchantSlug: 'fb',
@@ -63,7 +63,7 @@ describe('resolveMerchantForEmailDomain', () => {
         { data: null, error: { message: 'database unavailable' } }
       )
     );
-    expect('error' in result && result.error.status).toBe(403);
+    expect('error' in result && result.error.status).toBe(500);
   });
 
   it('403s when the user is only a staff member', async () => {

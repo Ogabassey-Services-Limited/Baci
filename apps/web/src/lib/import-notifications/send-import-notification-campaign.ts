@@ -232,6 +232,7 @@ export async function sendImportNotificationCampaign({
         replyTo: merchant.support_email || merchant.email || undefined,
         emailType: 'orders',
         fromName: content.fromName,
+        merchantId: merchant.id,
       });
     } catch {
       await cleanUpUnsentClaim({ claim: createdClaim, supabase });

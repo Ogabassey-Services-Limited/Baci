@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -59,7 +60,7 @@ vi.mock('expo-router', async () => {
 });
 vi.mock('expo-clipboard', () => ({ setStringAsync: vi.fn() }));
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  SafeAreaView: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
 vi.mock('@/hooks/useTheme', () => ({

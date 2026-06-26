@@ -66,13 +66,13 @@ describe('POST /api/merchant/email-domain/verify', () => {
     mockMerchantRow.mockReturnValue({ data: { plan_tier: 'pro', slug: 's' } });
   });
 
-  it('returns 403 when CSRF validation fails', async () => {
+  it('returns 403 when CSRF validation fails after authentication', async () => {
     mockCheckCsrf.mockResolvedValue({
       valid: false,
       response: new Response(null, { status: 403 }),
     });
     expect((await POST(req())).status).toBe(403);
-    expect(mockAuth).not.toHaveBeenCalled();
+    expect(mockAuth).toHaveBeenCalled();
   });
 
   it('returns 401 when not authenticated', async () => {

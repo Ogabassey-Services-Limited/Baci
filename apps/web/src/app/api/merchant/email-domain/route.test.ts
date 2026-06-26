@@ -79,14 +79,15 @@ describe('POST /api/merchant/email-domain', () => {
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
   });
 
-  it('returns 403 when CSRF validation fails', async () => {
+  it('returns 403 when CSRF validation fails after authentication', async () => {
+    signedInAs('pro');
     mockCheckCsrf.mockResolvedValue({
       valid: false,
       response: new Response(null, { status: 403 }),
     });
     const res = await POST(req({ domain: 'mystore.com' }));
     expect(res.status).toBe(403);
-    expect(mockAuth).not.toHaveBeenCalled();
+    expect(mockAuth).toHaveBeenCalled();
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -225,7 +226,8 @@ describe('PATCH /api/merchant/email-domain', () => {
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
   });
 
-  it('returns 403 when CSRF validation fails', async () => {
+  it('returns 403 when CSRF validation fails after authentication', async () => {
+    signedInAs('pro');
     mockCheckCsrf.mockResolvedValue({
       valid: false,
       response: new Response(null, { status: 403 }),
