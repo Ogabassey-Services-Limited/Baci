@@ -83,7 +83,7 @@ def wait_for_app_store_build_processing!(api_key:, app_version:, build_number:)
     notify_external_testers: false,
     skip_waiting_for_build_processing: false,
     wait_processing_interval: 30,
-    wait_processing_timeout_duration: 7200
+    wait_processing_timeout_duration: 5400
   }
 
   wait_opts[:app_version] = app_version unless app_version.empty?
@@ -97,7 +97,7 @@ platform :ios do
     setup_ci if ENV["CI"]
   end
 
-  desc "Build signed IPA, upload to TestFlight, and wait for build processing"
+  desc "Build signed IPA and upload to TestFlight"
   lane :release do
     api_key = asc_api_key
     ensure_required_env!(%w[
