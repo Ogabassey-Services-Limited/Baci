@@ -20,6 +20,58 @@ import {
 
 const { BlogPageContent } = await import('./blog-page-content');
 
+function joinTemplateProbeHref(basePath: string, path: string): string {
+  const normalizedBasePath = basePath.trim().replace(/\/+$/g, '');
+  const routeBasePath = normalizedBasePath
+    ? normalizedBasePath.startsWith('/')
+      ? normalizedBasePath
+      : `/${normalizedBasePath}`
+    : '';
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${routeBasePath}${normalizedPath}`;
+}
+
+function TemplateLinkProbe({
+  posts = [],
+  storeSlug = '',
+}: {
+  posts?: Array<{ slug: string; title: string }>;
+  storeSlug?: string;
+}) {
+  const post = posts[0];
+  if (!post) {
+    return <div>No post</div>;
+  }
+
+  return (
+    <a
+      aria-label={`Template ${post.title}`}
+      href={joinTemplateProbeHref(storeSlug, `/blog/${post.slug}`)}
+    >
+      {post.title}
+    </a>
+  );
+}
+
+function renderTemplateRendererProbe() {
+  mockTemplateBlogRenderer.mockImplementationOnce((props) => {
+    const BlogComponent = props.BlogComponent;
+    if (!BlogComponent) {
+      return <div>No template component</div>;
+    }
+
+    return (
+      <BlogComponent
+        categories={props.categories}
+        category={props.category}
+        posts={props.blogPosts}
+        searchQuery={props.searchQuery}
+        storeSlug={props.basePath}
+      />
+    );
+  });
+}
+
 describe('BlogPageContent', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
@@ -128,7 +180,7 @@ describe('BlogPageContent', () => {
     );
   });
 
-  it('passes route-relative base paths to template blog renderers', async () => {
+  it('renders template blog links from a route-relative root base path', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -139,9 +191,10 @@ describe('BlogPageContent', () => {
     );
     mockGetTemplate.mockReturnValueOnce({
       getComponents: async () => ({
-        Blog: () => <div>OgaBassey blog component</div>,
+        Blog: TemplateLinkProbe,
       }),
     });
+    renderTemplateRendererProbe();
 
     render(
       await BlogPageContent({
@@ -150,14 +203,12 @@ describe('BlogPageContent', () => {
       })
     );
 
-    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        basePath: '',
-      })
-    );
+    expect(
+      screen.getByRole('link', { name: 'Template First Post' })
+    ).toHaveAttribute('href', '/blog/first-post');
   });
 
-  it('preserves path prefixes from canonical store URLs for template blog renderers', async () => {
+  it('renders template blog links with path-prefixed canonical store URLs', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({
         merchant: {
@@ -169,9 +220,10 @@ describe('BlogPageContent', () => {
     );
     mockGetTemplate.mockReturnValueOnce({
       getComponents: async () => ({
-        Blog: () => <div>OgaBassey blog component</div>,
+        Blog: TemplateLinkProbe,
       }),
     });
+    renderTemplateRendererProbe();
 
     render(
       await BlogPageContent({
@@ -180,11 +232,9 @@ describe('BlogPageContent', () => {
       })
     );
 
-    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        basePath: '/ogabassey',
-      })
-    );
+    expect(
+      screen.getByRole('link', { name: 'Template First Post' })
+    ).toHaveAttribute('href', '/ogabassey/blog/first-post');
   });
 
   it('does not preload a template-specific hero image for non-Ogabassey templates', async () => {
