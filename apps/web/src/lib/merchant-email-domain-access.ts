@@ -48,7 +48,21 @@ export async function resolveMerchantForEmailDomain(
     .select('plan_tier, slug')
     .eq('id', ctx.merchantId)
     .single();
-  if (error || !merchant) {
+  // A real read failure is a server error, not an authorization denial. With
+  // `.single()`, a genuinely missing row surfaces as PGRST116 — treat only that
+  // (and a null row) as the 403 not-found/unauthorized case.
+  if (error && error.code !== 'PGRST116') {
+    return {
+      error: NextResponse.json(
+        {
+          error: 'Failed to load merchant access',
+          code: 'merchant_lookup_failed',
+        },
+        { status: 500 }
+      ),
+    };
+  }
+  if (!merchant) {
     return {
       error: NextResponse.json(
         { error: 'Merchant access unavailable' },

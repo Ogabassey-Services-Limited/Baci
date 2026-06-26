@@ -102,6 +102,41 @@ describe('registerMerchantEmailDomain', () => {
     expect(result.status).toBe('pending');
   });
 
+  it('preserves the stored enabled flag when re-registering the same domain', async () => {
+    mockRegister.mockResolvedValue({
+      domainKey: 'dk1',
+      domain: 'ogabassey.com',
+      status: 'verified',
+      verified: true,
+      records: [{ type: 'TXT', host: 'h', value: 'v' }],
+    });
+    // 1) ownership check passes
+    mockAdminFrom.mockReturnValueOnce(
+      builderFor({ data: [{ id: 'domain-id' }], error: null })
+    );
+    // 2) local owner = this merchant, already enabled
+    mockAdminFrom.mockReturnValueOnce(
+      builderFor({
+        data: { merchant_id: 'm1', status: 'verified', enabled: true },
+        error: null,
+      })
+    );
+    // 3) upsert
+    const upsertBuilder = builderFor({
+      data: { ...ROW, domain: 'ogabassey.com' },
+      error: null,
+    });
+    mockAdminFrom.mockReturnValueOnce(upsertBuilder);
+
+    await registerMerchantEmailDomain('m1', 'ogabassey.com');
+
+    // enabled must NOT be forced back to false for an idempotent re-register.
+    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ merchant_id: 'm1', enabled: true }),
+      { onConflict: 'merchant_id' }
+    );
+  });
+
   it('registerMerchantEmailDomain resumes when ZeptoMail already has the domain', async () => {
     mockRegister.mockRejectedValue(new Error('Domain already exists'));
     mockFind.mockResolvedValue({

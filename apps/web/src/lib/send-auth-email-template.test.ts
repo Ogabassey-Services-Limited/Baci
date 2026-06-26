@@ -79,6 +79,29 @@ describe('send-auth-email template helpers', () => {
     expect(new URL(url ?? '').searchParams.has('next')).toBe(false);
   });
 
+  it('keeps same-merchant non-HTTPS redirects on the platform host with no next', () => {
+    // A token-bearing confirmation must never be moved onto a plain http://
+    // origin (the token could leak over the wire), so the link stays on
+    // site_url and the untrusted next is dropped.
+    for (const build of [
+      buildAuthEmailConfirmationUrl,
+      buildAppLocalAuthEmailConfirmationUrl,
+    ]) {
+      const url = build({
+        branding: ogabasseyBranding,
+        emailType: 'magiclink',
+        redirectTo: 'http://ogabassey.com/account/verify',
+        siteUrl: 'https://usebaci.com',
+        tokenHash: 'hash-123',
+      });
+      const parsed = new URL(url ?? '');
+      expect(parsed.origin).toBe('https://usebaci.com');
+      expect(parsed.pathname).toBe('/auth/confirm');
+      expect(parsed.searchParams.has('next')).toBe(false);
+      expect(parsed.searchParams.get('token_hash')).toBe('hash-123');
+    }
+  });
+
   it('builds custom-domain candidates with and without www', () => {
     expect(getCustomDomainCandidates('ogabassey.com')).toEqual([
       'ogabassey.com',

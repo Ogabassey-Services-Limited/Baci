@@ -347,6 +347,11 @@ Deno.serve(async (req) => {
       htmlbody: htmlBody,
       textbody: textBody,
     };
+    // Bound the ZeptoMail call so a slow/hung API can't keep the auth-email
+    // function open until the runtime kills it. Applies to both the primary and
+    // fallback sends (a timeout aborts the fetch and is handled by the catch
+    // below as a delivery failure).
+    const ZEPTOMAIL_SEND_TIMEOUT_MS = 10_000;
     const sendWithFrom = (address: string) =>
       fetch('https://api.zeptomail.com/v1.1/email', {
         method: 'POST',
@@ -359,6 +364,7 @@ Deno.serve(async (req) => {
           ...emailRequestBody,
           from: { address, name: senderName },
         }),
+        signal: AbortSignal.timeout(ZEPTOMAIL_SEND_TIMEOUT_MS),
       });
 
     // Only status-level diagnostics are logged/returned — ZeptoMail response

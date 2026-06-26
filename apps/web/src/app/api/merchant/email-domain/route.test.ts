@@ -185,6 +185,37 @@ describe('GET /api/merchant/email-domain', () => {
       code: 'email_domain_load_failed',
     });
   });
+
+  it('returns 500 (not 403) when the merchant lookup query errors', async () => {
+    // A real DB read failure is a server error, not an authorization denial.
+    mockAuth.mockResolvedValue({
+      user: { id: 'u1' },
+      error: null,
+      supabase: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: null,
+                  error: { code: 'XX000', message: 'db down' },
+                }),
+            }),
+          }),
+        }),
+      },
+    });
+    mockGetMerchant.mockResolvedValue({
+      merchantId: 'm1',
+      merchantSlug: 'mystore',
+      staffAccess: { isOwner: true },
+    });
+    const res = await GET(req(null, 'GET'));
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'merchant_lookup_failed',
+    });
+  });
 });
 
 describe('PATCH /api/merchant/email-domain', () => {
@@ -234,6 +265,17 @@ describe('PATCH /api/merchant/email-domain', () => {
     );
     const res = await PATCH(req({ enabled: true }, 'PATCH'));
     expect(res.status).toBe(500);
+  });
+
+  it('returns 500 with email_domain_update_failed for unexpected toggle errors', async () => {
+    signedInAs('pro');
+    // Not a business-rule and not a storage error → generic 500 branch.
+    mockSetEnabled.mockRejectedValue(new Error('unexpected boom'));
+    const res = await PATCH(req({ enabled: true }, 'PATCH'));
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_update_failed',
+    });
   });
 });
 

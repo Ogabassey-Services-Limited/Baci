@@ -150,10 +150,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Don't leak raw exception text in 5xx responses (aligns with GET/PATCH);
+    // the internal distinction is preserved in the stable `code` + status.
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : 'Failed to register domain',
+        error: 'Failed to register email domain',
         code: isStorageError(error)
           ? 'email_domain_storage_failed'
           : 'email_domain_upstream_failed',

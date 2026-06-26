@@ -49,6 +49,7 @@ interface DomainKeyRow {
 interface DomainOwnerRow {
   merchant_id: string;
   status: 'pending' | 'verified' | 'failed';
+  enabled: boolean;
 }
 
 function rowToDomain(row: Row): MerchantEmailDomain {
@@ -132,7 +133,7 @@ async function getLocalDomainOwner(
 ): Promise<DomainOwnerRow | null> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select('merchant_id, status')
+    .select('merchant_id, status, enabled')
     .eq('domain', domain)
     .maybeSingle();
   if (error) {
@@ -206,8 +207,12 @@ export async function registerMerchantEmailDomain(
       {
         merchant_id: merchantId,
         domain: state.domain,
-        // Never auto-enable — the merchant flips it on after verification.
-        enabled: false,
+        // Preserve the stored enabled flag when this merchant is re-registering
+        // the SAME domain (idempotent retry) so a verified+enabled domain isn't
+        // silently disabled. A brand-new/changed domain stays off until the
+        // merchant flips it on after verification.
+        enabled:
+          localOwner?.merchant_id === merchantId ? localOwner.enabled : false,
         ...stateToColumns(state),
       },
       { onConflict: 'merchant_id' }
