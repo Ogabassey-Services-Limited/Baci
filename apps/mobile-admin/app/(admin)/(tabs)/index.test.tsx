@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
 import { router } from 'expo-router';
+import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -72,8 +72,16 @@ vi.mock('@/components/dashboard', async () => {
     BranchSwitcher: () => <Text>branch-switcher</Text>,
     InsightCard: () => <Text>insight-card</Text>,
     ProgressCard: () => <Text>progress-card</Text>,
-    QuickActionButton: ({ label, onPress }: { label: string; onPress?: () => void }) => (
-      <button type="button" onClick={onPress}>{label}</button>
+    QuickActionButton: ({
+      label,
+      onPress,
+    }: {
+      label: string;
+      onPress?: () => void;
+    }) => (
+      <button type="button" onClick={onPress}>
+        {label}
+      </button>
     ),
     RevenueChart: () => <Text>revenue-chart</Text>,
     StatCard: ({ label }: { label: string }) => <Text>{label}</Text>,
@@ -192,7 +200,7 @@ vi.mock('@/types/upload', () => ({
   createUploadFile: vi.fn(),
 }));
 
-import HomeScreen from '@/app/(admin)/(tabs)/index';
+import HomeScreen from './index';
 
 describe('HomeScreen', () => {
   beforeEach(() => {
