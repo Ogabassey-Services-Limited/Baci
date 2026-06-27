@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockGetBlogAuthorBySlug,
   mockGetCachedBlogAuthor,
-  mockHeaders,
   mockNotFound,
   mockPermanentRedirect,
   mockRedirect,
@@ -13,7 +12,6 @@ const {
 } = vi.hoisted(() => ({
   mockGetBlogAuthorBySlug: vi.fn(),
   mockGetCachedBlogAuthor: vi.fn(),
-  mockHeaders: vi.fn(() => new Headers()),
   mockResolveBlogCatchAllOutcome: vi.fn(),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -24,10 +22,6 @@ const {
   mockRedirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
-}));
-
-vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/image', () => ({
@@ -125,7 +119,6 @@ const authorData = {
 describe('BlogAuthorPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHeaders.mockReturnValue(new Headers());
     mockGetBlogAuthorBySlug.mockReturnValue({
       name: 'Bassey John',
       sameAs: [
@@ -166,7 +159,7 @@ describe('BlogAuthorPageContent', () => {
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
-    ).toHaveAttribute('href', '/blog/best-phones');
+    ).toHaveAttribute('href', 'https://ogabassey.com/blog/best-phones');
 
     const scripts = container.querySelectorAll(
       'script[type="application/ld+json"]'
@@ -207,15 +200,20 @@ describe('BlogAuthorPageContent', () => {
     );
   });
 
-  it('does not read request headers for custom-domain author listings', async () => {
-    await BlogAuthorPageContent({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        authorSlug: 'bassey-john',
-      }),
-    });
+  it('uses canonical store URLs for author navigation without request headers', async () => {
+    render(
+      await BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+      })
+    );
 
-    expect(mockHeaders).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: /Back to Blog/ })).toHaveAttribute(
+      'href',
+      'https://ogabassey.com/blog'
+    );
   });
 
   it('redirects legacy author-prefixed post URLs before falling through to 404', async () => {

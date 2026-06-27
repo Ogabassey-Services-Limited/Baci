@@ -1,5 +1,4 @@
 import { ArrowLeft } from 'lucide-react';
-import { headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
@@ -12,9 +11,7 @@ import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify, sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { isDomainIdentifier } from '@/lib/validation';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
-import { getBlogStorefrontPathPrefix } from '../../blog-storefront-path-prefix';
 import { BlogAuthorPagination } from './blog-author-pagination';
 
 interface BlogAuthorPageContentProps {
@@ -71,11 +68,10 @@ export async function BlogAuthorPageContent({
 
   const { merchant, author, posts, totalPosts, totalPages, currentPage } = data;
   const baseUrl = buildStoreUrl(merchant);
-  // Header-aware prefix (mirrors the blog listing) so the proxy's /{slug}
-  // rewrite is not doubled on subdomains.
-  const basePath = isDomainIdentifier(slug)
-    ? ''
-    : getBlogStorefrontPathPrefix(await headers(), merchant);
+  // Use canonical store URLs instead of request-header-derived route prefixes.
+  // This keeps author pages crawlable from raw HTML while avoiding dynamic
+  // request APIs that can make Cache Components/PPR fail static-shell creation.
+  const basePath = baseUrl;
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
   const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
 
