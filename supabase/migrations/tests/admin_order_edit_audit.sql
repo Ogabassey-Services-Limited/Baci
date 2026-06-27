@@ -320,6 +320,56 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION pg_temp.manage_order_edit_variant_inventory_fixture(
+  p_inventory_id uuid,
+  p_order_id uuid,
+  p_variant_id uuid,
+  p_merchant_id uuid,
+  p_should_delete boolean DEFAULT false
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_should_delete THEN
+    DELETE FROM public.variant_inventory
+    WHERE id = p_inventory_id;
+    RETURN;
+  END IF;
+
+  INSERT INTO public.variant_inventory (
+    id,
+    variant_id,
+    merchant_id,
+    identifier_type,
+    identifier_value,
+    status,
+    order_id,
+    order_item_id,
+    reserved_at,
+    first_reserved_at,
+    reservation_expires_at
+  )
+  SELECT
+    p_inventory_id,
+    p_variant_id,
+    p_merchant_id,
+    'imei',
+    '123456789012345',
+    'reserved',
+    p_order_id,
+    oi.id,
+    now(),
+    now(),
+    now() + interval '15 minutes'
+  FROM public.order_items oi
+  WHERE oi.order_id = p_order_id
+  LIMIT 1;
+END;
+$$;
+
 SET LOCAL ROLE anon;
 DO $$
 DECLARE
@@ -807,34 +857,12 @@ BEGIN
   SET manage_stock = false
   WHERE id = v_product_id;
 
-  INSERT INTO public.variant_inventory (
-    id,
-    variant_id,
-    merchant_id,
-    identifier_type,
-    identifier_value,
-    status,
-    order_id,
-    order_item_id,
-    reserved_at,
-    first_reserved_at,
-    reservation_expires_at
-  )
-  SELECT
+  PERFORM pg_temp.manage_order_edit_variant_inventory_fixture(
     '00000000-0000-4000-8000-00000000a601'::uuid,
-    v_variant_id,
-    v_merchant_id,
-    'imei',
-    '123456789012345',
-    'reserved',
     v_order_id,
-    oi.id,
-    now(),
-    now(),
-    now() + interval '15 minutes'
-  FROM public.order_items oi
-  WHERE oi.order_id = v_order_id
-  LIMIT 1;
+    v_variant_id,
+    v_merchant_id
+  );
 
   BEGIN
     PERFORM public.update_admin_order(
@@ -885,8 +913,13 @@ BEGIN
     END IF;
   END;
 
-  DELETE FROM public.variant_inventory
-  WHERE id = '00000000-0000-4000-8000-00000000a601'::uuid;
+  PERFORM pg_temp.manage_order_edit_variant_inventory_fixture(
+    '00000000-0000-4000-8000-00000000a601'::uuid,
+    v_order_id,
+    v_variant_id,
+    v_merchant_id,
+    true
+  );
 
   UPDATE public.merchants
   SET vat_registration_status = 'registered'
