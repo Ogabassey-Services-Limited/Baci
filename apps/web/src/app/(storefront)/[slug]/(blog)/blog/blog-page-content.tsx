@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
@@ -14,6 +14,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { getTemplate } from '@/templates/registry';
+import { buildBlogCategoryHref } from './blog-category-routing';
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { preloadOgabasseyRootBlogListingHeroImage } from './blog-listing-hero-image-preload';
 import { parseBlogListingPage } from './blog-listing-page-params';
@@ -28,6 +29,7 @@ import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
+  isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
@@ -37,7 +39,22 @@ export interface BlogPageProps {
   }>;
 }
 
+function findPublicCategoryLabel(
+  publicCategories: string[],
+  category: string
+): string | null {
+  const normalizedCategory = category.trim().toLowerCase();
+
+  return (
+    publicCategories.find(
+      (publicCategory) =>
+        publicCategory.trim().toLowerCase() === normalizedCategory
+    ) ?? null
+  );
+}
+
 export async function BlogPageContent({
+  isCleanCategoryRoute = false,
   itemListSchemaUrl,
   params,
   searchParams,
@@ -72,6 +89,20 @@ export async function BlogPageContent({
   const basePath = baseUrl;
   const templateBasePath = baseUrl;
   const authorLinks = getBlogAuthorPageLinks(slug);
+
+  if (!isCleanCategoryRoute && category && !search && currentPage === 1) {
+    const categoryLabel = findPublicCategoryLabel(publicCategories, category);
+    if (categoryLabel) {
+      const categoryHref = buildBlogCategoryHref(
+        basePath,
+        categoryLabel,
+        publicCategories
+      );
+      if (!categoryHref.includes('?')) {
+        permanentRedirect(asRoute(categoryHref));
+      }
+    }
+  }
 
   if (currentPage > totalPages) {
     redirect(

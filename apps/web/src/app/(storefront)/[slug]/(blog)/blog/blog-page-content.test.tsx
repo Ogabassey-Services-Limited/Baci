@@ -11,6 +11,7 @@ import {
   mockGetTemplate,
   mockHeaders,
   mockNotFound,
+  mockPermanentRedirect,
   mockPreloadBlogListingFeaturedImage,
   mockRedirect,
   mockTemplateBlogRenderer,
@@ -280,7 +281,7 @@ describe('BlogPageContent', () => {
     render(
       await BlogPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
-        searchParams: Promise.resolve({ category: 'News' }),
+        searchParams: Promise.resolve({ category: 'News', search: 'iphone' }),
       })
     );
 
@@ -346,6 +347,70 @@ describe('BlogPageContent', () => {
 
     expect(mockRedirect).toHaveBeenCalledWith(
       'https://ogabassey.usebaci.com/blog?category=Guides&page=5'
+    );
+  });
+
+  it('permanently redirects category-only query listings to the clean category hub', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+          custom_domain: 'ogabassey.com',
+        },
+        totalPosts: 10,
+      })
+    );
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({ category: 'News' }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/category/news'
+    );
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog/category/news'
+    );
+  });
+
+  it('keeps searched category query listings on the noindex query route', async () => {
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ category: 'News', search: 'iphone' }),
+      })
+    );
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'News',
+        searchQuery: 'iphone',
+      })
+    );
+  });
+
+  it('keeps category query listings when the clean category slug is reserved', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce({
+      ...buildListingResult(),
+      categories: ['Product'],
+    });
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ category: 'Product' }),
+      })
+    );
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'Product',
+      })
     );
   });
 
