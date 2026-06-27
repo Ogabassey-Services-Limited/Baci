@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
+import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
@@ -33,33 +35,12 @@ export function generateStaticParams(): Array<{
   );
 }
 
-async function assertAuthorRouteBeforeShell({
-  params,
-  searchParams,
-}: AuthorPageProps) {
+async function assertAuthorRouteBeforeShell({ params }: AuthorPageProps) {
   const { slug, authorSlug } = await params;
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (profile) {
-    const page = parseBlogListingPage((await searchParams)?.page);
-    const data = await getCachedBlogAuthor(slug, profile.name, { page });
-
-    if (!data) {
-      // Keep known-author data misses before returning the async child page.
-      notFound();
-    }
-
-    if (data.currentPage > data.totalPages) {
-      redirect(
-        asRoute(
-          data.totalPages > 1
-            ? `./${normalizedAuthorSlug}?page=${data.totalPages}`
-            : `./${normalizedAuthorSlug}`
-        )
-      );
-    }
-
     return { slug, authorSlug: normalizedAuthorSlug };
   }
 
@@ -146,18 +127,19 @@ export default async function BlogAuthorPage({
   params,
   searchParams,
 }: AuthorPageProps) {
-  // Redirect/notFound decisions must happen before the PPR shell streams so
-  // legacy author-prefixed post URLs keep real HTTP redirects and bad author
-  // hubs keep hard 404 semantics.
+  // Resolve only slug-shape/catch-all outcomes before the shell. Request-bound
+  // page data and query-string pagination stay behind Suspense so this route
+  // can produce a PPR static shell under Cache Components.
   const resolvedParams = await assertAuthorRouteBeforeShell({
     params,
-    searchParams,
   });
 
   return (
-    <BlogAuthorPageContent
-      params={Promise.resolve(resolvedParams)}
-      searchParams={searchParams}
-    />
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogAuthorPageContent
+        params={Promise.resolve(resolvedParams)}
+        searchParams={searchParams}
+      />
+    </Suspense>
   );
 }

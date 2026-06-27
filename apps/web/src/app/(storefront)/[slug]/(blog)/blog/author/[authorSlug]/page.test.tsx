@@ -164,21 +164,19 @@ describe('blog author page metadata', () => {
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 
-  it('hard-404s known author hubs with no published data before rendering content', async () => {
-    mockGetCachedBlogAuthor.mockResolvedValueOnce(null);
+  it('does not await author data before returning the static-shell content boundary', async () => {
+    const ui = await BlogAuthorPage({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+    render(ui);
 
-    await expect(
-      BlogAuthorPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          authorSlug: 'bassey-john',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-
-    expect(mockNotFound).toHaveBeenCalledTimes(1);
-    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
+    expect(screen.getByText('Author page')).toBeInTheDocument();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+    expect(mockNotFound).not.toHaveBeenCalled();
   });
 
   it('redirects legacy author-prefixed post URLs before rendering the shell', async () => {
