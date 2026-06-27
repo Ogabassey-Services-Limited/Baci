@@ -176,19 +176,16 @@ export class GiglProvider extends BaseShippingProvider {
     return 0;
   }
 
-  private async getApiToken(
-    timeout?: number,
-    signal?: AbortSignal
-  ): Promise<GiglToken> {
+  private getApiToken(timeout?: number): Promise<GiglToken> {
     if (this.cachedToken && Date.now() < this.cachedToken.expiresAt) {
-      return this.cachedToken;
+      return Promise.resolve(this.cachedToken);
     }
 
     if (this.tokenRequest) {
       return this.tokenRequest;
     }
 
-    this.tokenRequest = this.fetchApiToken(timeout, signal).finally(() => {
+    this.tokenRequest = this.fetchApiToken(timeout).finally(() => {
       this.tokenRequest = null;
     });
 
@@ -258,7 +255,6 @@ export class GiglProvider extends BaseShippingProvider {
     if (!token || this.cachedToken?.token === token) {
       this.cachedToken = null;
     }
-    this.tokenRequest = null;
   }
 
   private async safeFetchWithAccessToken(
@@ -292,10 +288,7 @@ export class GiglProvider extends BaseShippingProvider {
     this.log('warn', 'GIGL token rejected; refreshing token');
     this.invalidateCachedToken(tokenData.token);
 
-    const refreshedToken = await this.getApiToken(
-      initialOptions.timeout,
-      initialOptions.signal ?? undefined
-    );
+    const refreshedToken = await this.getApiToken(initialOptions.timeout);
     response = await this.safeFetch(
       url,
       withAccessToken(buildRequest(refreshedToken), refreshedToken.token)
@@ -329,7 +322,7 @@ export class GiglProvider extends BaseShippingProvider {
       return this.stationsCache;
     }
 
-    const tokenData = await this.getApiToken(timeout, signal);
+    const tokenData = await this.getApiToken(timeout);
 
     const { response } = await this.safeFetchWithAccessToken(
       `${GIGL_BASE_URL}/localstations/get`,
@@ -425,7 +418,7 @@ export class GiglProvider extends BaseShippingProvider {
     signal: AbortSignal
   ): Promise<ShippingQuote[]> {
     try {
-      const tokenData = await this.getApiToken(GIGL_QUOTE_TIMEOUT_MS, signal);
+      const tokenData = await this.getApiToken(GIGL_QUOTE_TIMEOUT_MS);
 
       // Find stations for sender and receiver
       const senderStation = request.sender
