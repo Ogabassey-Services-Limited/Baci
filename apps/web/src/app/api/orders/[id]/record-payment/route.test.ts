@@ -188,6 +188,84 @@ describe('POST /api/orders/[id]/record-payment', () => {
     );
   };
 
+  type RecordPaymentSupabaseFixture = {
+    deleteError?: unknown;
+    insertError?: unknown;
+    insertTransaction?: unknown;
+    merchant?: unknown;
+    merchantError?: unknown;
+    order?: unknown;
+    orderError?: unknown;
+    recordedTransaction?: unknown;
+    transactions?: unknown[];
+    transactionsError?: unknown;
+    updateError?: unknown;
+    updateOrder?: unknown;
+  };
+
+  const setupRecordPaymentSupabase = (
+    fixture: RecordPaymentSupabaseFixture
+  ) => {
+    const insertTransaction =
+      'insertTransaction' in fixture
+        ? fixture.insertTransaction
+        : { id: 'txn-123' };
+    const updateOrder =
+      'updateOrder' in fixture ? fixture.updateOrder : (fixture.order ?? null);
+
+    const merchantQuery = {
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: fixture.merchant ?? null,
+        error: fixture.merchantError ?? null,
+      }),
+    };
+    const orderQuery = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: updateOrder,
+        error: fixture.updateError ?? null,
+      }),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: fixture.order ?? null,
+        error: fixture.orderError ?? null,
+      }),
+      update: vi.fn().mockReturnThis(),
+    };
+    const transactionQuery = {
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      error: fixture.deleteError ?? null,
+      in: vi.fn().mockResolvedValue({
+        data: fixture.transactions ?? [],
+        error: fixture.transactionsError ?? null,
+      }),
+      insert: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: fixture.recordedTransaction ?? null,
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: insertTransaction,
+        error: fixture.insertError ?? null,
+      }),
+    };
+
+    const from = vi.fn((table: string) => {
+      if (table === 'merchants') return merchantQuery;
+      if (table === 'orders') return orderQuery;
+      if (table === 'transactions') return transactionQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    mockSupabaseClient.from = from;
+
+    return { from, merchantQuery, orderQuery, transactionQuery };
+  };
+
   it('returns 400 when amount is missing', async () => {
     // Arrange
     const request = createRequest({
@@ -392,25 +470,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockFrom = vi.fn((table: string) => {
-      const chain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        in: vi.fn().mockResolvedValue({ data: [], error: null }),
-      } as any;
-
-      if (table === 'merchants') {
-        chain.single = vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Merchant not found' },
-        });
-      } else {
-        chain.single = vi.fn().mockResolvedValue({ data: {}, error: null });
-      }
-      chain.in = vi.fn().mockResolvedValue({ data: [], error: null });
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: null,
+      merchantError: { message: 'Merchant not found' },
+      order: {},
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -446,30 +510,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockFrom = vi.fn((table: string) => {
-      const chain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        in: vi.fn().mockResolvedValue({ data: [], error: null }),
-      } as any;
-
-      if (table === 'merchants') {
-        chain.single = vi.fn().mockResolvedValue({
-          data: mockMerchant,
-          error: null,
-        });
-      } else if (table === 'orders') {
-        chain.single = vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Order not found' },
-        });
-      } else {
-        chain.single = vi.fn().mockResolvedValue({ data: {}, error: null });
-      }
-      chain.in = vi.fn().mockResolvedValue({ data: [], error: null });
-      return chain;
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: null,
+      orderError: { message: 'Order not found' },
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -527,53 +572,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (has TWO .eq() calls)
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-        };
-      }
-      // Fourth call: transaction insert
-      return {
-        insert: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Database error' },
-        }),
-      };
+    setupRecordPaymentSupabase({
+      insertError: { message: 'Database error' },
+      insertTransaction: null,
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -657,71 +661,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 10000,
@@ -779,73 +722,13 @@ describe('POST /api/orders/[id]/record-payment', () => {
         state: 'Lagos',
       },
     };
-    const deleteMock = vi.fn().mockReturnThis();
-    const deleteEqMock = vi
-      .fn()
-      .mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) });
-
     vi.mocked(ensurePaidOrderInventoryConfirmed).mockRejectedValueOnce(
       new SerializedInventoryUnavailableError()
     );
 
-    let callCount = 0;
-    mockSupabaseClient.from = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-      }
-      if (callCount === 2) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (callCount === 3) {
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 4) {
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-      }
-      if (callCount === 5) {
-        return {
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  maybeSingle: vi
-                    .fn()
-                    .mockResolvedValue({ data: mockOrder, error: null }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        delete: deleteMock.mockReturnValue({
-          eq: deleteEqMock,
-        }),
-      };
+    const { transactionQuery } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -872,8 +755,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
       payment_status: 'pending',
       shipping_status: 'pending',
     });
-    expect(deleteMock).toHaveBeenCalledOnce();
-    expect(deleteEqMock).toHaveBeenCalledWith('id', 'txn-123');
+    expect(transactionQuery.delete).toHaveBeenCalledOnce();
+    expect(transactionQuery.eq).toHaveBeenCalledWith('id', 'txn-123');
   });
 
   it('returns cleanup failure when inventory failure rollback cannot restore state', async () => {
@@ -914,66 +797,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).mockRejectedValueOnce(new Error('rollback failed'));
 
-    let callCount = 0;
-    mockSupabaseClient.from = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-      }
-      if (callCount === 2) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (callCount === 3) {
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 4) {
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-      }
-      if (callCount === 5) {
-        return {
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  maybeSingle: vi
-                    .fn()
-                    .mockResolvedValue({ data: mockOrder, error: null }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
-          }),
-        }),
-      };
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -1036,71 +862,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -1168,77 +933,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const mockOrderUpdateMerchantEq = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      }),
+    const { orderQuery } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      transactions: [{ amount: 4000, gateway: 'manual', status: 'completed' }],
     });
-    const mockOrderUpdateIdEq = vi.fn().mockReturnValue({
-      eq: mockOrderUpdateMerchantEq,
-    });
-    const mockOrderUpdate = vi.fn().mockReturnValue({
-      eq: mockOrderUpdateIdEq,
-    });
-
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (existing payment of 4000)
-        // Route does: .select('amount').eq('order_id', id).eq('status', 'completed')
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [{ amount: 4000, gateway: 'manual', status: 'completed' }],
-              error: null,
-            }),
-          }),
-        };
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert (new payment of 5000)
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'txn-123' },
-            error: null,
-          }),
-        };
-      }
-      // Fifth call: order update
-      return {
-        update: mockOrderUpdate,
-      };
-    });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -1264,11 +963,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         shipping_status: 'processing',
       },
     });
-    expect(mockOrderUpdateIdEq).toHaveBeenCalledWith('id', mockOrderId);
-    expect(mockOrderUpdateMerchantEq).toHaveBeenCalledWith(
-      'merchant_id',
-      mockMerchantId
-    );
+    expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
+    expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
   });
 
   it('does not update shipping_status if already shipped', async () => {
@@ -1311,71 +1007,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 10000,
@@ -1442,71 +1077,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    let callCount = 0;
-    const mockFrom = vi.fn((_table: string) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call: merchant details
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockMerchant,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 2) {
-        // Second call: order
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: mockOrder,
-            error: null,
-          }),
-        };
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-        Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      // Fifth call: order update (returns the row read back via maybeSingle)
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
-    mockSupabaseClient.from = mockFrom;
 
     const request = createRequest({
       amount: 5000,
@@ -1564,48 +1138,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
       order_items: [],
       shipping_address: {},
     };
-    let callCount = 0;
-    mockSupabaseClient.from = vi.fn(() => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (callCount === 2) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (callCount === 3) {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-        };
-      }
-      // Insert + update
-      const chain = {
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: mockOrder, error: null }),
-      };
-      Object.assign(chain, Promise.resolve({ data: null, error: null }));
-      return Object.assign(Promise.resolve({ data: [], error: null }), chain);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -1922,55 +1457,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    let txnQueryCount = 0;
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (table === 'orders') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-          update: vi.fn().mockReturnThis(),
-          maybeSingle: vi
-            .fn()
-            .mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-      if (table === 'transactions') {
-        txnQueryCount++;
-        // 1st: pending-gateway-guard → no rows (only failed attempts exist
-        // but they're not pending/processing, so the guard filter returns
-        // empty). 2nd: completed-only paid-amount calc → no rows.
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          limit: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-123' }, error: null }),
-        };
-        if (txnQueryCount === 1 || txnQueryCount === 2) {
-          Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        } else {
-          // 3rd call = insert
-          Object.assign(
-            chain,
-            Promise.resolve({ data: { id: 'txn-new' }, error: null })
-          );
-        }
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      throw new Error(`Unexpected table ${table}`);
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
     });
 
     const request = createRequest({
@@ -2013,51 +1502,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    let txnQueryCount = 0;
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (table === 'orders') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-          update: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'update failed' },
-          }),
-        };
-      }
-      if (table === 'transactions') {
-        txnQueryCount++;
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          insert: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
-        };
-        Object.assign(
-          chain,
-          Promise.resolve(
-            txnQueryCount === 1
-              ? { data: [], error: null }
-              : { data: { id: 'txn-new' }, error: null }
-          )
-        );
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      throw new Error(`Unexpected table ${table}`);
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-new' },
+      merchant: mockMerchant,
+      order: mockOrder,
+      updateError: { message: 'update failed' },
+      updateOrder: null,
     });
 
     const request = createRequest({
@@ -2105,60 +1555,16 @@ describe('POST /api/orders/[id]/record-payment', () => {
       shipping_address: {},
     };
 
-    let txnQueryCount = 0;
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-      if (table === 'orders') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-          update: vi.fn().mockReturnThis(),
-          // The update is CLAMPED back to cancelled by the DB trigger.
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: {
-              id: mockOrderId,
-              shipping_status: 'cancelled',
-              cancelled_at: '2026-06-15T00:00:00Z',
-            },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'transactions') {
-        txnQueryCount++;
-        const chain = {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          insert: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
-          // The clamp path looks up the recorded transaction id by reference.
-          maybeSingle: vi
-            .fn()
-            .mockResolvedValue({ data: { id: 'txn-new' }, error: null }),
-        };
-        if (txnQueryCount === 1) {
-          Object.assign(chain, Promise.resolve({ data: [], error: null }));
-        } else {
-          Object.assign(
-            chain,
-            Promise.resolve({ data: { id: 'txn-new' }, error: null })
-          );
-        }
-        return Object.assign(Promise.resolve({ data: [], error: null }), chain);
-      }
-      throw new Error(`Unexpected table ${table}`);
+    setupRecordPaymentSupabase({
+      insertTransaction: { id: 'txn-new' },
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordedTransaction: { id: 'txn-new' },
+      updateOrder: {
+        id: mockOrderId,
+        shipping_status: 'cancelled',
+        cancelled_at: '2026-06-15T00:00:00Z',
+      },
     });
 
     const request = createRequest({
