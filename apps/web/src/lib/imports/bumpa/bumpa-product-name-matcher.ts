@@ -37,6 +37,9 @@ const ACCESSORY_TOKENS = new Set([
   'protector',
   'screen',
 ]);
+const STORAGE_TOKEN_PATTERN = /^\d+(?:gb|tb)$/;
+const DISTINCTIVE_MODEL_TOKEN_PATTERN =
+  /^(?:[a-z]+\d+[a-z0-9]*|\d+[a-z]+|\d{1,4})$/;
 
 function normalizeSamsungFoldAlias(value: string) {
   return value.replace(
@@ -126,6 +129,38 @@ function hasAccessoryOnlyCandidateTokens(
   return false;
 }
 
+function getDistinctiveModelTokens(tokens: Set<string>) {
+  return new Set(
+    [...tokens].filter(
+      (token) =>
+        DISTINCTIVE_MODEL_TOKEN_PATTERN.test(token) &&
+        !STORAGE_TOKEN_PATTERN.test(token)
+    )
+  );
+}
+
+function hasDifferentModelIdentifiers(
+  queryTokens: Set<string>,
+  candidateTokens: Set<string>
+) {
+  const queryModelTokens = getDistinctiveModelTokens(queryTokens);
+  const candidateModelTokens = getDistinctiveModelTokens(candidateTokens);
+
+  for (const token of queryModelTokens) {
+    if (!candidateModelTokens.has(token)) {
+      return true;
+    }
+  }
+
+  for (const token of candidateModelTokens) {
+    if (!queryModelTokens.has(token)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function scoreTokenMatch(queryTokens: Set<string>, candidate: IndexedProduct) {
   if (queryTokens.size === 0 || candidate.tokens.size === 0) {
     return 0;
@@ -136,6 +171,10 @@ function scoreTokenMatch(queryTokens: Set<string>, candidate: IndexedProduct) {
   }
 
   if (hasAccessoryOnlyCandidateTokens(queryTokens, candidate.tokens)) {
+    return 0;
+  }
+
+  if (hasDifferentModelIdentifiers(queryTokens, candidate.tokens)) {
     return 0;
   }
 

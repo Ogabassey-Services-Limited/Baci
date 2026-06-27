@@ -3,7 +3,7 @@
 import { AlertTriangle, Loader2, ReceiptText, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -142,17 +142,38 @@ export default function ReceiptClaimPageClient({
   );
   const loginStartedPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/login-email`;
 
-  function trackLoginStarted() {
+  async function trackLoginStarted() {
     if (!token) {
       return;
     }
 
-    void fetchWithCsrf(loginStartedPath, {
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-      keepalive: true,
-      method: 'POST',
-    }).catch(() => undefined);
+    try {
+      await fetchWithCsrf(loginStartedPath, {
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+        keepalive: true,
+        method: 'POST',
+      });
+    } catch {
+      return;
+    }
+  }
+
+  async function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    await trackLoginStarted();
+    router.push(asRoute(loginPath));
   }
 
   return (
@@ -236,7 +257,7 @@ export default function ReceiptClaimPageClient({
                     asChild
                     className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
                   >
-                    <Link href={asRoute(loginPath)} onClick={trackLoginStarted}>
+                    <Link href={asRoute(loginPath)} onClick={handleLoginClick}>
                       Sign in to claim receipt
                     </Link>
                   </Button>

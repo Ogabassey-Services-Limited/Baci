@@ -97,6 +97,18 @@ describe('createBumpaProductNameMatcher', () => {
     expect(matchProduct('iPhone 15 Pro Max 256GB')).toBeNull();
   });
 
+  it('does not fuzzy match products with conflicting model identifiers', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        id: 'elitebook-g6',
+        name: 'HP EliteBook 840 G6 8GB 256GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('HP EliteBook 840 G5 8GB 256GB')).toBeNull();
+  });
+
   it('uses imported condition when catalog products share a normalized name', () => {
     const matchProduct = createBumpaProductNameMatcher([
       product({

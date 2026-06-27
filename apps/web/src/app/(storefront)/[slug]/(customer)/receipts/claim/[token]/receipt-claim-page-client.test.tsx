@@ -168,6 +168,38 @@ describe('ReceiptClaimPageClient', () => {
         method: 'POST',
       }
     );
+    expect(mockPush).toHaveBeenCalledWith(
+      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token&email=basseybjohn%40yahoo.co.uk'
+    );
+  });
+
+  it('waits for login-start tracking to begin before routing to login', async () => {
+    const user = userEvent.setup();
+    const loginStart = createDeferred<Response>();
+    mockFetchWithCsrf.mockReturnValue(loginStart.promise);
+
+    renderClient();
+
+    const clickPromise = user.click(
+      screen.getByRole('link', { name: 'Sign in to claim receipt' })
+    );
+
+    await waitFor(() => {
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+        '/api/storefront/receipts/claims/claim-token/login-email',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+    expect(mockPush).not.toHaveBeenCalled();
+
+    loginStart.resolve(createJsonResponse({ success: true }));
+    await clickPromise;
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
+      );
+    });
   });
 
   it('redeems the claim and sends authenticated customers to receipts', async () => {
