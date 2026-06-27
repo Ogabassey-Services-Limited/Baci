@@ -890,7 +890,7 @@ export class GiglProvider extends BaseShippingProvider {
 
   async isAvailable(): Promise<boolean> {
     try {
-      await this.getApiToken();
+      await this.getApiToken(GIGL_QUOTE_TIMEOUT_MS);
       return true;
     } catch {
       return false;

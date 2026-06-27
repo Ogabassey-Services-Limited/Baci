@@ -14,86 +14,70 @@ const optionalStringWithDefaultSchema = z
 
 const optionalNumberSchema = z
   .number()
-  .finite()
   .nullable()
   .optional()
   .transform((value) => value ?? undefined);
 
-const envelopeObject = z
-  .object({
-    status: optionalNumberSchema,
-    message: optionalStringSchema,
-    data: z.unknown().optional(),
-  })
-  .passthrough();
+const envelopeObject = z.looseObject({
+  status: optionalNumberSchema,
+  message: optionalStringSchema,
+  data: z.unknown().optional(),
+});
 
-const loginData = z
-  .object({
-    'access-token': z.string().min(1),
-    UserChannelCode: z.string().min(1),
-    UserChannelType: optionalNumberSchema,
-    CustomerType: optionalNumberSchema,
-  })
-  .passthrough();
+const loginData = z.looseObject({
+  'access-token': z.string().min(1),
+  UserChannelCode: z.string().min(1),
+  UserChannelType: optionalNumberSchema,
+  CustomerType: optionalNumberSchema,
+});
 
-const station = z
-  .object({
-    StationId: z.number().finite(),
-    StationName: z.string().min(1),
-    StationCode: optionalStringSchema,
-    State: optionalStringSchema,
-    StateName: optionalStringSchema,
-    City: optionalStringSchema,
-    Address: optionalStringSchema,
-    Latitude: optionalNumberSchema,
-    Longitude: optionalNumberSchema,
-  })
-  .passthrough();
+const station = z.looseObject({
+  StationId: z.number(),
+  StationName: z.string().min(1),
+  StationCode: optionalStringSchema,
+  State: optionalStringSchema,
+  StateName: optionalStringSchema,
+  City: optionalStringSchema,
+  Address: optionalStringSchema,
+  Latitude: optionalNumberSchema,
+  Longitude: optionalNumberSchema,
+});
 
-const priceData = z
-  .object({
-    GrandTotal: z.number().finite(),
-    MainCharge: optionalNumberSchema,
-    DeliverPrice: optionalNumberSchema,
-    PickupCharge: optionalNumberSchema,
-    InsuranceValue: optionalNumberSchema,
-    DeclaredValue: optionalNumberSchema,
-    Discount: optionalNumberSchema,
-    ShipmentItems: z.array(z.unknown()).optional(),
-  })
-  .passthrough();
+const priceData = z.looseObject({
+  GrandTotal: z.number(),
+  MainCharge: optionalNumberSchema,
+  DeliverPrice: optionalNumberSchema,
+  PickupCharge: optionalNumberSchema,
+  InsuranceValue: optionalNumberSchema,
+  DeclaredValue: optionalNumberSchema,
+  Discount: optionalNumberSchema,
+  ShipmentItems: z.array(z.unknown()).optional(),
+});
 
-const bookingData = z
-  .object({
-    Waybill: z.string().min(1),
-  })
-  .passthrough();
+const bookingData = z.looseObject({
+  Waybill: z.string().min(1),
+});
 
-const trackingEvent = z
-  .object({
-    Status: z.string(),
-    ScanStatusReason: optionalStringWithDefaultSchema,
-    DateTime: z.string(),
-    DepartureServiceCentre: z
-      .object({
-        Name: z.string(),
-        Address: optionalStringSchema,
-      })
-      .passthrough()
-      .optional(),
-  })
-  .passthrough();
+const trackingEvent = z.looseObject({
+  Status: z.string(),
+  ScanStatusReason: optionalStringWithDefaultSchema,
+  DateTime: z.string(),
+  DepartureServiceCentre: z
+    .looseObject({
+      Name: z.string(),
+      Address: optionalStringSchema,
+    })
+    .optional(),
+});
 
-const trackingShipment = z
-  .object({
-    Waybill: optionalStringSchema,
-    Origin: optionalStringSchema,
-    Destination: optionalStringSchema,
-    PickupOptions: optionalNumberSchema,
-    DeliveryType: optionalNumberSchema,
-    MobileShipmentTrackings: z.array(trackingEvent).default([]),
-  })
-  .passthrough();
+const trackingShipment = z.looseObject({
+  Waybill: optionalStringSchema,
+  Origin: optionalStringSchema,
+  Destination: optionalStringSchema,
+  PickupOptions: optionalNumberSchema,
+  DeliveryType: optionalNumberSchema,
+  MobileShipmentTrackings: z.array(trackingEvent).default([]),
+});
 
 export const giglSchemas = {
   envelopeObject,

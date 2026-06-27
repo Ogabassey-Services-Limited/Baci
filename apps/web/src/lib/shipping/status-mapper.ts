@@ -28,6 +28,7 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
 
   // Transit
   IN_TRANSIT: 'in_transit',
+  SHIPMENT_IN_TRANSIT: 'in_transit',
   InTransit: 'in_transit',
   Processing: 'in_transit',
   PROCESSING: 'in_transit',

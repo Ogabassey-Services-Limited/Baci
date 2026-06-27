@@ -53,6 +53,7 @@ function createMockSupabase(overrides?: {
   quote?: { data: unknown; error: unknown };
   merchant?: { data: unknown; error: unknown };
   shipmentInsert?: { data: unknown; error: unknown };
+  onShipmentInsert?: (payload: unknown) => void;
 }) {
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
@@ -119,7 +120,10 @@ function createMockSupabase(overrides?: {
       if (table === 'shipments') {
         return {
           select: vi.fn(() => shipmentsSelectChain),
-          insert: vi.fn(() => shipmentsInsertChain),
+          insert: vi.fn((payload: unknown) => {
+            overrides?.onShipmentInsert?.(payload);
+            return shipmentsInsertChain;
+          }),
         };
       }
 
@@ -291,6 +295,39 @@ describe('bookOrderShipment', () => {
         orderId: 'order-1',
         quoteId: 'quote-1',
         quoteMetadata: validQuote.provider_metadata,
+      })
+    );
+  });
+
+  it('persists provider station-pickup instructions with the shipment', async () => {
+    const insertedShipments: unknown[] = [];
+    vi.mocked(shippingService.bookShipment).mockResolvedValue({
+      ...bookingResult,
+      provider: 'GIGL',
+      carrierName: 'GIG Logistics',
+      isStationPickup: true,
+      pickupStationName: 'Lekki Service Centre',
+      pickupStationAddress: '1 Admiralty Way, Lekki',
+    });
+
+    const supabase = createMockSupabase({
+      order: {
+        data: { ...validOrder, shipping_provider: 'GIGL' },
+        error: null,
+      },
+      quote: { data: { ...validQuote, provider: 'GIGL' }, error: null },
+      merchant: { data: validMerchant, error: null },
+      shipmentInsert: { data: { id: 'shipment-1' }, error: null },
+      onShipmentInsert: (payload) => insertedShipments.push(payload),
+    });
+
+    await bookOrderShipment(supabase, 'merchant-1', 'order-1');
+
+    expect(insertedShipments[0]).toEqual(
+      expect.objectContaining({
+        is_station_pickup: true,
+        pickup_station_name: 'Lekki Service Centre',
+        pickup_station_address: '1 Admiralty Way, Lekki',
       })
     );
   });

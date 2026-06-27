@@ -3,7 +3,7 @@ import { giglSchemas } from './gigl.schemas';
 
 describe('giglSchemas', () => {
   it('accepts partial tracking shipments with nullable status reasons', () => {
-    const result = giglSchemas.trackingData.safeParse([
+    const data = giglSchemas.trackingData.parse([
       {
         Waybill: 'GIGL123',
         PickupOptions: 1,
@@ -17,15 +17,10 @@ describe('giglSchemas', () => {
       },
     ]);
 
-    expect(result.success).toBe(true);
-    if (!result.success) {
-      return;
-    }
-
-    expect(result.data[0].Origin).toBeUndefined();
-    expect(result.data[0].Destination).toBeUndefined();
-    expect(result.data[0].DeliveryType).toBeUndefined();
-    expect(result.data[0].MobileShipmentTrackings[0].ScanStatusReason).toBe('');
+    expect(data[0].Origin).toBeUndefined();
+    expect(data[0].Destination).toBeUndefined();
+    expect(data[0].DeliveryType).toBeUndefined();
+    expect(data[0].MobileShipmentTrackings[0].ScanStatusReason).toBe('');
   });
 
   it('rejects malformed price totals', () => {
