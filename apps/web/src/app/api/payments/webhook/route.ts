@@ -63,7 +63,10 @@ import {
   scheduleVoucherPinBackfill,
 } from '@/lib/vtu-voucher-backfill';
 import { sendEmail } from '@/lib/zeptomail';
-import { referenceSchema } from '@/schemas/payments';
+import {
+  paystackZeroCandidateReviewGatewayResponseSchema,
+  referenceSchema,
+} from '@/schemas/payments';
 
 type PaymentGateway = 'paystack' | 'korapay';
 
@@ -178,6 +181,13 @@ function getVerifiedAmount(
 }
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
+const SUPABASE_NO_ROWS_RETURNED = 'PGRST116';
+
+function isSupabaseNoRowsError(error: unknown) {
+  return (
+    (error as { code?: string } | null)?.code === SUPABASE_NO_ROWS_RETURNED
+  );
+}
 
 async function filePaystackZeroCandidateReview({
   gatewayResponse,
@@ -192,25 +202,26 @@ async function filePaystackZeroCandidateReview({
   supabase: SupabaseClient;
   verifiedAmount: VerifiedGatewayAmount | null;
 }): Promise<{ duplicate: boolean; ok: true } | { error: unknown; ok: false }> {
-  const customer =
-    gatewayResponse.customer && typeof gatewayResponse.customer === 'object'
-      ? (gatewayResponse.customer as Record<string, unknown>)
-      : null;
+  const parsedGatewayResponse =
+    paystackZeroCandidateReviewGatewayResponseSchema.safeParse(gatewayResponse);
+  if (!parsedGatewayResponse.success) {
+    logger.error({
+      message: 'Invalid Paystack response for zero-candidate payment review',
+      reference,
+      error: parsedGatewayResponse.error.flatten(),
+    });
+    return { error: parsedGatewayResponse.error, ok: false };
+  }
+
+  const reviewGatewayResponse = parsedGatewayResponse.data;
   const reviewRow = {
     candidates: [],
     issue_type: 'payment_match_zero_candidates',
     metadata: {
-      channel:
-        typeof gatewayResponse.channel === 'string'
-          ? gatewayResponse.channel
-          : null,
+      channel: reviewGatewayResponse.channel,
       currency: verifiedAmount?.currency ?? null,
-      customer_email:
-        typeof customer?.email === 'string' ? customer.email : null,
-      paid_at:
-        typeof gatewayResponse.paid_at === 'string'
-          ? gatewayResponse.paid_at
-          : null,
+      customer_email: reviewGatewayResponse.customer.email,
+      paid_at: reviewGatewayResponse.paid_at,
       receiver_account_number: receiverAccountNumber,
       verified_amount: verifiedAmount?.amount ?? null,
     },
@@ -1135,7 +1146,19 @@ export async function POST(request: NextRequest) {
       transactionError = transactionResult.error;
     }
 
-    if (transactionError || !transaction) {
+    if (transactionError && !isSupabaseNoRowsError(transactionError)) {
+      logger.error({
+        message: 'Transaction lookup failed',
+        reference,
+        error: sanitizeForLog(transactionError),
+      });
+      return NextResponse.json(
+        { error: 'Transaction lookup failed' },
+        { status: 500 }
+      );
+    }
+
+    if (!transaction) {
       if (gateway === 'paystack') {
         const reviewResult = await filePaystackZeroCandidateReview({
           gatewayResponse,

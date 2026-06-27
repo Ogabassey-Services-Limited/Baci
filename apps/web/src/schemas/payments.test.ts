@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { referenceSchema, verifyPaymentBodySchema } from './payments';
+import {
+  paystackZeroCandidateReviewGatewayResponseSchema,
+  referenceSchema,
+  verifyPaymentBodySchema,
+} from './payments';
 
 describe('payment schemas', () => {
   describe('referenceSchema', () => {
@@ -108,6 +112,46 @@ describe('payment schemas', () => {
       });
 
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('paystackZeroCandidateReviewGatewayResponseSchema', () => {
+    it('normalizes Paystack review metadata fields', () => {
+      const result = paystackZeroCandidateReviewGatewayResponseSchema.safeParse(
+        {
+          channel: ' bank_transfer ',
+          customer: {
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+          },
+          paid_at: '2026-06-27T20:37:08.000Z',
+          reference: 'PSK_REF',
+        }
+      );
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.channel).toBe('bank_transfer');
+        expect(result.data.customer.email).toBe('customer@example.com');
+        expect(result.data.paid_at).toBe('2026-06-27T20:37:08.000Z');
+      }
+    });
+
+    it('converts unusable optional metadata fields to null', () => {
+      const result = paystackZeroCandidateReviewGatewayResponseSchema.safeParse(
+        {
+          channel: '   ',
+          customer: 'not-an-object',
+          paid_at: null,
+        }
+      );
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.channel).toBeNull();
+        expect(result.data.customer.email).toBeNull();
+        expect(result.data.paid_at).toBeNull();
+      }
     });
   });
 });
