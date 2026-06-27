@@ -235,6 +235,29 @@ describe('OrderDetailsInsuranceCard', () => {
     expect(screen.getByText('Offer sent')).toBeTruthy();
   });
 
+  it('renders claim progress when MyCover advances a milestone', () => {
+    render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_progress: 'Repair estimate submitted',
+          claim_stage: 'Offer sent',
+          claim_status: 'offer_sent',
+          inspection_status: 'completed',
+        }}
+        isDelivered
+        isPaid
+        onCompleteInspection={jest.fn()}
+        onFileClaim={jest.fn()}
+        onOpenCertificate={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Repair estimate submitted')).toBeTruthy();
+  });
+
   it('hides Continue Claim for terminal MyCover claim states', () => {
     render(
       <OrderDetailsInsuranceCard
@@ -329,9 +352,7 @@ describe('OrderDetailsInsuranceCard', () => {
 
     expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
     expect(screen.queryByRole('button', { name: inspectionLabel })).toBeNull();
-    expect(
-      screen.queryByText(/Protection activation is pending/i)
-    ).toBeNull();
+    expect(screen.queryByText(/Protection activation is pending/i)).toBeNull();
     expect(screen.getByText('pending')).toBeTruthy();
   });
 });

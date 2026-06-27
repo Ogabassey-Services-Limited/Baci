@@ -2,6 +2,7 @@ export interface OrderDetailsInsurancePolicy {
   certificate_url: string | null;
   claim_comment: string | null;
   claim_link: string | null;
+  claim_progress?: string | null;
   claim_stage: string | null;
   claim_status: string | null;
   coverage_amount: number;

@@ -398,6 +398,7 @@ describe('POST /api/webhooks/mycover', () => {
         essential: {
           type: 'Gadget',
           status: 'completed',
+          is_approved: true,
           category: 'preloss',
           policy_id: 'pol-abc',
         },
@@ -429,6 +430,7 @@ describe('POST /api/webhooks/mycover', () => {
         essential: {
           type: 'Gadget',
           status: 'completed',
+          is_approved: true,
           category: 'preloss',
           policy_id: 'pol-abc',
         },
@@ -454,6 +456,7 @@ describe('POST /api/webhooks/mycover', () => {
       data: {
         essential: {
           status: 'completed',
+          is_approved: true,
         },
         meta: {
           category: 'preloss',
@@ -476,6 +479,33 @@ describe('POST /api/webhooks/mycover', () => {
       'mycover_policy_id',
       'pol-meta'
     );
+  });
+
+  it('does not activate coverage for unapproved preloss inspection.completed events', async () => {
+    const payload = {
+      data: {
+        essential: {
+          type: 'Gadget',
+          status: 'completed',
+          is_approved: false,
+          category: 'preloss',
+          policy_id: 'pol-abc',
+        },
+        meta: { policy_id: 'pol-abc' },
+        sdk: {
+          claim_link: 'https://mycover.ai/purchase?q=claim-after-reject',
+        },
+      },
+      event: 'inspection.completed',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.policyUpdate).not.toHaveBeenCalled();
   });
 
   it('ignores non-preloss inspection.completed events', async () => {

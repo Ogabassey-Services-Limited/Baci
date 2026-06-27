@@ -12,6 +12,7 @@ type PolicyResult = { data: unknown[]; error: Error | null };
 const mockRpc = jest.fn<() => Promise<RpcResult>>();
 const mockOrderSingle = jest.fn<() => Promise<OrderResult>>();
 const mockPolicyLimit = jest.fn<() => Promise<PolicyResult>>();
+const mockPolicySelect = jest.fn();
 
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({ debug: jest.fn(), error: jest.fn(), warn: jest.fn() }),
@@ -35,9 +36,14 @@ jest.mock('@/lib/supabase', () => ({
             }),
           }
         : {
-            select: () => ({
-              eq: () => ({ order: () => ({ limit: () => mockPolicyLimit() }) }),
-            }),
+            select: (columns: string) => {
+              mockPolicySelect(columns);
+              return {
+                eq: () => ({
+                  order: () => ({ limit: () => mockPolicyLimit() }),
+                }),
+              };
+            },
           },
   },
 }));
@@ -95,6 +101,9 @@ describe('order-details-data', () => {
       await expect(fetchLatestInsurancePolicy('order-1')).resolves.toEqual({
         mycover_policy_number: 'POL-1',
       });
+      expect(mockPolicySelect).toHaveBeenCalledWith(
+        expect.stringContaining('claim_progress')
+      );
     });
 
     it('returns null when there are no policies', async () => {

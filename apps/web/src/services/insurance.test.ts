@@ -643,7 +643,7 @@ describe('syncClaimsStatus', () => {
       );
     });
 
-    it('preserves payment_status "payment initiated" as paid even when claim_status is pending', async () => {
+    it('keeps payment_status "payment initiated" non-terminal while claim_status is pending', async () => {
       const claims = [
         {
           id: 'claim-1',
@@ -684,8 +684,8 @@ describe('syncClaimsStatus', () => {
 
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          claim_status: 'paid',
-          claim_stage: 'Paid',
+          claim_status: 'pending',
+          claim_stage: 'Pending',
         })
       );
     });

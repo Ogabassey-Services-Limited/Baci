@@ -495,6 +495,14 @@ async function handleInspectionCompleted(
     return;
   }
 
+  if (!isPreLossInspectionApproved(data)) {
+    console.warn(
+      '[MyCover Webhook] Ignored unapproved pre-loss inspection:',
+      policyId.replace(/[\r\n]/g, '')
+    );
+    return;
+  }
+
   const { claim_link: claimLink } = getHostedFlowLinks(data);
 
   const { data: updatedPolicy, error } = await supabase
@@ -657,6 +665,26 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function isTruthyMyCoverFlag(value: unknown): boolean {
+  return (
+    value === true ||
+    value === 1 ||
+    (typeof value === 'string' &&
+      ['1', 'true', 'yes'].includes(value.trim().toLowerCase()))
+  );
+}
+
+function isPreLossInspectionApproved(data: MyCoverWebhookPayload['data']) {
+  const essential = asRecord(data.essential);
+  const meta = asRecord(data.meta);
+  const topLevel = asRecord(data);
+  return (
+    isTruthyMyCoverFlag(essential.is_approved) ||
+    isTruthyMyCoverFlag(meta.is_approved) ||
+    isTruthyMyCoverFlag(topLevel.is_approved)
+  );
 }
 
 function readString(

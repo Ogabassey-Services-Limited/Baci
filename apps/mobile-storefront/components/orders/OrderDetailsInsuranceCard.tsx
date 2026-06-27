@@ -185,6 +185,13 @@ export function OrderDetailsInsuranceCard({
             </Text>
           </View>
         )}
+        {insurancePolicy.claim_progress && (
+          <Text
+            style={[styles.insuranceProvider, { color: colors.textSecondary }]}
+          >
+            {insurancePolicy.claim_progress}
+          </Text>
+        )}
         {insurancePolicy.claim_comment && (
           <Text
             style={[styles.insuranceProvider, { color: colors.textSecondary }]}
@@ -264,8 +271,8 @@ export function OrderDetailsInsuranceCard({
               { color: colors.textSecondary, marginTop: 12 },
             ]}
           >
-            Protection activates after delivery — you'll be able to
-            complete a quick device inspection then.
+            Protection activates after delivery — you'll be able to complete a
+            quick device inspection then.
           </Text>
         )}
         {(showClaim || showContinueClaim) && (
