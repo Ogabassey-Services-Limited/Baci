@@ -137,6 +137,118 @@ describe('buildBumpaOrderPreview', () => {
     });
   });
 
+  it('accepts raw snake_case Bumpa rich export rows without manual remapping', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          id: '3253798',
+          order_number: '06074',
+          customer_first_name: 'Bassey',
+          customer_last_name: 'John',
+          customer_email: 'basseybjohn@example.com',
+          customer_phone: '+2349169449282',
+          status: 'COMPLETED',
+          payment_status: 'PAID',
+          shipping_status: 'DELIVERED',
+          total: '1586000.00',
+          amount_paid: '1586000.00',
+          amount_due: '0.00',
+          order_date: '2025-11-06 00:00:00',
+          created_at: '2025-11-06T18:27:18.000000Z',
+          updated_at: '2025-11-06T18:57:20.000000Z',
+          items_count: '2',
+          items_names:
+            'New 2025 Apple iPad M3 256gb WiFi + Cellular | Samsung UHD 4K TV',
+          channel: 'WEB',
+          origin: 'website',
+          sub_total: '1585000.00',
+          discount: '0.00',
+          tax: '0.00',
+          shipping_price: '1000.00',
+          coupon_code: '',
+          shipping_option_name: 'Store delivery',
+          shipping_full_address: '25 Admiralty Way, Lekki, Lagos, Nigeria',
+          shipping_street: '25 Admiralty Way',
+          shipping_city: 'Lekki',
+          shipping_state: 'Lagos',
+          shipping_country: 'Nigeria',
+          shipping_zip: '105102',
+          items_json: JSON.stringify([
+            {
+              id: 3743722,
+              name: 'New 2025 Apple iPad M3 256gb WiFi + Cellular ',
+              description: 'IMEI- 359200573024554\nSerial No.- J9CVYXYPQN',
+              quantity: 1,
+              price: 1350000,
+              total: 1350000,
+            },
+            {
+              id: 294036,
+              name: 'Samsung UHD 4K TV ',
+              description: 'Model code: UE50NU7020',
+              quantity: 1,
+              price: 235000,
+              total: 235000,
+            },
+          ]),
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    const payload = result.rows[0]?.payload;
+
+    expect(result.summary).toMatchObject({
+      totalRows: 1,
+      validRows: 1,
+      invalidRows: 0,
+      receiptReadyOrders: 1,
+    });
+    expect(payload).toMatchObject({
+      externalSourceId: '3253798',
+      orderNumber: '06074',
+      paymentStatus: 'paid',
+      shippingStatus: 'delivered',
+      customer: {
+        fullName: 'Bassey John',
+        email: 'basseybjohn@example.com',
+        phone: '+2349169449282',
+      },
+      shippingOption: 'Store delivery',
+      shippingAddress: {
+        fullAddress: '25 Admiralty Way, Lekki, Lagos, Nigeria',
+        address: '25 Admiralty Way',
+        city: 'Lekki',
+        state: 'Lagos',
+        country: 'Nigeria',
+        postalCode: '105102',
+      },
+    });
+    expect(payload?.items).toEqual([
+      expect.objectContaining({
+        productName: 'New 2025 Apple iPad M3 256gb WiFi + Cellular',
+        quantity: 1,
+        unitPrice: 1350000,
+        lineTotal: 1350000,
+        importMetadata: expect.objectContaining({
+          bumpa: expect.objectContaining({
+            fulfillment_identifiers: expect.objectContaining({
+              imeis: ['359200573024554'],
+              serialNumbers: ['J9CVYXYPQN'],
+            }),
+          }),
+        }),
+      }),
+      expect.objectContaining({
+        productName: 'Samsung UHD 4K TV',
+        quantity: 1,
+        unitPrice: 235000,
+        lineTotal: 235000,
+      }),
+    ]);
+  });
+
   it('matches rich Bumpa product lines to stripped original-brand catalog names', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [

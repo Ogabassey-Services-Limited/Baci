@@ -17,6 +17,7 @@ import type {
   ImportPreviewRow,
   NormalizedImportedOrder,
 } from '@/lib/imports/bumpa/bumpa-types';
+import { normalizeBumpaOrderRow } from '@/lib/imports/bumpa/normalize-bumpa-order-row';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { bumpaOrderRowSchema } from '@/schemas/bumpa-orders';
 
@@ -186,7 +187,8 @@ export async function* buildBumpaOrderPreviewChunks({
 
   for (const [index, rawRow] of rows.entries()) {
     const rowNumber = index + 2;
-    const validationResult = bumpaOrderRowSchema.safeParse(rawRow);
+    const normalizedRawRow = normalizeBumpaOrderRow(rawRow);
+    const validationResult = bumpaOrderRowSchema.safeParse(normalizedRawRow);
     if (!validationResult.success) {
       const previewRow = {
         rowNumber,
@@ -233,7 +235,7 @@ export async function* buildBumpaOrderPreviewChunks({
 
     seenExternalIds.add(externalSourceId);
 
-    const excludedImportError = getExcludedImportError(rawRow);
+    const excludedImportError = getExcludedImportError(normalizedRawRow);
 
     if (excludedImportError) {
       const previewRow = {
@@ -243,7 +245,7 @@ export async function* buildBumpaOrderPreviewChunks({
         errors: [excludedImportError],
         payload: null,
         meta: {
-          importRecommendation: getImportRecommendation(rawRow),
+          importRecommendation: getImportRecommendation(normalizedRawRow),
         },
       } satisfies ImportPreviewRow<NormalizedImportedOrder>;
       previewRows.push(previewRow);
@@ -328,7 +330,7 @@ export async function* buildBumpaOrderPreviewChunks({
             updatedAt: parseIsoDate(row['Updated At']),
             couponCode: sanitizeText(row['Coupon Code']) || null,
             shippingOption: sanitizeText(row['Shipping Option']) || null,
-            shippingAddress: buildBumpaShippingAddress(rawRow),
+            shippingAddress: buildBumpaShippingAddress(normalizedRawRow),
             receiptReady: paymentStatus === 'paid',
             items,
             importMetadata: {
@@ -342,21 +344,25 @@ export async function* buildBumpaOrderPreviewChunks({
               rawShippingStatus: row['Shipping Status'],
               rawChannel: row.Channel,
               rawOrigin: row.Origin,
-              importRecommendation: getImportRecommendation(rawRow),
-              importReason: sanitizeText(rawRow.import_reason || ''),
+              importRecommendation: getImportRecommendation(normalizedRawRow),
+              importReason: sanitizeText(normalizedRawRow.import_reason || ''),
               customerProfile: {
                 canonicalCustomerKey: sanitizeText(
-                  rawRow.canonical_customer_key || ''
+                  normalizedRawRow.canonical_customer_key || ''
                 ),
                 isCompanyOrProxy:
                   sanitizeText(
-                    rawRow.is_company_or_proxy || ''
+                    normalizedRawRow.is_company_or_proxy || ''
                   ).toLowerCase() === 'yes',
                 companyOrProxyReason: sanitizeText(
-                  rawRow.company_or_proxy_reason || ''
+                  normalizedRawRow.company_or_proxy_reason || ''
                 ),
-                contactQuality: sanitizeText(rawRow.contact_quality || ''),
-                addressQuality: sanitizeText(rawRow.address_quality || ''),
+                contactQuality: sanitizeText(
+                  normalizedRawRow.contact_quality || ''
+                ),
+                addressQuality: sanitizeText(
+                  normalizedRawRow.address_quality || ''
+                ),
               },
             },
           } satisfies NormalizedImportedOrder)

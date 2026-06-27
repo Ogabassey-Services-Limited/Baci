@@ -38,6 +38,7 @@ function makeRow(overrides: Partial<BumpaOrderRow> = {}): BumpaOrderRow {
     'Shipping Option': '',
     'Product SKU': 'WDG-001',
     'Product Quantity': '2',
+    items_json: '',
     ...overrides,
   };
 }
@@ -430,5 +431,81 @@ describe('buildItems', () => {
     const items = buildItems(row, []);
     expect(items[0].unitPrice).toBe(500);
     expect(items[0].lineTotal).toBe(1000);
+  });
+
+  it('uses raw rich items_json prices and fulfillment descriptions when present', () => {
+    const row = makeRow({
+      Products:
+        'New 2025 Apple iPad M3 256gb WiFi + Cellular | Samsung UHD 4K TV',
+      'Product SKU': '',
+      'Product Quantity': '1 | 1',
+      'Sub Total': '1585000.00',
+      items_json: JSON.stringify([
+        {
+          name: 'New 2025 Apple iPad M3 256gb WiFi + Cellular ',
+          description: 'IMEI- 359200573024554\nSerial No.- J9CVYXYPQN',
+          quantity: 1,
+          price: 1350000,
+          total: 1350000,
+        },
+        {
+          name: 'Samsung UHD 4K TV ',
+          description: 'Model code: UE50NU7020',
+          quantity: 1,
+          price: 235000,
+          total: 235000,
+        },
+      ]),
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      productName: 'New 2025 Apple iPad M3 256gb WiFi + Cellular',
+      quantity: 1,
+      unitPrice: 1350000,
+      lineTotal: 1350000,
+    });
+    expect(items[0].importMetadata).toMatchObject({
+      bumpa: {
+        fulfillment_identifiers: {
+          imeis: ['359200573024554'],
+          serialNumbers: ['J9CVYXYPQN'],
+        },
+      },
+    });
+    expect(items[1]).toMatchObject({
+      productName: 'Samsung UHD 4K TV',
+      quantity: 1,
+      unitPrice: 235000,
+      lineTotal: 235000,
+    });
+  });
+
+  it('does not let matched catalog price conflict with rich items_json line totals', () => {
+    const row = makeRow({
+      Products: 'Widget',
+      'Product SKU': 'WDG-001',
+      'Product Quantity': '1',
+      'Sub Total': '5000.00',
+      items_json: JSON.stringify([
+        {
+          name: 'Widget',
+          quantity: 2,
+          total: 5000,
+        },
+      ]),
+    });
+
+    const items = buildItems(row, existingProducts);
+
+    expect(items[0]).toMatchObject({
+      matched: true,
+      productId: 'prod-1',
+      quantity: 2,
+      unitPrice: 2500,
+      lineTotal: 5000,
+    });
   });
 });
