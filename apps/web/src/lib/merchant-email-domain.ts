@@ -1,7 +1,6 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   associateSendingDomainWithConfiguredMailagent,
@@ -35,16 +34,8 @@ interface Row {
   bounce_value: string | null;
 }
 
-interface DomainKeyRow {
-  domain: string;
+interface DomainKeyRow extends Row {
   zeptomail_domain_id: string | null;
-  status: 'pending' | 'verified' | 'failed';
-  sender_local_part: string;
-  enabled: boolean;
-  dkim_host: string | null;
-  dkim_value: string | null;
-  bounce_host: string | null;
-  bounce_value: string | null;
 }
 
 interface DomainOwnerRow {
@@ -92,6 +83,19 @@ function stateToColumns(state: SendingDomainState) {
     verified_at: state.verified ? new Date().toISOString() : null,
     ...recordsToColumns(state.records),
   };
+}
+
+function isUniqueDomainReservationError(error: unknown): boolean {
+  if (!(error && typeof error === 'object')) {
+    return false;
+  }
+  const candidate = error as { code?: string; message?: string };
+  return (
+    candidate.code === '23505' ||
+    candidate.message
+      ?.toLowerCase()
+      .includes('merchant_email_domains_domain') === true
+  );
 }
 
 function domainOwnershipCandidates(domain: string): string[] {
@@ -189,9 +193,10 @@ export async function getMerchantEmailDomain(
 /** Register a domain with ZeptoMail and persist the returned DNS records. */
 export async function registerMerchantEmailDomain(
   merchantId: string,
-  domain: string
+  domain: string,
+  scopedSupabase: SupabaseClient
 ): Promise<MerchantEmailDomain> {
-  const supabase = createAdminClient();
+  const supabase = scopedSupabase;
   await assertMerchantOwnsActiveStorefrontDomain(supabase, merchantId, domain);
 
   const localOwner = await getLocalDomainOwner(supabase, domain);
@@ -221,6 +226,9 @@ export async function registerMerchantEmailDomain(
     .select(SELECT)
     .single();
   if (error) {
+    if (isUniqueDomainReservationError(error)) {
+      throw new Error('Domain is already registered by another merchant');
+    }
     throw new Error(`Failed to save email domain: ${error.message}`);
   }
   return rowToDomain(data as Row);
@@ -228,9 +236,10 @@ export async function registerMerchantEmailDomain(
 
 /** Re-check verification with ZeptoMail and update the stored status. */
 export async function verifyMerchantEmailDomain(
-  merchantId: string
+  merchantId: string,
+  scopedSupabase: SupabaseClient
 ): Promise<MerchantEmailDomain> {
-  const supabase = createAdminClient();
+  const supabase = scopedSupabase;
   const { data: existing, error: readError } = await supabase
     .from(TABLE)
     .select(`zeptomail_domain_id, ${SELECT}`)
@@ -257,7 +266,7 @@ export async function verifyMerchantEmailDomain(
   }
 
   const state = await verifySendingDomain(domainKey);
-  const { data, error } = await supabase
+  let updateQuery = supabase
     .from(TABLE)
     .update({
       ...stateToColumns(state),
@@ -266,10 +275,20 @@ export async function verifyMerchantEmailDomain(
       ...(state.verified ? {} : { enabled: false }),
     })
     .eq('merchant_id', merchantId)
-    .select(SELECT)
-    .single();
+    .eq('domain', existingRow.domain);
+
+  updateQuery = existingRow.zeptomail_domain_id
+    ? updateQuery.eq('zeptomail_domain_id', existingRow.zeptomail_domain_id)
+    : updateQuery.is('zeptomail_domain_id', null);
+
+  const { data, error } = await updateQuery.select(SELECT).maybeSingle();
   if (error) {
     throw new Error(`Failed to update email domain: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error(
+      'Sending domain changed while verification was in progress'
+    );
   }
   return rowToDomain(data as Row);
 }
@@ -277,9 +296,10 @@ export async function verifyMerchantEmailDomain(
 /** Enable/disable sending from the domain (only a verified domain may enable). */
 export async function setMerchantEmailDomainEnabled(
   merchantId: string,
-  enabled: boolean
+  enabled: boolean,
+  scopedSupabase: SupabaseClient
 ): Promise<MerchantEmailDomain> {
-  const supabase = createAdminClient();
+  const supabase = scopedSupabase;
   if (enabled) {
     const { data: existing, error: readError } = await supabase
       .from(TABLE)

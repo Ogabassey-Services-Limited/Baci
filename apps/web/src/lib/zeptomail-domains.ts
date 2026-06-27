@@ -53,12 +53,12 @@ interface ZeptomailDomainData {
   >;
   mailagent_keys?: string[];
   dkim?: {
-    host: string;
-    public_key: string;
+    host?: string;
+    public_key?: string;
     selector?: string;
     status?: string;
   };
-  cname?: { host: string; cname_record: string; status?: string };
+  cname?: { host?: string; cname_record?: string; status?: string };
 }
 
 interface ZeptomailDomainsResponse {
@@ -187,14 +187,14 @@ function firstDomain(json: unknown): ZeptomailDomainData {
 
 function toSendingDomainState(data: ZeptomailDomainData): SendingDomainState {
   const records: ZeptomailDnsRecord[] = [];
-  if (data.dkim) {
+  if (data.dkim?.host && data.dkim.public_key) {
     records.push({
       type: 'TXT',
       host: data.dkim.host,
       value: data.dkim.public_key,
     });
   }
-  if (data.cname) {
+  if (data.cname?.host && data.cname.cname_record) {
     records.push({
       type: 'CNAME',
       host: data.cname.host,
@@ -254,11 +254,38 @@ export async function associateSendingDomainWithConfiguredMailagent(
       associate_mailagents: [mailagentKey],
     }),
   });
-  const updated = toSendingDomainState(firstDomain(json));
-  if (!isAssociatedWithConfiguredMailagent(updated)) {
+  const associated = mergeSendingDomainState(
+    state,
+    toSendingDomainState(firstDomain(json))
+  );
+  if (!isAssociatedWithConfiguredMailagent(associated)) {
     throw new Error('Sending domain is not associated with this mail agent');
   }
-  return updated;
+
+  // Zoho's edit-domain response can omit DNS record fields such as dkim.host.
+  // Refetch the canonical domain after association so callers persist the full
+  // DKIM/CNAME verification records shown to the merchant.
+  const refreshed = await getSendingDomain(state.domainKey);
+  return mergeSendingDomainState(associated, refreshed);
+}
+
+function mergeSendingDomainState(
+  base: SendingDomainState,
+  override: SendingDomainState
+): SendingDomainState {
+  const recordKey = (record: ZeptomailDnsRecord) => record.type;
+  const records = new Map<string, ZeptomailDnsRecord>();
+  for (const record of base.records) records.set(recordKey(record), record);
+  for (const record of override.records) records.set(recordKey(record), record);
+
+  return {
+    ...base,
+    ...override,
+    associatedMailagentKeys: override.associatedMailagentKeys.length
+      ? override.associatedMailagentKeys
+      : base.associatedMailagentKeys,
+    records: [...records.values()],
+  };
 }
 
 function toVerificationStatus(

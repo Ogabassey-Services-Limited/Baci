@@ -126,7 +126,8 @@ export async function POST(request: NextRequest) {
   try {
     const domain = await registerMerchantEmailDomain(
       resolved.merchantId,
-      parsed.data.domain
+      parsed.data.domain,
+      resolved.supabase
     );
     return NextResponse.json({ domain });
   } catch (error) {
@@ -188,7 +189,8 @@ export async function PATCH(request: NextRequest) {
   try {
     const domain = await setMerchantEmailDomainEnabled(
       resolved.merchantId,
-      parsed.data.enabled
+      parsed.data.enabled,
+      resolved.supabase
     );
     return NextResponse.json({ domain });
   } catch (error) {

@@ -290,6 +290,81 @@ describe('zeptomail-domains client', () => {
     );
   });
 
+  it('refetches after association so partial edit-domain responses do not drop DKIM hosts', async () => {
+    fetchMock.mockImplementation(
+      (url: string | URL | Request, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes('accounts.zoho.com')) {
+          return Promise.resolve(TOKEN_OK);
+        }
+        if (href.endsWith('/domains/dk1') && init?.method === 'PUT') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: {
+                  domain_name: 'ogabassey.com',
+                  domain_key: 'dk1',
+                  associated_mailagents: [{ mailagent_key: 'mail_agent_1' }],
+                  dkim: { public_key: 'k=rsa; p=EDIT', status: 'unverified' },
+                },
+              }),
+          });
+        }
+        if (href.endsWith('/domains/dk1') && init?.method === 'GET') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: {
+                  domain_name: 'ogabassey.com',
+                  domain_key: 'dk1',
+                  associated_mailagents: [{ mailagent_key: 'mail_agent_1' }],
+                  dkim: {
+                    host: '24132322._domainkey.ogabassey.com',
+                    public_key: 'k=rsa; p=AAA',
+                    status: 'unverified',
+                  },
+                  cname: {
+                    host: 'bounce-zem.ogabassey.com',
+                    cname_record: 'cluster89.zeptomail.com',
+                    status: 'unverified',
+                  },
+                },
+              }),
+          });
+        }
+        throw new Error(`Unexpected request ${href}`);
+      }
+    );
+    const mod = await load();
+
+    await expect(
+      mod.associateSendingDomainWithConfiguredMailagent({
+        domainKey: 'dk1',
+        domain: 'ogabassey.com',
+        status: 'pending',
+        verified: false,
+        records: [],
+        associatedMailagentKeys: [],
+      })
+    ).resolves.toMatchObject({
+      associatedMailagentKeys: ['mail_agent_1'],
+      records: expect.arrayContaining([
+        {
+          type: 'TXT',
+          host: '24132322._domainkey.ogabassey.com',
+          value: 'k=rsa; p=AAA',
+        },
+        {
+          type: 'CNAME',
+          host: 'bounce-zem.ogabassey.com',
+          value: 'cluster89.zeptomail.com',
+        },
+      ]),
+    });
+  });
+
   it('marks failed DNS checks as failed', async () => {
     routeFetch({ domains: domainResponse('failed', 'unverified') });
     const mod = await load();

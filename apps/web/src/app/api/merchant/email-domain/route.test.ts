@@ -125,14 +125,14 @@ describe('POST /api/merchant/email-domain', () => {
   });
 
   it('registers the domain for an entitled merchant', async () => {
-    signedInAs('pro');
+    const supabase = signedInAs('pro');
     mockRegister.mockResolvedValue({
       domain: 'mystore.com',
       status: 'pending',
     });
     const res = await POST(req({ domain: 'MyStore.com' }));
     expect(res.status).toBe(200);
-    expect(mockRegister).toHaveBeenCalledWith('m1', 'mystore.com');
+    expect(mockRegister).toHaveBeenCalledWith('m1', 'mystore.com', supabase);
   });
 
   it('returns 503 when ZeptoMail domain credentials are not configured', async () => {
@@ -238,11 +238,11 @@ describe('PATCH /api/merchant/email-domain', () => {
   });
 
   it('enables sending for an entitled merchant', async () => {
-    signedInAs('pro');
+    const supabase = signedInAs('pro');
     mockSetEnabled.mockResolvedValue({ enabled: true });
     const res = await PATCH(req({ enabled: true }, 'PATCH'));
     expect(res.status).toBe(200);
-    expect(mockSetEnabled).toHaveBeenCalledWith('m1', true);
+    expect(mockSetEnabled).toHaveBeenCalledWith('m1', true, supabase);
   });
 
   it('returns 400 when the body is invalid', async () => {

@@ -30,7 +30,7 @@ async function resolveEmailDomainRequest(request: NextRequest) {
   if (denied) {
     return { error: denied };
   }
-  return resolved;
+  return { ...resolved, supabase: auth.supabase };
 }
 
 function verifyErrorStatus(error: unknown): number {
@@ -41,6 +41,9 @@ function verifyErrorStatus(error: unknown): number {
     return 400;
   }
   const message = error.message.toLowerCase();
+  if (message.includes('changed while verification was in progress')) {
+    return 409;
+  }
   if (
     message.startsWith('failed to load email domain') ||
     message.startsWith('failed to update email domain')
@@ -76,7 +79,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const domain = await verifyMerchantEmailDomain(resolved.merchantId);
+    const domain = await verifyMerchantEmailDomain(
+      resolved.merchantId,
+      resolved.supabase
+    );
     return NextResponse.json({ domain });
   } catch (error) {
     return NextResponse.json(
