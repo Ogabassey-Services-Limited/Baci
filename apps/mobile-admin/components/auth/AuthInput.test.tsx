@@ -129,7 +129,9 @@ describe('AuthInput', () => {
       />
     );
 
-    expect(screen.getByLabelText('Email').getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByLabelText('Email').getAttribute('aria-disabled')).toBe(
+      'true'
+    );
   });
 
   it('renders active state programmatically when editable is omitted (defaults to true)', () => {
@@ -149,6 +151,8 @@ describe('AuthInput', () => {
       />
     );
 
-    expect(screen.getByLabelText('Email').getAttribute('aria-disabled')).toBeFalsy();
+    expect(
+      screen.getByLabelText('Email').getAttribute('aria-disabled')
+    ).toBeFalsy();
   });
 });
