@@ -1,5 +1,4 @@
 import { ArrowLeft } from 'lucide-react';
-import { headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
@@ -12,9 +11,7 @@ import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify, sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { isDomainIdentifier } from '@/lib/validation';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
-import { getBlogStorefrontPathPrefix } from '../../blog-storefront-path-prefix';
 import { BlogAuthorPagination } from './blog-author-pagination';
 
 interface BlogAuthorPageContentProps {
@@ -71,16 +68,15 @@ export async function BlogAuthorPageContent({
 
   const { merchant, author, posts, totalPosts, totalPages, currentPage } = data;
   const baseUrl = buildStoreUrl(merchant);
-  // Header-aware prefix (mirrors the blog listing) so the proxy's /{slug}
-  // rewrite is not doubled on subdomains.
-  const basePath = isDomainIdentifier(slug)
-    ? ''
-    : getBlogStorefrontPathPrefix(await headers(), merchant);
+  // Keep interactive navigation relative to the current storefront origin.
+  // This avoids request-header dynamic APIs while preserving custom-domain,
+  // merchant-subdomain, preview, and /slug-prefixed browsing contexts.
+  const blogRouteHref = '..';
+  const authorRouteHref = `./${normalizedAuthorSlug}`;
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
-  const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
 
   const buildAuthorPageHref = (page: number): string =>
-    page > 1 ? `${authorRoutePath}?page=${page}` : authorRoutePath;
+    page > 1 ? `${authorRouteHref}?page=${page}` : authorRouteHref;
   const buildAuthorPageUrl = (page: number): string =>
     page > 1 ? `${authorPageUrl}?page=${page}` : authorPageUrl;
 
@@ -166,7 +162,7 @@ export async function BlogAuthorPageContent({
         <div className="border-b bg-card">
           <div className="container mx-auto px-4 py-4">
             <Link
-              href={asRoute(`${basePath}/blog`)}
+              href={asRoute(blogRouteHref)}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="size-4" />
@@ -223,7 +219,7 @@ export async function BlogAuthorPageContent({
             {posts.map((post) => (
               <li key={post.id}>
                 <Link
-                  href={asRoute(`${basePath}/blog/${post.slug}`)}
+                  href={asRoute(`../${post.slug}`)}
                   className="block h-full rounded-xl border border-border p-4 transition-colors hover:bg-muted"
                 >
                   {post.featured_image_url && (
