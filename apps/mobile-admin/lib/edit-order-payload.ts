@@ -83,11 +83,23 @@ export interface EditOrderPayloadDraft {
 }
 
 function getOrderItemProductMatchStatus(item: OrderItem) {
-  if (item.is_custom || !item.product_id) {
+  if (item.is_custom) {
     return 'custom';
   }
 
-  return item.product_match_status ?? 'linked';
+  if (item.product_match_status) {
+    return item.product_match_status;
+  }
+
+  return item.product_id ? 'linked' : 'custom';
+}
+
+function getSavedProductMatchStatus(value: unknown, productId: string | null) {
+  return value === 'custom' || value === 'linked' || value === 'unreviewed'
+    ? value
+    : productId
+      ? 'linked'
+      : 'custom';
 }
 
 export function isOrderFinanciallyLocked(
@@ -159,13 +171,11 @@ export function buildEditOrderPayload({
       product_id: item.is_custom ? null : item.product_id,
       product_match_status: getOrderItemProductMatchStatus(item),
       quantity: item.quantity,
-      variant_attributes:
-        item.is_custom || !item.variant_id
-          ? null
-          : (item.variant_attributes ?? null),
+      variant_attributes: item.is_custom
+        ? null
+        : (item.variant_attributes ?? null),
       variant_id: item.is_custom ? null : (item.variant_id ?? null),
-      variant_name:
-        item.is_custom || !item.variant_id ? null : (item.variant_name ?? null),
+      variant_name: item.is_custom ? null : (item.variant_name ?? null),
     })),
     notes: notes.trim() ? sanitizeNotes(notes) : null,
     notify_customer: notifyCustomer,
@@ -205,6 +215,10 @@ export function mapOrderItemsForEdit(items: unknown): OrderItem[] {
       typeof record.product_id === 'string' ? record.product_id : null;
     const variantId =
       typeof record.variant_id === 'string' ? record.variant_id : null;
+    const productMatchStatus = getSavedProductMatchStatus(
+      record.product_match_status,
+      productId
+    );
     const id =
       typeof record.id === 'string'
         ? record.id
@@ -222,18 +236,11 @@ export function mapOrderItemsForEdit(items: unknown): OrderItem[] {
       id,
       image_url:
         typeof record.image_url === 'string' ? record.image_url : undefined,
-      is_custom: productId === null,
+      is_custom: productMatchStatus === 'custom',
       name: typeof record.name === 'string' ? record.name : 'Product',
       price: Number(record.price) || 0,
       product_id: productId,
-      product_match_status:
-        record.product_match_status === 'custom' ||
-        record.product_match_status === 'linked' ||
-        record.product_match_status === 'unreviewed'
-          ? record.product_match_status
-          : productId
-            ? 'linked'
-            : 'custom',
+      product_match_status: productMatchStatus,
       quantity: Number(record.quantity) || 1,
       variant_attributes: normalizeVariantAttributes(record.variant_attributes),
       variant_id: variantId,

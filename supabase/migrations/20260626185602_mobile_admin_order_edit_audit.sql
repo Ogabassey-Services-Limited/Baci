@@ -169,11 +169,13 @@ BEGIN
     o.tax_inclusive_amount,
     o.total,
     o.updated_at,
-    o.wallet_amount_used
+    o.wallet_amount_used,
+    m.vat_registration_status
     INTO v_order
   FROM public.orders AS o
+  JOIN public.merchants AS m ON m.id = o.merchant_id
   WHERE o.id = p_order_id
-  FOR UPDATE;
+  FOR UPDATE OF o;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'order_not_found' USING ERRCODE = 'P0002';
@@ -778,6 +780,88 @@ BEGIN
     updated_at = now()
   WHERE id = p_order_id;
 
+  IF NOT v_items_changed
+    AND (
+      v_tax_amount IS DISTINCT FROM COALESCE(v_order.tax_amount, 0)
+      OR v_tax_exclusive_amount IS DISTINCT FROM v_order.tax_exclusive_amount
+      OR v_tax_inclusive_amount IS DISTINCT FROM v_order.tax_inclusive_amount
+    )
+  THEN
+    DELETE FROM public.order_tax_subtotals
+    WHERE order_id = p_order_id;
+
+    IF v_order.vat_registration_status = 'registered' THEN
+      WITH grouped_taxable AS (
+        SELECT
+          COALESCE(NULLIF(oi.vat_category_code, ''), 'S') AS vat_category_code,
+          COALESCE(oi.vat_rate, 7.5) AS vat_rate,
+          COALESCE(
+            SUM(
+              COALESCE(
+                oi.line_extension_amount,
+                ROUND(oi.quantity * oi.price, 2)
+              )
+            ),
+            0
+          ) AS taxable_amount
+        FROM public.order_items oi
+        WHERE oi.order_id = p_order_id
+        GROUP BY
+          COALESCE(NULLIF(oi.vat_category_code, ''), 'S'),
+          COALESCE(oi.vat_rate, 7.5)
+      ),
+      allocated_tax AS (
+        SELECT
+          gt.vat_category_code,
+          gt.vat_rate,
+          gt.taxable_amount,
+          SUM(gt.taxable_amount) OVER () AS total_taxable_amount,
+          ROW_NUMBER() OVER (ORDER BY gt.vat_category_code, gt.vat_rate) AS allocation_row_number,
+          COUNT(*) OVER () AS allocation_row_count
+        FROM grouped_taxable gt
+      ),
+      balanced_tax AS (
+        SELECT
+          allocated.vat_category_code,
+          allocated.vat_rate,
+          allocated.taxable_amount,
+          CASE
+            WHEN allocated.allocation_row_count = 1 THEN v_tax_amount
+            WHEN allocated.total_taxable_amount = 0
+              THEN CASE
+                WHEN allocated.allocation_row_number = allocated.allocation_row_count THEN v_tax_amount
+                ELSE 0
+              END
+            WHEN allocated.allocation_row_number = allocated.allocation_row_count THEN
+              v_tax_amount - COALESCE(
+                SUM(ROUND(v_tax_amount * allocated.taxable_amount / allocated.total_taxable_amount, 2))
+                  OVER (
+                    ORDER BY allocated.allocation_row_number
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                  ),
+                0
+              )
+            ELSE ROUND(v_tax_amount * allocated.taxable_amount / allocated.total_taxable_amount, 2)
+          END AS allocated_tax_amount
+        FROM allocated_tax allocated
+      )
+      INSERT INTO public.order_tax_subtotals (
+        order_id,
+        vat_category_code,
+        vat_rate,
+        taxable_amount,
+        tax_amount
+      )
+      SELECT
+        p_order_id,
+        bt.vat_category_code,
+        bt.vat_rate,
+        bt.taxable_amount,
+        bt.allocated_tax_amount
+      FROM balanced_tax bt;
+    END IF;
+  END IF;
+
   IF v_items_changed THEN
     DELETE FROM public.order_items
     WHERE order_id = p_order_id;
@@ -847,9 +931,11 @@ BEGIN
     o.tax_inclusive_amount,
     o.total,
     o.updated_at,
-    o.wallet_amount_used
+    o.wallet_amount_used,
+    m.vat_registration_status
     INTO v_order
   FROM public.orders AS o
+  JOIN public.merchants AS m ON m.id = o.merchant_id
   WHERE o.id = p_order_id;
 
   v_after := jsonb_build_object(

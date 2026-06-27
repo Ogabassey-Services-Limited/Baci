@@ -887,6 +887,105 @@ BEGIN
   DELETE FROM public.variant_inventory
   WHERE id = '00000000-0000-4000-8000-00000000a601'::uuid;
 
+  UPDATE public.merchants
+  SET vat_registration_status = 'registered'
+  WHERE id = v_merchant_id;
+
+  INSERT INTO public.order_tax_subtotals (
+    order_id,
+    vat_category_code,
+    vat_rate,
+    taxable_amount,
+    tax_amount
+  ) VALUES (
+    v_order_id,
+    'S',
+    7.5,
+    999,
+    1
+  );
+
+  v_result := public.update_admin_order(
+    v_order_id,
+    jsonb_build_object(
+      'branch_id', null,
+      'customer', jsonb_build_object(
+        'id', v_customer_id,
+        'name', 'Ada Buyer',
+        'email', 'ada@example.com',
+        'phone', '+2348099999999'
+      ),
+      'discount_amount', 0,
+      'gift_wrapping_fee', 0,
+      'items', jsonb_build_array(
+        jsonb_build_object(
+          'condition', 'new',
+          'image_url', 'https://cdn.example.test/s26-updated.jpg',
+          'item_description', 'Updated snapshot',
+          'name', 'Samsung Galaxy S26',
+          'price', 1000000,
+          'product_id', v_product_id,
+          'product_match_status', 'linked',
+          'quantity', 3,
+          'variant_id', v_variant_id,
+          'variant_attributes', '{"color": "Black", "storage": "512GB"}'::jsonb,
+          'variant_name', 'Black / 512GB'
+        )
+      ),
+      'notes', 'Updated line id only guard',
+      'notify_customer', false,
+      'shipping_address', jsonb_build_object(
+        'address', '12 Allen Avenue',
+        'city', 'Ikeja',
+        'name', 'Ada Buyer',
+        'phone', '+2348099999999',
+        'state', 'Lagos'
+      ),
+      'shipping_fee', 2500,
+      'source', 'physical',
+      'tax_amount', 225000
+    )
+  );
+
+  IF v_result ->> 'change_category' <> 'financial' THEN
+    RAISE EXCEPTION 'expected tax-only edit to be financial, got %', v_result;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.orders
+    WHERE id = v_order_id
+      AND tax_amount = 225000
+      AND tax_exclusive_amount = 3000000
+      AND tax_inclusive_amount = 3225000
+  ) THEN
+    RAISE EXCEPTION 'tax-only edit did not update order tax breakdown';
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM public.order_tax_subtotals
+    WHERE order_id = v_order_id
+      AND vat_category_code = 'S'
+      AND vat_rate = 7.5
+      AND taxable_amount = 3000000
+      AND tax_amount = 225000
+  ) <> 1 THEN
+    RAISE EXCEPTION 'tax-only edit did not rebuild tax subtotals';
+  END IF;
+
+  IF (
+    SELECT COALESCE(SUM(tax_amount), 0)
+    FROM public.order_tax_subtotals
+    WHERE order_id = v_order_id
+  ) IS DISTINCT FROM (
+    SELECT tax_amount
+    FROM public.orders
+    WHERE id = v_order_id
+  ) THEN
+    RAISE EXCEPTION 'tax subtotal total no longer matches order tax amount';
+  END IF;
+
   UPDATE public.orders
   SET payment_status = 'paid'
   WHERE id = v_order_id;

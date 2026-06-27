@@ -205,7 +205,7 @@ describe('buildEditOrderPayload', () => {
     });
   });
 
-  it('nulls variant snapshot fields when a linked item has no variant id', () => {
+  it('preserves variant snapshot fields when a linked item has no variant id', () => {
     const payload = buildPayload({
       orderItems: [
         {
@@ -218,13 +218,13 @@ describe('buildEditOrderPayload', () => {
     });
 
     expect(payload.items[0]).toMatchObject({
-      variant_attributes: null,
+      variant_attributes: { color: 'Blue' },
       variant_id: null,
-      variant_name: null,
+      variant_name: 'Blue',
     });
   });
 
-  it('normalizes unlinked legacy items to custom before submit', () => {
+  it('preserves unreviewed product match status before submit', () => {
     const payload = buildPayload({
       orderItems: [
         {
@@ -238,7 +238,7 @@ describe('buildEditOrderPayload', () => {
 
     expect(payload.items[0]).toMatchObject({
       product_id: null,
-      product_match_status: 'custom',
+      product_match_status: 'unreviewed',
     });
   });
 
@@ -298,6 +298,35 @@ describe('edit order prefill helpers', () => {
         variant_id: 'variant-1',
         variant_name: 'Black',
       },
+    ]);
+  });
+
+  it('keeps product-less unreviewed snapshots distinct from custom items', () => {
+    expect(
+      mapOrderItemsForEdit([
+        {
+          id: 'item-2',
+          item_description: 'Imported line',
+          name: 'Imported Samsung',
+          price: 1200,
+          product_id: null,
+          product_match_status: 'unreviewed',
+          quantity: 1,
+          variant_attributes: { color: 'Silver', storage: '256GB' },
+          variant_id: null,
+          variant_name: 'Silver / 256GB',
+        },
+      ])
+    ).toEqual([
+      expect.objectContaining({
+        id: 'item-2',
+        is_custom: false,
+        product_id: null,
+        product_match_status: 'unreviewed',
+        variant_attributes: { color: 'Silver', storage: '256GB' },
+        variant_id: null,
+        variant_name: 'Silver / 256GB',
+      }),
     ]);
   });
 
