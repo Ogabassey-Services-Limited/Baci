@@ -24,7 +24,7 @@ export function BlogVideoPanel({ video }: BlogVideoPanelProps) {
           </h2>
         </div>
         <a
-          className="text-sm font-semibold text-store-primary underline underline-offset-4"
+          className="rounded-sm text-sm font-semibold text-store-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2 focus-visible:ring-offset-store-background"
           href={video.watchUrl}
           rel="noopener noreferrer"
           target="_blank"
@@ -35,7 +35,7 @@ export function BlogVideoPanel({ video }: BlogVideoPanelProps) {
       <div className="overflow-hidden rounded-2xl border border-store-border bg-store-background-text/10">
         <a
           aria-label={`Open video on YouTube: ${video.title}`}
-          className="group relative block aspect-video w-full overflow-hidden"
+          className="group relative block aspect-video w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-store-primary"
           href={video.watchUrl}
           rel="noopener noreferrer"
           target="_blank"
