@@ -37,6 +37,6 @@ Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks 
 Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
 Source: Baci Monorepo Context Guidelines
 2026-06-25 — [Builder Drafts Update Scope Fix]
-Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks if not explicitly constrained with `.eq('merchant_id', merchantId)`.
-Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
-Source: Baci Monorepo Context Guidelines
+Learning: Builder draft publishes and saves write to `page_configs`, so the final Supabase `.update()` must be constrained by both the page-config ID and the authenticated merchant context.
+Action: For builder draft mutations, keep `.eq('id', configId)` and `.eq('merchant_id', merchantId)` together before checking mutation errors.
+Source: `apps/web/src/app/api/builder/builder-route-utils.ts`
