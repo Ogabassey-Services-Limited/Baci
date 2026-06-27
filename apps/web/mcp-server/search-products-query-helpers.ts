@@ -13,6 +13,7 @@ export type McpSearchProductRow = {
   has_condition_offers?: boolean | null;
   has_variants?: boolean | null;
   images?: unknown;
+  manage_stock?: boolean | null;
   name?: string | null;
   price?: number | null;
   slug?: string | null;
@@ -38,18 +39,7 @@ export function getConditionPrefilterClauses(condition: string) {
       : normalized === 'used'
         ? ['used', 'uk_used']
         : ['new'];
-  const clauses = new Set<string>();
-
-  for (const rawCondition of rawConditions) {
-    clauses.add(`condition.eq.${rawCondition}`);
-    clauses.add(`available_conditions.cs.{${rawCondition}}`);
-  }
-
-  if (normalized === 'new' || normalized === 'used') {
-    clauses.add('has_condition_offers.eq.true');
-  }
-
-  return Array.from(clauses);
+  return rawConditions.map((rawCondition) => `condition.eq.${rawCondition}`);
 }
 
 export function matchesConditionFamily(
@@ -62,10 +52,8 @@ export function matchesConditionFamily(
 
   return storefrontProductFilters.matchesStorefrontConditionFilter(
     {
-      available_conditions: product.available_conditions,
       condition:
         typeof product.condition === 'string' ? product.condition : null,
-      has_condition_offers: product.has_condition_offers === true,
     },
     condition
   );

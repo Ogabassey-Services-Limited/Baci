@@ -42,7 +42,9 @@ import {
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
 import { registerAgenticUcpTools } from './agentic-ucp-tools';
+import { resolveMcpSearchProductCondition } from './product-condition-filter';
 import { loadMcpSearchProducts } from './search-products-query';
+import { getMcpProductStockSummary } from './product-stock-summary';
 
 // =============================================================================
 // CONFIGURATION
@@ -76,6 +78,13 @@ type ConfiguredAgenticCheckoutClientConfig = AgenticCheckoutClientConfig & {
   apiKey: string;
   signingKey: string;
 };
+
+interface McpProductVariantRow {
+  attributes: Record<string, unknown> | null;
+  price_override?: number | null;
+  product_id: string;
+  stock_quantity?: number | null;
+}
 
 function getAgenticCredential(primaryName: string, legacyName: string) {
   const primary = process.env[primaryName]?.trim();
@@ -1274,28 +1283,28 @@ function createOgabasseyServer() {
         const productIds = products
           .filter((p) => p.has_variants)
           .map((p) => p.id);
-        const variantsMap = new Map<string, any[]>();
+        const variantsMap = new Map<string, McpProductVariantRow[]>();
 
         if (productIds.length > 0) {
-          const { data: variants } = await supabase
+          const { data: variants, error: variantsError } = await supabase
             .from('product_variants')
             .select('product_id, attributes, stock_quantity, price_override')
             .in('product_id', productIds)
-            .gt('stock_quantity', 0); // Only available variants
+            .eq('merchant_id', merchantId);
 
-          variants?.forEach((v) => {
-            const current = variantsMap.get(v.product_id) || [];
-            variantsMap.set(v.product_id, [...current, v]);
+          if (variantsError) {
+            throw variantsError;
+          }
+
+          (variants as McpProductVariantRow[] | null)?.forEach((variant) => {
+            const current = variantsMap.get(variant.product_id) || [];
+            variantsMap.set(variant.product_id, [...current, variant]);
           });
         }
 
         // 3. Buyer Intelligence & Formatting
         const formatted = products.map((p) => {
-          // Inventory Confidence
-          let stockLevel = 'Out of Stock';
-          if (p.stock_quantity > 10) stockLevel = 'High Stock';
-          else if (p.stock_quantity > 5) stockLevel = 'Low Stock';
-          else if (p.stock_quantity > 0) stockLevel = 'Last Units';
+          const stockSummary = getMcpProductStockSummary(p);
 
           // Price Intelligence
           const isDiscounted =
@@ -1303,7 +1312,11 @@ function createOgabasseyServer() {
           const priceTrend = isDiscounted ? 'falling' : 'stable';
 
           // Variant Summary (e.g., "Available in: Black, White")
-          const variants = variantsMap.get(p.id) || [];
+          const variants = (variantsMap.get(p.id) || []).filter(
+            (variant) =>
+              p.manage_stock !== true ||
+              Number(variant.stock_quantity ?? 0) > 0
+          );
           const variantOptions: Record<string, Set<string>> = {};
           variants.forEach((v) => {
             Object.entries(v.attributes || {}).forEach(([key, val]) => {
@@ -1322,19 +1335,14 @@ function createOgabasseyServer() {
             price: p.price,
             compare_at_price: p.compare_at_price,
             image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
-            condition: p.condition || 'new',
+            condition: resolveMcpSearchProductCondition(p, args.condition),
             brand: p.brand,
             category: p.category,
-            in_stock: p.stock_quantity > 0,
+            in_stock: stockSummary.inStock,
 
             // New Intelligence Fields
-            stock_level: stockLevel,
-            stock_confidence:
-              p.stock_quantity > 0
-                ? p.stock_quantity > 5
-                  ? 'high'
-                  : 'low'
-                : 'none',
+            stock_level: stockSummary.level,
+            stock_confidence: stockSummary.confidence,
             price_trend: priceTrend,
             available_variants: availableOptions || 'Standard',
             warranty: 'Standard Warranty',
@@ -1345,7 +1353,18 @@ function createOgabasseyServer() {
 
         // 4. Construct Response
         const count = formatted.length;
-        const resultText = `Found ${count} available products. Top match: ${formatted[0].name} (${formatted[0].stock_level}).`;
+        if (count === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No specific products found for "${sanitizedQuery || 'your criteria'}". Try broader terms.`,
+              },
+            ],
+            structuredContent: { products: [], status: 'empty' },
+          };
+        }
+        const resultText = `Found ${count} products. Top match: ${formatted[0].name} (${formatted[0].stock_level}).`;
 
         return {
           content: [{ type: 'text', text: resultText }],
