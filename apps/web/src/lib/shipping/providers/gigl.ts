@@ -260,6 +260,10 @@ export class GiglProvider extends BaseShippingProvider {
     this.tokenRequest = this.fetchApiToken().finally(() => {
       this.tokenRequest = null;
     });
+    // Callers may race this shared request against their own timeout/signal.
+    // Keep the underlying refresh independent, but mark late failures as
+    // observed so an abandoned refresh cannot become an unhandled rejection.
+    void this.tokenRequest.catch(() => undefined);
 
     return this.withTokenRequestTimeout(this.tokenRequest, timeout, signal);
   }

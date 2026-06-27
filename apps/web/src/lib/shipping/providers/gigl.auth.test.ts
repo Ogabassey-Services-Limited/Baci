@@ -94,6 +94,44 @@ describe('GiglProvider authentication and configuration', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('observes late token refresh failures after caller timeout', async () => {
+    process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
+    vi.resetModules();
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const lateFailure = new Error('late login failure');
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((_resolve, reject) => {
+          setTimeout(() => reject(lateFailure), 50);
+        })
+    );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    try {
+      const quotePromise = provider.getQuotes(quoteRequest);
+
+      await vi.advanceTimersByTimeAsync(25);
+      await expect(quotePromise).resolves.toEqual([]);
+
+      await vi.advanceTimersByTimeAsync(25);
+      await Promise.resolve();
+
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.removeListener('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('keeps shared token refresh independent of a quote timeout', async () => {
     process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
     vi.resetModules();
