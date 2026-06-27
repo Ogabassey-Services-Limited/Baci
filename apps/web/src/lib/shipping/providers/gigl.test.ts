@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { QuoteRequest } from '@/lib/shipping/types';
+import type { BookingRequest, QuoteRequest } from '@/lib/shipping/types';
+
+const baseUrl = 'https://dev-thirdpartynode.theagilitysystems.com';
 
 const loginResponse = {
   success: true,
@@ -11,6 +13,19 @@ const loginResponse = {
       UserChannelCode: 'ECO038082',
       UserChannelType: 2,
       CustomerType: 0,
+    },
+  },
+};
+
+const loginResponseWithoutCustomerType = {
+  success: true,
+  data: {
+    message: 'Success',
+    status: 200,
+    data: {
+      'access-token': 'test-access-token',
+      UserChannelCode: 'ECO038082',
+      UserChannelType: 2,
     },
   },
 };
@@ -45,6 +60,15 @@ const stationsResponse = {
   },
 };
 
+const failedStationsEnvelope = {
+  success: true,
+  data: {
+    message: 'Provider unavailable',
+    status: 503,
+    data: null,
+  },
+};
+
 const priceResponse = {
   success: true,
   data: {
@@ -56,6 +80,17 @@ const priceResponse = {
       PickupCharge: 300,
       InsuranceValue: 141.43,
       DeclaredValue: 100000,
+    },
+  },
+};
+
+const bookingResponse = {
+  success: true,
+  data: {
+    message: 'Success',
+    status: 200,
+    data: {
+      Waybill: 'GIGL-WB-1',
     },
   },
 };
@@ -92,10 +127,53 @@ const quoteRequest: QuoteRequest = {
   ],
 };
 
+const bookingRequest: BookingRequest = {
+  orderId: 'order-1',
+  quoteId: 'quote-1',
+  providerRateId: 'GIGL_30_1',
+  sender: {
+    name: 'Ogabassey',
+    phone: '08000000000',
+    address: 'Ikeja, Lagos',
+    city: 'Lagos',
+    state: 'Lagos',
+    country: 'Nigeria',
+    countryCode: 'NG',
+    latitude: 0,
+    longitude: 0,
+  },
+  receiver: {
+    name: 'Customer',
+    phone: '08000000001',
+    address: 'Port Harcourt, Rivers',
+    city: 'Port Harcourt',
+    state: 'Rivers',
+    country: 'Nigeria',
+    countryCode: 'NG',
+    latitude: 0,
+    longitude: 0,
+  },
+  items: [
+    {
+      name: 'Phone',
+      description: 'Phone',
+      quantity: 1,
+      weight: 1,
+      value: 100000,
+    },
+  ],
+};
+
+function jsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 describe('GiglProvider', () => {
   beforeEach(() => {
-    process.env.GIGL_BASE_URL =
-      'https://dev-thirdpartynode.theagilitysystems.com';
+    process.env.GIGL_BASE_URL = baseUrl;
     process.env.GIGL_EMAIL = 'test@example.com';
     process.env.GIGL_PASSWORD = 'test-password';
     vi.resetModules();
@@ -105,6 +183,8 @@ describe('GiglProvider', () => {
     delete process.env.GIGL_BASE_URL;
     delete process.env.GIGL_EMAIL;
     delete process.env.GIGL_PASSWORD;
+    delete process.env.GIGL_QUOTE_TIMEOUT_MS;
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -242,5 +322,148 @@ describe('GiglProvider', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       'https://dev-thirdpartynode.theagilitysystems.com/track/mobileShipment?Waybill=GIGL123'
     );
+  });
+
+  it('falls back to UserChannelType when CustomerType is absent', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(jsonResponse(priceResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    const quotes = await provider.getQuotes(quoteRequest);
+
+    expect(quotes).toHaveLength(1);
+    const pricePayload = JSON.parse(
+      String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
+    );
+    expect(pricePayload.CustomerType).toBe(2);
+  });
+
+  it('does not cache a failed station envelope as an empty station list', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(failedStationsEnvelope))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(jsonResponse(priceResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `${baseUrl}/login`,
+      `${baseUrl}/localstations/get`,
+      `${baseUrl}/localstations/get`,
+      `${baseUrl}/price`,
+    ]);
+  });
+
+  it('books the selected station-pickup quote semantics', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(jsonResponse(bookingResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    const result = await provider.bookShipment(bookingRequest);
+
+    const bookingPayload = JSON.parse(
+      String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
+    );
+    expect(bookingPayload).toMatchObject({
+      SenderDetails: {
+        SenderLocation: {
+          Latitude: 0,
+          Longitude: 0,
+        },
+      },
+      ReceiverDetails: {
+        ReceiverStationId: 30,
+        ReceiverLocation: {
+          Latitude: 0,
+          Longitude: 0,
+        },
+      },
+      ShipmentDetails: {
+        PickUpOptions: 1,
+        DeliveryOptionIds: [11],
+      },
+    });
+    expect(result).toMatchObject({
+      provider: 'GIGL',
+      trackingNumber: 'GIGL-WB-1',
+      isStationPickup: true,
+      pickupStationName: 'PORT HARCOURT',
+      pickupStationAddress: 'Port Harcourt station',
+    });
+  });
+
+  it('rejects station-pickup bookings when the selected station cannot be resolved', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(
+      provider.bookShipment({
+        ...bookingRequest,
+        providerRateId: 'GIGL_999_1',
+      })
+    ).rejects.toThrow('Selected GIGL station was not found');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not call GIGL when credentials are missing', async () => {
+    delete process.env.GIGL_EMAIL;
+    delete process.env.GIGL_PASSWORD;
+    vi.resetModules();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('returns quickly when GIGL quote requests hang', async () => {
+    process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
+    vi.resetModules();
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>(() => {
+            // Intentionally unresolved to exercise the provider-level timeout.
+          })
+      )
+    );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+    const quotePromise = provider.getQuotes(quoteRequest);
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expect(quotePromise).resolves.toEqual([]);
   });
 });
