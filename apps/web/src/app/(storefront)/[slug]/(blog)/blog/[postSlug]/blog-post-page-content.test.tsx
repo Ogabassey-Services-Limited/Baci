@@ -467,7 +467,7 @@ describe('BlogPostPageContent', () => {
     expect(mockSafeJsonLdStringify).toHaveBeenCalledWith(
       expect.objectContaining({
         '@type': 'VideoObject',
-        embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+        embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
         thumbnailUrl: [
           'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
           'https://i.ytimg.com/vi/tp-AlU5FVpE/maxresdefault.jpg',
@@ -478,7 +478,7 @@ describe('BlogPostPageContent', () => {
     expect(mockBlogPostBody).toHaveBeenCalledWith(
       expect.objectContaining({
         video: expect.objectContaining({
-          embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+          embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
           videoId: 'tp-AlU5FVpE',
           watchUrl: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
         }),

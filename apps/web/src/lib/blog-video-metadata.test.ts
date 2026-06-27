@@ -15,7 +15,7 @@ describe('buildBlogVideoMetadata', () => {
     const metadata = buildBlogVideoMetadata(baseInput);
 
     expect(metadata?.video).toEqual({
-      embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
       thumbnailUrl: 'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
       title: 'Google Pixel 9 Pro Fold Unboxing',
       videoId: 'tp-AlU5FVpE',
@@ -23,7 +23,7 @@ describe('buildBlogVideoMetadata', () => {
     });
     expect(metadata?.schema).toMatchObject({
       '@type': 'VideoObject',
-      embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
       mainEntityOfPage: {
         '@id': 'https://ogabassey.com/blog/pixel-9-pro-fold-unboxing',
       },
@@ -76,6 +76,45 @@ describe('buildBlogVideoMetadata', () => {
 
     expect(embedMetadata?.video.videoId).toBe('tp-AlU5FVpE');
     expect(shortsMetadata?.video.videoId).toBe('tp-AlU5FVpE');
+  });
+
+  it('detects mobile YouTube links and links near the bottom of long TipTap content', () => {
+    const mobileMetadata = buildBlogVideoMetadata({
+      ...baseInput,
+      content: 'https://m.youtube.com/watch?v=tp-AlU5FVpE',
+    });
+    expect(mobileMetadata?.video.videoId).toBe('tp-AlU5FVpE');
+
+    const longTipTapContent = {
+      type: 'doc',
+      content: [
+        ...Array.from({ length: 160 }, (_, index) => ({
+          type: 'paragraph',
+          content: [{ type: 'text', text: `Paragraph ${index}` }],
+        })),
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Watch the video',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: { href: 'https://youtu.be/tp-AlU5FVpE' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const deepMetadata = buildBlogVideoMetadata({
+      ...baseInput,
+      content: longTipTapContent,
+    });
+    expect(deepMetadata?.video.videoId).toBe('tp-AlU5FVpE');
   });
 
   it('returns null when there is no valid YouTube video or upload date', () => {

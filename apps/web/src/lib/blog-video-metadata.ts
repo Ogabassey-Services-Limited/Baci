@@ -2,9 +2,9 @@ import { stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaUrl } from './sanitize-json-ld';
 
 const YOUTUBE_URL_REGEX =
-  /https?:\/\/(?:www\.)?(?:youtube(?:-nocookie)?\.com|youtu\.be)\/[^\s"'<>)]*/gi;
+  /https?:\/\/(?:(?:[A-Za-z0-9-]+\.)?youtube(?:-nocookie)?\.com|youtu\.be)\/[^\s"'<>)]*/gi;
 const YOUTUBE_ID_REGEX = /^[A-Za-z0-9_-]{11}$/;
-const MAX_CONTENT_STRINGS = 120;
+const MAX_VIDEO_CANDIDATE_STRINGS = 20;
 const MAX_TEXT_LENGTH = 500;
 
 type BlogVideoMetadata = {
@@ -42,24 +42,26 @@ function normalizeIsoDate(value: string | null | undefined): string | null {
   return date.toISOString();
 }
 
-function collectStringValues(
+function collectYouTubeCandidateStrings(
   value: unknown,
   output: string[],
   depth = 0
 ): string[] {
-  if (output.length >= MAX_CONTENT_STRINGS || depth > 12) {
+  if (output.length >= MAX_VIDEO_CANDIDATE_STRINGS || depth > 12) {
     return output;
   }
 
   if (typeof value === 'string') {
-    output.push(value);
+    if (/youtu/i.test(value)) {
+      output.push(value);
+    }
     return output;
   }
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      collectStringValues(item, output, depth + 1);
-      if (output.length >= MAX_CONTENT_STRINGS) {
+      collectYouTubeCandidateStrings(item, output, depth + 1);
+      if (output.length >= MAX_VIDEO_CANDIDATE_STRINGS) {
         break;
       }
     }
@@ -68,8 +70,8 @@ function collectStringValues(
 
   if (value && typeof value === 'object') {
     for (const item of Object.values(value as Record<string, unknown>)) {
-      collectStringValues(item, output, depth + 1);
-      if (output.length >= MAX_CONTENT_STRINGS) {
+      collectYouTubeCandidateStrings(item, output, depth + 1);
+      if (output.length >= MAX_VIDEO_CANDIDATE_STRINGS) {
         break;
       }
     }
@@ -79,7 +81,7 @@ function collectStringValues(
 }
 
 function extractYouTubeUrls(content: unknown): string[] {
-  return collectStringValues(content, []).flatMap((value) => {
+  return collectYouTubeCandidateStrings(content, []).flatMap((value) => {
     const normalizedValue = value.replace(/&amp;/g, '&');
     return [...normalizedValue.matchAll(YOUTUBE_URL_REGEX)].map((match) =>
       match[0].replace(/[.,;:!?]+$/, '')
@@ -169,7 +171,7 @@ export function buildBlogVideoMetadata(input: {
   const title = normalizeText(input.title, 'Article video');
   const description = normalizeText(input.description, title);
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`;
   const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
   const thumbnailUrls = [
     thumbnailUrl,

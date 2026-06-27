@@ -7,7 +7,7 @@ describe('BlogVideoPanel', () => {
     render(
       <BlogVideoPanel
         video={{
-          embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+          embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
           thumbnailUrl: 'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
           title: 'Pixel 9 Pro Fold Unboxing',
           watchUrl: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
@@ -22,7 +22,7 @@ describe('BlogVideoPanel', () => {
     ).toBeInTheDocument();
     expect(frame).toHaveAttribute(
       'src',
-      'https://www.youtube.com/embed/tp-AlU5FVpE'
+      'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE'
     );
     expect(frame).toHaveAttribute('loading', 'lazy');
     expect(

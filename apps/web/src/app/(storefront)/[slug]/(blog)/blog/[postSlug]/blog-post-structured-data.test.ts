@@ -35,7 +35,7 @@ describe('buildBlogPostStructuredData', () => {
 
     expect(data.videoMetadata?.schema).toMatchObject({
       '@type': 'VideoObject',
-      embedUrl: 'https://www.youtube.com/embed/tp-AlU5FVpE',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
       uploadDate: '2026-06-25T08:00:00.000Z',
     });
     expect(data.blogSchema).toMatchObject({
