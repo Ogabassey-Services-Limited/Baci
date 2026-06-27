@@ -1,19 +1,5 @@
 import type { OrderItem } from '@/components/orders/new-order.types';
-
-const priceFormatterCache = new Map<string, Intl.NumberFormat>();
-
-function getPriceFormatter(currency: string): Intl.NumberFormat {
-  let formatter = priceFormatterCache.get(currency);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-NG', {
-      currency,
-      minimumFractionDigits: 2,
-      style: 'currency',
-    });
-    priceFormatterCache.set(currency, formatter);
-  }
-  return formatter;
-}
+import { formatCurrency, getCurrencySymbol } from './utils';
 
 export interface NewOrderTotalsParams {
   discount: number;
@@ -36,9 +22,10 @@ export function createNewOrderTotals({
 }: NewOrderTotalsParams) {
   const formatPrice = (amount: number) => {
     try {
-      return getPriceFormatter(merchantCurrency || 'NGN').format(amount);
+      return formatCurrency(amount, undefined, merchantCurrency || undefined);
     } catch {
-      return `₦${amount.toFixed(2)}`;
+      const symbol = getCurrencySymbol(merchantCurrency || undefined);
+      return `${symbol}${amount.toFixed(2)}`;
     }
   };
 
