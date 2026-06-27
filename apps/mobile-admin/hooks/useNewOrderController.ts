@@ -23,15 +23,21 @@ import { useCreateCustomer } from '@/hooks/useCustomers';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { createNewOrderTotals } from '@/lib/new-order-totals';
+import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
+import type { UseNewOrderControllerOptions } from './useNewOrderControllerOptions';
 import { useOrderBranchSelection } from './useOrderBranchSelection';
 import { useQuickAddProductMatches } from './useQuickAddProductMatches';
 
-export function useNewOrderController() {
+export function useNewOrderController({
+  autoApplyVat = true,
+  autoSelectDefaultBranch = true,
+  initialSelectedChannel = 'physical',
+}: UseNewOrderControllerOptions = {}) {
   const { colors, shadows } = useTheme();
   const { merchant } = useMerchant();
   const { user } = useAuth();
@@ -40,15 +46,12 @@ export function useNewOrderController() {
   const queryClient = useQueryClient();
   const createCustomerMutation = useCreateCustomer();
 
-  // State
   const [date, setDate] = useState(new Date());
   const [selectedChannel, setSelectedChannel] =
-    useState<OrderSource>('physical');
+    useState<OrderSource | null>(initialSelectedChannel);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
-  const [customer, setCustomer] = useState<CustomerInfo>(
-    createEmptyCustomerInfo
-  );
+  const [customer, setCustomer] = useState<CustomerInfo>(createEmptyCustomerInfo);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,20 +65,17 @@ export function useNewOrderController() {
   const [shippingFee, setShippingFee] = useState(0);
   const [taxes, setTaxes] = useState(0);
 
-  // Initialize VAT status from merchant, and re-enable it during render when
-  // the merchant's registration status loads/changes (no effect round-trip).
   const isVatRegistered = merchant?.vat_registration_status === 'registered';
   const [isVatApplied, setIsVatApplied] = useState(isVatRegistered);
   const [prevIsVatRegistered, setPrevIsVatRegistered] =
     useState(isVatRegistered);
   if (isVatRegistered !== prevIsVatRegistered) {
     setPrevIsVatRegistered(isVatRegistered);
-    if (isVatRegistered) {
+    if (autoApplyVat && isVatRegistered) {
       setIsVatApplied(true);
     }
   }
 
-  // Search & Form
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
     useState<SelectedParentProduct>(null);
@@ -112,12 +112,11 @@ export function useNewOrderController() {
   const [duplicateCustomer, setDuplicateCustomer] =
     useState<SelectableCustomer | null>(null);
   const { defaultBranchId } = useOrderBranchSelection({
+    enabled: autoSelectDefaultBranch,
     branches,
     scope,
     setSelectedBranchId,
   });
-
-  // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
   const [deliveryInfo, setDeliveryInfo] = useState(createEmptyDeliveryInfo);
 
@@ -140,7 +139,10 @@ export function useNewOrderController() {
   const isPickingVariant = selectedParentProduct !== null;
   const selectableProductRows: SelectableOrderProduct[] = isPickingVariant
     ? (selectedParentProductVariantsData ?? [])
-    : filteredProducts;
+    : filteredProducts.map((product) => ({
+        ...product,
+        variant_attributes: normalizeVariantAttributes(product.variant_attributes),
+      }));
 
   const productActions = createNewOrderProductActions({
     customItem,
@@ -181,7 +183,7 @@ export function useNewOrderController() {
       paymentStatus,
       queryClient,
       sameAsCustomer,
-      selectedChannel,
+      selectedChannel: selectedChannel ?? 'physical',
       selectedBranchId,
       setIsSubmitting,
       setLastOrderId: uiState.setLastOrderId,

@@ -1,6 +1,5 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { OrderItemDetailModal } from '@/components/orders/OrderItemDetailModal';
 import { OrderPaymentOptionDialog } from '@/components/orders/OrderPaymentOptionDialog';
 import { OrderStatusSheet } from '@/components/orders/OrderStatusSheet';
@@ -10,7 +9,9 @@ import { ShipOnCreditDialog } from '@/components/orders/ShipOnCreditDialog';
 import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import type { useOrderDetailsController } from '@/hooks/useOrderDetailsController';
+import { OrderAuditTrailCard } from './OrderAuditTrailCard';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
+import { OrderDetailsHeaderActions } from './OrderDetailsHeaderActions';
 import { OrderDetailsItemsAndPaymentSection } from './OrderDetailsItemsAndPaymentSection';
 import { OrderDetailsOverviewSection } from './OrderDetailsOverviewSection';
 import { OrderDetailsShippingSection } from './OrderDetailsShippingSection';
@@ -27,6 +28,9 @@ export function OrderDetailsScreenContent({
   if (!order) {
     return null;
   }
+  const canEditOrder = !['cancelled', 'returned'].includes(
+    String(order.shipping_status)
+  );
 
   return (
     <View style={{ backgroundColor: controller.colors.background, flex: 1 }}>
@@ -38,21 +42,12 @@ export function OrderDetailsScreenContent({
           headerStyle: { backgroundColor: controller.colors.background },
           headerTintColor: controller.colors.text,
           headerRight: () => (
-            <Pressable
-              accessibilityLabel="Share order"
-              accessibilityRole="button"
-              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
-              onPress={() => {
-                void controller.handleShare();
-              }}
-              style={{ padding: 4 }}
-            >
-              <Ionicons
-                name="share-outline"
-                size={24}
-                color={controller.colors.primary}
-              />
-            </Pressable>
+            <OrderDetailsHeaderActions
+              canEditOrder={canEditOrder}
+              colors={controller.colors}
+              onShare={controller.handleShare}
+              orderId={order.id}
+            />
           ),
         }}
       />
@@ -70,9 +65,7 @@ export function OrderDetailsScreenContent({
           onSendOrderDetailsToRider={() => {
             void controller.handleSendOrderDetailsToRider();
           }}
-          onSendReceipt={() => {
-            void controller.handleSendReceipt();
-          }}
+          onSendReceipt={() => void controller.handleSendReceipt()}
           onSendRiderToCustomer={controller.handleSendRiderToCustomer}
           onWhatsApp={controller.handleWhatsApp}
           recordedByName={order.recorded_by_name}
@@ -102,9 +95,7 @@ export function OrderDetailsScreenContent({
               controller.setShowRecordPaymentModal(true);
             }
           }}
-          onRequestPayment={() => {
-            void controller.handleSendReminder();
-          }}
+          onRequestPayment={() => void controller.handleSendReminder()}
           onSelectItem={(item) =>
             controller.setSelectedOrderItem({
               ...item,
@@ -123,6 +114,14 @@ export function OrderDetailsScreenContent({
         <OrderDetailsShippingSection
           address={controller.formatAddress(order.shipping_address)}
           colors={controller.colors}
+        />
+
+        <OrderAuditTrailCard
+          colors={controller.colors}
+          events={controller.auditEvents}
+          formatDate={controller.formatDate}
+          isError={controller.isAuditEventsError}
+          isLoading={controller.isAuditEventsLoading}
         />
       </ScrollView>
 

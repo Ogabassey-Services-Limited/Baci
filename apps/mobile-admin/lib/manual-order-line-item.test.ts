@@ -33,6 +33,7 @@ describe('buildManualOrderLineItem', () => {
       product_id: 'product_1',
       quantity: 1,
       variant_id: 'variant_1',
+      variant_attributes: { color: 'Space Gray', condition: 'Used' },
       variant_name: 'Space Gray / Used',
     });
   });
@@ -65,8 +66,36 @@ describe('buildManualOrderLineItem', () => {
       product_id: 'product_2',
       quantity: 1,
       variant_id: null,
+      variant_attributes: null,
       variant_name: null,
     });
+  });
+
+  it('keeps null variant attributes as null', () => {
+    const product = {
+      condition: 'new',
+      has_variants: false,
+      id: 'product_4',
+      images: [],
+      name: 'USB-C Charger',
+      parent_product_id: null,
+      price: 18000,
+      sku: 'USB-C-CHARGER',
+      variant_attributes: null,
+    } satisfies SelectableManualOrderProduct;
+
+    expect(
+      buildManualOrderLineItem({
+        fallbackImageUrl: null,
+        product,
+      })
+    ).toEqual(
+      expect.objectContaining({
+        variant_attributes: null,
+        variant_id: null,
+        variant_name: null,
+      })
+    );
   });
 
   it('omits variant_name when the derived picker label matches the parent product name', () => {
@@ -97,6 +126,7 @@ describe('buildManualOrderLineItem', () => {
       product_id: 'product_3',
       quantity: 1,
       variant_id: 'variant_2',
+      variant_attributes: null,
       variant_name: null,
     });
   });

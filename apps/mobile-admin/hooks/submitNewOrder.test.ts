@@ -77,7 +77,7 @@ function createSubmitParams(
     merchantCurrency: 'NGN',
     merchantId: 'merchant-1',
     notes: 'Handle with care',
-    orderItems: [createOrderItem({ price: 12000 })],
+    orderItems: [createOrderItem({ price: 12000, variant_name: 'Blue' })],
     partialAmount: '',
     paymentMethod: 'cash',
     paymentStatus: 'paid',
@@ -184,7 +184,6 @@ describe('submitNewOrder', () => {
       })
     );
 
-    // Verify buildItems produces the expected line-item shape
     const payload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
       buildItems: (orderId: string) => unknown[];
     };
@@ -196,6 +195,8 @@ describe('submitNewOrder', () => {
       product_match_status: 'linked',
       quantity: 1,
       order_id: 'order-1',
+      variant_attributes: null,
+      variant_name: null,
     });
 
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(3);
@@ -205,7 +206,7 @@ describe('submitNewOrder', () => {
     expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
   });
 
-  it('preserves an explicit product match status on quick-add order items', async () => {
+  it('preserves custom match status and selected variant attributes', async () => {
     await submitNewOrder(
       createSubmitParams({
         orderItems: [
@@ -217,6 +218,13 @@ describe('submitNewOrder', () => {
             variant_id: null,
             variant_name: null,
           }),
+          createOrderItem({
+            price: 20000,
+            product_id: 'product-1',
+            variant_attributes: { color: 'Blue', storage: '512GB' },
+            variant_id: 'variant-1',
+            variant_name: 'Blue / 512GB',
+          }),
         ],
       })
     );
@@ -224,12 +232,15 @@ describe('submitNewOrder', () => {
     const payload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
       buildItems: (orderId: string) => Array<{
         product_match_status: string;
+        variant_attributes: unknown;
       }>;
     };
-    const [item] = payload.buildItems('order-1');
+    const [customItem, variantItem] = payload.buildItems('order-1');
 
-    expect(item).toMatchObject({
-      product_match_status: 'unreviewed',
+    expect(customItem).toMatchObject({ product_match_status: 'unreviewed' });
+    expect(variantItem?.variant_attributes).toEqual({
+      color: 'Blue',
+      storage: '512GB',
     });
   });
 
