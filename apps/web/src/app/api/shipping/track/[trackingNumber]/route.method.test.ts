@@ -10,7 +10,6 @@ const mockShipmentStatusMaybeSingle = vi.fn();
 const mockShipmentStatusSelect = vi.fn();
 const mockShipmentStatusUpdate = vi.fn();
 const mockRpc = vi.fn();
-const mockAdminRpc = vi.fn();
 const mockAuthGetUser = vi.fn();
 const mockMaybeNotifyActivateProtection = vi.fn();
 
@@ -26,11 +25,11 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({
-    rpc: mockAdminRpc,
-  })),
-}));
+vi.mock('@/lib/supabase/admin', () => {
+  throw new Error(
+    'shipping tracking route must not import the service-role client'
+  );
+});
 
 vi.mock('@/lib/insurance/notify-activate-protection', () => ({
   maybeNotifyActivateProtection: (...args: unknown[]) =>
@@ -112,7 +111,6 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     });
     mockMaybeNotifyActivateProtection.mockResolvedValue(undefined);
     mockRpc.mockResolvedValue({ data: true, error: null });
-    mockAdminRpc.mockResolvedValue({ data: true, error: null });
   });
 
   it('rejects GET so tracking refresh cannot be triggered by prefetch or forged navigation', async () => {
@@ -241,7 +239,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     }
   });
 
-  it('uses the customer-scoped delivered RPC and activation notification when snapshot persistence is denied', async () => {
+  it('uses the request-scoped delivered RPC and activation notification when snapshot persistence is denied', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -280,7 +278,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ status: 'delivered' });
       expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
-      expect(mockAdminRpc).toHaveBeenCalledWith(
+      expect(mockRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_current_location: 'Lagos',
@@ -296,7 +294,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     }
   });
 
-  it('does not call the customer-scoped RPC when delivered fallback has no authenticated customer', async () => {
+  it('does not call the request-scoped RPC when delivered fallback has no authenticated customer', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -329,7 +327,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockAdminRpc).not.toHaveBeenCalled();
+      expect(mockRpc).not.toHaveBeenCalled();
       expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
@@ -365,7 +363,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockAdminRpc).toHaveBeenCalledWith(
+      expect(mockRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_order_id: 'order-1',
@@ -391,7 +389,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       data: null,
       error: { message: 'shipment write denied by RLS' },
     });
-    mockAdminRpc.mockResolvedValueOnce({ data: false, error: null });
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
     mockTrackShipment.mockResolvedValue({
       actualDelivery: new Date('2026-05-12T15:00:00Z'),
       carrierName: 'DHL',
@@ -408,7 +406,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockAdminRpc).toHaveBeenCalledWith(
+      expect(mockRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_order_id: 'order-1',

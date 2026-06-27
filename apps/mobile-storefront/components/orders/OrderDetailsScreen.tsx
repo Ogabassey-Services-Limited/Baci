@@ -45,6 +45,10 @@ import {
   canShowStorefrontRiderContact,
   isStorefrontReceiptAvailable,
 } from '@/lib/post-purchase-actions';
+import {
+  normalizeInsuranceCertificateUrl,
+  normalizeInsuranceFlowUrl,
+} from './insurance-link-safety';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';
 import { formatOrderDetailsDate } from './order-details.helpers';
 
@@ -116,9 +120,28 @@ export function OrderDetailsScreen() {
         insurancePolicy?.premium_amount
       ),
     });
-  const openExternalUrl = async (url: string) => {
+  const openInsuranceFlowUrl = async (url: string) => {
+    await openSafeInsuranceUrl(url, normalizeInsuranceFlowUrl);
+  };
+  const openInsuranceCertificateUrl = async (url: string) => {
+    await openSafeInsuranceUrl(url, normalizeInsuranceCertificateUrl);
+  };
+  const openSafeInsuranceUrl = async (
+    url: string,
+    normalizeUrl: (url: string) => string | null
+  ) => {
+    const safeUrl = normalizeUrl(url);
+
+    if (!safeUrl) {
+      Alert.alert(
+        'Unable to open link',
+        'This insurance link is not available. Please contact support if the issue continues.'
+      );
+      return;
+    }
+
     try {
-      await Linking.openURL(url);
+      await Linking.openURL(safeUrl);
     } catch {
       Alert.alert(
         'Unable to open link',
@@ -194,9 +217,9 @@ export function OrderDetailsScreen() {
               order.shipping_status === 'completed'
             }
             isPaid={order.payment_status === 'paid'}
-            onCompleteInspection={openExternalUrl}
-            onFileClaim={openExternalUrl}
-            onOpenCertificate={openExternalUrl}
+            onCompleteInspection={openInsuranceFlowUrl}
+            onFileClaim={openInsuranceFlowUrl}
+            onOpenCertificate={openInsuranceCertificateUrl}
           />
 
           <OrderDetailsShippingAddressCard
