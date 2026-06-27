@@ -14,3 +14,11 @@
 **Learning:** Hardcoded white (`#fff`) or light grey (`#f4f3f4`) in `thumbColor` of a `Switch` component fails to adapt to themes properly. Using `colors.textOnPrimary` for the active state (often paired with a primary color track) and `colors.border` or `colors.textMuted` for the inactive state ensures proper contrast in both light and dark modes.
 **Action:** Always replace hardcoded switch thumb colors with dynamic theme tokens, verifying the contrast against the chosen `trackColor` for both states and modes.
 **Source:** apps/mobile-admin/components/orders/NewOrderDetailsSection.tsx / WCAG SC 1.4.11
+## 2026-06-27 — [Switch component thumb colors active vs inactive contrast]
+**Learning:** Hardcoded white (`#fff`) or light grey (`#f4f3f4`) in `thumbColor` of a `Switch` component fails to adapt to themes properly. While `colors.border` may seem like a good mapping for light grey, setting `thumbColor` to `colors.border` when `trackColor.false` is also `colors.border` causes zero contrast in the inactive state, making the thumb invisible against the track.
+**Action:** Always verify the contrast between `thumbColor` and `trackColor` for both true and false states. Use `colors.textMuted` or a similarly contrasting token (like `colors.background` or `colors.surface`) for the inactive thumb to ensure visibility against a `colors.border` track in both light and dark modes.
+**Source:** apps/mobile-admin/components/orders/NewOrderDetailsSection.tsx / WCAG SC 1.4.11
+## 2026-06-27 — [Code review hallucination on textMuted token]
+**Learning:** The AI code reviewer might hallucinate that `textMuted` is an invalid token based on its system prompt, even when the token explicitly exists in the `apps/mobile-admin/constants/theme.ts` file (`textMuted: '#6B7280'` and `#94A3B8`).
+**Action:** When a valid token is incorrectly flagged by the code reviewer as "hallucinated", rely on a successful `NODE_OPTIONS="--max-old-space-size=8192" pnpm turbo typecheck` to prove its existence and safely ignore the false positive.
+**Source:** apps/mobile-admin/constants/theme.ts

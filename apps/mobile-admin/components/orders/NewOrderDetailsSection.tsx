@@ -222,7 +222,9 @@ export function NewOrderDetailsSection({
             accessibilityRole="switch"
             accessibilityState={{ checked: sameAsCustomer }}
             onValueChange={setSameAsCustomer}
-            thumbColor={sameAsCustomer ? colors.textOnPrimary : colors.border}
+            thumbColor={
+              sameAsCustomer ? colors.textOnPrimary : colors.textMuted
+            }
             trackColor={{ false: colors.border, true: colors.primary }}
             value={sameAsCustomer}
           />
