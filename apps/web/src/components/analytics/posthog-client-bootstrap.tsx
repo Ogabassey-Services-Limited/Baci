@@ -18,7 +18,13 @@ export function PostHogClientBootstrap() {
       return;
     }
 
-    const isPublicBlog = isPublicBlogPathname(currentPathname);
+    const isPublicBlog = isPublicBlogPathname(currentPathname, {
+      hostname: globalThis.location?.hostname,
+    });
+
+    if (isPublicBlog) {
+      return;
+    }
 
     let cancelled = false;
 
@@ -33,14 +39,10 @@ export function PostHogClientBootstrap() {
         }
 
         initializePostHogBrowser(postHogBrowserEnv, console, {
-          lightweight: isPublicBlog,
+          lightweight: false,
           pathname: currentPathname,
           hostname: globalThis.location?.hostname,
         });
-
-        if (isPublicBlog) {
-          return;
-        }
 
         const { initializePostHogInstrumentationIfAllowed } = await import(
           '@/instrumentation-client'

@@ -58,7 +58,7 @@ describe('PostHogClientBootstrap', () => {
     );
   });
 
-  it('initializes lightweight PostHog on public blog pages without full instrumentation', async () => {
+  it('does not initialize the full PostHog browser client on public blog pages', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     vi.stubGlobal('location', {
       pathname,
@@ -68,21 +68,9 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
-      expect.objectContaining({
-        NODE_ENV: expect.any(String),
-      }),
-      console,
-      {
-        lightweight: true,
-        pathname: '/ogabassey/blog/phone-guide',
-        hostname: 'usebaci.com',
-      }
-    );
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
     ).not.toHaveBeenCalled();
@@ -98,10 +86,9 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     const { rerender } = render(<PostHogClientBootstrap />);
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
     ).not.toHaveBeenCalled();
@@ -115,7 +102,7 @@ describe('PostHogClientBootstrap', () => {
     rerender(<PostHogClientBootstrap />);
 
     await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
     expect(mocks.initializePostHogBrowser).toHaveBeenLastCalledWith(
       expect.objectContaining({
