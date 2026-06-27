@@ -23,6 +23,8 @@ function createRuntime() {
 describe('chunk-load recovery', () => {
   afterEach(() => {
     Reflect.deleteProperty(globalThis, NEXT_DEPLOYMENT_ID_GLOBAL);
+    delete document.documentElement.dataset.dplId;
+    document.head.innerHTML = '';
     vi.restoreAllMocks();
   });
 
@@ -109,6 +111,53 @@ describe('chunk-load recovery', () => {
       'unhandledrejection',
       expect.any(Function)
     );
+  });
+
+  it('keys browser recovery with loaded Next assets when no deployment id global remains', async () => {
+    vi.resetModules();
+    document.head.innerHTML = `
+      <script src="/_next/static/chunks/app/checkout-abc123.js"></script>
+      <link rel="stylesheet" href="https://cdn.example.com/_next/static/css/layout-def456.css" />
+    `;
+
+    const storage = new Map<string, string>();
+    const addEventListenerSpy = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation(() => undefined);
+    window.history.pushState({}, '', '/checkout');
+    vi.spyOn(window, 'sessionStorage', 'get').mockReturnValue({
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+        throw new Error('stop before jsdom navigation');
+      },
+      clear: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+      removeItem: vi.fn(),
+    });
+    const { initializeChunkLoadRecovery } = await import(
+      './chunk-load-recovery'
+    );
+
+    initializeChunkLoadRecovery();
+    const errorListener = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === 'error'
+    )?.[1];
+    expect(errorListener).toEqual(expect.any(Function));
+
+    (errorListener as EventListener)({
+      error: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+      message: 'ChunkLoadError',
+    } as ErrorEvent);
+
+    expect(Array.from(storage.keys())).toEqual([
+      expect.stringMatching(
+        /^baci:chunk-load-recovery:assets-[a-z0-9]+:\/checkout$/
+      ),
+    ]);
   });
 
   it('keys browser recovery with Next deployment id after Next removes data-dpl-id', async () => {
