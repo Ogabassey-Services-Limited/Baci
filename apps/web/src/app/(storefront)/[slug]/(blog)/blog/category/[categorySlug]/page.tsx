@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
@@ -116,6 +117,9 @@ export default async function BlogCategoryPage({
   ]);
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
+    // Only invalid category hubs opt out of prerendering so they keep hard 404
+    // semantics instead of becoming streamed soft-404 shells.
+    await connection();
     notFound();
   }
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
@@ -33,14 +34,31 @@ export function generateStaticParams(): Array<{
   );
 }
 
-async function assertAuthorRouteBeforeShell(params: AuthorPageProps['params']) {
+async function assertAuthorRouteBeforeShell({
+  params,
+  searchParams,
+}: AuthorPageProps) {
   const { slug, authorSlug } = await params;
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (profile) {
+    const page = parseBlogListingPage((await searchParams)?.page);
+    const data = await getCachedBlogAuthor(slug, profile.name, { page });
+
+    if (!data) {
+      // Keep known-author data misses as hard 404s before returning any page
+      // component that could sit below a loading shell.
+      await connection();
+      notFound();
+    }
+
     return { slug, authorSlug: normalizedAuthorSlug };
   }
+
+  // Only legacy/invalid author paths opt out of prerendering so HTTP redirects
+  // are emitted as status codes instead of streamed meta refresh fallbacks.
+  await connection();
 
   const fallbackOutcome = await resolveBlogCatchAllOutcome({
     params: Promise.resolve({
@@ -128,7 +146,10 @@ export default async function BlogAuthorPage({
   // Redirect/notFound decisions must happen before the PPR shell streams so
   // legacy author-prefixed post URLs keep real HTTP redirects and bad author
   // hubs keep hard 404 semantics.
-  const resolvedParams = await assertAuthorRouteBeforeShell(params);
+  const resolvedParams = await assertAuthorRouteBeforeShell({
+    params,
+    searchParams,
+  });
 
   return (
     <BlogAuthorPageContent

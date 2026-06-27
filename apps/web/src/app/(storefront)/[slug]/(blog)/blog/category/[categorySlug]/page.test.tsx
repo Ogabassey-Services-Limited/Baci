@@ -23,6 +23,11 @@ interface MockBlogPageContentProps {
 const mockBlogPageContent = vi.hoisted(() =>
   vi.fn((_props: MockBlogPageContentProps) => <div>Ogabassey blog</div>)
 );
+const mockConnection = vi.hoisted(() => vi.fn(async () => undefined));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
+}));
 
 vi.mock('../../blog-page-content', () => ({
   BlogPageContent: (props: unknown) =>
@@ -38,6 +43,7 @@ const {
 describe('blog category page', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
+    mockConnection.mockClear();
     mockBlogPageContent.mockReset();
     mockBlogPageContent.mockReturnValue(<div>Ogabassey blog</div>);
     mockResolveBlogCategoryHub.mockResolvedValue({
@@ -114,6 +120,7 @@ describe('blog category page', () => {
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
