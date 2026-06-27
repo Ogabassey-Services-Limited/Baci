@@ -2,35 +2,45 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationSql = readFileSync(
-  join(
-    process.cwd(),
-    '../../supabase/migrations/20260626130058_replace_imported_order_items_rpc.sql'
-  ),
-  'utf8'
-);
+const migrationSql = [
+  '20260626130058_replace_imported_order_items_rpc.sql',
+  '20260627134638_preserve_imported_order_item_snapshots.sql',
+]
+  .map((filename) =>
+    readFileSync(join(process.cwd(), '../../supabase/migrations', filename), {
+      encoding: 'utf8',
+    })
+  )
+  .join('\n');
+
+function lastMatch(value: string, pattern: RegExp) {
+  return Array.from(value.matchAll(pattern)).at(-1)?.[0] ?? '';
+}
 
 function extractReplaceOrderItemsFunction() {
   return (
-    migrationSql.match(
-      /CREATE OR REPLACE FUNCTION public\.replace_order_items\([\s\S]*?\n\$\$;/i
-    )?.[0] ?? ''
+    lastMatch(
+      migrationSql,
+      /CREATE OR REPLACE FUNCTION public\.replace_order_items\([\s\S]*?\n\$\$;/gi
+    ) ?? ''
   );
 }
 
 function extractReplaceImportedOrderItemsFunction() {
   return (
-    migrationSql.match(
-      /CREATE OR REPLACE FUNCTION public\.replace_imported_order_items\([\s\S]*?\n\$\$;/i
-    )?.[0] ?? ''
+    lastMatch(
+      migrationSql,
+      /CREATE OR REPLACE FUNCTION public\.replace_imported_order_items\([\s\S]*?\n\$\$;/gi
+    ) ?? ''
   );
 }
 
 function extractPopulateOrderItemTaxFunction() {
   return (
-    migrationSql.match(
-      /CREATE OR REPLACE FUNCTION public\.populate_order_item_tax\(\)[\s\S]*?\n\$\$;/i
-    )?.[0] ?? ''
+    lastMatch(
+      migrationSql,
+      /CREATE OR REPLACE FUNCTION public\.populate_order_item_tax\(\)[\s\S]*?\n\$\$;/gi
+    ) ?? ''
   );
 }
 
@@ -108,6 +118,28 @@ describe('Bumpa imported order item RPC migration', () => {
       /NEW\.line_id := nextval\('public\.order_items_fallback_line_id_seq'\)::INTEGER/i
     );
     expect(triggerFunction).not.toMatch(/MAX\(line_id\)/i);
+  });
+
+  it('persists imported receipt display snapshots on order items', () => {
+    const replaceOrderItemsFunction = extractReplaceOrderItemsFunction();
+
+    expect(replaceOrderItemsFunction).toMatch(/condition TEXT/i);
+    expect(replaceOrderItemsFunction).toMatch(/variant_name TEXT/i);
+    expect(replaceOrderItemsFunction).toMatch(
+      /INSERT INTO public\.order_items \([\s\S]*condition,[\s\S]*variant_name,[\s\S]*image_url/i
+    );
+    expect(replaceOrderItemsFunction).toMatch(
+      /item\.condition,[\s\S]*item\.variant_name,[\s\S]*item\.image_url/i
+    );
+  });
+
+  it('keeps order item replacement RPCs as invoker functions with service-only execution', () => {
+    const replaceOrderItemsFunction = extractReplaceOrderItemsFunction();
+
+    expect(replaceOrderItemsFunction).toMatch(/SECURITY INVOKER/i);
+    expect(migrationSql).toMatch(
+      /ALTER FUNCTION public\.replace_imported_order_items\(uuid, jsonb, uuid, jsonb, timestamptz\)\s+SECURITY INVOKER/i
+    );
   });
 
   it('restricts public imported-order replacement RPCs to the service role', () => {

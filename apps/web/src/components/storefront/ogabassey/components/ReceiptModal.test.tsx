@@ -186,6 +186,25 @@ describe('ReceiptModal', () => {
     expect(iframe).toHaveAttribute('tabindex', '0');
   });
 
+  it('centers the desktop receipt canvas inside a scrollable modal body', () => {
+    render(
+      <ReceiptModal
+        isOpen
+        merchantData={merchant}
+        onClose={vi.fn()}
+        orderData={createOrder('paid')}
+      />
+    );
+
+    const iframe = screen.getByTitle('Receipt #ORD-001');
+    const modalBody = iframe.parentElement;
+
+    expect(modalBody).toHaveClass('justify-center');
+    expect(modalBody).toHaveClass('overflow-auto');
+    expect(iframe).toHaveClass('w-[794px]');
+    expect(iframe).toHaveClass('max-w-full');
+  });
+
   it.each(modalVariants)(
     'closes the $label modal when Escape is pressed',
     async ({ label, paymentStatus }) => {

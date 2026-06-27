@@ -142,6 +142,42 @@ describe('OgabasseyV2Receipts', () => {
     expect(screen.getByText('#ORD-260403-00NN-J')).toBeVisible();
   });
 
+  it('shows imported receipt conditions as variant labels in receipt cards', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      createJsonResponse({
+        orders: [
+          {
+            id: 'order-1',
+            order_number: 'ORD-260724-04060',
+            created_at: '2026-07-24T10:00:00.000Z',
+            total: 930000,
+            amount_paid: 930000,
+            currency: 'NGN',
+            payment_status: 'paid',
+            items: [
+              {
+                id: 'item-1',
+                name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
+                variant_name: 'Used',
+                image_url: 'https://cdn.example.com/fold-5.png',
+                quantity: 1,
+                price: 930000,
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(<OgabasseyV2Receipts />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB (Used)',
+      })
+    ).toBeVisible();
+  });
+
   it('shows the additional device count when a receipt contains more than one device', async () => {
     vi.mocked(fetch).mockResolvedValue(
       createJsonResponse({

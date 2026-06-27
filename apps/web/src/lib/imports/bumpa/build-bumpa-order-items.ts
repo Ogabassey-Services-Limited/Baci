@@ -1,4 +1,5 @@
 import { buildBumpaItemImportMetadata } from '@/lib/imports/bumpa/bumpa-order-enrichment';
+import { buildBumpaOrderItemSnapshot } from '@/lib/imports/bumpa/bumpa-order-item-snapshot';
 import { createBumpaProductNameMatcher } from '@/lib/imports/bumpa/bumpa-product-name-matcher';
 import type { ExistingImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 import {
@@ -204,26 +205,31 @@ export function buildItems(
     const metadataSource = [productName, richItem?.fulfillmentText || '']
       .filter(Boolean)
       .join(' ');
+    const importMetadata = {
+      bumpa: buildBumpaItemImportMetadata(metadataSource || productName),
+    };
+    const itemSnapshot = buildBumpaOrderItemSnapshot({
+      importedProductName: productName,
+      importMetadata,
+      matchedProduct,
+    });
     const shouldUseCatalogPrice = !richItem || richItem.lineTotal === null;
 
     return {
       productId: matchedProduct?.id || null,
-      productName,
+      productName: itemSnapshot.productName,
       sku,
       quantity,
+      condition: itemSnapshot.condition,
+      variantName: itemSnapshot.variantName,
+      imageUrl: itemSnapshot.imageUrl,
       matched: Boolean(matchedProduct),
       matchSource: matchedBySku ? 'sku' : matchedByName ? 'name' : 'unmatched',
       provisionalUnitPrice:
         richItem?.unitPrice ??
         (shouldUseCatalogPrice ? (matchedProduct?.price ?? null) : null),
       provisionalLineTotal: richItem?.lineTotal ?? null,
-      ...(richItem?.fulfillmentText
-        ? {
-            importMetadata: {
-              bumpa: buildBumpaItemImportMetadata(metadataSource),
-            },
-          }
-        : {}),
+      importMetadata,
     } satisfies ProvisionalBumpaOrderItem;
   });
 

@@ -205,4 +205,39 @@ describe('buildItems', () => {
       }),
     ]);
   });
+
+  it('uses matched catalog snapshots for imported Fold names with bracketed condition', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Samsung Galaxy Fold 5 512GB (Premium Used)',
+        'Product Quantity': '1',
+        'Sub Total': '930000.00',
+      }),
+      [
+        {
+          id: 'fold-5',
+          name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
+          sku: null,
+          price: 930000,
+          images: ['https://cdn.example.com/fold-5.jpg'],
+          condition: 'used',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'fold-5',
+      productName: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
+      condition: 'used',
+      variantName: 'Used',
+      imageUrl: 'https://cdn.example.com/fold-5.jpg',
+      unitPrice: 930000,
+      lineTotal: 930000,
+      matched: true,
+      matchSource: 'name',
+    });
+  });
 });

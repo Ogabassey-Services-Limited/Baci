@@ -306,7 +306,9 @@ async function loadExistingProducts(
 ) {
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, sku, price, external_source, external_id, status')
+    .select(
+      'id, name, sku, price, images, condition, external_source, external_id, status'
+    )
     .eq('merchant_id', merchantId);
 
   if (error) {
@@ -325,6 +327,14 @@ async function loadExistingProducts(
             : Number(product.price),
         externalSource: product.external_source,
         externalId: product.external_id,
+        images: Array.isArray(product.images)
+          ? product.images.filter(
+              (image): image is string =>
+                typeof image === 'string' && image.trim() !== ''
+            )
+          : [],
+        condition:
+          typeof product.condition === 'string' ? product.condition : null,
         status: product.status,
       }) satisfies ExistingImportedProduct
   );

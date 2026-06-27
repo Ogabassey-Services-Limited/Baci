@@ -13,6 +13,7 @@ interface OrderItem {
   id: string;
   product_id: string;
   image_url?: string | null;
+  condition?: string | null;
   variant_name?: string;
   product_name?: string;
   name?: string;
@@ -176,6 +177,8 @@ function mapOrderItemsWithRoutes(
       quantity: item.quantity,
       price: item.price,
       image_url: item.image_url,
+      condition: item.condition,
+      variant_name: item.variant_name,
       product_images: item.product_images,
       ...flattenOrderItemProductData(item),
       ...(productRouteDetails?.get(item.product_id) || {}),
@@ -303,6 +306,7 @@ export async function GET(
               id,
               product_id,
               image_url,
+              condition,
               variant_name,
               product_name:name,
               quantity,

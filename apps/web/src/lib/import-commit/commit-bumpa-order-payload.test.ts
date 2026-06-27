@@ -106,6 +106,9 @@ describe('Bumpa commit payload helpers', () => {
             quantity: 1,
             unitPrice: 300000,
             lineTotal: 300000,
+            condition: 'used',
+            variantName: 'Used',
+            imageUrl: 'https://cdn.example.com/iphone-12.jpg',
             matched: false,
             matchSource: 'unmatched',
             importMetadata: {
@@ -125,6 +128,9 @@ describe('Bumpa commit payload helpers', () => {
       order_id: 'order-1',
       line_id: 1,
       line_extension_amount: 300000,
+      condition: 'used',
+      variant_name: 'Used',
+      image_url: 'https://cdn.example.com/iphone-12.jpg',
       fulfillment_data: {
         imei: '351183326811261',
         serialNumber: 'ABC123',

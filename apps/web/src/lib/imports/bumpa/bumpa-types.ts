@@ -34,6 +34,9 @@ export interface NormalizedImportedOrderItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  condition?: string | null;
+  variantName?: string | null;
+  imageUrl?: string | null;
   matched: boolean;
   matchSource: 'sku' | 'name' | 'unmatched';
   importMetadata?: Record<string, unknown>;
@@ -121,6 +124,8 @@ export interface ExistingImportedProduct {
   price: number | null;
   externalSource: string | null;
   externalId: string | null;
+  images?: string[];
+  condition?: string | null;
   status?: string | null;
 }
 
