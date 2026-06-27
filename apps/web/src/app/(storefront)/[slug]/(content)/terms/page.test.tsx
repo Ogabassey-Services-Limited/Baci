@@ -17,8 +17,8 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(),
 }));
 
-vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: vi.fn(() => '{}'),
+vi.mock('@/components/seo/json-ld', () => ({
+  JsonLd: vi.fn(() => null),
 }));
 
 vi.mock('@/templates/registry', () => ({
