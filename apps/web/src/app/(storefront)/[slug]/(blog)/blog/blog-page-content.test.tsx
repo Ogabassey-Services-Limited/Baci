@@ -376,6 +376,69 @@ describe('BlogPageContent', () => {
     );
   });
 
+  it('permanently redirects slug-form category query values to the matching clean category hub', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce({
+      ...buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+          custom_domain: 'ogabassey.com',
+        },
+        totalPosts: 10,
+      }),
+      categories: ['Buying Guides'],
+    });
+
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({ category: 'buying-guides' }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/category/buying-guides'
+    );
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog/category/buying-guides'
+    );
+  });
+
+  it('permanently redirects repeated category query values without throwing', async () => {
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({ category: ['News', 'Updates'] }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://test-store.usebaci.com/blog/category/news'
+    );
+
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('ogabassey', {
+      category: 'News',
+      page: 1,
+      searchQuery: undefined,
+    });
+  });
+
+  it('preserves additional query parameters when redirecting category-only listings', async () => {
+    await expect(
+      BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({
+          category: 'News',
+          utm_source: 'newsletter',
+          utm_medium: ['email', 'sms'],
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://test-store.usebaci.com/blog/category/news?utm_source=newsletter&utm_medium=email&utm_medium=sms'
+    );
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://test-store.usebaci.com/blog/category/news?utm_source=newsletter&utm_medium=email&utm_medium=sms'
+    );
+  });
+
   it('keeps searched category query listings on the noindex query route', async () => {
     render(
       await BlogPageContent({
