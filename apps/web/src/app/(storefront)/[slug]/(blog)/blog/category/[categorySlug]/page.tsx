@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
+import { BlogListingFallback } from '../../BlogListingFallback';
 import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import {
   canUseCleanBlogCategorySlug,
@@ -135,14 +137,16 @@ export default async function BlogCategoryPage({
   }
 
   return (
-    <BlogPageContent
-      isCleanCategoryRoute
-      itemListSchemaUrl={hub.canonicalUrl}
-      params={Promise.resolve({ slug })}
-      searchParams={resolveCategoryBlogSearchParams(
-        searchParams,
-        hub.categoryLabel
-      )}
-    />
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent
+        isCleanCategoryRoute
+        itemListSchemaUrl={hub.canonicalUrl}
+        params={Promise.resolve({ slug })}
+        searchParams={resolveCategoryBlogSearchParams(
+          searchParams,
+          hub.categoryLabel
+        )}
+      />
+    </Suspense>
   );
 }
