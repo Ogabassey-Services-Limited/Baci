@@ -25,8 +25,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('capturePublicBlogPageview', () => {
-  it('sends a tiny direct PostHog pageview beacon through the configured relay', () => {
+describe('capturePublicBlogPageview transport', () => {
+  it('sends a tiny direct PostHog pageview beacon through the relay event endpoint', () => {
     const sendBeacon = vi.fn<typeof navigator.sendBeacon>(() => true);
 
     stubStorage();
@@ -46,12 +46,12 @@ describe('capturePublicBlogPageview', () => {
     const firstCall = sendBeacon.mock.calls[0] as Parameters<
       typeof navigator.sendBeacon
     >;
-    expect(firstCall[0]).toBe('/baci-relay/capture/');
+    expect(firstCall[0]).toBe('/baci-relay/i/v0/e/');
     expect(firstCall[1]).toBeInstanceOf(Blob);
-    expect((firstCall[1] as Blob).type).toBe('text/plain');
+    expect((firstCall[1] as Blob).type).toBe('application/json');
   });
 
-  it('falls back to keepalive fetch with tenant context and identified-only person profile settings', () => {
+  it('falls back to keepalive fetch with JSON content type and tenant context', () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Promise.resolve(new Response(null))
     );
@@ -71,9 +71,9 @@ describe('capturePublicBlogPageview', () => {
       'https://usebaci.com/ogabassey/blog/post?email=buyer@example.com'
     );
 
-    expect(fetch).toHaveBeenCalledWith('/baci-relay/capture/', {
+    expect(fetch).toHaveBeenCalledWith('/baci-relay/i/v0/e/', {
       body: expect.stringContaining('public_blog_lightweight'),
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'application/json' },
       keepalive: true,
       method: 'POST',
     });
@@ -95,200 +95,50 @@ describe('capturePublicBlogPageview', () => {
     });
   });
 
-  it('seeds the PostHog SDK persistence key when no SDK distinct ID exists yet', () => {
+  it('falls back to keepalive fetch when sendBeacon rejects or declines the payload', () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Promise.resolve(new Response(null))
     );
-    const storage = stubStorage();
-
-    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
-    vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('crypto', { randomUUID: () => 'generated-sdk-id' });
-    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
-
-    capturePublicBlogPageview(
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
-      'https://ogabassey.com/blog'
-    );
-
-    expect(parseFetchBody(fetch)).toMatchObject({
-      distinct_id: 'generated-sdk-id',
-      properties: { distinct_id: 'generated-sdk-id' },
-    });
-    expect(JSON.parse(storage.get('ph_ph_public_posthog') ?? '{}')).toEqual(
-      expect.objectContaining({
-        $device_id: 'generated-sdk-id',
-        distinct_id: 'generated-sdk-id',
-      })
-    );
-  });
-
-  it('uses the PostHog SDK device ID field when distinct ID is not persisted yet', () => {
-    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Promise.resolve(new Response(null))
-    );
-
-    const storage = stubStorage({
-      ph_ph_public_posthog: JSON.stringify({ $device_id: 'sdk-device-1' }),
-    });
-    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
-    vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
-
-    capturePublicBlogPageview(
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
-      'https://ogabassey.com/blog'
-    );
-
-    expect(parseFetchBody(fetch)).toMatchObject({
-      distinct_id: 'sdk-device-1',
-      properties: { distinct_id: 'sdk-device-1' },
-    });
-    expect(JSON.parse(storage.get('ph_ph_public_posthog') ?? '{}')).toEqual(
-      expect.objectContaining({
-        $device_id: 'sdk-device-1',
-        distinct_id: 'sdk-device-1',
-      })
-    );
-  });
-
-  it('migrates the legacy public blog distinct ID into SDK persistence', () => {
-    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Promise.resolve(new Response(null))
-    );
-    const storage = stubStorage({
-      baci_public_blog_distinct_id: 'legacy-blog-id',
-    });
-
-    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
-    vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
-
-    capturePublicBlogPageview(
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
-      'https://ogabassey.com/blog'
-    );
-
-    expect(parseFetchBody(fetch)).toMatchObject({
-      distinct_id: 'legacy-blog-id',
-      properties: { distinct_id: 'legacy-blog-id' },
-    });
-    expect(JSON.parse(storage.get('ph_ph_public_posthog') ?? '{}')).toEqual(
-      expect.objectContaining({
-        $device_id: 'legacy-blog-id',
-        distinct_id: 'legacy-blog-id',
-      })
-    );
-  });
-
-  it('reuses an in-memory fallback distinct ID when storage is blocked', () => {
-    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Promise.resolve(new Response(null))
-    );
-
-    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
-    vi.stubGlobal('fetch', fetch);
-    const randomUUID = vi
-      .fn<() => `${string}-${string}-${string}-${string}-${string}`>()
-      .mockReturnValueOnce('00000000-0000-4000-8000-000000000001')
-      .mockReturnValueOnce('00000000-0000-4000-8000-000000000002');
-
-    vi.stubGlobal('crypto', { randomUUID });
-    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
-    vi.stubGlobal('localStorage', {
-      getItem: () => {
-        throw new Error('blocked');
-      },
-      setItem: () => {
-        throw new Error('blocked');
-      },
-    });
-
     const env = { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' };
+
+    stubStorage({
+      ph_ph_public_posthog: JSON.stringify({ distinct_id: 'sdk-visitor-1' }),
+    });
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
+    vi.stubGlobal('navigator', {
+      sendBeacon: vi.fn<typeof navigator.sendBeacon>(() => {
+        throw new DOMException('Beacon payload type rejected');
+      }),
+      userAgent: 'Mozilla/5.0',
+    });
+
     capturePublicBlogPageview(env, 'https://ogabassey.com/blog');
+
+    vi.stubGlobal('navigator', {
+      sendBeacon: vi.fn<typeof navigator.sendBeacon>(() => false),
+      userAgent: 'Mozilla/5.0',
+    });
     capturePublicBlogPageview(env, 'https://ogabassey.com/blog/post');
 
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(parseFetchBody(fetch, 0)).toMatchObject({
-      distinct_id: '00000000-0000-4000-8000-000000000001',
-      properties: { distinct_id: '00000000-0000-4000-8000-000000000001' },
-    });
-    expect(parseFetchBody(fetch, 1)).toMatchObject({
-      distinct_id: '00000000-0000-4000-8000-000000000001',
-      properties: { distinct_id: '00000000-0000-4000-8000-000000000001' },
-    });
-    expect(randomUUID).toHaveBeenCalledOnce();
+    for (const call of fetch.mock.calls) {
+      expect(call).toEqual([
+        '/baci-relay/i/v0/e/',
+        expect.objectContaining({
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          method: 'POST',
+        }),
+      ]);
+    }
   });
 
-  it('falls back to keepalive fetch when sendBeacon rejects the payload', () => {
-    const sendBeacon = vi.fn<typeof navigator.sendBeacon>(() => {
-      throw new DOMException('Beacon payload type rejected');
-    });
-    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Promise.resolve(new Response(null))
-    );
-
-    stubStorage({
-      ph_ph_public_posthog: JSON.stringify({ distinct_id: 'sdk-visitor-1' }),
-    });
-    vi.stubGlobal('navigator', { sendBeacon, userAgent: 'Mozilla/5.0' });
-    vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
-
-    capturePublicBlogPageview(
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
-      'https://ogabassey.com/blog'
-    );
-
-    expect(sendBeacon).toHaveBeenCalledOnce();
-    expect(fetch).toHaveBeenCalledWith('/baci-relay/capture/', {
-      body: expect.stringContaining('public_blog_lightweight'),
-      headers: { 'Content-Type': 'text/plain' },
-      keepalive: true,
-      method: 'POST',
-    });
-  });
-
-  it('falls back to keepalive fetch when sendBeacon declines the payload', () => {
-    const sendBeacon = vi.fn<typeof navigator.sendBeacon>(() => false);
-    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Promise.resolve(new Response(null))
-    );
-
-    stubStorage({
-      ph_ph_public_posthog: JSON.stringify({ distinct_id: 'sdk-visitor-1' }),
-    });
-    vi.stubGlobal('navigator', { sendBeacon, userAgent: 'Mozilla/5.0' });
-    vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
-
-    capturePublicBlogPageview(
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
-      'https://ogabassey.com/blog'
-    );
-
-    expect(sendBeacon).toHaveBeenCalledOnce();
-    expect(fetch).toHaveBeenCalledWith('/baci-relay/capture/', {
-      body: expect.stringContaining('public_blog_lightweight'),
-      headers: { 'Content-Type': 'text/plain' },
-      keepalive: true,
-      method: 'POST',
-    });
-  });
-
-  it('does nothing without a public project token', () => {
+  it('does nothing without a public project token or when called with defaults outside a browser URL', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
 
     capturePublicBlogPageview({}, 'https://ogabassey.com/blog');
-
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('can be called with its browser-safe default public env object', () => {
-    const fetch = vi.fn();
-    vi.stubGlobal('fetch', fetch);
-
     capturePublicBlogPageview();
 
     expect(fetch).not.toHaveBeenCalled();

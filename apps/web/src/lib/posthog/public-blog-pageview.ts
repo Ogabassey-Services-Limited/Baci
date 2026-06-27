@@ -3,7 +3,7 @@ import { getPostHogProxyPath, type PostHogEnv } from '@/lib/posthog/config';
 
 const DEFAULT_PUBLIC_BLOG_URL_BASE = 'https://usebaci.com';
 const LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY = 'baci_public_blog_distinct_id';
-const POSTHOG_CAPTURE_ENDPOINT = '/capture/';
+const POSTHOG_CAPTURE_ENDPOINT = '/i/v0/e/';
 const POSTHOG_SDK_PERSISTENCE_KEY_PREFIX = 'ph_';
 const POSTHOG_SDK_PERSISTENCE_KEY_SUFFIX = '_posthog';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
@@ -208,7 +208,7 @@ function sendPublicBlogCapture(captureUrl: string, body: string): void {
 
   if (typeof beacon === 'function') {
     try {
-      const payload = new Blob([body], { type: 'text/plain' });
+      const payload = new Blob([body], { type: 'application/json' });
 
       if (beacon.call(globalThis.navigator, captureUrl, payload)) {
         return;
@@ -221,7 +221,7 @@ function sendPublicBlogCapture(captureUrl: string, body: string): void {
   void globalThis
     .fetch?.(captureUrl, {
       body,
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'application/json' },
       keepalive: true,
       method: 'POST',
     })
