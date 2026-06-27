@@ -59,8 +59,15 @@ describe('receipt claim tracking migration', () => {
       /public\.check_staff_permission\([\s\S]*'orders'[\s\S]*'view'/i
     );
     expect(migrationSql).toMatch(
+      /public\.check_staff_permission\([\s\S]*'customers'[\s\S]*'view'/i
+    );
+    expect(migrationSql).not.toMatch(
+      /public\.check_staff_permission\([\s\S]*'marketing'[\s\S]*'view'/i
+    );
+    expect(migrationSql).toMatch(
       /FROM public\.receipt_claims AS rc[\s\S]*WHERE rc\.merchant_id = p_merchant_id[\s\S]*AND rc\.import_job_id = p_import_job_id/i
     );
+    expect(migrationSql).toMatch(/recipient_rows AS \([\s\S]*LIMIT 200/i);
     expect(migrationSql).toMatch(
       /REVOKE ALL ON FUNCTION public\.get_receipt_claim_campaign_stats\(uuid, uuid\)[\s\S]*FROM PUBLIC, anon/i
     );

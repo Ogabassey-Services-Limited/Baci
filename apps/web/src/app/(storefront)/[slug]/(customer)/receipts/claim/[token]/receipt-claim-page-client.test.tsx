@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiptClaimPageClient from './receipt-claim-page-client';
@@ -85,6 +86,10 @@ function renderClient(
 describe('ReceiptClaimPageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createJsonResponse({ emailHint: '' }))
+    );
     mockSearchParams.delete('email');
     mockUseCustomerAuth.mockReturnValue({
       isAuthenticated: false,
@@ -97,6 +102,10 @@ describe('ReceiptClaimPageClient', () => {
     mockFetchWithCsrf.mockResolvedValue(
       createJsonResponse({ redirectPath: '/receipts', success: true })
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('shows the personalized preview and routes guests to login with a return URL', () => {
@@ -138,6 +147,25 @@ describe('ReceiptClaimPageClient', () => {
     ).toHaveAttribute(
       'href',
       '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
+    );
+  });
+
+  it('records login-start activity when guests click the claim CTA', async () => {
+    const user = userEvent.setup();
+
+    renderClient({ initialEmailHint: 'basseybjohn@yahoo.co.uk' });
+
+    await user.click(
+      screen.getByRole('link', { name: 'Sign in to claim receipt' })
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/storefront/receipts/claims/claim-token/login-email',
+      {
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+        keepalive: true,
+      }
     );
   });
 

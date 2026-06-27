@@ -195,6 +195,16 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('mailto:support@shop.example');
   });
 
+  it('labels imported paid receipt payment methods for customers', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({ payment_method: 'imported' }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Verified imported payment');
+    expect(html).not.toContain('<div class="info-name">imported</div>');
+  });
+
   it('never leaks the private account email onto the receipt', () => {
     // With no support email and no business name, the receipt must not fall
     // back to `merchant.email` (the private login address) for either the

@@ -191,6 +191,7 @@ function createSupabaseMock() {
         price: 5000,
         external_source: 'bumpa',
         external_id: 'prod-1',
+        status: 'active',
       },
     ],
     error: null,
@@ -369,6 +370,7 @@ describe('import-job-service', () => {
           price: 5000,
           externalSource: 'bumpa',
           externalId: 'prod-1',
+          status: 'active',
         },
       ],
     });

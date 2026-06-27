@@ -306,7 +306,7 @@ async function loadExistingProducts(
 ) {
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, sku, price, external_source, external_id')
+    .select('id, name, sku, price, external_source, external_id, status')
     .eq('merchant_id', merchantId);
 
   if (error) {
@@ -325,6 +325,7 @@ async function loadExistingProducts(
             : Number(product.price),
         externalSource: product.external_source,
         externalId: product.external_id,
+        status: product.status,
       }) satisfies ExistingImportedProduct
   );
 }

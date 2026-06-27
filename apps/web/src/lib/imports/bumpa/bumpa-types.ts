@@ -121,6 +121,7 @@ export interface ExistingImportedProduct {
   price: number | null;
   externalSource: string | null;
   externalId: string | null;
+  status?: string | null;
 }
 
 export interface ExistingImportedCustomer {

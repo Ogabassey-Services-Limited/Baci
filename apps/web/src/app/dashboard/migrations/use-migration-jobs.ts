@@ -144,7 +144,11 @@ export function useMigrationJobs({
       } else if (canLoadRows) {
         void refreshJob(nextSelectedJobId, {
           filter: 'all',
-          includeJob: false,
+          includeJob:
+            decoratedJob.entity_type === 'orders' &&
+            (decoratedJob.status === 'committed' ||
+              decoratedJob.status === 'completed' ||
+              Boolean(decoratedJob.notified_at)),
           includeRows: true,
         });
       }

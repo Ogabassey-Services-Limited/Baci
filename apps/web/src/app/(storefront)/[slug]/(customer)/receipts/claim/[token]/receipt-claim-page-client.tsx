@@ -140,6 +140,19 @@ export default function ReceiptClaimPageClient({
     basePath,
     `/account/login?${loginSearchParams.toString()}`
   );
+  const loginStartedPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/login-email`;
+
+  function trackLoginStarted() {
+    if (!token) {
+      return;
+    }
+
+    void fetch(loginStartedPath, {
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+      keepalive: true,
+    }).catch(() => undefined);
+  }
 
   return (
     <main className="min-h-screen bg-store-background px-4 py-10 text-store-background-text">
@@ -222,7 +235,7 @@ export default function ReceiptClaimPageClient({
                     asChild
                     className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
                   >
-                    <Link href={asRoute(loginPath)}>
+                    <Link href={asRoute(loginPath)} onClick={trackLoginStarted}>
                       Sign in to claim receipt
                     </Link>
                   </Button>

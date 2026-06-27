@@ -166,12 +166,6 @@ BEGIN
         'customers',
         'view'
       )
-      OR public.check_staff_permission(
-        (SELECT auth.uid()),
-        p_merchant_id,
-        'marketing',
-        'view'
-      )
     ) THEN
     RAISE EXCEPTION 'permission_denied' USING ERRCODE = '42501';
   END IF;
@@ -236,6 +230,12 @@ BEGIN
       )::integer AS claimed_count,
       MAX(last_activity_at) AS last_activity_at
     FROM claim_rows
+  ),
+  recipient_rows AS (
+    SELECT *
+    FROM claim_rows
+    ORDER BY last_activity_at DESC NULLS LAST, lower(customer_email)
+    LIMIT 200
   )
   SELECT jsonb_build_object(
     'totalRecipients', COALESCE(a.total_recipients, 0),
@@ -262,7 +262,7 @@ BEGIN
           )
           ORDER BY cr.last_activity_at DESC NULLS LAST, lower(cr.customer_email)
         )
-        FROM claim_rows AS cr
+        FROM recipient_rows AS cr
       ),
       '[]'::jsonb
     )

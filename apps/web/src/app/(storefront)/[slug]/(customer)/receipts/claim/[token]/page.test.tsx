@@ -8,6 +8,7 @@ import ReceiptClaimPage, {
 const mockCreateClient = vi.fn();
 const mockLoadReceiptClaimPreviewWithLoginEmailHint = vi.fn();
 const mockParseReceiptClaimToken = vi.fn();
+const mockRecordReceiptClaimClick = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockCreateClient(),
@@ -18,6 +19,8 @@ vi.mock('@/lib/import-notifications/receipt-claim-preview', () => ({
     mockLoadReceiptClaimPreviewWithLoginEmailHint(...args),
   parseReceiptClaimToken: (...args: unknown[]) =>
     mockParseReceiptClaimToken(...args),
+  recordReceiptClaimClick: (...args: unknown[]) =>
+    mockRecordReceiptClaimClick(...args),
 }));
 
 vi.mock('./receipt-claim-page-client', () => ({
@@ -74,6 +77,23 @@ describe('ReceiptClaimPage server wrapper', () => {
     expect(screen.getByText('error:none')).toBeInTheDocument();
     expect(screen.getByText('email:bassey@example.com')).toBeInTheDocument();
     expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
+    expect(mockRecordReceiptClaimClick).toHaveBeenCalledWith({
+      supabase: { rpc: expect.any(Function) },
+      token: 'claim-token',
+    });
+  });
+
+  it('still renders the claim preview when click tracking fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockRecordReceiptClaimClick.mockRejectedValue(new Error('tracking failed'));
+
+    render(await ReceiptClaimPreviewSection({ token: 'claim-token' }));
+
+    expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it('prevents tokenized receipt claim pages from being indexed', () => {

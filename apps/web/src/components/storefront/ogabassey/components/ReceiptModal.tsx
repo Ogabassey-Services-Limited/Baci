@@ -127,7 +127,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         ref={dialogRef}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="bg-white w-[min(100%,980px)] rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         onKeyDown={handleDialogKeyDown}
         role="dialog"
       >
@@ -159,15 +159,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Shared HTML Receipt via iframe */}
-        <div className="flex-1 overflow-hidden bg-gray-50">
+        <div className="flex-1 overflow-auto bg-gray-50 p-3 md:p-5">
           {/* react-doctor-disable-next-line react-doctor/no-noninteractive-tabindex -- iframe holds scrollable receipt content; tabIndex={0} is a real focus target so keyboard users can reach and scroll it within the modal focus trap. */}
           <iframe
             ref={iframeRef}
             srcDoc={html}
             tabIndex={0}
             title={`${documentTitle} #${orderData.order_number}`}
-            className="w-full h-full border-0"
-            style={{ minHeight: '500px' }}
+            className="mx-auto block h-[min(76vh,900px)] w-full max-w-[794px] border-0 bg-white"
+            style={{ minHeight: '620px' }}
             sandbox="allow-same-origin"
           />
         </div>

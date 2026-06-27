@@ -164,6 +164,22 @@ describe('ReceiptModal', () => {
     expect(print).toHaveBeenCalledTimes(1);
   });
 
+  it('centers the receipt document viewport inside the desktop modal', () => {
+    render(
+      <ReceiptModal
+        isOpen
+        merchantData={merchant}
+        onClose={vi.fn()}
+        orderData={createOrder('paid')}
+      />
+    );
+
+    expect(screen.getByRole('dialog')).toHaveClass('w-[min(100%,980px)]');
+    expect(screen.getByTitle('Receipt #ORD-001')).toHaveClass(
+      'max-w-[794px]'
+    );
+  });
+
   it.each(modalVariants)(
     'closes the $label modal when Escape is pressed',
     async ({ label, paymentStatus }) => {
