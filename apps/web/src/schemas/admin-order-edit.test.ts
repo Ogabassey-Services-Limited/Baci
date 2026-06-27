@@ -54,6 +54,12 @@ describe('adminOrderEditSchema', () => {
     expect(adminOrderEditSchema.safeParse(legacyPayload).success).toBe(true);
   });
 
+  it('accepts nullable source values from legacy or imported orders', () => {
+    expect(
+      adminOrderEditSchema.safeParse({ ...validPayload, source: null }).success
+    ).toBe(true);
+  });
+
   it('rejects blank customer name', () => {
     const result = adminOrderEditSchema.safeParse({
       ...validPayload,
@@ -93,7 +99,7 @@ describe('adminOrderEditSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('still rejects excessive discounts when gift wrapping is omitted', () => {
+  it('defers discount floor validation when hidden gift wrapping is omitted', () => {
     const payload: Partial<typeof validPayload> = {
       ...validPayload,
       discount_amount: 999999999,
@@ -104,7 +110,7 @@ describe('adminOrderEditSchema', () => {
 
     const result = adminOrderEditSchema.safeParse(payload);
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('accepts a blank shipping address for pickup or physical sales', () => {

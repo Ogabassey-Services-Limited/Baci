@@ -177,7 +177,7 @@ export function EditOrderScreenContent({
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <NewOrderDetailsSection controller={controller} />
+          <NewOrderDetailsSection controller={controller} showDateField={false} />
           <NewOrderChannelSection controller={controller} />
           <NewOrderItemsSection controller={controller} />
           <NewOrderNotesSection controller={controller} />

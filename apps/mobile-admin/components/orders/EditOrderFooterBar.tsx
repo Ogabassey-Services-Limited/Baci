@@ -42,7 +42,7 @@ export function EditOrderFooterBar({
           disabled: controller.isSubmitting,
         }}
         disabled={controller.isSubmitting}
-        onPress={() => controller.setNotifyCustomer(!controller.notifyCustomer)}
+        onPress={() => controller.setNotifyCustomer((previous) => !previous)}
         style={styles.notifyRow}
       >
         <View>

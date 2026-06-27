@@ -43,21 +43,24 @@ export const adminOrderEditSchema = z
     notify_customer: z.boolean().default(false),
     shipping_address: editShippingAddressSchema,
     shipping_fee: moneySchema,
-    source: z.string().trim().min(1).max(50),
+    source: z.string().trim().min(1).max(50).nullable(),
     tax_amount: moneySchema,
   })
   .refine(
     (value) => {
+      if (value.gift_wrapping_fee === undefined) {
+        return true;
+      }
+
       const subtotal = value.items.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
-      const giftWrappingFee = value.gift_wrapping_fee ?? 0;
 
       return (
         subtotal -
           value.discount_amount +
-          giftWrappingFee +
+          value.gift_wrapping_fee +
           value.shipping_fee +
           value.tax_amount >=
         0

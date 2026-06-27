@@ -47,6 +47,9 @@ function mapOrderEditError(error: { code?: string; message?: string }) {
     message.includes('order_financial_edit_after_fulfillment') ||
     message.includes('order_terminal_not_editable') ||
     message.includes('order_item_replacement_has_historical_state') ||
+    message.includes('order_item_replacement_has_accounting_metadata') ||
+    message.includes('order_item_replacement_has_managed_stock') ||
+    message.includes('order_item_replacement_has_serialized_reservations') ||
     message.includes(
       'cannot_delete_order_item_with_historical_serialized_units'
     ) ||

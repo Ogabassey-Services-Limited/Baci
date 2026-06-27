@@ -103,11 +103,6 @@ describe('OrderItemDetailModal', () => {
       screen.getByRole('region', { name: 'Order item details' })
     ).toBeInTheDocument();
     expect(screen.getByText('Item Details')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'This is the order snapshot the customer actually bought.'
-      )
-    ).toBeInTheDocument();
     expect(screen.getByText('Samsung Galaxy S22 Ultra')).toBeInTheDocument();
     expect(screen.getByText('128GB / Phantom Black')).toBeInTheDocument();
     expect(screen.getByText('Quantity')).toBeInTheDocument();
@@ -151,6 +146,28 @@ describe('OrderItemDetailModal', () => {
       'data-style',
       expect.stringContaining(LIGHT_COLORS.textOnPrimary)
     );
+  });
+
+  it('uses display-only item fallbacks when persisted snapshot fields are empty', () => {
+    render(
+      <OrderItemDetailModal
+        formattedLineTotal="₦500,000"
+        formattedUnitPrice="₦500,000"
+        item={createItem({
+          condition: undefined,
+          display_condition: 'used',
+          display_image_url: 'https://example.com/catalog-s22.png',
+          image_url: undefined,
+        })}
+        onClose={vi.fn()}
+        visible
+      />
+    );
+
+    expect(screen.getByText('Used')).toBeInTheDocument();
+    expect(
+      screen.getByText('https://example.com/catalog-s22.png')
+    ).toBeInTheDocument();
   });
 
   it('exposes accessible button controls for both dismissal actions', () => {

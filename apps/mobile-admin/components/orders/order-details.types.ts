@@ -3,6 +3,8 @@ import type { PaymentStatus, ShippingStatus } from '@/hooks/useOrders';
 
 export interface OrderDetailsItem {
   condition?: string;
+  display_condition?: string;
+  display_image_url?: string;
   has_assurance?: boolean;
   id: string;
   image_url?: string;

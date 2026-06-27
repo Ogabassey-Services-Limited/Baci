@@ -42,6 +42,32 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'order audit select RLS policy missing';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policy p
+    JOIN pg_class c ON c.oid = p.polrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'product_variants'
+      AND p.polname = 'product_variants_select_by_merchant_access'
+      AND pg_get_expr(p.polqual, p.polrelid) LIKE '%has_merchant_access%'
+  ) THEN
+    RAISE EXCEPTION 'product variants select policy still uses broad merchant access';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policy p
+    JOIN pg_class c ON c.oid = p.polrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'product_variants'
+      AND p.polname = 'product_variants_select_by_merchant_access'
+      AND pg_get_expr(p.polqual, p.polrelid) LIKE '%check_staff_permission%'
+  ) THEN
+    RAISE EXCEPTION 'product variants select policy missing permission-specific guard';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -158,6 +184,7 @@ BEGIN
     merchant_id,
     name,
     price,
+    manage_stock,
     status
   ) VALUES
     (
@@ -165,6 +192,7 @@ BEGIN
       v_merchant_id,
       'Samsung Galaxy S26',
       1000000,
+      false,
       'active'
     ),
     (
@@ -172,6 +200,7 @@ BEGIN
       v_other_merchant_id,
       'Other Merchant Phone',
       1000000,
+      false,
       'active'
     );
 
@@ -597,6 +626,253 @@ BEGIN
   ) <> 2 THEN
     RAISE EXCEPTION 'expected two audit events after successful edits';
   END IF;
+
+  UPDATE public.order_items
+  SET cost_price = 700000
+  WHERE order_id = v_order_id;
+
+  BEGIN
+    PERFORM public.update_admin_order(
+      v_order_id,
+      jsonb_build_object(
+        'branch_id', null,
+        'customer', jsonb_build_object(
+          'id', v_customer_id,
+          'name', 'Ada Buyer',
+          'email', 'ada@example.com',
+          'phone', '+2348099999999'
+        ),
+        'discount_amount', 0,
+        'gift_wrapping_fee', 0,
+        'items', jsonb_build_array(
+          jsonb_build_object(
+            'condition', 'new',
+            'image_url', 'https://cdn.example.test/s26-updated.jpg',
+            'item_description', 'Updated snapshot',
+            'name', 'Samsung Galaxy S26',
+            'price', 1000000,
+            'product_id', v_product_id,
+            'product_match_status', 'linked',
+            'quantity', 3,
+            'variant_id', v_variant_id,
+            'variant_attributes', '{"color": "Black", "storage": "512GB"}'::jsonb,
+            'variant_name', 'Black / 512GB'
+          )
+        ),
+        'notes', 'Updated note',
+        'notify_customer', false,
+        'shipping_address', jsonb_build_object(
+          'address', '12 Allen Avenue',
+          'city', 'Ikeja',
+          'name', 'Ada Buyer',
+          'phone', '+2348099999999',
+          'state', 'Lagos'
+        ),
+        'shipping_fee', 2500,
+        'source', 'physical',
+        'tax_amount', 0
+      )
+    );
+    RAISE EXCEPTION 'accounting metadata item replacement unexpectedly accepted';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%order_item_replacement_has_accounting_metadata%' THEN
+      RAISE;
+    END IF;
+  END;
+
+  UPDATE public.order_items
+  SET cost_price = NULL,
+    line_id = 987654
+  WHERE order_id = v_order_id;
+
+  v_result := public.update_admin_order(
+    v_order_id,
+    jsonb_build_object(
+      'branch_id', null,
+      'customer', jsonb_build_object(
+        'id', v_customer_id,
+        'name', 'Ada Buyer',
+        'email', 'ada@example.com',
+        'phone', '+2348099999999'
+      ),
+      'discount_amount', 0,
+      'gift_wrapping_fee', 0,
+      'items', jsonb_build_array(
+        jsonb_build_object(
+          'condition', 'new',
+          'image_url', 'https://cdn.example.test/s26-updated.jpg',
+          'item_description', 'Updated snapshot',
+          'name', 'Samsung Galaxy S26',
+          'price', 1000000,
+          'product_id', v_product_id,
+          'product_match_status', 'linked',
+          'quantity', 3,
+          'variant_id', v_variant_id,
+          'variant_attributes', '{"color": "Black", "storage": "512GB"}'::jsonb,
+          'variant_name', 'Black / 512GB'
+        )
+      ),
+      'notes', 'Updated line id only guard',
+      'notify_customer', false,
+      'shipping_address', jsonb_build_object(
+        'address', '12 Allen Avenue',
+        'city', 'Ikeja',
+        'name', 'Ada Buyer',
+        'phone', '+2348099999999',
+        'state', 'Lagos'
+      ),
+      'shipping_fee', 2500,
+      'source', 'physical',
+      'tax_amount', 0
+    )
+  );
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.order_items
+    WHERE order_id = v_order_id
+      AND quantity = 3
+  ) THEN
+    RAISE EXCEPTION 'generated line_id only item replacement was not accepted';
+  END IF;
+
+  UPDATE public.products
+  SET manage_stock = true
+  WHERE id = v_product_id;
+
+  BEGIN
+    PERFORM public.update_admin_order(
+      v_order_id,
+      jsonb_build_object(
+        'branch_id', null,
+        'customer', jsonb_build_object(
+          'id', v_customer_id,
+          'name', 'Ada Buyer',
+          'email', 'ada@example.com',
+          'phone', '+2348099999999'
+        ),
+        'discount_amount', 0,
+        'gift_wrapping_fee', 0,
+        'items', jsonb_build_array(
+          jsonb_build_object(
+            'condition', 'new',
+            'image_url', 'https://cdn.example.test/s26-updated.jpg',
+            'item_description', 'Updated snapshot',
+            'name', 'Samsung Galaxy S26',
+            'price', 1000000,
+            'product_id', v_product_id,
+            'product_match_status', 'linked',
+            'quantity', 4,
+            'variant_id', v_variant_id,
+            'variant_attributes', '{"color": "Black", "storage": "512GB"}'::jsonb,
+            'variant_name', 'Black / 512GB'
+          )
+        ),
+        'notes', 'Updated note',
+        'notify_customer', false,
+        'shipping_address', jsonb_build_object(
+          'address', '12 Allen Avenue',
+          'city', 'Ikeja',
+          'name', 'Ada Buyer',
+          'phone', '+2348099999999',
+          'state', 'Lagos'
+        ),
+        'shipping_fee', 2500,
+        'source', 'physical',
+        'tax_amount', 0
+      )
+    );
+    RAISE EXCEPTION 'managed-stock item replacement unexpectedly accepted';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%order_item_replacement_has_managed_stock%' THEN
+      RAISE;
+    END IF;
+  END;
+
+  UPDATE public.products
+  SET manage_stock = false
+  WHERE id = v_product_id;
+
+  INSERT INTO public.variant_inventory (
+    id,
+    variant_id,
+    merchant_id,
+    identifier_type,
+    identifier_value,
+    status,
+    order_id,
+    order_item_id,
+    reserved_at,
+    first_reserved_at,
+    reservation_expires_at
+  )
+  SELECT
+    '00000000-0000-4000-8000-00000000a601'::uuid,
+    v_variant_id,
+    v_merchant_id,
+    'imei',
+    '123456789012345',
+    'reserved',
+    v_order_id,
+    oi.id,
+    now(),
+    now(),
+    now() + interval '15 minutes'
+  FROM public.order_items oi
+  WHERE oi.order_id = v_order_id
+  LIMIT 1;
+
+  BEGIN
+    PERFORM public.update_admin_order(
+      v_order_id,
+      jsonb_build_object(
+        'branch_id', null,
+        'customer', jsonb_build_object(
+          'id', v_customer_id,
+          'name', 'Ada Buyer',
+          'email', 'ada@example.com',
+          'phone', '+2348099999999'
+        ),
+        'discount_amount', 0,
+        'gift_wrapping_fee', 0,
+        'items', jsonb_build_array(
+          jsonb_build_object(
+            'condition', 'new',
+            'image_url', 'https://cdn.example.test/s26-updated.jpg',
+            'item_description', 'Updated snapshot',
+            'name', 'Samsung Galaxy S26',
+            'price', 1000000,
+            'product_id', v_product_id,
+            'product_match_status', 'linked',
+            'quantity', 4,
+            'variant_id', v_variant_id,
+            'variant_attributes', '{"color": "Black", "storage": "512GB"}'::jsonb,
+            'variant_name', 'Black / 512GB'
+          )
+        ),
+        'notes', 'Updated note',
+        'notify_customer', false,
+        'shipping_address', jsonb_build_object(
+          'address', '12 Allen Avenue',
+          'city', 'Ikeja',
+          'name', 'Ada Buyer',
+          'phone', '+2348099999999',
+          'state', 'Lagos'
+        ),
+        'shipping_fee', 2500,
+        'source', 'physical',
+        'tax_amount', 0
+      )
+    );
+    RAISE EXCEPTION 'serialized reservation item replacement unexpectedly accepted';
+  EXCEPTION WHEN check_violation THEN
+    IF SQLERRM NOT LIKE '%order_item_replacement_has_serialized_reservations%' THEN
+      RAISE;
+    END IF;
+  END;
+
+  DELETE FROM public.variant_inventory
+  WHERE id = '00000000-0000-4000-8000-00000000a601'::uuid;
 
   UPDATE public.orders
   SET payment_status = 'paid'

@@ -96,7 +96,14 @@ describe('EditOrderFooterBar', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Notify customer' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
-    expect(controller.setNotifyCustomer).toHaveBeenCalledWith(true);
+    expect(controller.setNotifyCustomer).toHaveBeenCalledWith(
+      expect.any(Function)
+    );
+    const toggle = vi.mocked(controller.setNotifyCustomer).mock.calls[0]?.[0] as
+      | ((previous: boolean) => boolean)
+      | undefined;
+    expect(toggle?.(false)).toBe(true);
+    expect(toggle?.(true)).toBe(false);
     expect(controller.handleSubmit).toHaveBeenCalledTimes(1);
   });
 

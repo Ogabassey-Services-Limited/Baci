@@ -64,7 +64,43 @@ CREATE POLICY "product_variants_select_by_merchant_access"
   ON public.product_variants
   FOR SELECT
   TO authenticated
-  USING (public.has_merchant_access(merchant_id));
+  USING (
+    merchant_id IN (
+      SELECT m.id
+      FROM public.merchants m
+      WHERE m.user_id = (SELECT auth.uid())
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'orders',
+      'view'
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'orders',
+      'edit'
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'products',
+      'view'
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'products',
+      'edit'
+    )
+    OR public.check_staff_permission(
+      (SELECT auth.uid()),
+      merchant_id,
+      'products',
+      'manage_inventory'
+    )
+  );
 
 CREATE OR REPLACE FUNCTION public.update_admin_order(
   p_order_id uuid,
@@ -186,10 +222,7 @@ BEGIN
   );
   v_shipping_state := NULLIF(btrim(p_payload #>> '{shipping_address,state}'), '');
 
-  IF v_customer_name IS NULL
-    OR v_order_source IS NULL
-    OR v_shipping_name IS NULL
-  THEN
+  IF v_customer_name IS NULL OR v_shipping_name IS NULL THEN
     RAISE EXCEPTION 'order_required_fields_invalid' USING ERRCODE = '22023';
   END IF;
 
@@ -506,6 +539,52 @@ BEGIN
     )
   THEN
     RAISE EXCEPTION 'order_item_replacement_has_historical_state' USING ERRCODE = '23514';
+  END IF;
+
+  IF v_items_changed
+    AND EXISTS (
+      SELECT 1
+      FROM public.order_items oi
+      WHERE oi.order_id = p_order_id
+        AND (
+          oi.cost_price IS NOT NULL
+          OR NULLIF(btrim(oi.supplier_name), '') IS NOT NULL
+          OR oi.quiz_award_id IS NOT NULL
+          OR COALESCE(oi.unit_code, 'EA') <> 'EA'
+          OR COALESCE(oi.vat_category_code, 'S') <> 'S'
+          OR COALESCE(oi.vat_rate, 7.5) <> 7.5
+          OR COALESCE(oi.vat_amount, 0) <> 0
+          OR NULLIF(btrim(oi.sellers_item_id), '') IS NOT NULL
+        )
+    )
+  THEN
+    RAISE EXCEPTION 'order_item_replacement_has_accounting_metadata'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF v_items_changed
+    AND EXISTS (
+      SELECT 1
+      FROM public.order_items oi
+      JOIN public.products p ON p.id = oi.product_id
+      WHERE oi.order_id = p_order_id
+        AND COALESCE(p.manage_stock, true)
+    )
+  THEN
+    RAISE EXCEPTION 'order_item_replacement_has_managed_stock'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF v_items_changed
+    AND EXISTS (
+      SELECT 1
+      FROM public.order_items oi
+      JOIN public.variant_inventory vi ON vi.order_item_id = oi.id
+      WHERE oi.order_id = p_order_id
+    )
+  THEN
+    RAISE EXCEPTION 'order_item_replacement_has_serialized_reservations'
+      USING ERRCODE = '23514';
   END IF;
 
   IF v_items_changed

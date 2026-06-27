@@ -73,15 +73,17 @@ vi.mock('../useMerchant', () => ({
 import { fetchOrderById } from './useOrderDetails';
 
 describe('fetchOrderById legacy item fallbacks', () => {
-  it('falls back to product fields for legacy rows without snapshots', async () => {
+  it('keeps product fallbacks separate from persisted legacy snapshots', async () => {
     await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
       expect.objectContaining({
         items: [
           expect.objectContaining({
             category: 'Accessories',
-            condition: 'used',
+            condition: undefined,
             details: undefined,
-            image_url: 'https://example.test/product.jpg',
+            display_condition: 'used',
+            display_image_url: 'https://example.test/product.jpg',
+            image_url: undefined,
             name: 'Legacy Charger',
             product_name: 'Legacy Charger',
             variant_id: null,

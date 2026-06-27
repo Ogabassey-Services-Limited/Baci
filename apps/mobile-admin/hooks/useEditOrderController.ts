@@ -12,10 +12,18 @@ import { useUpdateOrder } from './orders/useUpdateOrder';
 import { useNewOrderController } from './useNewOrderController';
 import { useOrder } from './useOrders';
 
+function hasVatTaxBasis(order: EditableOrderRecord): boolean {
+  return order.tax_basis === 'exclusive' || order.tax_basis === 'inclusive';
+}
+
 export function useEditOrderController() {
   const rawParams = useLocalSearchParams<{ id?: string }>();
   const orderId = Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id;
-  const baseController = useNewOrderController();
+  const baseController = useNewOrderController({
+    autoApplyVat: false,
+    autoSelectDefaultBranch: false,
+    initialSelectedChannel: null,
+  });
   const orderQuery = useOrder(orderId ?? '');
   const updateOrderMutation = useUpdateOrder();
   const [notifyCustomer, setNotifyCustomer] = useState(false);
@@ -25,6 +33,7 @@ export function useEditOrderController() {
     setCustomer,
     setDeliveryInfo,
     setDiscount,
+    setIsVatApplied,
     setNotes,
     setOrderItems,
     setSameAsCustomer,
@@ -66,12 +75,13 @@ export function useEditOrderController() {
     setSelectedBranchId(
       typeof order.branch_id === 'string' ? order.branch_id : null
     );
-    setSelectedChannel(order.source ?? 'physical');
+    setSelectedChannel(order.source ?? null);
     setOrderItems(mapOrderItemsForEdit(order.items));
     setNotes(order.notes ?? '');
     setDiscount(Number(order.discount_amount) || 0);
     setShippingFee(Number(order.shipping_fee) || 0);
     setTaxes(Number(order.tax_amount) || 0);
+    setIsVatApplied(hasVatTaxBasis(order));
     setSameAsCustomer(sameAsCustomer);
     setDeliveryInfo({
       address,
@@ -85,6 +95,7 @@ export function useEditOrderController() {
     setCustomer,
     setDeliveryInfo,
     setDiscount,
+    setIsVatApplied,
     setNotes,
     setOrderItems,
     setSameAsCustomer,

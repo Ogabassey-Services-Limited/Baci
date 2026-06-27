@@ -22,12 +22,8 @@ const PAID_LIKE_STATUSES: ReadonlySet<string> = new Set<PaymentStatus>([
   'refunded',
 ]);
 
-const FULFILLED_OR_TERMINAL_STATUSES: ReadonlySet<string> = new Set<ShippingStatus>([
-  'shipped',
-  'delivered',
-  'cancelled',
-  'returned',
-]);
+const FULFILLED_OR_TERMINAL_STATUSES: ReadonlySet<string> =
+  new Set<ShippingStatus>(['shipped', 'delivered', 'cancelled', 'returned']);
 
 function hasPaymentLockStatus(
   status: PaymentStatus | string | null | undefined
@@ -66,6 +62,7 @@ export type EditableOrderRecord = Record<string, unknown> & {
   shipping_status?: ShippingStatus;
   source?: OrderSource | null;
   tax_amount?: number | null;
+  tax_basis?: 'exclusive' | 'inclusive' | string | null;
   total?: number | null;
   wallet_amount_used?: number | null;
 };

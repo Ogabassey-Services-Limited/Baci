@@ -76,6 +76,7 @@ function createBaseController(
     setCustomer: vi.fn(),
     setDeliveryInfo: vi.fn(),
     setDiscount: vi.fn(),
+    setIsVatApplied: vi.fn(),
     setNotes: vi.fn(),
     setOrderItems: vi.fn(),
     setSelectedBranchId: vi.fn(),
@@ -136,12 +137,18 @@ describe('useEditOrderController', () => {
         shipping_fee: 500,
         source: 'website',
         tax_amount: 75,
+        tax_basis: 'exclusive',
       },
       isLoading: false,
     });
 
     renderHook(() => useEditOrderController());
 
+    expect(useNewOrderControllerMock).toHaveBeenCalledWith({
+      autoApplyVat: false,
+      autoSelectDefaultBranch: false,
+      initialSelectedChannel: null,
+    });
     await waitFor(() => {
       expect(baseController.setCustomer).toHaveBeenCalledWith({
         address: '12 Allen Avenue',
@@ -152,6 +159,9 @@ describe('useEditOrderController', () => {
       });
     });
     expect(baseController.setSelectedBranchId).toHaveBeenCalledWith('branch-2');
+    expect(baseController.setSelectedChannel).toHaveBeenCalledWith('website');
+    expect(baseController.setTaxes).toHaveBeenCalledWith(75);
+    expect(baseController.setIsVatApplied).toHaveBeenCalledWith(true);
     expect(baseController.setOrderItems).toHaveBeenCalledWith([
       expect.objectContaining({
         details: 'Open box',
@@ -171,10 +181,13 @@ describe('useEditOrderController', () => {
     });
   });
 
-  it('falls back to customer contact when shipping contact is missing', async () => {
+  it('falls back to customer contact when shipping contact is missing', () => {
     const baseController = createBaseController();
     useNewOrderControllerMock.mockReturnValue(baseController);
-    useUpdateOrderMock.mockReturnValue({ isPending: false, mutateAsync: vi.fn() });
+    useUpdateOrderMock.mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn(),
+    });
     useOrderMock.mockReturnValue({
       data: {
         customer_name: 'Buyer',
@@ -193,4 +206,59 @@ describe('useEditOrderController', () => {
     );
   });
 
+  it('preserves nullable branch and source values when prefilling edits', async () => {
+    const baseController = createBaseController();
+    useNewOrderControllerMock.mockReturnValue(baseController);
+    useUpdateOrderMock.mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn(),
+    });
+    useOrderMock.mockReturnValue({
+      data: {
+        branch_id: null,
+        customer_name: 'Legacy Buyer',
+        customer_phone: '08039999999',
+        id: 'order-1',
+        shipping_address: { address: '12 Allen Avenue' },
+        source: null,
+        tax_amount: 0,
+      },
+      isLoading: false,
+    });
+
+    renderHook(() => useEditOrderController());
+
+    await waitFor(() => {
+      expect(baseController.setSelectedBranchId).toHaveBeenCalledWith(null);
+    });
+    expect(baseController.setSelectedChannel).toHaveBeenCalledWith(null);
+    expect(baseController.setTaxes).toHaveBeenCalledWith(0);
+    expect(baseController.setIsVatApplied).toHaveBeenCalledWith(false);
+  });
+
+  it('leaves VAT disabled for legacy orders without a classified tax basis', async () => {
+    const baseController = createBaseController();
+    useNewOrderControllerMock.mockReturnValue(baseController);
+    useUpdateOrderMock.mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn(),
+    });
+    useOrderMock.mockReturnValue({
+      data: {
+        customer_name: 'Legacy Buyer',
+        customer_phone: '08039999999',
+        id: 'order-1',
+        shipping_address: { address: '12 Allen Avenue' },
+        tax_amount: 0,
+        tax_basis: null,
+      },
+      isLoading: false,
+    });
+
+    renderHook(() => useEditOrderController());
+
+    await waitFor(() => {
+      expect(baseController.setIsVatApplied).toHaveBeenCalledWith(false);
+    });
+  });
 });
