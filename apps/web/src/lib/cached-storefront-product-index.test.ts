@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreatePublicClient = vi.fn();
@@ -18,6 +21,14 @@ vi.mock('@/lib/normalize-product', () => ({
 }));
 
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
+
+const SOURCE = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    'cached-storefront-product-index.ts'
+  ),
+  'utf8'
+);
 
 function createQueryBuilder(overrides: {
   data?: unknown[] | null;
@@ -49,6 +60,13 @@ describe('getCachedStorefrontProductIndex', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('keeps the public product index off the remote cache handler', () => {
+    expect(SOURCE).toContain("'use cache';");
+    expect(SOURCE).not.toContain("'use cache: remote';");
+    expect(SOURCE).toContain("cacheLife('products');");
+    expect(SOURCE).toContain('cacheTag(');
   });
 
   it('returns normalized products with pagination metadata on success', async () => {
