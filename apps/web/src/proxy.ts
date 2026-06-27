@@ -16,6 +16,10 @@
 import { trace } from '@opentelemetry/api';
 import { NextRequest, NextResponse } from 'next/server';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
+import {
+  STOREFRONT_PUBLIC_CACHE_POLICIES,
+  type StorefrontPublicCachePolicy,
+} from '@/config/storefront-cache';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   getStorefrontMetadataCacheBucket,
@@ -256,9 +260,9 @@ const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
-const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
-const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
+const NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL =
+  'private, no-store, max-age=0, must-revalidate';
 
 // UUID-shaped product URL segment — resolved by the PDP route's id lookup, so
 // the crawl-budget slug-set check (which holds slugs, not ids) must skip it.
@@ -569,6 +573,55 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
   'wishlist',
 ]);
 
+// Public single-segment storefront documents that are safe to edge-cache for
+// every tenant. Merchant-specific category roots belong in per-tenant sets.
+const CACHEABLE_PUBLIC_STOREFRONT_FIRST_SEGMENTS = new Set([
+  'about',
+  'blog',
+  'contact',
+  'faq',
+  'privacy',
+  'privacy-policy',
+  'products',
+  'returns',
+  'shipping',
+  'terms',
+  'terms-and-conditions',
+  'terms-of-service',
+  'warranty',
+]);
+
+const STOREFRONT_CACHE_POLICIES_BY_SLUG = new Map<
+  string,
+  StorefrontPublicCachePolicy
+>(
+  STOREFRONT_PUBLIC_CACHE_POLICIES.map((policy) => [
+    policy.slug.toLowerCase(),
+    policy,
+  ])
+);
+const STOREFRONT_CACHE_POLICIES_BY_HOSTNAME = new Map<
+  string,
+  StorefrontPublicCachePolicy
+>(
+  STOREFRONT_PUBLIC_CACHE_POLICIES.flatMap((policy) =>
+    policy.customHostnames.map(
+      (hostname) => [normalizeHostname(hostname), policy] as const
+    )
+  )
+);
+const CACHEABLE_PUBLIC_STOREFRONT_CATEGORY_SEGMENTS_BY_SLUG = new Map<
+  string,
+  Set<string>
+>(
+  STOREFRONT_PUBLIC_CACHE_POLICIES.map((policy) => [
+    policy.slug.toLowerCase(),
+    new Set<string>(
+      policy.cacheableCategorySegments.map((segment) => segment.toLowerCase())
+    ),
+  ])
+);
+
 // First content segments that must NEVER be edge-cached as a public document.
 // = RESERVED_STOREFRONT_SEGMENTS plus the per-user/authenticated route groups
 // not already reserved: (customer) my-account/delete-account/receipts,
@@ -592,10 +645,147 @@ const NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS = new Set<string>([
   'reviews',
 ]);
 
-// A storefront document is safe to CDN-cache only when it is a genuine public
-// PDP/category shell on a clean (param-free) canonical URL. Per-user route
-// groups and param/non-canonical URLs (e.g. invalid `?variantId=` that streams
-// a redirect) are excluded so the edge never caches private or non-canonical
+function isStorefrontHomeDocument(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  if (routeType !== 'storefront') {
+    return false;
+  }
+
+  const pathSegments = pathname.split('/').filter(Boolean);
+  if (!isSlugPrefixedStorefrontRequest(hostname)) {
+    return pathSegments.length === 0;
+  }
+
+  const slugSegment = pathSegments[0]?.toLowerCase();
+  return (
+    pathSegments.length === 1 &&
+    slugSegment !== undefined &&
+    isValidSubdomain(slugSegment) &&
+    !RESERVED_SUBDOMAINS.has(slugSegment) &&
+    !RESERVED_STOREFRONT_SEGMENTS.has(slugSegment) &&
+    !PLATFORM_ROOT_ROUTE_SEGMENTS.has(slugSegment)
+  );
+}
+
+function isNonHtmlStorefrontDocumentPath(pathname: string): boolean {
+  const lowerPathname = pathname.toLowerCase();
+  return (
+    isPublicMachineReadablePath(pathname) ||
+    STATIC_FILES_REGEX.test(lowerPathname) ||
+    STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX.test(lowerPathname) ||
+    pathname
+      .split('/')
+      .filter(Boolean)
+      .some((segment) =>
+        STOREFRONT_METADATA_CACHE_NON_HTML_ROUTE_SEGMENTS.has(
+          segment.toLowerCase()
+        )
+      )
+  );
+}
+
+function getStorefrontSlugFromRequest(
+  pathname: string,
+  hostname: string | undefined
+): string | null {
+  if (!hostname) {
+    return null;
+  }
+
+  const normalizedHostname = hostname ? normalizeHostname(hostname) : '';
+  const customDomainPolicy =
+    STOREFRONT_CACHE_POLICIES_BY_HOSTNAME.get(normalizedHostname);
+  if (customDomainPolicy) {
+    return customDomainPolicy.slug.toLowerCase();
+  }
+
+  const localhostSubdomain = extractLocalhostSubdomain(normalizedHostname);
+  if (localhostSubdomain) {
+    return localhostSubdomain;
+  }
+
+  const rootDomainSubdomain = extractSubdomain(normalizedHostname, ROOT_DOMAIN);
+  if (rootDomainSubdomain && !RESERVED_SUBDOMAINS.has(rootDomainSubdomain)) {
+    return rootDomainSubdomain;
+  }
+
+  if (!isSlugPrefixedStorefrontRequest(hostname)) {
+    return null;
+  }
+
+  return pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? null;
+}
+
+function getStorefrontPublicCachePolicy(
+  pathname: string,
+  hostname: string | undefined
+) {
+  const storefrontSlug = getStorefrontSlugFromRequest(pathname, hostname);
+  if (!storefrontSlug) {
+    return null;
+  }
+
+  return STOREFRONT_CACHE_POLICIES_BY_SLUG.get(storefrontSlug) ?? null;
+}
+
+function isCacheablePublicStorefrontFirstSegment(
+  pathname: string,
+  hostname: string | undefined,
+  firstSegment: string
+): boolean {
+  const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
+  const cacheableCategorySegments = cachePolicy
+    ? CACHEABLE_PUBLIC_STOREFRONT_CATEGORY_SEGMENTS_BY_SLUG.get(
+        cachePolicy.slug.toLowerCase()
+      )
+    : undefined;
+
+  return (
+    CACHEABLE_PUBLIC_STOREFRONT_FIRST_SEGMENTS.has(firstSegment) ||
+    cacheableCategorySegments?.has(firstSegment) === true
+  );
+}
+
+function isPublicReservedStorefrontDocument(
+  pathname: string,
+  hostname: string | undefined,
+  contentSegments: string[]
+): boolean {
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (
+    firstSegment === undefined ||
+    !isCacheablePublicStorefrontFirstSegment(pathname, hostname, firstSegment)
+  ) {
+    return false;
+  }
+
+  if (firstSegment === 'blog') {
+    return true;
+  }
+
+  return contentSegments.length === 1;
+}
+
+function isCacheableSingleSegmentStorefrontDocument(
+  pathname: string,
+  hostname: string | undefined,
+  contentSegments: string[]
+): boolean {
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  return (
+    contentSegments.length === 1 &&
+    firstSegment !== undefined &&
+    isCacheablePublicStorefrontFirstSegment(pathname, hostname, firstSegment)
+  );
+}
+
+// A storefront document is safe to CDN-cache only when it is anonymous public
+// storefront HTML on a clean canonical URL. Per-user route groups and
+// param/non-canonical URLs (for example invalid `?variantId=` that streams a
+// redirect) are excluded so the edge never caches private or non-canonical
 // content.
 function isCacheablePublicStorefrontDocument(
   pathname: string,
@@ -606,18 +796,110 @@ function isCacheablePublicStorefrontDocument(
   if (routeType !== 'storefront' || hasQuery) {
     return false;
   }
-  if (!isStorefrontProductPagePath(pathname, hostname, routeType)) {
+  if (isNonHtmlStorefrontDocumentPath(pathname)) {
     return false;
   }
-  const firstSegment = getStorefrontContentSegments(
+  if (isStorefrontHomeDocument(pathname, hostname, routeType)) {
+    return true;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
     pathname,
     hostname,
     routeType
-  )[0];
-  return (
-    firstSegment !== undefined &&
-    !NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment)
   );
+  if (contentSegments.length === 0) {
+    return false;
+  }
+
+  const firstSegment = contentSegments[0]?.toLowerCase();
+  if (
+    firstSegment !== undefined &&
+    NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment)
+  ) {
+    return (
+      isPublicReservedStorefrontDocument(pathname, hostname, contentSegments) ||
+      (firstSegment === 'products' &&
+        isStorefrontProductPagePath(pathname, hostname, routeType))
+    );
+  }
+
+  if (
+    isCacheableSingleSegmentStorefrontDocument(
+      pathname,
+      hostname,
+      contentSegments
+    )
+  ) {
+    return true;
+  }
+
+  return isStorefrontProductPagePath(pathname, hostname, routeType);
+}
+
+function shouldSetStorefrontDocumentCacheControl(
+  pathname: string,
+  hostname: string | undefined,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): boolean {
+  if (
+    routeType !== 'storefront' ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/api') ||
+    isNonHtmlStorefrontDocumentPath(pathname)
+  ) {
+    return false;
+  }
+
+  if (
+    isCacheablePublicStorefrontDocument(pathname, hostname, routeType, false)
+  ) {
+    return true;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  const firstSegment = contentSegments[0]?.toLowerCase();
+
+  return (
+    contentSegments.length === 1 ||
+    (firstSegment !== undefined &&
+      NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(firstSegment))
+  );
+}
+
+function isSupabaseAuthCookieName(cookieName: string): boolean {
+  const normalizedName = cookieName.toLowerCase();
+  return (
+    normalizedName === 'supabase-auth-token' ||
+    normalizedName.startsWith('supabase-auth-token.') ||
+    (normalizedName.startsWith('sb-') && normalizedName.includes('auth-token'))
+  );
+}
+
+function hasStorefrontAuthSessionHint(
+  request: NextRequest | undefined
+): boolean {
+  if (!request) {
+    return true;
+  }
+
+  if (
+    request.headers.has('x-supabase-auth-token') ||
+    request.headers.has('authorization')
+  ) {
+    return true;
+  }
+
+  return request.cookies
+    .getAll()
+    .some(
+      (cookie) =>
+        cookie.value.length > 0 && isSupabaseAuthCookieName(cookie.name)
+    );
 }
 
 function sanitizeProxyRedirectPath(
@@ -3010,6 +3292,15 @@ function applySecurityHeaders(
   // Keep SEO listing subroutes cacheable; they share the 3-segment shape used
   // by category PDPs but do not stream PDP metadata/content slots.
   if (isStorefrontNestedListingPath(pathname, hostname, routeType)) {
+    if (hasStorefrontAuthSessionHint(request)) {
+      response.headers.set(
+        'Cache-Control',
+        NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
+      );
+      appendVaryHeader(response, 'Cookie');
+      return response;
+    }
+
     response.headers.set(
       'Cache-Control',
       isBot
@@ -3019,37 +3310,33 @@ function applySecurityHeaders(
     return response;
   }
 
-  // Storefront HTML documents. Only the canonical public PDP/category shell on a
-  // clean URL is CDN-cached — the earlier no-store policy existed because Next 16
-  // could stream internal metadata boundaries ahead of the resolved tree,
-  // producing resume mismatches when a cached shell was replayed; that upstream
-  // bug (vercel/next.js#94630) is now fixed via patches/next@16.2.9.patch (PR
-  // #2436), so the prerendered PDP shell is safe to cache and that delivers the
-  // static-hero LCP win. Everything else (per-user route groups like
-  // account/checkout/receipts/order-success, param/non-canonical URLs, and
-  // single-segment shells) MUST stay no-store so the edge never caches private
-  // or non-canonical content.
-  if (
-    routeType === 'storefront' &&
-    !pathname.startsWith('/dashboard') &&
-    !pathname.startsWith('/api') &&
-    (isStorefrontProductPagePath(pathname, hostname, routeType) ||
-      pathname.match(CATEGORY_PAGE_REGEX) !== null ||
-      pathname.match(STOREFRONT_HOME_REGEX) !== null)
-  ) {
+  // Storefront HTML documents. Public anonymous documents get a short CDN TTL:
+  // home, catalog/category listings, canonical PDPs, public blog pages, and
+  // static trust/content pages. Per-user route groups like account, checkout,
+  // cart, wallet, receipts, and order-success MUST stay no-store so the edge
+  // never caches private or non-canonical content.
+  if (shouldSetStorefrontDocumentCacheControl(pathname, hostname, routeType)) {
     // Fail safe: if the request is unavailable we cannot confirm the URL is
     // param-free, so treat it as having a query (not cacheable).
     const hasQuery = request ? request.nextUrl.search.length > 0 : true;
-    const cacheable = isCacheablePublicStorefrontDocument(
-      pathname,
-      hostname,
-      routeType,
-      hasQuery
-    );
+    const hasAuthSessionHint = hasStorefrontAuthSessionHint(request);
+    const cacheable =
+      !hasAuthSessionHint &&
+      isCacheablePublicStorefrontDocument(
+        pathname,
+        hostname,
+        routeType,
+        hasQuery
+      );
     response.headers.set(
       'Cache-Control',
-      cacheable ? STOREFRONT_DOCUMENT_CACHE_CONTROL : PDP_HTML_CACHE_CONTROL
+      hasAuthSessionHint || !cacheable
+        ? NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
+        : STOREFRONT_DOCUMENT_CACHE_CONTROL
     );
+    if (hasAuthSessionHint) {
+      appendVaryHeader(response, 'Cookie');
+    }
     return response;
   }
 
