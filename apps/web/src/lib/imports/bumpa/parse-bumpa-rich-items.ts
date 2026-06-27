@@ -16,15 +16,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function firstRecordText(record: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
     const value = record[key];
-    if (typeof value !== 'string') {
+    if (
+      typeof value !== 'string' &&
+      !(typeof value === 'number' && Number.isFinite(value))
+    ) {
       continue;
     }
 
-    const text = sanitizeText(value).replace(/\s+/g, ' ');
+    const text = sanitizeText(String(value)).replace(/\s+/g, ' ');
     if (text) return text;
   }
 
   return null;
+}
+
+function normalizeMoneyText(value: string) {
+  return value
+    .replace(/\b(?:NGN|USD|GBP|EUR)\b/gi, '')
+    .replace(/[₦$£€,_\s]/g, '');
 }
 
 function parseNumberValue(value: unknown) {
@@ -39,8 +48,10 @@ function parseNumberValue(value: unknown) {
   const text = sanitizeText(value);
   if (!text) return null;
 
-  const numberValue = sanitizePrice(text);
-  return Number.isFinite(numberValue) ? numberValue : null;
+  const normalizedText = normalizeMoneyText(text);
+  if (!/^-?\d+(?:\.\d+)?$/.test(normalizedText)) return null;
+
+  return sanitizePrice(Number(normalizedText));
 }
 
 function parseQuantityValue(value: unknown) {

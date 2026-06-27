@@ -180,11 +180,14 @@ export function buildItems(
     (item) => item.productName || item.quantity || item.unitPrice
   );
   const hasRichItems = richItems.length > 0;
+  const rowQuantities = splitPipeField(row['Product Quantity']);
   const quantities = hasRichItems
-    ? richItems.map((item) =>
-        item.quantity === null ? '' : String(item.quantity)
+    ? richItems.map((item, index) =>
+        item.quantity === null
+          ? rowQuantities[index] || ''
+          : String(item.quantity)
       )
-    : splitPipeField(row['Product Quantity']);
+    : rowQuantities;
   const skus = hasRichItems
     ? richItems.map((item) => item.sku || '')
     : splitPipeField(row['Product SKU']);

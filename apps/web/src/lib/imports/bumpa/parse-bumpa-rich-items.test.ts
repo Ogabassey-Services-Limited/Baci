@@ -94,4 +94,39 @@ describe('parseBumpaRichItems', () => {
       }),
     ]);
   });
+
+  it('parses numeric SKUs and formatted money strings', () => {
+    expect(
+      parseBumpaRichItems(
+        JSON.stringify([
+          {
+            name: 'Google Pixel 7a',
+            product_sku: 700128,
+            quantity: 1,
+            price: 'NGN 1,350,000.00',
+            total: '₦1,350,000.00',
+          },
+          {
+            name: 'Invalid price row',
+            variant_sku: 555,
+            price: 'not a price',
+            total: 'unknown',
+          },
+        ])
+      )
+    ).toEqual([
+      expect.objectContaining({
+        productName: 'Google Pixel 7a',
+        sku: '700128',
+        unitPrice: 1350000,
+        lineTotal: 1350000,
+      }),
+      expect.objectContaining({
+        productName: 'Invalid price row',
+        sku: '555',
+        unitPrice: null,
+        lineTotal: null,
+      }),
+    ]);
+  });
 });

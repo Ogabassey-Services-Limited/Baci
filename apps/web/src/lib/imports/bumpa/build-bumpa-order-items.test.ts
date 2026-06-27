@@ -143,6 +143,28 @@ describe('buildItems', () => {
     });
   });
 
+  it('uses row quantities for rich items that omit item-level quantity', () => {
+    const items = buildItems(
+      makeRow({
+        'Product Quantity': '3',
+        items_json: JSON.stringify([
+          {
+            name: 'Widget',
+            total: 6000,
+          },
+        ]),
+      }),
+      []
+    );
+
+    expect(items[0]).toMatchObject({
+      productName: 'Widget',
+      quantity: 3,
+      unitPrice: 2000,
+      lineTotal: 6000,
+    });
+  });
+
   it('uses matched catalog prices for flat product rows', () => {
     const items = buildItems(
       makeRow({
