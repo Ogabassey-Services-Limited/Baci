@@ -220,6 +220,7 @@ async function fetchGiglQuote(
       stationName: isStationPickup ? receiverStation.StationName : undefined,
       stationAddress: isStationPickup ? receiverStation.Address : undefined,
       isStationPickup,
+      // Keep pickupStation* aliases for existing app/API consumers while station* fields back DB persistence.
       pickupStationId: isStationPickup ? receiverStation.StationId : undefined,
       pickupStationName: isStationPickup
         ? receiverStation.StationName

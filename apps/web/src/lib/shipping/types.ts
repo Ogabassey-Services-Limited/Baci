@@ -227,6 +227,7 @@ export interface ShipmentRecord {
   actual_delivery: string | null;
   label_url: string | null;
   is_station_pickup: boolean;
+  // Matches the baseline Supabase columns; pickup_station_* aliases do not exist in the database.
   station_name: string | null;
   station_address: string | null;
   sender_address: ShippingAddress;
@@ -254,6 +255,7 @@ export interface ShippingQuoteRecord {
   total_weight: number | null;
   insurance_included: boolean;
   is_station_pickup: boolean;
+  // Matches the baseline Supabase columns; pickup_station_* aliases do not exist in the database.
   station_name: string | null;
   station_address: string | null;
   expires_at: string;
