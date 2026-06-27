@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import type {
   ImportPreviewRow,
   NormalizedImportedOrder,
@@ -158,9 +158,13 @@ function createSupabaseMock() {
   const ordersQuery = {
     select: vi.fn(),
     eq: vi.fn(),
+    in: vi.fn(),
+    range: vi.fn(),
   };
   ordersQuery.select.mockReturnValue(ordersQuery);
-  ordersQuery.eq.mockResolvedValue({
+  ordersQuery.eq.mockReturnValue(ordersQuery);
+  ordersQuery.in.mockReturnValue(ordersQuery);
+  ordersQuery.range.mockResolvedValue({
     data: [
       {
         id: 'order-1',
@@ -315,8 +319,8 @@ describe('import-job-service', () => {
   it('builds an order preview from parsed CSV rows and existing merchant data', async () => {
     const supabase = createSupabaseMock();
     vi.mocked(parseCsvText).mockReturnValue({
-      headers: ['id'],
-      rows: [{ id: 'bumpa-1' }],
+      headers: ['id', 'order_number'],
+      rows: [{ id: 'bumpa-1', order_number: 'ORD-1' }],
     });
     vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
       (async function* () {
@@ -335,7 +339,9 @@ describe('import-job-service', () => {
       storage_path: 'merchant-1/orders/orders.csv',
     });
 
-    expect(result.sourceRows).toEqual([{ id: 'bumpa-1' }]);
+    expect(result.sourceRows).toEqual([
+      { id: 'bumpa-1', order_number: 'ORD-1' },
+    ]);
     expect(result.rows).toEqual([
       expect.objectContaining({
         rowNumber: 2,
@@ -345,7 +351,7 @@ describe('import-job-service', () => {
     ]);
     expect(result.totalRows).toBe(1);
     expect(buildBumpaOrderPreviewChunks).toHaveBeenCalledWith({
-      rows: [{ id: 'bumpa-1' }],
+      rows: [{ id: 'bumpa-1', order_number: 'ORD-1' }],
       existingOrders: [
         {
           id: 'order-1',
@@ -366,6 +372,13 @@ describe('import-job-service', () => {
         },
       ],
     });
+    const fromMock = supabase.from as unknown as Mock;
+    const orderQueryResult = fromMock.mock.results.find(
+      (_result, index) => fromMock.mock.calls[index]?.[0] === 'orders'
+    );
+    const ordersQuery = orderQueryResult?.value as { in: Mock };
+    expect(ordersQuery.in).toHaveBeenCalledWith('external_id', ['bumpa-1']);
+    expect(ordersQuery.in).toHaveBeenCalledWith('order_number', ['ORD-1']);
   });
 
   it('builds product previews with source rows intact', async () => {
@@ -455,9 +468,13 @@ describe('import-job-service', () => {
     const ordersQuery = {
       select: vi.fn(),
       eq: vi.fn(),
+      in: vi.fn(),
+      range: vi.fn(),
     };
     ordersQuery.select.mockReturnValue(ordersQuery);
-    ordersQuery.eq.mockReturnValue(ordersDeferred);
+    ordersQuery.eq.mockReturnValue(ordersQuery);
+    ordersQuery.in.mockReturnValue(ordersQuery);
+    ordersQuery.range.mockReturnValue(ordersDeferred);
 
     const productsQuery = {
       select: vi.fn(),

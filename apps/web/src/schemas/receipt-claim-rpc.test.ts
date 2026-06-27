@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createReceiptClaimResultSchema,
+  receiptClaimCampaignStatsSchema,
   receiptClaimRecordSchema,
   redeemReceiptClaimResultSchema,
 } from '@/schemas/receipt-claim-rpc';
@@ -108,6 +109,48 @@ describe('receipt claim RPC schemas', () => {
     expect(
       createReceiptClaimResultSchema.safeParse({
         status: 'queued',
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts receipt claim campaign stats returned for migration dashboards', () => {
+    const parsed = receiptClaimCampaignStatsSchema.safeParse({
+      claimedCount: 1,
+      clickedCount: 2,
+      lastActivityAt: '2026-06-27T10:05:00.000Z',
+      loginStartedCount: 1,
+      recipients: [
+        {
+          claimedAt: '2026-06-27T10:05:00.000Z',
+          clickCount: 3,
+          customerEmail: 'ada@example.com',
+          customerName: 'Ada Lovelace',
+          firstClickedAt: '2026-06-27T10:00:00.000Z',
+          firstLoginStartedAt: '2026-06-27T10:01:00.000Z',
+          id: 'claim-1',
+          lastClickedAt: '2026-06-27T10:02:00.000Z',
+          lastLoginStartedAt: '2026-06-27T10:01:00.000Z',
+          loginStartedCount: 1,
+          notificationSentAt: '2026-06-27T09:59:00.000Z',
+        },
+      ],
+      sentCount: 3,
+      totalRecipients: 3,
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects campaign stats with negative counters', () => {
+    expect(
+      receiptClaimCampaignStatsSchema.safeParse({
+        claimedCount: 0,
+        clickedCount: 0,
+        lastActivityAt: null,
+        loginStartedCount: 0,
+        recipients: [],
+        sentCount: -1,
+        totalRecipients: 0,
       }).success
     ).toBe(false);
   });

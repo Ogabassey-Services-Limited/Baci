@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import {
   loadReceiptClaimLoginEmailHint,
   parseReceiptClaimToken,
+  recordReceiptClaimLoginStarted,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 
@@ -29,6 +30,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     if (!hint.ok) {
       return NextResponse.json({ error: hint.error }, { status: hint.status });
+    }
+
+    try {
+      await recordReceiptClaimLoginStarted({ supabase, token });
+    } catch (trackingError) {
+      console.error(
+        'Failed to record receipt claim login start',
+        trackingError
+      );
     }
 
     return NextResponse.json({ emailHint: hint.emailHint });

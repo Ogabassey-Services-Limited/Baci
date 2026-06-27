@@ -142,3 +142,51 @@ export async function loadReceiptClaimLoginEmailHint({
     ok: true,
   };
 }
+
+async function recordReceiptClaimActivity({
+  rpcName,
+  supabase,
+  token,
+}: {
+  rpcName: 'record_receipt_claim_click' | 'record_receipt_claim_login_started';
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  const { error } = await supabase.rpc(rpcName, {
+    p_token_hash: hashReceiptClaimToken(token),
+  });
+
+  if (error) {
+    throw new Error(
+      `Failed to record receipt claim activity: ${error.message}`
+    );
+  }
+}
+
+export async function recordReceiptClaimClick({
+  supabase,
+  token,
+}: {
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  await recordReceiptClaimActivity({
+    rpcName: 'record_receipt_claim_click',
+    supabase,
+    token,
+  });
+}
+
+export async function recordReceiptClaimLoginStarted({
+  supabase,
+  token,
+}: {
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  await recordReceiptClaimActivity({
+    rpcName: 'record_receipt_claim_login_started',
+    supabase,
+    token,
+  });
+}

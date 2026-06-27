@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
-import { loadReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
+import {
+  loadReceiptClaimPreview,
+  recordReceiptClaimClick,
+} from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 import { receiptClaimRouteParamsSchema } from '@/schemas/receipt-claim-route-params';
 import { redeemReceiptClaimResultSchema } from '@/schemas/receipt-claim-rpc';
@@ -52,6 +55,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         { error: preview.error },
         { status: preview.status }
       );
+    }
+
+    try {
+      await recordReceiptClaimClick({ supabase, token });
+    } catch (trackingError) {
+      console.error('Failed to record receipt claim click', trackingError);
     }
 
     return NextResponse.json({ claim: preview.claim });

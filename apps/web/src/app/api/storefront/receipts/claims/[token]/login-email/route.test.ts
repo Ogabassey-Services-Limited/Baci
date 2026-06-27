@@ -29,9 +29,28 @@ const baseClaim = {
   orders: [],
 };
 
-function createSupabaseRpcMock(response: { data: unknown; error: unknown }) {
+function createSupabaseRpcMock(
+  response: { data: unknown; error: unknown },
+  trackingResponse: { data: unknown; error: unknown } = {
+    data: null,
+    error: null,
+  }
+) {
   return {
-    rpc: vi.fn().mockResolvedValue(response),
+    rpc: vi.fn((name: string) => {
+      if (name === 'preview_receipt_claim') {
+        return Promise.resolve(response);
+      }
+
+      if (name === 'record_receipt_claim_login_started') {
+        return Promise.resolve(trackingResponse);
+      }
+
+      return Promise.resolve({
+        data: null,
+        error: { message: `Unexpected RPC: ${name}` },
+      });
+    }),
   };
 }
 
@@ -70,7 +89,28 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'record_receipt_claim_login_started',
+      {
+        p_token_hash: hashReceiptClaimToken('claim-token'),
+      }
+    );
     expect(body).toEqual({ emailHint: 'basseybjohn@yahoo.co.uk' });
+  });
+
+  it('still returns an email hint when login tracking fails', async () => {
+    const supabase = createSupabaseRpcMock(
+      { data: baseClaim, error: null },
+      { data: null, error: { message: 'tracking write failed' } }
+    );
+    mockCreateClient.mockResolvedValue(supabase);
+
+    const response = await GET(getRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ emailHint: 'basseybjohn@yahoo.co.uk' });
+    expect(mockConsoleError).toHaveBeenCalled();
   });
 
   it('returns an empty email hint when claim data has an invalid email', async () => {

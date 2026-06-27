@@ -8,6 +8,7 @@ import type {
   ImportJobSourcePlatform,
   ImportJobStatus,
 } from '@/schemas/import-jobs';
+import type { ReceiptClaimCampaignStats } from '@/schemas/receipt-claim-rpc';
 
 export type ImportJobRowStatus = 'create' | 'update' | 'duplicate' | 'invalid';
 
@@ -33,6 +34,7 @@ export interface ImportJobListItem {
 export interface ImportJobDetail extends ImportJobListItem {
   canCommit: boolean;
   canNotify: boolean;
+  receiptCampaign?: ReceiptClaimCampaignStats | null;
 }
 
 export interface ImportJobRowsResponse {

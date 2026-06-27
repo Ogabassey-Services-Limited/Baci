@@ -3,10 +3,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import {
   getImportJobForMerchant,
   hasImportRoutePermission,
+  type ImportRouteContext,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
 import { logger } from '@/lib/logger';
 import { importJobParamsSchema } from '@/schemas/import-jobs';
+import { receiptClaimCampaignStatsSchema } from '@/schemas/receipt-claim-rpc';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
@@ -25,6 +27,47 @@ function jsonNoStore(
   init?: Parameters<typeof NextResponse.json>[1]
 ) {
   return applyNoStoreHeaders(NextResponse.json(body, init));
+}
+
+async function loadReceiptCampaignStats({
+  importJobId,
+  merchantId,
+  supabase,
+}: {
+  importJobId: string;
+  merchantId: string;
+  supabase: ImportRouteContext['supabase'];
+}) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_receipt_claim_campaign_stats',
+      {
+        p_import_job_id: importJobId,
+        p_merchant_id: merchantId,
+      }
+    );
+
+    if (error) {
+      throw new Error(
+        `Failed to load receipt campaign stats: ${error.message}`
+      );
+    }
+
+    const parsed = receiptClaimCampaignStatsSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new Error('Failed to load receipt campaign stats: invalid shape');
+    }
+
+    return parsed.data;
+  } catch (error) {
+    logger.error({
+      message: 'Receipt campaign stats unavailable',
+      importJobId,
+      merchantId,
+      error,
+    });
+    return null;
+  }
 }
 
 export async function GET(
@@ -78,6 +121,14 @@ export async function GET(
     const summary = (job.summary || {}) as Record<string, unknown>;
     const validRows =
       typeof summary.validRows === 'number' ? summary.validRows : 0;
+    const receiptCampaign =
+      job.entity_type === 'orders'
+        ? await loadReceiptCampaignStats({
+            importJobId: job.id,
+            merchantId: authResult.context.merchantContext.merchantId,
+            supabase: authResult.context.supabase,
+          })
+        : null;
 
     return jsonNoStore({
       job: {
@@ -87,6 +138,7 @@ export async function GET(
           job.entity_type === 'orders' &&
           job.status === 'committed' &&
           validRows > 0,
+        receiptCampaign,
       },
     });
   } catch (error) {
