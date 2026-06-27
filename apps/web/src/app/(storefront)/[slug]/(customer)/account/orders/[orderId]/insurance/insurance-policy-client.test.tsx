@@ -71,6 +71,29 @@ describe('InsurancePolicyClient', () => {
     );
   });
 
+  it('requires HTTPS certificate links and surfaces claim progress', () => {
+    render(
+      <InsurancePolicyClient
+        initialResult={{
+          error: '',
+          policy: {
+            ...basePolicy,
+            certificateUrl: 'http://cdn.example.test/policy.pdf',
+            claimProgress: 'Awaiting repair quote',
+            claimStatus: 'offer_sent',
+          },
+        }}
+      />
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /download certificate/i })
+    ).toBeNull();
+    expect(
+      screen.getByText('Progress: Awaiting repair quote')
+    ).toBeInTheDocument();
+  });
+
   it('renders the server-fetched error state without a client fetch', () => {
     render(
       <InsurancePolicyClient

@@ -1,3 +1,4 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import { resolveInsuranceCardActions } from './OrderDetailsInsuranceCard.actions';
 
 describe('resolveInsuranceCardActions', () => {
@@ -45,4 +46,18 @@ describe('resolveInsuranceCardActions', () => {
     });
   });
 
+  it('does not show activation pending when a non-terminal claim already exists without a hosted link', () => {
+    expect(
+      resolveInsuranceCardActions({
+        claimStatus: 'offer_sent',
+        inspectionStatus: 'pending',
+        isDelivered: true,
+      })
+    ).toMatchObject({
+      showActivationPending: false,
+      showAwaitingDelivery: false,
+      showClaim: false,
+      showContinueClaim: false,
+    });
+  });
 });

@@ -239,7 +239,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     }
   });
 
-  it('uses the request-scoped delivered RPC and activation notification when snapshot persistence is denied', async () => {
+  it('returns live delivered tracking without a customer-callable fallback when snapshot persistence is denied', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -278,23 +278,14 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ status: 'delivered' });
       expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
-      expect(mockRpc).toHaveBeenCalledWith(
-        'persist_customer_delivered_tracking',
-        expect.objectContaining({
-          p_current_location: 'Lagos',
-          p_customer_user_id: 'user-1',
-          p_delivered_at: '2026-05-12T15:00:00.000Z',
-          p_order_id: 'order-1',
-          p_shipment_id: 'shipment-1',
-        })
-      );
-      expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith('order-1');
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }
   });
 
-  it('does not call the request-scoped RPC when delivered fallback has no authenticated customer', async () => {
+  it('does not check customer auth when denied customer persistence cannot transition delivery', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -327,6 +318,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
+      expect(mockAuthGetUser).not.toHaveBeenCalled();
       expect(mockRpc).not.toHaveBeenCalled();
       expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
@@ -334,7 +326,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     }
   });
 
-  it('uses the delivered RPC when customer-scoped shipment update matches zero rows', async () => {
+  it('does not use a delivered RPC when customer-scoped shipment update matches zero rows', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -363,20 +355,14 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockRpc).toHaveBeenCalledWith(
-        'persist_customer_delivered_tracking',
-        expect.objectContaining({
-          p_order_id: 'order-1',
-          p_shipment_id: 'shipment-1',
-        })
-      );
-      expect(mockMaybeNotifyActivateProtection).toHaveBeenCalledWith('order-1');
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }
   });
 
-  it('does not send activation notification when the delivered RPC refuses the customer transition', async () => {
+  it('does not use a delivered RPC when order status persistence is denied', async () => {
     mockShipmentLookup({
       carrier_name: 'DHL',
       estimated_delivery_days: 3,
@@ -389,7 +375,6 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       data: null,
       error: { message: 'shipment write denied by RLS' },
     });
-    mockRpc.mockResolvedValueOnce({ data: false, error: null });
     mockTrackShipment.mockResolvedValue({
       actualDelivery: new Date('2026-05-12T15:00:00Z'),
       carrierName: 'DHL',
@@ -406,13 +391,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockRpc).toHaveBeenCalledWith(
-        'persist_customer_delivered_tracking',
-        expect.objectContaining({
-          p_order_id: 'order-1',
-          p_shipment_id: 'shipment-1',
-        })
-      );
+      expect(mockRpc).not.toHaveBeenCalled();
       expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();

@@ -27,9 +27,7 @@ function toSafeExternalUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:'
-      ? url.toString()
-      : null;
+    return url.protocol === 'https:' ? url.toString() : null;
   } catch {
     return null;
   }
@@ -231,6 +229,11 @@ export function InsurancePolicyClient({
                 {policy.claimComment && (
                   <p className="text-sm text-muted-foreground mt-2">
                     {policy.claimComment}
+                  </p>
+                )}
+                {policy.claimProgress && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Progress: {policy.claimProgress}
                   </p>
                 )}
               </div>

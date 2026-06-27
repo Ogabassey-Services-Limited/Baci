@@ -191,15 +191,9 @@ async function persistTrackingResult({
     });
     // Customer tracking should return the live carrier result even when RLS
     // denies opportunistic snapshot persistence for the request-scoped client.
-    if (delivered) {
-      const persisted = await persistDeliveredTransitionForCustomer({
-        shipment,
-        snapshot,
-        supabase,
-      });
-      if (persisted)
-        await notifyDeliveredProtectionActivation(shipment.order_id);
-    }
+    // Do not fall back to a customer-callable delivered RPC here: a signed-in
+    // customer can invoke granted RPCs directly, bypassing the carrier result
+    // that this route just verified.
     return;
   }
 
@@ -213,15 +207,8 @@ async function persistTrackingResult({
       error: orderUpdateError,
       orderId: shipment.order_id,
     });
-    if (delivered) {
-      const persisted = await persistDeliveredTransitionForCustomer({
-        shipment,
-        snapshot,
-        supabase,
-      });
-      if (persisted)
-        await notifyDeliveredProtectionActivation(shipment.order_id);
-    }
+    // Same fail-closed rule as above: do not let a customer-scoped fallback
+    // transition an order to delivered when the normal order update is denied.
     return;
   }
 
@@ -239,49 +226,6 @@ function buildTrackingSnapshot(trackingResult: TrackingResult) {
     tracking_events: trackingResult.events,
     last_tracked_at: new Date().toISOString(),
   };
-}
-
-async function persistDeliveredTransitionForCustomer({
-  shipment,
-  snapshot,
-  supabase,
-}: {
-  shipment: ShipmentLookupResult;
-  snapshot: ReturnType<typeof buildTrackingSnapshot>;
-  supabase: SupabaseServerClient;
-}): Promise<boolean> {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return false;
-  }
-
-  const { data, error } = await supabase.rpc(
-    'persist_customer_delivered_tracking',
-    {
-      p_current_location: snapshot.current_location ?? null,
-      p_customer_user_id: user.id,
-      p_delivered_at: snapshot.delivered_at ?? null,
-      p_estimated_delivery_at: snapshot.estimated_delivery_at ?? null,
-      p_order_id: shipment.order_id,
-      p_shipment_id: shipment.id,
-      p_tracking_events: snapshot.tracking_events,
-    }
-  );
-
-  if (error) {
-    console.error('Error applying customer delivered tracking transition:', {
-      error,
-      orderId: shipment.order_id,
-      shipmentId: shipment.id,
-    });
-    return false;
-  }
-
-  return data === true;
 }
 
 async function notifyDeliveredProtectionActivation(orderId: string) {

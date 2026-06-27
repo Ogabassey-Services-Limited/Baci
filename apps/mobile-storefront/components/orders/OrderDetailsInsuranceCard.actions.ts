@@ -46,8 +46,16 @@ export function resolveInsuranceCardActions({
 
   return {
     showActivationPending:
-      inspectionPending && isDelivered && !inspectionLink && !terminalClaim,
-    showAwaitingDelivery: inspectionPending && !isDelivered && !terminalClaim,
+      inspectionPending &&
+      isDelivered &&
+      !inspectionLink &&
+      !claimAlreadyStarted &&
+      !terminalClaim,
+    showAwaitingDelivery:
+      inspectionPending &&
+      !isDelivered &&
+      !claimAlreadyStarted &&
+      !terminalClaim,
     showClaim:
       !inspectionPending &&
       !claimAlreadyStarted &&
