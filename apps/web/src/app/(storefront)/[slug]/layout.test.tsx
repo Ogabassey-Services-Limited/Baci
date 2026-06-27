@@ -490,7 +490,7 @@ describe('storefront layout metadata', () => {
     expect(metadata.alternates).toBeUndefined();
   });
 
-  it('uses industry-aware fallback metadata for food stores', async () => {
+  it('keeps valid storefront layout titles undefined so page metadata owns HTML titles for food stores', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...baseMerchant,
       business_name: 'Foodflow',
@@ -505,7 +505,11 @@ describe('storefront layout metadata', () => {
       params: Promise.resolve({ slug: 'foodflow' }),
     });
 
-    expect(metadata.title).toBe('Foodflow | Order Fresh Food Online');
+    // Do not emit a generic parent <title> from the layout. With Next 16
+    // streaming metadata, that parent title is flushed before page/PDP metadata
+    // and can become the first cached title seen by crawlers. Page routes own
+    // HTML titles; the layout keeps shared description/icons/verification.
+    expect(metadata.title).toBeUndefined();
     expect(metadata.description).toBe(
       'Shop Foodflow - order fresh food online with secure checkout in Nigeria.'
     );
@@ -526,7 +530,7 @@ describe('storefront layout metadata', () => {
       params: Promise.resolve({ slug: 'medplus' }),
     });
 
-    expect(metadata.title).toBe('Medplus | Shop Pharmacy Essentials Online');
+    expect(metadata.title).toBeUndefined();
   });
 
   it('reads google verification from published_config when feature settings omit it', async () => {
