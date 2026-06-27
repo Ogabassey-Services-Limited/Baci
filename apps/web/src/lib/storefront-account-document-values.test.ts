@@ -99,6 +99,7 @@ describe('storefront account document values', () => {
         id: 'item-1',
         product_id: '',
         variant_id: 'variant-1',
+        condition: undefined,
         variant_name: 'Blue / 128GB',
         name: 'iPhone 16',
         product_name: 'iPhone 16',
@@ -106,6 +107,33 @@ describe('storefront account document values', () => {
         price: 1000,
       },
     ]);
+  });
+
+  it('falls back to canonical condition labels for receipt item variants', () => {
+    expect(
+      buildOrderItems([
+        {
+          id: 'item-used',
+          product_id: 'prod-used',
+          variant_id: null,
+          condition: 'used',
+          variant_name: null,
+          name: 'Samsung Galaxy Fold 5',
+          quantity: 1,
+          price: 930000,
+        },
+        {
+          id: 'item-open-box',
+          product_id: 'prod-open-box',
+          variant_id: null,
+          condition: 'open_box',
+          variant_name: null,
+          name: 'Samsung Galaxy S24 Ultra',
+          quantity: 1,
+          price: 1250000,
+        },
+      ]).map((item) => item.variant_name)
+    ).toEqual(['Used', 'Open Box']);
   });
 
   it('throws when an order item has invalid quantity or price data', () => {
