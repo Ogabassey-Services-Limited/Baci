@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockBlogAuthorPageContent,
-  mockConnection,
   mockGetBlogAuthorBySlug,
   mockGetBlogAuthorSlugs,
   mockGetCachedBlogAuthor,
@@ -13,7 +12,6 @@ const {
   mockResolveBlogCatchAllOutcome,
 } = vi.hoisted(() => ({
   mockBlogAuthorPageContent: vi.fn((_props: unknown) => <div>Author page</div>),
-  mockConnection: vi.fn(async () => undefined),
   mockGetBlogAuthorBySlug: vi.fn(),
   mockGetBlogAuthorSlugs: vi.fn(() => ['bassey-john', 'bolakale']),
   mockGetCachedBlogAuthor: vi.fn(),
@@ -32,10 +30,6 @@ const {
 vi.mock('@/lib/blog-authors', () => ({
   getBlogAuthorBySlug: (...args: unknown[]) => mockGetBlogAuthorBySlug(...args),
   getBlogAuthorSlugs: () => mockGetBlogAuthorSlugs(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -76,7 +70,6 @@ const {
 describe('blog author page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConnection.mockResolvedValue(undefined);
     mockGetBlogAuthorBySlug.mockReturnValue({
       name: 'Bassey John',
       sameAs: ['https://www.linkedin.com/in/bassey-john-6a277885'],
@@ -117,6 +110,7 @@ describe('blog author page metadata', () => {
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
       }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(metadata.title).toBe(
@@ -163,6 +157,7 @@ describe('blog author page metadata', () => {
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
       }),
+      searchParams: Promise.resolve({}),
     });
     render(ui);
 
@@ -178,10 +173,10 @@ describe('blog author page metadata', () => {
           slug: 'ogabassey.com',
           authorSlug: 'bassey-john',
         }),
+        searchParams: Promise.resolve({}),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
   });
@@ -200,12 +195,12 @@ describe('blog author page metadata', () => {
           slug: 'ogabassey.com',
           authorSlug: 'legacy-post-slug',
         }),
+        searchParams: Promise.resolve({}),
       })
     ).rejects.toThrow(
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
     );
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       'https://ogabassey.com/blog/canonical-post'
     );

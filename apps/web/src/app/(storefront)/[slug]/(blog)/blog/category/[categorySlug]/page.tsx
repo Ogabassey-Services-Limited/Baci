@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
@@ -39,6 +38,23 @@ const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
   'laptops',
   'smartphones',
 ] as const;
+
+async function resolveCategoryBlogSearchParams(
+  searchParams: BlogCategoryPageProps['searchParams'],
+  categoryLabel: string
+): Promise<{
+  category: string;
+  page?: BlogSearchParamValue;
+  search?: BlogSearchParamValue;
+}> {
+  const resolvedSearchParams = await searchParams;
+
+  return {
+    category: categoryLabel,
+    page: toSingleBlogSearchParam(resolvedSearchParams?.page),
+    search: toSingleBlogSearchParam(resolvedSearchParams?.search),
+  };
+}
 
 function getStaticCategorySlugs(categories: string[]): string[] {
   const publicCategories = filterPublicBlogCategories(categories);
@@ -109,36 +125,24 @@ export default async function BlogCategoryPage({
   params,
   searchParams,
 }: BlogCategoryPageProps) {
-  // Resolve invalid category hubs before the PPR shell streams. Under Cache
-  // Components, a notFound() below a streamed shell becomes a soft 404.
-  const [{ slug, categorySlug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  // Resolve the route params and category hub before returning the async child.
+  // Keep searchParams as a promise so normal category hubs can still produce a
+  // Cache Components static shell without top-level request-query access.
+  const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
-    // Only invalid category hubs opt out of prerendering so they keep hard 404
-    // semantics instead of becoming streamed soft-404 shells.
-    await connection();
     notFound();
   }
-
-  const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
-  const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
-  const currentPage = parseBlogListingPage(page);
 
   return (
     <BlogPageContent
       isCleanCategoryRoute
-      itemListSchemaUrl={
-        !search && currentPage === 1 ? hub.canonicalUrl : undefined
-      }
+      itemListSchemaUrl={hub.canonicalUrl}
       params={Promise.resolve({ slug })}
-      searchParams={Promise.resolve({
-        category: hub.categoryLabel,
-        page,
-        search,
-      })}
+      searchParams={resolveCategoryBlogSearchParams(
+        searchParams,
+        hub.categoryLabel
+      )}
     />
   );
 }

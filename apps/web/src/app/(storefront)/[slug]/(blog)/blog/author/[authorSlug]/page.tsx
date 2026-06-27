@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
@@ -47,18 +46,22 @@ async function assertAuthorRouteBeforeShell({
     const data = await getCachedBlogAuthor(slug, profile.name, { page });
 
     if (!data) {
-      // Keep known-author data misses as hard 404s before returning any page
-      // component that could sit below a loading shell.
-      await connection();
+      // Keep known-author data misses before returning the async child page.
       notFound();
+    }
+
+    if (data.currentPage > data.totalPages) {
+      redirect(
+        asRoute(
+          data.totalPages > 1
+            ? `./${normalizedAuthorSlug}?page=${data.totalPages}`
+            : `./${normalizedAuthorSlug}`
+        )
+      );
     }
 
     return { slug, authorSlug: normalizedAuthorSlug };
   }
-
-  // Only legacy/invalid author paths opt out of prerendering so HTTP redirects
-  // are emitted as status codes instead of streamed meta refresh fallbacks.
-  await connection();
 
   const fallbackOutcome = await resolveBlogCatchAllOutcome({
     params: Promise.resolve({

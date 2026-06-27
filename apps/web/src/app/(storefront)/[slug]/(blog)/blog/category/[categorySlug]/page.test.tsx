@@ -23,12 +23,6 @@ interface MockBlogPageContentProps {
 const mockBlogPageContent = vi.hoisted(() =>
   vi.fn((_props: MockBlogPageContentProps) => <div>Ogabassey blog</div>)
 );
-const mockConnection = vi.hoisted(() => vi.fn(async () => undefined));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
 vi.mock('../../blog-page-content', () => ({
   BlogPageContent: (props: unknown) =>
     mockBlogPageContent(props as MockBlogPageContentProps),
@@ -43,7 +37,6 @@ const {
 describe('blog category page', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
-    mockConnection.mockClear();
     mockBlogPageContent.mockReset();
     mockBlogPageContent.mockReturnValue(<div>Ogabassey blog</div>);
     mockResolveBlogCategoryHub.mockResolvedValue({
@@ -94,6 +87,42 @@ describe('blog category page', () => {
     });
   });
 
+  it('does not await search params before resolving the category shell', async () => {
+    let resolveSearchParams: (value: {
+      page?: string;
+      search?: string;
+    }) => void = () => undefined;
+    const searchParams = new Promise<{ page?: string; search?: string }>(
+      (resolve) => {
+        resolveSearchParams = resolve;
+      }
+    );
+
+    const ui = await BlogCategoryPage({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        categorySlug: 'smartphones',
+      }),
+      searchParams,
+    });
+    render(ui);
+
+    expect(screen.getByText('Ogabassey blog')).toBeInTheDocument();
+    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'smartphones'
+    );
+
+    resolveSearchParams({ page: '2', search: 'iphone' });
+    await expect(
+      mockBlogPageContent.mock.calls[0]?.[0].searchParams
+    ).resolves.toEqual({
+      category: 'Smartphones',
+      page: '2',
+      search: 'iphone',
+    });
+  });
+
   it('generates static params for public OgaBassey category hubs', async () => {
     const params = await generateStaticParams();
 
@@ -120,7 +149,6 @@ describe('blog category page', () => {
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockNotFound).toHaveBeenCalledTimes(1);
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });

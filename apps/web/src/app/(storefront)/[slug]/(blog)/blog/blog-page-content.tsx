@@ -247,6 +247,11 @@ export async function BlogPageContent({
   };
   const itemListPosts = posts.slice(0, 10);
   const itemListPositionOffset = (currentPage - 1) * BLOG_LISTING_PAGE_SIZE;
+  const effectiveItemListSchemaUrl =
+    isCleanCategoryRoute && (!category || search || currentPage !== 1)
+      ? undefined
+      : itemListSchemaUrl;
+
   const itemListSchema =
     itemListPosts.length > 0
       ? {
@@ -254,7 +259,7 @@ export async function BlogPageContent({
           '@type': 'ItemList',
           name: `${merchant.business_name} Blog articles`,
           url:
-            itemListSchemaUrl ??
+            effectiveItemListSchemaUrl ??
             buildBlogListingSchemaUrl({
               baseUrl,
               category,
