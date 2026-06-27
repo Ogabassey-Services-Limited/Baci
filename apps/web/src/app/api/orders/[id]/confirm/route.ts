@@ -77,9 +77,6 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> } // Await params in newer Next.js
 ) {
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) return response as NextResponse;
-
     // Auth check (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -94,6 +91,9 @@ export async function POST(
         { status: 403 }
       );
     }
+
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
 
     const supabase = auth.supabase;
 

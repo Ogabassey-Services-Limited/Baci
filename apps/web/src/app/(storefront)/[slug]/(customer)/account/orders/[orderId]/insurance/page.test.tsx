@@ -7,10 +7,6 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
 }));
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(() => Promise.resolve({ getAll: vi.fn(), toString: vi.fn() })),
-}));
-
 vi.mock('@/lib/cached-data', () => ({
   getMerchantSafe: (...args: unknown[]) => mocks.getMerchantSafe(...args),
 }));
@@ -72,7 +68,7 @@ describe('InsurancePolicyPage', () => {
       id: 'merchant-1',
       is_published: true,
     });
-    mocks.createClient.mockReturnValue({
+    mocks.createClient.mockResolvedValue({
       auth: {
         getUser: vi.fn(() =>
           Promise.resolve({ data: { user: { id: 'user-1' } }, error: null })

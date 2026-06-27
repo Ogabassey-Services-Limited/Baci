@@ -3,17 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Mocks ----
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(() => Promise.resolve({})),
-}));
-
 const mockFrom = vi.fn();
 const mockAuthGetUser = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    auth: { getUser: mockAuthGetUser },
-    from: mockFrom,
-  })),
+  createClient: vi.fn(() =>
+    Promise.resolve({
+      auth: { getUser: mockAuthGetUser },
+      from: mockFrom,
+    })
+  ),
 }));
 
 // Import after mocks

@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
@@ -68,8 +67,7 @@ async function fetchPolicyForOrder(
   const scopedOrderId = orderIdResult.data;
 
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
 
     const {
       data: { user },

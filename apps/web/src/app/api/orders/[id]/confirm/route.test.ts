@@ -5,6 +5,7 @@ vi.mock('server-only', () => ({}));
 
 const {
   mockAuthenticateApiRequest,
+  mockCheckCsrfProtection,
   mockGetMerchantIdForApiUser,
   mockPurchaseOrderInsurance,
   mockFrom,
@@ -15,6 +16,7 @@ const {
   const mockFrom = vi.fn();
   return {
     mockAuthenticateApiRequest: vi.fn(),
+    mockCheckCsrfProtection: vi.fn(),
     mockGetMerchantIdForApiUser: vi.fn(),
     mockPurchaseOrderInsurance: vi.fn(),
     mockFrom,
@@ -52,9 +54,7 @@ vi.mock('@/services/insurance', () => ({
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
 
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(() =>
-    Promise.resolve({ valid: true, response: null })
-  ),
+  checkCsrfProtection: mockCheckCsrfProtection,
 }));
 
 import { POST } from './route';
@@ -110,6 +110,24 @@ describe('POST /api/orders/[id]/confirm', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
     mockPurchaseOrderInsurance.mockResolvedValue({ policyId: 'policy-1' });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
+  });
+
+  it('returns 401 before CSRF validation when authentication fails', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: 'Unauthorized',
+      user: null,
+      supabase: null,
+    });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('confirms the order when the update advances shipping to processing', async () => {
