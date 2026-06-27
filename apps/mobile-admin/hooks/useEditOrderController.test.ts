@@ -87,6 +87,7 @@ function createBaseController(
     setSameAsCustomer: vi.fn(),
     shippingFee: 0,
     taxesToUse: 0,
+    total: 0,
     ...overrides,
   } as unknown as BaseController;
 }
@@ -161,7 +162,7 @@ describe('useEditOrderController', () => {
     expect(baseController.setSelectedBranchId).toHaveBeenCalledWith('branch-2');
     expect(baseController.setSelectedChannel).toHaveBeenCalledWith('website');
     expect(baseController.setTaxes).toHaveBeenCalledWith(75);
-    expect(baseController.setIsVatApplied).toHaveBeenCalledWith(true);
+    expect(baseController.setIsVatApplied).toHaveBeenCalledWith(false);
     expect(baseController.setOrderItems).toHaveBeenCalledWith([
       expect.objectContaining({
         details: 'Open box',
@@ -259,6 +260,66 @@ describe('useEditOrderController', () => {
 
     await waitFor(() => {
       expect(baseController.setIsVatApplied).toHaveBeenCalledWith(false);
+    });
+  });
+
+  it('includes preserved gift wrapping in the edit total display', () => {
+    const baseController = createBaseController({
+      taxesToUse: 0,
+      total: 1000,
+    });
+    useNewOrderControllerMock.mockReturnValue(baseController);
+    useUpdateOrderMock.mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn(),
+    });
+    useOrderMock.mockReturnValue({
+      data: {
+        customer_name: 'Buyer',
+        customer_phone: '08039999999',
+        gift_wrapping_fee: 250,
+        id: 'order-1',
+        shipping_address: { address: '12 Allen Avenue' },
+        tax_amount: 0,
+        tax_basis: 'exclusive',
+      },
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useEditOrderController());
+
+    return waitFor(() => {
+      expect(result.current.total).toBe(1250);
+    });
+  });
+
+  it('does not double-count inclusive tax in the edit total display', () => {
+    const baseController = createBaseController({
+      taxesToUse: 100,
+      total: 1100,
+    });
+    useNewOrderControllerMock.mockReturnValue(baseController);
+    useUpdateOrderMock.mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn(),
+    });
+    useOrderMock.mockReturnValue({
+      data: {
+        customer_name: 'Buyer',
+        customer_phone: '08039999999',
+        gift_wrapping_fee: 50,
+        id: 'order-1',
+        shipping_address: { address: '12 Allen Avenue' },
+        tax_amount: 100,
+        tax_basis: 'inclusive',
+      },
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useEditOrderController());
+
+    return waitFor(() => {
+      expect(result.current.total).toBe(1050);
     });
   });
 });

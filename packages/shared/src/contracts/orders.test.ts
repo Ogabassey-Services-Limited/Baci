@@ -69,6 +69,7 @@ describe('order column constants', () => {
     expect(mobileAdminColumns).toContain('fulfillment_details');
     expect(mobileAdminColumns).toContain('self_fulfillment_data');
     expect(mobileAdminColumns).toContain('recorded_by_user_id');
+    expect(mobileAdminColumns).toContain('gift_wrapping_fee');
     expect(mobileAdminColumns).toContain('tax_basis');
   });
 

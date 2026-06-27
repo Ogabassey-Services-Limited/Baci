@@ -74,12 +74,6 @@ CREATE POLICY "product_variants_select_by_merchant_access"
       (SELECT auth.uid()),
       merchant_id,
       'orders',
-      'view'
-    )
-    OR public.check_staff_permission(
-      (SELECT auth.uid()),
-      merchant_id,
-      'orders',
       'edit'
     )
     OR public.check_staff_permission(
@@ -121,7 +115,7 @@ DECLARE
   v_shipping_fee numeric := 0;
   v_discount_amount numeric := 0;
   v_gift_wrapping_fee numeric := 0;
-  v_tax_basis text := 'exclusive';
+  v_tax_basis text;
   v_tax_amount numeric := 0;
   v_tax_exclusive_amount numeric := 0;
   v_tax_inclusive_amount numeric := 0;
@@ -133,6 +127,7 @@ DECLARE
   v_existing_shipping_address jsonb := '{}'::jsonb;
   v_new_shipping_address jsonb := '{}'::jsonb;
   v_items_changed boolean := false;
+  v_financial_amounts_changed boolean := false;
   v_changed_fields text[] := ARRAY[]::text[];
   v_change_category text := 'internal';
   v_customer_name text;
@@ -426,31 +421,46 @@ BEGIN
     (p_payload ->> 'gift_wrapping_fee')::numeric,
     COALESCE(v_order.gift_wrapping_fee, 0)
   );
-  v_tax_basis := COALESCE(NULLIF(v_order.tax_basis, ''), 'exclusive');
-  IF v_items_changed
+  v_tax_basis := NULLIF(v_order.tax_basis, '');
+  v_financial_amounts_changed :=
+    v_items_changed
     OR v_subtotal IS DISTINCT FROM COALESCE(v_order.subtotal, 0)
-    OR v_tax_amount IS DISTINCT FROM COALESCE(v_order.tax_amount, 0)
-  THEN
-    v_tax_exclusive_amount := v_subtotal;
-    v_tax_inclusive_amount := v_subtotal + v_tax_amount;
-  ELSE
+    OR v_shipping_fee IS DISTINCT FROM COALESCE(v_order.shipping_fee, 0)
+    OR v_discount_amount IS DISTINCT FROM COALESCE(v_order.discount_amount, 0)
+    OR v_gift_wrapping_fee IS DISTINCT FROM COALESCE(v_order.gift_wrapping_fee, 0)
+    OR v_tax_amount IS DISTINCT FROM COALESCE(v_order.tax_amount, 0);
+
+  IF v_tax_basis IS NULL AND NOT v_financial_amounts_changed THEN
+    v_tax_amount := COALESCE(v_order.tax_amount, 0);
     v_tax_exclusive_amount := v_order.tax_exclusive_amount;
     v_tax_inclusive_amount := v_order.tax_inclusive_amount;
-  END IF;
-
-  IF v_tax_basis = 'inclusive' THEN
-    v_total :=
-      v_subtotal -
-      v_discount_amount +
-      v_gift_wrapping_fee +
-      v_shipping_fee;
+    v_total := COALESCE(v_order.total, 0);
   ELSE
-    v_total :=
-      v_subtotal -
-      v_discount_amount +
-      v_gift_wrapping_fee +
-      v_shipping_fee +
-      v_tax_amount;
+    IF v_items_changed
+      OR v_subtotal IS DISTINCT FROM COALESCE(v_order.subtotal, 0)
+      OR v_tax_amount IS DISTINCT FROM COALESCE(v_order.tax_amount, 0)
+    THEN
+      v_tax_exclusive_amount := v_subtotal;
+      v_tax_inclusive_amount := v_subtotal + v_tax_amount;
+    ELSE
+      v_tax_exclusive_amount := v_order.tax_exclusive_amount;
+      v_tax_inclusive_amount := v_order.tax_inclusive_amount;
+    END IF;
+
+    IF COALESCE(v_tax_basis, 'exclusive') = 'inclusive' THEN
+      v_total :=
+        v_subtotal -
+        v_discount_amount +
+        v_gift_wrapping_fee +
+        v_shipping_fee;
+    ELSE
+      v_total :=
+        v_subtotal -
+        v_discount_amount +
+        v_gift_wrapping_fee +
+        v_shipping_fee +
+        v_tax_amount;
+    END IF;
   END IF;
 
   IF v_total < 0 THEN
@@ -524,6 +534,20 @@ BEGIN
       )
   ) THEN
     RAISE EXCEPTION 'order_item_variant_forbidden' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_items_changed
+    AND EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(v_items) AS item
+      JOIN public.products p ON p.id = NULLIF(item ->> 'product_id', '')::uuid
+      WHERE NULLIF(item ->> 'product_id', '') IS NOT NULL
+        AND p.merchant_id = v_order.merchant_id
+        AND COALESCE(p.manage_stock, true)
+    )
+  THEN
+    RAISE EXCEPTION 'order_item_replacement_has_managed_stock'
+      USING ERRCODE = '23514';
   END IF;
 
   IF v_items_changed
@@ -631,33 +655,17 @@ BEGIN
 
   v_wallet_amount := COALESCE(v_order.wallet_amount_used, 0);
 
-  v_existing_shipping_address := jsonb_strip_nulls(jsonb_build_object(
-    'address', COALESCE(
-      NULLIF(v_order.shipping_address ->> 'address', ''),
-      NULLIF(v_order.shipping_address ->> 'address_line1', ''),
-      ''
-    ),
-    'city', NULLIF(v_order.shipping_address ->> 'city', ''),
-    'name', COALESCE(
-      NULLIF(v_order.shipping_address ->> 'name', ''),
-      v_order.customer_name,
-      ''
-    ),
-    'phone', COALESCE(
-      NULLIF(v_order.shipping_address ->> 'phone', ''),
-      v_order.customer_phone,
-      ''
-    ),
-    'state', NULLIF(v_order.shipping_address ->> 'state', '')
-  ));
+  v_existing_shipping_address := COALESCE(v_order.shipping_address, '{}'::jsonb);
 
-  v_new_shipping_address := jsonb_strip_nulls(jsonb_build_object(
-    'address', v_shipping_address_line,
-    'city', v_shipping_city,
-    'name', v_shipping_name,
-    'phone', v_shipping_phone,
-    'state', v_shipping_state
-  ));
+  v_new_shipping_address := jsonb_strip_nulls(
+    v_existing_shipping_address || jsonb_build_object(
+      'address', v_shipping_address_line,
+      'city', v_shipping_city,
+      'name', v_shipping_name,
+      'phone', v_shipping_phone,
+      'state', v_shipping_state
+    )
+  );
 
   IF v_paid_amount > 0
     OR v_wallet_amount > 0

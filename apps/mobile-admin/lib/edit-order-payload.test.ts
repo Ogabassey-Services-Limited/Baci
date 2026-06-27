@@ -63,13 +63,18 @@ describe('isOrderFinanciallyLocked', () => {
       { amount_paid: 1, payment_status: 'pending', shipping_status: 'pending' },
       { amount_paid: 0, payment_status: 'paid', shipping_status: 'pending' },
       { amount_paid: 0, payment_status: 'pending', shipping_status: 'shipped' },
-      { amount_paid: 0, payment_status: 'pending', shipping_status: 'pending', wallet_amount_used: 500 },
+      {
+        amount_paid: 0,
+        payment_status: 'pending',
+        shipping_status: 'pending',
+        wallet_amount_used: 500,
+      },
     ];
 
     for (const state of lockedStates) {
-      expect(isOrderFinanciallyLocked({ wallet_amount_used: 0, ...state })).toBe(
-        true
-      );
+      expect(
+        isOrderFinanciallyLocked({ wallet_amount_used: 0, ...state })
+      ).toBe(true);
     }
 
     expect(
@@ -157,10 +162,29 @@ describe('buildEditOrderPayload', () => {
 
     expect(payload.shipping_address).toEqual({
       address: '1 Baci Road',
-      city: 'Ikeja',
+      city: null,
       name: 'Ada Buyer',
       phone: '08030000000',
-      state: 'Lagos',
+      state: null,
+    });
+  });
+
+  it('does not reuse stale delivery city/state when shipping matches the selected customer', () => {
+    const payload = buildPayload({
+      deliveryInfo: {
+        address: '22 Delivery Lane',
+        city: 'Old City',
+        name: 'Receiver',
+        phone: '08039999999',
+        state: 'Old State',
+      },
+      sameAsCustomer: true,
+    });
+
+    expect(payload.shipping_address).toMatchObject({
+      address: '1 Baci Road',
+      city: null,
+      state: null,
     });
   });
 

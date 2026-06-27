@@ -61,6 +61,7 @@ export type EditableOrderRecord = Record<string, unknown> & {
   shipping_fee?: number | null;
   shipping_status?: ShippingStatus;
   source?: OrderSource | null;
+  gift_wrapping_fee?: number | null;
   tax_amount?: number | null;
   tax_basis?: 'exclusive' | 'inclusive' | string | null;
   total?: number | null;
@@ -127,10 +128,10 @@ export function buildEditOrderPayload({
   const shippingAddress = sameAsCustomer
     ? {
         address: sanitizedCustomerAddress,
-        city: sanitizeText(deliveryInfo.city, 100) || null,
+        city: null,
         name: sanitizedCustomerName,
         phone: sanitizedCustomerPhone || '',
-        state: sanitizeText(deliveryInfo.state, 100) || null,
+        state: null,
       }
     : {
         address: sanitizeAddress(deliveryInfo.address),

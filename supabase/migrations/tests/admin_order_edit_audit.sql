@@ -68,6 +68,19 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'product variants select policy missing permission-specific guard';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policy p
+    JOIN pg_class c ON c.oid = p.polrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'product_variants'
+      AND p.polname = 'product_variants_select_by_merchant_access'
+      AND pg_get_expr(p.polqual, p.polrelid) LIKE '%orders%view%'
+  ) THEN
+    RAISE EXCEPTION 'product variants select policy still grants variant reads to orders.view';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 

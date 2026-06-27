@@ -12,10 +12,6 @@ import { useUpdateOrder } from './orders/useUpdateOrder';
 import { useNewOrderController } from './useNewOrderController';
 import { useOrder } from './useOrders';
 
-function hasVatTaxBasis(order: EditableOrderRecord): boolean {
-  return order.tax_basis === 'exclusive' || order.tax_basis === 'inclusive';
-}
-
 export function useEditOrderController() {
   const rawParams = useLocalSearchParams<{ id?: string }>();
   const orderId = Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id;
@@ -27,6 +23,7 @@ export function useEditOrderController() {
   const orderQuery = useOrder(orderId ?? '');
   const updateOrderMutation = useUpdateOrder();
   const [notifyCustomer, setNotifyCustomer] = useState(false);
+  const [preservedGiftWrappingFee, setPreservedGiftWrappingFee] = useState(0);
   const prefilledOrderIdRef = useRef<string | null>(null);
   const order = orderQuery.data as EditableOrderRecord | undefined;
   const {
@@ -81,7 +78,10 @@ export function useEditOrderController() {
     setDiscount(Number(order.discount_amount) || 0);
     setShippingFee(Number(order.shipping_fee) || 0);
     setTaxes(Number(order.tax_amount) || 0);
-    setIsVatApplied(hasVatTaxBasis(order));
+    // Edit mode must preserve the stored tax_amount until the merchant
+    // explicitly changes tax/VAT; tax_basis alone is not proof VAT was applied.
+    setIsVatApplied(false);
+    setPreservedGiftWrappingFee(Number(order.gift_wrapping_fee) || 0);
     setSameAsCustomer(sameAsCustomer);
     setDeliveryInfo({
       address,
@@ -162,6 +162,10 @@ export function useEditOrderController() {
     order,
     orderId,
     setNotifyCustomer,
+    total:
+      (order?.tax_basis === 'inclusive'
+        ? baseController.total - baseController.taxesToUse
+        : baseController.total) + preservedGiftWrappingFee,
     updateOrderMutation,
     viewOrder: () => {
       if (orderId) {
