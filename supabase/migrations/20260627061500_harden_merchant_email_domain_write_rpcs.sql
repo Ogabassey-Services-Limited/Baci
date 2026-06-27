@@ -1,7 +1,8 @@
 -- Harden merchant email-domain writes: authenticated clients may read their
 -- row, but they may not mutate provider-controlled verification columns through
--- direct table DML. Server routes use these narrowly-scoped RPCs after ZeptoMail
--- calls; each RPC re-checks the authenticated merchant owner before writing.
+-- direct table DML or direct RPC calls. Server routes use these narrowly-scoped
+-- service_role-only RPCs after authenticating the merchant owner, passing CSRF,
+-- enforcing the feature gate, and verifying ZeptoMail/provider state.
 
 revoke insert, update on public.merchant_email_domains from authenticated;
 
@@ -11,6 +12,7 @@ drop policy if exists "merchant_email_domains_owner_update"
   on public.merchant_email_domains;
 
 create or replace function public.save_merchant_email_domain_registration(
+  p_actor_user_id uuid,
   p_merchant_id uuid,
   p_domain text,
   p_zeptomail_domain_id text,
@@ -36,7 +38,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_user_id uuid := (select auth.uid());
+  v_user_id uuid := p_actor_user_id;
   v_domain text := lower(trim(p_domain));
   v_registration_status text := case
     when p_status = 'verified' then 'verified'
@@ -157,6 +159,7 @@ end;
 $$;
 
 create or replace function public.save_merchant_email_domain_verification(
+  p_actor_user_id uuid,
   p_merchant_id uuid,
   p_checked_domain text,
   p_checked_zeptomail_domain_id text,
@@ -183,7 +186,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_user_id uuid := (select auth.uid());
+  v_user_id uuid := p_actor_user_id;
   v_status text := coalesce(p_status, 'pending');
 begin
   if v_user_id is null then
@@ -244,6 +247,7 @@ end;
 $$;
 
 create or replace function public.set_merchant_email_domain_enabled(
+  p_actor_user_id uuid,
   p_merchant_id uuid,
   p_enabled boolean
 )
@@ -262,7 +266,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_user_id uuid := (select auth.uid());
+  v_user_id uuid := p_actor_user_id;
 begin
   if v_user_id is null then
     raise exception 'Unauthorized';
@@ -306,19 +310,19 @@ end;
 $$;
 
 revoke all on function public.save_merchant_email_domain_registration(
-  uuid, text, text, text, timestamptz, text, text, text, text
-) from public, anon;
+  uuid, uuid, text, text, text, timestamptz, text, text, text, text
+) from public, anon, authenticated;
 revoke all on function public.save_merchant_email_domain_verification(
-  uuid, text, text, text, text, timestamptz, text, text, text, text
-) from public, anon;
-revoke all on function public.set_merchant_email_domain_enabled(uuid, boolean)
-  from public, anon;
+  uuid, uuid, text, text, text, text, timestamptz, text, text, text, text
+) from public, anon, authenticated;
+revoke all on function public.set_merchant_email_domain_enabled(uuid, uuid, boolean)
+  from public, anon, authenticated;
 
 grant execute on function public.save_merchant_email_domain_registration(
-  uuid, text, text, text, timestamptz, text, text, text, text
-) to authenticated;
+  uuid, uuid, text, text, text, timestamptz, text, text, text, text
+) to service_role;
 grant execute on function public.save_merchant_email_domain_verification(
-  uuid, text, text, text, text, timestamptz, text, text, text, text
-) to authenticated;
-grant execute on function public.set_merchant_email_domain_enabled(uuid, boolean)
-  to authenticated;
+  uuid, uuid, text, text, text, text, timestamptz, text, text, text, text
+) to service_role;
+grant execute on function public.set_merchant_email_domain_enabled(uuid, uuid, boolean)
+  to service_role;

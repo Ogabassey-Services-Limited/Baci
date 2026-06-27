@@ -2634,8 +2634,8 @@ export async function proxy(request: NextRequest) {
       // verifier and the session cookie is never set on the custom domain.
       // Scoped to /auth/confirm only; the rest of /auth stays storefront-bound.
       if (
-        pathname === '/auth/confirm' ||
-        pathname.startsWith('/auth/confirm/')
+        domainMerchantSlug &&
+        (pathname === '/auth/confirm' || pathname.startsWith('/auth/confirm/'))
       ) {
         const requestHeaders = buildProxyRequestHeaders(request);
         requestHeaders.set('x-custom-domain', domain);

@@ -10,6 +10,8 @@ const {
   mockSetEnabled,
   mockCheckCsrf,
   mockIsZeptomailDomainsConfigured,
+  mockCreateAdminClient,
+  mockAdminSupabase,
 } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockGetMerchant: vi.fn(),
@@ -19,6 +21,8 @@ const {
   mockSetEnabled: vi.fn(),
   mockCheckCsrf: vi.fn(),
   mockIsZeptomailDomainsConfigured: vi.fn(),
+  mockCreateAdminClient: vi.fn(),
+  mockAdminSupabase: { rpc: vi.fn() },
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -38,6 +42,10 @@ vi.mock('@/lib/merchant-email-domain', () => ({
 }));
 vi.mock('@/lib/zeptomail-domains', () => ({
   isZeptomailDomainsConfigured: mockIsZeptomailDomainsConfigured,
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: mockCreateAdminClient,
 }));
 
 import { GET, PATCH, POST } from './route';
@@ -77,6 +85,7 @@ describe('POST /api/merchant/email-domain', () => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
   });
 
   it('returns 403 when CSRF validation fails after authentication', async () => {
@@ -132,7 +141,10 @@ describe('POST /api/merchant/email-domain', () => {
     });
     const res = await POST(req({ domain: 'MyStore.com' }));
     expect(res.status).toBe(200);
-    expect(mockRegister).toHaveBeenCalledWith('m1', 'mystore.com', supabase);
+    expect(mockRegister).toHaveBeenCalledWith('m1', 'mystore.com', supabase, {
+      actorUserId: 'u1',
+      supabase: mockAdminSupabase,
+    });
   });
 
   it('returns 503 when ZeptoMail domain credentials are not configured', async () => {
@@ -154,6 +166,7 @@ describe('GET /api/merchant/email-domain', () => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
   });
 
   it('returns 403 when the merchant lacks entitlement', async () => {
@@ -224,6 +237,7 @@ describe('PATCH /api/merchant/email-domain', () => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
   });
 
   it('returns 403 when CSRF validation fails after authentication', async () => {
@@ -242,7 +256,10 @@ describe('PATCH /api/merchant/email-domain', () => {
     mockSetEnabled.mockResolvedValue({ enabled: true });
     const res = await PATCH(req({ enabled: true }, 'PATCH'));
     expect(res.status).toBe(200);
-    expect(mockSetEnabled).toHaveBeenCalledWith('m1', true, supabase);
+    expect(mockSetEnabled).toHaveBeenCalledWith('m1', true, supabase, {
+      actorUserId: 'u1',
+      supabase: mockAdminSupabase,
+    });
   });
 
   it('returns 400 when the body is invalid', async () => {
@@ -298,6 +315,7 @@ describe('POST /api/merchant/email-domain business rules', () => {
     vi.clearAllMocks();
     mockCheckCsrf.mockResolvedValue({ valid: true });
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
   });
 
   it('returns 400 when the domain is not an active storefront domain', async () => {

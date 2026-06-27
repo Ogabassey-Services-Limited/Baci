@@ -87,21 +87,25 @@ function resolveOtpRedirectUrl(
   request: Request,
   merchant: StorefrontAuthMerchant
 ) {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const allowlistedSubdomainOrigin = `${protocol}://${merchant.slug}.${rootDomain}`;
   const storefrontOrigins = buildStorefrontOrigins(merchant);
   const requestOrigin = getRequestOrigin(request);
 
-  const customDomainOrigin = merchant.custom_domain
-    ? `https://${merchant.custom_domain.toLowerCase()}`
-    : null;
-  if (customDomainOrigin && process.env.NODE_ENV === 'production') {
-    return `${customDomainOrigin}/account`;
+  if (process.env.NODE_ENV === 'production') {
+    // Hosted Supabase Auth currently allowlists dynamic merchant subdomains at
+    // /account/verify. The send-auth-email hook rewrites the customer-facing
+    // confirmation link/next target to the merchant account page, including the
+    // custom-domain origin when that domain is available for the merchant.
+    return `${allowlistedSubdomainOrigin}/account/verify`;
   }
 
   if (requestOrigin && storefrontOrigins.has(requestOrigin)) {
-    return `${requestOrigin}/account`;
+    return `${requestOrigin}/account/verify`;
   }
 
-  return `${Array.from(storefrontOrigins)[0]}/account`;
+  return `${allowlistedSubdomainOrigin}/account/verify`;
 }
 
 /**

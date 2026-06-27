@@ -62,6 +62,11 @@ function builderFor(result: Result) {
   builder.limit = vi.fn(() => Promise.resolve(result));
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
   builder.single = vi.fn(() => Promise.resolve(result));
+  Object.defineProperty(builder, 'then', {
+    value: vi.fn((resolve, reject) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  });
   return builder;
 }
 
@@ -311,8 +316,60 @@ describe('merchant-email-domain service', () => {
     expect(mockVercelVerifyDomain).toHaveBeenCalledWith('ogabassey.com');
     expect(mockScopedRpc).toHaveBeenCalledWith(
       'set_merchant_email_domain_enabled',
-      { p_merchant_id: 'm1', p_enabled: true }
+      expect.objectContaining({
+        p_actor_user_id: null,
+        p_merchant_id: 'm1',
+        p_enabled: true,
+      })
     );
+  });
+
+  it('setMerchantEmailDomainEnabled checks all apex/www storefront candidates before rejecting', async () => {
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({
+        data: { domain: 'mystore.com', status: 'verified' },
+        error: null,
+      })
+    );
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({
+        data: [
+          { id: 'domain-1', domain: 'mystore.com' },
+          { id: 'domain-2', domain: 'www.mystore.com' },
+        ],
+        error: null,
+      })
+    );
+    mockVercelVerifyDomain
+      .mockResolvedValueOnce({
+        name: 'mystore.com',
+        apexName: 'mystore.com',
+        projectId: 'project_1',
+        verified: false,
+        verification: [
+          {
+            type: 'TXT',
+            domain: '_vercel.mystore.com',
+            value: 'token',
+            reason: 'Missing TXT record',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        name: 'www.mystore.com',
+        apexName: 'mystore.com',
+        projectId: 'project_1',
+        verified: true,
+      });
+    mockScopedRpc.mockReturnValueOnce(builderFor({ data: ROW, error: null }));
+
+    await expect(
+      setMerchantEmailDomainEnabled('m1', true, scopedSupabase)
+    ).resolves.toMatchObject({ enabled: true });
+
+    expect(mockVercelVerifyDomain).toHaveBeenCalledWith('mystore.com');
+    expect(mockVercelVerifyDomain).toHaveBeenCalledWith('www.mystore.com');
+    expect(mockScopedRpc).toHaveBeenCalled();
   });
 
   it('setMerchantEmailDomainEnabled requires live Vercel verification before enabling', async () => {

@@ -34,17 +34,24 @@ describe('merchant email-domain write RPC migration', () => {
     );
   });
 
-  it('keeps provider-controlled writes behind owner-scoped RPCs', () => {
+  it('keeps provider-controlled writes behind service-role-only owner-scoped RPCs', () => {
     expect(migrationSql).toContain(
       'revoke insert, update on public.merchant_email_domains from authenticated'
     );
     expect(migrationSql).toMatch(/security definer\s+set search_path = ''/);
+    expect(migrationSql).toContain(
+      'revoke all on function public.save_merchant_email_domain_registration'
+    );
+    expect(migrationSql).toContain('from public, anon, authenticated');
     expect(migrationSql).toContain(
       'grant execute on function public.save_merchant_email_domain_registration'
     );
     expect(migrationSql).toContain(
       'grant execute on function public.save_merchant_email_domain_verification'
     );
+    expect(migrationSql).toContain('to service_role');
+    expect(migrationSql).not.toContain('to authenticated');
+    expect(migrationSql).toContain('p_actor_user_id uuid');
   });
 
   it('does not preserve enabled verification state when the provider is no longer verified', () => {

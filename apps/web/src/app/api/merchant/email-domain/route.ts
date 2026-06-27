@@ -10,6 +10,7 @@ import {
   emailDomainGate,
   resolveMerchantForEmailDomain,
 } from '@/lib/merchant-email-domain-access';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isZeptomailDomainsConfigured } from '@/lib/zeptomail-domains';
 import {
   registerEmailDomainSchema,
@@ -38,7 +39,7 @@ async function resolveEmailDomainRequest(request: NextRequest) {
   if (denied) {
     return { error: denied };
   }
-  return { ...resolved, supabase: auth.supabase };
+  return { ...resolved, supabase: auth.supabase, userId: auth.user.id };
 }
 
 function isBusinessRuleError(error: unknown): boolean {
@@ -127,7 +128,11 @@ export async function POST(request: NextRequest) {
     const domain = await registerMerchantEmailDomain(
       resolved.merchantId,
       parsed.data.domain,
-      resolved.supabase
+      resolved.supabase,
+      {
+        actorUserId: resolved.userId,
+        supabase: createAdminClient(),
+      }
     );
     return NextResponse.json({ domain });
   } catch (error) {
@@ -190,7 +195,11 @@ export async function PATCH(request: NextRequest) {
     const domain = await setMerchantEmailDomainEnabled(
       resolved.merchantId,
       parsed.data.enabled,
-      resolved.supabase
+      resolved.supabase,
+      {
+        actorUserId: resolved.userId,
+        supabase: createAdminClient(),
+      }
     );
     return NextResponse.json({ domain });
   } catch (error) {

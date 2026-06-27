@@ -606,6 +606,21 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-rewrite')).toBeNull();
   });
 
+  it('does not pass /auth/confirm through for unregistered custom domains', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(
+      'https://attacker.example/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'attacker.example');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('attacker.example');
+    expect(res.headers.get('x-middleware-rewrite')).toContain(
+      '/attacker.example/auth/confirm'
+    );
+  });
+
   it('still storefront-rewrites other /auth paths on custom domains (scoping)', async () => {
     const req = new NextRequest('https://ogabassey.com/auth/login');
     req.headers.set('host', 'ogabassey.com');

@@ -6,6 +6,7 @@ import {
   emailDomainGate,
   resolveMerchantForEmailDomain,
 } from '@/lib/merchant-email-domain-access';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isZeptomailDomainsConfigured } from '@/lib/zeptomail-domains';
 
 async function resolveEmailDomainRequest(request: NextRequest) {
@@ -30,7 +31,7 @@ async function resolveEmailDomainRequest(request: NextRequest) {
   if (denied) {
     return { error: denied };
   }
-  return { ...resolved, supabase: auth.supabase };
+  return { ...resolved, supabase: auth.supabase, userId: auth.user.id };
 }
 
 function verifyErrorStatus(error: unknown): number {
@@ -81,7 +82,11 @@ export async function POST(request: NextRequest) {
   try {
     const domain = await verifyMerchantEmailDomain(
       resolved.merchantId,
-      resolved.supabase
+      resolved.supabase,
+      {
+        actorUserId: resolved.userId,
+        supabase: createAdminClient(),
+      }
     );
     return NextResponse.json({ domain });
   } catch (error) {

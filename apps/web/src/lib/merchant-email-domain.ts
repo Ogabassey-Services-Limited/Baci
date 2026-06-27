@@ -21,6 +21,11 @@ type EmailDomainWriteRpc =
   | 'save_merchant_email_domain_verification'
   | 'set_merchant_email_domain_enabled';
 
+interface MerchantEmailDomainWriteContext {
+  actorUserId: string;
+  supabase: SupabaseClient;
+}
+
 export interface MerchantEmailDomain {
   domain: string;
   senderLocalPart: string;
@@ -148,8 +153,7 @@ async function assertMerchantOwnsVerifiedStorefrontDomain(
     .select('id, domain')
     .eq('merchant_id', merchantId)
     .in('domain', domainOwnershipCandidates(domain))
-    .eq('status', 'active')
-    .limit(1);
+    .eq('status', 'active');
   if (error) {
     throw new Error(`Failed to load storefront domain: ${error.message}`);
   }
@@ -248,9 +252,11 @@ export async function getMerchantEmailDomain(
 export async function registerMerchantEmailDomain(
   merchantId: string,
   domain: string,
-  scopedSupabase: SupabaseClient
+  scopedSupabase: SupabaseClient,
+  writeContext?: MerchantEmailDomainWriteContext
 ): Promise<MerchantEmailDomain> {
   const supabase = scopedSupabase;
+  const writeSupabase = writeContext?.supabase ?? scopedSupabase;
   await assertMerchantOwnsVerifiedStorefrontDomain(
     supabase,
     merchantId,
@@ -268,9 +274,10 @@ export async function registerMerchantEmailDomain(
 
   const columns = stateToColumns(state);
   const data = await writeDomainViaRpc(
-    supabase,
+    writeSupabase,
     'save_merchant_email_domain_registration',
     {
+      p_actor_user_id: writeContext?.actorUserId ?? null,
       p_merchant_id: merchantId,
       p_domain: state.domain,
       p_zeptomail_domain_id: columns.zeptomail_domain_id,
@@ -297,9 +304,11 @@ export async function registerMerchantEmailDomain(
 /** Re-check verification with ZeptoMail and update the stored status. */
 export async function verifyMerchantEmailDomain(
   merchantId: string,
-  scopedSupabase: SupabaseClient
+  scopedSupabase: SupabaseClient,
+  writeContext?: MerchantEmailDomainWriteContext
 ): Promise<MerchantEmailDomain> {
   const supabase = scopedSupabase;
+  const writeSupabase = writeContext?.supabase ?? scopedSupabase;
   const { data: existing, error: readError } = await supabase
     .from(TABLE)
     .select(`zeptomail_domain_id, ${SELECT}`)
@@ -328,9 +337,10 @@ export async function verifyMerchantEmailDomain(
   const state = await verifySendingDomain(domainKey);
   const columns = stateToColumns(state);
   const data = await writeDomainViaRpc(
-    supabase,
+    writeSupabase,
     'save_merchant_email_domain_verification',
     {
+      p_actor_user_id: writeContext?.actorUserId ?? null,
       p_merchant_id: merchantId,
       p_checked_domain: existingRow.domain,
       p_checked_zeptomail_domain_id: existingRow.zeptomail_domain_id,
@@ -356,9 +366,11 @@ export async function verifyMerchantEmailDomain(
 export async function setMerchantEmailDomainEnabled(
   merchantId: string,
   enabled: boolean,
-  scopedSupabase: SupabaseClient
+  scopedSupabase: SupabaseClient,
+  writeContext?: MerchantEmailDomainWriteContext
 ): Promise<MerchantEmailDomain> {
   const supabase = scopedSupabase;
+  const writeSupabase = writeContext?.supabase ?? scopedSupabase;
   if (enabled) {
     const { data: existing, error: readError } = await supabase
       .from(TABLE)
@@ -382,9 +394,13 @@ export async function setMerchantEmailDomainEnabled(
     );
   }
   const data = await writeDomainViaRpc(
-    supabase,
+    writeSupabase,
     'set_merchant_email_domain_enabled',
-    { p_merchant_id: merchantId, p_enabled: enabled },
+    {
+      p_actor_user_id: writeContext?.actorUserId ?? null,
+      p_merchant_id: merchantId,
+      p_enabled: enabled,
+    },
     'Failed to update email domain'
   );
   if (!data) {

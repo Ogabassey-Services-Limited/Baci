@@ -8,6 +8,8 @@ const {
   mockVerify,
   mockIsZeptomailDomainsConfigured,
   mockSupabase,
+  mockAdminSupabase,
+  mockCreateAdminClient,
 } = vi.hoisted(() => ({
   mockCheckCsrf: vi.fn(),
   mockAuth: vi.fn(),
@@ -22,6 +24,8 @@ const {
       }),
     }),
   },
+  mockAdminSupabase: { rpc: vi.fn() },
+  mockCreateAdminClient: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -41,6 +45,10 @@ vi.mock('@/lib/zeptomail-domains', () => ({
   isZeptomailDomainsConfigured: mockIsZeptomailDomainsConfigured,
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: mockCreateAdminClient,
+}));
+
 import { POST } from './route';
 
 function req() {
@@ -54,6 +62,7 @@ describe('POST /api/merchant/email-domain/verify', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsZeptomailDomainsConfigured.mockReturnValue(true);
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
     mockCheckCsrf.mockResolvedValue({ valid: true });
     mockAuth.mockResolvedValue({
       user: { id: 'u1' },
@@ -96,7 +105,10 @@ describe('POST /api/merchant/email-domain/verify', () => {
     mockVerify.mockResolvedValue({ status: 'verified' });
     const res = await POST(req());
     expect(res.status).toBe(200);
-    expect(mockVerify).toHaveBeenCalledWith('m1', mockSupabase);
+    expect(mockVerify).toHaveBeenCalledWith('m1', mockSupabase, {
+      actorUserId: 'u1',
+      supabase: mockAdminSupabase,
+    });
   });
 
   it('returns 503 when ZeptoMail domain credentials are not configured', async () => {

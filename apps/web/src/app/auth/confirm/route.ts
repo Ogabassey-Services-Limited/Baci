@@ -1,8 +1,21 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { normalizeAuthNextTarget } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/server';
+
+function buildConfirmationErrorRedirect(
+  origin: string,
+  message: string,
+  requestHeaders: Headers
+): string {
+  const isStorefrontDomainConfirm = Boolean(
+    requestHeaders.get('x-custom-domain') ||
+      requestHeaders.get('x-merchant-domain')
+  );
+  const loginPath = isStorefrontDomainConfirm ? '/account/login' : '/login';
+  return `${origin}${loginPath}?error=${encodeURIComponent(message)}`;
+}
 
 const confirmEmailSchema = z.object({
   token_hash: z.string().trim().min(1),
@@ -22,6 +35,7 @@ export async function GET(request: Request) {
     url.searchParams.get('next'),
     url.origin
   );
+  const requestHeaders = await headers();
   const parsed = confirmEmailSchema.safeParse({
     token_hash: url.searchParams.get('token_hash'),
     type: url.searchParams.get('type'),
@@ -29,7 +43,11 @@ export async function GET(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.redirect(
-      `${url.origin}/login?error=${encodeURIComponent('Invalid confirmation link')}`
+      buildConfirmationErrorRedirect(
+        url.origin,
+        'Invalid confirmation link',
+        requestHeaders
+      )
     );
   }
 
@@ -39,7 +57,11 @@ export async function GET(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      `${url.origin}/login?error=${encodeURIComponent(error.message || 'Could not authenticate user')}`
+      buildConfirmationErrorRedirect(
+        url.origin,
+        error.message || 'Could not authenticate user',
+        requestHeaders
+      )
     );
   }
 

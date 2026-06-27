@@ -54,6 +54,11 @@ function builderFor(result: Result) {
   builder.limit = vi.fn(() => Promise.resolve(result));
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
   builder.single = vi.fn(() => Promise.resolve(result));
+  Object.defineProperty(builder, 'then', {
+    value: vi.fn((resolve, reject) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  });
   return builder;
 }
 
@@ -256,6 +261,57 @@ describe('registerMerchantEmailDomain', () => {
     expect(mockVercelVerifyDomain).toHaveBeenCalledWith('mystore.com');
     expect(mockRegister).not.toHaveBeenCalled();
     expect(mockScopedRpc).not.toHaveBeenCalled();
+  });
+
+  it('registerMerchantEmailDomain checks all apex/www storefront candidates before rejecting', async () => {
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({
+        data: [
+          { id: 'domain-1', domain: 'mystore.com' },
+          { id: 'domain-2', domain: 'www.mystore.com' },
+        ],
+        error: null,
+      })
+    );
+    mockVercelVerifyDomain
+      .mockResolvedValueOnce({
+        name: 'mystore.com',
+        apexName: 'mystore.com',
+        projectId: 'project_1',
+        verified: false,
+        verification: [
+          {
+            type: 'TXT',
+            domain: '_vercel.mystore.com',
+            value: 'token',
+            reason: 'Missing TXT record',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        name: 'www.mystore.com',
+        apexName: 'mystore.com',
+        projectId: 'project_1',
+        verified: true,
+      });
+    mockScopedFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
+    mockRegister.mockResolvedValue({
+      domainKey: 'dk1',
+      domain: 'mystore.com',
+      status: 'pending',
+      verified: false,
+      records: [{ type: 'TXT', host: 'h', value: 'v' }],
+      associatedMailagentKeys: ['mail_agent_1'],
+    });
+    mockScopedRpc.mockReturnValueOnce(builderFor({ data: ROW, error: null }));
+
+    await expect(
+      registerMerchantEmailDomain('m1', 'mystore.com', scopedSupabase)
+    ).resolves.toMatchObject({ domain: 'ogabassey.com' });
+
+    expect(mockVercelVerifyDomain).toHaveBeenCalledWith('mystore.com');
+    expect(mockVercelVerifyDomain).toHaveBeenCalledWith('www.mystore.com');
+    expect(mockRegister).toHaveBeenCalledWith('mystore.com');
   });
 
   it('registerMerchantEmailDomain refuses domains reserved by another merchant', async () => {

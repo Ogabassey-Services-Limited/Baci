@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockVerifyOtp = vi.fn();
+const { mockVerifyOtp, mockHeaders } = vi.hoisted(() => ({
+  mockVerifyOtp: vi.fn(),
+  mockHeaders: vi.fn(),
+}));
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -9,6 +12,7 @@ vi.mock('next/headers', () => ({
     delete: vi.fn(),
     has: vi.fn(),
   }),
+  headers: mockHeaders,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -24,6 +28,7 @@ import { GET } from '@/app/auth/confirm/route';
 describe('GET /auth/confirm', () => {
   beforeEach(() => {
     mockVerifyOtp.mockReset();
+    mockHeaders.mockResolvedValue(new Headers());
   });
 
   it('redirects to login when the token hash is missing', async () => {
@@ -46,6 +51,22 @@ describe('GET /auth/confirm', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
       'https://usebaci.com/login?error=Invalid%20confirmation%20link'
+    );
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
+  it('redirects custom-domain confirmation errors to storefront account login', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    const response = await GET(
+      new Request('https://ogabassey.com/auth/confirm?type=signup')
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://ogabassey.com/account/login?error=Invalid%20confirmation%20link'
     );
     expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
@@ -122,6 +143,25 @@ describe('GET /auth/confirm', () => {
     );
 
     expect(response.headers.get('location')).toBe('baciadmin://');
+  });
+
+  it('redirects failed custom-domain confirmations to storefront account login', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-merchant-domain', 'ogabassey.com']])
+    );
+    mockVerifyOtp.mockResolvedValue({
+      error: { message: 'OTP expired' },
+    });
+
+    const response = await GET(
+      new Request(
+        'https://ogabassey.com/auth/confirm?token_hash=hash-123&type=signup'
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://ogabassey.com/account/login?error=OTP%20expired'
+    );
   });
 
   it('redirects to login when Supabase verification fails', async () => {
