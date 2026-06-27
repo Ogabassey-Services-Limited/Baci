@@ -75,7 +75,6 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
@@ -124,7 +123,6 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     const { rerender } = render(<PostHogClientBootstrap />);
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(

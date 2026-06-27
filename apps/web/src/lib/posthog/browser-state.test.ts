@@ -14,5 +14,9 @@ describe('PostHog browser state', () => {
     markPostHogBrowserInitialized();
 
     expect(hasPostHogBrowserInitialized()).toBe(true);
+
+    resetPostHogBrowserInitializedForTests();
+
+    expect(hasPostHogBrowserInitialized()).toBe(false);
   });
 });
