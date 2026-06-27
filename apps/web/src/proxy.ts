@@ -3292,12 +3292,17 @@ function applySecurityHeaders(
   // Keep SEO listing subroutes cacheable; they share the 3-segment shape used
   // by category PDPs but do not stream PDP metadata/content slots.
   if (isStorefrontNestedListingPath(pathname, hostname, routeType)) {
-    if (hasStorefrontAuthSessionHint(request)) {
+    const hasQuery = request ? request.nextUrl.search.length > 0 : true;
+    const hasAuthSessionHint = hasStorefrontAuthSessionHint(request);
+
+    if (hasQuery || hasAuthSessionHint) {
       response.headers.set(
         'Cache-Control',
         NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
       );
-      appendVaryHeader(response, 'Cookie');
+      if (hasAuthSessionHint) {
+        appendVaryHeader(response, 'Cookie');
+      }
       return response;
     }
 

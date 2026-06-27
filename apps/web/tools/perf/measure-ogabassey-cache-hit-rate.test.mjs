@@ -89,6 +89,40 @@ describe('getCacheProbeConfig', () => {
       rounds: 1,
     });
   });
+
+  it('allows the environment to disable inter-round delay', () => {
+    expect(
+      getCacheProbeConfig({
+        OGABASSEY_CACHE_PROBE_DELAY_MS: '0',
+      })
+    ).toMatchObject({
+      delayMs: 0,
+    });
+  });
+
+  it('rejects negative delay overrides', () => {
+    expect(
+      getCacheProbeConfig({
+        OGABASSEY_CACHE_PROBE_DELAY_MS: '-1',
+      })
+    ).toMatchObject({
+      delayMs: 2000,
+    });
+  });
+
+  it('treats blank numeric environment overrides as unset', () => {
+    expect(
+      getCacheProbeConfig({
+        OGABASSEY_CACHE_PROBE_DELAY_MS: ' ',
+        OGABASSEY_CACHE_PROBE_ROUNDS: '',
+        OGABASSEY_CACHE_PROBE_TIMEOUT_MS: '   ',
+      })
+    ).toMatchObject({
+      delayMs: 2000,
+      rounds: 2,
+      timeoutMs: 15_000,
+    });
+  });
 });
 
 describe('probeCacheRoute', () => {

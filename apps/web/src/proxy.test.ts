@@ -2158,6 +2158,7 @@ describe('Middleware Proxy', () => {
     // must not be cached as a non-canonical shell.
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?storage=128GB',
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?variantId=x',
+    'https://ogabassey.com/smartphones/best-under/under-500k?utm_source=newsletter',
     'https://ogabassey.com/blog?utm_source=newsletter',
   ])('keeps non-public / non-canonical storefront documents out of the CDN cache for %s', async (url) => {
     const req = new NextRequest(url);
@@ -2169,6 +2170,20 @@ describe('Middleware Proxy', () => {
       'private, no-store, max-age=0, must-revalidate'
     );
     expect(res.headers.get('Cache-Control')).not.toContain('s-maxage');
+  });
+
+  it('does not vary anonymous query-string nested listings by Cookie', async () => {
+    const url =
+      'https://ogabassey.com/smartphones/best-under/under-500k?utm_source=newsletter';
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vary') || '').not.toContain('Cookie');
   });
 
   it.each([

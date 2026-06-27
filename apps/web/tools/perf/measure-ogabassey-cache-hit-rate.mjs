@@ -45,9 +45,12 @@ export const DEFAULT_CACHE_PROBE_ROUTES = [
   },
 ];
 
-function numberFromEnv(value, fallback) {
+function numberFromEnv(value, fallback, { min = Number.MIN_VALUE } = {}) {
+  if (typeof value === 'string' && value.trim() === '') {
+    return fallback;
+  }
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
 }
 
 function toRoute(value, index) {
@@ -84,7 +87,8 @@ export function getCacheProbeConfig(env = process.env) {
   return {
     delayMs: numberFromEnv(
       env.OGABASSEY_CACHE_PROBE_DELAY_MS,
-      DEFAULT_DELAY_MS
+      DEFAULT_DELAY_MS,
+      { min: 0 }
     ),
     outputDir:
       env.OGABASSEY_CACHE_PROBE_OUTPUT_DIR ||
