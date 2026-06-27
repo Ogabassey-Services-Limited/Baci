@@ -6,6 +6,7 @@ function product(
   overrides: Partial<ExistingImportedProduct>
 ): ExistingImportedProduct {
   return {
+    condition: overrides.condition ?? null,
     externalId: null,
     externalSource: null,
     id: overrides.id ?? 'product-1',
@@ -94,5 +95,41 @@ describe('createBumpaProductNameMatcher', () => {
     ]);
 
     expect(matchProduct('iPhone 15 Pro Max 256GB')).toBeNull();
+  });
+
+  it('uses imported condition when catalog products share a normalized name', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        condition: 'used',
+        id: 'iphone-13-used',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+      product({
+        condition: 'new',
+        id: 'iphone-13-new',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('iPhone 13 128GB (Brand New)')?.id).toBe(
+      'iphone-13-new'
+    );
+    expect(matchProduct('iPhone 13 128GB (Premium Used)')?.id).toBe(
+      'iphone-13-used'
+    );
+  });
+
+  it('rejects accessory catalog names that only add accessory tokens', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        id: 's22-ultra-case',
+        name: 'Samsung Galaxy S22 Ultra 256GB Case',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('Samsung Galaxy S22 Ultra 256GB')).toBeNull();
   });
 });

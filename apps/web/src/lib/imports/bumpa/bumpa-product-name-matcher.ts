@@ -1,8 +1,10 @@
 import { createBumpaProductProfile } from '@/lib/imports/bumpa/bumpa-product-normalization';
 import type { ExistingImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 import { sanitizeText } from '@/lib/sanitize-core';
+import { normalizeBumpaConditionForCatalog } from './bumpa-order-item-snapshot';
 
 interface IndexedProduct {
+  condition: string | null;
   product: ExistingImportedProduct;
   tokens: Set<string>;
 }
@@ -23,6 +25,17 @@ const MODEL_QUALIFIER_TOKENS = new Set([
   'pro',
   'se',
   'ultra',
+]);
+
+const ACCESSORY_TOKENS = new Set([
+  'adapter',
+  'case',
+  'cable',
+  'charger',
+  'guard',
+  'pouch',
+  'protector',
+  'screen',
 ]);
 
 function normalizeSamsungFoldAlias(value: string) {
@@ -55,6 +68,23 @@ function tokenizeMatchName(value: string) {
   return new Set(normalizeMatchName(value).match(/[a-z0-9]+(?:gb|tb)?/g) ?? []);
 }
 
+function readNameCondition(value: string) {
+  return normalizeBumpaConditionForCatalog(
+    createBumpaProductProfile(value).condition
+  );
+}
+
+function readProductCondition(product: ExistingImportedProduct) {
+  return (
+    normalizeBumpaConditionForCatalog(product.condition) ??
+    readNameCondition(product.name)
+  );
+}
+
+function buildConditionedNameKey(name: string, condition: string | null) {
+  return `${name}::${condition ?? ''}`;
+}
+
 function activeStatusWeight(product: ExistingImportedProduct) {
   return product.status === 'active' ? 1.5 : 0;
 }
@@ -72,12 +102,40 @@ function hasDifferentModelQualifiers(
   return false;
 }
 
+function hasDifferentConditions(
+  queryCondition: string | null,
+  candidateCondition: string | null
+) {
+  return Boolean(
+    queryCondition &&
+      candidateCondition &&
+      queryCondition !== candidateCondition
+  );
+}
+
+function hasAccessoryOnlyCandidateTokens(
+  queryTokens: Set<string>,
+  candidateTokens: Set<string>
+) {
+  for (const token of ACCESSORY_TOKENS) {
+    if (candidateTokens.has(token) && !queryTokens.has(token)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function scoreTokenMatch(queryTokens: Set<string>, candidate: IndexedProduct) {
   if (queryTokens.size === 0 || candidate.tokens.size === 0) {
     return 0;
   }
 
   if (hasDifferentModelQualifiers(queryTokens, candidate.tokens)) {
+    return 0;
+  }
+
+  if (hasAccessoryOnlyCandidateTokens(queryTokens, candidate.tokens)) {
     return 0;
   }
 
@@ -104,13 +162,27 @@ function scoreTokenMatch(queryTokens: Set<string>, candidate: IndexedProduct) {
 export function createBumpaProductNameMatcher(
   products: ExistingImportedProduct[]
 ) {
+  const productsByConditionedName = new Map<string, ExistingImportedProduct>();
   const productsByName = new Map<string, ExistingImportedProduct>();
   const indexedProducts = products.map((product) => {
     const normalizedName = normalizeMatchName(product.name);
+    const condition = readProductCondition(product);
     const indexedProduct = {
+      condition,
       product,
       tokens: tokenizeMatchName(product.name),
     } satisfies IndexedProduct;
+
+    const conditionedKey = buildConditionedNameKey(normalizedName, condition);
+    const existingConditionedProduct =
+      productsByConditionedName.get(conditionedKey);
+    if (
+      !existingConditionedProduct ||
+      activeStatusWeight(product) >
+        activeStatusWeight(existingConditionedProduct)
+    ) {
+      productsByConditionedName.set(conditionedKey, product);
+    }
 
     const existingExactProduct = productsByName.get(normalizedName);
     if (
@@ -124,8 +196,25 @@ export function createBumpaProductNameMatcher(
   });
 
   return (productName: string) => {
-    const exactProduct = productsByName.get(normalizeMatchName(productName));
-    if (exactProduct) {
+    const normalizedName = normalizeMatchName(productName);
+    const queryCondition = readNameCondition(productName);
+    const conditionedProduct = queryCondition
+      ? productsByConditionedName.get(
+          buildConditionedNameKey(normalizedName, queryCondition)
+        )
+      : null;
+    if (conditionedProduct) {
+      return conditionedProduct;
+    }
+
+    const exactProduct = productsByName.get(normalizedName);
+    if (
+      exactProduct &&
+      !hasDifferentConditions(
+        queryCondition,
+        readProductCondition(exactProduct)
+      )
+    ) {
       return exactProduct;
     }
 
@@ -134,6 +223,10 @@ export function createBumpaProductNameMatcher(
       null;
 
     for (const candidate of indexedProducts) {
+      if (hasDifferentConditions(queryCondition, candidate.condition)) {
+        continue;
+      }
+
       const score = scoreTokenMatch(queryTokens, candidate);
       if (score <= 0) {
         continue;

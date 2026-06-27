@@ -1,5 +1,3 @@
-'use client';
-
 import type { ImportJobDetail } from '@/app/dashboard/migrations/migration-types';
 
 type ReceiptCampaign = NonNullable<ImportJobDetail['receiptCampaign']>;
