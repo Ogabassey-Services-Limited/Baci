@@ -16,6 +16,7 @@ const {
   mockGetBlogPostRedirect,
   mockBuildInformationalClusterModel,
   mockGenerateBlogPostSchema,
+  mockSafeJsonLdStringify,
   mockNextImage,
   mockBlogPostHeader,
   mockBlogPostBody,
@@ -33,6 +34,9 @@ const {
   mockBuildInformationalClusterModel: vi.fn(),
   mockGenerateBlogPostSchema: vi.fn<(data: unknown) => Record<string, unknown>>(
     () => ({})
+  ),
+  mockSafeJsonLdStringify: vi.fn<(_schema: unknown) => string>((schema) =>
+    JSON.stringify(schema)
   ),
   mockNextImage: vi.fn((_props: Record<string, unknown>) => null),
   mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
@@ -120,7 +124,9 @@ vi.mock('@/lib/routes', () => ({
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: () => '{}',
+  safeJsonLdStringify: (schema: unknown) => mockSafeJsonLdStringify(schema),
+  sanitizeSchemaUrl: (url: string) =>
+    url.startsWith('http://') || url.startsWith('https://') ? url : '',
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -251,10 +257,14 @@ describe('BlogPostPageContent', () => {
     mockBlogPostBodyFallback.mockReset();
     mockNextImage.mockReset();
     mockGenerateBlogPostSchema.mockReset();
+    mockSafeJsonLdStringify.mockReset();
     mockHasBlogAuthorPage.mockReset();
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
     mockGenerateBlogPostSchema.mockReturnValue({});
+    mockSafeJsonLdStringify.mockImplementation((schema) =>
+      JSON.stringify(schema)
+    );
     mockHasBlogAuthorPage.mockReturnValue(true);
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
@@ -436,6 +446,73 @@ describe('BlogPostPageContent', () => {
         }),
       })
     );
+  });
+
+  it('emits VideoObject structured data when the actual video upload date is available', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        content:
+          '<p>Watch the unboxing: <a href="https://youtu.be/tp-AlU5FVpE?si=RGB">YouTube</a></p>',
+        title: 'Google Pixel 9 Pro Fold Unboxing',
+        video_upload_date: '2026-06-20T08:00:00.000Z',
+      },
+    });
+
+    const { container } = render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    const jsonLdPayloads = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((script) => JSON.parse(script.textContent || '{}'));
+    const videoSchema = jsonLdPayloads.find(
+      (schema) => schema['@type'] === 'VideoObject'
+    );
+
+    expect(videoSchema).toMatchObject({
+      '@type': 'VideoObject',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
+      thumbnailUrl: ['https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg'],
+      uploadDate: '2026-06-20T08:00:00.000Z',
+      url: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
+    });
+  });
+
+  it('does not emit VideoObject structured data without the actual video upload date', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        content:
+          '<p>Watch the unboxing: <a href="https://youtu.be/tp-AlU5FVpE?si=RGB">YouTube</a></p>',
+        title: 'Google Pixel 9 Pro Fold Unboxing',
+      },
+    });
+
+    const { container } = render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    const jsonLdPayloads = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((script) => JSON.parse(script.textContent || '{}'));
+    const videoSchema = jsonLdPayloads.find(
+      (schema) => schema['@type'] === 'VideoObject'
+    );
+
+    expect(videoSchema).toBeUndefined();
   });
 
   it('links BlogPosting publisher to the standalone Organization entity', async () => {

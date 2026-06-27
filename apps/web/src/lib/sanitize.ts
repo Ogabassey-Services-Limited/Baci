@@ -2,15 +2,14 @@
 // For server components that don't need HTML sanitization, import from './sanitize-core' instead
 
 import sanitizeLib from 'sanitize-html';
+import {
+  createSanitizeHtmlOptions,
+  type SanitizeHtmlOptions,
+} from '@/lib/sanitize-html-config';
+import { stripDisallowedRawTextBlocks } from '@/lib/sanitize-raw-text-blocks';
 
 // Re-export removed as per knip analysis
 // import from './sanitize-core' directly if needed
-
-interface SanitizeHtmlOptions {
-  headingLevelOffset?: number;
-  normalizeSeoAnchors?: boolean;
-  trustedPriorityImageSources?: readonly string[];
-}
 
 const ESCAPE_HTML_TEXT_OPTIONS: sanitizeLib.IOptions = {
   allowedTags: [],
@@ -30,108 +29,6 @@ const HTML_ATTRIBUTE_ESCAPE_MAP: Record<string, string> = {
   '"': '&quot;',
   "'": '&#39;',
 };
-const DISALLOWED_RAW_TEXT_BLOCK_REGEX =
-  /<(script|style|xmp|iframe|noembed|noframes|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
-
-function clampHeadingLevel(level: number) {
-  return Math.min(6, Math.max(1, level));
-}
-
-function normalizeTrustedPriorityImageSource(value: string): string {
-  return value.replace(/&amp;/gi, '&');
-}
-
-function createTrustedPriorityImageSourceSet(
-  sources: readonly string[] | undefined
-): ReadonlySet<string> {
-  return new Set(
-    (sources ?? [])
-      .map((source) => normalizeTrustedPriorityImageSource(source.trim()))
-      .filter(Boolean)
-  );
-}
-
-function isTechnicalResourceHref(href: string | undefined): boolean {
-  const normalizedHref = href?.trim().toLowerCase();
-  if (!normalizedHref) {
-    return false;
-  }
-  try {
-    const { pathname } = new URL(normalizedHref, 'https://example.invalid');
-    if (pathname === '/_next/image') {
-      return true;
-    }
-    return /\.(?:js|json)(?:$|[?#])/i.test(pathname);
-  } catch {
-    return /\.(?:js|json)(?:$|[?#])/i.test(normalizedHref);
-  }
-}
-
-function decodeUriComponentSafely(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function getDecodedHrefCandidates(value: string): string[] {
-  const candidates = [value];
-  let current = value;
-
-  for (let index = 0; index < 3; index += 1) {
-    const decoded = decodeUriComponentSafely(current);
-    if (decoded === current) {
-      break;
-    }
-    candidates.push(decoded);
-    current = decoded;
-  }
-
-  return candidates;
-}
-
-function stripQueryAndHash(value: string): string {
-  const queryIndex = value.indexOf('?');
-  const hashIndex = value.indexOf('#');
-  const endIndexes = [queryIndex, hashIndex].filter((index) => index >= 0);
-  const endIndex = endIndexes.length > 0 ? Math.min(...endIndexes) : -1;
-
-  return endIndex >= 0 ? value.slice(0, endIndex) : value;
-}
-
-function isSerializedAttributeLeakHref(href: string | undefined): boolean {
-  const normalizedHref = href?.trim().toLowerCase();
-  if (!normalizedHref) {
-    return false;
-  }
-
-  return getDecodedHrefCandidates(normalizedHref)
-    .map(stripQueryAndHash)
-    .some(
-      (candidate) =>
-        candidate.includes('","target"') ||
-        candidate.includes('","rel"') ||
-        candidate.includes('","href"')
-    );
-}
-
-function sanitizeAnchorTag(_tagName: string, attribs: sanitizeLib.Attributes) {
-  const nextAttribs: sanitizeLib.Attributes = {
-    ...attribs,
-    rel: 'noopener noreferrer',
-  };
-
-  if (isSerializedAttributeLeakHref(nextAttribs.href)) {
-    delete nextAttribs.href;
-    delete nextAttribs.target;
-  }
-
-  return {
-    tagName: 'a',
-    attribs: nextAttribs,
-  };
-}
 
 /**
  * Sanitize HTML content to prevent XSS attacks using sanitize-html.
@@ -175,161 +72,12 @@ export function sanitizeHtml(
   dirty: string,
   options: SanitizeHtmlOptions = {}
 ): string {
-  const dirtyWithoutRawTextBlocks = dirty.replace(
-    DISALLOWED_RAW_TEXT_BLOCK_REGEX,
-    ''
+  const dirtyWithoutRawTextBlocks = stripDisallowedRawTextBlocks(dirty);
+
+  return sanitizeLib(
+    dirtyWithoutRawTextBlocks,
+    createSanitizeHtmlOptions(options)
   );
-  const rawHeadingLevelOffset = Number(options.headingLevelOffset ?? 0);
-  const headingLevelOffset = Number.isFinite(rawHeadingLevelOffset)
-    ? Math.max(0, Math.trunc(rawHeadingLevelOffset))
-    : 0;
-  const trustedPriorityImageSources = createTrustedPriorityImageSourceSet(
-    options.trustedPriorityImageSources
-  );
-  const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
-    a: sanitizeAnchorTag,
-    img: (_tagName, attribs) => {
-      const nextAttribs = { ...attribs };
-      const normalizedImageSource =
-        typeof nextAttribs.src === 'string'
-          ? normalizeTrustedPriorityImageSource(nextAttribs.src)
-          : '';
-      const allowPriorityImage =
-        nextAttribs.fetchpriority === 'high' &&
-        trustedPriorityImageSources.has(normalizedImageSource);
-      delete nextAttribs['data-baci-priority-image'];
-      if (!allowPriorityImage) {
-        delete nextAttribs.fetchpriority;
-      }
-
-      return {
-        tagName: 'img',
-        attribs: nextAttribs,
-      };
-    },
-  };
-  const exclusiveFilter: sanitizeLib.IOptions['exclusiveFilter'] =
-    options.normalizeSeoAnchors
-      ? (frame) => {
-          if (frame.tag !== 'a') {
-            return false;
-          }
-          if (!frame.text.trim()) {
-            return frame.mediaChildren.length > 0 ? 'excludeTag' : true;
-          }
-          if (isTechnicalResourceHref(frame.attribs.href)) {
-            return 'excludeTag';
-          }
-          return false;
-        }
-      : undefined;
-
-  if (headingLevelOffset > 0) {
-    for (let level = 1; level <= 6; level += 1) {
-      transformTags[`h${level}`] = (_tagName, attribs) => ({
-        tagName: `h${clampHeadingLevel(level + headingLevelOffset)}`,
-        attribs,
-      });
-    }
-  }
-
-  return sanitizeLib(dirtyWithoutRawTextBlocks, {
-    // Whitelist of allowed HTML tags
-    allowedTags: [
-      // Text formatting
-      'b',
-      'i',
-      'em',
-      'strong',
-      'u',
-      's',
-      'mark',
-      'small',
-      'sub',
-      'sup',
-      // Headings (for semantic structure)
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      // Structure and layout
-      'p',
-      'br',
-      'hr',
-      'div',
-      'span',
-      'blockquote',
-      'figure',
-      'figcaption',
-      'pre',
-      'code',
-      // Lists
-      'ul',
-      'ol',
-      'li',
-      // Links and media
-      'a',
-      'img',
-      // Responsive images: blog inline images are served as a <picture> with
-      // pre-optimized AVIF/WebP <source> siblings (trusted CDN only).
-      'picture',
-      'source',
-      // Tables (for blog and rich content)
-      'table',
-      'thead',
-      'tbody',
-      'tfoot',
-      'tr',
-      'th',
-      'td',
-    ],
-    // Whitelist of allowed attributes
-    allowedAttributes: {
-      '*': [
-        'class', // Styling (Tailwind classes)
-        'id', // Anchor links and references
-        'title',
-        'width',
-        'height',
-        'colspan',
-        'rowspan',
-      ],
-      a: ['href', 'target', 'rel'],
-      img: [
-        'src',
-        'srcset',
-        'sizes',
-        'alt',
-        'width',
-        'height',
-        'loading',
-        'decoding',
-        'fetchpriority',
-      ],
-      source: ['srcset', 'type', 'media', 'sizes'],
-    },
-    // Security configurations
-    // Ensure all external links have rel="noopener noreferrer"
-    transformTags,
-    exclusiveFilter,
-    // Only allow safe URL protocols (no javascript:, data:, etc.)
-    allowedSchemes: [
-      'http',
-      'https',
-      'mailto',
-      'tel',
-      'callto',
-      'sms',
-      'cid',
-      'xmpp',
-    ],
-    allowedSchemesByTag: {
-      img: ['http', 'https', 'data'], // Allow base64 images if needed
-    },
-    allowProtocolRelative: false,
-  });
 }
 
 /**

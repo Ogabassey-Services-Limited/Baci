@@ -170,7 +170,7 @@ describe('BlogPostBody', () => {
     );
   });
 
-  it('demotes legacy HTML h1 headings inside the article body', async () => {
+  it('normalizes legacy HTML heading hierarchy inside the article body', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
       legacyHtml:
@@ -208,9 +208,8 @@ describe('BlogPostBody', () => {
       screen.getByRole('heading', { level: 3, name: 'Imported Section' })
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: 'Product data JSON' })
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/Product data JSON/)).toBeInTheDocument();
+      screen.getByRole('link', { name: 'Product data JSON' })
+    ).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('uses canonical postUrl for subdomain share links without doubled slug', async () => {
@@ -248,6 +247,55 @@ describe('BlogPostBody', () => {
       'href',
       expect.stringContaining(expectedShareUrl)
     );
+  });
+
+  it('renders a lazy video panel when video metadata is provided', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [],
+        relatedPosts: [],
+        video: {
+          thumbnailUrl: 'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
+          title: 'Pixel 9 Pro Fold Unboxing',
+          videoId: 'tp-AlU5FVpE',
+          watchUrl: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
+        },
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: /watch the related video/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Video thumbnail for Pixel 9 Pro Fold Unboxing',
+      })
+    ).toHaveAttribute(
+      'src',
+      'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg'
+    );
+    expect(
+      screen.getByRole('link', {
+        name: /open video on youtube: pixel 9 pro fold/i,
+      })
+    ).toHaveAttribute('href', 'https://www.youtube.com/watch?v=tp-AlU5FVpE');
+    expect(screen.queryByTitle('Pixel 9 Pro Fold Unboxing')).toBeNull();
   });
 
   it('renders related product links using category-aware and fallback product routes', async () => {
