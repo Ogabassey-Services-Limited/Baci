@@ -1,5 +1,7 @@
 const CHUNK_LOAD_ERROR_PATTERN =
   /(?:ChunkLoadError|Loading chunk \S+ failed|Failed to load chunk|\/_next\/static\/chunks\/)/i;
+const NEXT_ASSET_ELEMENT_SELECTOR =
+  'script[src*="_next/"],link[href*="_next/"]';
 const RELOAD_STORAGE_KEY_PREFIX = 'baci:chunk-load-recovery';
 
 let chunkLoadRecoveryInitialized = false;
@@ -59,10 +61,77 @@ function getNextDeploymentIdGlobal(): string | undefined {
     : undefined;
 }
 
+function hashDeploymentFingerprint(value: string): string {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(36);
+}
+
+function getNormalizedNextAssetReference(
+  value: string | null
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const assetUrl = new URL(value, document.baseURI);
+
+    if (!assetUrl.pathname.includes('/_next/')) {
+      return undefined;
+    }
+
+    const deploymentQueryValue = assetUrl.searchParams.get('dpl')?.trim();
+    if (deploymentQueryValue) {
+      return `dpl:${deploymentQueryValue}`;
+    }
+
+    return `${assetUrl.pathname}${assetUrl.search}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function getLoadedNextAssetFingerprint(): string | undefined {
+  const assetReferences = new Set<string>();
+
+  for (const element of document.querySelectorAll(
+    NEXT_ASSET_ELEMENT_SELECTOR
+  )) {
+    const assetReference = getNormalizedNextAssetReference(
+      element.getAttribute('src') || element.getAttribute('href')
+    );
+
+    if (!assetReference) {
+      continue;
+    }
+
+    if (assetReference.startsWith('dpl:')) {
+      return assetReference;
+    }
+
+    assetReferences.add(assetReference);
+  }
+
+  if (assetReferences.size === 0) {
+    return undefined;
+  }
+
+  return `assets-${hashDeploymentFingerprint(
+    Array.from(assetReferences).sort().join('|')
+  )}`;
+}
+
 function getCurrentDeploymentId(): string {
   return (
     getNextDeploymentIdGlobal() ||
     document.documentElement.dataset.dplId ||
+    getLoadedNextAssetFingerprint() ||
     'unknown-deployment'
   );
 }
@@ -124,8 +193,9 @@ export function initializeChunkLoadRecovery(): void {
   }
 
   chunkLoadRecoveryInitialized = true;
+  const initialDeploymentId = getCurrentDeploymentId();
   const handlers = createChunkLoadRecoveryHandlers({
-    getDeploymentId: getCurrentDeploymentId,
+    getDeploymentId: () => initialDeploymentId,
     getPathname: () => window.location.pathname,
     getSessionStorage: () => window.sessionStorage,
     reload: () => window.location.reload(),
