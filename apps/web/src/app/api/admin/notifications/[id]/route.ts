@@ -1,12 +1,16 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { notificationIdSchema } from '@/schemas/notifications';
-import type { UpdateNotificationInput } from '@/types/notifications';
+import {
+  mergedNotificationTargetingSchema,
+  notificationIdSchema,
+  updateNotificationSchema,
+} from '@/schemas/notifications';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -226,7 +230,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Check if notification exists and hasn't been sent
     const { data: existing, error: fetchError } = await supabase
       .from('notifications')
-      .select('id, sent_at')
+      .select('id, sent_at, target_type, target_merchant_ids, target_segment')
       .eq('id', id)
       .single();
 
@@ -245,7 +249,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Parse and validate request body
-    const body: UpdateNotificationInput = await request.json();
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = updateNotificationSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: z.flattenError(parsed.error) },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
+
+    const effectiveTargetingValidation =
+      mergedNotificationTargetingSchema.safeParse({
+        target_type: body.target_type ?? existing.target_type ?? undefined,
+        target_merchant_ids:
+          body.target_merchant_ids !== undefined
+            ? (body.target_merchant_ids ?? undefined)
+            : Array.isArray(existing.target_merchant_ids)
+              ? existing.target_merchant_ids
+              : undefined,
+        target_segment:
+          body.target_segment ?? existing.target_segment ?? undefined,
+      });
+    if (!effectiveTargetingValidation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: z.flattenError(effectiveTargetingValidation.error),
+        },
+        { status: 400 }
+      );
+    }
 
     // Build update object
     const updates: Record<string, unknown> = {};
@@ -280,8 +320,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('notifications')
       .update(updates)
       .eq('id', id)
-      .select()
-      .single();
+      .is('sent_at', null)
+      .select(
+        'id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, sent_at, expires_at, created_at, created_by'
+      )
+      .maybeSingle();
 
     if (updateError) {
       logger.error({
@@ -292,6 +335,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: 'Failed to update notification' },
         { status: 500 }
+      );
+    }
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Cannot update a notification that has already been sent' },
+        { status: 400 }
       );
     }
 

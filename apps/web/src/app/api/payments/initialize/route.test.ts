@@ -1149,12 +1149,12 @@ describe('POST /api/payments/initialize', () => {
         data: {
           payment: {
             id: 'payment-456',
+            currency: 'USD',
             amount: 500000,
             status: 'processing',
             payment_method: {
               address: 'TRX_WALLET_ADDR_123',
               chain: 'TRX',
-              currency: 'USDT',
               qrcode: 'https://qr.example.com/qr.png',
             },
           },
@@ -1179,6 +1179,20 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.currency).toBe('USDT');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
       expect(json.crypto_address_pending).toBeUndefined();
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall).toEqual({
+        name: 'create_payment_transaction',
+        args: expect.objectContaining({
+          p_session_id: 'session-123',
+          p_metadata: expect.objectContaining({
+            juicyway_expected_amount: 500000,
+            juicyway_expected_currency: 'USD',
+            juicyway_fx_rate: expect.any(Number),
+          }),
+        }),
+      });
     });
 
     it('returns crypto_address_pending when address not ready after polling', {
@@ -1193,6 +1207,7 @@ describe('POST /api/payments/initialize', () => {
         data: {
           payment: {
             id: 'payment-456',
+            currency: 'USDT',
             amount: 500000,
             status: 'pending',
             // No payment_method with address
@@ -1231,6 +1246,71 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_payment.address).toBe('');
       expect(json.session_id).toBe('session-123');
       expect(json.crypto_payment.payment_id).toBe('payment-456');
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall).toEqual({
+        name: 'create_payment_transaction',
+        args: expect.objectContaining({
+          p_session_id: 'session-123',
+          p_metadata: expect.objectContaining({
+            juicyway_expected_amount: 500000,
+            juicyway_expected_currency: 'USDT',
+            juicyway_fx_rate: expect.any(Number),
+          }),
+        }),
+      });
+    });
+
+    it('fails checkout when the initial transaction insert rejects Juicyway validation metadata', async () => {
+      mockInitializeJuicyway.mockResolvedValue({
+        id: 'session-123',
+        status: 'pending',
+      });
+      mockCapturePaymentWithCrypto.mockResolvedValue({
+        success: true,
+        data: {
+          payment: {
+            id: 'payment-456',
+            amount: 500000,
+            status: 'processing',
+            payment_method: {
+              address: 'TRX_WALLET_ADDR_123',
+              chain: 'TRX',
+              currency: 'USDT',
+            },
+          },
+        },
+      });
+      rpcTransactionResult = {
+        data: null,
+        error: { message: 'transaction insert failed' },
+      };
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          gateway: 'juicyway',
+          crypto_chain: 'TRX',
+          crypto_currency: 'USDT',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json).toMatchObject({
+        code: 'TRANSACTION_CREATE_FAILED',
+        error: 'Failed to create transaction',
+      });
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_metadata: expect.objectContaining({
+          juicyway_expected_amount: 500000,
+          juicyway_expected_currency: 'USDT',
+        }),
+      });
     });
 
     it('returns address found during polling', { timeout: 15000 }, async () => {

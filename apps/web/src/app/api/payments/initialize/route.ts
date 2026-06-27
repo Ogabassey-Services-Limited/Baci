@@ -134,6 +134,24 @@ function numberOrDefault(value: unknown, fallback: number): number {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+function normalizeJuicywayStablecoin(
+  value: string | undefined,
+  fallback: JuicywayStablecoin
+): JuicywayStablecoin {
+  const normalized = value?.trim().toUpperCase();
+  return normalized === 'USDT' || normalized === 'USDC' ? normalized : fallback;
+}
+
+function normalizeJuicywayCurrency(
+  value: string | undefined,
+  fallback: string
+) {
+  const normalized = value?.trim();
+  return normalized && normalized.length > 0
+    ? normalized.toUpperCase()
+    : fallback;
+}
+
 function normalizeHostname(value: string) {
   return value
     .trim()
@@ -330,6 +348,14 @@ interface PaymentResult {
     amount: number;
     /** Stablecoin amount for display (e.g. "3.26") */
     crypto_amount?: string;
+    /**
+     * Expected settlement amount in stablecoin minor units (cents), as charged
+     * by Juicyway (our amount + Juicyway fee). Persisted on the transaction so
+     * the webhook can reject underpaid/mismatched settlements.
+     */
+    expected_session_amount?: number;
+    /** Currency associated with expected_session_amount (payment/session currency). */
+    expected_session_currency?: string;
     /** NGN/USDT rate used for conversion */
     conversion_rate?: number;
     confirmation_time: string;
@@ -485,11 +511,37 @@ async function initializeJuicyway(
             payment?: {
               id?: string;
               amount?: number;
+              currency?: string;
               status?: string;
               payment_method?: Record<string, unknown>;
             };
           }
         | undefined;
+      let expectedSettlementAmount = sessionAmount;
+      let expectedSettlementCurrency = normalizeJuicywayCurrency(
+        paymentCurrency,
+        cryptoCurrency
+      );
+      const captureExpectedSettlement = (
+        payment:
+          | {
+              amount?: number;
+              currency?: string;
+            }
+          | undefined
+      ) => {
+        if (
+          typeof payment?.amount === 'number' &&
+          Number.isFinite(payment.amount) &&
+          payment.amount > 0
+        ) {
+          expectedSettlementAmount = payment.amount;
+        }
+        expectedSettlementCurrency = normalizeJuicywayCurrency(
+          payment?.currency,
+          expectedSettlementCurrency
+        );
+      };
 
       // Step 1: POST capture once to initiate address generation
       const captureResult = await capturePaymentWithCrypto(
@@ -505,6 +557,7 @@ async function initializeJuicyway(
       }
 
       cryptoData = captureResult.data;
+      captureExpectedSettlement(cryptoData.payment);
       // Juicyway returns address either at payment_method.address (docs) or
       // payment_method.params.address (live API). extractCryptoAddress handles both.
       const extractedAddr = extractCryptoAddress(
@@ -514,7 +567,10 @@ async function initializeJuicyway(
         paymentMethod = {
           address: extractedAddr.address,
           chain: extractedAddr.chain as JuicywayCryptoChain,
-          currency: extractedAddr.currency as JuicywayStablecoin,
+          currency: normalizeJuicywayStablecoin(
+            extractedAddr.currency,
+            cryptoCurrency
+          ),
           qrcode: extractedAddr.qrcode,
         };
       }
@@ -558,6 +614,7 @@ async function initializeJuicyway(
           }
 
           const polledSessionData = pollResult.data;
+          captureExpectedSettlement(polledSessionData.payment);
 
           // Update tracking variables — extract address from params or top-level
           cryptoData = polledSessionData;
@@ -568,7 +625,10 @@ async function initializeJuicyway(
             paymentMethod = {
               address: polledAddr.address,
               chain: polledAddr.chain as JuicywayCryptoChain,
-              currency: polledAddr.currency as JuicywayStablecoin,
+              currency: normalizeJuicywayStablecoin(
+                polledAddr.currency,
+                cryptoCurrency
+              ),
               qrcode: polledAddr.qrcode,
             };
           }
@@ -593,6 +653,7 @@ async function initializeJuicyway(
               );
               if (paymentCheck.success) {
                 const paymentDetails = paymentCheck.data;
+                captureExpectedSettlement(paymentDetails);
                 // The payment_method may include crypto fields (address, chain, currency)
                 // that aren't in the base JuicywayPaymentMethod schema
                 const pm = paymentDetails.payment_method as unknown as
@@ -618,9 +679,10 @@ async function initializeJuicyway(
                     chain: (pm?.chain ||
                       pm?.params?.chain ||
                       cryptoChain) as JuicywayCryptoChain,
-                    currency: (pm?.currency ||
-                      pm?.params?.currency ||
-                      cryptoCurrency) as JuicywayStablecoin,
+                    currency: normalizeJuicywayStablecoin(
+                      pm?.currency || pm?.params?.currency,
+                      cryptoCurrency
+                    ),
                   };
                 }
               }
@@ -660,11 +722,7 @@ async function initializeJuicyway(
 
       // payment.amount is in USDT/USDC cents (what we sent + Juicyway fee).
       // Convert to major units for display (e.g. 326 cents → "3.26").
-      const juicywayCryptoAmount = cryptoData?.payment?.amount;
-      const cryptoAmountStr =
-        juicywayCryptoAmount != null
-          ? (juicywayCryptoAmount / 100).toFixed(2)
-          : undefined;
+      const cryptoAmountStr = (expectedSettlementAmount / 100).toFixed(2);
 
       // If address is available, return it immediately
       if (paymentMethod?.address) {
@@ -676,6 +734,8 @@ async function initializeJuicyway(
             currency: paymentMethod.currency,
             amount: amountInMinor,
             crypto_amount: cryptoAmountStr,
+            expected_session_amount: expectedSettlementAmount,
+            expected_session_currency: expectedSettlementCurrency,
             conversion_rate: conversionRate,
             confirmation_time: getChainConfirmationTime(paymentMethod.chain),
             qrcode: paymentMethod.qrcode,
@@ -698,6 +758,8 @@ async function initializeJuicyway(
           currency: cryptoCurrency,
           amount: amountInMinor,
           crypto_amount: cryptoAmountStr,
+          expected_session_amount: expectedSettlementAmount,
+          expected_session_currency: expectedSettlementCurrency,
           conversion_rate: conversionRate,
           confirmation_time: getChainConfirmationTime(cryptoChain),
           payment_id: paymentId,
@@ -918,16 +980,14 @@ export async function POST(request: NextRequest) {
     // establish a session. The admin client bypasses RLS, which is safe here
     // because every data operation is scoped by validated order/merchant IDs
     // (enforced by the SECURITY DEFINER RPC below).
-    const supabase = createAdminClient();
+    const adminSupabase = createAdminClient();
 
     // Validate order context (order + email) before initiating payment
-    const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
-      'get_order_payment_snapshot',
-      {
+    const { data: snapshotRows, error: snapshotError } =
+      await adminSupabase.rpc('get_order_payment_snapshot', {
         p_order_id: data.order_id,
         p_email: data.customer_email,
-      }
-    );
+      });
 
     const orderSnapshot = Array.isArray(snapshotRows) ? snapshotRows[0] : null;
 
@@ -973,12 +1033,13 @@ export async function POST(request: NextRequest) {
     }
     const merchantId = orderSnapshot.merchant_id;
 
-    const { data: orderPaymentRow, error: orderPaymentError } = await supabase
-      .from('orders')
-      .select('wallet_amount_used')
-      .eq('id', data.order_id)
-      .eq('merchant_id', merchantId)
-      .single();
+    const { data: orderPaymentRow, error: orderPaymentError } =
+      await adminSupabase
+        .from('orders')
+        .select('wallet_amount_used')
+        .eq('id', data.order_id)
+        .eq('merchant_id', merchantId)
+        .single();
 
     if (orderPaymentError || !orderPaymentRow) {
       return createErrorResponse(
@@ -997,7 +1058,7 @@ export async function POST(request: NextRequest) {
       0
     );
 
-    const { data: savingsRows, error: savingsError } = await supabase
+    const { data: savingsRows, error: savingsError } = await adminSupabase
       .from('customer_savings_redemptions')
       .select('amount')
       .eq('order_id', data.order_id)
@@ -1022,7 +1083,7 @@ export async function POST(request: NextRequest) {
       : 0;
 
     // Fetch merchant
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant, error: merchantError } = await adminSupabase
       .from('merchants')
       .select('id, business_name, slug, paystack_subaccount_code')
       .eq('id', merchantId)
@@ -1042,7 +1103,7 @@ export async function POST(request: NextRequest) {
         : undefined;
 
     // Fetch gateway settings
-    const { data: featureSettings } = await supabase
+    const { data: featureSettings } = await adminSupabase
       .from('merchant_feature_settings')
       .select(
         'paystack_enabled, korapay_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
@@ -1229,7 +1290,7 @@ export async function POST(request: NextRequest) {
             const dvaExpiresAt = new Date(
               Date.now() + 90 * 60 * 1000
             ).toISOString();
-            const { error: dvaPersistError } = await supabase
+            const { error: dvaPersistError } = await adminSupabase
               .from('order_payment_accounts')
               .upsert(
                 {
@@ -1355,8 +1416,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Juicyway is a stablecoin rail: the webhook reports the settled amount in
+    // the session currency (USDT/USDC cents), which is NOT comparable to the
+    // NGN order total. Persist the expected settlement amount + locked FX rate
+    // inside the initial transaction insert so a fast webhook can never observe
+    // a transaction row without the strict validation metadata.
+    const juicywayCrypto = paymentResult.crypto_payment;
+    const transactionMetadata =
+      gateway === 'juicyway' && juicywayCrypto?.expected_session_amount != null
+        ? {
+            // Stablecoin minor units (cents), incl. Juicyway fee.
+            juicyway_expected_amount: juicywayCrypto.expected_session_amount,
+            juicyway_expected_currency:
+              juicywayCrypto.expected_session_currency ??
+              juicywayCrypto.currency,
+            juicyway_fx_rate: juicywayCrypto.conversion_rate ?? null,
+          }
+        : {};
+
     // Create transaction record (via RPC) and update order status
-    const { error: transactionError } = await supabase.rpc(
+    const { error: transactionError } = await adminSupabase.rpc(
       'create_payment_transaction',
       {
         p_merchant_id: merchantId,
@@ -1370,6 +1449,7 @@ export async function POST(request: NextRequest) {
         p_customer_email: paymentData.customer_email,
         p_customer_name: paymentData.customer_name,
         p_session_id: paymentResult.sessionId || null,
+        p_metadata: transactionMetadata,
       }
     );
 
