@@ -1,0 +1,208 @@
+import { describe, expect, it } from 'vitest';
+import type { BumpaOrderRow } from '@/schemas/bumpa-orders';
+import { buildItems } from './build-bumpa-order-items';
+
+function makeRow(overrides: Partial<BumpaOrderRow> = {}): BumpaOrderRow {
+  return {
+    id: '100',
+    'Order Number': '001',
+    Products: 'Widget',
+    'Customer Name': 'Ada Lovelace',
+    'Customer Email': 'ada@example.com',
+    'Customer Phone': '08012345678',
+    'Payment Status': 'PAID',
+    Status: 'PROCESSING',
+    'Shipping Status': 'UNFULFILLED',
+    Channel: 'WEB',
+    Origin: '',
+    Total: '5000.00',
+    'Sub Total': '5000.00',
+    Discount: '0',
+    'Amount Paid': '5000.00',
+    'Amount Due': '0',
+    'Order Date': '2026-03-22 14:00:00',
+    'Created At': '2026-03-22',
+    'Updated At': '',
+    'Shipping Price': '0',
+    Tax: '0',
+    'Coupon Code': '',
+    'Shipping Option': '',
+    'Product SKU': '',
+    'Product Quantity': '1',
+    items_json: '',
+    ...overrides,
+  };
+}
+
+describe('buildItems', () => {
+  it('splits flat pipe-separated product rows into multiple items', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Phone | Case',
+        'Product Quantity': '1 | 2',
+      }),
+      []
+    );
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        productName: 'Phone',
+        quantity: 1,
+        unitPrice: 2500,
+        lineTotal: 2500,
+      }),
+      expect.objectContaining({
+        productName: 'Case',
+        quantity: 2,
+        unitPrice: 1250,
+        lineTotal: 2500,
+      }),
+    ]);
+  });
+
+  it('strips customer double-pipe prefixes before multi-item splitting', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Ada Lovelace | || | iPhone 15 | Pouch',
+        'Product Quantity': '1 | 1',
+      }),
+      []
+    );
+
+    expect(items.map((item) => item.productName)).toEqual([
+      'iPhone 15',
+      'Pouch',
+    ]);
+  });
+
+  it('falls back to flat product fields when rich items_json is empty or malformed', () => {
+    expect(
+      buildItems(
+        makeRow({
+          Products: 'Fallback Phone',
+          'Product Quantity': '2',
+          items_json: '[]',
+        }),
+        []
+      )
+    ).toEqual([
+      expect.objectContaining({
+        productName: 'Fallback Phone',
+        quantity: 2,
+        unitPrice: 2500,
+        lineTotal: 5000,
+      }),
+    ]);
+
+    expect(
+      buildItems(
+        makeRow({
+          Products: 'Fallback Charger',
+          'Product Quantity': '1',
+          items_json: '{not-valid-json',
+        }),
+        []
+      )
+    ).toEqual([
+      expect.objectContaining({
+        productName: 'Fallback Charger',
+        quantity: 1,
+        unitPrice: 5000,
+        lineTotal: 5000,
+      }),
+    ]);
+  });
+
+  it('prefers rich Bumpa item line totals over catalog match prices', () => {
+    const items = buildItems(
+      makeRow({
+        items_json: JSON.stringify([
+          {
+            name: 'Widget',
+            quantity: 2,
+            total: 5000,
+          },
+        ]),
+      }),
+      [
+        {
+          id: 'prod-1',
+          name: 'Widget',
+          sku: null,
+          price: 999,
+          externalSource: null,
+          externalId: null,
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'prod-1',
+      unitPrice: 2500,
+      lineTotal: 5000,
+    });
+  });
+
+  it('uses row quantities for rich items that omit item-level quantity', () => {
+    const items = buildItems(
+      makeRow({
+        'Product Quantity': '3',
+        items_json: JSON.stringify([
+          {
+            name: 'Widget',
+            total: 6000,
+          },
+        ]),
+      }),
+      []
+    );
+
+    expect(items[0]).toMatchObject({
+      productName: 'Widget',
+      quantity: 3,
+      unitPrice: 2000,
+      lineTotal: 6000,
+    });
+  });
+
+  it('uses matched catalog prices for flat product rows', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Phone | Case',
+        'Product Quantity': '1 | 1',
+        'Sub Total': '4000.00',
+      }),
+      [
+        {
+          id: 'prod-phone',
+          name: 'Phone',
+          sku: null,
+          price: 3000,
+          externalSource: null,
+          externalId: null,
+        },
+        {
+          id: 'prod-case',
+          name: 'Case',
+          sku: null,
+          price: 1000,
+          externalSource: null,
+          externalId: null,
+        },
+      ]
+    );
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        productId: 'prod-phone',
+        unitPrice: 3000,
+        lineTotal: 3000,
+      }),
+      expect.objectContaining({
+        productId: 'prod-case',
+        unitPrice: 1000,
+        lineTotal: 1000,
+      }),
+    ]);
+  });
+});

@@ -48,6 +48,61 @@ describe('enrichBumpaOrderItems', () => {
     });
   });
 
+  it('preserves existing Bumpa metadata records unchanged', () => {
+    const [item] = enrichBumpaOrderItems([
+      {
+        productId: null,
+        productName: 'Google Pixel 7a 128gb',
+        sku: null,
+        quantity: 1,
+        unitPrice: 300000,
+        lineTotal: 300000,
+        matched: false,
+        matchSource: 'unmatched',
+        importMetadata: {
+          upstream: { matchedBy: 'items_json' },
+          bumpa: {
+            fulfillment_identifiers: { imei: ['359200573024554'] },
+          },
+        },
+      },
+    ]);
+
+    expect(item.importMetadata).toEqual({
+      upstream: { matchedBy: 'items_json' },
+      bumpa: {
+        fulfillment_identifiers: { imei: ['359200573024554'] },
+      },
+    });
+  });
+
+  it('rebuilds invalid Bumpa metadata while keeping other metadata', () => {
+    const [item] = enrichBumpaOrderItems([
+      {
+        productId: null,
+        productName: 'Google Pixel 7a 128gb',
+        sku: null,
+        quantity: 1,
+        unitPrice: 300000,
+        lineTotal: 300000,
+        matched: false,
+        matchSource: 'unmatched',
+        importMetadata: {
+          upstream: { matchedBy: 'name' },
+          bumpa: 'legacy-metadata',
+        },
+      },
+    ]);
+
+    expect(item.importMetadata).toMatchObject({
+      upstream: { matchedBy: 'name' },
+      bumpa: {
+        normalized_product_name: 'Google Pixel 7a 128GB',
+        product_kind: 'device',
+      },
+    });
+  });
+
   it('adds fallback Bumpa metadata when the product name is blank', () => {
     const [item] = enrichBumpaOrderItems([
       {

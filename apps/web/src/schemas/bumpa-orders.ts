@@ -27,6 +27,29 @@ export const bumpaOrderRowSchema = z
     'Shipping Option': z.string().trim().optional().default(''),
     'Product SKU': z.string().trim().optional().default(''),
     'Product Quantity': z.string().trim().min(1, 'Product quantity is missing'),
+    items_json: z
+      .string()
+      .trim()
+      .optional()
+      .default('')
+      .refine((value) => {
+        if (!value) return true;
+
+        try {
+          const parsed: unknown = JSON.parse(value);
+          return (
+            Array.isArray(parsed) &&
+            parsed.every(
+              (item) =>
+                Boolean(item) &&
+                typeof item === 'object' &&
+                !Array.isArray(item)
+            )
+          );
+        } catch {
+          return false;
+        }
+      }, 'items_json must be a JSON array of objects'),
   })
   .superRefine((row, ctx) => {
     const hasCustomerName = row['Customer Name'].length > 0;
