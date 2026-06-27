@@ -161,6 +161,30 @@ describe('merchant blog OG image markup', () => {
     expect(text).not.toContain(longTitle);
   });
 
+  it('normalizes naira symbols before Satori receives text nodes', () => {
+    const base = createData();
+    const element = renderPrimaryCard(
+      createData({
+        merchantBusinessName: '₦ Deals',
+        post: base.post
+          ? {
+              ...base.post,
+              author_name: '₦ Price Desk',
+              category: '₦ Offers',
+              title: 'iPad Pro M5 at ₦2.16m',
+            }
+          : null,
+      })
+    );
+    const text = collectText(element);
+
+    expect(text).toContain('iPad Pro M5 at NGN 2.16m');
+    expect(text).toContain('NGN Deals');
+    expect(text).toContain('NGN Offers');
+    expect(text).toContain('By NGN Price Desk');
+    expect(text).not.toContain('₦');
+  });
+
   it('renders a safe merchant fallback when post data is empty', () => {
     const element = renderMerchantFallback(
       createData({ logoDataUri: null, post: null }),

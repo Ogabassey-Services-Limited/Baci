@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it } from 'vitest';
 import { OgabasseyPdpServerPrimaryDetails } from './server-primary-details';
 
@@ -48,6 +49,32 @@ describe('OgabasseyPdpServerPrimaryDetails', () => {
 
     expect(screen.getByText('Clean iPhone with warranty. Ready for dispatch.')).toBeVisible();
     expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('renders malformed stored spec sections with a safe category fallback', () => {
+    render(
+      <OgabasseyPdpServerPrimaryDetails
+        description=" "
+        detailedSpecs={[
+          {
+            category: undefined,
+            items: [
+              { label: 'Face value', value: '₦30 gift card' },
+              null,
+            ],
+          },
+        ] as unknown as ComponentProps<
+          typeof OgabasseyPdpServerPrimaryDetails
+        >['detailedSpecs']}
+        productName="Apple iTunes Gift Card 30"
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'General' })
+    ).toBeVisible();
+    expect(screen.getByText('Face value')).toBeVisible();
+    expect(screen.getByText('₦30 gift card')).toBeVisible();
   });
 
   it('renders nothing when there is no useful product copy', () => {

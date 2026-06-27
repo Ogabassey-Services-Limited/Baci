@@ -84,6 +84,67 @@ function normalizeSpecText(value: string) {
   return decodeHtmlEntities(stripHtmlTags(value)).replace(/\s+/g, ' ').trim();
 }
 
+function normalizeSpecTextValue(value: unknown) {
+  if (typeof value === 'string') {
+    return normalizeSpecText(value);
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No';
+  }
+
+  return '';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function normalizeSpecItems(value: unknown): ProductSpecItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const label = normalizeSpecTextValue(item.label);
+    const itemValue = normalizeSpecTextValue(item.value);
+
+    return label && itemValue ? [{ label, value: itemValue }] : [];
+  });
+}
+
+function normalizeSpecSections(value: unknown): ProductSpecSection[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((section) => {
+    if (!isRecord(section)) {
+      return [];
+    }
+
+    const items = normalizeSpecItems(section.items);
+    if (items.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        category: normalizeSpecTextValue(section.category) || 'General',
+        items,
+      },
+    ];
+  });
+}
+
 function buildDescriptionKeySpecs(
   description: SpecDataSource['description']
 ): ProductSpecSection[] {
@@ -259,21 +320,26 @@ function buildSummarySpecsFromSections(
 
 export function buildProductSpecData(source: SpecDataSource) {
   const descriptionKeySpecs = buildDescriptionKeySpecs(source.description);
+  const normalizedDetailedSpecs = normalizeSpecSections(source.detailedSpecs);
+  const normalizedLegacySpecifications = normalizeSpecSections(
+    source.specifications
+  );
 
   const structuredSpecs =
-    source.detailedSpecs && source.detailedSpecs.length > 0
-      ? source.detailedSpecs
+    normalizedDetailedSpecs.length > 0
+      ? normalizedDetailedSpecs
       : isComparableProductKeySpecs(source.product_key_specs)
         ? buildDetailedSpecsFromKeySpecs(source.product_key_specs)
-        : source.specifications && source.specifications.length > 0
-          ? source.specifications
+        : normalizedLegacySpecifications.length > 0
+          ? normalizedLegacySpecifications
           : buildGeneralFallbackSpecs(source);
 
   const detailedSpecs = mergeSpecSections(descriptionKeySpecs, structuredSpecs);
+  const normalizedSummarySpecs = normalizeSpecItems(source.specs);
 
   const specs =
-    Array.isArray(source.specs) && source.specs.length > 0
-      ? source.specs
+    normalizedSummarySpecs.length > 0
+      ? normalizedSummarySpecs
       : buildSummarySpecsFromSections(detailedSpecs);
 
   return {
