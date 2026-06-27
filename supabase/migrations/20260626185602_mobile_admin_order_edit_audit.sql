@@ -232,29 +232,29 @@ BEGIN
 
   v_notify_customer := COALESCE((p_payload ->> 'notify_customer')::boolean, false);
 
-  IF CASE
+  IF (CASE
       WHEN jsonb_typeof(p_payload -> 'shipping_fee') = 'number'
         THEN (p_payload ->> 'shipping_fee')::numeric < 0
       ELSE true
-    END
-    OR CASE
+    END)
+    OR (CASE
       WHEN jsonb_typeof(p_payload -> 'discount_amount') = 'number'
         THEN (p_payload ->> 'discount_amount')::numeric < 0
       ELSE true
-    END
-    OR CASE
+    END)
+    OR (CASE
       WHEN jsonb_typeof(p_payload -> 'tax_amount') = 'number'
         THEN (p_payload ->> 'tax_amount')::numeric < 0
       ELSE true
-    END
-    OR CASE
+    END)
+    OR (CASE
       WHEN NOT (p_payload ? 'gift_wrapping_fee')
         OR p_payload -> 'gift_wrapping_fee' = 'null'::jsonb
         THEN false
       WHEN jsonb_typeof(p_payload -> 'gift_wrapping_fee') = 'number'
         THEN (p_payload ->> 'gift_wrapping_fee')::numeric < 0
       ELSE true
-    END
+    END)
   THEN
     RAISE EXCEPTION 'order_money_invalid' USING ERRCODE = '22023';
   END IF;
