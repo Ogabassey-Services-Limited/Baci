@@ -48,6 +48,7 @@ describe('capturePublicBlogPageview', () => {
     >;
     expect(firstCall[0]).toBe('/baci-relay/capture/');
     expect(firstCall[1]).toBeInstanceOf(Blob);
+    expect((firstCall[1] as Blob).type).toBe('text/plain');
   });
 
   it('falls back to keepalive fetch with tenant context and identified-only person profile settings', () => {
@@ -72,7 +73,7 @@ describe('capturePublicBlogPageview', () => {
 
     expect(fetch).toHaveBeenCalledWith('/baci-relay/capture/', {
       body: expect.stringContaining('public_blog_lightweight'),
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       keepalive: true,
       method: 'POST',
     });
@@ -217,6 +218,35 @@ describe('capturePublicBlogPageview', () => {
       properties: { distinct_id: '00000000-0000-4000-8000-000000000001' },
     });
     expect(randomUUID).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to keepalive fetch when sendBeacon rejects the payload', () => {
+    const sendBeacon = vi.fn<typeof navigator.sendBeacon>(() => {
+      throw new DOMException('Beacon payload type rejected');
+    });
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Promise.resolve(new Response(null))
+    );
+
+    stubStorage({
+      ph_ph_public_posthog: JSON.stringify({ distinct_id: 'sdk-visitor-1' }),
+    });
+    vi.stubGlobal('navigator', { sendBeacon, userAgent: 'Mozilla/5.0' });
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
+
+    capturePublicBlogPageview(
+      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
+      'https://ogabassey.com/blog'
+    );
+
+    expect(sendBeacon).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledWith('/baci-relay/capture/', {
+      body: expect.stringContaining('public_blog_lightweight'),
+      headers: { 'Content-Type': 'text/plain' },
+      keepalive: true,
+      method: 'POST',
+    });
   });
 
   it('does nothing without a public project token', () => {

@@ -207,17 +207,21 @@ function sendPublicBlogCapture(captureUrl: string, body: string): void {
   const beacon = globalThis.navigator?.sendBeacon;
 
   if (typeof beacon === 'function') {
-    const payload = new Blob([body], { type: 'application/json' });
+    try {
+      const payload = new Blob([body], { type: 'text/plain' });
 
-    if (beacon.call(globalThis.navigator, captureUrl, payload)) {
-      return;
+      if (beacon.call(globalThis.navigator, captureUrl, payload)) {
+        return;
+      }
+    } catch {
+      // Fall back to keepalive fetch when the browser rejects beacon payloads.
     }
   }
 
   void globalThis
     .fetch?.(captureUrl, {
       body,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       keepalive: true,
       method: 'POST',
     })
