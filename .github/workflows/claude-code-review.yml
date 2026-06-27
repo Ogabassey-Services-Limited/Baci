@@ -33,7 +33,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.command.outputs.should_run == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
