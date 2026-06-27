@@ -2,6 +2,10 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { resolveInsuranceCardActions } from './OrderDetailsInsuranceCard.actions';
+import {
+  InsuranceCardHeader,
+  InsuranceValueRow,
+} from './OrderDetailsInsuranceCard.primitives';
 import { INSURANCE_COLORS, styles } from './OrderDetailsInsuranceCard.styles';
 import type {
   OrderDetailsInsuranceCardColors,
@@ -38,21 +42,11 @@ export function OrderDetailsInsuranceCard({
 
     return (
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <View style={styles.insuranceHeader}>
-          <Ionicons
-            name="shield-outline"
-            size={20}
-            color={colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: colors.text, marginBottom: 0, marginLeft: 8 },
-            ]}
-          >
-            Insurance Coverage
-          </Text>
-        </View>
+        <InsuranceCardHeader
+          colors={colors}
+          iconColor={colors.textSecondary}
+          iconName="shield-outline"
+        />
         <Text
           style={[
             styles.insuranceProvider,
@@ -97,54 +91,29 @@ export function OrderDetailsInsuranceCard({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <View style={styles.insuranceHeader}>
-        <Ionicons
-          name="shield-checkmark"
-          size={20}
-          color={INSURANCE_COLORS.active.foreground}
-        />
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: colors.text, marginBottom: 0, marginLeft: 8 },
-          ]}
-        >
-          Insurance Coverage
-        </Text>
-      </View>
+      <InsuranceCardHeader
+        colors={colors}
+        iconColor={INSURANCE_COLORS.active.foreground}
+        iconName="shield-checkmark"
+      />
       <View style={styles.insuranceContent}>
         {insurancePolicy.mycover_policy_number && (
-          <View style={styles.insuranceRow}>
-            <Text
-              style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-            >
-              Policy No.
-            </Text>
-            <Text style={[styles.insuranceValue, { color: colors.text }]}>
-              {insurancePolicy.mycover_policy_number}
-            </Text>
-          </View>
+          <InsuranceValueRow
+            colors={colors}
+            label="Policy No."
+            value={insurancePolicy.mycover_policy_number}
+          />
         )}
-        <View style={styles.insuranceRow}>
-          <Text
-            style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-          >
-            Coverage
-          </Text>
-          <Text style={[styles.insuranceValue, { color: colors.text }]}>
-            {formatNgnCurrency(insurancePolicy.coverage_amount)}
-          </Text>
-        </View>
-        <View style={styles.insuranceRow}>
-          <Text
-            style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-          >
-            Premium
-          </Text>
-          <Text style={[styles.insuranceValue, { color: colors.text }]}>
-            {formatNgnCurrency(insurancePolicy.premium_amount)}
-          </Text>
-        </View>
+        <InsuranceValueRow
+          colors={colors}
+          label="Coverage"
+          value={formatNgnCurrency(insurancePolicy.coverage_amount)}
+        />
+        <InsuranceValueRow
+          colors={colors}
+          label="Premium"
+          value={formatNgnCurrency(insurancePolicy.premium_amount)}
+        />
         <View style={styles.insuranceRow}>
           <Text
             style={[styles.insuranceLabel, { color: colors.textSecondary }]}
