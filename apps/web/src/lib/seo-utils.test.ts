@@ -1193,6 +1193,15 @@ describe('getIndexableRobotsMetadata', () => {
         follow: true,
       },
     });
+
+    expect(getIndexableRobotsMetadata({ search: 'pixel 10' })).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
   });
 });
 
