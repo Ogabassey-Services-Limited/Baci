@@ -256,7 +256,7 @@ export class GiglProvider extends BaseShippingProvider {
   // LOCATIONS / STATIONS
   // ==========================================================================
 
-  async getLocations(): Promise<UnifiedLocation[]> {
+  async getLocations(_countryCode = 'NG'): Promise<UnifiedLocation[]> {
     const stations = await this.getStations();
     return stations.map((station) => ({
       state: station.StateName || station.State || station.StationName,
@@ -646,13 +646,15 @@ export class GiglProvider extends BaseShippingProvider {
       throw new Error('Failed to track GIGL shipment');
     }
 
-    const result: GiglTrackingResponse = await response.json();
+    const result = await response.json();
+    const envelope = this.unwrapApiEnvelope(result);
+    const trackingData = envelope.data as GiglTrackingResponse['data'];
 
-    if (!result.data || result.data.length === 0) {
+    if (!Array.isArray(trackingData) || trackingData.length === 0) {
       throw new Error('Shipment not found');
     }
 
-    const shipment = result.data[0];
+    const shipment = trackingData[0];
     const events: TrackingEvent[] = (
       shipment.MobileShipmentTrackings || []
     ).map((tracking) => ({

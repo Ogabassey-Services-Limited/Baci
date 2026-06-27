@@ -109,7 +109,7 @@ describe('GiglProvider', () => {
     vi.unstubAllGlobals();
   });
 
-  it('fetches a GIGL quote through the documented login, station, and price endpoints', async () => {
+  it('fetches a GIGL quote through the configured login, station, and price endpoints', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -179,5 +179,68 @@ describe('GiglProvider', () => {
     });
     expect(pricePayload.ShipmentItems[0]).not.toHaveProperty('ItemType');
     expect(pricePayload).not.toHaveProperty('ShipmentType');
+  });
+
+  it('tracks shipments from nested API envelopes', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(loginResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              status: 200,
+              data: [
+                {
+                  Waybill: 'GIGL123',
+                  Origin: 'LAGOS',
+                  Destination: 'PORT HARCOURT',
+                  PickupOptions: 0,
+                  DeliveryType: 0,
+                  MobileShipmentTrackings: [
+                    {
+                      Status: 'Shipment delivered',
+                      ScanStatusReason: 'Delivered to receiver',
+                      DateTime: '2026-06-27T08:00:00.000Z',
+                      DepartureServiceCentre: {
+                        Name: 'Port Harcourt',
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    const tracking = await provider.trackShipment('GIGL123');
+
+    expect(tracking).toMatchObject({
+      provider: 'GIGL',
+      trackingNumber: 'GIGL123',
+      status: 'delivered',
+      carrierName: 'GIG Logistics',
+    });
+    expect(tracking.events[0]).toMatchObject({
+      description: 'Delivered to receiver',
+      location: 'Port Harcourt',
+      rawStatus: 'Shipment delivered',
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      'https://dev-thirdpartynode.theagilitysystems.com/track/mobileShipment?Waybill=GIGL123'
+    );
   });
 });

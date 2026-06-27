@@ -45,6 +45,8 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
   // Delivered
   DELIVERED: 'delivered',
   Delivered: 'delivered',
+  SHIPMENT_DELIVERED: 'delivered',
+  'Shipment delivered': 'delivered',
   COMPLETED: 'delivered',
   Completed: 'delivered',
 
@@ -65,10 +67,10 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
 };
 
 export function mapGiglStatus(status: string): NormalizedShipmentStatus {
+  const normalized = status.trim();
+  const screamingSnake = normalized.replace(/[\s-]+/g, '_').toUpperCase();
   return (
-    GIGL_STATUS_MAP[status] ||
-    GIGL_STATUS_MAP[status.toUpperCase()] ||
-    'pending'
+    GIGL_STATUS_MAP[normalized] || GIGL_STATUS_MAP[screamingSnake] || 'pending'
   );
 }
 
