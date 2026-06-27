@@ -915,7 +915,7 @@ describe('category page route', () => {
     ]);
   });
 
-  it('returns notFound metadata for inactive category slugs', async () => {
+  it('returns noindex soft-404 metadata for inactive category slugs', async () => {
     vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
       isCollection: false,
       category: null,
@@ -925,19 +925,32 @@ describe('category page route', () => {
       isInactiveCategory: true,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'test-store',
-          category: 'inactive-category',
-        }),
-        searchParams: Promise.resolve({ page: '1' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(notFound).toHaveBeenCalled();
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'inactive-category',
+      }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBe('Category not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    expect(metadata).toMatchObject({
+      openGraph: {
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+      twitter: {
+        card: 'summary',
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+    });
+    expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('returns notFound metadata for unknown category slugs with no products (doorway stopgap)', async () => {
+  it('returns noindex soft-404 metadata for unknown category slugs with no products (doorway stopgap)', async () => {
     // Unknown/typo slug: not a collection, no resolved category row, and the
     // legacy fuzzy fallback matched nothing — previously rendered index,follow
     // (the doorway trap). isInactiveCategory is FALSE here (distinct from the
@@ -951,16 +964,29 @@ describe('category page route', () => {
       isInactiveCategory: false,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'test-store',
-          category: 'totally-made-up-slug',
-        }),
-        searchParams: Promise.resolve({ page: '1' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(notFound).toHaveBeenCalled();
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'totally-made-up-slug',
+      }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    expect(metadata.title).toBe('Category not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    expect(metadata).toMatchObject({
+      openGraph: {
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+      twitter: {
+        card: 'summary',
+        description: 'This category is unavailable or has moved.',
+        title: 'Category not found',
+      },
+    });
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('does not notFound a real category that has products', async () => {
@@ -992,6 +1018,7 @@ describe('category page route', () => {
       fallbackName: 'Maybe Real',
       fallbackDescription: 'Maybe real',
       isInactiveCategory: false,
+      productIdsQueryFailed: true,
       productsQueryFailed: true,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
@@ -1023,6 +1050,32 @@ describe('category page route', () => {
     });
 
     expect(metadata.title).toBeTruthy();
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it('returns soft-not-found metadata for known out-of-range pages even when category lookup fails open', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      ...categoryPageData,
+      categoryQueryFailed: true,
+      productIdsQueryFailed: false,
+      products: smartphoneHubProducts.slice(0, 20),
+      productSlots: smartphoneHubProducts.slice(0, 20),
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(getCachedCategoryPageData).toHaveBeenCalledWith(
+      'merchant-1',
+      'smartphones',
+      'test-store',
+      20,
+      20
+    );
+    expect(metadata.title).toBe('Category page not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(notFound).not.toHaveBeenCalled();
   });
 
@@ -1065,16 +1118,55 @@ describe('category page route', () => {
     expect((metadata.title as string).length).toBeLessThanOrEqual(70);
   });
 
-  it('matches the category route 404 behavior for out-of-range metadata pages', async () => {
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'test-store',
-          category: 'smartphones',
-        }),
-        searchParams: Promise.resolve({ page: '3' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+  it('returns noindex soft-404 metadata for out-of-range metadata pages', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
+
+    expect(metadata.title).toBe('Category page not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).toBeNull();
+    expect(metadata).toMatchObject({
+      openGraph: {
+        description: 'This category page is unavailable or has moved.',
+        title: 'Category page not found',
+      },
+      twitter: {
+        card: 'summary',
+        description: 'This category page is unavailable or has moved.',
+        title: 'Category page not found',
+      },
+    });
+  });
+
+  it('fails open but noindexes out-of-range metadata pages when product ID pagination is unknown', async () => {
+    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
+      isCollection: false,
+      category: { id: 'cat-1', name: 'Smartphones', slug: 'smartphones' },
+      products: [],
+      fallbackName: 'Smartphones',
+      fallbackDescription: 'Smartphones',
+      isInactiveCategory: false,
+      productIdsQueryFailed: true,
+      productsQueryFailed: true,
+    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
+
+    expect(metadata.title).not.toBe('Category page not found');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.alternates).not.toBeNull();
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {

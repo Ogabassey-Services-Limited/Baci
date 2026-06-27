@@ -15,7 +15,10 @@ import {
   ensureBlogImageAltText,
   transformImageTitlesToFigureCaptions,
 } from './blog-post-image-html';
-import { wrapTrustedCdnInlineImagesInPictureWithMetadata } from './blog-trusted-cdn-inline-images';
+import {
+  removeLegacyOgabasseyCdnBlogImages,
+  wrapTrustedCdnInlineImagesInPictureWithMetadata,
+} from './blog-trusted-cdn-inline-images';
 
 function normalizeBasePath(basePath: string): string {
   return !basePath || basePath === '/' ? '' : basePath.replace(/\/+$/, '');
@@ -146,7 +149,10 @@ export async function resolveBlogPostContent(
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     const sanitizedHtml = sanitizeHtml(rewrittenHtml);
-    const captionedHtml = transformImageTitlesToFigureCaptions(sanitizedHtml);
+    const legacyImageSafeHtml =
+      removeLegacyOgabasseyCdnBlogImages(sanitizedHtml);
+    const captionedHtml =
+      transformImageTitlesToFigureCaptions(legacyImageSafeHtml);
     const altedHtml = ensureBlogImageAltText(
       captionedHtml,
       options.fallbackImageAlt

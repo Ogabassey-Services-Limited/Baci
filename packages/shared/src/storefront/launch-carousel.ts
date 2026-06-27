@@ -5,9 +5,8 @@
  *
  * Ordering contract: pinned slugs first (in the given pin order), then the
  * remaining input in its existing order, deduped by slug. The caller is
- * responsible for supplying input that is already "newest-first" — this helper
- * deliberately does NOT sort by date (web orders by `updated_at`, mobile by
- * `created_at`; neither field is guaranteed on the input rows).
+ * responsible for supplying input that is already in the desired fallback order;
+ * `effectiveLaunchPins` below handles the shared newest-created pin override.
  */
 
 /**
@@ -15,10 +14,14 @@
  * are OgaBassey-specific catalog content; they live here (alongside the generic
  * selection logic) as the single source of truth shared by the OgaBassey web
  * storefront and the OgaBassey mobile app. The `OGABASSEY_` prefix keeps the
- * merchant scope explicit within the otherwise-generic shared package.
+ * merchant scope explicit within the otherwise-generic shared package. When
+ * updating this list, also bump OGABASSEY_LAUNCH_PINS_SINCE to just after the
+ * catalog's newest product at the time of re-curation.
  */
 export const OGABASSEY_PINNED_LAUNCH_SLUGS = [
   'samsung-galaxy-a27-5g',
+  'xiaomi-17t-pro',
+  'xiaomi-17t',
   'itel-power-80-128gb-4gb',
 ] as const;
 
@@ -103,4 +106,68 @@ export function isPreorder(name: string): boolean {
 /** Pre-order-aware call-to-action label for a launch slide. */
 export function launchCtaLabel(name: string): string {
   return isPreorder(name) ? 'Pre-order now' : 'Shop now';
+}
+
+interface DatedProduct {
+  slug?: string | null;
+  created_at?: string | null;
+}
+
+/**
+ * Cutoff for the "new arrivals push pins back" model: products created strictly
+ * AFTER this instant count as fresh launches added since the pins were set.
+ *
+ * It is pinned to just after the catalog's newest product at configuration time
+ * so that — today — no existing product (e.g. recently-added laptops that happen
+ * to be newer than the pinned phones) outranks the configured pins; the pins
+ * lead in their chosen order. Only genuinely-new products added later push the
+ * pins back. Bump this whenever the pin set is re-curated.
+ */
+export const OGABASSEY_LAUNCH_PINS_SINCE = '2026-06-23T00:00:00.000Z';
+
+/**
+ * Effective pin order under the "new arrivals push pins back" model.
+ *
+ * Any candidate product created after `pinsSince` is treated as a fresh launch
+ * and hoisted ahead of the configured pins (newest-created first), so newly
+ * added products lead the carousel and the configured pins drift back — and fall
+ * off once pushed past the carousel limit downstream. Ordering is by creation
+ * time only, so editing an existing product never reorders the carousel. With no
+ * newer products (the common case) this returns the configured pins unchanged,
+ * preserving the merchant's chosen order.
+ */
+export function effectiveLaunchPins(
+  candidateRows: readonly DatedProduct[],
+  configuredPins: readonly string[],
+  pinsSince: string
+): string[] {
+  if (!pinsSince) {
+    return [...configuredPins];
+  }
+
+  const configured = new Set(configuredPins);
+  const seen = new Set<string>();
+  const newArrivals = candidateRows
+    .filter(
+      (row): row is DatedProduct & { slug: string; created_at: string } =>
+        typeof row.slug === 'string' &&
+        row.slug.length > 0 &&
+        !configured.has(row.slug) &&
+        typeof row.created_at === 'string' &&
+        row.created_at > pinsSince
+    )
+    // Newest-created first; ISO 8601 timestamps sort lexically.
+    .sort((a, b) =>
+      a.created_at === b.created_at ? 0 : a.created_at > b.created_at ? -1 : 1
+    )
+    .filter((row) => {
+      if (seen.has(row.slug)) {
+        return false;
+      }
+      seen.add(row.slug);
+      return true;
+    })
+    .map((row) => row.slug);
+
+  return [...newArrivals, ...configuredPins];
 }

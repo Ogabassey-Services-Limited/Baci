@@ -579,6 +579,93 @@ describe('products/[productSlug] page', () => {
         'https://ogabassey.com/products/mystery-item'
       );
     });
+
+    it('normalizes explicit plus-model product metadata before rendering', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        id: 'prod-plus',
+        name: 'Samsung Galaxy Tab S9+',
+        slug: 'samsung-galaxy-tab-s9-plus',
+        meta_title: 'Samsung Galaxy Tab S9+ Price in Nigeria',
+        meta_description:
+          'Shop Samsung Galaxy Tab S9+ tablet at Ogabassey before checkout.',
+      });
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'samsung-galaxy-tab-s9-plus',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      expect(metadata.title).toBe(
+        'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+      );
+      expect(metadata.description).toBe(
+        'Shop Samsung Galaxy Tab S9 Plus tablet at Ogabassey before checkout.'
+      );
+    });
+
+    it('uses normalized generated product metadata when explicit title sanitizes empty', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        id: 'prod-plus-empty-title',
+        name: 'Samsung Galaxy Tab S9+',
+        slug: 'samsung-galaxy-tab-s9-plus',
+        meta_title: '<span></span>',
+        meta_description: 'Shop Samsung Galaxy Tab S9+.',
+      });
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'samsung-galaxy-tab-s9-plus',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      expect(metadata.title).toBe(
+        'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+      );
+      expect(metadata.description).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+    });
+
+    it('normalizes explicit currency-symbol product metadata before rendering', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        id: 'prod-gift-card',
+        name: 'PSN Gift Card £50',
+        slug: 'psn-gift-card-gbp-50',
+        meta_title: 'PSN Gift Card £50 Price in Nigeria',
+        meta_description:
+          'PSN Gift Card £50 at Ogabassey: £50 value for PlayStation Store.',
+      });
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'psn-gift-card-gbp-50',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      expect(metadata.title).toBe(
+        'PSN Gift Card £50 GBP Price in Nigeria | TestStore'
+      );
+      expect(metadata.description).toBe(
+        'PSN Gift Card £50 GBP at Ogabassey: £50 GBP value for PlayStation Store.'
+      );
+    });
   });
 
   it('returns noindex metadata for attribute-only variant params (real redirect happens during page render)', async () => {
@@ -1149,14 +1236,13 @@ describe('products/[productSlug] page', () => {
       'href',
       'https://teststore.usebaci.com/blog/best-phones-in-nigeria'
     );
-    expect(screen.getByText('Free returns within 7 days')).toBeInTheDocument();
-    expect(screen.getByText('Ships across Nigeria')).toBeInTheDocument();
-    expect(screen.getByText('WhatsApp support available')).toBeInTheDocument();
+    // Trust bullets ("Buying context": returns/shipping/support + price summary)
+    // were removed from the shared ProductSemanticSections, so they no longer
+    // render on this route either.
     expect(
-      screen.getByText(
-        'The iPhone 17 Pro Max price in Nigeria on TestStore is ₦500,000. Check specs, condition, warranty, delivery, and payment options before you buy.'
-      )
-    ).toBeInTheDocument();
+      screen.queryByText('Free returns within 7 days')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Ships across Nigeria')).not.toBeInTheDocument();
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({
         storeUrl: 'https://teststore.usebaci.com',

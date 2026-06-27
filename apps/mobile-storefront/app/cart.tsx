@@ -6,8 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import CartLoadedView from '@/components/cart/CartLoadedView';
 import CartStateView from '@/components/cart/CartStateView';
+import PriceChangeModal from '@/components/cart/PriceChangeModal';
 import { unavailableCartActions } from '@/components/cart/unavailable-cart-actions';
 import { useCartNegotiation } from '@/components/cart/use-cart-negotiation';
+import { useCartReprice } from '@/components/cart/use-cart-reprice';
 import { warmCheckoutEntry } from '@/components/checkout/checkout-entry-prefetch';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -154,6 +156,9 @@ export default function CartScreen() {
     openTotalNegotiation,
   } = useCartNegotiation({ items, grandTotal });
 
+  // Reconcile cart prices against the live catalog when the cart opens.
+  const { priceChanges, dismissPriceChanges } = useCartReprice();
+
   const handleRetryCartLoad = () => {
     setIsRetryingCartLoad(true);
     const rehydrateResult = useCartStore.persist.rehydrate();
@@ -196,55 +201,63 @@ export default function CartScreen() {
   }
 
   return (
-    <CartLoadedView
-      colorScheme={colorScheme}
-      colors={colors}
-      enableNegotiationModal={enableNegotiationModal}
-      formatPrice={formatPrice}
-      grandTotal={grandTotal}
-      handleCheckout={handleCheckout}
-      handleClearCart={() => {
-        Alert.alert('Clear Cart', 'Remove all items from your cart?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Clear', style: 'destructive', onPress: clearCart },
-        ]);
-      }}
-      handleReturnHome={handleReturnHome}
-      handleQuantityChange={handleQuantityChange}
-      handleRemoveItem={handleRemoveItem}
-      hasNonNegotiableCartItem={hasNonNegotiableCartItem}
-      insetsTop={insets.top}
-      isIdentityModalOpen={isIdentityModalOpen}
-      itemCount={itemCount}
-      items={items}
-      onBulkNegotiate={openTotalNegotiation}
-      onCloseIdentityModal={() => setIsIdentityModalOpen(false)}
-      onCloseNegotiateWarning={() => {
-        setShowNegotiateWarning(false);
-        setPendingNegotiateItem(null);
-      }}
-      onCheckoutPressIn={() => {
-        router.prefetch('/checkout');
-        warmCheckoutEntry(queryClient);
-      }}
-      onNegotiateItem={actuallyOpenItemNegotiation}
-      onNegotiateTotal={() => {
-        triggerHaptic();
-        openTotalNegotiation();
-      }}
-      onOpenItemNegotiation={(item) => {
-        triggerHaptic();
-        openItemNegotiation(item);
-      }}
-      pendingNegotiateItem={pendingNegotiateItem}
-      removeClippedSubviews={Platform.OS === 'android'}
-      showNegotiateWarning={showNegotiateWarning}
-      toggleAssurance={(itemId) => {
-        triggerHaptic();
-        toggleAssurance(itemId);
-      }}
-      triggerHaptic={triggerHaptic}
-      updateQuantity={updateQuantity}
-    />
+    <>
+      <CartLoadedView
+        colorScheme={colorScheme}
+        colors={colors}
+        enableNegotiationModal={enableNegotiationModal}
+        formatPrice={formatPrice}
+        grandTotal={grandTotal}
+        handleCheckout={handleCheckout}
+        handleClearCart={() => {
+          Alert.alert('Clear Cart', 'Remove all items from your cart?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Clear', style: 'destructive', onPress: clearCart },
+          ]);
+        }}
+        handleReturnHome={handleReturnHome}
+        handleQuantityChange={handleQuantityChange}
+        handleRemoveItem={handleRemoveItem}
+        hasNonNegotiableCartItem={hasNonNegotiableCartItem}
+        insetsTop={insets.top}
+        isIdentityModalOpen={isIdentityModalOpen}
+        itemCount={itemCount}
+        items={items}
+        onBulkNegotiate={openTotalNegotiation}
+        onCloseIdentityModal={() => setIsIdentityModalOpen(false)}
+        onCloseNegotiateWarning={() => {
+          setShowNegotiateWarning(false);
+          setPendingNegotiateItem(null);
+        }}
+        onCheckoutPressIn={() => {
+          router.prefetch('/checkout');
+          warmCheckoutEntry(queryClient);
+        }}
+        onNegotiateItem={actuallyOpenItemNegotiation}
+        onNegotiateTotal={() => {
+          triggerHaptic();
+          openTotalNegotiation();
+        }}
+        onOpenItemNegotiation={(item) => {
+          triggerHaptic();
+          openItemNegotiation(item);
+        }}
+        pendingNegotiateItem={pendingNegotiateItem}
+        removeClippedSubviews={Platform.OS === 'android'}
+        showNegotiateWarning={showNegotiateWarning}
+        toggleAssurance={(itemId) => {
+          triggerHaptic();
+          toggleAssurance(itemId);
+        }}
+        triggerHaptic={triggerHaptic}
+        updateQuantity={updateQuantity}
+      />
+      <PriceChangeModal
+        visible={priceChanges.length > 0}
+        changes={priceChanges}
+        onClose={dismissPriceChanges}
+        colors={colors}
+      />
+    </>
   );
 }

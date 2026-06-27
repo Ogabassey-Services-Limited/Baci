@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import type React from 'react';
 import { Alert } from 'react-native';
@@ -21,6 +22,11 @@ export const mockUseMerchantPaymentSettings = jest.fn<
   { data: PaymentSettings | null },
   []
 >(() => ({ data: mockPaymentSettings }));
+export const mockUseMerchant = jest.fn(() => ({
+  data: {
+    id: 'merchant-ogabassey',
+  },
+}));
 export const mockCryptoRandomUUID = jest.fn();
 let mockCryptoUuidCounter = 0;
 
@@ -220,6 +226,10 @@ jest.mock('@/hooks/useMerchantPaymentSettings', () => {
   };
 });
 
+jest.mock('@/hooks/use-merchant', () => ({
+  useMerchant: () => mockUseMerchant(),
+}));
+
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: jest.fn(
     (
@@ -299,6 +309,22 @@ jest.mock('@/services/orders', () => ({
   createOrder: (...args: unknown[]) => mockCreateOrder(...args),
 }));
 
+// Cart reprice runs before checkout submit; default to "no price drift" so
+// these tests exercise the normal order path. Suites that want to test the
+// reconcile/abort behavior can override this mock.
+jest.mock('@/services/cart-reprice', () => {
+  // Keep the real `pickChangedPriceById` so suites that override repricing to
+  // return `changes` still exercise the drift-alert path instead of crashing
+  // on a missing export.
+  const actual = jest.requireActual<typeof import('@/services/cart-reprice')>(
+    '@/services/cart-reprice'
+  );
+  return {
+    ...actual,
+    repriceCartItems: jest.fn(async () => ({ priceById: {}, changes: [] })),
+  };
+});
+
 jest.mock('@/lib/customer-savings', () => ({
   listSavingsGoals: (...args: unknown[]) => mockListSavingsGoals(...args),
 }));
@@ -330,6 +356,11 @@ export function setupCheckoutTest() {
   mockUseAuthStatus.mockReturnValue(defaultMockAuthStatus);
   mockUseMerchantPaymentSettings.mockReturnValue({
     data: mockPaymentSettings,
+  });
+  mockUseMerchant.mockReturnValue({
+    data: {
+      id: 'merchant-ogabassey',
+    },
   });
   mockCreateOrder.mockResolvedValue({
     amountDueToGateway: 1000,
@@ -390,6 +421,22 @@ export function teardownCheckoutTest() {
   jest.useRealTimers();
 }
 
+function createCheckoutQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+}
+
 export function renderCheckoutScreen() {
-  return render(<CheckoutScreen />);
+  const queryClient = createCheckoutQueryClient();
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <CheckoutScreen />
+    </QueryClientProvider>
+  );
 }

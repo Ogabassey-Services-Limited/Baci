@@ -8,6 +8,10 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
+import {
+  buildOgabasseyCdnImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+} from '@/lib/ogabassey-cdn-image-url';
 import { getOgabasseyImagePreloadType } from './ogabassey-image-preload-type';
 
 type ImagePreloadLinkProps = ComponentProps<'link'> & {
@@ -24,6 +28,24 @@ type ProductResourceHintInput = {
   src: string | null | undefined;
 };
 
+type ImageLoaderParams = {
+  quality?: number;
+  src: string;
+  width: number;
+};
+
+function ogabasseyPdpImageLoader({
+  quality = OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
+  src,
+  width,
+}: ImageLoaderParams): string {
+  if (isOgabasseyCdnImageUrl(src)) {
+    return buildOgabasseyCdnImageLoaderUrl(src, width, quality);
+  }
+
+  return imageLoader({ quality, src, width });
+}
+
 function buildProductImagePreloadProps({
   src,
 }: ProductResourceHintInput): ImagePreloadLinkProps[] {
@@ -34,13 +56,13 @@ function buildProductImagePreloadProps({
   } = getImageProps({
     alt: '',
     fill: true,
-    loader: imageLoader,
+    loader: ogabasseyPdpImageLoader,
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     sizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     src,
   });
 
-  const preloadHref = imageLoader({
+  const preloadHref = ogabasseyPdpImageLoader({
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
     src,
     width: OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,

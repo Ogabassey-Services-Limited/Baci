@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { BRAND, SHADOWS, palette } from '@/constants/Colors';
+import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 
 const warningStyles = {
   warningOverlay: {
@@ -13,42 +13,52 @@ const warningStyles = {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   warningModal: {
-    borderRadius: 20,
-    padding: 28,
+    borderRadius: 18,
+    padding: 22,
     width: '100%' as const,
-    maxWidth: 400,
+    maxWidth: 360,
     ...SHADOWS.xl,
   },
   warningHeader: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 16,
-    marginBottom: 18,
+    gap: 12,
+    marginBottom: 14,
   },
   warningIconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },
   warningTitle: {
     flex: 1,
-    fontSize: 22,
+    fontSize: 19,
     fontFamily: 'Inter_700Bold',
     color: palette.gray[900],
   },
   warningDescription: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 21,
     color: palette.gray[600],
-    marginBottom: 22,
+    marginBottom: 4,
   },
   warningDescriptionBold: {
     fontFamily: 'Inter_600SemiBold',
   },
+  warningDescriptionEmphasis: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: 18,
+  },
+  warningClose: {
+    alignSelf: 'flex-start' as const,
+    padding: 4,
+  },
   warningButtons: {
-    gap: 12,
+    gap: 10,
   },
   warningPrimaryButton: {
     backgroundColor: BRAND.primary,
@@ -57,7 +67,7 @@ const warningStyles = {
     alignItems: 'center' as const,
   },
   warningPrimaryButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
   },
@@ -71,7 +81,7 @@ const warningStyles = {
     borderWidth: 1,
   },
   warningSecondaryButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Inter_700Bold',
     color: palette.gray[800],
   },
@@ -90,6 +100,42 @@ const warningStyles = {
   },
   warningButtonDisabled: {
     opacity: 0.45,
+  },
+  priceChangeList: {
+    marginBottom: 18,
+  },
+  // Row spacing lives on the ScrollView's content container (a `gap` on the
+  // ScrollView style itself does not apply to its scrolled children).
+  priceChangeListContent: {
+    gap: 8,
+  },
+  priceChangeRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  priceChangeName: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  priceChangeValues: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  priceChangeOld: {
+    fontSize: 13,
+    textDecorationLine: 'line-through' as const,
+  },
+  priceChangeNew: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
   },
 } as const;
 

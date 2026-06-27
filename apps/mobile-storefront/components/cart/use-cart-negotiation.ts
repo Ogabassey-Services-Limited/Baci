@@ -1,9 +1,9 @@
 import { isProductNegotiable } from '@baci/shared/lib';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
 import { useShallow } from 'zustand/react/shallow';
-import type { CartItem } from '@/stores/cart-store';
+import { getCartItemEffectivePrice } from '@/lib/cart-pricing';
+import { type CartItem, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 
 interface UseCartNegotiationParams {
@@ -21,6 +21,9 @@ export function useCartNegotiation({
 
   const { openNegotiation } = useUIStore(
     useShallow((state) => ({ openNegotiation: state.openNegotiation }))
+  );
+  const clearNegotiatedPrice = useCartStore(
+    (state) => state.clearNegotiatedPrice
   );
 
   const hasNonNegotiableCartItem = items.some(
@@ -72,6 +75,29 @@ export function useCartNegotiation({
     }
   };
 
+  const proceedToTotalNegotiation = (total: number) => {
+    openNegotiation({
+      type: 'total',
+      productName: 'Total Cart',
+      currentPrice: total,
+      isNegotiable: true,
+    });
+    setShowNegotiateWarning(false);
+    setPendingNegotiateItem(null);
+  };
+
+  // Base (pre-negotiation) cart total, mirroring the cart screen's grand-total
+  // math but ignoring any negotiated prices — used after resetting individual
+  // negotiations so bulk negotiation starts from the live catalog total.
+  const computeBaseGrandTotal = () =>
+    items.reduce((sum, item) => {
+      const lineBase = item.price * item.quantity;
+      const assurance = item.hasAssurance
+        ? Math.round(item.price * item.quantity * (item.assuranceRate ?? 0.05))
+        : 0;
+      return sum + lineBase + assurance;
+    }, 0);
+
   const openTotalNegotiation = () => {
     if (hasNonNegotiableCartItem) {
       Alert.alert(
@@ -81,27 +107,33 @@ export function useCartNegotiation({
       return;
     }
 
-    if (
-      items.some(
-        (item) =>
-          item.negotiationStatus === 'accepted' || item.negotiatedPrice != null
-      )
-    ) {
+    const itemsWithIndividualNegotiation = items.filter(
+      (item) =>
+        item.negotiationStatus === 'accepted' || item.negotiatedPrice != null
+    );
+
+    if (itemsWithIndividualNegotiation.length > 0) {
       Alert.alert(
-        'Negotiation Active',
-        'Please reset individual item prices before negotiating the total cart.'
+        'Reset individual prices?',
+        'Negotiating your whole cart will clear the prices you negotiated on individual items. Reset them and continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Reset & Continue',
+            style: 'destructive',
+            onPress: () => {
+              for (const item of itemsWithIndividualNegotiation) {
+                clearNegotiatedPrice(item.id);
+              }
+              proceedToTotalNegotiation(computeBaseGrandTotal());
+            },
+          },
+        ]
       );
       return;
     }
 
-    openNegotiation({
-      type: 'total',
-      productName: 'Total Cart',
-      currentPrice: grandTotal,
-      isNegotiable: true,
-    });
-    setShowNegotiateWarning(false);
-    setPendingNegotiateItem(null);
+    proceedToTotalNegotiation(grandTotal);
   };
 
   return {

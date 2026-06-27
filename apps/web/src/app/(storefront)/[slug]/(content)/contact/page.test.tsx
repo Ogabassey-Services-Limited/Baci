@@ -146,11 +146,12 @@ describe('contact metadata', () => {
     expect(schema.mainEntity.sameAs).toEqual(
       expect.arrayContaining([
         'https://instagram.com/teststore',
-        'https://x.com/teststore',
+        'https://twitter.com/teststore',
       ])
     );
     expect(schema.mainEntity.hasMerchantReturnPolicy).toMatchObject({
       merchantReturnDays: 7,
+      returnPolicyCountry: 'NG',
       returnMethod: 'https://schema.org/ReturnByMail',
       returnFees: 'https://schema.org/FreeReturn',
     });

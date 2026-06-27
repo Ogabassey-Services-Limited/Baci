@@ -35,6 +35,11 @@ beforeEach(() => {
 });
 
 describe('GET /feeds/google-merchant.xml', () => {
+  it('allows cold public feed generation to run beyond the default route timeout', async () => {
+    const { maxDuration } = await import('./route');
+
+    expect(maxDuration).toBe(60);
+  });
   it('serves the Google Merchant feed through a storefront-scoped public URL', async () => {
     const { GET } = await import('./route');
 

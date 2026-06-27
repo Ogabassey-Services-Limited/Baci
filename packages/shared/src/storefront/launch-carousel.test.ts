@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  effectiveLaunchPins,
   isPreorder,
   LAUNCH_CAROUSEL_LIMIT,
   launchCtaLabel,
@@ -87,6 +88,7 @@ describe('selectLaunchProducts', () => {
     ];
     const windowRows: TestProduct[] = [
       p('itel-power-80-128gb-4gb'),
+      p('xiaomi-17t-pro'),
       p('xiaomi-17t'),
       p('macbook'),
     ];
@@ -96,11 +98,13 @@ describe('selectLaunchProducts', () => {
       limit: LAUNCH_CAROUSEL_LIMIT,
     });
 
-    // Both pins lead (power80 deduped from the window), then the rest.
+    // All pins lead in pin order (power80 deduped from the window), then the
+    // remaining window items.
     expect(result.map((i) => i.slug)).toEqual([
       'samsung-galaxy-a27-5g',
-      'itel-power-80-128gb-4gb',
+      'xiaomi-17t-pro',
       'xiaomi-17t',
+      'itel-power-80-128gb-4gb',
       'macbook',
     ]);
   });
@@ -175,8 +179,81 @@ describe('launch carousel constants', () => {
     expect(LAUNCH_CAROUSEL_LIMIT).toBeLessThanOrEqual(8);
   });
 
-  it('pins both named launch devices', () => {
+  it('pins the named launch devices', () => {
     expect(OGABASSEY_PINNED_LAUNCH_SLUGS).toContain('samsung-galaxy-a27-5g');
+    expect(OGABASSEY_PINNED_LAUNCH_SLUGS).toContain('xiaomi-17t-pro');
+    expect(OGABASSEY_PINNED_LAUNCH_SLUGS).toContain('xiaomi-17t');
     expect(OGABASSEY_PINNED_LAUNCH_SLUGS).toContain('itel-power-80-128gb-4gb');
+  });
+});
+
+describe('effectiveLaunchPins', () => {
+  const dp = (slug: string, created_at: string) => ({ slug, created_at });
+  const CONFIGURED = ['a27', 'power80'];
+  const SINCE = '2026-06-23T00:00:00.000Z';
+
+  it('returns the configured pins unchanged when no candidate is newer than the cutoff', () => {
+    const candidates = [
+      dp('older', '2026-06-10T00:00:00Z'),
+      dp('a27', '2026-06-22T00:00:00Z'),
+    ];
+
+    expect(effectiveLaunchPins(candidates, CONFIGURED, SINCE)).toEqual([
+      'a27',
+      'power80',
+    ]);
+  });
+
+  it('does NOT let an existing product newer than the pins (but before the cutoff) outrank them', () => {
+    // Regression: a recently-added laptop whose created_at is newer than the
+    // pinned phones — but still before the pin-config cutoff — must not push the
+    // pins back. (Previously the cutoff was the newest pin, so it did.)
+    const candidates = [dp('laptop', '2026-06-22T23:58:00Z')];
+
+    expect(effectiveLaunchPins(candidates, CONFIGURED, SINCE)).toEqual([
+      'a27',
+      'power80',
+    ]);
+  });
+
+  it('hoists products created after the cutoff ahead of the pins, newest-first', () => {
+    const candidates = [
+      dp('added-second', '2026-06-24T00:00:00Z'),
+      dp('added-latest', '2026-06-25T00:00:00Z'),
+      dp('ancient', '2026-06-01T00:00:00Z'),
+    ];
+
+    expect(effectiveLaunchPins(candidates, CONFIGURED, SINCE)).toEqual([
+      'added-latest',
+      'added-second',
+      'a27',
+      'power80',
+    ]);
+  });
+
+  it('ranks by creation time only, so a recently-edited older product never leads', () => {
+    // An edit bumps updated_at, never created_at, so this stays behind the pins.
+    const candidates = [dp('edited-old', '2026-05-01T00:00:00Z')];
+
+    expect(effectiveLaunchPins(candidates, ['a27'], SINCE)).toEqual(['a27']);
+  });
+
+  it('skips already-pinned slugs and de-duplicates new arrivals', () => {
+    const candidates = [
+      dp('a27', '2026-06-30T00:00:00Z'),
+      dp('newbie', '2026-06-25T00:00:00Z'),
+      dp('newbie', '2026-06-25T00:00:00Z'),
+    ];
+
+    expect(effectiveLaunchPins(candidates, ['a27'], SINCE)).toEqual([
+      'newbie',
+      'a27',
+    ]);
+  });
+
+  it('returns the configured pins unchanged when no cutoff is provided', () => {
+    const candidates = [dp('newbie', '2026-06-25T00:00:00Z')];
+
+    expect(effectiveLaunchPins(candidates, ['a27'], '')).toEqual(['a27']);
   });
 });

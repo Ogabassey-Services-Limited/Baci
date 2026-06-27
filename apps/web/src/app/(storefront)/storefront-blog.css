@@ -1,0 +1,98 @@
+@import "tailwindcss" source(none);
+@import "./storefront-foundation.css";
+
+@utility prose-baci {
+  /* Blog-scoped long-form typography; keep this entrypoint off storefront-full.css. */
+  @apply mx-auto max-w-[65ch] text-base leading-relaxed text-foreground/90;
+
+  .dark &:not(.light *):not(.storefront-light *) {
+    @apply text-foreground/90;
+  }
+
+  & h1 {
+    @apply mt-10 mb-6 font-bold text-4xl text-primary tracking-tight leading-tight dark:text-white;
+  }
+
+  & h2 {
+    @apply mt-8 mb-4 font-semibold text-3xl text-primary/90 tracking-tight leading-tight dark:text-white/90;
+  }
+
+  & h3 {
+    @apply mt-6 mb-3 font-semibold text-2xl text-primary/90 leading-snug dark:text-white;
+  }
+
+  & p {
+    @apply mb-5 text-foreground;
+  }
+
+  & ul,
+  & ol {
+    @apply mb-6 ps-6 text-foreground;
+  }
+
+  & ul {
+    @apply list-disc;
+  }
+
+  & ol {
+    @apply list-decimal;
+  }
+
+  & li {
+    @apply list-outside mb-2 text-foreground;
+  }
+
+  & strong {
+    @apply font-bold text-foreground;
+  }
+
+  & a {
+    @apply text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary/80 hover:decoration-primary;
+  }
+
+  & blockquote {
+    @apply my-8 rounded-r-lg border-accent/50 border-l-4 bg-accent/5 px-6 py-4 text-muted-foreground italic;
+  }
+
+  & img {
+    @apply my-10 rounded-2xl shadow-lg;
+  }
+
+  & table {
+    @apply my-8 w-full overflow-hidden rounded-xl border border-border border-collapse text-sm;
+  }
+
+  & th {
+    @apply border-border border-b bg-muted px-4 py-3 text-left font-semibold;
+  }
+
+  & td {
+    @apply border-border border-b px-4 py-3;
+  }
+}
+
+/* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 config directive. */
+@config "../../../tailwind.storefront-blog.config.mjs";
+
+/*
+  Blog CSS entrypoint.
+
+  Keep public blog routes off storefront-full.css. The live OgaBassey blog LCP
+  trace showed the broad storefront stylesheet as a render-blocking bottleneck,
+  while the listing itself needs only blog, nav shell, ad, and small UI surfaces.
+*/
+/* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
+@source "./[slug]/(blog)";
+@source "../../components/storefront/ogabassey/pages/blog.tsx";
+@source "../../components/storefront/ogabassey/pages/ad-unit.tsx";
+@source "../../components/storefront/ogabassey/pages/ad-config.ts";
+@source "../../components/storefront/ogabassey/seo/informational-cluster-index.tsx";
+@source "../../components/storefront/ogabassey/components/AdUnit.tsx";
+@source "../../components/storefront/ogabassey/components/ad-slot-shell.tsx";
+@source "../../components/blog/renderer";
+@source "../../components/blog/product-embed.tsx";
+@source "../../components/blog/table-of-contents.tsx";
+@source "../../components/ui/badge.tsx";
+@source "../../components/ui/button.tsx";
+@source "../../components/ui/card.tsx";
+/* stylelint-enable scss/at-rule-no-unknown */

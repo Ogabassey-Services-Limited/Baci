@@ -90,10 +90,6 @@ jest.mock('@/components/product/FlyToCartParticle', () => ({
   FlyToCartParticle: () => null,
 }));
 
-jest.mock('@/components/product/NegotiationModal', () => ({
-  NegotiationModal: () => null,
-}));
-
 jest.mock('@/components/product/ProductDetailsBody', () => ({
   ProductDetailsBody: (props: unknown) => {
     mockProductDetailsBody(props);

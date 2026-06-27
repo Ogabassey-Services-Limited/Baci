@@ -8,8 +8,8 @@ import {
   hasPublishableWarrantyPolicy,
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
-  Apple,
   Facebook,
+  Ghost,
   Instagram,
   Linkedin,
   Mail,
@@ -18,12 +18,26 @@ import {
   Phone,
   Twitter,
   Youtube,
-  Ghost,
 } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
 
+import { FooterAppPayments } from './FooterAppPayments';
 import { Logo } from './Logo';
+
+type SocialPlatform =
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'twitter'
+  | 'youtube'
+  | 'linkedin'
+  | 'snapchat';
+
+// Monochrome at rest (clean on the dark footer); the merchant accent appears
+// on hover so the row stays theme-driven instead of hardcoding platform colors.
+const SOCIAL_LINK_CLASS =
+  'text-current/65 hover:text-store-primary transition-colors';
 
 interface FooterProps {
   merchant?: MerchantData;
@@ -58,6 +72,11 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const contactAddress =
     firstNonEmptyTrimmed(merchant?.business_address) ??
     '2 Olaide Tomori St, Ikeja, Lagos';
+  // Open the storefront address in Google Maps. Derived from the address text
+  // so it stays correct for any merchant using this template.
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    contactAddress
+  )}`;
   const trustProfile = merchant
     ? buildMerchantTrustProfile(merchant, basePath || undefined)
     : null;
@@ -77,7 +96,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const renderSocialLink = (
     input: string | undefined,
     label: string,
-    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin' | 'snapchat',
+    platform: SocialPlatform,
     Icon: React.ElementType
   ) => {
     const url = normalizeSocialUrl(input, platform);
@@ -87,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-gray-400 hover:text-white transition-colors"
+        className={SOCIAL_LINK_CLASS}
         aria-label={label}
       >
         <Icon size={20} />
@@ -96,13 +115,14 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   };
 
   return (
-    <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">
+    <footer className="bg-[color:color-mix(in_srgb,var(--store-background-text,#111827)_94%,black)] text-[color:var(--store-background,#ffffff)] pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-store-border/40">
       {/* Pattern Overlay - Same as Navbar */}
       <div
         className="absolute inset-0 opacity-10 pointer-events-none"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='150' height='150' viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.5'%3E%3C!-- Original items --%3E%3Cg transform='translate(20, 20) rotate(-15 6 10)'%3E%3Crect x='0' y='0' width='12' height='20' rx='2'/%3E%3Cline x1='4' y1='17' x2='8' y2='17' stroke-width='1'/%3E%3C/g%3E%3Cg transform='translate(90, 15) rotate(10 10 7)'%3E%3Cpath d='M2 0 h16 v10 h-16 z M0 10 h20 v2 h-20 z'/%3E%3C/g%3E%3Cg transform='translate(25, 80) rotate(20 8 8)'%3E%3Cpath d='M0 10 v5 h4 v-5 a6 6 0 1 1 12 0 v5 h4 v-5'/%3E%3C/g%3E%3Cg transform='translate(75, 100) rotate(-10 6 6)'%3E%3Crect x='0' y='0' width='12' height='12' rx='3'/%3E%3Cpath d='M3 -3 v3 M9 -3 v3 M3 12 v3 M9 12 v3'/%3E%3C/g%3E%3Cg transform='translate(120, 90) rotate(5 9 6)'%3E%3Crect x='0' y='3' width='18' height='12' rx='2'/%3E%3Ccircle cx='9' cy='9' r='3'/%3E%3Crect x='2' y='0' width='4' height='3' rx='1'/%3E%3C/g%3E%3Cg transform='translate(70, 50) rotate(-25 10 6)'%3E%3Crect x='0' y='0' width='20' height='12' rx='6'/%3E%3Ccircle cx='6' cy='6' r='2'/%3E%3Ccircle cx='14' cy='6' r='2'/%3E%3C/g%3E%3Cg transform='translate(120, 40) rotate(35 8 10)'%3E%3Crect x='0' y='0' width='16' height='20' rx='2'/%3E%3C/g%3E%3C!-- New items for density --%3E%3Cg transform='translate(50, 15) rotate(45 5 5)'%3E%3Crect x='2' y='-2' width='6' height='14' rx='1'/%3E%3Crect x='0' y='2' width='10' height='6' rx='2'/%3E%3C/g%3E%3Cg transform='translate(10, 55) rotate(15 5 8)'%3E%3Crect x='0' y='0' width='10' height='16' rx='5'/%3E%3Cline x1='5' y1='0' x2='5' y2='6'/%3E%3C/g%3E%3Cg transform='translate(45, 115) rotate(-10 6 8)'%3E%3Crect x='0' y='0' width='12' height='16' rx='1'/%3E%3Ccircle cx='6' cy='4' r='2'/%3E%3Ccircle cx='6' cy='11' r='3'/%3E%3C/g%3E%3Cg transform='translate(100, 75) rotate(30 6 6)'%3E%3Crect x='0' y='4' width='12' height='8' rx='2'/%3E%3Cpath d='M2 4 v-4 M10 4 v-4'/%3E%3C/g%3E%3Cg transform='translate(135, 125) rotate(-45 5 9)'%3E%3Crect x='0' y='0' width='10' height='18' rx='2'/%3E%3C/g%3E%3Cg transform='translate(10, 120) rotate(0)'%3E%3Cpath d='M0 5 q5 -10 10 0 t10 0' stroke-linecap='round'/%3E%3C/g%3E%3C!-- Fillers --%3E%3Ccircle cx='60' cy='60' r='1.5' fill='%23ffffff'/%3E%3Cpath d='M90 130 l4 4 m-4 0 l4 -4' stroke-width='1'/%3E%3Ccircle cx='140' cy='20' r='2' stroke='none' fill='%23ffffff'/%3E%3Cpath d='M30 5 l3 3 m-3 0 l3 -3' stroke-width='1'/%3E%3Ccircle cx='80' cy='30' r='1'/%3E%3Ccircle cx='110' cy='110' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`,
-          backgroundSize: '140px 140px',
+          backgroundImage:
+            'radial-gradient(color-mix(in srgb, var(--store-background,#ffffff) 22%, transparent) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
         }}
       />
 
@@ -116,7 +136,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
             >
               <Logo className="h-8 w-auto" />
             </Link>
-            <p className="text-gray-400 text-xs leading-relaxed max-w-xs">
+            <p className="text-current/65 text-xs leading-relaxed max-w-xs">
               Making Smartphones Accessible and Affordable
             </p>
             <div className="flex items-center gap-4 flex-wrap">
@@ -164,28 +184,28 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           {/* Column 2: Quick Links (Unified) */}
           <nav className="flex justify-between md:justify-start gap-12" aria-label="Footer navigation">
             <div>
-              <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
+              <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
                 Menu
               </h3>
-              <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={asRoute(`${basePath}/about`)} className="hover:text-red-500">About Us</Link></li>
-                <li><Link href={asRoute(`${basePath}/blog`)} className="hover:text-red-500">Blog</Link></li>
-                <li><Link href={asRoute(`${basePath}/repairs`)} className="hover:text-red-500">Repairs</Link></li>
+              <ul className="space-y-2 text-xs text-current/65">
+                <li><Link href={asRoute(`${basePath}/about`)} className="hover:text-store-primary">About Us</Link></li>
+                <li><Link href={asRoute(`${basePath}/blog`)} className="hover:text-store-primary">Blog</Link></li>
+                <li><Link href={asRoute(`${basePath}/repairs`)} className="hover:text-store-primary">Repairs</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
+              <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
                 Support
               </h3>
-              <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={asRoute(`${basePath}/track-order`)} className="hover:text-red-500">Track Order</Link></li>
-                <li><Link href={asRoute(`${basePath}/faq`)} className="hover:text-red-500">Help Center</Link></li>
-                <li><Link href={asRoute(`${basePath}/contact`)} className="hover:text-red-500">Contact Us</Link></li>
-                <li><Link href={asRoute(`${basePath}/terms`)} className="hover:text-red-500">Terms of Service</Link></li>
-                <li><Link href={asRoute(`${basePath}/privacy`)} className="hover:text-red-500">Privacy Policy</Link></li>
+              <ul className="space-y-2 text-xs text-current/65">
+                <li><Link href={asRoute(`${basePath}/track-order`)} className="hover:text-store-primary">Track Order</Link></li>
+                <li><Link href={asRoute(`${basePath}/faq`)} className="hover:text-store-primary">Help Center</Link></li>
+                <li><Link href={asRoute(`${basePath}/contact`)} className="hover:text-store-primary">Contact Us</Link></li>
+                <li><Link href={asRoute(`${basePath}/terms`)} className="hover:text-store-primary">Terms of Service</Link></li>
+                <li><Link href={asRoute(`${basePath}/privacy`)} className="hover:text-store-primary">Privacy Policy</Link></li>
                 {trustLinks.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="hover:text-red-500">
+                    <Link href={link.href} className="hover:text-store-primary">
                       {link.label}
                     </Link>
                   </li>
@@ -196,25 +216,33 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
 
           {/* Column 3: Contact (Compact) */}
           <address className="not-italic">
-            <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
+            <h3 className="text-sm font-bold mb-4 text-current uppercase tracking-wider">
               Contact
             </h3>
-            <ul className="space-y-3 text-xs text-gray-400">
+            <ul className="space-y-3 text-xs text-current/65">
               <li className="flex items-start gap-2">
-                <MapPin className="shrink-0 text-red-600" size={16} />
-                <span>{contactAddress}</span>
+                <MapPin className="shrink-0 text-store-primary" size={16} />
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${contactAddress} in Google Maps`}
+                  className="hover:text-current transition-colors"
+                >
+                  {contactAddress}
+                </a>
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="shrink-0 text-red-600" size={16} />
-                <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="hover:text-white transition-colors">
+                <Phone className="shrink-0 text-store-primary" size={16} />
+                <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="hover:text-current transition-colors">
                   {contactPhone}
                 </a>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="shrink-0 text-red-600" size={16} />
+                <Mail className="shrink-0 text-store-primary" size={16} />
                 <a
                   href={`mailto:${contactEmail}`}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-current transition-colors"
                 >
                   {contactEmail}
                 </a>
@@ -223,74 +251,10 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           </address>
 
           {/* Column 4: App & Payment (Horizontal) */}
-          <div>
-            <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
-              Download App
-            </h3>
-            <div className="flex gap-2 mb-6">
-              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
-                <Apple size={22} className="text-white fill-current" />
-                <div className="text-left leading-none">
-                  <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300">
-                    Download on the
-                  </div>
-                  <div className="text-[13px] font-bold text-white tracking-wide">
-                    App Store
-                  </div>
-                </div>
-              </button>
-              <button type="button" className="flex items-center gap-2 bg-black border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-900 transition-colors group">
-                <svg viewBox="0 0 24 24" className="size-5">
-                  <path
-                    fill="#4285F4"
-                    d="M23.64 12.48l-2.95-3.07L16.2 13.9l4.49 4.49c.87-.93 1.35-2.22.95-3.55zM.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M14.39 12.1L2.09 24.4c.39.11.83.07 1.19-.13l16.29-9.28-5.18-5.18v2.29z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M2.09-.4c-.36-.2-.8-.24-1.19-.13L14.39 11.9l5.18-5.18L3.28-.53c-.39-.2-.79-.2-1.19.13z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M.65 1.57C.24 2.21 0 3.06 0 4.13v15.74c0 1.07.24 1.92.65 2.56l.06.05L13.1 10.09v-.19L.71 1.52l-.06.05z"
-                  />
-                </svg>
-                <div className="text-left leading-none">
-                  <div className="text-[9px] text-gray-400 font-medium group-hover:text-gray-300 uppercase">
-                    Get it on
-                  </div>
-                  <div className="text-[13px] font-bold text-white tracking-wide">
-                    Google Play
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-[10px] text-gray-500 font-medium">Secured by:</span>
-              {/* Paystack Logo Badge */}
-              <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="size-4 text-blue-600 fill-current">
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                </svg>
-                <span className="text-[10px] font-bold text-gray-900 tracking-tight">Paystack</span>
-              </div>
-
-              {/* Flutterwave Logo Badge */}
-              <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="size-4 text-orange-500 fill-current">
-                  <path d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z" />
-                </svg>
-                <span className="text-[10px] font-bold text-gray-900 tracking-tight">Flutterwave</span>
-              </div>
-            </div>
-          </div>
+          <FooterAppPayments />
         </div>
 
-        <div className="mt-8 pt-4 border-t border-gray-800 text-center text-[10px] text-gray-500">
+        <div className="mt-8 pt-4 border-t border-store-border/40 text-center text-[10px] text-current/50">
           <span suppressHydrationWarning>&copy; {new Date().getFullYear()} Ogabassey Ltd. All rights reserved.</span>
         </div>
       </div>

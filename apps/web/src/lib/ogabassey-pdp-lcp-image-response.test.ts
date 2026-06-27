@@ -51,7 +51,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     restoreFetch = () => undefined;
   });
 
-  it('redirects valid preload inputs to the transformed primary image without proxy-fetching bytes', async () => {
+  it('redirects valid preload inputs to the primary CDN image without proxy-fetching bytes', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -72,12 +72,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
       { includeVariants: false }
     );
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(mockImageLoader).toHaveBeenCalledWith({
-      preferOgabasseyTransform: true,
-      quality: 30,
-      src: 'https://cdn.ogabassey.com/core-assets/products/dell-alienware-17-r4.avif',
-      width: 750,
-    });
+    expect(mockImageLoader).not.toHaveBeenCalled();
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
       'https://cdn.ogabassey.com/image/width=750,quality=30,format=auto/core-assets/products/dell-alienware-17-r4.avif'
@@ -130,7 +125,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(mockImageLoader).not.toHaveBeenCalled();
   });
 
-  it('redirects to the transformed CDN image without depending on upstream server-side fetches', async () => {
+  it('redirects to the CDN image without depending on upstream server-side fetches', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [
@@ -156,7 +151,7 @@ describe('buildOgabasseyPdpLcpImageResponse', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('does not fetch the transformed CDN image before redirecting', async () => {
+  it('does not fetch the CDN image before redirecting', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'product-1',
       images: [

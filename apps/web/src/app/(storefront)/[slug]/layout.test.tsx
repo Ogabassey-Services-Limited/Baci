@@ -455,6 +455,7 @@ describe('storefront layout metadata', () => {
 
     expect(mockConnection).not.toHaveBeenCalled();
     expect(metadata.metadataBase?.toString()).toBe('https://ogabassey.com/');
+    expect(metadata.other).toBeUndefined();
   });
 
   it('falls back to the slug-based storefront URL when no custom domain exists', async () => {

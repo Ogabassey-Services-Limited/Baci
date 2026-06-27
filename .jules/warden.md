@@ -32,3 +32,7 @@ Source: Supabase v2 Docs - Select Data
 Learning: Blindly type-casting the request body in an API route bypasses runtime safety and creates a data-integrity risk.
 Action: Always use Zod `safeParse` to validate the incoming API payload against a defined schema and return a 400 error if it fails, instead of type casting.
 Source: Zod 4 documentation, Warden persona rules
+2026-06-23 — [Payout Request Scope Fix]
+Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks if not explicitly constrained with `.eq('merchant_id', merchantId)`.
+Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
+Source: Baci Monorepo Context Guidelines

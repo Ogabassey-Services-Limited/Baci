@@ -134,6 +134,7 @@ export const ProductRowSchema = z.object({
   description: z.string().nullable().optional(),
   price: NumberLikeSchema,
   compare_at_price: NullableNumberLikeSchema.optional(),
+  created_at: z.string().nullable().optional(),
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   brand: z.string().nullable().optional(),
   color: z.string().nullable().optional(),

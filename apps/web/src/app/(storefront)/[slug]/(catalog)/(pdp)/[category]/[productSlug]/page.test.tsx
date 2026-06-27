@@ -15,6 +15,103 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 vi.mock('server-only', () => ({}));
 
+const { mockReactCacheResetters, mockResetReactCacheStores } = vi.hoisted(
+  () => {
+    const resetters: Array<() => void> = [];
+
+    return {
+      mockReactCacheResetters: resetters,
+      mockResetReactCacheStores: () => {
+        for (const reset of resetters) {
+          reset();
+        }
+      },
+    };
+  }
+);
+
+vi.mock('react', async (importActual) => {
+  const actual = await importActual<typeof import('react')>();
+  type CacheableFunction<Args extends unknown[], Result> = (
+    ...args: Args
+  ) => Result;
+  type CacheNode<Result> = {
+    error?: unknown;
+    hasError: boolean;
+    hasResult: boolean;
+    objectChildren: WeakMap<object, CacheNode<Result>>;
+    primitiveChildren: Map<unknown, CacheNode<Result>>;
+    result?: Result;
+  };
+  const createCacheNode = <Result,>(): CacheNode<Result> => ({
+    hasError: false,
+    hasResult: false,
+    objectChildren: new WeakMap<object, CacheNode<Result>>(),
+    primitiveChildren: new Map<unknown, CacheNode<Result>>(),
+  });
+  const isObjectCacheKey = (value: unknown): value is object =>
+    (typeof value === 'object' && value !== null) ||
+    typeof value === 'function';
+  const getCacheNode = <Result,>(
+    root: CacheNode<Result>,
+    args: unknown[]
+  ): CacheNode<Result> => {
+    let node = root;
+
+    for (const arg of args) {
+      if (isObjectCacheKey(arg)) {
+        let child = node.objectChildren.get(arg);
+        if (!child) {
+          child = createCacheNode<Result>();
+          node.objectChildren.set(arg, child);
+        }
+        node = child;
+        continue;
+      }
+
+      let child = node.primitiveChildren.get(arg);
+      if (!child) {
+        child = createCacheNode<Result>();
+        node.primitiveChildren.set(arg, child);
+      }
+      node = child;
+    }
+
+    return node;
+  };
+
+  return {
+    ...actual,
+    cache: <Args extends unknown[], Result>(
+      fn: CacheableFunction<Args, Result>
+    ) => {
+      let root = createCacheNode<Result>();
+      mockReactCacheResetters.push(() => {
+        root = createCacheNode<Result>();
+      });
+
+      return (...args: Args) => {
+        const node = getCacheNode(root, args);
+        if (node.hasError) {
+          throw node.error;
+        }
+        if (!node.hasResult) {
+          try {
+            node.result = fn(...args);
+            node.hasResult = true;
+          } catch (error) {
+            node.error = error;
+            node.hasError = true;
+            throw error;
+          }
+        }
+
+        return node.result as Result;
+      };
+    },
+  };
+});
+
 const {
   mockNormalizeStorefrontProductVariants,
   mockOgabasseyPdpProductResourceHints,
@@ -817,6 +914,10 @@ function mockDefaultCachedProductLcpHintLookup() {
   );
 }
 
+beforeEach(() => {
+  mockResetReactCacheStores();
+});
+
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -924,6 +1025,138 @@ describe('[category]/[productSlug] page metadata', () => {
       'product:price:currency': 'NGN',
       'product:availability': 'in stock',
     });
+  });
+
+  it('normalizes explicit plus-model metadata to crawler-stable text', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-plus',
+      name: 'Samsung Galaxy Tab S9+',
+      slug: 'samsung-galaxy-tab-s9-plus',
+      canonical_url: null,
+      brand: 'Samsung',
+      category: 'Tablets',
+      categories: {
+        id: 'cat-tablets',
+        name: 'Tablets',
+        slug: 'tablets',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 950_000,
+      base_price: 950_000,
+      sale_price: null,
+      stock_quantity: 10,
+      meta_title: 'Samsung Galaxy Tab S9+ Price in Nigeria',
+      meta_description:
+        'Shop Samsung Galaxy Tab S9+ tablet at Ogabassey before checkout.',
+      keywords: [],
+      images: ['https://cdn.example.com/products/tab-s9-plus.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'tablets',
+        productSlug: 'samsung-galaxy-tab-s9-plus',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe(
+      'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+    );
+    expect(metadata.description).toBe(
+      'Shop Samsung Galaxy Tab S9 Plus tablet at Ogabassey before checkout.'
+    );
+  });
+
+  it('uses normalized generated category metadata when explicit title sanitizes empty', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-plus-empty-title',
+      name: 'Samsung Galaxy Tab S9+',
+      slug: 'samsung-galaxy-tab-s9-plus',
+      canonical_url: null,
+      brand: 'Samsung',
+      category: 'Tablets',
+      categories: {
+        id: 'cat-tablets',
+        name: 'Tablets',
+        slug: 'tablets',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 950_000,
+      base_price: 950_000,
+      sale_price: null,
+      stock_quantity: 10,
+      meta_title: '<span></span>',
+      meta_description: 'Shop Samsung Galaxy Tab S9+.',
+      keywords: [],
+      images: ['https://cdn.example.com/products/tab-s9-plus.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'tablets',
+        productSlug: 'samsung-galaxy-tab-s9-plus',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe(
+      'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
+    );
+    expect(metadata.description).toBe('Shop Samsung Galaxy Tab S9 Plus.');
+  });
+
+  it('adds currency codes to explicit gift-card metadata with currency symbols', async () => {
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-gift-card',
+      name: 'PSN Gift Card £50',
+      slug: 'psn-gift-card-gbp-50',
+      canonical_url: null,
+      brand: 'Sony',
+      category: 'Gift Cards',
+      categories: {
+        id: 'cat-gift-cards',
+        name: 'Gift Cards',
+        slug: 'gift-cards',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 85_000,
+      base_price: 85_000,
+      sale_price: null,
+      stock_quantity: 10,
+      meta_title: 'PSN Gift Card £50 Price in Nigeria',
+      meta_description:
+        'PSN Gift Card £50 at Ogabassey: £50 value for PlayStation Store.',
+      keywords: [],
+      images: ['https://cdn.example.com/products/psn-gbp-50.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'gift-cards',
+        productSlug: 'psn-gift-card-gbp-50',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe(
+      'PSN Gift Card £50 GBP Price in Nigeria | TestStore'
+    );
+    expect(metadata.description).toBe(
+      'PSN Gift Card £50 GBP at Ogabassey: £50 GBP value for PlayStation Store.'
+    );
   });
 
   it('uses generated SEO fallback copy when the compact LCP hint omits rich descriptions', async () => {
@@ -1228,27 +1461,42 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('throws notFound from metadata when the product is missing and no legacy redirect exists', async () => {
+  it('returns noindex soft-404 metadata when the product is missing and no legacy redirect exists', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
 
+    let metadata: Awaited<ReturnType<typeof generateMetadata>>;
+
     try {
-      await expect(
-        generateMetadata({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'smartphones',
-            productSlug: 'missing-product',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      ).rejects.toThrow('NEXT_NOT_FOUND');
+      metadata = await generateMetadata({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'missing-product',
+        }),
+        searchParams: Promise.resolve({}),
+      });
     } finally {
       consoleWarnSpy.mockRestore();
     }
 
-    expect(mockNotFound).toHaveBeenCalledTimes(1);
+    expect(metadata?.title).toBe('Product not found');
+    expect(metadata?.description).toBe(
+      'This product is unavailable or has moved.'
+    );
+    expect(metadata?.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata?.alternates).toBeNull();
+    expect(metadata?.openGraph).toMatchObject({
+      title: 'Product not found',
+      description: 'This product is unavailable or has moved.',
+    });
+    expect(metadata?.twitter).toMatchObject({
+      card: 'summary',
+      title: 'Product not found',
+      description: 'This product is unavailable or has moved.',
+    });
+    expect(mockNotFound).not.toHaveBeenCalled();
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -1578,6 +1826,44 @@ describe('[category]/[productSlug] page render', () => {
       sameBrand: null,
       samePrice: null,
     });
+  });
+
+  it('reuses shared PDP route-control data across metadata and page rendering', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/shared-pdp-route-cache.avif';
+    const params = {
+      slug: 'teststore',
+      category: 'laptops',
+      productSlug: 'hp-laptop-14-ep0063nia',
+    };
+
+    mockGetCachedProductLcpHint.mockResolvedValue(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      images: [productImage],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve(params),
+      searchParams: Promise.resolve({}),
+    });
+
+    await CategoryProductPage({
+      params: Promise.resolve(params),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
+    );
+    expect(mockGetRequestScopedMerchant).toHaveBeenCalledTimes(1);
+    expect(mockGetCachedProductLcpHint).toHaveBeenCalledTimes(1);
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
   });
 
   it('renders the OgaBassey PDP hero into the static shell without forcing the leaf dynamic', async () => {
@@ -2431,6 +2717,14 @@ describe('[category]/[productSlug] page render', () => {
 
     render(await resolveRsc(resolvedPage));
 
+    expect(screen.getByAltText('HP Laptop 14-ep0063nia')).toHaveAttribute(
+      'src',
+      expect.stringContaining('domain-lcp-hint.avif')
+    );
+    expect(screen.getByAltText('HP Laptop 14-ep0063nia')).not.toHaveAttribute(
+      'src',
+      expect.stringContaining('domain-lcp-variant.avif')
+    );
     expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalled();
   });
 
@@ -2485,6 +2779,80 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: variantProductImage,
     });
+  });
+
+  it('seeds no-query critical commerce from the lowest-priced variant', async () => {
+    const usedImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-used.avif';
+    const openBoxImage =
+      'https://cdn.ogabassey.com/core-assets/products/s24-open-box.avif';
+    const variants = [
+      {
+        attributes: { storage: '128GB' },
+        condition: 'used',
+        id: 'variant-used-128',
+        primary_image: usedImage,
+        price_override: 750000,
+        stock_quantity: 3,
+      },
+      {
+        attributes: { storage: '128GB' },
+        condition: 'open_box',
+        id: 'variant-open-box-128',
+        primary_image: openBoxImage,
+        price_override: 650000,
+        stock_quantity: 3,
+      },
+    ];
+
+    mockGetCachedProductLcpHint.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        color: null,
+        condition: 'used',
+        default_variant_id: null,
+        has_variants: true,
+        images: [usedImage],
+        price: 800000,
+        product_variants: variants,
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      color: null,
+      condition: 'used',
+      default_variant_id: null,
+      has_variants: true,
+      images: [usedImage],
+      price: 800000,
+      product_variants: variants,
+    });
+    mockNormalizeStorefrontProductVariants.mockReturnValue(variants);
+
+    render(
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
+    );
+
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: openBoxImage,
+    });
+    expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialVariantSelection: {
+          attributes: { storage: '128GB' },
+          variantId: 'variant-open-box-128',
+        },
+      })
+    );
   });
 
   it('preloads legacy Colour variant images on the full product route path', async () => {
@@ -3040,17 +3408,22 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: jadeImage,
     });
+    // Color is preserved for a stable LCP hero and resolves to the cheapest
+    // variant within that color. Crucially, no product-level `condition` is
+    // emitted: forcing it would open the above-the-fold critical state on the
+    // pricier condition-first variant and then flip to the cheapest after
+    // hydration.
     expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         initialVariantSelection: {
-          attributes: { color: 'Jade Green' },
-          condition: 'open_box',
+          attributes: { color: 'Jade Green', storage: '128GB' },
+          variantId: 'variant-open-jade-128',
         },
       })
     );
   });
 
-  it('prefers the configured default variant over product color metadata', async () => {
+  it('ignores the projection default_variant_id and opens on the cheapest variant', async () => {
     const jadeImage =
       'https://cdn.ogabassey.com/core-assets/products/s24-jade-green.avif';
     const blackImage =
@@ -3060,6 +3433,7 @@ describe('[category]/[productSlug] page render', () => {
         attributes: { color: 'Jade Green', storage: '128GB' },
         condition: 'open_box',
         id: 'variant-open-jade-128',
+        price_override: 600_000,
         primary_image: jadeImage,
         stock_quantity: 3,
       },
@@ -3067,6 +3441,7 @@ describe('[category]/[productSlug] page render', () => {
         attributes: { color: 'Onyx Black', storage: '128GB' },
         condition: 'used',
         id: 'variant-used-black-128',
+        price_override: 750_000,
         primary_image: blackImage,
         stock_quantity: 4,
       },
@@ -3106,15 +3481,17 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
+    // default_variant_id points at the pricier Onyx Black (₦750k), but with no
+    // URL query the critical PDP must open on the globally cheapest variant —
+    // Jade Green (₦600k) — not the projection's condition-first default.
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: blackImage,
+      src: jadeImage,
     });
     expect(mockOgabasseyPdpCriticalCommerceProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         initialVariantSelection: {
-          attributes: { color: 'Onyx Black', storage: '128GB' },
-          condition: 'used',
-          variantId: 'variant-used-black-128',
+          attributes: { color: 'Jade Green', storage: '128GB' },
+          variantId: 'variant-open-jade-128',
         },
       })
     );
@@ -3185,7 +3562,6 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green', storage: '128GB' },
-          condition: 'used',
           variantId: 'variant-used-jade-128',
         },
       })
@@ -3255,7 +3631,6 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         initialVariantSelection: {
           attributes: { color: 'Jade Green', storage: '128GB' },
-          condition: 'used',
           variantId: 'variant-used-jade-128',
         },
       })
@@ -3316,8 +3691,12 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: jadeImage,
     });
+    // The configured color is preserved (stable LCP hero) and resolves to the
+    // cheapest variant within that color — here the cheaper Used variant — with
+    // no product-level condition forced into the selection.
     expect(providerProps.initialVariantSelection).toEqual({
-      attributes: { color: 'Jade Green' },
+      attributes: { color: 'Jade Green', storage: '128GB' },
+      variantId: 'variant-used-128',
     });
   });
 
@@ -3577,6 +3956,7 @@ describe('[category]/[productSlug] page render', () => {
           sim_type: 'eSIM Only',
         },
         images: [],
+        primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
         price_override: 829000,
         sku: 'IPHONE15-USED-128-BLK-ESIM',
         stock_quantity: 3,
@@ -3603,6 +3983,7 @@ describe('[category]/[productSlug] page render', () => {
           },
           condition: 'used',
           images: [],
+          primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
           price_override: 829000,
           sku: 'IPHONE15-USED-128-BLK-ESIM',
           stock_quantity: 3,
@@ -3643,6 +4024,7 @@ describe('[category]/[productSlug] page render', () => {
         }),
         condition: 'used',
         id: 'iphone15-used-esim',
+        primary_image: 'https://cdn.example.com/iphone15-used-esim.avif',
       })
     );
   });
@@ -3869,12 +4251,6 @@ describe('[category]/[productSlug] page render', () => {
         product: expect.objectContaining({
           slug: 'samsung-galaxy-z-trifold',
         }),
-        trustBullets: expect.arrayContaining([
-          'The Samsung Galaxy Z TriFold price in Nigeria on TestStore is ₦645,600. Check specs, condition, warranty, delivery, and payment options before you buy.',
-          'Free returns within 7 days',
-          'Ships across Nigeria',
-          'WhatsApp support available',
-        ]),
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(

@@ -8,6 +8,7 @@
  * See: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 import type { Instrumentation } from 'next';
+import { getNextErrorDigest } from '@/lib/errors/next-error-digest';
 
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 
@@ -71,7 +72,10 @@ export const onRequestError: Instrumentation.onRequestError = async (
 
   const { captureServerException } = await import('@/lib/posthog/server');
 
+  const nextErrorDigest = getNextErrorDigest(error);
+
   await captureServerException(error, {
+    ...(nextErrorDigest ? { next_error_digest: nextErrorDigest } : {}),
     request_path: stripQueryAndHash(request.path),
     request_method: request.method,
     ...getRequestTenantContext(request.headers),

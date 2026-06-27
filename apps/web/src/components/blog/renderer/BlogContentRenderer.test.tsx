@@ -875,12 +875,20 @@ describe('BlogContentRenderer', () => {
       expect(container.querySelector('img')?.getAttribute('src')).toBe(src);
     });
 
+    it('does not render legacy OgaBassey CDN blog images that crawl as 404s', () => {
+      const src =
+        'https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg';
+      render(<BlogContentRenderer json={makeImageDoc(src)} />);
+
+      expect(screen.queryByRole('img')).toBeNull();
+    });
+
     it('prioritizes the first trusted inline image and lazy-loads later inline images', () => {
       const firstSrc =
         'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
       const secondSrc =
         'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-2-b9244d7a754d.png';
-      const { container } = render(
+      render(
         <BlogContentRenderer
           json={doc(
             paragraph(textNode('Intro')),
@@ -890,7 +898,7 @@ describe('BlogContentRenderer', () => {
         />
       );
 
-      const images = Array.from(container.querySelectorAll('picture img'));
+      const images = screen.getAllByRole('img');
       expect(images).toHaveLength(2);
       expect(images[0]?.getAttribute('src')).toContain(
         'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
@@ -902,6 +910,30 @@ describe('BlogContentRenderer', () => {
       );
       expect(images[1]).not.toHaveAttribute('fetchpriority');
       expect(images[1]).toHaveAttribute('loading', 'lazy');
+    });
+
+    it('prioritizes the first trusted inline image after removing a legacy CDN image', () => {
+      const legacySrc =
+        'https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg';
+      const trustedSrc =
+        'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png';
+      render(
+        <BlogContentRenderer
+          json={doc(
+            { type: 'image', attrs: { src: legacySrc, alt: 'Removed image' } },
+            { type: 'image', attrs: { src: trustedSrc, alt: 'Trusted image' } }
+          )}
+        />
+      );
+
+      expect(screen.queryByRole('img', { name: 'Removed image' })).toBeNull();
+      const images = screen.getAllByRole('img');
+      expect(images).toHaveLength(1);
+      expect(images[0]?.getAttribute('src')).toContain(
+        'width=828,quality=70,format=auto/core-assets/blog/x/inline-1-b9244d7a754d.png'
+      );
+      expect(images[0]).toHaveAttribute('fetchpriority', 'high');
+      expect(images[0]).toHaveAttribute('loading', 'eager');
     });
 
     it('does not prioritize a later trusted inline image when the first rendered image is untrusted', () => {

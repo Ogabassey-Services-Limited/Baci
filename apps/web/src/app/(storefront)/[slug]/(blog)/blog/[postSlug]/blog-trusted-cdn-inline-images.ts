@@ -1,5 +1,6 @@
 import {
   buildInlineImageSiblings,
+  isLegacyOgabasseyCdnBlogImage,
   isTrustedCdnInlineImage,
 } from '@/lib/blog-inline-image-optimization';
 import {
@@ -74,6 +75,37 @@ export type WrappedTrustedCdnInlineImages = {
   priorityImageSources: string[];
 };
 
+const HTML_IMG_TAG_PATTERN = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+const STANDALONE_IMAGE_WRAPPER_PATTERN =
+  /<(p|figure)\b[^>]*>\s*(<img\b(?:[^>"']|"[^"]*"|'[^']*')*>)\s*<\/\1>/gi;
+
+function hasLegacyOgabasseyCdnBlogImageCandidate(imgTag: string): boolean {
+  if (isLegacyOgabasseyCdnBlogImage(readHtmlTagAttribute(imgTag, 'src'))) {
+    return true;
+  }
+
+  const srcset = readHtmlTagAttribute(imgTag, 'srcset');
+  return Boolean(
+    srcset
+      ?.split(',')
+      .map((candidate) => candidate.trim().split(/\s+/)[0])
+      .some(isLegacyOgabasseyCdnBlogImage)
+  );
+}
+
+export function removeLegacyOgabasseyCdnBlogImages(html: string): string {
+  const withoutStandaloneImageWrappers = html.replace(
+    STANDALONE_IMAGE_WRAPPER_PATTERN,
+    (wrapper, _tagName, imgTag) =>
+      hasLegacyOgabasseyCdnBlogImageCandidate(imgTag) ? '' : wrapper
+  );
+
+  return withoutStandaloneImageWrappers.replace(
+    HTML_IMG_TAG_PATTERN,
+    (imgTag) => (hasLegacyOgabasseyCdnBlogImageCandidate(imgTag) ? '' : imgTag)
+  );
+}
+
 export function wrapTrustedCdnInlineImagesInPictureWithMetadata(
   html: string,
   {
@@ -86,9 +118,13 @@ export function wrapTrustedCdnInlineImagesInPictureWithMetadata(
   const priorityImageSources: string[] = [];
 
   const wrappedHtml = html.replace(
-    /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
+    HTML_IMG_TAG_PATTERN,
     (imgTag, offset: number) => {
       const src = readHtmlTagAttribute(imgTag, 'src');
+      if (hasLegacyOgabasseyCdnBlogImageCandidate(imgTag)) {
+        return '';
+      }
+
       if (src) {
         bodyImageIndex += 1;
       }

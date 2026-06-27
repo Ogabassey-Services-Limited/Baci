@@ -19,20 +19,13 @@ vi.mock('@/app/(storefront)/storefront-home.css', () => {
 });
 
 const mockOgabasseyHomePageContent = vi.hoisted(() =>
-  vi.fn(({ renderHero }: { renderHero?: boolean }) => (
-    <main>OgaBassey storefront: {String(renderHero)}</main>
-  ))
+  vi.fn(() => <main>OgaBassey storefront</main>)
 );
 const mockHomeStyleLoader = vi.hoisted(() => vi.fn());
 vi.mock('server-only', () => ({}));
 
-vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
-  Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
-}));
-
 vi.mock('./ogabassey-home-page-content', () => ({
-  OgabasseyHomePageContent: (props: { renderHero?: boolean }) =>
-    mockOgabasseyHomePageContent(props),
+  OgabasseyHomePageContent: () => mockOgabasseyHomePageContent(),
 }));
 
 vi.mock('./ogabassey-home-style-loader', () => ({
@@ -52,17 +45,15 @@ describe('OgabasseyStaticHomePage', () => {
   it('renders the OgaBassey-specific home route shell', () => {
     render(<OgabasseyStaticHomePage />);
 
-    expect(
-      screen.getByRole('region', { name: 'OgaBassey hero' })
-    ).toBeInTheDocument();
     expect(screen.getByText('Deferred homepage styles')).toBeInTheDocument();
     expect(mockHomeStyleLoader).toHaveBeenCalledOnce();
-    expect(screen.getByRole('main')).toHaveTextContent(
-      'OgaBassey storefront: false'
-    );
-    expect(mockOgabasseyHomePageContent).toHaveBeenCalledWith({
-      renderHero: false,
-    });
+    // The product-driven first-flush hero is now owned by the route layout's
+    // static fallback; this page only streams final dynamic home content.
+    expect(
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveTextContent('OgaBassey storefront');
+    expect(mockOgabasseyHomePageContent).toHaveBeenCalled();
   });
 
   it('keeps the shared home shell out of the Next app-router page exports', () => {

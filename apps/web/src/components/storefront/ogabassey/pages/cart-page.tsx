@@ -43,6 +43,7 @@ import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
+import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { isProductNegotiable } from '@baci/shared/lib';
 import {
@@ -72,6 +73,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     updateQuantity,
     applyNegotiatedPrice,
     applyCartWideNegotiation,
+    clearNegotiatedPrice,
     toggleAssurance,
     merchantSlug,
   } = useCart();
@@ -178,11 +180,21 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
       return;
     }
 
-    setNegotiationState({
-      isOpen: true,
-      type: 'total',
-      currentPrice: displayCartTotal,
-      name: 'Entire Cart',
+    runCartTotalNegotiation({
+      cart,
+      fallbackTotal: displayCartTotal,
+      clearNegotiatedPrice,
+      confirmReset: () =>
+        window.confirm(
+          'Negotiating your whole cart will clear the prices you negotiated on individual items. Reset them and continue?'
+        ),
+      openBulk: (currentPrice) =>
+        setNegotiationState({
+          isOpen: true,
+          type: 'total',
+          currentPrice,
+          name: 'Entire Cart',
+        }),
     });
   };
 

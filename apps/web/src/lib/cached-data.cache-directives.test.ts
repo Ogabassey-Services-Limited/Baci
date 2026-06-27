@@ -53,6 +53,58 @@ describe('cached-data cache directives', () => {
     }
   });
 
+  it('keeps the category aggregate wrapper off the remote cache handler', () => {
+    const source = getFunctionSource('getCachedCategoryPageData');
+
+    expect(source).not.toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).not.toContain("cacheLife('storefront-page');");
+
+    // The full category payload can include an unbounded product array, so the
+    // wrapper must not write that whole aggregate into one remote cache item.
+    expect(source).toContain('getCachedCategoryPageShellData');
+    expect(source).toContain('getCachedCategoryPageProducts');
+  });
+
+  it('keeps category shell and product IDs in the shared remote cache', () => {
+    for (const functionName of [
+      'getCachedCategoryPageShellData',
+      'getCachedCategoryPageProductIds',
+    ]) {
+      const source = getFunctionSource(functionName);
+      expect(source, functionName).toContain("'use cache: remote';");
+      expect(source, functionName).toContain("cacheLife('storefront-page');");
+      expect(source, functionName).toContain(
+        "cacheTag('category-page-data', 'products', 'categories');"
+      );
+    }
+  });
+
+  it('keeps rich category product detail chunks out of the remote cache handler', () => {
+    const source = getFunctionSource('getCategoryPageProductDetailsChunk');
+
+    expect(source).not.toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).not.toContain("cacheLife('storefront-page');");
+  });
+
+  it('keeps category detail chunk reads bounded and inventory-safe', () => {
+    const detailsSource = getFunctionSource(
+      'getCategoryPageProductDetailsChunk'
+    );
+    const aggregateSource = getFunctionSource(
+      'getCachedCategoryPageProductsUncached'
+    );
+
+    expect(CACHED_DATA_SOURCE).toContain('stock_quantity');
+    expect(CACHED_DATA_SOURCE).toContain('manage_stock');
+    expect(detailsSource).toContain('product_categories.category_id');
+    expect(aggregateSource).toContain('mapWithConcurrency');
+    expect(aggregateSource).toContain(
+      'CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY'
+    );
+  });
+
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
     for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
       const source = getFunctionSource(functionName);
@@ -60,10 +112,56 @@ describe('cached-data cache directives', () => {
       expect(source, functionName).not.toContain("'use cache: remote';");
 
       // Next 16's local `use cache` API explicitly supports cacheLife/cacheTag.
-      // Keep these so blog metadata/content stays tag-revalidatable and has an
-      // intentional cache lifetime without reintroducing RemoteCacheHandler.
-      expect(source, functionName).toContain("cacheLife('merchant');");
+      // Keep these so blog metadata/content stays tag-revalidatable without
+      // reintroducing RemoteCacheHandler.
       expect(source, functionName).toContain('cacheTag(');
     }
+  });
+
+  it('moves only the high-cost blog post renders to the long-lived `blog` profile; keeps the listing short', () => {
+    // Blog posts are keyed by a bounded postSlug, so they use the near-static
+    // `blog` profile (hourly revalidate) to avoid re-rendering every 60s under
+    // crawler load.
+    const postSource = getFunctionSource('getCachedBlogPost');
+    expect(postSource).toContain("cacheLife('blog');");
+    expect(postSource).not.toContain("cacheLife('merchant');");
+
+    // The listing takes user-supplied search/category args, and a `'use cache'`
+    // function takes a single static profile (no conditional cacheLife), so it
+    // stays on the short `merchant` profile — avoids long-lived retention of
+    // arbitrary filter permutations.
+    const listingSource = getFunctionSource('getCachedBlogListing');
+    expect(listingSource).toContain("cacheLife('merchant');");
+    expect(listingSource).not.toContain("cacheLife('blog');");
+  });
+});
+
+describe('next.config cacheLife profiles', () => {
+  const NEXT_CONFIG_SOURCE = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'next.config.ts'),
+    'utf8'
+  );
+
+  it('defines a long-lived `blog` profile so near-static blog pages are not re-rendered every minute', () => {
+    const match = NEXT_CONFIG_SOURCE.match(
+      /blog:\s*\{\s*stale:\s*(\d+),\s*revalidate:\s*(\d+),\s*expire:\s*(\d+),?\s*\}/
+    );
+    expect(
+      match,
+      'blog cacheLife profile must be declared in next.config.ts'
+    ).not.toBeNull();
+
+    const [, stale, revalidate, expire] = match as RegExpMatchArray;
+    // Server `revalidate` must be far less frequent than the hot merchant
+    // profile (60s) to stop the re-render storm — but bounded (not days),
+    // because blog posts use the LOCAL Cache Components handler where
+    // cross-instance tag eviction isn't guaranteed, so this window also caps
+    // edit/delete staleness and missing-slug negative caching (Codex review).
+    expect(Number(revalidate)).toBeGreaterThanOrEqual(1800); // >= 30 min
+    expect(Number(revalidate)).toBeLessThanOrEqual(14400); // <= 4 hr
+    // Keep client-side staleness short so edited posts surface quickly for
+    // visitors who already have the page in their router cache.
+    expect(Number(stale)).toBeLessThanOrEqual(600);
+    expect(Number(expire)).toBeGreaterThanOrEqual(Number(revalidate));
   });
 });

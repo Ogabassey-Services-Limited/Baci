@@ -80,6 +80,17 @@ describe('mapHomeProductsToTemplateProducts', () => {
     );
   });
 
+  it('normalizes string and missing row prices to the Product number contract', () => {
+    const [stringPriceProduct, missingPriceProduct] =
+      mapHomeProductsToTemplateProducts([
+        createHomeProduct({ price: '12345.67' }),
+        createHomeProduct({ id: 'product-2', price: null }),
+      ]);
+
+    expect(stringPriceProduct.price).toBe(12_345.67);
+    expect(missingPriceProduct.price).toBe(0);
+  });
+
   it('falls back to the direct category_id relation when join-table categories are absent', () => {
     const [product] = mapHomeProductsToTemplateProducts([
       createHomeProduct({

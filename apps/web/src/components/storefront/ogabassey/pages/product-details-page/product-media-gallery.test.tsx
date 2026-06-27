@@ -9,11 +9,11 @@ vi.mock('next/image', () => ({
     <img
       {...Object.fromEntries(
         Object.entries(props).filter(
-          ([key]) => key !== 'fill' && key !== 'priority'
+          ([key]) => key !== 'fill' && key !== 'preload'
         )
       )}
       alt={String(props.alt ?? '')}
-      data-priority={props.priority ? 'true' : undefined}
+      data-preload={props.preload ? 'true' : undefined}
     />
   ),
 }));
@@ -76,8 +76,11 @@ describe('ProductMediaGallery', () => {
       'sizes',
       OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
     );
+    // `preload` (Next 16's replacement for the deprecated `priority`) injects
+    // the SSR <link rel="preload"> for LCP; the next/image mock surfaces it as
+    // data-preload.
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
-      'data-priority',
+      'data-preload',
       'true',
     );
     expect(screen.getByAltText('Test Product')).toHaveAttribute(
@@ -168,4 +171,56 @@ describe('ProductMediaGallery', () => {
       screen.queryByRole('button', { name: 'View image 2' }),
     ).not.toBeInTheDocument();
   });
+
+  it('falls back to the first working image when the selected image fails to load', () => {
+    const onSelectImage = vi.fn();
+
+    render(
+      <ProductMediaGallery
+        onSelectImage={onSelectImage}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    const main = screen.getByAltText('Test Product');
+    expect(main).toHaveAttribute('src', 'https://example.com/img-1.jpg');
+
+    // The selected image 404s -> the main view falls back to the next image
+    // that still loads, never a broken image.
+    act(() => {
+      fireEvent.error(main);
+    });
+
+    expect(screen.getByAltText('Test Product')).toHaveAttribute(
+      'src',
+      'https://example.com/img-2.jpg',
+    );
+    expect(onSelectImage).toHaveBeenCalledWith(1);
+  });
+
+  it('removes the main image instead of reusing a broken source when every image fails', () => {
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test Product'));
+    });
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test Product'));
+    });
+    act(() => {
+      fireEvent.error(screen.getByAltText('Test Product'));
+    });
+
+    expect(screen.queryByAltText('Test Product')).not.toBeInTheDocument();
+  });
+
 });

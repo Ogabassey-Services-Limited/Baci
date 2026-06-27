@@ -4,7 +4,9 @@ import {
   formatCurrency,
   formatCurrencyCompact,
   formatCurrencyWithConfig,
+  getCurrencyCode,
   getCurrencyConfig,
+  getCurrencySymbol,
 } from './currency';
 
 describe('Currency Utils', () => {
@@ -30,6 +32,84 @@ describe('Currency Utils', () => {
     it('should return correct config for US', () => {
       const config = getCurrencyConfig('US');
       expect(config).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+    });
+
+    it('uses payout currency when country is missing', () => {
+      const config = getCurrencyConfig(null, 'NGN');
+      expect(config).toEqual({
+        code: 'NGN',
+        symbol: '₦',
+        locale: 'en-NG',
+      });
+    });
+
+    it('prioritizes valid payout currency over country currency', () => {
+      const config = getCurrencyConfig('US', 'NGN');
+      expect(config).toEqual({
+        code: 'NGN',
+        symbol: '₦',
+        locale: 'en-NG',
+      });
+    });
+
+    it('preserves country locale when payout currency matches the country currency', () => {
+      const config = getCurrencyConfig('FR', 'EUR');
+      expect(config).toEqual({
+        code: 'EUR',
+        symbol: '€',
+        locale: 'fr-FR',
+      });
+    });
+
+    it('falls back to country currency when payout currency is invalid', () => {
+      const config = getCurrencyConfig('US', 'INVALID');
+      expect(config).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+    });
+
+    it('rejects unsupported payout currency codes before country fallback', () => {
+      expect(getCurrencyConfig('NG', 'XXX')).toEqual({
+        code: 'NGN',
+        symbol: '₦',
+        locale: 'en-NG',
+      });
+      expect(getCurrencyConfig('US', 'ZZZ')).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+      expect(getCurrencyConfig(null, 'ABC')).toEqual({
+        code: 'USD',
+        symbol: '$',
+        locale: 'en-US',
+      });
+    });
+
+    it('uses the default locale for unmapped payout currencies', () => {
+      const config = getCurrencyConfig(null, 'CHF');
+      expect(config.code).toBe('CHF');
+      expect(config.locale).toBe('en-US');
+      expect(config.symbol).toBeTruthy();
+    });
+
+    it('uses payout currency when country lookup fails', () => {
+      const config = getCurrencyConfig('ZZ', 'GHS');
+      expect(config).toEqual({
+        code: 'GHS',
+        symbol: 'GH₵',
+        locale: 'en-GH',
+      });
+    });
+
+    it('uses default currency when country and payout currency are invalid', () => {
+      expect(getCurrencyConfig('ZZ', 'INVALID')).toEqual({
         code: 'USD',
         symbol: '$',
         locale: 'en-US',
@@ -81,11 +161,45 @@ describe('Currency Utils', () => {
     it('should handle undefined country (default to USD)', () => {
       expect(formatCurrency(1000)).toBe('$1,000.00');
     });
+
+    it('uses payout currency when country is missing', () => {
+      expect(formatCurrency(1000, null, undefined, 'NGN')).toBe('₦1,000.00');
+    });
+
+    it('uses payout currency when country is also set', () => {
+      expect(formatCurrency(1000, 'US', undefined, 'NGN')).toBe('₦1,000.00');
+    });
   });
 
   describe('formatCurrencyCompact', () => {
     it('should format without decimals', () => {
       expect(formatCurrencyCompact(1000, 'NG')).toBe('₦1,000');
+    });
+  });
+
+  describe('currency helpers', () => {
+    it('uses payout currency for symbol and code when country is missing', () => {
+      expect(getCurrencySymbol(null, 'NGN')).toBe('₦');
+      expect(getCurrencyCode(null, 'NGN')).toBe('NGN');
+    });
+
+    it('normalizes payout currency before resolving symbol and code', () => {
+      expect(getCurrencyCode(null, ' ngn ')).toBe('NGN');
+      expect(getCurrencySymbol(null, 'ngn')).toBe('₦');
+    });
+
+    it('falls back when payout currency is missing or invalid', () => {
+      expect(getCurrencyCode(null, null)).toBe('USD');
+      expect(getCurrencySymbol(null, null)).toBe('$');
+      expect(getCurrencyCode(null, undefined)).toBe('USD');
+      expect(getCurrencySymbol(null, undefined)).toBe('$');
+      expect(getCurrencyCode(null, 'INVALID')).toBe('USD');
+      expect(getCurrencySymbol(null, 'INVALID')).toBe('$');
+    });
+
+    it('uses payout currency for symbol and code when country is also set', () => {
+      expect(getCurrencyCode('US', 'NGN')).toBe('NGN');
+      expect(getCurrencySymbol('US', 'NGN')).toBe('₦');
     });
   });
 });

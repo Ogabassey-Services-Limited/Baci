@@ -9,7 +9,10 @@ vi.mock('@/lib/cached-data', () => ({
 const wishListPageClientProps = vi.fn();
 
 vi.mock('./wishlist-client', () => ({
-  WishListPageClient: (props: { merchantCountry: string | null }) => {
+  WishListPageClient: (props: {
+    merchantCountry: string | null;
+    merchantPayoutCurrency: string | null;
+  }) => {
     wishListPageClientProps(props);
     return <section aria-label="wish list">Your saved items</section>;
   },
@@ -23,9 +26,10 @@ describe('WishListContent', () => {
     wishListPageClientProps.mockClear();
   });
 
-  it('passes merchant country to WishListPageClient', async () => {
+  it('passes merchant currency data to WishListPageClient', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       country: 'NG',
+      payout_currency: 'NGN',
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     const element = await WishListContent({
@@ -37,7 +41,10 @@ describe('WishListContent', () => {
       screen.getByRole('region', { name: 'wish list' })
     ).toBeInTheDocument();
     expect(wishListPageClientProps).toHaveBeenCalledWith(
-      expect.objectContaining({ merchantCountry: 'NG' })
+      expect.objectContaining({
+        merchantCountry: 'NG',
+        merchantPayoutCurrency: 'NGN',
+      })
     );
   });
 
@@ -50,7 +57,10 @@ describe('WishListContent', () => {
     render(element);
 
     expect(wishListPageClientProps).toHaveBeenCalledWith(
-      expect.objectContaining({ merchantCountry: null })
+      expect.objectContaining({
+        merchantCountry: null,
+        merchantPayoutCurrency: null,
+      })
     );
   });
 });

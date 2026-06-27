@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
+import {
+  getCachedStorefrontHomeProducts,
+  getCachedStorefrontLaunchProducts,
+} from '@/lib/cached-data';
 import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 
 const mockMerchant = {
@@ -43,6 +46,7 @@ vi.mock('@/lib/cached-data', async (importOriginal) => {
   return {
     ...actual,
     getCachedStorefrontHomeProducts: vi.fn(() => Promise.resolve([])),
+    getCachedStorefrontLaunchProducts: vi.fn(() => Promise.resolve([])),
   };
 });
 
@@ -69,17 +73,20 @@ vi.mock('@/components/analytics/analytics-pixel-provider', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
     basePath,
+    launchProducts,
     products,
     renderHero,
     storeSlug,
   }: {
     basePath?: string;
+    launchProducts?: unknown[];
     products?: unknown[];
     renderHero?: boolean;
     storeSlug?: string;
   }) => (
     <section aria-label="OgaBassey home payload">
-      {storeSlug}:{basePath}:{products?.length ?? 0}:{String(renderHero)}
+      {storeSlug}:{basePath}:{products?.length ?? 0}:
+      {launchProducts?.length ?? 0}:{String(renderHero)}
     </section>
   ),
 }));
@@ -126,7 +133,9 @@ function createProduct(
     description: 'Apple flagship phone.',
     price: 2500000,
     compare_at_price: null,
-    images: null,
+    images: [
+      'https://cdn.ogabassey.com/core-assets/products/iphone-17-pro-max.avif',
+    ],
     category: 'Smartphones',
     brand: 'Apple',
     condition: 'new',
@@ -143,6 +152,7 @@ describe('OgabasseyHomeDynamicContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([]);
+    vi.mocked(getCachedStorefrontLaunchProducts).mockResolvedValue([]);
     vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([]);
   });
 
@@ -163,7 +173,7 @@ describe('OgabasseyHomeDynamicContent', () => {
     ).toHaveTextContent('G-OGABASSEY');
     expect(
       screen.getByRole('region', { name: 'OgaBassey home payload' })
-    ).toHaveTextContent('ogabassey:/ogabassey:1:false');
+    ).toHaveTextContent('ogabassey:/ogabassey:1:0:false');
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
     );
@@ -171,6 +181,28 @@ describe('OgabasseyHomeDynamicContent', () => {
       'href',
       '/ogabassey/smartphones'
     );
+  });
+
+  it('still renders the homepage when the launch feed fails', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct(),
+    ]);
+    vi.mocked(getCachedStorefrontLaunchProducts).mockRejectedValue(
+      new Error('launch feed down')
+    );
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    render(result as ReactElement);
+
+    // The launch products are JSON-LD-only; a feed failure must not take down
+    // the visible product grid/home payload.
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey home payload' })
+    ).toBeInTheDocument();
   });
 
   it('requests home products ordered by most recently updated', async () => {
@@ -182,6 +214,17 @@ describe('OgabasseyHomeDynamicContent', () => {
     expect(getCachedStorefrontHomeProducts).toHaveBeenCalledWith(
       'merchant-1',
       'recent'
+    );
+  });
+
+  it('requests a created-at launch window for the product hero', async () => {
+    await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    expect(getCachedStorefrontLaunchProducts).toHaveBeenCalledWith(
+      'merchant-1'
     );
   });
 
@@ -297,12 +340,15 @@ describe('OgabasseyHomeDynamicContent', () => {
       windowProducts
     );
     // The targeted by-slug fetch returns the pin that is absent from the window.
+    // A real pinned product carries an image, so it survives the renderable
+    // filter and is prepended into the launch set + schema.
     vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([
       createProduct({
         id: 'a27',
         name: 'Samsung Galaxy A27 5G Preorder',
         slug: 'samsung-galaxy-a27-5g',
         category: 'Smartphones',
+        images: ['https://cdn.ogabassey.com/products/a27.avif'],
       }),
     ]);
 
@@ -328,6 +374,45 @@ describe('OgabasseyHomeDynamicContent', () => {
     const elements = collectionPage?.mainEntity?.itemListElement ?? [];
     // Pinned-first: the A27 leads the featured-products ItemList.
     expect(JSON.stringify(elements[0])).toContain('samsung-galaxy-a27-5g');
+  });
+
+  it('emits OutOfStock for a managed, sold-out launch product (inventory survives the dedupe)', async () => {
+    // The same out-of-stock product is both a launch pin (display-shaped, no
+    // inventory) and in the recent window (template-shaped, has inventory). The
+    // launch copy wins the slug dedupe, so without restoring inventory the schema
+    // would wrongly emit InStock.
+    const soldOut = createProduct({
+      id: 'a27',
+      name: 'Samsung Galaxy A27 5G',
+      slug: 'samsung-galaxy-a27-5g',
+      category: 'Smartphones',
+      images: ['https://cdn.ogabassey.com/products/a27.avif'],
+      manage_stock: true,
+      stock_quantity: 0,
+      stock: 0,
+    });
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([soldOut]);
+    vi.mocked(getCachedStorefrontProductsBySlugs).mockResolvedValue([soldOut]);
+
+    const result = await OgabasseyHomeDynamicContent({
+      merchant: mockMerchant,
+      pathPrefix: '/ogabassey',
+    });
+
+    const { container } = render(result as ReactElement);
+    const json =
+      container.querySelector('script[type="application/ld+json"]')
+        ?.innerHTML || '{}';
+    const schema = JSON.parse(json) as { '@graph': Record<string, unknown>[] };
+    const collectionPage = schema['@graph'].find(
+      (node) => node['@type'] === 'CollectionPage'
+    ) as { mainEntity?: { itemListElement?: unknown[] } } | undefined;
+    const element = (collectionPage?.mainEntity?.itemListElement ?? []).find(
+      (node) => JSON.stringify(node).includes('samsung-galaxy-a27-5g')
+    );
+
+    expect(JSON.stringify(element)).toContain('OutOfStock');
+    expect(JSON.stringify(element)).not.toContain('InStock');
   });
 
   it('includes the blog hub in the semantic graph only when the visible blog link is enabled', async () => {

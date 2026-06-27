@@ -3,6 +3,7 @@ import {
   hasVariantConditionAxis,
   type ProductWithDefaultVariantLike,
   resolveDefaultVariantSelection,
+  resolveLowestPricedVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
 } from './product-default-variant';
@@ -282,5 +283,61 @@ describe('product-default-variant', () => {
         variantId: 'new-wifi-128',
       })
     ).toBeNull();
+  });
+
+  describe('resolveLowestPricedVariantSelection', () => {
+    const conditionPricedProduct: ProductWithDefaultVariantLike<ConditionedVariant> =
+      {
+        price: 700000,
+        manage_stock: true,
+        variants: [
+          {
+            id: 'open-box-128',
+            condition: 'open_box',
+            price_override: 750000,
+            stock_quantity: 3,
+            attributes: { storage: '128GB' },
+          },
+          {
+            id: 'used-128',
+            condition: 'used',
+            price_override: 650000,
+            stock_quantity: 2,
+            attributes: { storage: '128GB' },
+          },
+        ],
+      };
+
+    it('picks the cheapest in-stock variant ignoring condition preference', () => {
+      // The condition-first default would lead with Open Box; price-first must
+      // lead with the cheaper Used variant.
+      expect(
+        resolveLowestPricedVariantSelection(conditionPricedProduct)
+      ).toMatchObject({
+        variant: expect.objectContaining({ id: 'used-128' }),
+        condition: 'used',
+        price: 650000,
+      });
+    });
+
+    it('skips out-of-stock variants', () => {
+      expect(
+        resolveLowestPricedVariantSelection({
+          ...conditionPricedProduct,
+          variants: conditionPricedProduct.variants?.map((variant) => ({
+            ...variant,
+            stock_quantity: variant.id === 'used-128' ? 0 : 3,
+          })),
+        })
+      ).toMatchObject({
+        variant: expect.objectContaining({ id: 'open-box-128' }),
+      });
+    });
+
+    it('returns null when there are no purchasable variants', () => {
+      expect(
+        resolveLowestPricedVariantSelection({ price: 1000, variants: [] })
+      ).toBeNull();
+    });
   });
 });

@@ -2,7 +2,6 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_PDP_PRIMARY_IMAGE_SIZES } from '@/components/storefront/ogabassey/config/product-media';
-import imageLoader from '@/lib/image-loader';
 
 vi.mock('server-only', () => ({}));
 
@@ -75,11 +74,8 @@ describe('OgabasseyPdpProductResourceHints', () => {
   it('emits a unified head-only React preload hint for the primary product image', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
-    const desktopPreloadHref = imageLoader({
-      src: productImage,
-      width: 750,
-      quality: 35,
-    });
+    const desktopPreloadHref =
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/lenovo-legion.avif';
     const html = renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, { src: productImage })
     );
@@ -133,7 +129,9 @@ describe('OgabasseyPdpProductResourceHints', () => {
         ),
       })
     );
-    expect(options.imageSrcSet).not.toContain(`${productImage} 750w`);
+    expect(options.imageSrcSet).toContain(
+      'https://cdn.ogabassey.com/image/width=750,quality=35,format=auto/core-assets/products/z-fold-7-jet-black.avif 750w'
+    );
     expect(options).not.toHaveProperty('media');
   });
 

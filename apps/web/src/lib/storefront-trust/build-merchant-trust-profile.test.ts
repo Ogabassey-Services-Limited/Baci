@@ -59,7 +59,7 @@ describe('buildMerchantTrustProfile', () => {
       supportPhone: '+2348000000000',
       socialLinks: {
         instagram: 'https://instagram.com/ogabassey',
-        twitter: 'https://x.com/ogabasseyhq',
+        twitter: 'https://twitter.com/ogabasseyhq',
       },
       businessAddress: '12 Allen Avenue, Ikeja, Lagos',
       registeredAddress: {
@@ -120,6 +120,48 @@ describe('buildMerchantTrustProfile', () => {
       socialLinks: {},
       derivedLinks: {},
     });
+  });
+
+  it('normalizes explicit x.com Twitter URLs to twitter.com', () => {
+    const result = buildMerchantTrustProfile({
+      social_media: {
+        twitter: 'http://x.com/ogabasseyhq',
+      },
+    });
+
+    expect(result.socialLinks.twitter).toBe('https://twitter.com/ogabasseyhq');
+
+    const rootResult = buildMerchantTrustProfile({
+      social_media: {
+        twitter: 'https://www.x.com',
+      },
+    });
+
+    expect(rootResult.socialLinks.twitter).toBe('https://twitter.com');
+  });
+
+  it('uses the shared social URL normalizer for supported platform handles', () => {
+    const result = buildMerchantTrustProfile({
+      social_media: {
+        pinterest: '@ogabassey',
+        snapchat: 'ogabassey',
+      },
+    });
+
+    expect(result.socialLinks).toMatchObject({
+      pinterest: 'https://pinterest.com/ogabassey',
+      snapchat: 'https://www.snapchat.com/@ogabassey',
+    });
+  });
+
+  it('preserves absolute URLs for custom social platforms', () => {
+    const result = buildMerchantTrustProfile({
+      social_media: {
+        threads: 'https://threads.net/@ogabassey',
+      },
+    });
+
+    expect(result.socialLinks.threads).toBe('https://threads.net/@ogabassey');
   });
 
   it('publishes derived returns links when only method and fee details exist', () => {

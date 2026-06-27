@@ -35,8 +35,16 @@ const AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN = [
   'CCBot',
 ].join('|');
 
+// Semrush Site Audit defaults to a mobile SiteAuditBot and can also audit as
+// SemrushBot. Treat both as HTML-limited so title/description metadata is in
+// the initial document instead of the streamed metadata payload.
+const SEMRUSH_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN = [
+  'SiteAuditBot',
+  'SemrushBot',
+].join('|');
+
 export const STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX = new RegExp(
-  `${NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN}|${NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}`,
+  `${NEXT_DOM_METADATA_BOT_USER_AGENT_PATTERN}|${NEXT_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${AI_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}|${SEMRUSH_HTML_LIMITED_METADATA_BOT_USER_AGENT_PATTERN}`,
   'i'
 );
 

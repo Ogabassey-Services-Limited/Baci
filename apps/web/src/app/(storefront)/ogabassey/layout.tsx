@@ -4,8 +4,7 @@ import '@/app/(storefront)/storefront-home-critical.css';
 import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
-import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
-import { OgabasseyShellMobileHero } from '@/components/storefront/ogabassey/components/ogabassey-shell-mobile-hero';
+import { OGABASSEY_STOREFRONT_IOS_APP_ID } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -13,6 +12,7 @@ import {
   getStorefrontSeoDescription,
   getStorefrontSeoTitle,
 } from '../[slug]/seo-helpers';
+import { OgabasseyHomeShellFallback } from './ogabassey-home-shell-fallback';
 import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints';
 
 // Co-locate with the Supabase primary (eu-west-1 / Dublin) — route handlers
@@ -29,6 +29,9 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: 'OgaBassey - Official Online Store',
       description: 'OgaBassey Storefront',
+      other: {
+        'apple-itunes-app': `app-id=${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
+      },
       manifest: null,
     };
   }
@@ -103,6 +106,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },
+    other: {
+      'apple-itunes-app': `app-id=${OGABASSEY_STOREFRONT_IOS_APP_ID}`,
+    },
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
   };
@@ -113,12 +119,7 @@ export default function OgabasseyLayout({ children }: { children: ReactNode }) {
     <>
       <OgabasseyStaticResourceHints />
       <StorefrontLayout
-        loadingFallback={
-          <ShellChromeLoading
-            mobileHero={<OgabasseyShellMobileHero />}
-            showChromeFrame
-          />
-        }
+        loadingFallback={<OgabasseyHomeShellFallback />}
         params={OGABASSEY_PARAMS}
       >
         {children}

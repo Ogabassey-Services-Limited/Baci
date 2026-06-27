@@ -7,10 +7,14 @@ import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axe
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 import type { Product, ProductCondition } from '@/types/product';
 import { resolveAvailableProductCondition } from './product-condition-selection';
+import { shallowEqualRecord } from './shallow-equal-record';
+import { resolveProductDetailDefaultVariantSelection } from './use-product-detail-default-variant-selection';
+
 type FirstImageIndexForColorInput = {
   color: string | null | undefined;
   colorImages?: Record<string, string[]>;
   images: string[];
+  variantImage?: string | null;
 };
 type UseProductDetailSelectionArgs = {
   getFallbackVariantSelections: (product: Product | null) => {
@@ -29,15 +33,6 @@ type UseProductDetailSelectionArgs = {
   routeSelectionSignature: string;
   routeVariantId: string | null;
 };
-function shallowEqualRecord(
-  a: Record<string, string>,
-  b: Record<string, string>
-): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  return aKeys.every((key) => a[key] === b[key]);
-}
 export function useProductDetailSelection({
   getFallbackVariantSelections,
   getFirstImageIndexForColor,
@@ -81,9 +76,8 @@ export function useProductDetailSelection({
 
   const usesImageDrivenColorSelection =
     Object.keys(productImageColorMap).length > 0;
-  const defaultVariantSelection = product
-    ? resolveDefaultVariantSelection(product)
-    : null;
+  const defaultVariantSelection =
+    resolveProductDetailDefaultVariantSelection(product);
   const {
     availableConditions,
     currentVariantDisplaySelection,
@@ -126,15 +120,23 @@ export function useProductDetailSelection({
           !selectedStorage &&
           !selectedColor &&
           Object.keys(selectedAttributes).length === 0);
+      const shouldReapplyAutoSeed =
+        !hasCustomizedSelection &&
+        !shouldForceRouteSeed &&
+        !shouldRepairInvalidSelection &&
+        lastSelectionSyncSignature !== selectionSyncSignature;
+      // Seed on open: an explicit route condition wins, else open on the cheapest buyable variant (price-first, PDP-only), else the shared condition-first default.
       const seededSelection =
         resolveVariantDisplaySelection(product, {
           condition: routeCondition,
           variantId: typeof routeVariantId === 'string' ? routeVariantId : null,
           attributes: routeSelectionAttributes,
         }) ??
-        resolveDefaultVariantSelection(product, {
-          condition: routeCondition,
-        }) ??
+        (routeCondition
+          ? resolveDefaultVariantSelection(product, {
+              condition: routeCondition,
+            })
+          : resolveProductDetailDefaultVariantSelection(product)) ??
         resolveDefaultVariantSelection(product);
       const activeColor = selectedColor ?? routeSelectionAttributes.color;
       const activeStorage = selectedStorage ?? routeSelectionAttributes.storage;
@@ -169,11 +171,7 @@ export function useProductDetailSelection({
       };
       const resolvedLegacyColor =
         nextSelection?.attributes?.colour?.trim() || undefined;
-      // Preserve a user-selected image-driven color: one that exists in
-      // color_images but is NOT a variant axis (e.g. a phone whose variants
-      // differ by storage only). Without this, the repair below would revert
-      // the color to the product default and snap the gallery image back,
-      // making such colors unselectable.
+      // Preserve a user-selected image-driven color (exists in color_images but is not a variant axis); without this the repair reverts it to the default, making such colors unselectable.
       const imageDrivenSelectedColor =
         selectedColor &&
         Object.keys(resolvedColorImages ?? {}).includes(selectedColor)
@@ -185,11 +183,12 @@ export function useProductDetailSelection({
         imageDrivenSelectedColor ??
         fallbackSelection.color;
 
-      if (shouldSeedSelection || shouldRepairInvalidSelection) {
-        // Guard every setter behind value equality: a repair that cannot
-        // resolve a variant must settle on the second render pass instead of
-        // re-queueing fresh state (fresh object identities here would
-        // otherwise loop "Too many re-renders").
+      if (
+        shouldSeedSelection ||
+        shouldRepairInvalidSelection ||
+        shouldReapplyAutoSeed
+      ) {
+        // Guard every setter behind value equality so a repair that can't resolve a variant settles on the next render instead of looping "Too many re-renders".
         const nextVariant = nextSelection?.variant.id ?? null;
         const nextStorage = nextSelection?.storage ?? fallbackSelection.storage;
         const nextColor = syncedColor ?? null;
@@ -197,6 +196,10 @@ export function useProductDetailSelection({
           color: syncedColor,
           colorImages: resolvedColorImages,
           images: productGalleryImages,
+          variantImage:
+            nextSelection?.variant.primary_image ??
+            nextSelection?.variant.image ??
+            nextSelection?.variant.images?.find(Boolean),
         });
         if (selectedVariant !== nextVariant) {
           setSelectedVariant(nextVariant);
@@ -249,9 +252,7 @@ export function useProductDetailSelection({
         colorImages: resolvedColorImages,
         images: productGalleryImages,
       });
-      // Only update when the index actually moves: if the color has no
-      // matching image the resolver returns the current frame and an
-      // unconditional set would re-render forever.
+      // Only update when the index actually moves (an unconditional set loops).
       if (nextImageIndex !== selectedImageIndex) {
         setSelectedImageIndex(nextImageIndex);
       }

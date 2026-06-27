@@ -109,6 +109,7 @@ export interface Product {
   description?: string;
   price: number;
   compare_at_price?: number;
+  created_at?: string;
   image: string;
   images?: string[];
   brand?: string;
@@ -141,6 +142,7 @@ export interface ProductVariant {
   compare_at_price?: number;
   price_override?: number;
   price_modifier?: number;
+  primary_image?: string;
   image?: string;
   images?: string[];
   in_stock?: boolean;

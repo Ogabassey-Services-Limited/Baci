@@ -5,7 +5,6 @@ import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
-import { NegotiationModal } from '@/components/product/NegotiationModal';
 import {
   ProductDetailsBody,
   type ProductDetailsBodyProps,
@@ -31,46 +30,36 @@ type ColorsScheme = (typeof Colors)['light'];
 interface ProductDetailLoadedViewProps {
   backButtonAnimatedStyle: ComponentProps<typeof Animated.View>['style'];
   bodyProps: ProductDetailsBodyProps;
-  calculatedPrice: number;
   colors: ColorsScheme;
   flyingParticles: { id: number; startX: number; startY: number }[];
   galleryProps: ProductImageGalleryProps;
   headerAnimatedStyle: ComponentProps<typeof Animated.View>['style'];
   insets: EdgeInsets;
   isSaved: boolean;
-  merchantId: string;
-  onCloseNegotiation: () => void;
-  onNegotiationSuccess: (price: number) => void;
   onScroll: ComponentProps<typeof Animated.ScrollView>['onScroll'];
   onShare: () => void;
   onWishlistPress: () => void;
   product: Product;
   savedToastState: { show: boolean; type: 'add' | 'remove'; message: string };
   showAddedToast: boolean;
-  showNegotiationModal: boolean;
   stickyProps: StickyBottomActionsProps;
 }
 
 export function ProductDetailLoadedView({
   backButtonAnimatedStyle,
   bodyProps,
-  calculatedPrice,
   colors,
   flyingParticles,
   galleryProps,
   headerAnimatedStyle,
   insets,
   isSaved,
-  merchantId,
-  onCloseNegotiation,
-  onNegotiationSuccess,
   onScroll,
   onShare,
   onWishlistPress,
   product,
   savedToastState,
   showAddedToast,
-  showNegotiationModal,
   stickyProps,
 }: ProductDetailLoadedViewProps) {
   return (
@@ -171,16 +160,6 @@ export function ProductDetailLoadedView({
           message={savedToastState.message}
         />
       )}
-      <NegotiationModal
-        visible={showNegotiationModal}
-        onClose={onCloseNegotiation}
-        productId={product.id}
-        merchantId={merchantId}
-        productName={product.name}
-        productBrand={product.brand}
-        currentPrice={calculatedPrice}
-        onSuccess={onNegotiationSuccess}
-      />
     </View>
   );
 }

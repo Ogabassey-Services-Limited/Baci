@@ -14,7 +14,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-import { getCachedBlogListing } from '@/lib/cached-data';
+import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
 
 function createQueryBuilder({
   queryResult = { data: [], count: 0, error: null },
@@ -87,10 +87,17 @@ function buildMerchantRow() {
 
 function setupBlogListingFetch({
   categories = [],
+  count,
   posts = [],
 }: {
   categories?: Array<{ category: string | null }>;
-  posts?: Array<{ id: string; slug: string | null; title: string | null }>;
+  count?: number | null;
+  posts?: Array<{
+    id: string;
+    slug: string | null;
+    title: string | null;
+    author_name?: string | null;
+  }>;
 } = {}) {
   const merchantBuilder = createQueryBuilder({
     singleResult: { data: buildMerchantRow(), error: null },
@@ -102,7 +109,7 @@ function setupBlogListingFetch({
     singleResult: { data: { blog_enabled: true }, error: null },
   });
   const postsBuilder = createQueryBuilder({
-    queryResult: { data: posts, count: posts.length, error: null },
+    queryResult: { data: posts, count: count ?? posts.length, error: null },
   });
   const categoriesBuilder = createQueryBuilder({
     queryResult: { data: categories, error: null },
@@ -125,17 +132,18 @@ function setupBlogListingFetch({
   });
 
   const blogBuilders = [postsBuilder, categoriesBuilder];
+  const blogSelects: ReturnType<typeof vi.fn>[] = [];
   const publicFrom = vi.fn((table: string) => {
     if (table === 'blog_posts') {
-      return {
-        select: vi.fn(() => {
-          const builder = blogBuilders.shift();
-          if (!builder) {
-            throw new Error('Unexpected extra blog_posts query');
-          }
-          return builder;
-        }),
-      };
+      const select = vi.fn(() => {
+        const builder = blogBuilders.shift();
+        if (!builder) {
+          throw new Error('Unexpected extra blog_posts query');
+        }
+        return builder;
+      });
+      blogSelects.push(select);
+      return { select };
     }
 
     throw new Error(`Unexpected public table: ${table}`);
@@ -155,7 +163,7 @@ function setupBlogListingFetch({
     }
   );
 
-  return { categoriesBuilder, postsBuilder };
+  return { blogSelects, categoriesBuilder, postsBuilder };
 }
 
 describe('getCachedBlogListing', () => {
@@ -191,6 +199,35 @@ describe('getCachedBlogListing', () => {
     expect(postsBuilder.range.mock.invocationCallOrder[0]).toBeGreaterThan(
       postsBuilder.not.mock.invocationCallOrder.at(-1) ?? 0
     );
+  });
+
+  it('uses estimated counts for public listing pagination to avoid full COUNT scans', async () => {
+    const { blogSelects } = setupBlogListingFetch();
+
+    await getCachedBlogListing('ogabassey', { page: 2 });
+
+    expect(blogSelects[0]).toHaveBeenCalledWith(expect.any(String), {
+      count: 'estimated',
+    });
+  });
+
+  it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
+    const { blogSelects } = setupBlogListingFetch({
+      posts: [
+        {
+          id: 'post-1',
+          slug: 'best-phones',
+          title: 'Best Phones',
+          author_name: 'Bassey John',
+        },
+      ],
+    });
+
+    await getCachedBlogAuthor('ogabassey', 'Bassey John', { page: 1 });
+
+    expect(blogSelects[0]).toHaveBeenCalledWith(expect.any(String), {
+      count: 'estimated',
+    });
   });
 
   it('removes known junk category values in the categories query', async () => {
@@ -258,5 +295,25 @@ describe('getCachedBlogListing', () => {
       { id: 'public-1', slug: 'best-phones', title: 'Best Phones' },
     ]);
     expect(result.categories).toEqual(['Smartphones']);
+  });
+
+  it('keeps totalPages at least at the current non-empty page when estimated counts undercount', async () => {
+    setupBlogListingFetch({
+      count: 1,
+      posts: [
+        {
+          id: 'page-3-post',
+          slug: 'page-3-post',
+          title: 'Page 3 Post',
+        },
+      ],
+    });
+
+    const result = await getCachedBlogListing('ogabassey', { page: 3 });
+
+    expect(result).not.toBeNull();
+    expect(result?.posts.map((post) => post.id)).toEqual(['page-3-post']);
+    expect(result?.currentPage).toBe(3);
+    expect(result?.totalPages).toBeGreaterThanOrEqual(3);
   });
 });

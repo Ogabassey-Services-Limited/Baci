@@ -52,6 +52,24 @@ describe('ProductRowSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('keeps optional created_at timestamps from product list rows', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'Xiaomi 18 Ultra',
+      slug: 'xiaomi-18-ultra',
+      price: 1200000,
+      created_at: '2026-06-24T08:00:00.000Z',
+      images: ['https://cdn.example.com/xiaomi-18-ultra.avif'],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error('Expected schema parse to succeed');
+    }
+    expect(result.data.created_at).toBe('2026-06-24T08:00:00.000Z');
+  });
+
   it('accepts array-based variant attributes', () => {
     const result = ProductRowSchema.safeParse({
       id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',

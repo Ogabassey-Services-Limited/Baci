@@ -17,6 +17,16 @@ vi.mock('posthog-node', () => ({
   }),
 }));
 
+const REDACTED_VALUE = '[Filtered]';
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
+
 describe('PostHog server exceptions', () => {
   const originalProjectToken = process.env.POSTHOG_PROJECT_TOKEN;
   const originalPublicToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -160,6 +170,132 @@ describe('PostHog server exceptions', () => {
     });
   });
 
+  it('normalizes blank Next.js request errors with digest and route context', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const error = Object.assign(new Error(''), {
+      digest: 'NEXT_DIGEST_123',
+      stack: 'Error: at render',
+    });
+    error.name = 'NextRenderError';
+
+    await expect(
+      captureServerException(error, {
+        next_error_digest: 'NEXT_DIGEST_123',
+        request_path: '/blog',
+        route_path: '/(storefront)/[slug]/(blog)/blog/page',
+      })
+    ).resolves.toBe(true);
+
+    const capturedError = postHogMocks.captureExceptionImmediate.mock
+      .calls[0]?.[0] as (Error & { cause?: Error }) | undefined;
+    expect(capturedError).toBeInstanceOf(Error);
+    expect(capturedError).not.toBe(error);
+    expect(capturedError?.name).toBe('NextRenderError');
+    expect(capturedError?.stack).toBe('Error: at render');
+    expect(capturedError?.cause).toBeInstanceOf(Error);
+    expect(capturedError?.cause?.name).toBe('NextRenderError');
+    expect(capturedError?.cause?.stack).toBe('Error: at render');
+    expect(capturedError?.message).toContain('NEXT_DIGEST_123');
+    expect(capturedError?.message).toContain('/blog');
+    expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledWith(
+      capturedError,
+      'baci-web-server',
+      expect.objectContaining({
+        next_error_digest: 'NEXT_DIGEST_123',
+        request_path: '/blog',
+      })
+    );
+    expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses route_path when request_path is unavailable for blank Next.js errors', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const error = Object.assign(new Error(''), {
+      digest: 'NEXT_DIGEST_ROUTE',
+    });
+
+    await expect(
+      captureServerException(error, {
+        next_error_digest: 'NEXT_DIGEST_ROUTE',
+        route_path: '/(storefront)/[slug]/products/page',
+      })
+    ).resolves.toBe(true);
+
+    const capturedError = postHogMocks.captureExceptionImmediate.mock
+      .calls[0]?.[0] as Error | undefined;
+    expect(capturedError?.message).toContain('NEXT_DIGEST_ROUTE');
+    expect(capturedError?.message).toContain(
+      '/(storefront)/[slug]/products/page'
+    );
+    expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses an error digest when properties do not provide one', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const error = Object.assign(new Error(''), {
+      digest: 'NEXT_DIGEST_FROM_ERROR',
+    });
+
+    await expect(
+      captureServerException(error, {
+        request_path: '/products',
+      })
+    ).resolves.toBe(true);
+
+    const capturedError = postHogMocks.captureExceptionImmediate.mock
+      .calls[0]?.[0] as Error | undefined;
+    expect(capturedError?.message).toContain('NEXT_DIGEST_FROM_ERROR');
+    expect(capturedError?.message).toContain('/products');
+    expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not normalize non-Error exception payloads', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const errorPayload = {
+      digest: 'NEXT_DIGEST_OBJECT',
+      message: '',
+      route: '/blog',
+    };
+
+    await expect(
+      captureServerException(errorPayload, {
+        next_error_digest: 'NEXT_DIGEST_OBJECT',
+        request_path: '/blog',
+      })
+    ).resolves.toBe(true);
+
+    const capturedPayload =
+      postHogMocks.captureExceptionImmediate.mock.calls[0]?.[0];
+    expect(capturedPayload).toEqual(errorPayload);
+    expect(capturedPayload).not.toBeInstanceOf(Error);
+    expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not normalize Error instances that already have a message', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    const { captureServerException } = await import('./server');
+    const error = new Error('database failed');
+
+    await expect(
+      captureServerException(error, {
+        next_error_digest: 'NEXT_DIGEST_IGNORED',
+        request_path: '/blog',
+      })
+    ).resolves.toBe(true);
+
+    const capturedError = postHogMocks.captureExceptionImmediate.mock
+      .calls[0]?.[0] as Error | undefined;
+    expect(capturedError).toBeInstanceOf(Error);
+    expect(capturedError?.message).toBe('database failed');
+    expect(capturedError?.message).not.toContain('Next.js request error');
+    expect(capturedError?.message).not.toContain('NEXT_DIGEST_IGNORED');
+    expect(postHogMocks.captureExceptionImmediate).toHaveBeenCalledTimes(1);
+  });
+
   it('creates a new server client when token or host changes', async () => {
     const { getPostHogServerClient } = await import('./server');
 
@@ -208,13 +344,3 @@ describe('PostHog server exceptions', () => {
     );
   });
 });
-
-const REDACTED_VALUE = '[Filtered]';
-
-function restoreEnv(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-}

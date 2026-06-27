@@ -20,13 +20,7 @@ import {
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
-import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
-import {
-  DEFAULT_STORE_NAME,
-  DEFAULT_STOREFRONT_SEO_CATEGORY,
-} from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
-import { buildTrustBulletsFromProfile } from '@/lib/storefront-trust/build-trust-bullets-from-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 import type { ProductPageRuntimeProps } from './product-page-types';
@@ -69,17 +63,6 @@ export async function ProductPageRuntime({
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const currency = merchant.payout_currency || 'NGN';
-  const priceCategoryName =
-    product.categories?.name ||
-    product.category ||
-    DEFAULT_STOREFRONT_SEO_CATEGORY;
-  const priceSeoCopy = buildProductPriceSeoCopy({
-    product,
-    merchantDisplayName: merchant.business_name || DEFAULT_STORE_NAME,
-    categoryName: priceCategoryName,
-    currency,
-    country: merchant.country,
-  });
   const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productSchema = generateProductSchema(
     productWithReviews,
@@ -153,14 +136,6 @@ export async function ProductPageRuntime({
     inventory: inventoryCandidates,
     guidePosts,
   });
-  const semanticSectionsModel = {
-    ...semanticModel,
-    trustBullets: [
-      priceSeoCopy.answer,
-      ...buildTrustBulletsFromProfile(trustProfile),
-      ...semanticModel.trustBullets,
-    ],
-  };
   const categoryUrl = `${baseUrl}/${categorySlug}`;
   const breadcrumbItems = [
     { name: merchant.business_name || 'Home', url: baseUrl },
@@ -187,7 +162,7 @@ export async function ProductPageRuntime({
         </script>
       )}
       <ProductDetailClient product={product} faqs={productFaqs} />
-      <ProductSemanticSections model={semanticSectionsModel} />
+      <ProductSemanticSections model={semanticModel} />
     </>
   );
 }

@@ -31,6 +31,7 @@ import {
   getCachedProductRatingStats,
   getCachedProducts,
   getCachedStorefrontHomeProducts,
+  getCachedStorefrontLaunchProducts,
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
 
@@ -531,6 +532,49 @@ describe('getCachedProducts', () => {
   });
 });
 
+describe('getCachedStorefrontLaunchProducts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('orders launch candidates by product creation time before applying the cap', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+
+    await getCachedStorefrontLaunchProducts('merchant-1');
+
+    const selectedColumns = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
+    expect(selectedColumns).toContain('created_at');
+    expect(selectedColumns).toContain('updated_at');
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
+    expect(harness.mockOrder).toHaveBeenCalledTimes(2);
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(1, 'created_at', {
+      ascending: false,
+      nullsFirst: false,
+    });
+    expect(harness.mockOrder).toHaveBeenNthCalledWith(2, 'price', {
+      ascending: false,
+    });
+    expect(harness.mockLimit).toHaveBeenCalledWith(50);
+    expect(cacheTag).toHaveBeenCalledWith(
+      'products',
+      'products-merchant-1',
+      'products-launch-merchant-1-created'
+    );
+  });
+});
+
 describe('getCachedStorefrontHomeProducts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -552,6 +596,8 @@ describe('getCachedStorefrontHomeProducts', () => {
 
     await getCachedStorefrontHomeProducts('merchant-1');
 
+    const selectedColumns = String(harness.mockSelect.mock.calls[0]?.[0] ?? '');
+    expect(selectedColumns).toContain('created_at');
     expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(harness.mockEq).toHaveBeenCalledWith('status', 'active');
     expect(harness.mockOrder).toHaveBeenCalledTimes(1);

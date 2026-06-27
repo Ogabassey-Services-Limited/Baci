@@ -18,8 +18,6 @@ export interface ProductDetailsBodyProps {
   product: Product;
   effectivePrice: number;
   effectiveComparePrice: number | undefined;
-  negotiatedPrice: number | null;
-  canPurchase: boolean;
   selectedVariant: string | null;
   setSelectedVariant: (id: string) => void;
   selectedCondition: ProductCondition | null;
@@ -30,7 +28,6 @@ export interface ProductDetailsBodyProps {
   onSelectAttribute: (axis: string, value: string) => void;
   onSelectColor: (color: string, imgs?: string[]) => void;
   onSelectStorage: (storage: string) => void;
-  onOpenNegotiation: () => void;
   reviews: Review[];
   reviewStats: ReviewStats | null;
   reviewsLoading: boolean;
@@ -46,8 +43,6 @@ export function ProductDetailsBody({
   product,
   effectivePrice,
   effectiveComparePrice,
-  negotiatedPrice,
-  canPurchase,
   selectedVariant,
   setSelectedVariant,
   selectedCondition,
@@ -58,7 +53,6 @@ export function ProductDetailsBody({
   onSelectAttribute,
   onSelectColor,
   onSelectStorage,
-  onOpenNegotiation,
   reviews,
   reviewStats,
   reviewsLoading,
@@ -97,12 +91,9 @@ export function ProductDetailsBody({
       style={[styles.detailsContainer, { backgroundColor: colors.background }]}
     >
       <ProductDetailsSummary
-        canPurchase={canPurchase}
         colors={colors}
         effectiveComparePrice={effectiveComparePrice}
         effectivePrice={effectivePrice}
-        negotiatedPrice={negotiatedPrice}
-        onOpenNegotiation={onOpenNegotiation}
         product={product}
         reviewStats={reviewStats}
       />

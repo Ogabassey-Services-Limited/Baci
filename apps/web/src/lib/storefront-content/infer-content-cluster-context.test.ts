@@ -62,6 +62,36 @@ describe('inferContentClusterContext', () => {
     });
   });
 
+  it('infers alternatives and what-to-buy-instead articles as decision support', () => {
+    expect(
+      inferContentClusterContext({
+        title: '4 Practical Alternatives to the iPhone 15 in 2026',
+        excerpt: 'Compare practical iPhone 15 alternatives in Nigeria.',
+        category: 'Smartphones',
+        tags: ['iPhone 15', 'iPhone alternatives'],
+        keywords: ['what to buy instead of iPhone 15'],
+      })
+    ).toMatchObject({
+      categorySlug: 'smartphones',
+      kind: 'decision-support',
+      brands: ['apple'],
+    });
+
+    expect(
+      inferContentClusterContext({
+        title: 'Moving On from iPhone XR: What to Buy Next',
+        excerpt: 'Upgrade from iPhone XR to newer iPhones.',
+        category: 'Smartphones',
+        tags: ['iPhone XR', 'Apple'],
+        keywords: ['upgrade from iPhone XR'],
+      })
+    ).toMatchObject({
+      categorySlug: 'smartphones',
+      kind: 'decision-support',
+      brands: ['apple'],
+    });
+  });
+
   it('returns nulls when category and intent cannot be inferred', () => {
     expect(
       inferContentClusterContext({

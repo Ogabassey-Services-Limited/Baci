@@ -4,6 +4,9 @@ import { notFound } from 'next/navigation';
 import type { BreadcrumbList, CollectionPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
+import { InternalLinkEquitySection } from '@/components/storefront/ogabassey/seo/internal-link-equity-section';
+import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
+import { OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS } from '@/config/ogabassey-internal-link-equity';
 import {
   getCachedCategories,
   getRequestScopedMerchant,
@@ -19,6 +22,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import {
   parseStorefrontPageParam,
+  STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
 import { isValidMerchantIdentifier } from '@/lib/validation';
@@ -152,6 +156,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const deepLinkProducts = firstPageProductIndex.products
     .filter((product) => product.slug)
     .slice(0, 18);
+  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
 
   return (
     <>
@@ -210,6 +215,13 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </section>
           )}
 
+          {showInternalLinkEquitySection && (
+            <InternalLinkEquitySection
+              groups={OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS}
+              pathPrefix={pathPrefix}
+            />
+          )}
+
           {currentProductIndex.products.length === 0 ? (
             <div className="mt-10 rounded-3xl border border-store-background-text/10 bg-store-background px-6 py-16 text-center shadow-sm">
               <h2 className="text-xl font-semibold text-store-background-text">
@@ -266,6 +278,11 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
               <StorefrontPagination
                 ariaLabel="Products pagination"
                 basePath={`${pathPrefix}/products`}
+                crawlDiscoveryAllPagesThreshold={
+                  STOREFRONT_CRAWL_DISCOVERY_PRODUCT_PAGE_LIMIT
+                }
+                crawlDiscoveryLabel="Browse product index pages"
+                crawlDiscoveryPageLabel="Products page"
                 currentPage={currentPage}
                 totalPages={totalPages}
               />

@@ -69,7 +69,7 @@ describe('ProductDetailScreen variant cart behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })
@@ -147,9 +147,13 @@ describe('ProductDetailScreen variant cart behavior', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          canPurchase: true,
           selectedCondition: 'open_box',
           selectedStorage: '128GB',
+        })
+      );
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+        expect.objectContaining({
+          canPurchase: true,
         })
       );
     });

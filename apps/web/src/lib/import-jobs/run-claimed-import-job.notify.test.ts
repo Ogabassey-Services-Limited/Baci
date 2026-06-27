@@ -151,7 +151,7 @@ describe('runClaimedImportJob notification and failure flows', () => {
       })
     );
     expect(merchantQuery.select).toHaveBeenCalledWith(
-      'id, slug, business_name, support_email, email_sender_name, email, brand_colors, logo_url'
+      'id, slug, business_name, support_email, email_sender_name, email, brand_colors, logo_url, email_logo_url'
     );
   });
 

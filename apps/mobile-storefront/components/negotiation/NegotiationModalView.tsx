@@ -1,17 +1,10 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { Alert, Modal, Pressable, Text, View } from 'react-native';
+import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { BRAND, palette } from '@/constants/Colors';
-import { formatPrice } from '@/stores/cart-store';
+import { withAlpha } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { negotiationModalViewStyles as styles } from './NegotiationModalView.styles';
 import type {
   NegotiationModalViewProps,
@@ -19,8 +12,7 @@ import type {
 } from './NegotiationModalView.types';
 import { NegotiationOfferForm } from './NegotiationOfferForm';
 import { NegotiationProductSummary } from './NegotiationProductSummary';
-import { NegotiationUploadForm } from './NegotiationUploadForm';
-import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
+import { NegotiationStatusContent } from './NegotiationStatusContent';
 import { validateNegotiationOffer } from './negotiation-validators';
 
 export type { NegotiationModalViewProps, NegotiationStatus };
@@ -53,6 +45,8 @@ export function NegotiationModalView({
   uploadLink,
   visible,
 }: NegotiationModalViewProps) {
+  const { colors, shadows } = useTheme();
+
   if (!visible) {
     return null;
   }
@@ -71,13 +65,6 @@ export function NegotiationModalView({
 
     onSubmitOffer(validationResult.amount);
   };
-
-  const successButtonStyle =
-    successActionStyle === 'primary' ? styles.applyButton : styles.doneButton;
-  const successButtonTextStyle =
-    successActionStyle === 'primary'
-      ? styles.applyButtonText
-      : styles.doneButtonText;
 
   return (
     <Modal
@@ -98,12 +85,25 @@ export function NegotiationModalView({
         <Animated.View
           entering={FadeInDown.duration(200).springify()}
           exiting={FadeOut.duration(150)}
-          style={styles.modalContainer}
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.card },
+            shadows.xl,
+          ]}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <Ionicons name="hand-right" size={18} color={BRAND.primary} />
-              <Text style={styles.headerTitle}>NEGOTIATE PRICE</Text>
+              <View
+                style={[
+                  styles.headerIcon,
+                  { backgroundColor: withAlpha(colors.primary, 0.14) },
+                ]}
+              >
+                <Ionicons name="pricetag" size={15} color={colors.primary} />
+              </View>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                Negotiate Price
+              </Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -112,7 +112,7 @@ export function NegotiationModalView({
               accessibilityLabel="Close"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={20} color={palette.gray[400]} />
+              <Ionicons name="close" size={20} color={colors.icon} />
             </Pressable>
           </View>
 
@@ -138,134 +138,28 @@ export function NegotiationModalView({
               />
             )}
 
-            {status === 'processing' && (
-              <Animated.View
-                entering={FadeIn.duration(120)}
-                style={styles.centerContainer}
-              >
-                <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.processingText}>Checking best deal…</Text>
-              </Animated.View>
-            )}
-
-            {status === 'success' && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                style={styles.centerContainer}
-              >
-                <View style={styles.successCircle}>
-                  <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
-                </View>
-                <Text style={styles.successTitle}>Offer Accepted!</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
-                <Pressable style={successButtonStyle} onPress={onSuccessAction}>
-                  <Text style={successButtonTextStyle}>
-                    {successActionLabel}
-                  </Text>
-                </Pressable>
-              </Animated.View>
-            )}
-
-            {status === 'final' && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                style={styles.centerContainer}
-              >
-                <View style={styles.amberCircle}>
-                  <Ionicons name="pricetag-outline" size={28} color="#F59E0B" />
-                </View>
-                <Text style={styles.successTitle}>Best Price</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
-                <Pressable style={styles.doneButton} onPress={onClose}>
-                  <Text style={styles.doneButtonText}>Done</Text>
-                </Pressable>
-              </Animated.View>
-            )}
-
-            {status === 'failed' && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                style={styles.centerContainer}
-              >
-                <View style={styles.amberCircle}>
-                  <Ionicons name="alert-circle" size={28} color="#F59E0B" />
-                </View>
-                <Text style={styles.successTitle}>Counter Offer</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
-                {counterOffer ? (
-                  <View style={styles.counterBox}>
-                    <Text style={styles.counterPrice}>
-                      {formatPrice(counterOffer)}
-                    </Text>
-                    <Pressable
-                      style={styles.acceptButton}
-                      onPress={onAcceptCounter}
-                    >
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={16}
-                        color="#FFF"
-                      />
-                      <Text style={styles.acceptButtonText}>Accept Offer</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-                <View style={styles.failedActions}>
-                  <Pressable style={styles.tryAgainButton} onPress={onTryAgain}>
-                    <Text style={styles.tryAgainButtonText}>
-                      Negotiate Again
-                    </Text>
-                  </Pressable>
-                  {attemptCount >= NEGOTIATION_CHEAPER_BUTTON_THRESHOLD ? (
-                    <Pressable
-                      style={styles.cheaperButton}
-                      onPress={onOpenUpload}
-                    >
-                      <Ionicons
-                        name="cloud-upload-outline"
-                        size={16}
-                        color="#1D4ED8"
-                      />
-                      <Text style={styles.cheaperButtonText}>
-                        I saw it cheaper
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              </Animated.View>
-            )}
-
-            {status === 'upload' && (
-              <NegotiationUploadForm
+            {status !== 'input' && (
+              <NegotiationStatusContent
+                attemptCount={attemptCount}
+                counterOffer={counterOffer}
                 message={message}
+                onAcceptCounter={onAcceptCounter}
+                onBackFromUpload={onBackFromUpload}
+                onClose={onClose}
+                onOpenUpload={onOpenUpload}
+                onPickImage={onPickImage}
+                onSubmittedAction={onSubmittedAction}
+                onSuccessAction={onSuccessAction}
+                onTryAgain={onTryAgain}
+                onUploadLinkChange={onUploadLinkChange}
+                onUploadSubmit={onUploadSubmit}
+                status={status}
+                submittedActionLabel={submittedActionLabel}
+                successActionLabel={successActionLabel}
+                successActionStyle={successActionStyle}
                 uploadFile={uploadFile}
                 uploadLink={uploadLink}
-                onPickImage={onPickImage}
-                onUploadLinkChange={onUploadLinkChange}
-                onBackFromUpload={onBackFromUpload}
-                onUploadSubmit={onUploadSubmit}
               />
-            )}
-
-            {status === 'submitted' && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                style={styles.centerContainer}
-              >
-                <View style={styles.successCircle}>
-                  <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
-                </View>
-                <Text style={styles.successTitle}>Request Sent</Text>
-                <Text style={styles.successSubtext}>{message}</Text>
-                <Pressable
-                  style={styles.doneButton}
-                  onPress={onSubmittedAction}
-                >
-                  <Text style={styles.doneButtonText}>
-                    {submittedActionLabel}
-                  </Text>
-                </Pressable>
-              </Animated.View>
             )}
           </AppKeyboardAwareScrollView>
         </Animated.View>

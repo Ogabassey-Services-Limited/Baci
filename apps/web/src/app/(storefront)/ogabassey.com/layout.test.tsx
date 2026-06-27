@@ -36,6 +36,12 @@ vi.mock('@/app/(storefront)/storefront-home.css', () => {
   return {};
 });
 
+vi.mock('@/app/(storefront)/ogabassey/ogabassey-home-hero-fallback', () => ({
+  OgabasseyHomeHeroFallback: () => (
+    <section aria-hidden="true" data-testid="hero-fallback" />
+  ),
+}));
+
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
   generateMetadata: mockGenerateStorefrontLayoutMetadata,
@@ -118,18 +124,15 @@ describe('OgabasseyDomainLayout', () => {
         '.storefront-shell-loading__chrome'
       )
     ).toBeInTheDocument();
-    const fallbackHero = fallbackRender.container.querySelector(
-      '.storefront-shell-loading__mobile-hero'
+    const staticFallback = fallbackRender.container.querySelector(
+      '[data-ogabassey-static-shell-fallback="true"]'
     );
-    expect(fallbackHero).toBeTruthy();
-    // The static shell paints a full-width baked inline-AVIF banner so the hero
-    // is a large, first-flush LCP candidate (not a lone photo, not the navbar).
-    const fallbackHeroImg = fallbackHero?.querySelector('img');
-    expect(fallbackHeroImg).toBeTruthy();
-    expect(fallbackHeroImg?.getAttribute('src')).toMatch(
-      /^data:image\/avif;base64,/
+    expect(staticFallback).toHaveStyle({ '--store-primary': '#d62027' });
+    expect(fallbackRender.getByTestId('hero-fallback')).toHaveAttribute(
+      'aria-hidden',
+      'true'
     );
-    expect(fallbackHeroImg?.getAttribute('fetchpriority')).toBe('high');
+    expect(fallbackRender.queryByRole('link')).not.toBeInTheDocument();
     fallbackRender.unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
@@ -138,6 +141,9 @@ describe('OgabasseyDomainLayout', () => {
     const metadata = await generateMetadata();
 
     expect(metadata.manifest).toBeNull();
+    expect(metadata.other).toMatchObject({
+      'apple-itunes-app': 'app-id=6472735367',
+    });
     const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
@@ -150,7 +156,12 @@ describe('OgabasseyDomainLayout', () => {
       new Error('metadata failed')
     );
 
-    await expect(generateMetadata()).resolves.toEqual({ manifest: null });
+    await expect(generateMetadata()).resolves.toEqual({
+      other: {
+        'apple-itunes-app': 'app-id=6472735367',
+      },
+      manifest: null,
+    });
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to load OgaBassey domain layout metadata',

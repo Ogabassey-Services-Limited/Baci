@@ -3,6 +3,7 @@ import {
   getCountryShoppingContext,
   getStorefrontLocale,
 } from './storefront-localization';
+import { getSeoProductName } from './storefront-product-slug-disambiguation';
 
 interface ProductPriceSeoVariant {
   price_override?: number | null;
@@ -17,6 +18,7 @@ interface ProductPriceSeoOffer {
 
 export interface ProductPriceSeoProduct {
   name: string;
+  slug?: string | null;
   price?: number | null;
   base_price?: number | null;
   sale_price?: number | null;
@@ -128,7 +130,6 @@ export function getProductPriceRange(
 }
 
 const _productPriceFormatterCache = new Map<string, Intl.NumberFormat>();
-
 function getProductPriceFormatter(
   locale: string,
   currency: string,
@@ -193,11 +194,12 @@ export function buildProductPriceSeoCopy({
   const range = getProductPriceRange(product);
   const locale = getStorefrontLocale(country);
   const priceText = formatProductPriceRange(range, currency, locale);
+  const productName = getSeoProductName(product);
   const category = categoryName.toLowerCase();
   const countryContext = getCountryShoppingContext(country);
-  const title = appendCountryContext(`${product.name} Price`, countryContext);
+  const title = appendCountryContext(`${productName} Price`, countryContext);
   const pricePhrase = appendCountryContext(
-    `${product.name} price`,
+    `${productName} price`,
     countryContext
   );
 

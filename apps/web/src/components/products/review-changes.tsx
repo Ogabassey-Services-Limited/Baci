@@ -10,6 +10,10 @@ import {
 } from 'react';
 import type { Change } from '@/app/dashboard/products/actions';
 import { enrichProductsBatch } from '@/app/dashboard/products/generation-actions';
+import {
+  formatPriceInput,
+  parsePriceInput,
+} from '@/components/products/product-currency-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,12 +38,80 @@ import {
 import { useProductContext } from '@/contexts/product-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
+import { formatCurrencyWithConfig, getCurrencyConfig } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 const ENRICHMENT_BATCH_SIZE = 5;
 
 type EnrichmentTarget = Change & { originalIndex: number };
+
+function hasScientificNotation(rawValue: string): boolean {
+  return /\d\s*e\s*[+-]?\s*\d/i.test(rawValue);
+}
+
+function parseEditableCostPrice(
+  rawValue: string,
+  locale: string
+): number | null | undefined {
+  if (rawValue.trim() === '') {
+    return null;
+  }
+
+  if (hasScientificNotation(rawValue)) {
+    return undefined;
+  }
+
+  const value = parsePriceInput(rawValue, locale);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function parseEditablePrice(
+  rawValue: string,
+  locale: string
+): number | undefined {
+  if (rawValue.trim() === '') {
+    return undefined;
+  }
+
+  if (hasScientificNotation(rawValue)) {
+    return undefined;
+  }
+
+  const value = parsePriceInput(rawValue, locale);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+type PriceInputValidationState = 'valid' | 'blank' | 'invalid';
+
+function getPriceInputValidationState(
+  rawValue: string | undefined,
+  locale: string
+): PriceInputValidationState {
+  if (rawValue === undefined) {
+    return 'valid';
+  }
+
+  if (rawValue.trim() === '') {
+    return 'blank';
+  }
+
+  return parseEditablePrice(rawValue, locale) === undefined
+    ? 'invalid'
+    : 'valid';
+}
+
+function getCostPriceInputValidationState(
+  rawValue: string | undefined,
+  locale: string
+): 'valid' | 'invalid' {
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return 'valid';
+  }
+
+  return parseEditableCostPrice(rawValue, locale) === undefined
+    ? 'invalid'
+    : 'valid';
+}
 
 interface EnrichmentRunArgs {
   targets: EnrichmentTarget[];
@@ -140,6 +212,12 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   const [localChanges, setLocalChanges] = useState<Change[]>(
     () => aiResponse?.changes ?? []
   );
+  const [priceInputValues, setPriceInputValues] = useState<
+    Record<number, string>
+  >({});
+  const [costPriceInputValues, setCostPriceInputValues] = useState<
+    Record<number, string>
+  >({});
   // Default select all
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
     () => new Set((aiResponse?.changes ?? []).map((_, i) => i))
@@ -159,6 +237,8 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     setPrevAiResponse(aiResponse);
     if (aiResponse?.changes) {
       setLocalChanges(aiResponse.changes);
+      setPriceInputValues({});
+      setCostPriceInputValues({});
       setSelectedIndices(new Set(aiResponse.changes.map((_, i) => i)));
     }
   }
@@ -193,7 +273,6 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       return next;
     });
   };
-
   const handleEdit = (
     index: number,
     field: keyof Change['details'],
@@ -214,6 +293,80 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
 
   const isPro =
     merchant?.plan_tier === 'pro' || merchant?.plan_tier === 'business';
+  const currencyConfig = getCurrencyConfig(
+    merchant?.country,
+    merchant?.payout_currency
+  );
+  const currencySymbol = currencyConfig.symbol;
+  const getPriceValidationState = (index: number) =>
+    getPriceInputValidationState(
+      priceInputValues[index],
+      currencyConfig.locale
+    );
+  const getCostPriceValidationState = (index: number) =>
+    getCostPriceInputValidationState(
+      costPriceInputValues[index],
+      currencyConfig.locale
+    );
+  const hasSelectedInvalidPrice = localChanges.some(
+    (change, index) =>
+      selectedIndices.has(index) &&
+      change.type !== 'remove' &&
+      getPriceValidationState(index) !== 'valid'
+  );
+  const hasSelectedInvalidCostPrice = localChanges.some(
+    (change, index) =>
+      selectedIndices.has(index) &&
+      change.type !== 'remove' &&
+      getCostPriceValidationState(index) !== 'valid'
+  );
+
+  const handlePriceInputChange = (
+    index: number,
+    change: Change,
+    rawValue: string
+  ) => {
+    setPriceInputValues((prev) => ({ ...prev, [index]: rawValue }));
+    const price = parseEditablePrice(rawValue, currencyConfig.locale);
+    if (price === undefined) {
+      return;
+    }
+
+    if (change.type === 'update') {
+      setLocalChanges((prev) => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          newPrice: price,
+        };
+        return next;
+      });
+      return;
+    }
+
+    handleEdit(index, 'price', price);
+  };
+
+  const handleCostPriceInputChange = (index: number, rawValue: string) => {
+    setCostPriceInputValues((prev) => ({ ...prev, [index]: rawValue }));
+    const costPrice = parseEditableCostPrice(rawValue, currencyConfig.locale);
+    if (costPrice === undefined) {
+      return;
+    }
+
+    setLocalChanges((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        details: {
+          ...next[index].details,
+          cost_price: costPrice,
+          cost_price_was_edited: true,
+        },
+      };
+      return next;
+    });
+  };
 
   const handleGenerateDescriptions = async () => {
     if (!isPro) {
@@ -300,7 +453,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <Button
             size="sm"
             onClick={handleApply}
-            disabled={selectedIndices.size === 0}
+            disabled={
+              selectedIndices.size === 0 ||
+              hasSelectedInvalidPrice ||
+              hasSelectedInvalidCostPrice
+            }
           >
             Import & Publish
           </Button>
@@ -325,6 +482,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
               <TableHead className="min-w-[200px]">Product Name</TableHead>
               <TableHead className="w-[140px]">Category</TableHead>
               <TableHead className="w-[180px]">Price</TableHead>
+              <TableHead className="w-[180px]">Cost Price</TableHead>
               <TableHead className="min-w-[300px]">Description</TableHead>
               <TableHead className="w-[150px]">SKU / Condition</TableHead>
             </TableRow>
@@ -332,6 +490,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <TableBody>
             {localChanges.map((change, index) => {
               const isSelected = selectedIndices.has(index);
+              const priceValidationState = getPriceValidationState(index);
               return (
                 <TableRow
                   // biome-ignore lint/suspicious/noArrayIndexKey: Changes don't have stable IDs
@@ -384,46 +543,87 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                   <TableCell>
                     <div className="flex flex-col gap-1 relative">
                       <span className="absolute left-2 top-2 text-sm text-muted-foreground pointer-events-none">
-                        {getCurrencySymbol(merchant?.country)}
+                        {currencySymbol}
                       </span>
                       <Input
+                        aria-label="Price"
+                        aria-invalid={priceValidationState !== 'valid'}
+                        inputMode="decimal"
                         type="text"
-                        value={(
-                          change.newPrice ?? change.details.price
-                        ).toLocaleString('en-US', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                        onChange={(e) => {
-                          // Strip formatting to get raw number
-                          const rawVal = e.target.value.replace(/[^0-9.]/g, '');
-                          const val = Number.parseFloat(rawVal);
-
-                          if (Number.isNaN(val)) return; // Handle empty/invalid better in real app, but safe for now
-
-                          if (change.type === 'update') {
-                            setLocalChanges((prev) => {
-                              const next = [...prev];
-                              next[index].newPrice = val;
-                              return next;
-                            });
-                          } else {
-                            handleEdit(index, 'price', val);
-                          }
-                        }}
+                        value={
+                          priceInputValues[index] ??
+                          formatPriceInput(
+                            change.newPrice ?? change.details.price,
+                            currencyConfig.locale
+                          )
+                        }
+                        onChange={(e) =>
+                          handlePriceInputChange(
+                            index,
+                            change,
+                            e.currentTarget.value
+                          )
+                        }
                         className={cn(
                           'h-8 pl-7',
                           change.type === 'update' &&
                             'border-green-500 text-green-700 dark:text-green-400'
                         )}
                       />
+                      {priceValidationState === 'blank' && (
+                        <span className="text-xs text-destructive pl-1">
+                          Price is required before import.
+                        </span>
+                      )}
+                      {priceValidationState === 'invalid' && (
+                        <span className="text-xs text-destructive pl-1">
+                          Enter a valid non-negative price before import.
+                        </span>
+                      )}
                       {change.type === 'update' && (
                         <span className="text-xs text-muted-foreground line-through pl-1">
                           Stats:{' '}
-                          {formatCurrency(
+                          {formatCurrencyWithConfig(
                             change.details.price,
-                            merchant?.country
+                            currencyConfig
                           )}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1 relative">
+                      <span className="absolute left-2 top-2 text-sm text-muted-foreground pointer-events-none">
+                        {currencySymbol}
+                      </span>
+                      <Input
+                        aria-invalid={
+                          getCostPriceValidationState(index) === 'invalid'
+                        }
+                        aria-label="Cost Price"
+                        inputMode="decimal"
+                        type="text"
+                        value={
+                          costPriceInputValues[index] ??
+                          change.details.cost_price ??
+                          ''
+                        }
+                        placeholder="0.00"
+                        onChange={(e) =>
+                          handleCostPriceInputChange(
+                            index,
+                            e.currentTarget.value
+                          )
+                        }
+                        className={cn(
+                          'h-8 pl-7',
+                          getCostPriceValidationState(index) === 'invalid' &&
+                            'border-destructive focus-visible:ring-destructive'
+                        )}
+                      />
+                      {getCostPriceValidationState(index) === 'invalid' && (
+                        <span className="text-xs text-destructive">
+                          Enter a valid non-negative cost price before import.
                         </span>
                       )}
                     </div>

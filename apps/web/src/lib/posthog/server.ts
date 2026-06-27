@@ -1,4 +1,5 @@
 import { PostHog } from 'posthog-node';
+import { getNextErrorDigest } from '@/lib/errors/next-error-digest';
 import { sanitizePostHogProperties } from '@/lib/posthog/client-config';
 import {
   DEFAULT_POSTHOG_INGEST_HOST,
@@ -55,6 +56,40 @@ export function getPostHogServerClient(
   return postHogServerClient;
 }
 
+function getContextString(
+  properties: Record<string, unknown> | undefined,
+  key: string
+): string | undefined {
+  const value = properties?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeCapturedError(
+  error: unknown,
+  properties?: Record<string, unknown>
+): unknown {
+  if (!(error instanceof Error) || error.message.trim()) {
+    return error;
+  }
+
+  const digest =
+    getContextString(properties, 'next_error_digest') ??
+    getNextErrorDigest(error);
+  const requestPath = getContextString(properties, 'request_path');
+  const routePath = getContextString(properties, 'route_path');
+  const context = requestPath ?? routePath;
+  const messageParts = [
+    'Next.js request error',
+    digest ? `digest ${digest}` : null,
+    context ? `at ${context}` : null,
+  ].filter(Boolean);
+  const normalizedError = new Error(messageParts.join(' '), { cause: error });
+  normalizedError.name = error.name || 'Error';
+  normalizedError.stack = error.stack;
+
+  return normalizedError;
+}
+
 export async function captureServerException(
   error: unknown,
   properties?: Record<string, unknown>,
@@ -68,7 +103,7 @@ export async function captureServerException(
 
   try {
     await client.captureExceptionImmediate(
-      sanitizePostHogException(error),
+      sanitizePostHogException(normalizeCapturedError(error, properties)),
       distinctId,
       sanitizePostHogProperties({
         ...properties,

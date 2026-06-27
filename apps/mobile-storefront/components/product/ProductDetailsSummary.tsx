@@ -1,8 +1,7 @@
-import { isProductNegotiable } from '@baci/shared/lib';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
-import { BRAND, withAlpha } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import type { ReviewStats } from '@/hooks/use-reviews';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
@@ -11,23 +10,17 @@ import { productDetailsBodyStyles as styles } from './ProductDetailsBody.styles'
 type ColorsScheme = (typeof Colors)['light'];
 
 interface ProductDetailsSummaryProps {
-  canPurchase: boolean;
   colors: ColorsScheme;
   effectiveComparePrice: number | undefined;
   effectivePrice: number;
-  negotiatedPrice: number | null;
-  onOpenNegotiation: () => void;
   product: Product;
   reviewStats: ReviewStats | null;
 }
 
 export function ProductDetailsSummary({
-  canPurchase,
   colors,
   effectiveComparePrice,
   effectivePrice,
-  negotiatedPrice,
-  onOpenNegotiation,
   product,
   reviewStats,
 }: ProductDetailsSummaryProps) {
@@ -46,11 +39,6 @@ export function ProductDetailsSummary({
       : product.rating
         ? `${product.rating} (${product.review_count || 0} reviews)`
         : 'No reviews yet';
-
-  const canNegotiateProduct = isProductNegotiable({
-    brand: product.brand,
-    name: product.name,
-  });
 
   return (
     <>
@@ -110,60 +98,6 @@ export function ProductDetailsSummary({
           </Text>
         )}
       </View>
-
-      {negotiatedPrice != null && (
-        <View
-          style={[
-            styles.negotiatedBadge,
-            { backgroundColor: withAlpha(colors.success, 0.16) },
-          ]}
-        >
-          <Ionicons name="pricetag" size={14} color={colors.success} />
-          <Text style={[styles.negotiatedText, { color: colors.success }]}>
-            Your negotiated price!
-          </Text>
-        </View>
-      )}
-
-      {negotiatedPrice == null && canNegotiateProduct && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityHint={
-            canPurchase
-              ? 'Opens negotiation options for this product.'
-              : 'Select an available variant to make an offer.'
-          }
-          accessibilityState={{ disabled: !canPurchase }}
-          disabled={!canPurchase}
-          style={[
-            styles.makeOfferButton,
-            { borderColor: BRAND.primary },
-            !canPurchase && styles.disabledAction,
-          ]}
-          onPress={onOpenNegotiation}
-        >
-          <Ionicons name="chatbubble-outline" size={16} color={BRAND.primary} />
-          <Text style={[styles.makeOfferText, { color: BRAND.primary }]}>
-            Make an Offer
-          </Text>
-        </Pressable>
-      )}
-
-      {negotiatedPrice == null && !canNegotiateProduct && (
-        <View
-          accessibilityLabel="This product is already at the best price"
-          style={[styles.bestPriceBadge, { borderColor: colors.border }]}
-        >
-          <Ionicons
-            name="pricetag-outline"
-            size={16}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.bestPriceText, { color: colors.textSecondary }]}>
-            Best price
-          </Text>
-        </View>
-      )}
     </>
   );
 }

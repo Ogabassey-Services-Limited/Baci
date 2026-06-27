@@ -1,24 +1,16 @@
-import {
-  LAUNCH_CAROUSEL_LIMIT,
-  OGABASSEY_PINNED_LAUNCH_SLUGS,
-  selectLaunchProducts,
-} from '@baci/shared/storefront';
+import { selectLaunchProducts } from '@baci/shared/storefront';
 import Link from 'next/link';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
 import { buildMerchantAnalyticsSettings } from '@/components/analytics/analytics-merchant-settings';
 import { AnalyticsPixelProvider } from '@/components/analytics/analytics-pixel-provider';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
-import {
-  createOgabasseyHomeProductFeed,
-  mapStorefrontProductsToOgabasseyProducts,
-} from '@/components/storefront/ogabassey/home-product-feed';
+import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   getCachedStorefrontHomeProducts,
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
-import { getCachedStorefrontProductsBySlugs } from '@/lib/cached-storefront-products-by-slugs';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -36,6 +28,7 @@ import { OGABASSEY_ENTITY } from '@/lib/storefront/ogabassey-entity';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import { buildStorefrontHomeSemanticGraph } from '@/lib/storefront-home-semantic-graph';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 
 type OgabasseyMerchant = NonNullable<
   Awaited<ReturnType<typeof getRequestScopedMerchant>>
@@ -112,38 +105,31 @@ export async function OgabasseyHomeDynamicContent({
   merchant,
   pathPrefix,
 }: OgabasseyHomeDynamicContentProps) {
-  const [products, categories, pinnedProductRows] = await Promise.all([
+  const [products, categories, launchProducts] = await Promise.all([
     // OgaBassey surfaces the most recently updated devices first (smartphones
     // are still pinned to the front downstream via prioritizeSmartphoneProducts).
     getCachedStorefrontHomeProducts(merchant.id, 'recent'),
     getCachedNavigationCategories(merchant.id),
-    // Deterministic fetch for the launch carousel pins: the recent window is
-    // capped, so explicitly-pinned launches (e.g. the Samsung A27 preorder) can
-    // fall outside it. Fetched by slug so they always appear. This lookup is
-    // optional — a failure must only drop the pins, never take down the
-    // homepage — so it falls back to [] on error.
-    getCachedStorefrontProductsBySlugs(
-      merchant.id,
-      OGABASSEY_PINNED_LAUNCH_SLUGS
-    ).catch((error) => {
-      console.error('Failed to load pinned launch products', { error });
-      return [];
-    }),
+    // Used for JSON-LD coverage only. The visible hero has its own streamed
+    // boundary so LCP discovery is not gated on product-grid/category queries.
+    // loadOgabasseyLaunchProducts is best-effort (never rejects), so a launch
+    // feed failure degrades to empty schema coverage instead of failing the page.
+    loadOgabasseyLaunchProducts(merchant.id),
   ]);
   const merchantProducts = mapHomeProductsToTemplateProducts(products || []);
-  const pinnedProducts = mapHomeProductsToTemplateProducts(
-    pinnedProductRows || []
+  // Inventory (manage_stock/stock) lives only on the template rows; the display
+  // -shaped launch items drop it. Map slug -> template row so the schema can
+  // still derive availability when a launch copy wins the slug dedupe below —
+  // otherwise an out-of-stock managed launch item would be emitted as InStock.
+  const merchantInventoryBySlug = new Map(
+    merchantProducts
+      .filter((product) => Boolean(product.slug))
+      .map((product) => [product.slug, product] as const)
   );
-  // Launch carousel: pinned-first, then newest, deduped, capped.
-  const launchSubset = selectLaunchProducts(
-    [...pinnedProducts, ...merchantProducts],
-    { pinned: OGABASSEY_PINNED_LAUNCH_SLUGS, limit: LAUNCH_CAROUSEL_LIMIT }
-  );
-  const launchProducts = mapStorefrontProductsToOgabasseyProducts(launchSubset);
   // Schema product list: prepend the visible launch items (deduped) so every
   // carousel slide is represented even when it falls outside the top-8 window.
   const schemaProducts = selectLaunchProducts(
-    [...launchSubset, ...merchantProducts],
+    [...launchProducts, ...merchantProducts],
     { limit: OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT }
   );
   const baseUrl = buildStoreUrl(merchant);
@@ -158,7 +144,29 @@ export async function OgabasseyHomeDynamicContent({
           name: `${merchant.business_name} featured products`,
           description: homeDescription,
           url: baseUrl,
-          products: schemaProducts,
+          // The launch items are display-shaped (price as a formatted string);
+          // the schema needs a numeric price + string id, so normalize both
+          // union members before building the JSON-LD product list. Restore
+          // inventory from the template row so availability is correct even when
+          // a display-shaped launch copy won the slug dedupe.
+          products: schemaProducts.map((product) => {
+            const inventory = product.slug
+              ? merchantInventoryBySlug.get(product.slug)
+              : undefined;
+            return {
+              ...product,
+              id: String(product.id),
+              price:
+                typeof product.price === 'number'
+                  ? product.price
+                  : 'rawPrice' in product &&
+                      typeof product.rawPrice === 'number'
+                    ? product.rawPrice
+                    : 0,
+              manage_stock: inventory?.manage_stock,
+              stock: inventory?.stock,
+            };
+          }),
           merchantName: merchant.business_name,
           currency: merchant.payout_currency || 'NGN',
         })
@@ -220,8 +228,8 @@ export async function OgabasseyHomeDynamicContent({
         basePath={pathPrefix}
         categories={categories || []}
         launchProducts={launchProducts}
-        products={createOgabasseyHomeProductFeed(merchantProducts)}
         renderHero={false}
+        products={createOgabasseyHomeProductFeed(merchantProducts)}
         storeSlug={merchant.slug}
       />
       <section

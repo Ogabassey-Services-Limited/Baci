@@ -1,5 +1,10 @@
 import { vi } from 'vitest';
 
+type ProductsQueryResult = {
+  data: Record<string, unknown>[];
+  error: { message: string } | null;
+};
+
 type MockProductsQuery = {
   eq: ReturnType<typeof vi.fn>;
   gte: ReturnType<typeof vi.fn>;
@@ -9,7 +14,9 @@ type MockProductsQuery = {
   not: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
   select: ReturnType<typeof vi.fn>;
+  then: ReturnType<typeof vi.fn>;
 };
 
 type MockProductsByIdsQuery = {
@@ -23,6 +30,10 @@ const mockProductsResult = {
     data: [] as Record<string, unknown>[],
     error: null as { message: string } | null,
   },
+};
+
+const mockProductsResults = {
+  current: [] as ProductsQueryResult[],
 };
 
 const mockProductsByIdsResult = {
@@ -47,6 +58,10 @@ const mockProductsQuery = {
   current: null as MockProductsQuery | null,
 };
 
+const mockProductsQueries = {
+  current: [] as MockProductsQuery[],
+};
+
 const mockProductsByIdsQuery = {
   current: null as MockProductsByIdsQuery | null,
 };
@@ -54,6 +69,12 @@ const mockProductsByIdsQuery = {
 const mockProductsByIdsQueries = {
   current: [] as MockProductsByIdsQuery[],
 };
+
+function resolveProductsResult(): Promise<ProductsQueryResult> {
+  return Promise.resolve(
+    mockProductsResults.current.shift() ?? mockProductsResult.current
+  );
+}
 
 function createProductsQuery() {
   const query = {
@@ -65,10 +86,19 @@ function createProductsQuery() {
     lte: vi.fn(() => query),
     not: vi.fn(() => query),
     limit: vi.fn(() => query),
-    order: vi.fn(() => Promise.resolve(mockProductsResult.current)),
+    range: vi.fn(() => query),
+    order: vi.fn(() => query),
+    // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are intentionally awaitable thenables.
+    then: vi.fn(
+      (
+        onFulfilled?: (value: ProductsQueryResult) => unknown,
+        onRejected?: (reason: unknown) => unknown
+      ) => resolveProductsResult().then(onFulfilled, onRejected)
+    ),
   };
 
   mockProductsQuery.current = query;
+  mockProductsQueries.current.push(query);
 
   return query;
 }
@@ -143,12 +173,14 @@ function createRawProduct(overrides: Partial<Record<string, unknown>>) {
 function reset() {
   vi.clearAllMocks();
   mockProductsQuery.current = null;
+  mockProductsQueries.current = [];
   mockProductsByIdsQuery.current = null;
   mockProductsByIdsQueries.current = [];
   mockProductsResult.current = {
     data: [],
     error: null,
   };
+  mockProductsResults.current = [];
   mockProductsByIdsResult.current = {
     data: [],
     error: null,
@@ -165,7 +197,9 @@ export const storefrontProductsRouteTestHarness = {
   mockProductsByIdsResult,
   mockProductsByIdsResults,
   mockProductsQuery,
+  mockProductsQueries,
   mockProductsResult,
+  mockProductsResults,
   mockSearchRpc,
   createRawProduct,
   reset,

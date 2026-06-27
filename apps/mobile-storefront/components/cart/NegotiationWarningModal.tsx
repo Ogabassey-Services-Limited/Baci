@@ -2,6 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import type React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
+import { withAlpha } from '@/constants/Colors';
 import type { CartItem } from '@/stores/cart-store';
 import styles from './styles';
 
@@ -56,94 +57,110 @@ export default function NegotiationWarningModal({
             <View
               style={[
                 styles.warningIconCircle,
-                { backgroundColor: colors.background },
+                { backgroundColor: withAlpha(colors.warning, 0.16) },
               ]}
             >
-              <Ionicons name="cash-outline" size={24} color={colors.warning} />
+              <Ionicons name="cash-outline" size={20} color={colors.warning} />
             </View>
-            <Text style={[styles.warningTitle, { color: colors.text }]}>
-              Choose Negotiation Mode
+            <Text
+              style={[styles.warningTitle, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              Negotiation Mode
             </Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              style={styles.warningClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Ionicons name="close" size={22} color={colors.icon} />
+            </Pressable>
           </View>
 
           <Text
             style={[styles.warningDescription, { color: colors.textSecondary }]}
           >
             Negotiating items individually will disable bulk cart negotiation.
-            <Text style={styles.warningDescriptionBold}>
-              {' '}
-              You can only use one approach.
-            </Text>
+          </Text>
+          <Text
+            style={[styles.warningDescriptionEmphasis, { color: colors.text }]}
+          >
+            You can only use one approach.
           </Text>
 
           <View style={styles.warningButtons}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.warningPrimaryButton,
-                !canNegotiateItem && styles.warningButtonDisabled,
-                pressed && canNegotiateItem && styles.warningButtonPressed,
-              ]}
-              onPress={handleNegotiateItemPress}
-              disabled={!canNegotiateItem}
-              accessibilityRole="button"
-              accessibilityLabel="Negotiate this item"
-              accessibilityState={{ disabled: !canNegotiateItem }}
-            >
-              <Text
-                style={[
-                  styles.warningPrimaryButtonText,
-                  { color: colors.primaryForeground },
-                ]}
-              >
-                Negotiate This Item
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.warningSecondaryButton,
-                { backgroundColor: colors.muted, borderColor: colors.border },
-                !canBulkNegotiate && styles.warningButtonDisabled,
-                pressed && canBulkNegotiate && styles.warningButtonPressed,
-              ]}
-              onPress={() => {
-                if (!canBulkNegotiate) {
-                  return;
-                }
-                triggerHaptic();
-                onBulkNegotiate();
+            {/* Pressable Layout Lesson: box (bg/border/radius) on the View,
+                Pressable only handles the press with a plain style. */}
+            <View
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 16,
+                overflow: 'hidden',
+                opacity: canNegotiateItem ? 1 : 0.45,
               }}
-              disabled={!canBulkNegotiate}
-              accessibilityRole="button"
-              accessibilityLabel="Bulk negotiate entire cart"
-              accessibilityState={{ disabled: !canBulkNegotiate }}
             >
-              <Ionicons name="cash-outline" size={18} color={colors.text} />
-              <Text
-                style={[
-                  styles.warningSecondaryButtonText,
-                  { color: colors.text },
-                ]}
+              <Pressable
+                style={{ paddingVertical: 13, alignItems: 'center' }}
+                onPress={handleNegotiateItemPress}
+                disabled={!canNegotiateItem}
+                accessibilityRole="button"
+                accessibilityLabel="Negotiate this item"
+                accessibilityState={{ disabled: !canNegotiateItem }}
               >
-                Bulk Negotiate Entire Cart
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.warningPrimaryButtonText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
+                  Negotiate This Item
+                </Text>
+              </Pressable>
+            </View>
 
-            <Pressable
-              style={styles.warningCancelButton}
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel negotiation mode"
+            <View
+              style={{
+                backgroundColor: colors.muted,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                overflow: 'hidden',
+                opacity: canBulkNegotiate ? 1 : 0.45,
+              }}
             >
-              <Text
-                style={[
-                  styles.warningCancelButtonText,
-                  { color: colors.textSecondary },
-                ]}
+              <Pressable
+                style={{
+                  paddingVertical: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+                onPress={() => {
+                  if (!canBulkNegotiate) {
+                    return;
+                  }
+                  triggerHaptic();
+                  onBulkNegotiate();
+                }}
+                disabled={!canBulkNegotiate}
+                accessibilityRole="button"
+                accessibilityLabel="Bulk negotiate entire cart"
+                accessibilityState={{ disabled: !canBulkNegotiate }}
               >
-                Cancel
-              </Text>
-            </Pressable>
+                <Ionicons name="cash-outline" size={18} color={colors.text} />
+                <Text
+                  style={[
+                    styles.warningSecondaryButtonText,
+                    { color: colors.text },
+                  ]}
+                >
+                  Bulk Negotiate Entire Cart
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>

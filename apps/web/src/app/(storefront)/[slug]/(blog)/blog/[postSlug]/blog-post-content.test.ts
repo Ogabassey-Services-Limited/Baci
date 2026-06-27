@@ -248,7 +248,7 @@ describe('resolveBlogPostContent', () => {
     // and should be ignored by assistive tech. Respect that author signal
     // instead of overwriting it with a derived fallback.
     const result = await resolveBlogPostContent(
-      '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" alt="" /></p>',
+      '<p><img src="https://cdn.example.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" alt="" /></p>',
       {
         fallbackImageAlt: 'iPhone 15 Series Review',
       }
@@ -261,7 +261,7 @@ describe('resolveBlogPostContent', () => {
 
   it('injects filename-derived alt text when alt attribute is absent', async () => {
     const result = await resolveBlogPostContent(
-      '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" /></p>',
+      '<p><img src="https://cdn.example.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" /></p>',
       {
         fallbackImageAlt: 'iPhone 15 Series Review',
       }
@@ -271,6 +271,70 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toContain(
       'alt="Apple iPhone 15 Pro lineup color lineup 230912"'
     );
+  });
+
+  it('removes legacy OgaBassey CDN blog images that now 404 in crawls', async () => {
+    const result = await resolveBlogPostContent(
+      '<p>Before<img src="https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg" alt="Redmi 13">After</p>'
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('Before');
+    expect(result.legacyHtml).toContain('After');
+    expect(result.legacyHtml).not.toContain('Redmi-13-4-768x960-1.jpg');
+    expect(result.legacyHtml).not.toContain('<img');
+  });
+
+  it('removes standalone wrappers around legacy OgaBassey CDN images', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><img src="https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg" alt="Redmi 13"></p><p>Kept copy</p>'
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).not.toContain('Redmi-13-4-768x960-1.jpg');
+    expect(result.legacyHtml).not.toContain('<p></p>');
+    expect(result.legacyHtml).not.toContain('<p> </p>');
+    expect(result.legacyHtml).toContain('<p>Kept copy</p>');
+  });
+
+  it('removes image wrappers when srcset references legacy OgaBassey CDN images', async () => {
+    const legacyImage =
+      'https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg';
+    const fallbackImage = 'https://cdn.example.com/fallback.jpg';
+    const result = await resolveBlogPostContent(
+      `<p><img src="${fallbackImage}" srcset="${legacyImage} 768w, ${fallbackImage} 1200w" alt="Mixed source"></p><p>Kept copy</p>`
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).not.toContain(legacyImage);
+    expect(result.legacyHtml).not.toContain(fallbackImage);
+    expect(result.legacyHtml).not.toContain('Mixed source');
+    expect(result.legacyHtml).not.toContain('<p></p>');
+    expect(result.legacyHtml).toContain('<p>Kept copy</p>');
+  });
+
+  it('preserves relative blog image paths for merchant content isolation', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><img src="/blog/2024/06/Redmi-13-4-768x960-1.jpg" alt="Merchant Redmi 13"></p>'
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain(
+      'src="/blog/2024/06/Redmi-13-4-768x960-1.jpg"'
+    );
+    expect(result.legacyHtml).toContain('alt="Merchant Redmi 13"');
+  });
+
+  it('removes titled legacy CDN blog images before caption figures are created', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><img src="https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg" title="Redmi launch image" alt="Redmi 13"></p>'
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).not.toContain('Redmi-13-4-768x960-1.jpg');
+    expect(result.legacyHtml).not.toContain('<figure');
+    expect(result.legacyHtml).not.toContain('<figcaption>');
+    expect(result.legacyHtml).not.toContain('Redmi launch image');
   });
 
   it('injects missing legacy image alt text using the fallback title', async () => {
@@ -648,6 +712,31 @@ describe('wrapTrustedCdnInlineImagesInPicture', () => {
     expect(out).toContain('alt="Second"');
     expect(out).toContain('loading="lazy"');
     expect(out).toContain('decoding="async"');
+  });
+
+  it('prioritizes the first surviving inline image after removing legacy CDN blog images', () => {
+    const legacyImage =
+      'https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg';
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${legacyImage}" alt="Removed" /><img src="${CDN}" alt="Survivor" />`
+    );
+
+    expect(out).not.toContain(legacyImage);
+    expect(out).not.toContain('alt="Removed"');
+    expect(out).toContain('alt="Survivor"');
+    expect(out).toContain('loading="eager"');
+    expect(out).toContain('decoding="sync"');
+    expect(out).toContain('fetchpriority="high"');
+  });
+
+  it('removes inline images when srcset references legacy CDN blog images', () => {
+    const legacyImage =
+      'https://cdn.ogabassey.com/blog/2024/06/Redmi-13-4-768x960-1.jpg';
+    const out = wrapTrustedCdnInlineImagesInPicture(
+      `<img src="${CDN}" srcset="${legacyImage} 768w, ${CDN} 1200w" alt="Mixed source" />`
+    );
+
+    expect(out).toBe('');
   });
 
   it('does not prioritize legacy body images when a featured hero is already rendered', () => {

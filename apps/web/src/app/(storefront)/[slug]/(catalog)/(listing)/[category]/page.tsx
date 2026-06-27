@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
@@ -29,6 +28,8 @@ import { isDomainIdentifier } from '@/lib/validation';
 import { CategoryPageContent } from './category-page-content';
 import {
   buildCategoryPageHubModel,
+  getCategoryPageProductSlots,
+  isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
 } from './category-page-content-helpers';
@@ -41,6 +42,28 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+function buildCategoryNotFoundMetadata(
+  title = 'Category not found',
+  description = 'This category is unavailable or has moved.'
+): Metadata {
+  return {
+    title,
+    description,
+    // Replace root metadata alternates so soft-404 pages do not inherit a canonical.
+    alternates: null,
+    robots: { index: false, follow: true },
+    openGraph: {
+      title,
+      description,
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  };
+}
+
 export async function generateMetadata({
   params,
   searchParams,
@@ -50,7 +73,10 @@ export async function generateMetadata({
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
   if (!currentPage) {
-    notFound();
+    return buildCategoryNotFoundMetadata(
+      'Category page not found',
+      'This category page is unavailable or has moved.'
+    );
   }
 
   // 1. Get Merchant
@@ -64,18 +90,23 @@ export async function generateMetadata({
     };
   }
 
-  const data = await getCachedCategoryPageData(merchant.id, category, slug);
+  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const data = await getCachedCategoryPageData(
+    merchant.id,
+    category,
+    slug,
+    productOffset,
+    STOREFRONT_PRODUCTS_PER_PAGE
+  );
 
   if (!data.isCollection && data.isInactiveCategory) {
-    notFound();
+    return buildCategoryNotFoundMetadata();
   }
 
   // Doorway-trap stopgap (crawl-budget): a genuinely unknown/typo CATEGORY slug
-  // resolves to no collection, no category row, and no fuzzy-matched products —
-  // which previously rendered as an indexable empty page. notFound() flips it to
-  // noindex so it stops bloating the index. Category pages keep this
-  // soft-404/noindex behavior; the PR-B §3.2 pre-stream proxy hard-404 applies
-  // only to PDP (`/{category}/{product}`) URLs, not category listings.
+  // resolves to no collection, no category row, and no fuzzy-matched products.
+  // Return explicit noindex metadata so the soft-404 body cannot inherit
+  // indexable parent metadata or a platform canonical.
   if (
     !data.isCollection &&
     !data.category?.id &&
@@ -83,28 +114,43 @@ export async function generateMetadata({
     !data.productsQueryFailed &&
     !data.categoryQueryFailed
   ) {
-    notFound();
+    return buildCategoryNotFoundMetadata();
   }
 
   const categoryName = resolveCategoryPageName(data, category);
+  const productSlots = getCategoryPageProductSlots(data);
   const normalizedProducts = normalizeCategoryPageProducts(
     data.products as unknown as RawDbProduct[],
     undefined,
     merchant.country
   );
-  const totalPages = Math.max(
+  const computedTotalPages = Math.max(
     1,
-    Math.ceil(normalizedProducts.length / STOREFRONT_PRODUCTS_PER_PAGE)
+    Math.ceil(
+      (data.productCount ?? productSlots.length) / STOREFRONT_PRODUCTS_PER_PAGE
+    )
   );
+  const totalPages = data.productIdsQueryFailed
+    ? Math.max(computedTotalPages, currentPage)
+    : computedTotalPages;
 
-  if (currentPage > totalPages) {
-    notFound();
+  if (!data.productIdsQueryFailed && currentPage > totalPages) {
+    return buildCategoryNotFoundMetadata(
+      'Category page not found',
+      'This category page is unavailable or has moved.'
+    );
   }
 
-  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
-  const paginatedProducts = normalizedProducts.slice(
-    productOffset,
-    productOffset + STOREFRONT_PRODUCTS_PER_PAGE
+  const productSlotOffset = data.productsArePrePaginated ? 0 : productOffset;
+  const paginatedProducts = normalizeCategoryPageProducts(
+    productSlots
+      .slice(
+        productSlotOffset,
+        productSlotOffset + STOREFRONT_PRODUCTS_PER_PAGE
+      )
+      .filter(isCategoryPageProductSlot),
+    undefined,
+    merchant.country
   );
 
   const baseUrl = buildStoreUrl(merchant);
@@ -157,7 +203,9 @@ export async function generateMetadata({
     alternates: {
       canonical: paginatedCategoryUrl,
     },
-    robots: getIndexableRobotsMetadata(resolvedSearchParams),
+    robots: data.productsQueryFailed
+      ? { index: false, follow: true }
+      : getIndexableRobotsMetadata(resolvedSearchParams),
     openGraph: {
       title,
       description,
