@@ -1652,6 +1652,9 @@ const STOREFRONT_FILTER_SEARCH_PARAMS: ReadonlyMap<string, string> = new Map([
   ['colors', 'color'],
   ['condition', 'condition'],
   ['displaySize', 'displaySize'],
+  ['q', 'search'],
+  ['query', 'search'],
+  ['search', 'search'],
   ['displayType', 'displayType'],
   ['maxPrice', 'price'],
   ['minPrice', 'price'],
@@ -1668,9 +1671,21 @@ const STOREFRONT_CANONICAL_FILTER_QUERY_KEYS = [
   ['displayType', ['displayType']],
   ['price', ['minPrice', 'maxPrice']],
   ['ram', ['ram']],
+  ['search', ['search', 'q', 'query']],
   ['simType', ['simType']],
   ['storage', ['storage']],
 ] as const satisfies readonly [string, readonly string[]][];
+
+function getCanonicalStorefrontFilterQueryKey(
+  queryKey: string,
+  activeFilterKey: string
+): string {
+  if (activeFilterKey !== 'search') {
+    return queryKey;
+  }
+
+  return STOREFRONT_FILTER_SEARCH_PARAMS.get(queryKey) ?? queryKey;
+}
 
 export type StorefrontRobotsSearchParams = Record<
   string,
@@ -1750,7 +1765,10 @@ export function getCanonicalStorefrontFilterSearchParams(
       for (const entry of value) {
         const trimmedEntry = entry.trim();
         if (trimmedEntry) {
-          canonicalParams.append(queryKey, trimmedEntry);
+          canonicalParams.append(
+            getCanonicalStorefrontFilterQueryKey(queryKey, activeFilterKey),
+            trimmedEntry
+          );
         }
       }
       continue;
@@ -1758,7 +1776,10 @@ export function getCanonicalStorefrontFilterSearchParams(
 
     const trimmedValue = value?.trim();
     if (trimmedValue) {
-      canonicalParams.append(queryKey, trimmedValue);
+      canonicalParams.append(
+        getCanonicalStorefrontFilterQueryKey(queryKey, activeFilterKey),
+        trimmedValue
+      );
     }
   }
 

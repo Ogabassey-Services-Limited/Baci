@@ -432,6 +432,25 @@ describe('products index page', () => {
     });
   });
 
+  it('noindexes toxic search query listing URLs while keeping the clean products canonical', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ q: 'acc6.top pembelian Shopee akun' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/products'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    });
+  });
+
   it('drops price bounds from canonical listing metadata until listing results are filtered', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
