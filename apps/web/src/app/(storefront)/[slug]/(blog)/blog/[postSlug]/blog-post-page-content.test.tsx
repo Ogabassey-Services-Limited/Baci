@@ -448,6 +448,43 @@ describe('BlogPostPageContent', () => {
     );
   });
 
+  it('emits VideoObject structured data when the actual video upload date is available', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        content:
+          '<p>Watch the unboxing: <a href="https://youtu.be/tp-AlU5FVpE?si=RGB">YouTube</a></p>',
+        title: 'Google Pixel 9 Pro Fold Unboxing',
+        video_upload_date: '2026-06-20T08:00:00.000Z',
+      },
+    });
+
+    const { container } = render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    const jsonLdPayloads = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((script) => JSON.parse(script.textContent || '{}'));
+    const videoSchema = jsonLdPayloads.find(
+      (schema) => schema['@type'] === 'VideoObject'
+    );
+
+    expect(videoSchema).toMatchObject({
+      '@type': 'VideoObject',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
+      thumbnailUrl: ['https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg'],
+      uploadDate: '2026-06-20T08:00:00.000Z',
+      url: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
+    });
+  });
+
   it('does not emit VideoObject structured data without the actual video upload date', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,

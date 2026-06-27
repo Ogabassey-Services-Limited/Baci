@@ -221,6 +221,11 @@ const nextConfig: NextConfig = {
         hostname: 'ogabassey.com',
       },
       {
+        // YouTube video thumbnails for blog video previews
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
+      {
         // Supabase storage for merchant images
         protocol: 'https',
         hostname: '*.supabase.co',
