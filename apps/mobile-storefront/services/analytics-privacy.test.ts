@@ -82,6 +82,8 @@ describe('analytics privacy helpers', () => {
         order_id: '11111111-1111-4111-8111-111111111111',
         fb_order_id: 'order-456',
         payment_reference: 'PAY-260627-001',
+        product_sku: '9876543210987',
+        sku: '1234567890123',
         note: 'Order ORD-260627-9-5, call +234 801 234 5678',
         phone: '+234 801 234 5678',
       })
@@ -92,8 +94,20 @@ describe('analytics privacy helpers', () => {
       order_id: '11111111-1111-4111-8111-111111111111',
       fb_order_id: 'order-456',
       payment_reference: 'PAY-260627-001',
+      product_sku: '9876543210987',
+      sku: '1234567890123',
       note: 'Order ORD-[Filtered], call [Filtered]',
       phone: '[Filtered]',
+    });
+  });
+
+  it('does not preserve arbitrary long numeric sku-like values', () => {
+    expect(
+      sanitizeAnalyticsProperties({
+        sku: '12345678901234567890',
+      })
+    ).toEqual({
+      sku: '[Filtered]',
     });
   });
 
