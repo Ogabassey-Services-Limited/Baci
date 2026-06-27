@@ -13,7 +13,6 @@
 import { getAdminNotificationNavigationTarget } from '@baci/shared';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
-import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
 import {
   getRuntimePlatform,
@@ -21,6 +20,11 @@ import {
 } from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
 import { setupAndroidChannels } from './push-notification-channels';
+import {
+  getLoadedPushDeviceModule,
+  getPushNotificationRuntime,
+  getPushNotificationsModule,
+} from './push-notification-native-modules';
 
 /**
  * Parse the installed native build number (Android `versionCode`, iOS
@@ -41,47 +45,6 @@ export function resolveNativeBuildNumber(
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Device: typeof DeviceType | null = null;
-let Notifications: typeof NotificationsType | null = null;
-
-const loadNativeModules = async () => {
-  if (isRuntimePlatform('web')) return;
-  try {
-    const dev = await import('expo-device');
-    Device = dev;
-
-    if (!Device?.isDevice) {
-      if (__DEV__) {
-        console.log('[Push] Native notifications skipped on simulator');
-      }
-      return;
-    }
-
-    const notif = await import('expo-notifications');
-    Notifications = notif;
-
-    // Configure notification behavior after successful load
-    if (Notifications) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-    }
-  } catch (e) {
-    console.debug('[Push] Native modules ignored or failed to load:', e);
-  }
-};
-
-loadNativeModules();
-
-// Note: Notification handler is configured inside loadNativeModules() above
-
 export interface PushNotificationState {
   token: string | null;
   isRegistered: boolean;
@@ -92,7 +55,7 @@ export interface PushNotificationState {
  * Request push notification permissions
  */
 export async function requestPermissions(): Promise<NotificationsType.PermissionStatus> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications)
     return 'undetermined' as NotificationsType.PermissionStatus;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -110,10 +73,7 @@ export async function requestPermissions(): Promise<NotificationsType.Permission
  * Returns null if registration fails or device doesn't support push
  */
 export async function registerForPushNotifications(): Promise<string | null> {
-  // Native modules must be loaded before we can register
-  if (!Device || !Notifications) {
-    await loadNativeModules();
-  }
+  const { Device, Notifications } = await getPushNotificationRuntime();
 
   if (!Notifications) {
     console.warn('[Push] Notifications module not available');
@@ -185,7 +145,7 @@ export async function savePushTokenToServer(
       p_token: token,
       p_merchant_id: merchantId,
       p_platform: getRuntimePlatform(),
-      p_device_name: Device?.modelName || 'Unknown Device',
+      p_device_name: getLoadedPushDeviceModule()?.modelName || 'Unknown Device',
       p_app_type: 'admin',
       p_build_number: resolveNativeBuildNumber(),
     });
@@ -256,7 +216,7 @@ export async function scheduleLocalNotification(
   data?: Record<string, unknown>,
   triggerSeconds: number = 1
 ): Promise<string> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) throw new Error('Notifications module not available');
 
   const id = await Notifications.scheduleNotificationAsync({
@@ -280,7 +240,7 @@ export async function scheduleLocalNotification(
  * Get the current badge count
  */
 export async function getBadgeCount(): Promise<number> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return 0;
   return await Notifications.getBadgeCountAsync();
 }
@@ -289,7 +249,7 @@ export async function getBadgeCount(): Promise<number> {
  * Set the badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return;
   await Notifications.setBadgeCountAsync(count);
 }
@@ -298,7 +258,7 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Clear the badge
  */
 export async function clearBadge(): Promise<void> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return;
   await Notifications.setBadgeCountAsync(0);
 }
@@ -307,7 +267,7 @@ export async function clearBadge(): Promise<void> {
  * Cancel all pending notifications
  */
 export async function cancelAllNotifications(): Promise<void> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
