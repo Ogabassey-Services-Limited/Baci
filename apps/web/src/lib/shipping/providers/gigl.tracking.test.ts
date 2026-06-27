@@ -74,6 +74,51 @@ describe('GiglProvider tracking requests', () => {
     );
   });
 
+  it('derives the tracking status from the newest event after sorting', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            status: 200,
+            data: [
+              {
+                ...trackingEnvelope.data.data[0],
+                MobileShipmentTrackings: [
+                  {
+                    Status: 'Shipment in transit',
+                    ScanStatusReason: 'Departed origin centre',
+                    DateTime: '2026-06-27T08:00:00.000Z',
+                    DepartureServiceCentre: { Name: 'Lagos' },
+                  },
+                  {
+                    Status: 'Shipment delivered',
+                    ScanStatusReason: 'Delivered to receiver',
+                    DateTime: '2026-06-27T12:00:00.000Z',
+                    DepartureServiceCentre: { Name: 'Port Harcourt' },
+                  },
+                ],
+              },
+            ],
+          },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    const tracking = await provider.trackShipment('GIGL123');
+
+    expect(tracking.status).toBe('delivered');
+    expect(tracking.events.map((event) => event.rawStatus)).toEqual([
+      'Shipment delivered',
+      'Shipment in transit',
+    ]);
+  });
+
   it('refreshes tracking tokens rejected inside successful envelopes', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

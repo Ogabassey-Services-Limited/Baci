@@ -48,7 +48,10 @@ export async function trackGiglShipment(
       rawStatus: tracking.Status,
     })
   );
-  const latestEvent = events[0];
+  const sortedEvents = [...events].sort(
+    (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+  );
+  const latestEvent = sortedEvents[0];
   const status = latestEvent
     ? mapGiglStatus(latestEvent.rawStatus || '')
     : 'pending';
@@ -58,9 +61,7 @@ export async function trackGiglShipment(
     trackingNumber,
     status,
     carrierName: 'GIG Logistics',
-    events: events.sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-    ),
+    events: sortedEvents,
     isStationPickup: shipment.PickupOptions === PickupOptions.ServiceCentre,
   };
 }
