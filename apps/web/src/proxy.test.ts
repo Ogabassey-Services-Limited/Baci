@@ -2058,6 +2058,88 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Cache-Control')).toBe(
       's-maxage=300, stale-while-revalidate=3600'
     );
+    expect(res.headers.get('Vary') ?? '').not.toContain('Cookie');
+  });
+
+  it.each([
+    'https://ogabassey.com/',
+    `https://ogabassey.${ROOT_DOMAIN}/`,
+    `https://${ROOT_DOMAIN}/ogabassey`,
+    'https://ogabassey.com/products',
+    'https://ogabassey.com/smartphones',
+    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/blog',
+    'https://ogabassey.com/blog/the-ultimate-checklist-for-buying-a-used-iphone-in-2025',
+    'https://ogabassey.com/blog/author/bassey-john',
+    'https://ogabassey.com/shipping',
+    'https://ogabassey.com/contact',
+    'https://ogabassey.com/faq',
+    'https://ogabassey.com/terms',
+    'https://ogabassey.com/privacy',
+  ])('CDN-caches anonymous public storefront documents for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
+  });
+
+  it.each([
+    {
+      headers: { cookie: 'sb-auth-token=legacy-session' },
+      url: 'https://ogabassey.com/smartphones',
+    },
+    {
+      headers: {
+        cookie:
+          'sb-example-project-auth-token.0=chunk-a; sb-example-project-auth-token.1=chunk-b',
+      },
+      url: 'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    },
+    {
+      headers: { 'x-supabase-auth-token': 'session-token' },
+      url: 'https://ogabassey.com/smartphones/best-under/under-500k',
+    },
+    {
+      headers: { authorization: 'Bearer session-token' },
+      url: `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
+    },
+  ])('keeps authenticated storefront documents out of the CDN cache for $url', async ({
+    headers,
+    url,
+  }) => {
+    const requestHeaders = new Headers({ host: new URL(url).host });
+    for (const [name, value] of Object.entries(headers)) {
+      requestHeaders.set(name, value);
+    }
+    const req = new NextRequest(url, { headers: requestHeaders });
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Cache-Control')).not.toContain('s-maxage');
+    expect(res.headers.get('Vary')).toContain('Cookie');
+  });
+
+  it.each([
+    'https://ogabassey.com/smartphones',
+    'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
+    'https://ogabassey.com/smartphones/best-under/under-500k',
+    `https://ogabassey.${ROOT_DOMAIN}/smartphones/compare/iphone-15-vs-samsung-s24`,
+  ])('keeps anonymous storefront documents publicly cacheable for %s', async (url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      's-maxage=300, stale-while-revalidate=3600'
+    );
   });
 
   it.each([
@@ -2068,16 +2150,16 @@ describe('Middleware Proxy', () => {
     'https://ogabassey.com/order-success/abc-123',
     'https://ogabassey.com/checkout/success',
     'https://ogabassey.com/cart/review',
-    // Reserved fallback PDP shape stays no-store (uncategorized product path).
-    'https://ogabassey.com/products/samsung-galaxy-z-fold-4',
+    // Unknown single-segment storefront routes are not cacheable by default.
+    'https://ogabassey.com/steam-deck',
     // Singular legacy redirect-only route must stay no-store.
     'https://ogabassey.com/product/samsung-galaxy-z-fold-4',
     // Param / non-canonical PDP URLs (e.g. invalid variant streams a redirect)
     // must not be cached as a non-canonical shell.
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?storage=128GB',
     'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4?variantId=x',
-    // Single-segment home/catalog shells stay no-store.
-    'https://ogabassey.com/steam-deck',
+    'https://ogabassey.com/smartphones/best-under/under-500k?utm_source=newsletter',
+    'https://ogabassey.com/blog?utm_source=newsletter',
   ])('keeps non-public / non-canonical storefront documents out of the CDN cache for %s', async (url) => {
     const req = new NextRequest(url);
     req.headers.set('host', new URL(url).host);
@@ -2085,8 +2167,23 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.headers.get('Cache-Control')).toBe(
-      'no-cache, no-store, max-age=0, must-revalidate'
+      'private, no-store, max-age=0, must-revalidate'
     );
+    expect(res.headers.get('Cache-Control')).not.toContain('s-maxage');
+  });
+
+  it('does not vary anonymous query-string nested listings by Cookie', async () => {
+    const url =
+      'https://ogabassey.com/smartphones/best-under/under-500k?utm_source=newsletter';
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vary') || '').not.toContain('Cookie');
   });
 
   it.each([

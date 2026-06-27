@@ -1530,7 +1530,7 @@ export async function getCachedProductLcpHint(
   productSlug: string,
   options: CachedProductLcpHintOptions = {}
 ): Promise<CachedProductLcpHint | null> {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
@@ -1637,7 +1637,7 @@ export async function getCachedProduct(
   merchantId: string,
   productSlug: string
 ) {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
@@ -1808,7 +1808,7 @@ export async function getCachedProductWithDetails(
   merchantId: string,
   productSlug: string
 ) {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
@@ -2780,7 +2780,7 @@ export async function getCachedProductReviews(
     offset?: number;
   }
 ) {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag('reviews', `reviews-${productId}`);
 
@@ -2830,7 +2830,7 @@ export async function getCachedProductReviews(
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
 export async function getCachedProductRatingStats(productId: string) {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag('reviews', `rating-stats-${productId}`);
 
