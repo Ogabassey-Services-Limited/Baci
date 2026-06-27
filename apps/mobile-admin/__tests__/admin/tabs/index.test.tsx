@@ -203,6 +203,7 @@ describe('HomeScreen', () => {
     screen.getByText('welcome-header');
     screen.getByText('Visits');
     screen.getByText('New');
+    screen.getByText('Negotiation Requests');
     expect(mocks.safeAreaEdges).toEqual(['top']);
   });
 
