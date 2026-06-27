@@ -10,6 +10,13 @@ const QUERY_OR_HASH_PATTERN = /[?#]/;
 const LIKELY_BOT_USER_AGENT_PATTERN =
   /(?:bot|crawler|spider|chrome-lighthouse|pagespeed|headlesschrome|google-inspectiontool|googleother|siteauditbot|semrushbot|ahrefsbot|gptbot|oai-searchbot|chatgpt-user|perplexitybot|vercelbot|facebookexternal|twitterbot|linkedinbot|slackbot)/i;
 
+const DEFAULT_PUBLIC_BLOG_POSTHOG_ENV: PostHogEnv = {
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+  NEXT_PUBLIC_POSTHOG_PROXY_PATH: process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH,
+  NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+};
+
 let lastCapturedPublicBlogPageviewUrl: string | undefined;
 const inMemoryPublicBlogDistinctIds = new Map<string, string>();
 
@@ -218,7 +225,7 @@ function sendPublicBlogCapture(captureUrl: string, body: string): void {
 }
 
 export function capturePublicBlogPageview(
-  env: PostHogEnv = process.env,
+  env: PostHogEnv = DEFAULT_PUBLIC_BLOG_POSTHOG_ENV,
   currentUrl = resolveCurrentUrl()
 ): void {
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();

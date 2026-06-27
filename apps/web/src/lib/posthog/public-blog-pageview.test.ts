@@ -228,6 +228,15 @@ describe('capturePublicBlogPageview', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('can be called with its browser-safe default public env object', () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    capturePublicBlogPageview();
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('does not send likely bot pageviews through the direct capture path', () => {
     const sendBeacon = vi.fn<typeof navigator.sendBeacon>(() => true);
 
