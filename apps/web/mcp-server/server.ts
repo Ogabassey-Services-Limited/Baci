@@ -1297,8 +1297,12 @@ function createOgabasseyServer() {
           }
 
           (variants as McpProductVariantRow[] | null)?.forEach((variant) => {
-            const current = variantsMap.get(variant.product_id) || [];
-            variantsMap.set(variant.product_id, [...current, variant]);
+            const current = variantsMap.get(variant.product_id);
+            if (current) {
+              current.push(variant);
+            } else {
+              variantsMap.set(variant.product_id, [variant]);
+            }
           });
         }
 
