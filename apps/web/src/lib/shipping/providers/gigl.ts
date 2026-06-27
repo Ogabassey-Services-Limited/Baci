@@ -176,20 +176,44 @@ export class GiglProvider extends BaseShippingProvider {
     return 0;
   }
 
+  private withTokenRequestTimeout(
+    tokenRequest: Promise<GiglToken>,
+    timeout?: number
+  ): Promise<GiglToken> {
+    if (!timeout || timeout <= 0) {
+      return tokenRequest;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutRequest = new Promise<GiglToken>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        const error = new Error('GIGL API token request timed out');
+        error.name = 'TimeoutError';
+        reject(error);
+      }, timeout);
+    });
+
+    return Promise.race([tokenRequest, timeoutRequest]).finally(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    });
+  }
+
   private getApiToken(timeout?: number): Promise<GiglToken> {
     if (this.cachedToken && Date.now() < this.cachedToken.expiresAt) {
       return Promise.resolve(this.cachedToken);
     }
 
     if (this.tokenRequest) {
-      return this.tokenRequest;
+      return this.withTokenRequestTimeout(this.tokenRequest, timeout);
     }
 
     this.tokenRequest = this.fetchApiToken(timeout).finally(() => {
       this.tokenRequest = null;
     });
 
-    return this.tokenRequest;
+    return this.withTokenRequestTimeout(this.tokenRequest, timeout);
   }
 
   private async fetchApiToken(

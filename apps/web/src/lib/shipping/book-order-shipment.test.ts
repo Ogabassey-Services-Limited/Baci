@@ -326,8 +326,8 @@ describe('bookOrderShipment', () => {
     expect(insertedShipments[0]).toEqual(
       expect.objectContaining({
         is_station_pickup: true,
-        pickup_station_name: 'Lekki Service Centre',
-        pickup_station_address: '1 Admiralty Way, Lekki',
+        station_name: 'Lekki Service Centre',
+        station_address: '1 Admiralty Way, Lekki',
       })
     );
   });

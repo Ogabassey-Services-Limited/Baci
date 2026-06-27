@@ -418,6 +418,33 @@ describe('GiglProvider', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(`${baseUrl}/login`);
   });
 
+  it('preserves quote timeout when sharing an existing token request', async () => {
+    process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
+    vi.resetModules();
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(abortingFetchResponse);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    const locationsPromise = provider
+      .getLocations()
+      .catch((error: unknown) =>
+        error instanceof Error ? error.name : String(error)
+      );
+    const quotePromise = provider.getQuotes(quoteRequest);
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expect(quotePromise).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await expect(locationsPromise).resolves.toContain('AbortError');
+  });
+
   it('does not cache a failed station envelope as an empty station list', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
