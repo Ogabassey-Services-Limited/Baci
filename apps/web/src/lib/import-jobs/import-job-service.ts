@@ -20,7 +20,7 @@ const IMPORT_FILE_MIME_TYPES = new Set([
   'text/csv',
   'application/vnd.ms-excel',
 ]);
-const LOOKUP_CHUNK_SIZE = 500;
+const LOOKUP_CHUNK_SIZE = 150;
 const LOOKUP_PAGE_SIZE = 1000;
 
 export const IMPORT_FILE_SIZE_LIMIT_BYTES = 25 * 1024 * 1024;

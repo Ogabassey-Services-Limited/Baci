@@ -38,10 +38,22 @@ describe('receipt claim tracking migration', () => {
       /UPDATE public\.receipt_claims[\s\S]*WHERE token_hash = p_token_hash[\s\S]*AND notification_sent_at IS NOT NULL[\s\S]*AND expires_at > now\(\)/i
     );
     expect(migrationSql).toMatch(
-      /CREATE OR REPLACE FUNCTION public\.record_receipt_claim_click\([\s\S]*SECURITY INVOKER/i
+      /CREATE OR REPLACE FUNCTION public\.record_receipt_claim_click\([\s\S]*SECURITY DEFINER/i
     );
     expect(migrationSql).toMatch(
-      /CREATE OR REPLACE FUNCTION public\.record_receipt_claim_login_started\([\s\S]*SECURITY INVOKER/i
+      /CREATE OR REPLACE FUNCTION public\.record_receipt_claim_login_started\([\s\S]*SECURITY DEFINER/i
+    );
+    expect(migrationSql).toMatch(
+      /REVOKE ALL ON FUNCTION private\.record_receipt_claim_click\(text\)[\s\S]*FROM PUBLIC, anon, authenticated/i
+    );
+    expect(migrationSql).toMatch(
+      /REVOKE ALL ON FUNCTION private\.record_receipt_claim_login_started\(text\)[\s\S]*FROM PUBLIC, anon, authenticated/i
+    );
+    expect(migrationSql).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION private\.record_receipt_claim_click\(text\)[\s\S]*TO anon, authenticated/i
+    );
+    expect(migrationSql).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION private\.record_receipt_claim_login_started\(text\)[\s\S]*TO anon, authenticated/i
     );
     expect(migrationSql).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.record_receipt_claim_click\(text\)[\s\S]*TO anon, authenticated/i

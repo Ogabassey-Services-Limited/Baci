@@ -383,6 +383,50 @@ describe('import-job-service', () => {
     expect(ordersQuery.in).toHaveBeenCalledWith('order_number', ['ORD-1']);
   });
 
+  it('keeps existing-order lookup chunks below common URL length limits', async () => {
+    const supabase = createSupabaseMock();
+    const rows = Array.from({ length: 151 }, (_value, index) => ({
+      id: `bumpa-${index + 1}`,
+      order_number: `ORD-${index + 1}`,
+    }));
+
+    vi.mocked(parseCsvText).mockReturnValue({
+      headers: ['id', 'order_number'],
+      rows,
+    });
+    vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
+      (async function* () {
+        yield await Promise.resolve({
+          rows: [],
+          partialSummary: {
+            ...createPreviewSummary(),
+            totalRows: rows.length,
+          },
+          processedRows: rows.length,
+          totalRows: rows.length,
+        });
+      })()
+    );
+
+    await buildImportPreviewForJob(supabase, {
+      entity_type: 'orders',
+      merchant_id: 'merchant-1',
+      storage_path: 'merchant-1/orders/orders.csv',
+    });
+
+    const fromMock = supabase.from as unknown as Mock;
+    const orderQueryResult = fromMock.mock.results.find(
+      (_result, index) => fromMock.mock.calls[index]?.[0] === 'orders'
+    );
+    const ordersQuery = orderQueryResult?.value as { in: Mock };
+    const lookupValueLengths = ordersQuery.in.mock.calls.map(
+      ([_field, values]) => values.length
+    );
+
+    expect(lookupValueLengths).toHaveLength(4);
+    expect(Math.max(...lookupValueLengths)).toBeLessThanOrEqual(150);
+  });
+
   it('builds product previews with source rows intact', async () => {
     const supabase = createSupabaseMock();
     vi.mocked(parseCsvText).mockReturnValue({

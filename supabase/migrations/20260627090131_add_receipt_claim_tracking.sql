@@ -62,15 +62,13 @@ $$;
 
 REVOKE ALL ON FUNCTION private.record_receipt_claim_click(text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION private.record_receipt_claim_click(text)
-  TO anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.record_receipt_claim_click(
   p_token_hash text
 )
 RETURNS void
 LANGUAGE sql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT private.record_receipt_claim_click(p_token_hash);
@@ -108,15 +106,13 @@ $$;
 
 REVOKE ALL ON FUNCTION private.record_receipt_claim_login_started(text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION private.record_receipt_claim_login_started(text)
-  TO anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.record_receipt_claim_login_started(
   p_token_hash text
 )
 RETURNS void
 LANGUAGE sql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT private.record_receipt_claim_login_started(p_token_hash);
