@@ -54,6 +54,43 @@ function verifyErrorStatus(error: unknown): number {
   return 502;
 }
 
+function verifyErrorResponse(error: unknown) {
+  const status = verifyErrorStatus(error);
+  if (status >= 500) {
+    return {
+      body: {
+        error: 'Failed to verify email domain',
+        code:
+          status === 500
+            ? 'email_domain_storage_failed'
+            : 'email_domain_upstream_failed',
+      },
+      status,
+    };
+  }
+
+  if (
+    error instanceof Error &&
+    error.message === 'No sending domain to verify'
+  ) {
+    return {
+      body: {
+        error: error.message,
+        code: 'email_domain_not_found',
+      },
+      status,
+    };
+  }
+
+  return {
+    body: {
+      error: error instanceof Error ? error.message : 'Failed to verify domain',
+      code: 'email_domain_verification_stale',
+    },
+    status,
+  };
+}
+
 /** Re-check the merchant's sending domain against ZeptoMail and update status. */
 export async function POST(request: NextRequest) {
   const resolved = await resolveEmailDomainRequest(request);
@@ -90,12 +127,7 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ domain });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : 'Failed to verify domain',
-      },
-      { status: verifyErrorStatus(error) }
-    );
+    const response = verifyErrorResponse(error);
+    return NextResponse.json(response.body, { status: response.status });
   }
 }

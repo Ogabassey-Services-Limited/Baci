@@ -48,6 +48,12 @@ export interface MerchantLookup {
   slug: string | null;
 }
 
+export interface BrandingCustomDomainRow {
+  domain: string | null;
+  domain_type: string | null;
+  is_primary: boolean | null;
+}
+
 export const BACI_BRANDING: MerchantBranding = {
   businessName: 'Baci',
   logoUrl: BACI_LOGO_URL,
@@ -106,6 +112,25 @@ export function getEmailConfig(
   };
 
   return configs[emailType] || configs.signup;
+}
+
+export function selectActiveCustomDomainForBranding(
+  rows: BrandingCustomDomainRow[] | null | undefined
+): string | null {
+  const customDomains =
+    rows?.filter(
+      (row): row is BrandingCustomDomainRow & { domain: string } =>
+        typeof row.domain === 'string' &&
+        row.domain.length > 0 &&
+        (row.domain_type === 'custom' || row.domain_type === 'purchased')
+    ) ?? [];
+
+  const primary = customDomains.find((row) => row.is_primary);
+  if (primary) {
+    return primary.domain;
+  }
+
+  return customDomains.length === 1 ? customDomains[0].domain : null;
 }
 
 function normalizeHostname(hostname: string): string | null {

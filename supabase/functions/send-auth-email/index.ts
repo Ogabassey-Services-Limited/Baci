@@ -14,6 +14,7 @@ import {
   getEmailConfig,
   type MerchantBranding,
   type MerchantLookup,
+  selectActiveCustomDomainForBranding,
 } from './auth-email-template.ts';
 
 function getRequiredEnv(name: string): string {
@@ -112,18 +113,20 @@ async function fetchActiveCustomDomainForMerchant(
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from('domains')
-    .select('domain')
+    .select('domain, domain_type, is_primary')
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
-    .limit(1)
-    .maybeSingle();
+    .in('domain_type', ['custom', 'purchased'])
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(2);
 
   if (error) {
     console.log('Merchant active custom-domain lookup failed:', error.message);
     return null;
   }
 
-  return typeof data?.domain === 'string' ? data.domain : null;
+  return selectActiveCustomDomainForBranding(data);
 }
 
 async function fetchMerchantSendingAddress(

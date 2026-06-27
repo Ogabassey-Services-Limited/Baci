@@ -7,10 +7,12 @@ import {
   generateEmailHtml,
   getCustomDomainCandidates,
   getEmailConfig,
+  selectActiveCustomDomainForBranding,
 } from '../../../../supabase/functions/send-auth-email/auth-email-template';
 import {
   buildAuthEmailConfirmationUrl as buildAppLocalAuthEmailConfirmationUrl,
   generateEmailHtml as generateAppLocalEmailHtml,
+  selectActiveCustomDomainForBranding as selectAppLocalActiveCustomDomainForBranding,
 } from '../../supabase/functions/send-auth-email/auth-email-template';
 
 describe('send-auth-email template helpers', () => {
@@ -156,6 +158,60 @@ describe('send-auth-email template helpers', () => {
       'www.ogabassey.com',
       'ogabassey.com',
     ]);
+  });
+
+  it('selects only active custom or purchased domains for branded auth links', () => {
+    for (const select of [
+      selectActiveCustomDomainForBranding,
+      selectAppLocalActiveCustomDomainForBranding,
+    ]) {
+      expect(
+        select([
+          {
+            domain: 'ogabassey.usebaci.com',
+            domain_type: 'subdomain',
+            is_primary: true,
+          },
+        ])
+      ).toBeNull();
+      expect(
+        select([
+          {
+            domain: 'shop.ogabassey.com',
+            domain_type: 'custom',
+            is_primary: false,
+          },
+          {
+            domain: 'ogabassey.com',
+            domain_type: 'custom',
+            is_primary: true,
+          },
+        ])
+      ).toBe('ogabassey.com');
+      expect(
+        select([
+          {
+            domain: 'ogabassey.com',
+            domain_type: 'purchased',
+            is_primary: false,
+          },
+        ])
+      ).toBe('ogabassey.com');
+      expect(
+        select([
+          {
+            domain: 'shop.ogabassey.com',
+            domain_type: 'custom',
+            is_primary: false,
+          },
+          {
+            domain: 'ogabassey.com',
+            domain_type: 'custom',
+            is_primary: false,
+          },
+        ])
+      ).toBeNull();
+    }
   });
 
   it('uses sign-in-code copy for magiclink auth emails', () => {

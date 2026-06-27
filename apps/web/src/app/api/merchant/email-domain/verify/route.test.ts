@@ -128,21 +128,47 @@ describe('POST /api/merchant/email-domain/verify', () => {
       new Error('Sending domain changed while verification was in progress')
     );
 
-    expect((await POST(req())).status).toBe(409);
+    const res = await POST(req());
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_verification_stale',
+      error: 'Sending domain changed while verification was in progress',
+    });
   });
 
   it('returns 502 when ZeptoMail verification fails', async () => {
     mockVerify.mockRejectedValue(new Error('upstream down'));
-    expect((await POST(req())).status).toBe(502);
+    const res = await POST(req());
+
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({
+      code: 'email_domain_upstream_failed',
+      error: 'Failed to verify email domain',
+    });
   });
 
   it('returns 400 when there is no sending domain to verify', async () => {
     mockVerify.mockRejectedValue(new Error('No sending domain to verify'));
-    expect((await POST(req())).status).toBe(400);
+    const res = await POST(req());
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'email_domain_not_found',
+      error: 'No sending domain to verify',
+    });
   });
 
   it('returns 500 when local storage fails during verification', async () => {
-    mockVerify.mockRejectedValue(new Error('Failed to load email domain'));
-    expect((await POST(req())).status).toBe(500);
+    mockVerify.mockRejectedValue(
+      new Error('Failed to load email domain: relation details')
+    );
+    const res = await POST(req());
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      code: 'email_domain_storage_failed',
+      error: 'Failed to verify email domain',
+    });
   });
 });
