@@ -26,22 +26,12 @@ export function getPostHogBrowserEnv(): PostHogEnv {
     NEXT_PUBLIC_POSTHOG_PROXY_PATH: process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH,
     NEXT_PUBLIC_POSTHOG_UI_HOST: process.env.NEXT_PUBLIC_POSTHOG_UI_HOST,
     NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-    NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: firstNonEmptyEnvValue(
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF:
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF,
-      process.env.VERCEL_GIT_COMMIT_REF
-    ),
-    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: firstNonEmptyEnvValue(
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA:
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
-      process.env.VERCEL_GIT_COMMIT_SHA
-    ),
-    NEXT_PUBLIC_VERCEL_ENV: firstNonEmptyEnvValue(
-      process.env.NEXT_PUBLIC_VERCEL_ENV,
-      process.env.VERCEL_ENV
-    ),
-    NEXT_PUBLIC_VERCEL_URL: firstNonEmptyEnvValue(
-      process.env.NEXT_PUBLIC_VERCEL_URL,
-      process.env.VERCEL_URL
-    ),
+    NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+    NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
     NODE_ENV: process.env.NODE_ENV,
   };
 }
@@ -140,6 +130,40 @@ export function getPostHogReleaseVersion(
     env.VERCEL_GIT_COMMIT_SHA,
     env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
     env.GITHUB_SHA
+  );
+}
+
+export function getPostHogPublicBuildEnv(
+  env: PostHogEnv = process.env
+): Record<string, string> {
+  const publicBuildEnv = {
+    NEXT_PUBLIC_POSTHOG_RELEASE_VERSION: getPostHogReleaseVersion(env),
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: firstNonEmptyEnvValue(
+      env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF,
+      env.VERCEL_GIT_COMMIT_REF,
+      env.GITHUB_REF_NAME
+    ),
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: firstNonEmptyEnvValue(
+      env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+      env.VERCEL_GIT_COMMIT_SHA,
+      env.GITHUB_SHA
+    ),
+    NEXT_PUBLIC_VERCEL_ENV: firstNonEmptyEnvValue(
+      env.NEXT_PUBLIC_VERCEL_ENV,
+      env.VERCEL_ENV,
+      env.NODE_ENV
+    ),
+    NEXT_PUBLIC_VERCEL_URL: firstNonEmptyEnvValue(
+      normalizeVercelDeploymentUrl(
+        firstNonEmptyEnvValue(env.NEXT_PUBLIC_VERCEL_URL, env.VERCEL_URL)
+      )
+    ),
+  };
+
+  return Object.fromEntries(
+    Object.entries(publicBuildEnv).filter((entry): entry is [string, string] =>
+      Boolean(entry[1])
+    )
   );
 }
 

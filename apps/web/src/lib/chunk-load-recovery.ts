@@ -50,8 +50,21 @@ function isChunkLoadError(value: unknown): boolean {
   return CHUNK_LOAD_ERROR_PATTERN.test(getErrorMessage(value));
 }
 
+function getNextDeploymentIdGlobal(): string | undefined {
+  const deploymentId = (globalThis as { NEXT_DEPLOYMENT_ID?: unknown })
+    .NEXT_DEPLOYMENT_ID;
+
+  return typeof deploymentId === 'string' && deploymentId.trim()
+    ? deploymentId.trim()
+    : undefined;
+}
+
 function getCurrentDeploymentId(): string {
-  return document.documentElement.dataset.dplId || 'unknown-deployment';
+  return (
+    getNextDeploymentIdGlobal() ||
+    document.documentElement.dataset.dplId ||
+    'unknown-deployment'
+  );
 }
 
 function getRecoveryStorageKey(runtime: ChunkLoadRecoveryRuntime): string {

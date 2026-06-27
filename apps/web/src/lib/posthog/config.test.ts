@@ -8,6 +8,7 @@ import {
   getPostHogBrowserEnv,
   getPostHogIngestHost,
   getPostHogProxyPath,
+  getPostHogPublicBuildEnv,
   getPostHogReleaseContext,
   getPostHogReleaseVersion,
   getPostHogUiHost,
@@ -85,7 +86,7 @@ describe('PostHog config helpers', () => {
     });
   });
 
-  it('backfills public Vercel browser fields from standard Vercel envs', () => {
+  it('does not read private Vercel env fallbacks from the browser allowlist', () => {
     vi.stubEnv('NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF', '   ');
     vi.stubEnv('NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA', '   ');
     vi.stubEnv('NEXT_PUBLIC_VERCEL_ENV', '   ');
@@ -96,10 +97,31 @@ describe('PostHog config helpers', () => {
     vi.stubEnv('VERCEL_URL', 'https://baci-git-main.vercel.app/checkout');
 
     expect(getPostHogBrowserEnv()).toMatchObject({
+      NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: '   ',
+      NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: '   ',
+      NEXT_PUBLIC_VERCEL_ENV: '   ',
+      NEXT_PUBLIC_VERCEL_URL: '   ',
+    });
+  });
+
+  it('backfills public Vercel browser fields at build time', () => {
+    expect(
+      getPostHogPublicBuildEnv({
+        NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: '   ',
+        NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: '   ',
+        NEXT_PUBLIC_VERCEL_ENV: '   ',
+        NEXT_PUBLIC_VERCEL_URL: '   ',
+        VERCEL_GIT_COMMIT_REF: 'main',
+        VERCEL_GIT_COMMIT_SHA: 'vercel-sha',
+        VERCEL_ENV: 'production',
+        VERCEL_URL: 'https://baci-git-main.vercel.app/checkout',
+      })
+    ).toEqual({
+      NEXT_PUBLIC_POSTHOG_RELEASE_VERSION: 'vercel-sha',
       NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: 'main',
       NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: 'vercel-sha',
       NEXT_PUBLIC_VERCEL_ENV: 'production',
-      NEXT_PUBLIC_VERCEL_URL: 'https://baci-git-main.vercel.app/checkout',
+      NEXT_PUBLIC_VERCEL_URL: 'baci-git-main.vercel.app',
     });
   });
 

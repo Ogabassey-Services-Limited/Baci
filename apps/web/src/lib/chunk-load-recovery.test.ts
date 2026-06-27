@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createChunkLoadRecoveryHandlers } from './chunk-load-recovery';
+
+const NEXT_DEPLOYMENT_ID_GLOBAL = 'NEXT_DEPLOYMENT_ID';
 
 function createRuntime() {
   const storage = new Map<string, string>();
@@ -19,6 +21,11 @@ function createRuntime() {
 }
 
 describe('chunk-load recovery', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, NEXT_DEPLOYMENT_ID_GLOBAL);
+    vi.restoreAllMocks();
+  });
+
   it('reloads once for ChunkLoadError promise rejections', () => {
     const { runtime } = createRuntime();
     const handlers = createChunkLoadRecoveryHandlers(runtime);
@@ -102,7 +109,50 @@ describe('chunk-load recovery', () => {
       'unhandledrejection',
       expect.any(Function)
     );
+  });
 
-    addEventListenerSpy.mockRestore();
+  it('keys browser recovery with Next deployment id after Next removes data-dpl-id', async () => {
+    vi.resetModules();
+    Object.defineProperty(globalThis, NEXT_DEPLOYMENT_ID_GLOBAL, {
+      configurable: true,
+      value: 'next-global-deploy',
+    });
+
+    const storage = new Map<string, string>();
+    const addEventListenerSpy = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation(() => undefined);
+    window.history.pushState({}, '', '/checkout');
+    vi.spyOn(window, 'sessionStorage', 'get').mockReturnValue({
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+        throw new Error('stop before jsdom navigation');
+      },
+      clear: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+      removeItem: vi.fn(),
+    });
+    const { initializeChunkLoadRecovery } = await import(
+      './chunk-load-recovery'
+    );
+
+    initializeChunkLoadRecovery();
+    const errorListener = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === 'error'
+    )?.[1];
+    expect(errorListener).toEqual(expect.any(Function));
+
+    (errorListener as EventListener)({
+      error: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+      message: 'ChunkLoadError',
+    } as ErrorEvent);
+
+    expect(
+      storage.has('baci:chunk-load-recovery:next-global-deploy:/checkout')
+    ).toBe(true);
   });
 });

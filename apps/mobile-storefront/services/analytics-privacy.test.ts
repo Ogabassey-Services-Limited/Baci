@@ -40,8 +40,7 @@ describe('analytics privacy helpers', () => {
         phone: '[Filtered]',
         keep: true,
       },
-      message:
-        'Call [Filtered], [Filtered], card [Filtered], BVN [Filtered].',
+      message: 'Call [Filtered], [Filtered], card [Filtered], BVN [Filtered].',
     });
   });
 
@@ -71,6 +70,30 @@ describe('analytics privacy helpers', () => {
       $set_once: {
         first_seen_url: 'https://ogabassey.com/',
       },
+    });
+  });
+
+  it('preserves known order identifiers without disabling phone redaction elsewhere', () => {
+    expect(
+      sanitizeAnalyticsProperties({
+        order: 'ORD-260627-9-5',
+        orderNumber: 'ORD-260627-9-5',
+        order_number: 'BAC-001',
+        order_id: '11111111-1111-4111-8111-111111111111',
+        fb_order_id: 'order-456',
+        payment_reference: 'PAY-260627-001',
+        note: 'Order ORD-260627-9-5, call +234 801 234 5678',
+        phone: '+234 801 234 5678',
+      })
+    ).toEqual({
+      order: 'ORD-260627-9-5',
+      orderNumber: 'ORD-260627-9-5',
+      order_number: 'BAC-001',
+      order_id: '11111111-1111-4111-8111-111111111111',
+      fb_order_id: 'order-456',
+      payment_reference: 'PAY-260627-001',
+      note: 'Order ORD-[Filtered], call [Filtered]',
+      phone: '[Filtered]',
     });
   });
 
