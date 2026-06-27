@@ -278,7 +278,20 @@ jobs:
               allow_submit=true
               reason="current main HEAD"
             else
-              reason="stale main build"
+              COMPARE_JSON="$({
+                curl --fail-with-body --silent --show-error \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${CURRENT_MAIN_SHA}"
+              })"
+              HAS_RELEVANT_SUCCESSOR="$(python3 -c 'import json, sys; files = (json.load(sys.stdin).get("files") or []); print("true" if any((item.get("filename") or "") == "pnpm-lock.yaml" or (item.get("filename") or "").startswith("apps/mobile-admin/") or (item.get("filename") or "").startswith("packages/shared/") for item in files) else "false")' <<< "$COMPARE_JSON")"
+              if [ "$HAS_RELEVANT_SUCCESSOR" = "true" ]; then
+                reason="stale mobile-admin release build"
+              else
+                allow_submit=true
+                reason="current mobile-admin release content; main only advanced by unrelated paths"
+              fi
             fi
           elif [ "$GH_EVENT_NAME" = "push" ] && [ "$GH_REF_TYPE" = "tag" ] && [[ "$GH_REF_NAME" == v*-admin-ios ]]; then
             allow_submit=true
@@ -332,7 +345,6 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
-          IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets

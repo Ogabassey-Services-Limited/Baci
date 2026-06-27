@@ -86,9 +86,9 @@ jobs:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
-          IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
           SUBMIT_BUILD_NUMBER: ${{ inputs.build_number }}
           SUBMIT_APP_VERSION: ${{ inputs.app_version }}
+          APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS: '1200'
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets
