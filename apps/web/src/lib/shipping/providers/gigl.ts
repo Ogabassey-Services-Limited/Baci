@@ -81,12 +81,6 @@ enum PickupOptions {
 }
 
 // =============================================================================
-// TOKEN CACHE
-// =============================================================================
-
-let cachedToken: GiglToken | null = null;
-
-// =============================================================================
 // GIGL PROVIDER IMPLEMENTATION
 // =============================================================================
 
@@ -99,6 +93,8 @@ export class GiglProvider extends BaseShippingProvider {
 
   // Station cache
   private stationsCache: GiglStation[] | null = null;
+  private cachedToken: GiglToken | null = null;
+  private tokenRequest: Promise<GiglToken> | null = null;
   private stationsCacheExpiry = 0;
   private readonly STATIONS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -160,6 +156,7 @@ export class GiglProvider extends BaseShippingProvider {
     if (!parsed.success) {
       this.log('warn', `Invalid GIGL ${description} response`, {
         status: envelope.status,
+        apiMessage: envelope.message,
         issues: parsed.error.issues,
       });
       throw new Error(`Invalid GIGL ${description} response`);
@@ -183,10 +180,25 @@ export class GiglProvider extends BaseShippingProvider {
     timeout?: number,
     signal?: AbortSignal
   ): Promise<GiglToken> {
-    if (cachedToken && Date.now() < cachedToken.expiresAt) {
-      return cachedToken;
+    if (this.cachedToken && Date.now() < this.cachedToken.expiresAt) {
+      return this.cachedToken;
     }
 
+    if (this.tokenRequest) {
+      return this.tokenRequest;
+    }
+
+    this.tokenRequest = this.fetchApiToken(timeout, signal).finally(() => {
+      this.tokenRequest = null;
+    });
+
+    return this.tokenRequest;
+  }
+
+  private async fetchApiToken(
+    timeout?: number,
+    signal?: AbortSignal
+  ): Promise<GiglToken> {
     this.log('info', 'Fetching new GIGL API token');
 
     if (!GIGL_EMAIL || !GIGL_PASSWORD) {
@@ -212,6 +224,15 @@ export class GiglProvider extends BaseShippingProvider {
 
     const result = await response.json();
     const envelope = this.unwrapApiEnvelope(result);
+
+    if (envelope.status !== 200) {
+      this.log('warn', 'Invalid GIGL login response', {
+        status: envelope.status,
+        apiMessage: envelope.message,
+      });
+      throw new Error('Invalid GIGL login response');
+    }
+
     const loginData = this.parseEnvelopeData(
       envelope,
       giglSchemas.loginData,
@@ -220,11 +241,7 @@ export class GiglProvider extends BaseShippingProvider {
     const token = loginData['access-token'];
     const userChannelCode = loginData.UserChannelCode;
 
-    if (envelope.status !== 200) {
-      throw new Error('Invalid GIGL login response');
-    }
-
-    cachedToken = {
+    this.cachedToken = {
       token,
       userChannelCode,
       customerType: this.normalizeCustomerType(
@@ -234,13 +251,14 @@ export class GiglProvider extends BaseShippingProvider {
       expiresAt: Date.now() + GIGL_TOKEN_EXPIRY_MS,
     };
 
-    return cachedToken;
+    return this.cachedToken;
   }
 
   private invalidateCachedToken(token?: string): void {
-    if (!token || cachedToken?.token === token) {
-      cachedToken = null;
+    if (!token || this.cachedToken?.token === token) {
+      this.cachedToken = null;
     }
+    this.tokenRequest = null;
   }
 
   private async safeFetchWithAccessToken(
@@ -336,7 +354,7 @@ export class GiglProvider extends BaseShippingProvider {
     if (envelope.status !== 200) {
       this.log('warn', 'Invalid GIGL stations response', {
         status: envelope.status,
-        message: envelope.message,
+        apiMessage: envelope.message,
       });
       throw new Error('Invalid GIGL stations response');
     }
@@ -504,7 +522,7 @@ export class GiglProvider extends BaseShippingProvider {
     signal?: AbortSignal
   ): Promise<ShippingQuote | null> {
     try {
-      const activeTokenData = cachedToken ?? tokenData;
+      const activeTokenData = this.cachedToken ?? tokenData;
       const buildPayload = (currentTokenData: GiglToken) => ({
         SenderStationId: senderStation?.StationId ?? 4, // Default to Lagos
         ReceiverStationId: receiverStation.StationId,
@@ -734,7 +752,7 @@ export class GiglProvider extends BaseShippingProvider {
       })),
     };
 
-    const bookingTokenData = cachedToken ?? tokenData;
+    const bookingTokenData = this.cachedToken ?? tokenData;
     const { response } = await this.safeFetchWithAccessToken(
       `${GIGL_BASE_URL}/capture/preshipment`,
       bookingTokenData,

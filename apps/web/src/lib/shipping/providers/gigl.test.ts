@@ -379,6 +379,45 @@ describe('GiglProvider', () => {
     expect(pricePayload.CustomerType).toBe(2);
   });
 
+  it('rejects unsuccessful login envelopes before parsing login data', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        data: {
+          message: 'Invalid credentials',
+          status: 401,
+          data: {},
+        },
+      })
+    );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getLocations()).rejects.toThrow(
+      'Invalid GIGL login response'
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates concurrent token requests', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValue(jsonResponse(loginResponseWithoutCustomerType));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(
+      Promise.all([provider.isAvailable(), provider.isAvailable()])
+    ).resolves.toEqual([true, true]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${baseUrl}/login`);
+  });
+
   it('does not cache a failed station envelope as an empty station list', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
