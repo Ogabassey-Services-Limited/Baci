@@ -172,8 +172,8 @@ function formatReceiptPaymentMethod(
     return 'Verified';
   }
 
-  if (normalizedMethod === 'imported') {
-    return 'Verified imported payment';
+  if (normalizedMethod === 'imported' || normalizedMethod === 'bank_transfer') {
+    return 'Bank transfer';
   }
 
   return paymentMethod?.trim() || 'Verified';

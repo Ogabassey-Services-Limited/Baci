@@ -91,6 +91,7 @@ describe('Bumpa commit payload helpers', () => {
     expect(payload.fulfillment_details).toMatchObject({
       shipping_address_source: 'bumpa-rich-export',
     });
+    expect(payload.payment_method).toBe('bank_transfer');
     expect(payload.import_metadata).toEqual({ source: 'preview' });
   });
 

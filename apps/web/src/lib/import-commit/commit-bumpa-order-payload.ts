@@ -197,7 +197,7 @@ export function buildOrderInsertPayload(
     currency: order.currency,
     original_currency: order.currency,
     original_total: order.total,
-    payment_method: 'imported',
+    payment_method: 'bank_transfer',
     source: orderSource,
     notes: order.shippingOption
       ? `Imported from Bumpa (${order.shippingOption})`

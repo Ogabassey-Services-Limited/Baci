@@ -195,15 +195,21 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('mailto:support@shop.example');
   });
 
-  it('labels imported paid receipt payment methods for customers', () => {
-    const html = generateReceiptHtml(
-      createReceiptOrder({ payment_method: 'imported' }),
-      createReceiptMerchant()
-    );
+  it.each(['imported', 'bank_transfer'])(
+    'labels %s paid receipt payment methods as bank transfer',
+    (paymentMethod) => {
+      const html = generateReceiptHtml(
+        createReceiptOrder({ payment_method: paymentMethod }),
+        createReceiptMerchant()
+      );
 
-    expect(html).toContain('Verified imported payment');
-    expect(html).not.toContain('<div class="info-name">imported</div>');
-  });
+      expect(html).toContain('Bank transfer');
+      expect(html).not.toContain(
+        `<div class="info-name">${paymentMethod}</div>`
+      );
+      expect(html).not.toContain('Verified imported payment');
+    }
+  );
 
   it('labels unpaid receipt payment methods as pending', () => {
     const html = generateReceiptHtml(
