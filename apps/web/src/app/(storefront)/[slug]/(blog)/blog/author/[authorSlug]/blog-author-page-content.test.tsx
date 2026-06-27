@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockGetBlogAuthorBySlug,
   mockGetCachedBlogAuthor,
+  mockHeaders,
   mockNotFound,
   mockPermanentRedirect,
   mockRedirect,
@@ -12,6 +13,9 @@ const {
 } = vi.hoisted(() => ({
   mockGetBlogAuthorBySlug: vi.fn(),
   mockGetCachedBlogAuthor: vi.fn(),
+  mockHeaders: vi.fn(() => {
+    throw new Error('author page must not read request headers');
+  }),
   mockResolveBlogCatchAllOutcome: vi.fn(),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -22,6 +26,10 @@ const {
   mockRedirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/image', () => ({
@@ -119,6 +127,9 @@ const authorData = {
 describe('BlogAuthorPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.mockImplementation(() => {
+      throw new Error('author page must not read request headers');
+    });
     mockGetBlogAuthorBySlug.mockReturnValue({
       name: 'Bassey John',
       sameAs: [
@@ -214,6 +225,7 @@ describe('BlogAuthorPageContent', () => {
       'href',
       'https://ogabassey.com/blog'
     );
+    expect(mockHeaders).not.toHaveBeenCalled();
   });
 
   it('redirects legacy author-prefixed post URLs before falling through to 404', async () => {
