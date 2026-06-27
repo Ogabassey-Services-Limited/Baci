@@ -45,7 +45,7 @@ export function createHeadingHierarchyNormalizer() {
 
       while (
         stack.length > 0 &&
-        stack[stack.length - 1]?.sourceLevel >= sourceLevel
+        stack[stack.length - 1]!.sourceLevel >= sourceLevel
       ) {
         stack.pop();
       }
