@@ -53,6 +53,8 @@ type BlogPostStructuredDataInput = {
     seo_title?: string | null;
     title: string;
     updated_at?: string | null;
+    videoUploadDate?: string | null;
+    video_upload_date?: string | null;
     word_count?: number | null;
   };
   postUrl: string;
@@ -83,12 +85,11 @@ export function buildBlogPostStructuredData({
   const videoMetadata = buildBlogVideoMetadata({
     authorName: author.name,
     content,
-    dateModified: post.updated_at,
-    datePublished: post.published_at,
     description: schemaDescription,
     postUrl,
     publisherName: merchant.business_name,
     title,
+    videoUploadDate: post.video_upload_date ?? post.videoUploadDate ?? null,
   });
 
   return {

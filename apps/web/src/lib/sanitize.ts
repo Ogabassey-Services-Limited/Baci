@@ -5,8 +5,8 @@ import sanitizeLib from 'sanitize-html';
 import {
   createSanitizeHtmlOptions,
   type SanitizeHtmlOptions,
-  stripDisallowedRawTextBlocks,
 } from '@/lib/sanitize-html-config';
+import { stripDisallowedRawTextBlocks } from '@/lib/sanitize-raw-text-blocks';
 
 // Re-export removed as per knip analysis
 // import from './sanitize-core' directly if needed

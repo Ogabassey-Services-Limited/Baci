@@ -1,6 +1,7 @@
+import Image from 'next/image';
+
 type BlogVideoPanelProps = {
   video: {
-    embedUrl: string;
     thumbnailUrl: string;
     title: string;
     watchUrl: string;
@@ -32,15 +33,25 @@ export function BlogVideoPanel({ video }: BlogVideoPanelProps) {
         </a>
       </div>
       <div className="overflow-hidden rounded-2xl border border-store-border bg-store-background-text/10">
-        <iframe
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          className="aspect-video h-auto w-full"
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          src={video.embedUrl}
-          title={video.title}
-        />
+        <a
+          aria-label={`Open video on YouTube: ${video.title}`}
+          className="group relative block aspect-video w-full overflow-hidden"
+          href={video.watchUrl}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <Image
+            alt={`Video thumbnail for ${video.title}`}
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="(max-width: 768px) 100vw, 960px"
+            src={video.thumbnailUrl}
+          />
+          <span className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/35" />
+          <span className="absolute left-1/2 top-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-store-primary text-store-primary-foreground shadow-lg transition-transform group-hover:scale-105">
+            <span className="ml-1 h-0 w-0 border-y-[12px] border-l-[20px] border-y-transparent border-l-current" />
+          </span>
+        </a>
       </div>
     </section>
   );

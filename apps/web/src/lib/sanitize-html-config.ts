@@ -1,15 +1,20 @@
 import type sanitizeLib from 'sanitize-html';
 import { createHeadingHierarchyNormalizer } from '@/lib/sanitize-heading-hierarchy';
 
-export interface SanitizeHtmlOptions {
-  headingLevelOffset?: number;
-  normalizeHeadingHierarchy?: boolean;
+export type SanitizeHtmlHeadingOptions =
+  | {
+      headingLevelOffset?: number;
+      normalizeHeadingHierarchy?: false | undefined;
+    }
+  | {
+      headingLevelOffset?: never;
+      normalizeHeadingHierarchy: true;
+    };
+
+export type SanitizeHtmlOptions = SanitizeHtmlHeadingOptions & {
   normalizeSeoAnchors?: boolean;
   trustedPriorityImageSources?: readonly string[];
-}
-
-const DISALLOWED_RAW_TEXT_BLOCK_REGEX =
-  /<(script|style|xmp|iframe|noembed|noframes|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+};
 
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
@@ -122,10 +127,6 @@ function sanitizeAnchorTag(_tagName: string, attribs: sanitizeLib.Attributes) {
     tagName: 'a',
     attribs: nextAttribs,
   };
-}
-
-export function stripDisallowedRawTextBlocks(dirty: string): string {
-  return dirty.replace(DISALLOWED_RAW_TEXT_BLOCK_REGEX, '');
 }
 
 export function createSanitizeHtmlOptions(

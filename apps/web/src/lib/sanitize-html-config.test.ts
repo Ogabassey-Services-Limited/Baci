@@ -1,22 +1,8 @@
 import sanitizeLib from 'sanitize-html';
 import { describe, expect, it } from 'vitest';
-import {
-  createSanitizeHtmlOptions,
-  stripDisallowedRawTextBlocks,
-} from '@/lib/sanitize-html-config';
+import { createSanitizeHtmlOptions } from '@/lib/sanitize-html-config';
 
 describe('sanitize HTML config', () => {
-  it('strips raw text blocks before sanitize-html parses allowed neighbors', () => {
-    const sanitized = sanitizeLib(
-      stripDisallowedRawTextBlocks(
-        '<p>Keep</p><script><img src=x onerror=alert(1)></script>'
-      ),
-      createSanitizeHtmlOptions()
-    );
-
-    expect(sanitized).toBe('<p>Keep</p>');
-  });
-
   it('keeps trusted priority images and removes untrusted priority markers', () => {
     const trustedImage =
       'https://cdn.ogabassey.com/core-assets/blog/x/inline-1-b9244d7a754d.png';

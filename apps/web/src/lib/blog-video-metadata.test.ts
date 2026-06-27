@@ -3,11 +3,11 @@ import { buildBlogVideoMetadata } from './blog-video-metadata';
 
 const baseInput = {
   content: '<p><a href="https://youtu.be/tp-AlU5FVpE?si=abc">Watch</a></p>',
-  datePublished: '2026-06-25T08:00:00.000Z',
   description: 'Pixel 9 Pro Fold unboxing for buyers in Nigeria.',
   postUrl: 'https://ogabassey.com/blog/pixel-9-pro-fold-unboxing',
   publisherName: 'Ogabassey',
   title: 'Google Pixel 9 Pro Fold Unboxing',
+  videoUploadDate: '2026-06-20T08:00:00.000Z',
 };
 
 describe('buildBlogVideoMetadata', () => {
@@ -15,7 +15,6 @@ describe('buildBlogVideoMetadata', () => {
     const metadata = buildBlogVideoMetadata(baseInput);
 
     expect(metadata?.video).toEqual({
-      embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
       thumbnailUrl: 'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
       title: 'Google Pixel 9 Pro Fold Unboxing',
       videoId: 'tp-AlU5FVpE',
@@ -28,11 +27,8 @@ describe('buildBlogVideoMetadata', () => {
         '@id': 'https://ogabassey.com/blog/pixel-9-pro-fold-unboxing',
       },
       name: 'Google Pixel 9 Pro Fold Unboxing',
-      thumbnailUrl: [
-        'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
-        'https://i.ytimg.com/vi/tp-AlU5FVpE/maxresdefault.jpg',
-      ],
-      uploadDate: '2026-06-25T08:00:00.000Z',
+      thumbnailUrl: ['https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg'],
+      uploadDate: '2026-06-20T08:00:00.000Z',
       url: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
     });
   });
@@ -90,7 +86,9 @@ describe('buildBlogVideoMetadata', () => {
       content: [
         ...Array.from({ length: 160 }, (_, index) => ({
           type: 'paragraph',
-          content: [{ type: 'text', text: `Paragraph ${index}` }],
+          content: [
+            { type: 'text', text: `YouTube mention without a URL ${index}` },
+          ],
         })),
         {
           type: 'paragraph',
@@ -117,12 +115,19 @@ describe('buildBlogVideoMetadata', () => {
     expect(deepMetadata?.video.videoId).toBe('tp-AlU5FVpE');
   });
 
-  it('returns null when there is no valid YouTube video or upload date', () => {
+  it('returns no schema when the actual video upload date is unavailable', () => {
+    const metadata = buildBlogVideoMetadata({
+      ...baseInput,
+      videoUploadDate: null,
+    });
+
+    expect(metadata?.video.videoId).toBe('tp-AlU5FVpE');
+    expect(metadata?.schema).toBeNull();
+  });
+
+  it('returns null when there is no valid YouTube video', () => {
     expect(
       buildBlogVideoMetadata({ ...baseInput, content: '<p>No video</p>' })
-    ).toBeNull();
-    expect(
-      buildBlogVideoMetadata({ ...baseInput, datePublished: null })
     ).toBeNull();
   });
 

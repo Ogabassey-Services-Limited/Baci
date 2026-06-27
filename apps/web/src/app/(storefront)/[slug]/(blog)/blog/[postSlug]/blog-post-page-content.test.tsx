@@ -35,7 +35,9 @@ const {
   mockGenerateBlogPostSchema: vi.fn<(data: unknown) => Record<string, unknown>>(
     () => ({})
   ),
-  mockSafeJsonLdStringify: vi.fn<(_schema: unknown) => string>(() => '{}'),
+  mockSafeJsonLdStringify: vi.fn<(_schema: unknown) => string>((schema) =>
+    JSON.stringify(schema)
+  ),
   mockNextImage: vi.fn((_props: Record<string, unknown>) => null),
   mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
     <h1>{title}</h1>
@@ -260,7 +262,9 @@ describe('BlogPostPageContent', () => {
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
     mockGenerateBlogPostSchema.mockReturnValue({});
-    mockSafeJsonLdStringify.mockReturnValue('{}');
+    mockSafeJsonLdStringify.mockImplementation((schema) =>
+      JSON.stringify(schema)
+    );
     mockHasBlogAuthorPage.mockReturnValue(true);
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
@@ -444,7 +448,7 @@ describe('BlogPostPageContent', () => {
     );
   });
 
-  it('emits VideoObject structured data and passes lazy video metadata to the body', async () => {
+  it('does not emit VideoObject structured data without the actual video upload date', async () => {
     mockGetCachedBlogPost.mockResolvedValue({
       ...smartphoneGuideBlogPost,
       post: {
@@ -455,7 +459,7 @@ describe('BlogPostPageContent', () => {
       },
     });
 
-    render(
+    const { container } = render(
       await BlogPostPageContent({
         params: Promise.resolve({
           slug: 'ogabassey',
@@ -464,26 +468,14 @@ describe('BlogPostPageContent', () => {
       })
     );
 
-    expect(mockSafeJsonLdStringify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        '@type': 'VideoObject',
-        embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
-        thumbnailUrl: [
-          'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
-          'https://i.ytimg.com/vi/tp-AlU5FVpE/maxresdefault.jpg',
-        ],
-        uploadDate: '2026-03-16T10:05:33.654Z',
-      })
+    const jsonLdPayloads = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((script) => JSON.parse(script.textContent || '{}'));
+    const videoSchema = jsonLdPayloads.find(
+      (schema) => schema['@type'] === 'VideoObject'
     );
-    expect(mockBlogPostBody).toHaveBeenCalledWith(
-      expect.objectContaining({
-        video: expect.objectContaining({
-          embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
-          videoId: 'tp-AlU5FVpE',
-          watchUrl: 'https://www.youtube.com/watch?v=tp-AlU5FVpE',
-        }),
-      })
-    );
+
+    expect(videoSchema).toBeUndefined();
   });
 
   it('links BlogPosting publisher to the standalone Organization entity', async () => {

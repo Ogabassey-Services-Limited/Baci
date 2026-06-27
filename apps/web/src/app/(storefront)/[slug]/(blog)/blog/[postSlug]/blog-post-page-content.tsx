@@ -158,7 +158,7 @@ async function renderBlogPostContent({
           {safeJsonLdStringify(structuredData.faqSchema)}
         </script>
       )}
-      {structuredData.videoMetadata && (
+      {structuredData.videoMetadata?.schema && (
         <script type="application/ld+json">
           {safeJsonLdStringify(structuredData.videoMetadata.schema)}
         </script>

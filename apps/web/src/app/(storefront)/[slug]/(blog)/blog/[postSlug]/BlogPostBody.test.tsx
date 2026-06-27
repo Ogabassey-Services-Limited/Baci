@@ -271,7 +271,6 @@ describe('BlogPostBody', () => {
         relatedProducts: [],
         relatedPosts: [],
         video: {
-          embedUrl: 'https://www.youtube-nocookie.com/embed/tp-AlU5FVpE',
           thumbnailUrl: 'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg',
           title: 'Pixel 9 Pro Fold Unboxing',
           videoId: 'tp-AlU5FVpE',
@@ -283,10 +282,20 @@ describe('BlogPostBody', () => {
     expect(
       screen.getByRole('heading', { name: /watch the related video/i })
     ).toBeInTheDocument();
-    expect(screen.getByTitle('Pixel 9 Pro Fold Unboxing')).toHaveAttribute(
-      'loading',
-      'lazy'
+    expect(
+      screen.getByRole('img', {
+        name: 'Video thumbnail for Pixel 9 Pro Fold Unboxing',
+      })
+    ).toHaveAttribute(
+      'src',
+      'https://i.ytimg.com/vi/tp-AlU5FVpE/hqdefault.jpg'
     );
+    expect(
+      screen.getByRole('link', {
+        name: /open video on youtube: pixel 9 pro fold/i,
+      })
+    ).toHaveAttribute('href', 'https://www.youtube.com/watch?v=tp-AlU5FVpE');
+    expect(screen.queryByTitle('Pixel 9 Pro Fold Unboxing')).toBeNull();
   });
 
   it('renders related product links using category-aware and fallback product routes', async () => {

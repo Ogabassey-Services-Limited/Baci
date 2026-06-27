@@ -4,13 +4,12 @@ import { sanitizeSchemaUrl } from './sanitize-json-ld';
 const YOUTUBE_URL_REGEX =
   /https?:\/\/(?:(?:[A-Za-z0-9-]+\.)?youtube(?:-nocookie)?\.com|youtu\.be)\/[^\s"'<>)]*/gi;
 const YOUTUBE_ID_REGEX = /^[A-Za-z0-9_-]{11}$/;
-const MAX_VIDEO_CANDIDATE_STRINGS = 20;
+const MAX_VIDEO_URLS = 20;
 const MAX_TEXT_LENGTH = 500;
 
 type BlogVideoMetadata = {
-  schema: Record<string, unknown>;
+  schema: Record<string, unknown> | null;
   video: {
-    embedUrl: string;
     thumbnailUrl: string;
     title: string;
     videoId: string;
@@ -42,26 +41,30 @@ function normalizeIsoDate(value: string | null | undefined): string | null {
   return date.toISOString();
 }
 
-function collectYouTubeCandidateStrings(
+function collectYouTubeUrls(
   value: unknown,
   output: string[],
   depth = 0
 ): string[] {
-  if (output.length >= MAX_VIDEO_CANDIDATE_STRINGS || depth > 12) {
+  if (output.length >= MAX_VIDEO_URLS || depth > 12) {
     return output;
   }
 
   if (typeof value === 'string') {
-    if (/youtu/i.test(value)) {
-      output.push(value);
+    const normalizedValue = value.replace(/&amp;/g, '&');
+    for (const match of normalizedValue.matchAll(YOUTUBE_URL_REGEX)) {
+      output.push(match[0].replace(/[.,;:!?]+$/, ''));
+      if (output.length >= MAX_VIDEO_URLS) {
+        break;
+      }
     }
     return output;
   }
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      collectYouTubeCandidateStrings(item, output, depth + 1);
-      if (output.length >= MAX_VIDEO_CANDIDATE_STRINGS) {
+      collectYouTubeUrls(item, output, depth + 1);
+      if (output.length >= MAX_VIDEO_URLS) {
         break;
       }
     }
@@ -70,8 +73,8 @@ function collectYouTubeCandidateStrings(
 
   if (value && typeof value === 'object') {
     for (const item of Object.values(value as Record<string, unknown>)) {
-      collectYouTubeCandidateStrings(item, output, depth + 1);
-      if (output.length >= MAX_VIDEO_CANDIDATE_STRINGS) {
+      collectYouTubeUrls(item, output, depth + 1);
+      if (output.length >= MAX_VIDEO_URLS) {
         break;
       }
     }
@@ -81,12 +84,7 @@ function collectYouTubeCandidateStrings(
 }
 
 function extractYouTubeUrls(content: unknown): string[] {
-  return collectYouTubeCandidateStrings(content, []).flatMap((value) => {
-    const normalizedValue = value.replace(/&amp;/g, '&');
-    return [...normalizedValue.matchAll(YOUTUBE_URL_REGEX)].map((match) =>
-      match[0].replace(/[.,;:!?]+$/, '')
-    );
-  });
+  return collectYouTubeUrls(content, []);
 }
 
 function getPathVideoId(url: URL, index: number): string | null {
@@ -151,20 +149,16 @@ function findFirstYouTubeVideoId(content: unknown): string | null {
 export function buildBlogVideoMetadata(input: {
   authorName?: string | null;
   content: unknown;
-  dateModified?: string | null;
-  datePublished?: string | null;
   description?: string | null;
   postUrl: string;
   publisherName?: string | null;
   title: string;
+  videoUploadDate?: string | null;
 }): BlogVideoMetadata | null {
   const videoId = findFirstYouTubeVideoId(input.content);
-  const uploadDate = normalizeIsoDate(
-    input.datePublished ?? input.dateModified ?? null
-  );
   const postUrl = sanitizeSchemaUrl(input.postUrl);
 
-  if (!videoId || !uploadDate || !postUrl) {
+  if (!videoId || !postUrl) {
     return null;
   }
 
@@ -173,44 +167,43 @@ export function buildBlogVideoMetadata(input: {
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`;
   const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-  const thumbnailUrls = [
-    thumbnailUrl,
-    `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-  ];
+  const uploadDate = normalizeIsoDate(input.videoUploadDate ?? null);
   const authorName = normalizeText(input.authorName, '');
   const publisherName = normalizeText(input.publisherName, '');
+  const schema = uploadDate
+    ? {
+        '@context': 'https://schema.org',
+        '@id': `${postUrl}#video-${videoId}`,
+        '@type': 'VideoObject',
+        description,
+        embedUrl,
+        isAccessibleForFree: true,
+        mainEntityOfPage: {
+          '@id': postUrl,
+          '@type': 'WebPage',
+        },
+        name: title,
+        thumbnailUrl: [thumbnailUrl],
+        uploadDate,
+        url: watchUrl,
+        ...(authorName && {
+          author: {
+            '@type': 'Person',
+            name: authorName,
+          },
+        }),
+        ...(publisherName && {
+          publisher: {
+            '@type': 'Organization',
+            name: publisherName,
+          },
+        }),
+      }
+    : null;
 
   return {
-    schema: {
-      '@context': 'https://schema.org',
-      '@id': `${postUrl}#video-${videoId}`,
-      '@type': 'VideoObject',
-      description,
-      embedUrl,
-      isAccessibleForFree: true,
-      mainEntityOfPage: {
-        '@id': postUrl,
-        '@type': 'WebPage',
-      },
-      name: title,
-      thumbnailUrl: thumbnailUrls,
-      uploadDate,
-      url: watchUrl,
-      ...(authorName && {
-        author: {
-          '@type': 'Person',
-          name: authorName,
-        },
-      }),
-      ...(publisherName && {
-        publisher: {
-          '@type': 'Organization',
-          name: publisherName,
-        },
-      }),
-    },
+    schema,
     video: {
-      embedUrl,
       thumbnailUrl,
       title,
       videoId,
