@@ -21,13 +21,21 @@ vi.mock('./blog-page-content', async (importOriginal) => {
   };
 });
 
-const { default: BlogPage, generateMetadata } = await import('./page');
+const {
+  default: BlogPage,
+  generateMetadata,
+  generateStaticParams,
+} = await import('./page');
 
 describe('blog page shell', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
     mockBlogPageContent.mockReset();
     mockBlogPageContent.mockReturnValue(<div>Blog page content</div>);
+  });
+
+  it('generates static params for the monitored OgaBassey blog listing', () => {
+    expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
   });
 
   it('renders listing content directly so raw HTML keeps post anchors', () => {

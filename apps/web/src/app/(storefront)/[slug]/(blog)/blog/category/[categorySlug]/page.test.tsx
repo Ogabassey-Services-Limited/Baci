@@ -55,13 +55,7 @@ describe('blog category page', () => {
     });
   });
 
-  it('renders the blog loading boundary while category content is pending', async () => {
-    mockBlogPageContent.mockImplementation(() => {
-      throw new Promise(() => {
-        // Keep category listing content suspended to verify the local PPR shell.
-      });
-    });
-
+  it('renders a clean category hub with the resolved public category label', async () => {
     render(
       await BlogCategoryPage({
         params: Promise.resolve({
@@ -72,9 +66,26 @@ describe('blog category page', () => {
       })
     );
 
-    expect(
-      screen.getByRole('status', { name: /loading blog posts/i })
-    ).toBeInTheDocument();
+    expect(screen.getByText('Ogabassey blog')).toBeInTheDocument();
+    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'smartphones'
+    );
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isCleanCategoryRoute: true,
+        itemListSchemaUrl: 'https://ogabassey.com/blog/category/smartphones',
+        params: expect.any(Promise),
+        searchParams: expect.any(Promise),
+      })
+    );
+    await expect(
+      mockBlogPageContent.mock.calls[0]?.[0].searchParams
+    ).resolves.toEqual({
+      category: 'Smartphones',
+      page: undefined,
+      search: undefined,
+    });
   });
 
   it('generates static params for public OgaBassey category hubs', async () => {

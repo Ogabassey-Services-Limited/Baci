@@ -1,13 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { Suspense } from 'react';
 import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
-import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
@@ -24,7 +22,6 @@ const AUTHOR_NOT_FOUND_METADATA: Metadata = {
 const OGABASSEY_AUTHOR_STATIC_TENANTS = [
   OGABASSEY_DOMAIN,
   'ogabassey',
-  'www.ogabassey.com',
 ] as const;
 
 export function generateStaticParams(): Array<{
@@ -134,11 +131,9 @@ export default async function BlogAuthorPage({
   const resolvedParams = await assertAuthorRouteBeforeShell(params);
 
   return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogAuthorPageContent
-        params={Promise.resolve(resolvedParams)}
-        searchParams={searchParams}
-      />
-    </Suspense>
+    <BlogAuthorPageContent
+      params={Promise.resolve(resolvedParams)}
+      searchParams={searchParams}
+    />
   );
 }

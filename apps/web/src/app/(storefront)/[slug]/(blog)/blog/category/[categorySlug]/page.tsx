@@ -1,14 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
-import { BlogListingFallback } from '../../BlogListingFallback';
-import {
-  type ResolvedBlogCategoryHub,
-  resolveBlogCategoryHub,
-} from '../../blog-category-hub';
+import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import {
   canUseCleanBlogCategorySlug,
   getBlogCategorySlug,
@@ -38,7 +33,6 @@ const CATEGORY_NOT_FOUND_METADATA: Metadata = {
 const OGABASSEY_CATEGORY_STATIC_TENANTS = [
   OGABASSEY_DOMAIN,
   'ogabassey',
-  'www.ogabassey.com',
 ] as const;
 const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
   'laptops',
@@ -110,16 +104,21 @@ export async function generateMetadata({
   });
 }
 
-async function BlogCategoryPageContent({
-  hub,
+export default async function BlogCategoryPage({
+  params,
   searchParams,
-  slug,
-}: {
-  hub: ResolvedBlogCategoryHub;
-  searchParams: BlogCategoryPageProps['searchParams'];
-  slug: string;
-}) {
-  const resolvedSearchParams = await searchParams;
+}: BlogCategoryPageProps) {
+  // Resolve invalid category hubs before the PPR shell streams. Under Cache
+  // Components, a notFound() below a streamed shell becomes a soft 404.
+  const [{ slug, categorySlug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const hub = await resolveBlogCategoryHub(slug, categorySlug);
+  if (!hub) {
+    notFound();
+  }
+
   const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
   const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
   const currentPage = parseBlogListingPage(page);
@@ -137,28 +136,5 @@ async function BlogCategoryPageContent({
         search,
       })}
     />
-  );
-}
-
-export default async function BlogCategoryPage({
-  params,
-  searchParams,
-}: BlogCategoryPageProps) {
-  // Resolve invalid category hubs before the PPR shell streams. Under Cache
-  // Components, a notFound() below a streamed shell becomes a soft 404.
-  const { slug, categorySlug } = await params;
-  const hub = await resolveBlogCategoryHub(slug, categorySlug);
-  if (!hub) {
-    notFound();
-  }
-
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogCategoryPageContent
-        hub={hub}
-        searchParams={searchParams}
-        slug={slug}
-      />
-    </Suspense>
   );
 }

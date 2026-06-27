@@ -162,27 +162,6 @@ describe('blog author page metadata', () => {
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 
-  it('renders the blog loading boundary while author content is pending', async () => {
-    mockBlogAuthorPageContent.mockImplementation(() => {
-      throw new Promise(() => {
-        // Keep the author content suspended to verify the local PPR shell.
-      });
-    });
-
-    render(
-      await BlogAuthorPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          authorSlug: 'bassey-john',
-        }),
-      })
-    );
-
-    expect(
-      screen.getByRole('status', { name: /loading blog posts/i })
-    ).toBeInTheDocument();
-  });
-
   it('redirects legacy author-prefixed post URLs before rendering the shell', async () => {
     mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
     mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({
