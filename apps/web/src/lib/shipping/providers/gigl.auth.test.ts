@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  abortingFetchResponse,
   baseUrl,
   jsonResponse,
   loginResponseWithoutCustomerType,
   quoteRequest,
+  stationsResponse,
 } from './gigl.test-helpers';
 
 describe('GiglProvider authentication and configuration', () => {
@@ -94,30 +94,38 @@ describe('GiglProvider authentication and configuration', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('preserves quote timeout when sharing an existing token request', async () => {
+  it('keeps shared token refresh independent of a quote timeout', async () => {
     process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
     vi.resetModules();
     vi.useFakeTimers();
-    const fetchMock = vi.fn(abortingFetchResponse);
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            setTimeout(
+              () => resolve(jsonResponse(loginResponseWithoutCustomerType)),
+              50
+            );
+          })
+      )
+      .mockResolvedValueOnce(jsonResponse(stationsResponse));
 
     const { GiglProvider } = await import('./gigl');
     const provider = new GiglProvider();
 
-    const locationsPromise = provider
-      .getLocations()
-      .catch((error: unknown) =>
-        error instanceof Error ? error.name : String(error)
-      );
     const quotePromise = provider.getQuotes(quoteRequest);
+    const locationsPromise = provider.getLocations();
 
     await vi.advanceTimersByTimeAsync(25);
 
     await expect(quotePromise).resolves.toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(25);
 
-    await expect(locationsPromise).resolves.toContain('AbortError');
+    await expect(locationsPromise).resolves.toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

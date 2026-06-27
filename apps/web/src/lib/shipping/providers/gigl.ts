@@ -257,7 +257,7 @@ export class GiglProvider extends BaseShippingProvider {
       return this.withTokenRequestTimeout(this.tokenRequest, timeout, signal);
     }
 
-    this.tokenRequest = this.fetchApiToken(timeout, signal).finally(() => {
+    this.tokenRequest = this.fetchApiToken().finally(() => {
       this.tokenRequest = null;
     });
 
@@ -333,6 +333,10 @@ export class GiglProvider extends BaseShippingProvider {
     }
   }
 
+  private isAuthRejectedResponseStatus(status: number): boolean {
+    return status === 401 || status === 403;
+  }
+
   private async safeFetchWithAccessToken(
     url: string,
     tokenData: GiglToken,
@@ -357,11 +361,13 @@ export class GiglProvider extends BaseShippingProvider {
       withAccessToken(initialOptions, tokenData.token)
     );
 
-    if (response.status !== 401) {
+    if (!this.isAuthRejectedResponseStatus(response.status)) {
       return { response, tokenData };
     }
 
-    this.log('warn', 'GIGL token rejected; refreshing token');
+    this.log('warn', 'GIGL token rejected; refreshing token', {
+      status: response.status,
+    });
     this.invalidateCachedToken(tokenData.token);
 
     const refreshedToken = await this.getApiToken(

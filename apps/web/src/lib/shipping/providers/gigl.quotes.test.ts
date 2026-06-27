@@ -142,6 +142,38 @@ describe('GiglProvider quote requests', () => {
     expect(newPriceHeaders.get('access-token')).toBe('new-token');
   });
 
+  it('refreshes cached tokens rejected with HTTP 403', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithToken('old-token')))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithToken('new-token')))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(jsonResponse(priceResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+
+    const oldStationHeaders = new Headers(
+      fetchMock.mock.calls[1]?.[1]?.headers
+    );
+    const newStationHeaders = new Headers(
+      fetchMock.mock.calls[3]?.[1]?.headers
+    );
+    const priceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
+    expect(oldStationHeaders.get('access-token')).toBe('old-token');
+    expect(newStationHeaders.get('access-token')).toBe('new-token');
+    expect(priceHeaders.get('access-token')).toBe('new-token');
+  });
+
   it('uses the original quote signal during stale-token refresh', async () => {
     process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
     vi.resetModules();
