@@ -313,6 +313,10 @@ describe('merchant-email-domain service', () => {
       'www.ogabassey.com',
     ]);
     expect(ownershipBuilder.eq).toHaveBeenCalledWith('status', 'active');
+    expect(ownershipBuilder.in).toHaveBeenCalledWith('domain_type', [
+      'custom',
+      'purchased',
+    ]);
     expect(mockVercelVerifyDomain).toHaveBeenCalledWith('ogabassey.com');
     expect(mockScopedRpc).toHaveBeenCalledWith(
       'set_merchant_email_domain_enabled',
@@ -418,6 +422,21 @@ describe('merchant-email-domain service', () => {
     await expect(
       setMerchantEmailDomainEnabled('m1', true, scopedSupabase)
     ).rejects.toThrow('active verified storefront domain');
+  });
+
+  it('registerMerchantEmailDomain rejects platform subdomains as sender domains', async () => {
+    const ownershipBuilder = builderFor({ data: [], error: null });
+    mockScopedFrom.mockReturnValueOnce(ownershipBuilder);
+
+    await expect(
+      registerMerchantEmailDomain('m1', 'ogabassey.usebaci.com', scopedSupabase)
+    ).rejects.toThrow('active verified storefront domain');
+
+    expect(ownershipBuilder.in).toHaveBeenCalledWith('domain_type', [
+      'custom',
+      'purchased',
+    ]);
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 
   it('registerMerchantEmailDomain associates reused ZeptoMail domains with the configured agent', async () => {

@@ -153,7 +153,8 @@ async function assertMerchantOwnsVerifiedStorefrontDomain(
     .select('id, domain')
     .eq('merchant_id', merchantId)
     .in('domain', domainOwnershipCandidates(domain))
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .in('domain_type', ['custom', 'purchased']);
   if (error) {
     throw new Error(`Failed to load storefront domain: ${error.message}`);
   }
