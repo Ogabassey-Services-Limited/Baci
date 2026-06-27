@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
   merchant,
@@ -7,7 +8,58 @@ import {
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
 
-const { generateMetadata } = await import('./page');
+const mockBlogPageContent = vi.hoisted(() =>
+  vi.fn((_props: unknown) => <div>Blog page content</div>)
+);
+
+vi.mock('./blog-page-content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./blog-page-content')>();
+
+  return {
+    ...actual,
+    BlogPageContent: (props: unknown) => mockBlogPageContent(props),
+  };
+});
+
+const { default: BlogPage, generateMetadata } = await import('./page');
+
+describe('blog page shell', () => {
+  beforeEach(() => {
+    resetBlogPageContentMocks();
+    mockBlogPageContent.mockReset();
+    mockBlogPageContent.mockReturnValue(<div>Blog page content</div>);
+  });
+
+  it('renders the blog loading boundary while listing content is pending', () => {
+    mockBlogPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the listing suspended to verify the local PPR shell.
+      });
+    });
+
+    render(
+      <BlogPage
+        params={Promise.resolve({ slug: 'test-store' })}
+        searchParams={Promise.resolve({})}
+      />
+    );
+
+    expect(
+      screen.getByRole('status', { name: /loading blog posts/i })
+    ).toBeInTheDocument();
+  });
+
+  it('renders listing content below the route shell boundary', () => {
+    render(
+      <BlogPage
+        params={Promise.resolve({ slug: 'test-store' })}
+        searchParams={Promise.resolve({})}
+      />
+    );
+
+    expect(screen.getByText('Blog page content')).toBeInTheDocument();
+  });
+});
 
 describe('blog page metadata', () => {
   beforeEach(() => {

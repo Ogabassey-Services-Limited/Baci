@@ -107,8 +107,8 @@ describe('blog author page metadata', () => {
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
-  it('renders the author page content for a known author route', async () => {
-    const ui = await BlogAuthorPage({
+  it('renders the author page content for a known author route', () => {
+    const ui = BlogAuthorPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
@@ -117,6 +117,27 @@ describe('blog author page metadata', () => {
     render(ui);
 
     expect(screen.getByText('Author page')).toBeInTheDocument();
+  });
+
+  it('renders the blog loading boundary while author content is pending', () => {
+    mockBlogAuthorPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the author content suspended to verify the local PPR shell.
+      });
+    });
+
+    render(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('status', { name: /loading blog posts/i })
+    ).toBeInTheDocument();
   });
 
   it('builds a page-scoped canonical for paginated author routes', async () => {

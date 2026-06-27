@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
+import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
@@ -77,8 +79,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogAuthorPage(props: AuthorPageProps) {
-  // Render the author profile + article links in the first HTML response so
-  // crawlers (which parse raw HTML) see the full byline-linked author hub.
-  return <>{await BlogAuthorPageContent(props)}</>;
+export default function BlogAuthorPage(props: AuthorPageProps) {
+  // Keep request-time params/searchParams and author listing fetches below an
+  // explicit Suspense boundary so Cache Components can prerender a stable PPR
+  // shell instead of bailing out on cache misses.
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogAuthorPageContent {...props} />
+    </Suspense>
+  );
 }

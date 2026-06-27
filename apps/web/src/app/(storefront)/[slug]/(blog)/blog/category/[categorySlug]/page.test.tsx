@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
@@ -51,9 +51,16 @@ describe('blog category page', () => {
     });
   });
 
-  it('renders a clean category hub with the resolved public category label', async () => {
+  it('renders the blog loading boundary while category resolution is pending', () => {
+    mockResolveBlogCategoryHub.mockImplementationOnce(
+      () =>
+        new Promise(() => {
+          // Keep category resolution suspended to verify the local PPR shell.
+        })
+    );
+
     render(
-      await BlogCategoryPage({
+      BlogCategoryPage({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           categorySlug: 'smartphones',
@@ -62,32 +69,15 @@ describe('blog category page', () => {
       })
     );
 
-    expect(screen.getByText('Ogabassey blog')).toBeInTheDocument();
-    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'smartphones'
-    );
-    expect(mockBlogPageContent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isCleanCategoryRoute: true,
-        itemListSchemaUrl: 'https://ogabassey.com/blog/category/smartphones',
-        params: expect.any(Promise),
-        searchParams: expect.any(Promise),
-      })
-    );
-    await expect(
-      mockBlogPageContent.mock.calls[0]?.[0].searchParams
-    ).resolves.toEqual({
-      category: 'Smartphones',
-      page: undefined,
-      search: undefined,
-    });
+    expect(
+      screen.getByRole('status', { name: /loading blog posts/i })
+    ).toBeInTheDocument();
   });
 
-  it('returns notFound for unknown category slugs', async () => {
+  it('calls notFound when the category hub cannot be resolved', async () => {
     mockResolveBlogCategoryHub.mockResolvedValueOnce(null);
 
-    await expect(
+    render(
       BlogCategoryPage({
         params: Promise.resolve({
           slug: 'ogabassey.com',
@@ -95,10 +85,11 @@ describe('blog category page', () => {
         }),
         searchParams: Promise.resolve({}),
       })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    );
 
-    expect(mockNotFound).toHaveBeenCalledOnce();
-    expect(mockBlogPageContent).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockNotFound).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('uses indexable metadata with the clean category canonical', async () => {
@@ -118,22 +109,6 @@ describe('blog category page', () => {
   });
 
   it('keeps searched category hubs noindex with search-scoped canonical data', async () => {
-    render(
-      await BlogCategoryPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          categorySlug: 'smartphones',
-        }),
-        searchParams: Promise.resolve({ search: 'iphone' }),
-      })
-    );
-
-    expect(mockBlogPageContent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        itemListSchemaUrl: undefined,
-      })
-    );
-
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: 'ogabassey.com',

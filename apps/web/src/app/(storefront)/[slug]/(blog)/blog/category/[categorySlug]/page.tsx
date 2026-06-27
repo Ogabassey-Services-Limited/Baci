@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import { BlogListingFallback } from '../../BlogListingFallback';
 import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -51,7 +53,7 @@ export async function generateMetadata({
   });
 }
 
-export default async function BlogCategoryPage({
+async function BlogCategoryPageContent({
   params,
   searchParams,
 }: BlogCategoryPageProps) {
@@ -81,5 +83,16 @@ export default async function BlogCategoryPage({
         search,
       })}
     />
+  );
+}
+
+export default function BlogCategoryPage(props: BlogCategoryPageProps) {
+  // Keep request-time params/searchParams and category resolution below an
+  // explicit Suspense boundary so Cache Components can prerender a stable PPR
+  // shell instead of bailing out on cache misses.
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogCategoryPageContent {...props} />
+    </Suspense>
   );
 }

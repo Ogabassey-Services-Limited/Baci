@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { BlogListingFallback } from './BlogListingFallback';
 import { buildBlogListingMetadata } from './blog-listing-metadata';
 import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 
@@ -18,7 +20,11 @@ export async function generateMetadata({
 }
 
 export default function BlogPage(props: BlogPageProps) {
-  // Keep article links in the first HTML response. The deploy smoke check and
-  // crawlers parse raw /blog HTML, so do not add a route-level Suspense shell.
-  return <BlogPageContent {...props} />;
+  // Keep request-time params/searchParams and listing fetches below an explicit
+  // Suspense boundary so Cache Components can prerender a stable PPR shell.
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent {...props} />
+    </Suspense>
+  );
 }
