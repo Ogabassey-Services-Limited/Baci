@@ -44,12 +44,23 @@ function formatCountryForReceipt(value: string) {
     : normalized;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function tokenizeCountryForComparison(value: string) {
+  return value.split(/[^a-z0-9]+/i).filter(Boolean);
 }
 
 function hasCountryToken(part: string, country: string) {
-  return new RegExp(`(?:^|\\W)${escapeRegExp(country)}(?:\\W|$)`).test(part);
+  const partTokens = tokenizeCountryForComparison(part);
+  const countryTokens = tokenizeCountryForComparison(country);
+
+  if (countryTokens.length === 0 || countryTokens.length > partTokens.length) {
+    return false;
+  }
+
+  return partTokens.some((_token, index) =>
+    countryTokens.every((countryToken, offset) => {
+      return partTokens[index + offset] === countryToken;
+    })
+  );
 }
 
 function hasAddressPart(parts: string[], value: string, isCountry = false) {
