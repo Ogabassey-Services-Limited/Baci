@@ -1821,6 +1821,8 @@ function CheckoutPageContent() {
                   <DiscountCodeInput
                     merchantId={merchant?.id || ''}
                     cartTotal={cartTotal}
+                    currencyCountryCode={merchant?.country ?? 'NG'}
+                    payoutCurrency={merchant?.payout_currency ?? null}
                     productIds={cart.map((item) => item.id)}
                     onApply={(result) => setAppliedDiscount(result)}
                     onRemove={() => setAppliedDiscount(null)}

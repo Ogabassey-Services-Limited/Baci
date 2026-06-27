@@ -1,13 +1,22 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockToast, mockUseCurrencyWithCountry } = vi.hoisted(() => ({
+  mockToast: vi.fn(),
+  mockUseCurrencyWithCountry: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 vi.mock('@/lib/csrf', () => ({
   buildCsrfHeaders: () => ({ 'x-csrf-token': 'test-csrf-token' }),
+}));
+
+vi.mock('@/hooks/use-currency', () => ({
+  useCurrencyWithCountry: mockUseCurrencyWithCountry,
 }));
 
 import { DiscountCodeInput } from './discount-code-input';
@@ -15,6 +24,19 @@ import { DiscountCodeInput } from './discount-code-input';
 describe('DiscountCodeInput', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    mockToast.mockReset();
+    mockUseCurrencyWithCountry.mockReset();
+    mockUseCurrencyWithCountry.mockReturnValue({
+      formatCurrencyCompact: (amount: number) =>
+        `₦${amount.toLocaleString('en-US')}`,
+    });
+  });
+
+  beforeEach(() => {
+    mockUseCurrencyWithCountry.mockReturnValue({
+      formatCurrencyCompact: (amount: number) =>
+        `₦${amount.toLocaleString('en-US')}`,
+    });
   });
 
   it('uses the already parsed 403 payload without reading response body twice', async () => {
@@ -129,5 +151,118 @@ describe('DiscountCodeInput', () => {
     });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(fetchSpy.mock.calls[1]?.[0]).toBe('/api/csrf');
+  });
+
+  it('formats fixed discount values with compact checkout currency for applied discounts', () => {
+    const appliedDiscount = {
+      valid: true,
+      code: 'FIXED10',
+      discount_type: 'fixed' as const,
+      discount_value: 1000,
+    };
+
+    render(
+      <DiscountCodeInput
+        merchantId="merchant-1"
+        cartTotal={5000}
+        onApply={vi.fn()}
+        onRemove={vi.fn()}
+        appliedDiscount={appliedDiscount}
+      />
+    );
+
+    // Assert that the badge correctly uses the mocked compact formatter.
+    expect(screen.getByText('₦1,000 off')).toBeInTheDocument();
+    expect(mockUseCurrencyWithCountry).toHaveBeenCalledWith('NG', null);
+  });
+
+  it('falls back to NG country while preserving merchant payout currency', () => {
+    mockUseCurrencyWithCountry.mockReturnValue({
+      formatCurrencyCompact: (amount: number) =>
+        `GH₵${amount.toLocaleString('en-US')}`,
+    });
+
+    render(
+      <DiscountCodeInput
+        merchantId="merchant-1"
+        cartTotal={5000}
+        currencyCountryCode={null}
+        payoutCurrency="GHS"
+        onApply={vi.fn()}
+        onRemove={vi.fn()}
+        appliedDiscount={{
+          valid: true,
+          code: 'FIXED10',
+          discount_type: 'fixed',
+          discount_value: 1000,
+        }}
+      />
+    );
+
+    expect(screen.getByText('GH₵1,000 off')).toBeInTheDocument();
+    expect(mockUseCurrencyWithCountry).toHaveBeenCalledWith('NG', 'GHS');
+  });
+
+  it('formats applied fixed discounts with the provided merchant country', () => {
+    mockUseCurrencyWithCountry.mockReturnValue({
+      formatCurrencyCompact: (amount: number) =>
+        `$${amount.toLocaleString('en-US')}`,
+    });
+
+    render(
+      <DiscountCodeInput
+        merchantId="merchant-1"
+        cartTotal={5000}
+        currencyCountryCode="US"
+        onApply={vi.fn()}
+        onRemove={vi.fn()}
+        appliedDiscount={{
+          valid: true,
+          code: 'FIXED10',
+          discount_type: 'fixed',
+          discount_value: 1000,
+        }}
+      />
+    );
+
+    expect(screen.getByText('$1,000 off')).toBeInTheDocument();
+    expect(mockUseCurrencyWithCountry).toHaveBeenCalledWith('US', null);
+  });
+
+  it('uses compact checkout currency in the fixed-discount apply toast', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          valid: true,
+          code: 'FIXED10',
+          discount_type: 'fixed',
+          discount_value: 1000,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    render(
+      <DiscountCodeInput
+        merchantId="merchant-1"
+        cartTotal={5000}
+        onApply={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    await userEvent.type(
+      screen.getByPlaceholderText('Enter discount code'),
+      'fixed10'
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: '₦1,000 off applied to your order',
+        })
+      );
+    });
   });
 });
