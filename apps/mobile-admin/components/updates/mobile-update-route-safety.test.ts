@@ -4,12 +4,15 @@ import { shouldDeferMobileUpdatePrompt } from './mobile-update-route-safety';
 describe('shouldDeferMobileUpdatePrompt', () => {
   it.each([
     ['/complete-profile'],
+    ['/domains/buy'],
+    ['/domains/buy/review'],
     ['/forgot-password'],
     ['/login'],
     ['/onboarding'],
     ['/register'],
     ['/scan'],
     ['/scan/imei'],
+    ['/subscribe'],
     ['/verify'],
   ])('defers mobile update prompts on sensitive route %s', (pathname) => {
     expect(shouldDeferMobileUpdatePrompt(pathname)).toBe(true);

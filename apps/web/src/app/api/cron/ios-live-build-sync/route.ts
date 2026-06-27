@@ -3,7 +3,6 @@ import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { reconcileIosLiveBuild } from '@/lib/ios-live-build-reconcile';
 import { logger } from '@/lib/logger';
-import { readMobileUpdatesEnabled } from '@/lib/mobile-update-gate';
 import { MOBILE_APPS } from '@/schemas/mobile-release-policy';
 
 // Manual fallback only - DO NOT enable Vercel Cron for this route.
@@ -37,11 +36,6 @@ export async function GET(request: NextRequest) {
   let errored = 0;
 
   for (const app of MOBILE_APPS) {
-    if (!readMobileUpdatesEnabled(app)) {
-      results.push({ app, skipped: 'updates_disabled' });
-      continue;
-    }
-
     attempted += 1;
     try {
       const result = await reconcileIosLiveBuild(app, 'app_store_connect_cron');

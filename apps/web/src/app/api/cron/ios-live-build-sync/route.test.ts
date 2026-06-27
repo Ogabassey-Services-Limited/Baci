@@ -59,7 +59,7 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     expect(mockReconcile).not.toHaveBeenCalled();
   });
 
-  it('skips every app when the update gate is disabled', async () => {
+  it('reconciles every app even when prompts are disabled', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'false');
     vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'false');
 
@@ -67,16 +67,20 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockReconcile).toHaveBeenCalledTimes(2);
     expect(body.results).toHaveLength(2);
     expect(body.results).toContainEqual({
       app: 'storefront',
-      skipped: 'updates_disabled',
+      synced: true,
+      build: 360,
+      versionString: '2.1.360',
     });
     expect(body.results).toContainEqual({
       app: 'admin',
-      skipped: 'updates_disabled',
+      synced: true,
+      build: 22,
+      versionString: '2.0.1',
     });
-    expect(mockReconcile).not.toHaveBeenCalled();
   });
 
   it('passes through a no-op reconcile result per app', async () => {
@@ -126,14 +130,14 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     });
   });
 
-  it('reports one app synced while the other is skipped', async () => {
+  it('reconciles an app whose prompts are disabled', async () => {
     vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'false');
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mockReconcile).toHaveBeenCalledTimes(1);
+    expect(mockReconcile).toHaveBeenCalledTimes(2);
     expect(body.results).toHaveLength(2);
     expect(body.results).toContainEqual({
       app: 'storefront',
@@ -143,7 +147,9 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     });
     expect(body.results).toContainEqual({
       app: 'admin',
-      skipped: 'updates_disabled',
+      synced: true,
+      build: 22,
+      versionString: '2.0.1',
     });
   });
 
@@ -162,7 +168,7 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     expect(body.results).toContainEqual({ app: 'admin', error: 'sync_failed' });
   });
 
-  it('returns 502 when the only attempted app errors', async () => {
+  it('returns 502 when both apps error even if prompts are disabled', async () => {
     vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'false');
     mockReconcile.mockRejectedValue(new Error('asc down'));
 
@@ -170,16 +176,13 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     const body = await response.json();
 
     expect(response.status).toBe(502);
-    expect(mockReconcile).toHaveBeenCalledTimes(1);
+    expect(mockReconcile).toHaveBeenCalledTimes(2);
     expect(body.results).toHaveLength(2);
     expect(body.results).toContainEqual({
       app: 'storefront',
       error: 'sync_failed',
     });
-    expect(body.results).toContainEqual({
-      app: 'admin',
-      skipped: 'updates_disabled',
-    });
+    expect(body.results).toContainEqual({ app: 'admin', error: 'sync_failed' });
   });
 
   it('returns 200 when one app errors but another succeeds', async () => {

@@ -106,6 +106,10 @@ export async function resolveMobileUpdatePrompt(
     }
 
     if (policy.nativeUpdateRecommended) {
+      if (!hasText(policy.storeUrl)) {
+        return { kind: 'none' };
+      }
+
       return {
         kind: 'native-recommended',
         message: policy.message ?? 'A newer app version is available.',

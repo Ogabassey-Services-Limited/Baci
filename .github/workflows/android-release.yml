@@ -263,8 +263,8 @@ jobs:
           changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
 
       # Point the admin in-app update gate at the build we just published so
-      # installs below this versionCode get prompted. The new value applies on
-      # the next production web deploy (Vercel snapshots env at deploy time).
+      # installs below this versionCode get prompted. The DB row is runtime-visible
+      # immediately; the Vercel env write remains as a deploy-time fallback.
       # Non-fatal: a sync hiccup must never fail an otherwise-successful release.
       - name: Sync Android build number to in-app update gate
         if: steps.play_upload.outcome == 'success'
@@ -272,10 +272,32 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
+          if [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            DB_PAYLOAD="[{\"app\":\"admin\",\"platform\":\"android\",\"latest_live_build\":${VERSION_CODE},\"source\":\"google_play_release\",\"updated_at\":\"${UPDATED_AT}\"}]"
+            if ! DB_HTTP_CODE=$(curl -sS -o /tmp/mobile_release_gate.json -w '%{http_code}' -X POST \
+              "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/mobile_release_gate?on_conflict=app,platform" \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: resolution=merge-duplicates,return=minimal" \
+              -d "$DB_PAYLOAD"); then
+              echo "::warning::mobile_release_gate DB sync failed before receiving an HTTP response"
+            elif [ "$DB_HTTP_CODE" -ge 200 ] && [ "$DB_HTTP_CODE" -lt 300 ]; then
+              echo "Upserted mobile_release_gate admin/android latest_live_build=${VERSION_CODE} (HTTP ${DB_HTTP_CODE})"
+            else
+              echo "::warning::mobile_release_gate DB sync failed (HTTP ${DB_HTTP_CODE}): $(cat /tmp/mobile_release_gate.json)"
+            fi
+          else
+            echo "::warning::Supabase credentials missing — skipping runtime update-gate DB sync"
+          fi
+
           if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::warning::Vercel credentials missing — skipping update-gate sync"
+            echo "::warning::Vercel credentials missing — skipping update-gate env fallback sync"
             exit 0
           fi
           TEAM_QS=""

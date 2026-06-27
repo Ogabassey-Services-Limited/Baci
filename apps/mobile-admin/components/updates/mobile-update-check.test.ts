@@ -117,6 +117,29 @@ describe('resolveMobileUpdatePrompt', () => {
     expect(checkForUpdateAsync).not.toHaveBeenCalled();
   });
 
+  it('fails open when a recommended native update has no store URL', async () => {
+    const checkForUpdateAsync = createCheckForUpdateMock();
+
+    const result = await resolveMobileUpdatePrompt({
+      ...baseInput,
+      checkForUpdateAsync,
+      fetchPolicy: createFetchPolicyMock().mockResolvedValue({
+        enabled: true,
+        latestNativeVersion: '2.2.0',
+        message: 'Update available.',
+        minNativeVersion: null,
+        nativeUpdateRecommended: true,
+        nativeUpdateRequired: false,
+        storeUrl: '   ',
+      }),
+      isOtaEnabled: true,
+      pathname: '/',
+    });
+
+    expect(result.kind).toBe('none');
+    expect(checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
   it('returns ota-available when policy is clear and Expo reports an available update', async () => {
     const result = await resolveMobileUpdatePrompt({
       ...baseInput,
