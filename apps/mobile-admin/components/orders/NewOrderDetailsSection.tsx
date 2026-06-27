@@ -97,7 +97,9 @@ export function NewOrderDetailsSection({
               <View
                 style={{ alignItems: 'center', flexDirection: 'row', gap: 6 }}
               >
-                <Text style={[styles.listValue, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.listValue, { color: colors.textSecondary }]}
+                >
                   {format(date, 'MMM dd, yyyy')}
                 </Text>
                 <Ionicons
@@ -220,7 +222,7 @@ export function NewOrderDetailsSection({
             accessibilityRole="switch"
             accessibilityState={{ checked: sameAsCustomer }}
             onValueChange={setSameAsCustomer}
-            thumbColor={sameAsCustomer ? '#fff' : '#f4f3f4'}
+            thumbColor={sameAsCustomer ? colors.textOnPrimary : colors.border}
             trackColor={{ false: colors.border, true: colors.primary }}
             value={sameAsCustomer}
           />

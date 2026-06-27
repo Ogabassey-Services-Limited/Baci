@@ -10,3 +10,7 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+## 2026-06-27 — [Switch component thumb colors]
+**Learning:** Hardcoded white (`#fff`) or light grey (`#f4f3f4`) in `thumbColor` of a `Switch` component fails to adapt to themes properly. Using `colors.textOnPrimary` for the active state (often paired with a primary color track) and `colors.border` or `colors.textMuted` for the inactive state ensures proper contrast in both light and dark modes.
+**Action:** Always replace hardcoded switch thumb colors with dynamic theme tokens, verifying the contrast against the chosen `trackColor` for both states and modes.
+**Source:** apps/mobile-admin/components/orders/NewOrderDetailsSection.tsx / WCAG SC 1.4.11
