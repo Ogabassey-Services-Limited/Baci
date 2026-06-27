@@ -1,5 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type * as TypeScript from 'typescript';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const require = createRequire(import.meta.url);
+const ts = require('typescript') as typeof TypeScript;
 const mockCreatePublicClient = vi.fn();
 const mockNormalizeProducts = vi.fn((products: unknown[]) =>
   products.map((p: unknown) => ({
@@ -18,6 +25,44 @@ vi.mock('@/lib/normalize-product', () => ({
 }));
 
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
+
+const SOURCE = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    'cached-storefront-product-index.ts'
+  ),
+  'utf8'
+);
+const SOURCE_AST = ts.createSourceFile(
+  'cached-storefront-product-index.ts',
+  SOURCE,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS
+);
+
+function getFunctionSource(functionName: string): string {
+  let match: TypeScript.FunctionDeclaration | undefined;
+
+  function visit(node: TypeScript.Node): void {
+    if (match) return;
+    if (ts.isFunctionDeclaration(node) && node.name?.text === functionName) {
+      match = node;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(SOURCE_AST);
+
+  if (!match) {
+    throw new Error(
+      `Unable to locate ${functionName} in cached-storefront-product-index.ts`
+    );
+  }
+
+  return SOURCE.slice(match.getStart(SOURCE_AST), match.end);
+}
 
 function createQueryBuilder(overrides: {
   data?: unknown[] | null;
@@ -49,6 +94,15 @@ describe('getCachedStorefrontProductIndex', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('keeps the public product index off the remote cache handler', () => {
+    const source = getFunctionSource('getCachedStorefrontProductIndex');
+
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('products');");
+    expect(source).toContain('cacheTag(');
   });
 
   it('returns normalized products with pagination metadata on success', async () => {

@@ -58,9 +58,6 @@ describe('password-utils', () => {
       expect(checkPasswordStrength('aaaa123456')).toBe(1);
       // 12 chars with repeats: normally 3, but penalized to 2
       expect(checkPasswordStrength('aaaa12345678')).toBe(2);
-      // 16 chars with repeats: normally 3, penalized to 2 because 16 is not < 16 but 12 < 16 condition
-      // Wait, if length >= 16, it doesn't penalize below 2. length < 16 returns 2.
-      // let's just test the < 12 case
     });
 
     it('penalizes sequential characters', () => {
@@ -115,16 +112,17 @@ describe('password-utils', () => {
       expect(result.requirements.match).toBe(false);
     });
 
-    it('fails validation for 8-9 character passwords despite comments', () => {
+    it.fails('validates 8-9 character passwords without patterns as intended', () => {
       // The code comment says: "This effectively enforces >10 chars OR >8 chars without patterns"
-      // However, checkPasswordStrength returns 1 for length < 10.
+      // However, checkPasswordStrength currently returns 1 for length < 10.
       // validatePassword requires strength >= 2.
       // Therefore, 8 or 9 char passwords ALWAYS fail, even if they have no patterns.
+      // We expect the correct behavior here and flag the test as failing to document the bug.
       const result = validatePassword('GoodP@sw');
-      expect(result.isValid).toBe(false);
-      expect(result.error).toBe('Password is too weak. Try making it longer.');
-      expect(result.strength).toBe(1);
-      expect(result.requirements.complexity).toBe(false);
+      expect(result.isValid).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(result.strength).toBeGreaterThanOrEqual(2);
+      expect(result.requirements.complexity).toBe(true);
     });
   });
 });
