@@ -3,7 +3,6 @@ import { getAppStoreConnectWebhookSecret } from '@/env';
 import { verifyAppleWebhookSignature } from '@/lib/apple-webhook-signature';
 import { reconcileIosLiveBuild } from '@/lib/ios-live-build-reconcile';
 import { logger } from '@/lib/logger';
-import { readMobileUpdatesEnabled } from '@/lib/mobile-update-gate';
 import { appStoreWebhookQuerySchema } from '@/schemas/mobile-release-policy';
 
 // App Store Connect webhook (Users and Access > Integrations > Webhooks).
@@ -44,10 +43,6 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get('X-Apple-Signature');
   if (!verifyAppleWebhookSignature(rawBody, signature, secret)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-  }
-
-  if (!readMobileUpdatesEnabled(app)) {
-    return NextResponse.json({ skipped: 'updates_disabled' });
   }
 
   try {

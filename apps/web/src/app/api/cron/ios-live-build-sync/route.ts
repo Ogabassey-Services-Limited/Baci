@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   const results: Record<string, unknown>[] = [];
+  let attempted = 0;
   let errored = 0;
 
   for (const app of MOBILE_APPS) {
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
+    attempted += 1;
     try {
       const result = await reconcileIosLiveBuild(app, 'app_store_connect_cron');
       if (!result.synced) {
@@ -73,6 +75,6 @@ export async function GET(request: NextRequest) {
 
   // 502 only when every attempted app errored, so a single app's ASC hiccup
   // doesn't mask the others' success in the cron's exit status.
-  const status = errored > 0 && errored === MOBILE_APPS.length ? 502 : 200;
+  const status = attempted > 0 && errored === attempted ? 502 : 200;
   return NextResponse.json({ results }, { status });
 }

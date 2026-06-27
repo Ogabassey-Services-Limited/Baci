@@ -1,7 +1,8 @@
 import * as Application from 'expo-application';
 import { usePathname } from 'expo-router';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { AppState, Linking, Platform } from 'react-native';
+import { AppState, Linking } from 'react-native';
+import { getRuntimePlatform } from '@/config/runtime-platform';
 import { BASE_URL } from '@/lib/api-base-url';
 import { MobileUpdateModal } from './MobileUpdateModal';
 import {
@@ -22,8 +23,9 @@ import { shouldDeferMobileUpdatePrompt } from './mobile-update-route-safety';
 const ADMIN_UPDATE_CHANNEL = 'production';
 
 function getSupportedPlatform() {
-  return Platform.OS === 'android' || Platform.OS === 'ios'
-    ? Platform.OS
+  const platform = getRuntimePlatform();
+  return platform === 'android' || platform === 'ios'
+    ? platform
     : 'unsupported';
 }
 
@@ -58,6 +60,14 @@ async function runMobileUpdateCheck(params: {
       case 'none':
         return;
       default:
+        if (result.kind === 'native-required' && !result.storeUrl) {
+          if (__DEV__) {
+            console.warn(
+              '[MobileUpdateController] required native update omitted store URL; failing open'
+            );
+          }
+          return;
+        }
         params.setPrompt(result);
     }
   } catch (error) {
@@ -124,6 +134,9 @@ export function MobileUpdateController() {
       // native variants that carry a storeUrl.
       if (prompt.kind !== 'ota-available' && prompt.storeUrl) {
         await Linking.openURL(prompt.storeUrl);
+      } else if (prompt.kind === 'native-required') {
+        setPrompt(null);
+        return;
       }
 
       if (prompt.kind === 'native-recommended') {

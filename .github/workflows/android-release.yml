@@ -280,11 +280,14 @@ jobs:
           fi
           TEAM_QS=""
           if [ -n "$VERCEL_ORG_ID" ]; then TEAM_QS="&teamId=${VERCEL_ORG_ID}"; fi
-          HTTP_CODE=$(curl -sS -o /tmp/vercel_env.json -w '%{http_code}' -X POST \
+          if ! HTTP_CODE=$(curl -sS -o /tmp/vercel_env.json -w '%{http_code}' -X POST \
             "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?upsert=true${TEAM_QS}" \
             -H "Authorization: Bearer ${VERCEL_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{\"key\":\"MOBILE_ADMIN_ANDROID_LATEST_BUILD\",\"value\":\"${VERSION_CODE}\",\"type\":\"encrypted\",\"target\":[\"production\"]}")
+            -d "{\"key\":\"MOBILE_ADMIN_ANDROID_LATEST_BUILD\",\"value\":\"${VERSION_CODE}\",\"type\":\"encrypted\",\"target\":[\"production\"]}"); then
+            echo "::warning::Vercel env sync failed before receiving an HTTP response"
+            exit 0
+          fi
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo "Synced MOBILE_ADMIN_ANDROID_LATEST_BUILD=${VERSION_CODE} (HTTP ${HTTP_CODE})"
           else

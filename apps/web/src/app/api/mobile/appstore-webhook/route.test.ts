@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
@@ -92,7 +92,7 @@ describe('POST /api/mobile/appstore-webhook', () => {
     expect(response.status).toBe(401);
   });
 
-  it('skips reconcile when the update gate is disabled', async () => {
+  it('still reconciles live builds when user prompts are disabled', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'false');
 
     const response = await POST(
@@ -100,8 +100,17 @@ describe('POST /api/mobile/appstore-webhook', () => {
     );
     const json = await response.json();
 
-    expect(json).toEqual({ skipped: 'updates_disabled' });
-    expect(mockReconcile).not.toHaveBeenCalled();
+    expect(mockReconcile).toHaveBeenCalledWith(
+      'storefront',
+      'app_store_connect_webhook'
+    );
+    expect(json).toEqual({
+      synced: true,
+      app: 'storefront',
+      platform: 'ios',
+      build: 360,
+      versionString: '2.1.360',
+    });
   });
 
   it('reconciles and reports the synced build for a valid signed storefront delivery', async () => {

@@ -139,6 +139,21 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     ]);
   });
 
+  it('returns 502 when the only attempted app errors', async () => {
+    vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'false');
+    mockReconcile.mockRejectedValue(new Error('asc down'));
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(mockReconcile).toHaveBeenCalledTimes(1);
+    expect(body.results).toEqual([
+      { app: 'storefront', error: 'sync_failed' },
+      { app: 'admin', skipped: 'updates_disabled' },
+    ]);
+  });
+
   it('returns 200 when one app errors but another succeeds', async () => {
     mockReconcile.mockImplementation((app: 'storefront' | 'admin') => {
       if (app === 'admin') return Promise.reject(new Error('asc down'));

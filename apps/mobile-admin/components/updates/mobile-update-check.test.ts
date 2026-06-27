@@ -59,7 +59,7 @@ describe('resolveMobileUpdatePrompt', () => {
       checkForUpdateAsync,
       fetchPolicy,
       isOtaEnabled: true,
-      pathname: '/(auth)/login',
+      pathname: '/login',
     });
 
     expect(result.kind).toBe('deferred');
@@ -91,6 +91,29 @@ describe('resolveMobileUpdatePrompt', () => {
       message: 'Update required.',
       storeUrl: 'https://apps.apple.com/app/id6472735367',
     });
+    expect(checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
+  it('fails open when a required native update has no store URL', async () => {
+    const checkForUpdateAsync = createCheckForUpdateMock();
+
+    const result = await resolveMobileUpdatePrompt({
+      ...baseInput,
+      checkForUpdateAsync,
+      fetchPolicy: createFetchPolicyMock().mockResolvedValue({
+        enabled: true,
+        latestNativeVersion: '2.2.0',
+        message: 'Update required.',
+        minNativeVersion: '2.1.0',
+        nativeUpdateRecommended: true,
+        nativeUpdateRequired: true,
+        storeUrl: null,
+      }),
+      isOtaEnabled: true,
+      pathname: '/',
+    });
+
+    expect(result.kind).toBe('none');
     expect(checkForUpdateAsync).not.toHaveBeenCalled();
   });
 

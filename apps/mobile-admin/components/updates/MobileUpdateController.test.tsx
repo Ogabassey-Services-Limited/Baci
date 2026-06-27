@@ -27,6 +27,9 @@ vi.mock('expo-router', () => ({
 vi.mock('@/lib/api-base-url', () => ({
   BASE_URL: 'https://usebaci.com',
 }));
+vi.mock('@/config/runtime-platform', () => ({
+  getRuntimePlatform: () => mockPlatformOS,
+}));
 
 vi.mock('./mobile-update-check', () => ({
   resolveMobileUpdatePrompt: (
@@ -72,9 +75,6 @@ vi.mock('react-native', () => ({
   },
   Linking: {
     openURL: (url: string) => mockOpenUrl(url),
-  },
-  get Platform() {
-    return { OS: mockPlatformOS };
   },
 }));
 
@@ -197,6 +197,22 @@ describe('MobileUpdateController', () => {
     await waitFor(() => {
       expect(mockOpenUrl).toHaveBeenCalledWith(STORE_URL);
     });
+  });
+
+  it('does not trap users on a required native prompt without a store URL', async () => {
+    mockResolveMobileUpdatePrompt.mockResolvedValue({
+      kind: 'native-required',
+      message: 'Install the latest app.',
+      storeUrl: null,
+    });
+
+    render(<ControllerHarness />);
+
+    await waitFor(() => {
+      expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText('prompt:native-required')).toBeNull();
+    expect(mockOpenUrl).not.toHaveBeenCalled();
   });
 
   it('dismisses optional prompts', async () => {

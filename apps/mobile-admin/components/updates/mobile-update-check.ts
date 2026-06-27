@@ -94,6 +94,10 @@ export async function resolveMobileUpdatePrompt(
     }
 
     if (policy.nativeUpdateRequired) {
+      if (!hasText(policy.storeUrl)) {
+        return { kind: 'none' };
+      }
+
       return {
         kind: 'native-required',
         message: policy.message ?? 'Install the latest app to continue.',
