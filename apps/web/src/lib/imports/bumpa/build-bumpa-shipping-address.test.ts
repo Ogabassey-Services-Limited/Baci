@@ -65,6 +65,33 @@ describe('buildBumpaShippingAddress', () => {
     });
   });
 
+  it('prefers raw shipping columns over bumpa customer columns', () => {
+    expect(
+      buildBumpaShippingAddress({
+        bumpa_customer_full_address: '12 Allen Ave, Ikeja, Lagos, Nigeria',
+        bumpa_customer_street: '12 Allen Ave',
+        bumpa_customer_city: 'Ikeja',
+        bumpa_customer_state: 'Lagos',
+        bumpa_customer_country: 'Nigeria',
+        bumpa_customer_zip: '100001',
+        shipping_full_address: '25 Admiralty Way, Lekki, Lagos, Nigeria',
+        shipping_street: '25 Admiralty Way',
+        shipping_city: 'Lekki',
+        shipping_state: 'Lagos Island',
+        shipping_country: 'NG',
+        shipping_zip: '105102',
+      })
+    ).toEqual({
+      fullAddress: '25 Admiralty Way, Lekki, Lagos, Nigeria',
+      address: '25 Admiralty Way',
+      city: 'Lekki',
+      state: 'Lagos Island',
+      country: 'NG',
+      postalCode: '105102',
+      source: 'bumpa_import',
+    });
+  });
+
   it('returns null when sparse address fields sanitize to empty values', () => {
     expect(
       buildBumpaShippingAddress({
