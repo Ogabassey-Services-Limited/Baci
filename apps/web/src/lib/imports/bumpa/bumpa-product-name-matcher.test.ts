@@ -21,12 +21,12 @@ describe('createBumpaProductNameMatcher', () => {
     const matchProduct = createBumpaProductNameMatcher([
       product({
         id: 'fold-5',
-        name: 'Samsung Galaxy Z Fold 5',
+        name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
         status: 'active',
       }),
       product({
         id: 'fold-5-archived',
-        name: 'Samsung Galaxy Z Fold 5 12GB 512GB',
+        name: 'Samsung Galaxy Z Fold 5',
         status: 'archived',
       }),
     ]);
@@ -82,5 +82,17 @@ describe('createBumpaProductNameMatcher', () => {
     ]);
 
     expect(matchProduct('Oraimo Power Bank 20000mAh')).toBeNull();
+  });
+
+  it('does not match catalog variants missing imported model qualifiers', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        id: 'iphone-15-pro',
+        name: 'iPhone 15 Pro 256GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('iPhone 15 Pro Max 256GB')).toBeNull();
   });
 });

@@ -10,6 +10,21 @@ interface IndexedProduct {
 const CONDITION_TEXT_PATTERN =
   /\b(premium\s*used|uk\s*used|open\s*box|brand\s*new|brandnew|new|used)\b/gi;
 
+const MODEL_QUALIFIER_TOKENS = new Set([
+  'air',
+  'edge',
+  'fe',
+  'flip',
+  'fold',
+  'lite',
+  'max',
+  'mini',
+  'plus',
+  'pro',
+  'se',
+  'ultra',
+]);
+
 function normalizeSamsungFoldAlias(value: string) {
   return value.replace(
     /\bsamsung\s+galaxy\s+fold\b/gi,
@@ -44,8 +59,25 @@ function activeStatusWeight(product: ExistingImportedProduct) {
   return product.status === 'active' ? 1.5 : 0;
 }
 
+function hasDifferentModelQualifiers(
+  queryTokens: Set<string>,
+  candidateTokens: Set<string>
+) {
+  for (const token of MODEL_QUALIFIER_TOKENS) {
+    if (queryTokens.has(token) !== candidateTokens.has(token)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function scoreTokenMatch(queryTokens: Set<string>, candidate: IndexedProduct) {
   if (queryTokens.size === 0 || candidate.tokens.size === 0) {
+    return 0;
+  }
+
+  if (hasDifferentModelQualifiers(queryTokens, candidate.tokens)) {
     return 0;
   }
 
@@ -58,7 +90,7 @@ function scoreTokenMatch(queryTokens: Set<string>, candidate: IndexedProduct) {
 
   const queryCoverage = overlap / queryTokens.size;
   const candidateCoverage = overlap / candidate.tokens.size;
-  if (queryCoverage < 0.8 && candidateCoverage < 0.8) {
+  if (queryCoverage <= 0.8 || candidateCoverage < 0.8) {
     return 0;
   }
 
