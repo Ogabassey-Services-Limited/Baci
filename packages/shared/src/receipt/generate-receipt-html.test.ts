@@ -218,6 +218,58 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('<div class="info-name">card</div>');
   });
 
+  it('includes postal code and country in the customer address block', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '12 Admiralty Way',
+          city: 'Lekki',
+          state: 'Lagos',
+          postal_code: '100001',
+          country: 'Nigeria',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('12 Admiralty Way');
+    expect(html).toContain('Lekki, Lagos');
+    expect(html).toContain('100001');
+    expect(html).toContain('Nigeria');
+  });
+
+  it('does not duplicate country when the imported full address already contains it', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '10 Marina, Lagos, Nigeria',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'NG',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html.match(/Nigeria/g) ?? []).toHaveLength(1);
+    expect(html).not.toContain('<div>NG</div>');
+  });
+
+  it('renders standalone Nigerian country codes as Nigeria', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '12 Admiralty Way',
+          country: 'NG',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Nigeria');
+    expect(html).not.toContain('<div>NG</div>');
+  });
+
   it.each([
     null,
     '   ',
