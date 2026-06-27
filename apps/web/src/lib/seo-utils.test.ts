@@ -1227,6 +1227,29 @@ describe('getCanonicalStorefrontFilterSearchParams', () => {
     ).toBe('minPrice=100000&maxPrice=500000');
   });
 
+  it('normalizes search aliases to the canonical search query param', () => {
+    expect(
+      getCanonicalStorefrontFilterSearchParams(
+        { q: 'iphone 16' },
+        { filtersAffectResults: true }
+      ).toString()
+    ).toBe('search=iphone+16');
+
+    expect(
+      getCanonicalStorefrontFilterSearchParams(
+        { query: 'pixel 10' },
+        { filtersAffectResults: true }
+      ).toString()
+    ).toBe('search=pixel+10');
+
+    expect(
+      getCanonicalStorefrontFilterSearchParams(
+        { search: 'redmi pad' },
+        { filtersAffectResults: true }
+      ).toString()
+    ).toBe('search=redmi+pad');
+  });
+
   it('drops canonical filter params until filters affect listing results', () => {
     expect(
       getCanonicalStorefrontFilterSearchParams({ brand: 'Dell' }).toString()
