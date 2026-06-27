@@ -7,6 +7,7 @@ SCHEME = "BaciTheEcommerceBuilder"
 BUNDLE_ID = "com.ogabassey.baci"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
 APP_STORE_RELEASE_NOTES_MAX_LENGTH = 4000
+APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS = 5400
 
 def ensure_required_env!(keys)
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
@@ -72,6 +73,18 @@ def app_store_release_notes(text)
   notes[0, APP_STORE_RELEASE_NOTES_MAX_LENGTH]
 end
 
+
+def app_store_processing_wait_timeout_seconds
+  raw_value = ENV["APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS"].to_s.strip
+  return APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS if raw_value.empty?
+
+  timeout_seconds = Integer(raw_value, 10)
+  UI.user_error!("APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS must be positive") unless timeout_seconds.positive?
+  timeout_seconds
+rescue ArgumentError
+  UI.user_error!("APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS must be an integer number of seconds")
+end
+
 def wait_for_app_store_build_processing!(api_key:, app_version:, build_number:)
   wait_opts = {
     api_key: api_key,
@@ -83,7 +96,7 @@ def wait_for_app_store_build_processing!(api_key:, app_version:, build_number:)
     notify_external_testers: false,
     skip_waiting_for_build_processing: false,
     wait_processing_interval: 30,
-    wait_processing_timeout_duration: 5400
+    wait_processing_timeout_duration: app_store_processing_wait_timeout_seconds
   }
 
   wait_opts[:app_version] = app_version unless app_version.empty?
