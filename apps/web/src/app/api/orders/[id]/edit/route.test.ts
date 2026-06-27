@@ -273,7 +273,7 @@ describe('PATCH /api/orders/[id]/edit', () => {
     expect(response.status).toBe(status);
   });
 
-  it('returns 500 when the updated order cannot be refreshed', async () => {
+  it('returns degraded success when the updated order cannot be refreshed', async () => {
     const { supabase } = createSupabaseMock({
       refreshError: { message: 'refresh failed' },
     });
@@ -286,7 +286,11 @@ describe('PATCH /api/orders/[id]/edit', () => {
     const response = await callPatch(createRequest(validPayload));
     const payload = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(payload).toEqual({ error: 'Order updated but refresh failed' });
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      edit: editResult,
+      order: { id: editResult.order_id },
+      order_refresh_failed: true,
+    });
   });
 });

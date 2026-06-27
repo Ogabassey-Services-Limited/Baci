@@ -350,14 +350,18 @@ BEGIN
     NULL;
   END;
 
-  DELETE FROM public.order_items WHERE order_id = v_order_id;
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.order_items
-    WHERE order_id = v_order_id
-  ) THEN
-    RAISE EXCEPTION 'authenticated role unexpectedly deleted order items directly';
-  END IF;
+  BEGIN
+    DELETE FROM public.order_items WHERE order_id = v_order_id;
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.order_items
+      WHERE order_id = v_order_id
+    ) THEN
+      RAISE EXCEPTION 'authenticated role unexpectedly deleted order items directly';
+    END IF;
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
 
   BEGIN
     PERFORM public.update_admin_order(

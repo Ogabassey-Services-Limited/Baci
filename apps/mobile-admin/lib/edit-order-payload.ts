@@ -85,7 +85,11 @@ export interface EditOrderPayloadDraft {
 }
 
 function getOrderItemProductMatchStatus(item: OrderItem) {
-  return item.product_match_status ?? (item.is_custom ? 'custom' : 'linked');
+  if (item.is_custom || !item.product_id) {
+    return 'custom';
+  }
+
+  return item.product_match_status ?? 'linked';
 }
 
 export function isOrderFinanciallyLocked(

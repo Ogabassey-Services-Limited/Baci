@@ -175,7 +175,7 @@ export function normalizeVariantAttributes(
     return null;
   }
 
-  return normalized;
+  return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
 export function buildStructuredVariantPickerItems(args: {

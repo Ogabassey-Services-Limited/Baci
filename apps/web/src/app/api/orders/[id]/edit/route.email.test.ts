@@ -175,7 +175,7 @@ describe('PATCH /api/orders/[id]/edit email scheduling', () => {
     });
   });
 
-  it('does not schedule email when the updated order refresh fails', async () => {
+  it('still schedules email when the post-commit order refresh fails', async () => {
     const { supabase } = createSupabaseMock({
       refreshError: { message: 'refresh failed' },
     });
@@ -187,8 +187,17 @@ describe('PATCH /api/orders/[id]/edit email scheduling', () => {
 
     const response = await callPatch(createRequest());
 
-    expect(response.status).toBe(500);
-    expect(afterCallbacks).toHaveLength(0);
+    expect(response.status).toBe(200);
+    expect(afterCallbacks).toHaveLength(1);
+
+    await afterCallbacks[0]?.();
+
+    expect(mockSendOrderUpdatedEmail).toHaveBeenCalledWith({
+      changeCategory: 'financial',
+      changedFields: ['items', 'total'],
+      orderId: '11111111-1111-4111-8111-111111111111',
+      supabase,
+    });
   });
 
   it('does not schedule email when notification is not eligible', async () => {

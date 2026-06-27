@@ -144,30 +144,6 @@ export async function PATCH(
   }
 
   const result = data as OrderEditRpcResult;
-
-  const { data: updatedOrder, error: updatedOrderError } = await supabase
-    .from('orders')
-    .select(MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY)
-    .eq('id', paramsResult.data.id)
-    .eq('merchant_id', result.merchant_id ?? '')
-    .single();
-
-  if (updatedOrderError || !updatedOrder) {
-    return NextResponse.json(
-      { error: 'Order updated but refresh failed' },
-      { status: 500 }
-    );
-  }
-
-  const normalizedOrder = updatedOrder as Record<string, unknown> & {
-    items?: unknown[];
-    order_items?: unknown[];
-  };
-  const {
-    items: orderItems,
-    order_items: legacyOrderItems,
-    ...orderFields
-  } = normalizedOrder;
   const changeCategory = normalizeOrderEditChangeCategory(
     result.change_category
   );
@@ -205,6 +181,39 @@ export async function PATCH(
       }
     });
   }
+
+  const { data: updatedOrder, error: updatedOrderError } = await supabase
+    .from('orders')
+    .select(MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY)
+    .eq('id', paramsResult.data.id)
+    .eq('merchant_id', result.merchant_id ?? '')
+    .single();
+
+  if (updatedOrderError || !updatedOrder) {
+    logger.warn({
+      error: updatedOrderError,
+      message: 'Order edit committed but refreshed order fetch failed',
+      orderId: result.order_id ?? paramsResult.data.id,
+    });
+
+    return NextResponse.json({
+      edit: data,
+      order: {
+        id: result.order_id ?? paramsResult.data.id,
+      },
+      order_refresh_failed: true,
+    });
+  }
+
+  const normalizedOrder = updatedOrder as Record<string, unknown> & {
+    items?: unknown[];
+    order_items?: unknown[];
+  };
+  const {
+    items: orderItems,
+    order_items: legacyOrderItems,
+    ...orderFields
+  } = normalizedOrder;
 
   return NextResponse.json({
     edit: data,

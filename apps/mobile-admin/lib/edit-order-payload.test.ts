@@ -200,6 +200,24 @@ describe('buildEditOrderPayload', () => {
     });
   });
 
+  it('normalizes unlinked legacy items to custom before submit', () => {
+    const payload = buildPayload({
+      orderItems: [
+        {
+          ...orderItems[0],
+          is_custom: false,
+          product_id: null,
+          product_match_status: 'unreviewed',
+        },
+      ],
+    });
+
+    expect(payload.items[0]).toMatchObject({
+      product_id: null,
+      product_match_status: 'custom',
+    });
+  });
+
   it('uses the walk-in customer fallback for blank customer names', () => {
     const payload = buildPayload({
       customer: {

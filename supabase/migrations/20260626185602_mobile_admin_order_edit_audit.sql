@@ -87,6 +87,8 @@ DECLARE
   v_gift_wrapping_fee numeric := 0;
   v_tax_basis text := 'exclusive';
   v_tax_amount numeric := 0;
+  v_tax_exclusive_amount numeric := 0;
+  v_tax_inclusive_amount numeric := 0;
   v_total numeric := 0;
   v_paid_amount numeric := 0;
   v_wallet_amount numeric := 0;
@@ -392,6 +394,16 @@ BEGIN
     COALESCE(v_order.gift_wrapping_fee, 0)
   );
   v_tax_basis := COALESCE(NULLIF(v_order.tax_basis, ''), 'exclusive');
+  IF v_items_changed
+    OR v_subtotal IS DISTINCT FROM COALESCE(v_order.subtotal, 0)
+    OR v_tax_amount IS DISTINCT FROM COALESCE(v_order.tax_amount, 0)
+  THEN
+    v_tax_exclusive_amount := v_subtotal;
+    v_tax_inclusive_amount := v_subtotal + v_tax_amount;
+  ELSE
+    v_tax_exclusive_amount := v_order.tax_exclusive_amount;
+    v_tax_inclusive_amount := v_order.tax_inclusive_amount;
+  END IF;
 
   IF v_tax_basis = 'inclusive' THEN
     v_total :=
@@ -631,8 +643,8 @@ BEGIN
     'shipping_fee', v_shipping_fee,
     'tax_basis', v_order.tax_basis,
     'tax_amount', v_tax_amount,
-    'tax_exclusive_amount', v_order.tax_exclusive_amount,
-    'tax_inclusive_amount', v_order.tax_inclusive_amount,
+    'tax_exclusive_amount', v_tax_exclusive_amount,
+    'tax_inclusive_amount', v_tax_inclusive_amount,
     'gift_wrapping_fee', v_gift_wrapping_fee,
     'discount_amount', v_discount_amount,
     'total', v_total,
@@ -672,6 +684,8 @@ BEGIN
     shipping_fee = v_shipping_fee,
     gift_wrapping_fee = v_gift_wrapping_fee,
     tax_amount = v_tax_amount,
+    tax_exclusive_amount = v_tax_exclusive_amount,
+    tax_inclusive_amount = v_tax_inclusive_amount,
     discount_amount = v_discount_amount,
     total = v_total,
     updated_at = now()

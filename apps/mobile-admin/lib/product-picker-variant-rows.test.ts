@@ -189,4 +189,26 @@ describe('buildStructuredVariantPickerItems', () => {
       finite: 512,
     });
   });
+
+  it('collapses object attributes to null when every entry is invalid', () => {
+    const rows = buildStructuredVariantPickerItems({
+      parentProduct: {
+        images: [],
+        name: 'Galaxy S26',
+        price: 900000,
+      },
+      variants: [
+        {
+          attributes: {
+            infinity: Number.POSITIVE_INFINITY,
+            missing: undefined,
+            nan: Number.NaN,
+          },
+          id: 'variant-empty-attributes',
+        },
+      ],
+    });
+
+    expect(rows[0]?.variant_attributes).toBeNull();
+  });
 });

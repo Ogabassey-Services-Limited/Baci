@@ -93,6 +93,20 @@ describe('adminOrderEditSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('still rejects excessive discounts when gift wrapping is omitted', () => {
+    const payload: Partial<typeof validPayload> = {
+      ...validPayload,
+      discount_amount: 999999999,
+      shipping_fee: 0,
+      tax_amount: 0,
+    };
+    delete payload.gift_wrapping_fee;
+
+    const result = adminOrderEditSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+  });
+
   it('accepts a blank shipping address for pickup or physical sales', () => {
     const result = adminOrderEditSchema.safeParse({
       ...validPayload,
@@ -197,6 +211,15 @@ describe('order edit helpers', () => {
         paymentStatus: 'paid',
         shippingStatus: 'pending',
         walletAmountUsed: 0,
+      })
+    ).toBe(false);
+
+    expect(
+      canEditFinancialOrderFields({
+        amountPaid: 0,
+        paymentStatus: 'unpaid',
+        shippingStatus: 'pending',
+        walletAmountUsed: 100,
       })
     ).toBe(false);
   });

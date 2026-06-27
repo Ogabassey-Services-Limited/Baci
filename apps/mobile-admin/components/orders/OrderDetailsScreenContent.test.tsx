@@ -218,7 +218,7 @@ function createController(
 }
 
 describe('OrderDetailsScreenContent', () => {
-  it('renders an accessible share-order action in the header', () => {
+  it('navigates to order edit and renders header share plus audit actions', () => {
     render(<OrderDetailsScreenContent controller={createController()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit order' }));

@@ -48,19 +48,16 @@ export const adminOrderEditSchema = z
   })
   .refine(
     (value) => {
-      if (value.gift_wrapping_fee === undefined) {
-        return true;
-      }
-
       const subtotal = value.items.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
+      const giftWrappingFee = value.gift_wrapping_fee ?? 0;
 
       return (
         subtotal -
           value.discount_amount +
-          value.gift_wrapping_fee +
+          giftWrappingFee +
           value.shipping_fee +
           value.tax_amount >=
         0

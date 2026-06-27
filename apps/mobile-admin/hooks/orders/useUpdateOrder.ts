@@ -54,6 +54,7 @@ export interface UpdateOrderResponse {
   order: {
     id: string;
   } & Record<string, unknown>;
+  order_refresh_failed?: boolean;
 }
 
 interface UpdateOrderVariables {
