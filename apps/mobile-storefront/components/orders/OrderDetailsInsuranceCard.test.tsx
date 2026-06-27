@@ -111,7 +111,7 @@ describe('OrderDetailsInsuranceCard', () => {
       <OrderDetailsInsuranceCard
         colors={colors}
         hasAssuranceItems
-        insurancePolicy={policyWithLinks}
+        insurancePolicy={{ ...policyWithLinks, claim_status: null }}
         isDelivered={false}
         isPaid
         onCompleteInspection={jest.fn()}
@@ -292,6 +292,7 @@ describe('OrderDetailsInsuranceCard', () => {
         insurancePolicy={{
           ...policyWithLinks,
           claim_link: null,
+          claim_status: null,
           inspection_link: null,
           inspection_status: 'pending',
         }}
@@ -328,5 +329,9 @@ describe('OrderDetailsInsuranceCard', () => {
 
     expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
     expect(screen.queryByRole('button', { name: inspectionLabel })).toBeNull();
+    expect(
+      screen.queryByText(/Protection activation is pending/i)
+    ).toBeNull();
+    expect(screen.getByText('pending')).toBeTruthy();
   });
 });

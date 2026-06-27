@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { z } from 'zod';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
 import { InsurancePolicyClient } from './insurance-policy-client';
@@ -7,6 +8,8 @@ import type { Policy, PolicyFetchResult } from './insurance-policy-types';
 interface InsurancePolicyPageProps {
   params: Promise<{ orderId: string; slug: string }>;
 }
+
+const orderIdParamSchema = z.uuid();
 
 interface PolicyRow {
   id: string;
@@ -55,6 +58,15 @@ async function fetchPolicyForOrder(
   orderId: string,
   storefrontIdentifier: string
 ): Promise<PolicyFetchResult> {
+  const orderIdResult = orderIdParamSchema.safeParse(orderId);
+  if (!orderIdResult.success) {
+    return {
+      policy: null,
+      error: 'No active insurance policy found for this order.',
+    };
+  }
+  const scopedOrderId = orderIdResult.data;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -96,7 +108,7 @@ async function fetchPolicyForOrder(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('shipping_status')
-      .eq('id', orderId)
+      .eq('id', scopedOrderId)
       .eq('merchant_id', merchant.id)
       .eq('customer_id', customer.id)
       .maybeSingle<{ shipping_status: string | null }>();
@@ -116,7 +128,7 @@ async function fetchPolicyForOrder(
       .select(
         'id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, claim_link, inspection_link, inspection_status'
       )
-      .eq('order_id', orderId);
+      .eq('order_id', scopedOrderId);
 
     if (policyError) {
       return { policy: null, error: 'Failed to fetch policies' };

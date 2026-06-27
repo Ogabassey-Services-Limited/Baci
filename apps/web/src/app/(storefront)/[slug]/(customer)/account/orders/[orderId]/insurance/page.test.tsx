@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryLog: [string, string, unknown][] = [];
 
@@ -39,8 +39,35 @@ function createQuery(table: string, result: { data: unknown; error: unknown }) {
 }
 
 describe('InsurancePolicyPage', () => {
-  it('scopes policy loading to the authenticated storefront customer order', async () => {
+  beforeEach(() => {
     queryLog.length = 0;
+    mocks.getMerchantSafe.mockReset();
+    mocks.createClient.mockReset();
+  });
+
+  it('rejects non-UUID order params before querying tenant data', async () => {
+    const element = await InsurancePolicyPage({
+      params: Promise.resolve({ orderId: 'not-a-uuid', slug: 'ogabassey' }),
+    });
+
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.getMerchantSafe).not.toHaveBeenCalled();
+    expect(queryLog).toEqual([]);
+    expect(element).toEqual(
+      expect.objectContaining({
+        props: expect.objectContaining({
+          initialResult: {
+            error: 'No active insurance policy found for this order.',
+            policy: null,
+          },
+        }),
+      })
+    );
+  });
+
+  it('scopes policy loading to the authenticated storefront customer order', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+
     mocks.getMerchantSafe.mockResolvedValue({
       id: 'merchant-1',
       is_published: true,
@@ -95,19 +122,19 @@ describe('InsurancePolicyPage', () => {
     });
 
     const element = await InsurancePolicyPage({
-      params: Promise.resolve({ orderId: 'order-1', slug: 'ogabassey' }),
+      params: Promise.resolve({ orderId, slug: 'ogabassey' }),
     });
 
     expect(mocks.getMerchantSafe).toHaveBeenCalledWith('ogabassey');
     expect(queryLog).toContainEqual(['customers', 'merchant_id', 'merchant-1']);
     expect(queryLog).toContainEqual(['customers', 'user_id', 'user-1']);
-    expect(queryLog).toContainEqual(['orders', 'id', 'order-1']);
+    expect(queryLog).toContainEqual(['orders', 'id', orderId]);
     expect(queryLog).toContainEqual(['orders', 'merchant_id', 'merchant-1']);
     expect(queryLog).toContainEqual(['orders', 'customer_id', 'customer-1']);
     expect(queryLog).toContainEqual([
       'order_insurance_policies',
       'order_id',
-      'order-1',
+      orderId,
     ]);
     expect(element).toEqual(
       expect.objectContaining({
