@@ -10,6 +10,7 @@ const mockShipmentStatusMaybeSingle = vi.fn();
 const mockShipmentStatusSelect = vi.fn();
 const mockShipmentStatusUpdate = vi.fn();
 const mockRpc = vi.fn();
+const mockAdminRpc = vi.fn();
 const mockAuthGetUser = vi.fn();
 const mockMaybeNotifyActivateProtection = vi.fn();
 
@@ -22,6 +23,12 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: mockAuthGetUser },
     from: mockFrom,
     rpc: mockRpc,
+  })),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    rpc: mockAdminRpc,
   })),
 }));
 
@@ -105,6 +112,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
     });
     mockMaybeNotifyActivateProtection.mockResolvedValue(undefined);
     mockRpc.mockResolvedValue({ data: true, error: null });
+    mockAdminRpc.mockResolvedValue({ data: true, error: null });
   });
 
   it('rejects GET so tracking refresh cannot be triggered by prefetch or forged navigation', async () => {
@@ -272,7 +280,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ status: 'delivered' });
       expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
-      expect(mockRpc).toHaveBeenCalledWith(
+      expect(mockAdminRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_current_location: 'Lagos',
@@ -321,7 +329,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockAdminRpc).not.toHaveBeenCalled();
       expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
@@ -357,7 +365,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockRpc).toHaveBeenCalledWith(
+      expect(mockAdminRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_order_id: 'order-1',
@@ -383,7 +391,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       data: null,
       error: { message: 'shipment write denied by RLS' },
     });
-    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+    mockAdminRpc.mockResolvedValueOnce({ data: false, error: null });
     mockTrackShipment.mockResolvedValue({
       actualDelivery: new Date('2026-05-12T15:00:00Z'),
       carrierName: 'DHL',
@@ -400,7 +408,7 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
-      expect(mockRpc).toHaveBeenCalledWith(
+      expect(mockAdminRpc).toHaveBeenCalledWith(
         'persist_customer_delivered_tracking',
         expect.objectContaining({
           p_order_id: 'order-1',

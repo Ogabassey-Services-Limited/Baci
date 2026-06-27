@@ -28,4 +28,21 @@ describe('resolveInsuranceCardActions', () => {
       showClaim: false,
     });
   });
+
+  it('suppresses activation and inspection actions for terminal claims', () => {
+    expect(
+      resolveInsuranceCardActions({
+        claimStatus: 'declined',
+        inspectionLink: 'https://mycover.ai/purchase?q=inspect',
+        inspectionStatus: 'pending',
+        isDelivered: true,
+        onCompleteInspection: jest.fn(),
+      })
+    ).toMatchObject({
+      showActivationPending: false,
+      showAwaitingDelivery: false,
+      showInspection: false,
+    });
+  });
+
 });

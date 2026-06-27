@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getMyCoverWebhookSecret: vi.fn(),
   maybeNotifyActivateProtection: vi.fn(),
   policyEq: vi.fn(),
+  policySelect: vi.fn(),
   policyUpdate: vi.fn(),
 }));
 
@@ -50,6 +51,10 @@ function createRequest(body: Record<string, unknown>, signature?: string) {
 
 function createSupabaseMock({
   policyUpdateResult = { data: { id: 'policy-row' }, error: null },
+  policySelectResult = {
+    data: { inspection_link: null, inspection_status: null },
+    error: null,
+  } as { data: unknown; error: unknown },
   dedupDeleteResult = { error: null } as { error: unknown },
   dedupInsertResult = { error: null } as { error: unknown },
   dedupSelectResult = {
@@ -65,6 +70,7 @@ function createSupabaseMock({
   },
 }: {
   policyUpdateResult?: { data: unknown; error: unknown };
+  policySelectResult?: { data: unknown; error: unknown };
   dedupDeleteResult?: { error: unknown };
   dedupInsertResult?: { error: unknown };
   dedupSelectResult?: { data: unknown; error: unknown };
@@ -137,6 +143,14 @@ function createSupabaseMock({
       }
 
       return {
+        select: vi.fn((columns: string) => ({
+          eq: vi.fn((column: string, value: string) => {
+            mocks.policySelect(columns, column, value);
+            return {
+              maybeSingle: vi.fn().mockResolvedValue(policySelectResult),
+            };
+          }),
+        })),
         update: vi.fn((payload: unknown) => {
           mocks.policyUpdate(payload);
           const chain = {
@@ -257,6 +271,48 @@ describe('POST /api/webhooks/mycover', () => {
         inspection_status: 'pending',
       })
     );
+  });
+
+  it('does not downgrade a completed inspection when a purchase webhook replays the same inspection link', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policySelectResult: {
+          data: {
+            inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+            inspection_status: 'completed',
+          },
+          error: null,
+        },
+      })
+    );
+    const payload = {
+      data: {
+        id: 'policy-123',
+        status: 'successful',
+        sdk: {
+          claim_link: 'https://mycover.ai/purchase?q=claim-token',
+          inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+        },
+      },
+      event: 'purchase.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    const updatePayload = mocks.policyUpdate.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(updatePayload).toMatchObject({
+      claim_link: 'https://mycover.ai/purchase?q=claim-token',
+      inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+    });
+    expect(updatePayload).not.toHaveProperty('inspection_status');
+    expect(updatePayload).not.toHaveProperty('activation_reminder_sent_at');
   });
 
   it('drops non-HTTPS and non-MyCover hosted links before persisting', async () => {
@@ -1060,6 +1116,51 @@ describe('POST /api/webhooks/mycover', () => {
         'order-123'
       );
     });
+  });
+
+  it('preserves completed inspection state when policy.updated replays the same inspection link', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policySelectResult: {
+          data: {
+            inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
+            inspection_status: 'completed',
+          },
+          error: null,
+        },
+        policyUpdateResult: {
+          data: { id: 'policy-row', order_id: 'order-123' },
+          error: null,
+        },
+      })
+    );
+    const payload = {
+      event: 'policy.updated',
+      data: {
+        essential: { policy_id: 'pol-1' },
+        sdk: {
+          claim_link: 'https://mycover.ai/purchase?q=claim-new',
+          inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
+        },
+      },
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    const updatePayload = mocks.policyUpdate.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(updatePayload).toMatchObject({
+      claim_link: 'https://mycover.ai/purchase?q=claim-new',
+      inspection_link: 'https://mycover.ai/purchase?q=inspect-new',
+    });
+    expect(updatePayload).not.toHaveProperty('inspection_status');
+    expect(updatePayload).not.toHaveProperty('activation_reminder_sent_at');
   });
 
   describe('idempotency', () => {

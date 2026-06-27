@@ -45,8 +45,9 @@ export function resolveInsuranceCardActions({
       (normalizedInspectionStatus === 'pending' && !claimLink));
 
   return {
-    showActivationPending: inspectionPending && isDelivered && !inspectionLink,
-    showAwaitingDelivery: inspectionPending && !isDelivered,
+    showActivationPending:
+      inspectionPending && isDelivered && !inspectionLink && !terminalClaim,
+    showAwaitingDelivery: inspectionPending && !isDelivered && !terminalClaim,
     showClaim:
       !inspectionPending &&
       !claimAlreadyStarted &&
@@ -61,6 +62,7 @@ export function resolveInsuranceCardActions({
     showInspection:
       inspectionPending &&
       isDelivered &&
+      !terminalClaim &&
       !!inspectionLink &&
       !!onCompleteInspection,
   };

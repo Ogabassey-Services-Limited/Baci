@@ -261,6 +261,29 @@ describe('OrderDetailsInsuranceCard', () => {
     expect(screen.getByText('Paid')).toBeTruthy();
   });
 
+  it('renders delivery-pending activation copy with a literal apostrophe', () => {
+    render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_link: null,
+          claim_status: null,
+          inspection_status: 'pending',
+        }}
+        isDelivered={false}
+        isPaid
+        onCompleteInspection={jest.fn()}
+        onFileClaim={jest.fn()}
+        onOpenCertificate={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText(/you'll be able to/i)).toBeTruthy();
+    expect(screen.queryByText(/you&apos;ll/i)).toBeNull();
+  });
+
   it('holds mobile claims while pending inspection links have not arrived', () => {
     render(
       <OrderDetailsInsuranceCard

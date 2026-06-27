@@ -264,7 +264,7 @@ export function OrderDetailsInsuranceCard({
               { color: colors.textSecondary, marginTop: 12 },
             ]}
           >
-            Protection activates after delivery — you&apos;ll be able to
+            Protection activates after delivery — you'll be able to
             complete a quick device inspection then.
           </Text>
         )}

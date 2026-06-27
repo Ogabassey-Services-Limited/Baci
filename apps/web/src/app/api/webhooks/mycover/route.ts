@@ -23,6 +23,11 @@ type MyCoverUpdatedPolicy = {
   order_id?: string | null;
 };
 
+type MyCoverPolicyInspectionState = {
+  inspection_link?: string | null;
+  inspection_status?: string | null;
+};
+
 const MYCOVER_RENEWAL_DETAILS_URL = 'https://v2.api.mycover.ai/v2/purchases';
 
 async function verifyWebhookSignature(
@@ -430,6 +435,9 @@ async function handlePolicyPurchased(
   }
 
   const hostedFlowLinks = getHostedFlowLinks(data);
+  const currentInspectionState = hostedFlowLinks.inspection_link
+    ? await getCurrentPolicyInspectionState(supabase, lookup)
+    : null;
   const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
@@ -440,13 +448,7 @@ async function handlePolicyPurchased(
       status: 'active',
       updated_at: new Date().toISOString(),
       // Hosted flows for filing a claim / completing a device inspection.
-      ...hostedFlowLinks,
-      ...(hostedFlowLinks.inspection_link
-        ? {
-            activation_reminder_sent_at: null,
-            inspection_status: 'pending',
-          }
-        : {}),
+      ...hostedFlowUpdateColumns(hostedFlowLinks, currentInspectionState),
     })
     .eq(lookup.column, lookup.value)
     .select('id, order_id')
@@ -575,6 +577,57 @@ function getHostedFlowLinks(data: MyCoverWebhookPayload['data']): {
   if (claimLink) links.claim_link = claimLink;
   if (inspectionLink) links.inspection_link = inspectionLink;
   return links;
+}
+
+async function getCurrentPolicyInspectionState(
+  supabase: SupabaseClient,
+  lookup: MyCoverPolicyLookup
+): Promise<MyCoverPolicyInspectionState | null> {
+  const { data, error } = await supabase
+    .from('order_insurance_policies')
+    .select('inspection_status, inspection_link')
+    .eq(lookup.column, lookup.value)
+    .maybeSingle<MyCoverPolicyInspectionState>();
+
+  if (error) {
+    console.error('[MyCover Webhook] Failed to load inspection state:', error);
+    throw error;
+  }
+
+  return data ?? null;
+}
+
+function shouldResetInspectionToPending(
+  hostedFlowLinks: { inspection_link?: string },
+  currentState: MyCoverPolicyInspectionState | null
+) {
+  if (!hostedFlowLinks.inspection_link) return false;
+
+  const currentStatus = currentState?.inspection_status?.trim().toLowerCase();
+  const currentInspectionLink = currentState?.inspection_link?.trim() ?? null;
+
+  // MyCover can deliver purchase/policy detail updates after an
+  // inspection.completed webhook. Do not downgrade an already completed
+  // pre-loss inspection when the same hosted inspection URL is replayed.
+  return (
+    currentStatus !== 'completed' ||
+    currentInspectionLink !== hostedFlowLinks.inspection_link
+  );
+}
+
+function hostedFlowUpdateColumns(
+  hostedFlowLinks: { claim_link?: string; inspection_link?: string },
+  currentState: MyCoverPolicyInspectionState | null
+) {
+  return {
+    ...hostedFlowLinks,
+    ...(shouldResetInspectionToPending(hostedFlowLinks, currentState)
+      ? {
+          activation_reminder_sent_at: null,
+          inspection_status: 'pending',
+        }
+      : {}),
+  };
 }
 
 function getPolicyId(data: MyCoverWebhookPayload['data']) {
@@ -735,19 +788,16 @@ async function handlePolicyRenewed(
   }
 
   const hostedFlowLinks = getHostedFlowLinks(data);
+  const currentInspectionState = hostedFlowLinks.inspection_link
+    ? await getCurrentPolicyInspectionState(supabase, lookup)
+    : null;
   const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       policy_expiry_date: getPolicyExpiryDate(data),
       status: 'active',
       updated_at: new Date().toISOString(),
-      ...hostedFlowLinks,
-      ...(hostedFlowLinks.inspection_link
-        ? {
-            activation_reminder_sent_at: null,
-            inspection_status: 'pending',
-          }
-        : {}),
+      ...hostedFlowUpdateColumns(hostedFlowLinks, currentInspectionState),
     })
     .eq(lookup.column, lookup.value)
     .select('id, order_id')
@@ -779,15 +829,12 @@ async function handlePolicyUpdated(
   if (!lookup) return;
 
   const hostedFlowLinks = getHostedFlowLinks(data);
+  const currentInspectionState = hostedFlowLinks.inspection_link
+    ? await getCurrentPolicyInspectionState(supabase, lookup)
+    : null;
   const update: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
-    ...hostedFlowLinks,
-    ...(hostedFlowLinks.inspection_link
-      ? {
-          activation_reminder_sent_at: null,
-          inspection_status: 'pending',
-        }
-      : {}),
+    ...hostedFlowUpdateColumns(hostedFlowLinks, currentInspectionState),
   };
   const certificateUrl = getCertificateUrl(data);
   const policyNumber = getPolicyNumber(data);

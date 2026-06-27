@@ -1,7 +1,6 @@
 -- Let signed-in storefront customers read the insurance policy attached to
--- their own orders, and give the customer tracking refresh route a narrow,
--- authenticated way to persist a carrier-confirmed delivery without exposing a
--- service-role client to a public request path.
+-- their own orders. Carrier-confirmed delivery persistence stays server-only:
+-- customers must not be able to execute the delivered-state RPC directly.
 
 DO $$
 BEGIN
@@ -53,8 +52,7 @@ BEGIN
   WHERE "s"."id" = "p_shipment_id"
     AND "o"."id" = "p_order_id"
     AND "p_customer_user_id" IS NOT NULL
-    AND "p_customer_user_id" = (SELECT "auth"."uid"())
-    AND "c"."user_id" = (SELECT "auth"."uid"())
+    AND "c"."user_id" = "p_customer_user_id"
   LIMIT 1;
 
   IF "v_authorized" IS DISTINCT FROM TRUE THEN
@@ -128,4 +126,4 @@ GRANT EXECUTE ON FUNCTION "public"."persist_customer_delivered_tracking"(
   timestamp with time zone,
   timestamp with time zone,
   "jsonb"
-) TO "authenticated";
+) TO "service_role";

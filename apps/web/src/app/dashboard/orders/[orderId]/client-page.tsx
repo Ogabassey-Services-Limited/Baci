@@ -78,6 +78,7 @@ function fromDbShippingStatus(status: string): ShippingStatus {
 
 interface ConfirmOrderResponse {
   error?: string;
+  insuranceError?: string;
   insurance?: {
     success?: boolean;
     results: Array<{ policyNumber: string }>;
@@ -186,10 +187,15 @@ export default function OrderDetailsClientPage({
       const result = await confirmOrderRequest(order.id, data);
 
       toast({
-        title: 'Order Confirmed',
-        description: result.insurance?.success
-          ? `Policy Active: ${result.insurance.results[0].policyNumber}`
-          : 'Order processed successfully.',
+        title: result.insuranceError
+          ? 'Order Confirmed, Insurance Failed'
+          : 'Order Confirmed',
+        variant: result.insuranceError ? 'destructive' : undefined,
+        description: result.insuranceError
+          ? `Order was processed, but insurance failed: ${result.insuranceError}`
+          : result.insurance?.success
+            ? `Policy Active: ${result.insurance.results[0].policyNumber}`
+            : 'Order processed successfully.',
       });
 
       // Update local state
