@@ -241,6 +241,52 @@ describe('buildItems', () => {
     });
   });
 
+  it('does not use untrusted plain condition words as catalog match overrides', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'New 2025 Apple iPad M3 256GB WiFi',
+        'Product Quantity': '1',
+        'Sub Total': '500000.00',
+      }),
+      [
+        {
+          id: 'ipad-generic',
+          name: 'New 2025 Apple iPad M3 256GB WiFi',
+          sku: null,
+          price: 500_000,
+          images: ['https://cdn.example.com/ipad-generic.jpg'],
+          condition: null,
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+        {
+          id: 'ipad-new',
+          name: 'New 2025 Apple iPad M3 256GB WiFi',
+          sku: null,
+          price: 700_000,
+          images: ['https://cdn.example.com/ipad-new.jpg'],
+          condition: 'new',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'ipad-generic',
+      productName: 'New 2025 Apple iPad M3 256GB WiFi',
+      condition: null,
+      variantName: null,
+      imageUrl: 'https://cdn.example.com/ipad-generic.jpg',
+      unitPrice: 500_000,
+      lineTotal: 500_000,
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
   it('uses rich fulfillment condition when choosing between catalog condition variants', () => {
     const items = buildItems(
       makeRow({

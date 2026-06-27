@@ -166,7 +166,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             srcDoc={html}
             tabIndex={0}
             title={`${documentTitle} #${orderData.order_number}`}
-            className="block h-full min-h-0 w-[794px] max-w-full shrink border-0 bg-white shadow-sm"
+            className="block h-[min(720px,calc(90vh-96px))] min-h-[420px] w-[794px] max-w-full shrink-0 border-0 bg-white shadow-sm"
             sandbox="allow-same-origin"
           />
         </div>

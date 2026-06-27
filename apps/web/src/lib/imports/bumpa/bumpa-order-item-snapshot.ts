@@ -29,12 +29,21 @@ function readBumpaMetadata(importMetadata: Record<string, unknown>) {
   return bumpaMetadata as Record<string, unknown>;
 }
 
-function hasExplicitReceiptConditionMarker(value: string) {
+export function hasExplicitBumpaReceiptConditionMarker(value: string) {
   RECEIPT_CONDITION_GROUP_PATTERN.lastIndex = 0;
   return (
     RECEIPT_CONDITION_GROUP_PATTERN.test(value) ||
     RECEIPT_CONDITION_SUFFIX_PATTERN.test(value)
   );
+}
+
+export function getTrustedBumpaNameCondition(value: string) {
+  const profile = createBumpaProductProfile(value);
+  return profile.condition &&
+    (profile.conditionSource === 'bracketed' ||
+      hasExplicitBumpaReceiptConditionMarker(value))
+    ? profile.condition
+    : null;
 }
 
 function getTrustedImportedCondition({
@@ -52,7 +61,7 @@ function getTrustedImportedCondition({
   const metadataCondition = readString(bumpaMetadata?.condition);
   const metadataConditionSource = readString(bumpaMetadata?.condition_source);
   const hasExplicitMarker =
-    hasExplicitReceiptConditionMarker(importedProductName);
+    hasExplicitBumpaReceiptConditionMarker(importedProductName);
 
   if (
     metadataCondition &&
@@ -130,7 +139,7 @@ export function buildBumpaOrderItemSnapshot({
     normalizeBumpaConditionForCatalog(matchedProduct?.condition) ??
     (matchedProduct
       ? normalizeBumpaConditionForCatalog(
-          createBumpaProductProfile(matchedProduct.name).condition
+          getTrustedBumpaNameCondition(matchedProduct.name)
         )
       : null);
   const condition =

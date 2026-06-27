@@ -101,7 +101,10 @@ describe('Bumpa order item snapshots', () => {
           condition_source: 'plain',
         },
       },
-      matchedProduct: null,
+      matchedProduct: product({
+        condition: null,
+        name: 'New 2025 Apple iPad M3 256gb WiFi + Cellular',
+      }),
     });
 
     expect(snapshot).toMatchObject({
