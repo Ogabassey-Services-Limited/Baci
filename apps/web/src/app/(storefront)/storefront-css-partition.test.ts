@@ -140,26 +140,36 @@ describe('storefront CSS partitioning', () => {
     expect(darkModeCss).toContain('background-color: #1a1a1a;');
     expect(darkModeCss).toContain('@supports (background-color: color-mix(');
     expect(darkModeCss).toContain('background-color: color-mix(');
+    expect(normalizedDarkModeCss).toContain(
+      '.storefront-variant-ogabassey.storefront-mode-system.storefront-ppr-static-shell'
+    );
+    expect(normalizedDarkModeCss).toContain('.storefront-shell-loading');
     expect(darkModeCss).toContain('.ogabassey-checkout-page');
     expect(normalizedDarkModeCss).toContain(
       '.storefront-variant-ogabassey.storefront-mode-system .ogabassey-storefront-shell .ogabassey-checkout-page'
     );
     expect(normalizedDarkModeCss).toContain(
-      ':is(.text-green-700, .text-green-800)'
+      ':is(.text-green-500, .text-green-600, .text-green-700, .text-green-800)'
     );
     expect(normalizedDarkModeCss).toContain(
-      ':is(.text-red-700, .text-red-800)'
+      ':is(.text-red-500, .text-red-600, .text-red-700, .text-red-800)'
     );
     expect(darkModeCss).toContain(
       'background-color: var(--storefront-dark-card);'
     );
     expect(normalizedDarkModeCss).toContain(
-      ':is( .bg-white, .bg-gray-50, .bg-gray-100, .bg-blue-50'
+      ':is( .bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-200'
     );
     expect(normalizedDarkModeCss).toContain('.bg-blue-100\\/50');
     expect(normalizedDarkModeCss).toContain('.hover\\:bg-blue-100\\/50:hover');
+    expect(normalizedDarkModeCss).toContain('.bg-gray-200');
+    expect(normalizedDarkModeCss).toContain('.hover\\:bg-gray-50:hover');
+    expect(normalizedDarkModeCss).toContain('.hover\\:bg-gray-200:hover');
     expect(normalizedDarkModeCss).toContain('.border-blue-200');
     expect(normalizedDarkModeCss).toContain(':is(.text-blue-600');
+    expect(normalizedDarkModeCss).toContain('.text-store-primary');
+    expect(normalizedDarkModeCss).toContain('.text-red-600');
+    expect(normalizedDarkModeCss).toContain('.text-green-600');
     expect(darkModeCss).toContain('color: var(--storefront-dark-foreground);');
     expect(darkModeCss).not.toMatch(/cursor\s*:\s*url\(/);
     expect(darkModeCss).not.toMatch(/cursor\s*:\s*none/);

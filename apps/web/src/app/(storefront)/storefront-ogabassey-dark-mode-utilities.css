@@ -6,6 +6,7 @@
         .bg-white,
         .bg-gray-50,
         .bg-gray-100,
+        .bg-gray-200,
         .bg-blue-50,
         .bg-blue-100,
         .bg-red-50,
@@ -42,7 +43,10 @@
         .hover\:bg-red-50:hover,
         .hover\:bg-red-100:hover,
         .hover\:bg-green-100:hover,
-        .hover\:bg-gray-100:hover
+        .hover\:bg-gray-50:hover,
+        .hover\:bg-gray-100:hover,
+        .hover\:bg-gray-200:hover,
+        .active\:bg-gray-100:active
       ) {
       background-color: var(--storefront-dark-card);
     }
@@ -57,6 +61,17 @@
       .ogabassey-storefront-shell
       :is(.text-gray-500, .text-gray-400) {
       color: var(--storefront-dark-muted-foreground);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
+      :is(
+        .text-store-primary,
+        .hover\:text-store-primary:hover,
+        .focus\:text-store-primary:focus,
+        .group:hover .group-hover\:text-store-primary
+      ) {
+      color: var(--storefront-dark-accent);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
@@ -111,6 +126,18 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
+      :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) {
+      color: var(--storefront-dark-error);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
+      :is(.text-green-500, .text-green-600, .text-green-700, .text-green-800) {
+      color: var(--storefront-dark-success);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
       :is(input, select, textarea) {
       background-color: var(--storefront-dark-muted);
       border-color: var(--storefront-dark-border);
@@ -136,6 +163,7 @@
         .bg-white,
         .bg-gray-50,
         .bg-gray-100,
+        .bg-gray-200,
         .bg-blue-50,
         .bg-blue-100,
         .bg-red-50,
@@ -159,6 +187,10 @@
         .hover\:bg-blue-50:hover,
         .hover\:bg-blue-100\/50:hover,
         .hover\:bg-green-100:hover,
+        .hover\:bg-gray-50:hover,
+        .hover\:bg-gray-100:hover,
+        .hover\:bg-gray-200:hover,
+        .active\:bg-gray-100:active,
         .supports-\[backdrop-filter\]\:bg-white\/60
       ) {
       background-color: var(--storefront-dark-card);
@@ -178,13 +210,13 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-checkout-page
-      :is(.text-green-700, .text-green-800) {
+      :is(.text-green-500, .text-green-600, .text-green-700, .text-green-800) {
       color: var(--storefront-dark-success);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-checkout-page
-      :is(.text-red-700, .text-red-800) {
+      :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) {
       color: var(--storefront-dark-error);
     }
 
@@ -218,6 +250,17 @@
       .ogabassey-checkout-page
       :is(.text-amber-600, .text-amber-700, .text-amber-800) {
       color: var(--storefront-dark-warning);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(
+        .text-store-primary,
+        .hover\:text-store-primary:hover,
+        .focus\:text-store-primary:focus,
+        .group:hover .group-hover\:text-store-primary
+      ) {
+      color: var(--storefront-dark-accent);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system

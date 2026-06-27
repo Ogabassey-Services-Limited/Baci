@@ -10,6 +10,7 @@ import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/sto
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import {
   DEFAULT_STOREFRONT_APPEARANCE,
+  getStorefrontAppearanceClasses,
   resolveStorefrontAppearance,
   type StorefrontAppearance,
 } from '@/components/storefront/storefront-appearance';
@@ -290,12 +291,17 @@ function StorefrontThemedNotFound({
 function StorefrontPprStaticShell({
   children,
   loadingFallback,
+  appearance,
 }: {
   children: React.ReactNode;
   loadingFallback: React.ReactNode;
+  appearance: StorefrontAppearance;
 }) {
+  const appearanceClassName =
+    getStorefrontAppearanceClasses(appearance).join(' ');
+
   return (
-    <div className="storefront-ppr-static-shell">
+    <div className={`storefront-ppr-static-shell ${appearanceClassName}`}>
       <Suspense fallback={null}>
         <div className="storefront-ppr-static-shell__content">{children}</div>
       </Suspense>
@@ -367,7 +373,7 @@ export async function StorefrontLayoutContent(props: {
   );
 }
 
-export default function StorefrontLayout(props: {
+export default async function StorefrontLayout(props: {
   children: React.ReactNode;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -378,22 +384,30 @@ export default function StorefrontLayout(props: {
   // human PPR shell as a static sibling instead: browsers get immediate chrome
   // and LCP imagery, while the resume slot itself stays null for bot/blocking
   // metadata requests.
-  const { loadingFallback, ...contentProps } = props;
+  const { loadingFallback, params, children } = props;
+  const { slug } = await params;
+  const fallbackAppearance = isValidMerchantIdentifier(slug)
+    ? resolveStorefrontAppearance(slug)
+    : DEFAULT_STOREFRONT_APPEARANCE;
+  const contentProps = {
+    children,
+    params: Promise.resolve({ slug }),
+  };
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
   // routes that intentionally need no static visual shell.
   const fallbackContent =
     loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
   const staticLoadingFallback = fallbackContent ? (
-    <StorefrontThemeFrame
-      appearance={DEFAULT_STOREFRONT_APPEARANCE}
-      scopeDocument={false}
-    >
+    <StorefrontThemeFrame appearance={fallbackAppearance} scopeDocument={false}>
       {fallbackContent}
     </StorefrontThemeFrame>
   ) : null;
 
   return (
-    <StorefrontPprStaticShell loadingFallback={staticLoadingFallback}>
+    <StorefrontPprStaticShell
+      appearance={fallbackAppearance}
+      loadingFallback={staticLoadingFallback}
+    >
       <StorefrontLayoutContent {...contentProps} />
     </StorefrontPprStaticShell>
   );

@@ -327,31 +327,37 @@ describe('storefront layout', () => {
     expect(screen.getByText('Generic storefront content')).toBeInTheDocument();
   });
 
-  it('renders the static PPR shell by default while tenant data is loading without awaiting params', () => {
+  it('themes the static OgaBassey PPR shell before tenant data resolves', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
-    const deferredParams = createDeferred<{ slug: string }>();
 
     let unmount: () => void = () => undefined;
     let container: HTMLElement | undefined;
 
+    const ui = await StorefrontLayout({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      children: <main>Storefront content</main>,
+    });
+
     act(() => {
-      const ui = StorefrontLayout({
-        params: deferredParams.promise,
-        children: <main>Storefront content</main>,
-      });
       ({ container, unmount } = render(ui));
     });
 
     expect(themeProviderAppearances).toEqual([
-      { mode: 'light', variant: 'default' },
+      { mode: 'system', variant: 'ogabassey' },
     ]);
     expect(themeProviderDocumentScopes).toEqual([false]);
-    expect(getStorefrontShellSnapshotBase).not.toHaveBeenCalled();
     expect(
       screen.getByRole('status', { name: /loading storefront chrome/i })
     ).toBeInTheDocument();
+    const staticShell = container?.querySelector(
+      '.storefront-ppr-static-shell'
+    );
+    expect(staticShell).toBeTruthy();
+    expect(staticShell).toHaveClass('storefront-theme-scope');
+    expect(staticShell).toHaveClass('storefront-variant-ogabassey');
+    expect(staticShell).toHaveClass('storefront-mode-system');
     expect(
       container?.querySelector('.storefront-ppr-static-shell__fallback')
     ).toBeTruthy();
@@ -363,7 +369,7 @@ describe('storefront layout', () => {
     unmount();
   });
 
-  it('keeps explicit layout loading fallbacks overridable', () => {
+  it('keeps explicit layout loading fallbacks overridable', async () => {
     const fallback = <div>Loading route shell</div>;
 
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
@@ -372,17 +378,18 @@ describe('storefront layout', () => {
 
     let unmount: () => void = () => undefined;
 
+    const ui = await StorefrontLayout({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      loadingFallback: fallback,
+      children: <main>Storefront content</main>,
+    });
+
     act(() => {
-      const ui = StorefrontLayout({
-        params: Promise.resolve({ slug: 'ogabassey' }),
-        loadingFallback: fallback,
-        children: <main>Storefront content</main>,
-      });
       ({ unmount } = render(ui));
     });
 
     expect(themeProviderAppearances).toEqual([
-      { mode: 'light', variant: 'default' },
+      { mode: 'system', variant: 'ogabassey' },
     ]);
     expect(themeProviderDocumentScopes).toEqual([false]);
     expect(screen.getByText('Loading route shell')).toBeInTheDocument();

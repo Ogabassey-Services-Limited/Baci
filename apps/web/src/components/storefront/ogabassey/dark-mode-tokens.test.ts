@@ -48,9 +48,24 @@ describe('OGABASSEY_DARK_TOKENS', () => {
       OGABASSEY_DARK_TOKENS.primary
     );
     expectAaContrast(
+      'accent foreground on accent',
+      OGABASSEY_DARK_TOKENS.accentForeground,
+      OGABASSEY_DARK_TOKENS.accent
+    );
+    expectAaContrast(
       'secondary foreground on secondary',
       OGABASSEY_DARK_TOKENS.secondaryForeground,
       OGABASSEY_DARK_TOKENS.secondary
+    );
+    expectLargeContrast(
+      'success on background',
+      OGABASSEY_DARK_TOKENS.success,
+      OGABASSEY_DARK_TOKENS.background
+    );
+    expectLargeContrast(
+      'rating on background',
+      OGABASSEY_DARK_TOKENS.rating,
+      OGABASSEY_DARK_TOKENS.background
     );
     expectLargeContrast(
       'price on background',

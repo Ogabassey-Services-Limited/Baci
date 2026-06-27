@@ -91,6 +91,15 @@
       color: var(--storefront-dark-foreground);
     }
 
+    .storefront-variant-ogabassey.storefront-mode-system.storefront-ppr-static-shell,
+    .storefront-variant-ogabassey.storefront-mode-system
+      .storefront-ppr-static-shell,
+    .storefront-variant-ogabassey.storefront-mode-system
+      .storefront-shell-loading {
+      background-color: var(--storefront-dark-background);
+      color: var(--storefront-dark-foreground);
+    }
+
     .storefront-variant-ogabassey.storefront-mode-system
       :is(input, textarea, [contenteditable="true"]) {
       caret-color: var(--store-accent, var(--storefront-dark-accent));
