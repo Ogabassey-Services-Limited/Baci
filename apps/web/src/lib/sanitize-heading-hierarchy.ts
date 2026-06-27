@@ -43,10 +43,11 @@ export function createHeadingHierarchyNormalizer() {
         normalizedLevel = 2;
       }
 
-      while (
-        stack.length > 0 &&
-        stack[stack.length - 1]!.sourceLevel >= sourceLevel
-      ) {
+      while (stack.length > 0) {
+        const previousEntry = stack[stack.length - 1];
+        if (!previousEntry || previousEntry.sourceLevel < sourceLevel) {
+          break;
+        }
         stack.pop();
       }
     }
