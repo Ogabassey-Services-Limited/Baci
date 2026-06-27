@@ -126,9 +126,16 @@ export function buildBumpaOrderItemSnapshot({
     profileCondition: importedProfile.condition,
     profileConditionSource: importedProfile.conditionSource,
   });
+  const matchedProductCondition =
+    normalizeBumpaConditionForCatalog(matchedProduct?.condition) ??
+    (matchedProduct
+      ? normalizeBumpaConditionForCatalog(
+          createBumpaProductProfile(matchedProduct.name).condition
+        )
+      : null);
   const condition =
     normalizeBumpaConditionForCatalog(trustedImportedCondition) ??
-    normalizeBumpaConditionForCatalog(matchedProduct?.condition);
+    matchedProductCondition;
   const variantName = formatBumpaReceiptCondition(condition);
   const preferredName = matchedProduct?.name || importedProductName;
   const productName =

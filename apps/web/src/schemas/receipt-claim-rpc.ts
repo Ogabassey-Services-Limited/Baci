@@ -25,19 +25,20 @@ const receiptClaimMerchantSchema = z.object({
 });
 
 const nonNegativeIntegerSchema = z.number().int().nonnegative();
+const nullableIsoDateTimeSchema = z.iso.datetime().nullable();
 
 const receiptClaimCampaignRecipientSchema = z.object({
-  claimedAt: z.string().nullable(),
+  claimedAt: nullableIsoDateTimeSchema,
   clickCount: nonNegativeIntegerSchema,
   customerEmail: z.string(),
   customerName: z.string().nullable(),
-  firstClickedAt: z.string().nullable(),
-  firstLoginStartedAt: z.string().nullable(),
+  firstClickedAt: nullableIsoDateTimeSchema,
+  firstLoginStartedAt: nullableIsoDateTimeSchema,
   id: z.string(),
-  lastClickedAt: z.string().nullable(),
-  lastLoginStartedAt: z.string().nullable(),
+  lastClickedAt: nullableIsoDateTimeSchema,
+  lastLoginStartedAt: nullableIsoDateTimeSchema,
   loginStartedCount: nonNegativeIntegerSchema,
-  notificationSentAt: z.string().nullable(),
+  notificationSentAt: nullableIsoDateTimeSchema,
 });
 
 export const receiptClaimRecordSchema = z.object({
@@ -74,7 +75,7 @@ export const createReceiptClaimResultSchema = z.object({
 export const receiptClaimCampaignStatsSchema = z.object({
   claimedCount: nonNegativeIntegerSchema,
   clickedCount: nonNegativeIntegerSchema,
-  lastActivityAt: z.string().nullable(),
+  lastActivityAt: nullableIsoDateTimeSchema,
   loginStartedCount: nonNegativeIntegerSchema,
   recipients: z.array(receiptClaimCampaignRecipientSchema),
   sentCount: nonNegativeIntegerSchema,

@@ -67,6 +67,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to record receipt claim login start', error);
-    return NextResponse.json({ success: false });
+    return NextResponse.json(
+      {
+        error: 'Failed to record receipt claim login start',
+        code: 'login_start_tracking_failed',
+      },
+      { status: 500 }
+    );
   }
 }

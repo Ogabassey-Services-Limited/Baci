@@ -240,4 +240,50 @@ describe('buildItems', () => {
       matchSource: 'name',
     });
   });
+
+  it('uses rich fulfillment condition when choosing between catalog condition variants', () => {
+    const items = buildItems(
+      makeRow({
+        'Sub Total': '450000.00',
+        items_json: JSON.stringify([
+          {
+            description: 'Premium Used IMEI: 123456789012345',
+            name: 'iPhone 13 128GB',
+            quantity: 1,
+          },
+        ]),
+      }),
+      [
+        {
+          id: 'iphone-13-new',
+          name: 'iPhone 13 128GB',
+          sku: null,
+          price: 600000,
+          images: ['https://cdn.example.com/iphone-new.jpg'],
+          condition: 'new',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+        {
+          id: 'iphone-13-used',
+          name: 'iPhone 13 128GB',
+          sku: null,
+          price: 450000,
+          images: ['https://cdn.example.com/iphone-used.jpg'],
+          condition: 'used',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'iphone-13-used',
+      condition: 'used',
+      variantName: 'Used',
+      imageUrl: 'https://cdn.example.com/iphone-used.jpg',
+    });
+  });
 });

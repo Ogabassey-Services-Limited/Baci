@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { noStoreMock } = vi.hoisted(() => ({
   noStoreMock: vi.fn(),
@@ -79,6 +79,10 @@ describe('GET /api/import-jobs/[jobId]', () => {
       context: createRouteContext(),
     });
     vi.mocked(hasImportRoutePermission).mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('disables caching via unstable_noStore', async () => {
@@ -235,6 +239,36 @@ describe('GET /api/import-jobs/[jobId]', () => {
       new NextRequest(`http://localhost/api/import-jobs/${jobId}`),
       { params: Promise.resolve({ jobId }) }
     );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      job: expect.objectContaining({
+        receiptCampaign: null,
+      }),
+    });
+  });
+
+  it('does not hang the job detail response when campaign stats time out', async () => {
+    vi.useFakeTimers();
+    const supabase = {
+      rpc: vi.fn(() => new Promise(() => undefined)),
+    };
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: createRouteContext(supabase),
+    });
+    vi.mocked(getImportJobForMerchant).mockResolvedValue({
+      id: jobId,
+      entity_type: 'orders',
+      status: 'completed',
+      summary: { validRows: 3 },
+    } as never);
+
+    const responsePromise = GET(
+      new NextRequest(`http://localhost/api/import-jobs/${jobId}`),
+      { params: Promise.resolve({ jobId }) }
+    );
+    await vi.advanceTimersByTimeAsync(2500);
+    const response = await responsePromise;
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({

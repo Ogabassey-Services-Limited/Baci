@@ -13,6 +13,7 @@ import { receiptClaimCampaignStatsSchema } from '@/schemas/receipt-claim-rpc';
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
 } as const;
+const RECEIPT_CAMPAIGN_STATS_TIMEOUT_MS = 2500;
 
 function applyNoStoreHeaders<T extends Response>(response: T) {
   Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => {
@@ -39,12 +40,13 @@ async function loadReceiptCampaignStats({
   supabase: ImportRouteContext['supabase'];
 }) {
   try {
-    const { data, error } = await supabase.rpc(
-      'get_receipt_claim_campaign_stats',
-      {
+    const { data, error } = await withTimeout(
+      supabase.rpc('get_receipt_claim_campaign_stats', {
         p_import_job_id: importJobId,
         p_merchant_id: merchantId,
-      }
+      }),
+      RECEIPT_CAMPAIGN_STATS_TIMEOUT_MS,
+      'Receipt campaign stats RPC timed out'
     );
 
     if (error) {
@@ -68,6 +70,25 @@ async function loadReceiptCampaignStats({
     });
     return null;
   }
+}
+
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number,
+  message: string
+) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
 }
 
 export async function GET(

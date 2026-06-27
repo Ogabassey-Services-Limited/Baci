@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AnalyticsProductsScreen from './products';
@@ -115,5 +115,47 @@ describe('AnalyticsProductsScreen', () => {
     render(<AnalyticsProductsScreen />);
 
     expect(screen.getByRole('progressbar')).toBeTruthy();
+  });
+
+  it('renders top products and opens the selected product', () => {
+    mocks.useTopSellingProducts.mockReturnValue({
+      data: [
+        {
+          id: 'product-1',
+          name: 'Samsung Galaxy Fold 5',
+          totalRevenue: 930000,
+          totalSold: 2,
+        },
+      ],
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AnalyticsProductsScreen />);
+
+    expect(screen.getByText('Samsung Galaxy Fold 5')).toBeTruthy();
+    expect(screen.getByText('2 units sold')).toBeTruthy();
+    expect(screen.getByText('NGN 930000')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Samsung Galaxy Fold 5'));
+
+    expect(mocks.push).toHaveBeenCalledWith('/product/product-1');
+  });
+
+  it('renders product retry state when loading fails', () => {
+    const refetch = vi.fn();
+    mocks.useTopSellingProducts.mockReturnValue({
+      data: [],
+      isError: true,
+      isLoading: false,
+      refetch,
+    });
+
+    render(<AnalyticsProductsScreen />);
+
+    expect(screen.getByText('Failed to load top products.')).toBeTruthy();
+    fireEvent.click(screen.getByText('Retry'));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

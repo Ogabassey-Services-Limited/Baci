@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MenuScreen from './menu';
 
 const mocks = vi.hoisted(() => ({
@@ -11,8 +11,6 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
   unregisterPush: vi.fn(),
 }));
-
-vi.stubGlobal('__DEV__', false);
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -107,7 +105,12 @@ vi.mock('@/hooks/useTheme', () => ({
 
 describe('MenuScreen', () => {
   beforeEach(() => {
+    vi.stubGlobal('__DEV__', false);
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders store and business navigation entries', () => {

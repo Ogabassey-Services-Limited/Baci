@@ -10,7 +10,7 @@ interface IndexedProduct {
 }
 
 const CONDITION_TEXT_PATTERN =
-  /\b(premium\s*used|uk\s*used|open\s*box|brand\s*new|brandnew|new|used)\b/gi;
+  /\b(premium\s*used|uk\s*used|open\s*box|brand\s*new|brandnew|refurbished|new|used)\b/gi;
 
 const MODEL_QUALIFIER_TOKENS = new Set([
   'air',
@@ -195,9 +195,11 @@ export function createBumpaProductNameMatcher(
     return indexedProduct;
   });
 
-  return (productName: string) => {
+  return (productName: string, conditionOverride?: unknown) => {
     const normalizedName = normalizeMatchName(productName);
-    const queryCondition = readNameCondition(productName);
+    const queryCondition =
+      normalizeBumpaConditionForCatalog(conditionOverride) ??
+      readNameCondition(productName);
     const conditionedProduct = queryCondition
       ? productsByConditionedName.get(
           buildConditionedNameKey(normalizedName, queryCondition)

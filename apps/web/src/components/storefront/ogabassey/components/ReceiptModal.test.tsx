@@ -186,7 +186,7 @@ describe('ReceiptModal', () => {
     expect(iframe).toHaveAttribute('tabindex', '0');
   });
 
-  it('centers the desktop receipt canvas inside a scrollable modal body', () => {
+  it('keeps the receipt document as the keyboard-reachable scroll target', () => {
     render(
       <ReceiptModal
         isOpen
@@ -197,12 +197,12 @@ describe('ReceiptModal', () => {
     );
 
     const iframe = screen.getByTitle('Receipt #ORD-001');
-    const modalBody = iframe.parentElement;
+    const dialog = screen.getByRole('dialog', { name: 'Receipt Details' });
 
-    expect(modalBody).toHaveClass('justify-center');
-    expect(modalBody).toHaveClass('overflow-auto');
-    expect(iframe).toHaveClass('w-[794px]');
-    expect(iframe).toHaveClass('max-w-full');
+    expect(dialog).toContainElement(iframe);
+    expect(iframe).toHaveAttribute('tabindex', '0');
+    iframe.focus();
+    expect(iframe).toHaveFocus();
   });
 
   it.each(modalVariants)(

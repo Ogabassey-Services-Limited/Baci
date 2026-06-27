@@ -11,6 +11,7 @@ import type {
 } from '@/lib/imports/bumpa/bumpa-types';
 import { normalizeBumpaOrderRow } from '@/lib/imports/bumpa/normalize-bumpa-order-row';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
+import { logger } from '@/lib/logger';
 import type {
   ImportJobEntityType,
   ImportJobStatus,
@@ -347,7 +348,16 @@ async function prepareImportPreviewBuild(
 ) {
   // Product lookup can run while the CSV is downloaded. Order lookup is scoped
   // to IDs from the parsed CSV so large merchants do not hit API page limits.
-  const productsPromise = loadExistingProducts(supabase, job.merchant_id);
+  const productsPromise = loadExistingProducts(supabase, job.merchant_id).catch(
+    (error: unknown) => {
+      logger.error({
+        message: 'Existing product preload failed during import preview build',
+        merchantId: job.merchant_id,
+        error,
+      });
+      throw error;
+    }
+  );
   const filePromise = readImportFileText(supabase, job.storage_path);
 
   // Await the file first — row count is known as soon as it's parsed

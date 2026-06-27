@@ -20,7 +20,10 @@ import {
   isMigrationStatusActive,
 } from '@/app/dashboard/migrations/migration-utils';
 import { useMigrationJobPolling } from '@/app/dashboard/migrations/use-migration-job-polling';
-import { useMigrationJobRefresh } from '@/app/dashboard/migrations/use-migration-job-refresh';
+import {
+  shouldIncludeMigrationJobDetailsForRows,
+  useMigrationJobRefresh,
+} from '@/app/dashboard/migrations/use-migration-job-refresh';
 
 export function useMigrationJobs({
   initialError,
@@ -144,11 +147,7 @@ export function useMigrationJobs({
       } else if (canLoadRows) {
         void refreshJob(nextSelectedJobId, {
           filter: 'all',
-          includeJob:
-            decoratedJob.entity_type === 'orders' &&
-            (decoratedJob.status === 'committed' ||
-              decoratedJob.status === 'completed' ||
-              Boolean(decoratedJob.notified_at)),
+          includeJob: shouldIncludeMigrationJobDetailsForRows(decoratedJob),
           includeRows: true,
         });
       }

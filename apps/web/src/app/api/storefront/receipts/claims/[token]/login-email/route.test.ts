@@ -59,9 +59,10 @@ function createSupabaseRpcMock(
   };
 }
 
-function getRequest() {
+function getRequest(method = 'GET') {
   return new NextRequest(
-    'http://localhost:3000/api/storefront/receipts/claims/claim-token/login-email'
+    'http://localhost:3000/api/storefront/receipts/claims/claim-token/login-email',
+    { method }
   );
 }
 
@@ -106,7 +107,7 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
     const supabase = createSupabaseRpcMock({ data: baseClaim, error: null });
     mockCreateClient.mockResolvedValue(supabase);
 
-    const response = await POST(getRequest(), params);
+    const response = await POST(getRequest('POST'), params);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -123,23 +124,26 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
     );
   });
 
-  it('returns a non-fatal response when POST login tracking fails', async () => {
+  it('returns an error response when POST login tracking fails', async () => {
     const supabase = createSupabaseRpcMock(
       { data: baseClaim, error: null },
       { data: null, error: { message: 'tracking write failed' } }
     );
     mockCreateClient.mockResolvedValue(supabase);
 
-    const response = await POST(getRequest(), params);
+    const response = await POST(getRequest('POST'), params);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({ success: false });
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'Failed to record receipt claim login start',
+      code: 'login_start_tracking_failed',
+    });
     expect(mockConsoleError).toHaveBeenCalled();
   });
 
   it('returns 400 for invalid POST claim tokens', async () => {
-    const response = await POST(getRequest(), invalidParams);
+    const response = await POST(getRequest('POST'), invalidParams);
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -153,7 +157,7 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
       valid: false,
     });
 
-    const response = await POST(getRequest(), params);
+    const response = await POST(getRequest('POST'), params);
     const body = await response.json();
 
     expect(response.status).toBe(403);

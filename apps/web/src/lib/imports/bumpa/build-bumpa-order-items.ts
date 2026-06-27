@@ -1,5 +1,8 @@
 import { buildBumpaItemImportMetadata } from '@/lib/imports/bumpa/bumpa-order-enrichment';
-import { buildBumpaOrderItemSnapshot } from '@/lib/imports/bumpa/bumpa-order-item-snapshot';
+import {
+  buildBumpaOrderItemSnapshot,
+  normalizeBumpaConditionForCatalog,
+} from '@/lib/imports/bumpa/bumpa-order-item-snapshot';
 import { createBumpaProductNameMatcher } from '@/lib/imports/bumpa/bumpa-product-name-matcher';
 import type { ExistingImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 import {
@@ -200,14 +203,20 @@ export function buildItems(
     const rawSku = sanitizeText(richItem?.sku || skus[index] || '');
     const sku = rawSku || null;
     const matchedBySku = sku ? productsBySku.get(sku.toUpperCase()) : null;
-    const matchedByName = matchProductByName(productName);
-    const matchedProduct = matchedBySku || matchedByName || null;
     const metadataSource = [productName, richItem?.fulfillmentText || '']
       .filter(Boolean)
       .join(' ');
+    const bumpaMetadata = buildBumpaItemImportMetadata(
+      metadataSource || productName
+    );
     const importMetadata = {
-      bumpa: buildBumpaItemImportMetadata(metadataSource || productName),
+      bumpa: bumpaMetadata,
     };
+    const matchedByName = matchProductByName(
+      productName,
+      normalizeBumpaConditionForCatalog(bumpaMetadata.condition)
+    );
+    const matchedProduct = matchedBySku || matchedByName || null;
     const itemSnapshot = buildBumpaOrderItemSnapshot({
       importedProductName: productName,
       importMetadata,

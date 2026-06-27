@@ -121,6 +121,42 @@ describe('createBumpaProductNameMatcher', () => {
     );
   });
 
+  it('uses an explicit condition override when fulfillment text carries the condition', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        condition: 'new',
+        id: 'iphone-13-new',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+      product({
+        condition: 'used',
+        id: 'iphone-13-used',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('iPhone 13 128GB', 'Premium Used')?.id).toBe(
+      'iphone-13-used'
+    );
+  });
+
+  it('normalizes refurbished condition text consistently for name matching', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        condition: 'open_box',
+        id: 'pixel-refurbished',
+        name: 'Google Pixel 8 128GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('Pixel 8 128gb Refurbished')?.id).toBe(
+      'pixel-refurbished'
+    );
+  });
+
   it('rejects accessory catalog names that only add accessory tokens', () => {
     const matchProduct = createBumpaProductNameMatcher([
       product({

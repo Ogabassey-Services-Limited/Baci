@@ -57,6 +57,17 @@ interface RunRefreshJobContext extends UseMigrationJobRefreshInput {
   rowsLoadingRequestIdRef: MutableRefObject<number | null>;
 }
 
+export function shouldIncludeMigrationJobDetailsForRows(
+  job: Pick<ImportJobDetail, 'entity_type' | 'notified_at' | 'status'>
+) {
+  return (
+    job.entity_type === 'orders' &&
+    (job.status === 'committed' ||
+      job.status === 'completed' ||
+      Boolean(job.notified_at))
+  );
+}
+
 function getCachedRowsEntry(rowsCache: RowsCache, cacheKey: string) {
   const cachedRows = rowsCache.get(cacheKey);
   if (!cachedRows) {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DomainsDashboard from './index';
@@ -126,5 +126,45 @@ describe('DomainsDashboard', () => {
     expect(screen.getByText('Domains')).toBeTruthy();
     expect(screen.getByText('CUSTOM DOMAINS')).toBeTruthy();
     expect(screen.getByText('Loading domains…')).toBeTruthy();
+  });
+
+  it('renders loaded custom domains', () => {
+    mocks.useQuery.mockReturnValue({
+      data: [
+        {
+          created_at: '2026-01-01T00:00:00.000Z',
+          domain: 'shop.example.com',
+          domain_type: 'custom',
+          id: 'domain-1',
+          is_primary: true,
+          status: 'active',
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<DomainsDashboard />);
+
+    expect(screen.getByText('Store link')).toBeTruthy();
+    expect(screen.getByText('shop.example.com')).toBeTruthy();
+  });
+
+  it('renders a retry action when domain loading fails', () => {
+    mocks.useQuery.mockReturnValue({
+      data: [],
+      error: new Error('Network unavailable'),
+      isLoading: false,
+      isRefetching: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<DomainsDashboard />);
+
+    expect(screen.getByText('Failed to load domains')).toBeTruthy();
+    fireEvent.click(screen.getByText('Failed to load domains'));
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 });

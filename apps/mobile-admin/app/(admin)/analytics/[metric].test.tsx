@@ -97,6 +97,9 @@ vi.mock('@/hooks/useTheme', () => ({
       textMuted: '#6b7280',
       textOnPrimary: '#fff',
       textSecondary: '#4b5563',
+      errorLight: '#fee2e2',
+      success: '#16a34a',
+      successLight: '#dcfce7',
     },
     isDark: false,
   }),
@@ -125,5 +128,46 @@ describe('AnalyticsDetailScreen', () => {
     expect(screen.getByText('This year')).toBeTruthy();
     expect(screen.getByText('Total:')).toBeTruthy();
     expect(screen.getByRole('progressbar')).toBeTruthy();
+  });
+
+  it('renders populated metric details', () => {
+    mocks.useAnalyticsDetail.mockReturnValue({
+      data: {
+        bestPeriod: { label: 'Jan', value: 125000 },
+        comparisonData: [],
+        data: [{ label: 'Jan', value: 125000 }],
+        percentChange: 12.5,
+        rangeLabel: 'This year',
+        total: 125000,
+      },
+      error: null,
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AnalyticsDetailScreen />);
+
+    expect(screen.getAllByText('NGN 125000').length).toBeGreaterThan(0);
+    expect(screen.getByText('Compare vs previous period')).toBeTruthy();
+    expect(screen.getByText(/Jan was your best month/)).toBeTruthy();
+  });
+
+  it('renders the metric error state', () => {
+    mocks.useAnalyticsDetail.mockReturnValue({
+      data: null,
+      error: new Error('Network unavailable'),
+      isError: true,
+      isFetching: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AnalyticsDetailScreen />);
+
+    expect(screen.getByText('Unable to load revenue.')).toBeTruthy();
+    expect(screen.getByText('Network unavailable')).toBeTruthy();
+    expect(screen.getByText('Try again')).toBeTruthy();
   });
 });

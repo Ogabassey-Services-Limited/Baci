@@ -19,4 +19,8 @@ describe('order tracking condition migration', () => {
       /jsonb_build_object\([\s\S]*'condition', oi\.condition,[\s\S]*'variant_name', oi\.variant_name/i
     );
   });
+
+  it('returns tracking RPC order items in a stable order', () => {
+    expect(migrationSql).toMatch(/jsonb_agg\([\s\S]*ORDER BY oi\.id/i);
+  });
 });

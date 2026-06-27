@@ -75,6 +75,23 @@ describe('Bumpa order item snapshots', () => {
     expect(normalizeBumpaConditionForCatalog('open_box')).toBe('open_box');
   });
 
+  it('derives receipt condition from the matched catalog name when the condition column is empty', () => {
+    const snapshot = buildBumpaOrderItemSnapshot({
+      importedProductName: 'Google Pixel 8 128GB',
+      importMetadata: {},
+      matchedProduct: product({
+        condition: null,
+        name: 'Google Pixel 8 128GB (Premium Used)',
+      }),
+    });
+
+    expect(snapshot).toMatchObject({
+      condition: 'used',
+      productName: 'Google Pixel 8 128GB',
+      variantName: 'Used',
+    });
+  });
+
   it('does not treat leading product words like New 2025 as receipt conditions', () => {
     const snapshot = buildBumpaOrderItemSnapshot({
       importedProductName: 'New 2025 Apple iPad M3 256gb WiFi + Cellular',
