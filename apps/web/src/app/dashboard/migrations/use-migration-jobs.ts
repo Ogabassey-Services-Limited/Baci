@@ -18,12 +18,10 @@ import {
   decorateImportJob,
   getInitialMigrationSelection,
   isMigrationStatusActive,
+  shouldIncludeMigrationJobDetailsForRows,
 } from '@/app/dashboard/migrations/migration-utils';
 import { useMigrationJobPolling } from '@/app/dashboard/migrations/use-migration-job-polling';
-import {
-  shouldIncludeMigrationJobDetailsForRows,
-  useMigrationJobRefresh,
-} from '@/app/dashboard/migrations/use-migration-job-refresh';
+import { useMigrationJobRefresh } from '@/app/dashboard/migrations/use-migration-job-refresh';
 
 export function useMigrationJobs({
   initialError,
