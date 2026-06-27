@@ -8,10 +8,7 @@ import { OGABASSEY_STOREFRONT_IOS_APP_ID } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
-import {
-  getStorefrontSeoDescription,
-  getStorefrontSeoTitle,
-} from '../[slug]/seo-helpers';
+import { getStorefrontSeoDescription } from '../[slug]/seo-helpers';
 import { OgabasseyHomeShellFallback } from './ogabassey-home-shell-fallback';
 import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints';
 
@@ -72,7 +69,6 @@ export async function generateMetadata(): Promise<Metadata> {
         : undefined;
 
   const description = getStorefrontSeoDescription(merchant);
-  const title = getStorefrontSeoTitle(merchant);
   const baseUrl = buildStoreUrl(merchant);
   let metadataBase: URL | undefined;
 
@@ -84,7 +80,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase,
-    title,
     description,
     icons,
     verification: verificationCode
@@ -102,7 +97,6 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title,
       description,
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },

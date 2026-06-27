@@ -187,7 +187,10 @@ describe('OgabasseyLayout', () => {
 
   it('provides high-performance dynamic metadata from the database', async () => {
     const metadata = await generateMetadata();
-    expect(metadata.title).toBe('OgaBassey - Official Online Store');
+    // The layout intentionally omits HTML/Twitter titles so streamed storefront
+    // shells never cache a generic parent title before route-level metadata.
+    expect(metadata.title).toBeUndefined();
+    expect(metadata.twitter?.title).toBeUndefined();
     expect(metadata.description).toContain('Buy Gadgets Pay Later');
     expect(metadata.manifest).toBeNull();
     expect(metadata.other).toMatchObject({
