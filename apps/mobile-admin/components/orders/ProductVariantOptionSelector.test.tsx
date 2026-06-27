@@ -146,6 +146,46 @@ describe('ProductVariantOptionSelector', () => {
     );
   });
 
+  it('uses an empty image array when selected and parent products have no images', () => {
+    const onAddProduct = vi.fn();
+
+    render(
+      <ProductVariantOptionSelector
+        colors={colors}
+        formatPrice={(amount) => `₦${amount}`}
+        onAddProduct={onAddProduct}
+        parentProduct={{
+          condition: 'new',
+          has_variants: true,
+          id: 'product-1',
+          images: undefined as unknown as string[],
+          name: 'Samsung Galaxy S26',
+          parent_product_id: null,
+          price: 1000,
+          sku: null,
+          variant_attributes: [],
+        }}
+        variants={[
+          variant('variant-1', {
+            color: 'Black',
+            storage: '256GB',
+          }),
+        ]}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add selected variant' })
+    );
+
+    expect(onAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'variant-1',
+        images: [],
+      })
+    );
+  });
+
   it('lets users clear a selected option after refreshed variants make it unavailable', () => {
     const parentProduct = {
       condition: 'new',

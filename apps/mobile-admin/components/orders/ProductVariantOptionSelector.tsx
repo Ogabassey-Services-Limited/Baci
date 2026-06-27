@@ -173,7 +173,7 @@ export function ProductVariantOptionSelector({
               images:
                 selectedVariant.images.length > 0
                   ? selectedVariant.images
-                  : parentProduct.images,
+                  : (parentProduct.images ?? []),
             });
           }}
           style={({ pressed }) => [
