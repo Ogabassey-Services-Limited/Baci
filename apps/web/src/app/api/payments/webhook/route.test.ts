@@ -953,6 +953,109 @@ describe('POST /api/payments/webhook', () => {
       expect(response.status).toBe(404);
       expect(data).toEqual({ error: 'Transaction not found' });
     });
+
+    it('acknowledges verified Paystack payments with zero local candidates after filing review', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          amount: 100000,
+          reference: '09FG260626140359226K1RHXD',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const reviewInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference: '09FG260626140359226K1RHXD',
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-06-27T20:37:08.000Z',
+          created_at: '2026-06-27T20:36:00.000Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116', message: 'Not found' },
+            }),
+          } as any;
+        }
+        if (table === 'reconciliation_review') {
+          return { insert: reviewInsert } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        code: 'PAYSTACK_PAYMENT_MATCH_ZERO_CANDIDATES',
+        message: 'Paystack webhook accepted for reconciliation review',
+      });
+      expect(reviewInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          candidates: [],
+          issue_type: 'payment_match_zero_candidates',
+          paystack_ref: '09FG260626140359226K1RHXD',
+          metadata: expect.objectContaining({
+            channel: 'bank_transfer',
+            currency: 'NGN',
+            customer_email: 'customer@example.com',
+            verified_amount: 1000,
+          }),
+        })
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          duplicateReview: false,
+          message:
+            'Paystack webhook acknowledged with zero local payment candidates',
+          reference: '09FG260626140359226K1RHXD',
+        })
+      );
+      expect(logger.error).not.toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Transaction not found' })
+      );
+    });
   });
 
   describe('Amount Validation', () => {
