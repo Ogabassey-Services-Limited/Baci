@@ -31,7 +31,9 @@ export const maxDuration = 300;
 const PLATFORMS = ['android', 'ios'] as const;
 
 type Outcome =
-  | StorefrontUpdateNudgeResult
+  | (StorefrontUpdateNudgeResult & {
+      app: (typeof MOBILE_APPS)[number];
+    })
   | {
       app: (typeof MOBILE_APPS)[number];
       platform: (typeof PLATFORMS)[number];
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
           storeUrl,
           body,
         });
-        results.push(result);
+        results.push({ app, ...result });
 
         // notifyStorefrontUpdateAvailable resolves (doesn't throw) for Expo/DB
         // failures — a select error or a total send failure comes back as a

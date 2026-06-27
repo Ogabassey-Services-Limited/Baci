@@ -67,10 +67,15 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.results).toEqual([
-      { app: 'storefront', skipped: 'updates_disabled' },
-      { app: 'admin', skipped: 'updates_disabled' },
-    ]);
+    expect(body.results).toHaveLength(2);
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      skipped: 'updates_disabled',
+    });
+    expect(body.results).toContainEqual({
+      app: 'admin',
+      skipped: 'updates_disabled',
+    });
     expect(mockReconcile).not.toHaveBeenCalled();
   });
 
@@ -106,10 +111,19 @@ describe('GET /api/cron/ios-live-build-sync', () => {
       'admin',
       'app_store_connect_cron'
     );
-    expect(body.results).toEqual([
-      { app: 'storefront', synced: true, build: 360, versionString: '2.1.360' },
-      { app: 'admin', synced: true, build: 22, versionString: '2.0.1' },
-    ]);
+    expect(body.results).toHaveLength(2);
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      synced: true,
+      build: 360,
+      versionString: '2.1.360',
+    });
+    expect(body.results).toContainEqual({
+      app: 'admin',
+      synced: true,
+      build: 22,
+      versionString: '2.0.1',
+    });
   });
 
   it('reports one app synced while the other is skipped', async () => {
@@ -120,10 +134,17 @@ describe('GET /api/cron/ios-live-build-sync', () => {
 
     expect(response.status).toBe(200);
     expect(mockReconcile).toHaveBeenCalledTimes(1);
-    expect(body.results).toEqual([
-      { app: 'storefront', synced: true, build: 360, versionString: '2.1.360' },
-      { app: 'admin', skipped: 'updates_disabled' },
-    ]);
+    expect(body.results).toHaveLength(2);
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      synced: true,
+      build: 360,
+      versionString: '2.1.360',
+    });
+    expect(body.results).toContainEqual({
+      app: 'admin',
+      skipped: 'updates_disabled',
+    });
   });
 
   it('returns 502 only when every app errors', async () => {
@@ -133,10 +154,12 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     const body = await response.json();
 
     expect(response.status).toBe(502);
-    expect(body.results).toEqual([
-      { app: 'storefront', error: 'sync_failed' },
-      { app: 'admin', error: 'sync_failed' },
-    ]);
+    expect(body.results).toHaveLength(2);
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      error: 'sync_failed',
+    });
+    expect(body.results).toContainEqual({ app: 'admin', error: 'sync_failed' });
   });
 
   it('returns 502 when the only attempted app errors', async () => {
@@ -148,10 +171,15 @@ describe('GET /api/cron/ios-live-build-sync', () => {
 
     expect(response.status).toBe(502);
     expect(mockReconcile).toHaveBeenCalledTimes(1);
-    expect(body.results).toEqual([
-      { app: 'storefront', error: 'sync_failed' },
-      { app: 'admin', skipped: 'updates_disabled' },
-    ]);
+    expect(body.results).toHaveLength(2);
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      error: 'sync_failed',
+    });
+    expect(body.results).toContainEqual({
+      app: 'admin',
+      skipped: 'updates_disabled',
+    });
   });
 
   it('returns 200 when one app errors but another succeeds', async () => {

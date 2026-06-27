@@ -236,8 +236,17 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     });
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
 
     expect(response.status).toBe(500);
+    expect(body.results).toContainEqual(
+      expect.objectContaining({
+        app: 'storefront',
+        platform: 'android',
+        sent: 0,
+        failed: 5,
+      })
+    );
   });
 
   it('returns 500 when the throttle stamp failed', async () => {

@@ -223,6 +223,25 @@ describe('push notification native loading', () => {
     );
   });
 
+  it.each([
+    [null, null],
+    ['', null],
+    ['   ', null],
+    ['646-beta', null],
+    ['646.1', null],
+    ['-1', null],
+    ['0', 0],
+    ['646', 646],
+    [' 646 ', 646],
+  ])(
+    'parses native build number %j as %j',
+    async (value, expectedBuildNumber) => {
+      const { resolveNativeBuildNumber } = await import('./push-notifications');
+
+      expect(resolveNativeBuildNumber(value)).toBe(expectedBuildNumber);
+    }
+  );
+
   it('returns false when saving the push token fails', async () => {
     supabaseRpcMock.mockResolvedValue({
       error: { message: 'RLS policy violation' },
