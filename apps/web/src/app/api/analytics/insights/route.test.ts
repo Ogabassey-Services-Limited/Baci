@@ -110,6 +110,7 @@ describe('GET /api/analytics/insights', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
       supabase: makeSupabaseMock() as unknown as Awaited<
@@ -352,6 +353,26 @@ describe('GET /api/analytics/insights', () => {
         },
       ],
     });
+    expect(cache.set).toHaveBeenCalledWith(
+      'ai-insights:merchant-1',
+      expect.objectContaining({
+        insights: [
+          expect.objectContaining({
+            title: 'AI Insights Temporarily Unavailable',
+          }),
+        ],
+      }),
+      300
+    );
+    expect(console.warn).toHaveBeenCalledWith(
+      'AI insights generation unavailable; using fallback',
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        provider: 'ollama',
+        error: 'Ollama timeout',
+      })
+    );
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it('returns fallback insights when the AI call times out or fails', async () => {
@@ -370,5 +391,25 @@ describe('GET /api/analytics/insights', () => {
         },
       ],
     });
+    expect(cache.set).toHaveBeenCalledWith(
+      'ai-insights:merchant-1',
+      expect.objectContaining({
+        insights: [
+          expect.objectContaining({
+            title: 'AI Insights Temporarily Unavailable',
+          }),
+        ],
+      }),
+      300
+    );
+    expect(console.warn).toHaveBeenCalledWith(
+      'AI insights generation unavailable; using fallback',
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        provider: 'gemini',
+        error: 'model timeout',
+      })
+    );
+    expect(console.error).not.toHaveBeenCalled();
   });
 });
