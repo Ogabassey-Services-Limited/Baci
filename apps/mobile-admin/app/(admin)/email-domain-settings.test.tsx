@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -108,7 +108,9 @@ describe('EmailDomainSettingsScreen', () => {
     fireEvent.change(screen.getByPlaceholderText('yourstore.com'), {
       target: { value: 'mystore.com' },
     });
-    fireEvent.click(screen.getByText('Add domain'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add domain'));
+    });
     await expect.poll(() => mocks.register).toHaveBeenCalledWith('mystore.com');
   });
 
@@ -126,7 +128,9 @@ describe('EmailDomainSettingsScreen', () => {
     fireEvent.change(screen.getByPlaceholderText('yourstore.com'), {
       target: { value: 'mystore.com' },
     });
-    fireEvent.click(screen.getByText('Add domain'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add domain'));
+    });
 
     await expect
       .poll(() => mocks.setQueryData)
