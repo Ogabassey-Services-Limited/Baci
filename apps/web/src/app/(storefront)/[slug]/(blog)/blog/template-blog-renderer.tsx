@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { JsonLd } from '@/components/seo/json-ld';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 
 interface TemplateBlogRendererProps {
@@ -29,22 +29,10 @@ export function TemplateBlogRenderer({
 }: TemplateBlogRendererProps) {
   return (
     <>
-      {organizationSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(organizationSchema)}
-        </script>
-      )}
-      <script type="application/ld+json">
-        {safeJsonLdStringify(blogSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      {itemListSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(itemListSchema)}
-        </script>
-      )}
+      {organizationSchema && <JsonLd data={organizationSchema} />}
+      <JsonLd data={blogSchema} />
+      <JsonLd data={breadcrumbSchema} />
+      {itemListSchema && <JsonLd data={itemListSchema} />}
       <BlogComponent
         storeSlug={basePath}
         posts={blogPosts}

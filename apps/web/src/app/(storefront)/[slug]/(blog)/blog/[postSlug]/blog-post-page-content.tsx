@@ -4,13 +4,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { JsonLd } from '@/components/seo/json-ld';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
 import { hasBlogAuthorPage } from '@/lib/blog-authors';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
 import { getRequestLocale } from '@/lib/request-locale';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
@@ -144,24 +144,12 @@ async function renderBlogPostContent({
           </Button>
         </div>
       )}
-      <script type="application/ld+json">
-        {safeJsonLdStringify(structuredData.organizationSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(structuredData.blogSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(structuredData.breadcrumbSchema)}
-      </script>
-      {structuredData.faqSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(structuredData.faqSchema)}
-        </script>
-      )}
+      <JsonLd data={structuredData.organizationSchema} />
+      <JsonLd data={structuredData.blogSchema} />
+      <JsonLd data={structuredData.breadcrumbSchema} />
+      {structuredData.faqSchema && <JsonLd data={structuredData.faqSchema} />}
       {structuredData.videoMetadata?.schema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(structuredData.videoMetadata.schema)}
-        </script>
+        <JsonLd data={structuredData.videoMetadata.schema} />
       )}
 
       <ViewCounter postId={post.id} />

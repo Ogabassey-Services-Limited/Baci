@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { type ComponentType, Suspense } from 'react';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { JsonLd } from '@/components/seo/json-ld';
 import {
   getMerchantByIdentifier,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema, getIndexableRobotsMetadata } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate, type TemplatePageProps } from '@/templates/registry';
@@ -95,9 +95,7 @@ async function FAQJsonLd({ params }: PageProps) {
 
   const faqSchema = generateFAQSchema(faqItems);
 
-  return (
-    <script type="application/ld+json">{safeJsonLdStringify(faqSchema)}</script>
-  );
+  return <JsonLd data={faqSchema} />;
 }
 
 async function FAQContent({ params }: PageProps) {

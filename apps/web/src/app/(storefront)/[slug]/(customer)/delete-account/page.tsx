@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { type ComponentType, Suspense } from 'react';
+import { JsonLd } from '@/components/seo/json-ld';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 
 interface PageProps {
@@ -81,11 +81,7 @@ async function DeleteAccountJsonLd({ params }: PageProps) {
     },
   };
 
-  return (
-    <script type="application/ld+json">
-      {safeJsonLdStringify(pageSchema)}
-    </script>
-  );
+  return <JsonLd data={pageSchema} />;
 }
 
 async function DeleteAccountContent({ params }: PageProps) {

@@ -3,12 +3,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
+import { JsonLd } from '@/components/seo/json-ld';
 import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify, sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
+import { sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -146,17 +147,9 @@ export async function BlogAuthorPageContent({
     <>
       {previousPageUrl ? <link href={previousPageUrl} rel="prev" /> : null}
       {nextPageUrl ? <link href={nextPageUrl} rel="next" /> : null}
-      <script type="application/ld+json">
-        {safeJsonLdStringify(profilePageSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      {itemListSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(itemListSchema)}
-        </script>
-      )}
+      <JsonLd data={profilePageSchema} />
+      <JsonLd data={breadcrumbSchema} />
+      {itemListSchema && <JsonLd data={itemListSchema} />}
 
       <div className="min-h-screen bg-background">
         <div className="border-b bg-card">

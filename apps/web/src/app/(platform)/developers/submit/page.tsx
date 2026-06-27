@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import { JsonLd } from '@/components/seo/json-ld';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import SubmitTemplateClientPage from './client-page';
 
 const submitTemplateUrl = `${PLATFORM_CONFIG.url}/developers/submit`;
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 export default function SubmitTemplatePage() {
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify({
+      <JsonLd
+        data={{
           '@context': 'https://schema.org',
           '@type': 'WebPage',
           name: 'Submit a Storefront Template - Baci Developers',
@@ -30,8 +30,8 @@ export default function SubmitTemplatePage() {
             name: PLATFORM_CONFIG.name,
             url: PLATFORM_CONFIG.url,
           },
-        })}
-      </script>
+        }}
+      />
       <SubmitTemplateClientPage />
     </>
   );

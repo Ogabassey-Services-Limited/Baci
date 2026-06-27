@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import { JsonLd } from '@/components/seo/json-ld';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import TrackClientPage from './client-page';
 
 const trackUrl = `${PLATFORM_CONFIG.url}/track`;
@@ -21,8 +21,8 @@ export const metadata: Metadata = {
 export default function TrackPage() {
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify({
+      <JsonLd
+        data={{
           '@context': 'https://schema.org',
           '@type': 'WebPage',
           name: 'Track Your Order - Baci',
@@ -34,8 +34,8 @@ export default function TrackPage() {
             name: PLATFORM_CONFIG.name,
             url: PLATFORM_CONFIG.url,
           },
-        })}
-      </script>
+        }}
+      />
       <TrackClientPage />
     </>
   );

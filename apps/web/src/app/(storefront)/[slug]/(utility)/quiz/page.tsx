@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { JsonLd } from '@/components/seo/json-ld';
 import { OgabasseyV2Quiz } from '@/components/storefront/ogabassey/pages/quiz';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -47,7 +47,7 @@ export default async function QuizPage({
 
   return (
     <section aria-label="Super Quiz">
-      <script type="application/ld+json">{safeJsonLdStringify(jsonLd)}</script>
+      <JsonLd data={jsonLd} />
       <OgabasseyV2Quiz merchantSlug={merchant.slug} />
     </section>
   );

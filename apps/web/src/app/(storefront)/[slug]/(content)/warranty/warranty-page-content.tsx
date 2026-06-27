@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
+import { JsonLd } from '@/components/seo/json-ld';
 import { TrustPolicyPageClient } from '@/components/storefront/trust/trust-policy-page-client';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { hasPublishableWarrantyPolicy } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getContactHref, getTrustRouteContext } from '../trust-route-context';
 
@@ -54,7 +54,7 @@ export async function WarrantyPageContent({ params }: PageProps) {
 
   return (
     <>
-      <script type="application/ld+json">{safeJsonLdStringify(jsonLd)}</script>
+      <JsonLd data={jsonLd} />
       <TrustPolicyPageClient
         kind="warranty"
         merchantName={context.merchant.business_name}

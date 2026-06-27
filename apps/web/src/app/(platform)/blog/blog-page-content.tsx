@@ -3,13 +3,13 @@ import { redirect } from 'next/navigation';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
+import { JsonLd } from '@/components/seo/json-ld';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   getPlatformBlogListing,
   PLATFORM_BLOG_CONTEXT,
 } from '@/lib/platform-blog';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 
 export interface BlogPageProps {
@@ -94,12 +94,8 @@ export async function BlogPageContent({ searchParams }: BlogPageProps) {
   return (
     <AppBody>
       <div className="flex min-h-screen flex-col bg-background font-sans">
-        <script type="application/ld+json">
-          {safeJsonLdStringify(blogSchema)}
-        </script>
-        <script type="application/ld+json">
-          {safeJsonLdStringify(breadcrumbSchema)}
-        </script>
+        <JsonLd data={blogSchema} />
+        <JsonLd data={breadcrumbSchema} />
 
         <PlatformHeader />
         <main className="flex-1 pb-16 pt-24">

@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { JsonLd } from '@/components/seo/json-ld';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import {
   getCachedCategoryPageData,
@@ -7,7 +8,6 @@ import {
 } from '@/lib/cached-data';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { isPaystackConfigured } from '@/lib/paystack';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateAggregateRating,
@@ -160,17 +160,9 @@ export async function ProductPageRuntime({
       : null;
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(productSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      {faqSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(faqSchema)}
-        </script>
-      )}
+      <JsonLd data={productSchema} />
+      <JsonLd data={breadcrumbSchema} />
+      {faqSchema && <JsonLd data={faqSchema} />}
       <ProductDetailClient product={product} faqs={productFaqs} />
       <ProductSemanticSections
         model={{

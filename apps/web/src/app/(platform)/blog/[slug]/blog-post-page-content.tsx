@@ -5,13 +5,13 @@ import { notFound } from 'next/navigation';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
+import { JsonLd } from '@/components/seo/json-ld';
 import { SafeHtml } from '@/components/ui/safe-html';
 import {
   getPlatformBlogPost,
   PLATFORM_BLOG_CONTEXT,
 } from '@/lib/platform-blog';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
@@ -84,12 +84,8 @@ export async function BlogPostPageContent({ params }: PageProps) {
   return (
     <AppBody>
       <div className="flex min-h-screen flex-col bg-background font-sans">
-        <script type="application/ld+json">
-          {safeJsonLdStringify(blogSchema)}
-        </script>
-        <script type="application/ld+json">
-          {safeJsonLdStringify(breadcrumbSchema)}
-        </script>
+        <JsonLd data={blogSchema} />
+        <JsonLd data={breadcrumbSchema} />
 
         <PlatformHeader />
         <BlogPostViewTracker slug={post.slug} />

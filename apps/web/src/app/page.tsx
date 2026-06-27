@@ -19,9 +19,9 @@ import { MetricCard } from '@/components/landing/metric-card';
 import { TypingAnimation } from '@/components/landing/typing-animation';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
+import { JsonLd } from '@/components/seo/json-ld';
 import { Button } from '@/components/ui/button';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateOrganizationSchema,
   generateWebSiteSchema,
@@ -87,12 +87,12 @@ function PlatformSchemas() {
   const { '@context': _wsCtx, ...wsWithoutContext } = websiteSchema;
 
   return (
-    <script type="application/ld+json">
-      {safeJsonLdStringify({
+    <JsonLd
+      data={{
         '@context': 'https://schema.org',
         '@graph': [orgWithoutContext, wsWithoutContext],
-      })}
-    </script>
+      }}
+    />
   );
 }
 
@@ -400,8 +400,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             </ol>
 
             {/* HowTo Schema */}
-            <script type="application/ld+json">
-              {safeJsonLdStringify({
+            <JsonLd
+              data={{
                 '@context': 'https://schema.org',
                 '@type': 'HowTo',
                 name: 'How to Create an E-commerce Store with Baci',
@@ -431,8 +431,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                   },
                 ],
                 totalTime: 'PT10M',
-              })}
-            </script>
+              }}
+            />
           </div>
         </section>
 
@@ -522,8 +522,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             </div>
 
             {/* FAQ Schema */}
-            <script type="application/ld+json">
-              {safeJsonLdStringify({
+            <JsonLd
+              data={{
                 '@context': 'https://schema.org',
                 '@type': 'FAQPage',
                 mainEntity: [
@@ -592,8 +592,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                     },
                   },
                 ],
-              })}
-            </script>
+              }}
+            />
           </div>
         </section>
       </main>
