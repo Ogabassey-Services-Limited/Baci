@@ -1,112 +1,4 @@
 @layer utilities {
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(.bg-white, .bg-gray-50, .bg-gray-100) {
-    background-color: var(--storefront-dark-card);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(.bg-white\/90, .bg-white\/80, .bg-gray-50\/50) {
-    background-color: var(--storefront-dark-card);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(.text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600) {
-    color: var(--storefront-dark-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(.text-gray-500, .text-gray-400) {
-    color: var(--storefront-dark-muted-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(
-      .border-gray-100,
-      .border-gray-200,
-      .border-gray-300,
-      .border-gray-400
-    ) {
-    border-color: var(--storefront-dark-border);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(input, select, textarea) {
-    background-color: var(--storefront-dark-muted);
-    border-color: var(--storefront-dark-border);
-    color: var(--storefront-dark-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-storefront-shell
-    :is(input, select, textarea)::placeholder {
-    color: var(--storefront-dark-muted-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark .ogabassey-checkout-page {
-    background-color: var(--storefront-dark-background);
-    color: var(--storefront-dark-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(.bg-white, .bg-gray-50, .bg-gray-100, .bg-red-100, .bg-green-50) {
-    background-color: var(--storefront-dark-card);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(
-      .bg-white\/90,
-      .bg-gray-50\/50,
-      .supports-\[backdrop-filter\]\:bg-white\/60
-    ) {
-    background-color: var(--storefront-dark-card);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(.text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600) {
-    color: var(--storefront-dark-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(.text-gray-500, .text-gray-400) {
-    color: var(--storefront-dark-muted-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(
-      .border-gray-100,
-      .border-gray-200,
-      .border-gray-300,
-      .border-gray-400,
-      .border-green-100
-    ) {
-    border-color: var(--storefront-dark-border);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(input, select, textarea) {
-    background-color: var(--storefront-dark-muted);
-    border-color: var(--storefront-dark-border);
-    color: var(--storefront-dark-foreground);
-  }
-
-  .storefront-variant-ogabassey.storefront-mode-dark
-    .ogabassey-checkout-page
-    :is(input, select, textarea)::placeholder {
-    color: var(--storefront-dark-muted-foreground);
-  }
-
   @media (prefers-color-scheme: dark) {
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
@@ -158,6 +50,7 @@
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
       .ogabassey-checkout-page {
       background-color: var(--storefront-dark-background);
       color: var(--storefront-dark-foreground);
@@ -189,6 +82,18 @@
       .ogabassey-checkout-page
       :is(.text-gray-500, .text-gray-400) {
       color: var(--storefront-dark-muted-foreground);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(.text-green-700, .text-green-800) {
+      color: var(--storefront-dark-success);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(.text-red-700, .text-red-800) {
+      color: var(--storefront-dark-error);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system

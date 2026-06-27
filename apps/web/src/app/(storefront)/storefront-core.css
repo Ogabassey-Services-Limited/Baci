@@ -108,19 +108,8 @@
   }
 
   .ogabassey-footer {
-    background: #111111;
+    background: #1a1a1a;
     color: #ffffff;
-  }
-
-  @supports (background: color-mix(in srgb, white 50%, black)) {
-    .ogabassey-footer {
-      background: color-mix(
-        in srgb,
-        var(--store-background-text, #111827) 94%,
-        black
-      );
-      color: var(--store-background, #ffffff);
-    }
   }
 
   .ogabassey-ad-slot {

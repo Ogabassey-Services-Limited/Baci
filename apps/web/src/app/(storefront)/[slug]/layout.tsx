@@ -9,6 +9,7 @@ import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-v
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import {
+  DEFAULT_STOREFRONT_APPEARANCE,
   resolveStorefrontAppearance,
   type StorefrontAppearance,
 } from '@/components/storefront/storefront-appearance';
@@ -254,12 +255,17 @@ function StorefrontShellFrame({
 function StorefrontThemeFrame({
   appearance,
   children,
+  scopeDocument = true,
 }: {
   appearance: StorefrontAppearance;
   children: React.ReactNode;
+  scopeDocument?: boolean;
 }) {
   return (
-    <StorefrontThemeProvider appearance={appearance}>
+    <StorefrontThemeProvider
+      appearance={appearance}
+      scopeDocument={scopeDocument}
+    >
       {children}
     </StorefrontThemeProvider>
   );
@@ -357,8 +363,16 @@ export default function StorefrontLayout(props: {
   const { loadingFallback, ...contentProps } = props;
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
   // routes that intentionally need no static visual shell.
-  const staticLoadingFallback =
+  const fallbackContent =
     loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
+  const staticLoadingFallback = fallbackContent ? (
+    <StorefrontThemeFrame
+      appearance={DEFAULT_STOREFRONT_APPEARANCE}
+      scopeDocument={false}
+    >
+      {fallbackContent}
+    </StorefrontThemeFrame>
+  ) : null;
 
   return (
     <StorefrontPprStaticShell loadingFallback={staticLoadingFallback}>

@@ -47,7 +47,8 @@ export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
               orders.
             </li>
             <li>
-              <strong>&quot;UK Used&quot; Definition:</strong> Devices labeled
+              <strong>&quot;UK Used&quot; Definition:</strong>{' '}
+              Devices labeled
               as &quot;UK Used&quot; are pre-owned. While we ensure high
               quality, they may have minor cosmetic signs of use unless stated
               otherwise.
@@ -221,5 +222,4 @@ export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
     </div>
   );
 };
-
 

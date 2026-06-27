@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import {
   DEFAULT_STOREFRONT_APPEARANCE,
   getStorefrontAppearanceClassName,
@@ -83,34 +83,50 @@ function decrementDocumentClasses(target: HTMLElement, classNames: string[]) {
 export function StorefrontThemeProvider({
   appearance = DEFAULT_STOREFRONT_APPEARANCE,
   children,
+  scopeDocument = true,
 }: {
   appearance?: StorefrontAppearance;
   children: ReactNode;
+  scopeDocument?: boolean;
 }) {
   const { mode, variant } = appearance;
   const normalizedAppearance: StorefrontAppearance = { mode, variant };
   const wrapperClassName =
     getStorefrontAppearanceClassName(normalizedAppearance);
+  const hasAppliedDocumentClassesRef = useRef(false);
 
   useEffect(() => {
+    if (!scopeDocument) {
+      return;
+    }
+
     let applied = false;
+    let timeoutId: number | undefined;
     const root = document.documentElement;
     const body = document.body;
     const documentClasses = getStorefrontDocumentAppearanceClasses({
       mode,
       variant,
     });
-
-    // Defer document-level mutations until after React's hydration turn; mutating
-    // html/body from a layout effect can invalidate streamed PPR boundaries.
-    const timeoutId = window.setTimeout(() => {
+    const applyDocumentClasses = () => {
       incrementDocumentClasses(root, documentClasses);
       incrementDocumentClasses(body, documentClasses);
       applied = true;
-    }, 0);
+      hasAppliedDocumentClassesRef.current = true;
+    };
+
+    // Defer document-level mutations until after React's hydration turn; mutating
+    // html/body from a layout effect can invalidate streamed PPR boundaries.
+    if (hasAppliedDocumentClassesRef.current) {
+      applyDocumentClasses();
+    } else {
+      timeoutId = window.setTimeout(applyDocumentClasses, 0);
+    }
 
     return () => {
-      window.clearTimeout(timeoutId);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
       if (!applied) {
         return;
       }
@@ -118,7 +134,7 @@ export function StorefrontThemeProvider({
       decrementDocumentClasses(root, documentClasses);
       decrementDocumentClasses(body, documentClasses);
     };
-  }, [mode, variant]);
+  }, [mode, scopeDocument, variant]);
 
   return <div className={wrapperClassName}>{children}</div>;
 }

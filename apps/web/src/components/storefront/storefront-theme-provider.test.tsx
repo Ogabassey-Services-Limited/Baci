@@ -115,6 +115,21 @@ describe('StorefrontThemeProvider', () => {
     ).toBeNull();
   });
 
+  it('can scope fallback wrapper classes without document-level portal classes', () => {
+    const { container } = render(
+      <StorefrontThemeProvider scopeDocument={false}>
+        <span>fallback</span>
+      </StorefrontThemeProvider>
+    );
+    flushDeferredPortalThemeMode();
+
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper).toHaveClass('storefront-theme-scope');
+    expect(wrapper).toHaveClass('storefront-light');
+    expect(document.documentElement).not.toHaveClass('storefront-theme-scope');
+    expect(document.body).not.toHaveClass('storefront-light');
+  });
+
   it('forces light mode for default storefront portal surfaces while mounted', () => {
     const { unmount } = render(
       <StorefrontThemeProvider>
@@ -243,10 +258,35 @@ describe('StorefrontThemeProvider', () => {
     );
     expect(document.documentElement).not.toHaveClass('storefront-mode-system');
   });
+
+  it('swaps document-level portal classes synchronously after hydration deferral has run', () => {
+    const { rerender } = render(
+      <StorefrontThemeProvider>
+        <div>content</div>
+      </StorefrontThemeProvider>
+    );
+    flushDeferredPortalThemeMode();
+
+    rerender(
+      <StorefrontThemeProvider
+        appearance={{ mode: 'system', variant: 'ogabassey' }}
+      >
+        <div>content</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).toHaveClass(
+      'storefront-variant-ogabassey'
+    );
+    expect(document.documentElement).toHaveClass('storefront-mode-system');
+    expect(document.documentElement).not.toHaveClass('storefront-light');
+    expect(document.body).toHaveClass('storefront-variant-ogabassey');
+    expect(document.body).not.toHaveClass('storefront-light');
+  });
 });
 
 describe('storefront theme dark-mode CSS contracts', () => {
-  it('keeps app-level dark utilities out of storefront theme scopes', () => {
+  it('keeps dark utilities available in system-aware scopes while forced-light guards remain', () => {
     const tailwindConfig = readFileSync(
       join(process.cwd(), 'tailwind.config.mjs'),
       'utf8'
@@ -259,15 +299,14 @@ describe('storefront theme dark-mode CSS contracts', () => {
       join(process.cwd(), 'src/app/(storefront)/storefront-globals.css'),
       'utf8'
     );
-    const staleGuard =
-      /:not\(\.light \*\):not\(\.storefront-light \*\)(?!:not\(\.storefront-theme-scope \*\))/;
+    const broadThemeScopeGuard =
+      /:not\(\.storefront-theme-scope\):not\(\.storefront-theme-scope \*\)|:not\(\.storefront-theme-scope \*\)/;
 
-    expect(tailwindConfig).toContain(
-      ':not(.storefront-theme-scope):not(.storefront-theme-scope *)'
-    );
-    expect(globalCss).toContain(':not(.storefront-theme-scope *)');
-    expect(storefrontGlobalCss).toContain(':not(.storefront-theme-scope *)');
-    expect(globalCss).not.toMatch(staleGuard);
-    expect(storefrontGlobalCss).not.toMatch(staleGuard);
+    expect(tailwindConfig).toContain(':not(.storefront-light *)');
+    expect(globalCss).toContain(':not(.storefront-light *)');
+    expect(storefrontGlobalCss).toContain(':not(.storefront-light *)');
+    expect(tailwindConfig).not.toMatch(broadThemeScopeGuard);
+    expect(globalCss).not.toMatch(broadThemeScopeGuard);
+    expect(storefrontGlobalCss).not.toMatch(broadThemeScopeGuard);
   });
 });

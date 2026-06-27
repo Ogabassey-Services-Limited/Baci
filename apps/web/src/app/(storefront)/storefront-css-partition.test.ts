@@ -126,11 +126,9 @@ describe('storefront CSS partitioning', () => {
     expect(darkModeCss).toContain('@media (prefers-color-scheme: dark)');
     expect(darkModeCss).toContain('color-scheme: dark');
     expect(darkModeCss).toContain('caret-color: var(--store-accent');
+    expect(normalizedDarkModeCss).not.toContain('storefront-mode-dark');
     expect(normalizedDarkModeCss).toContain(
-      '.storefront-variant-ogabassey.storefront-mode-dark .ogabassey-storefront-shell'
-    );
-    expect(normalizedDarkModeCss).toContain(
-      '.storefront-variant-ogabassey.storefront-mode-dark .ogabassey-storefront-shell :is(.bg-white'
+      '.storefront-variant-ogabassey.storefront-mode-system, .storefront-variant-ogabassey.storefront-mode-system .ogabassey-storefront-shell'
     );
     expect(darkModeCss).toContain('--background: 0 0% 4% !important;');
     expect(darkModeCss).toContain(
@@ -141,10 +139,13 @@ describe('storefront CSS partitioning', () => {
     expect(darkModeCss).toContain('background-color: color-mix(');
     expect(darkModeCss).toContain('.ogabassey-checkout-page');
     expect(normalizedDarkModeCss).toContain(
-      '.storefront-variant-ogabassey.storefront-mode-dark .ogabassey-checkout-page'
+      '.storefront-variant-ogabassey.storefront-mode-system .ogabassey-storefront-shell .ogabassey-checkout-page'
     );
     expect(normalizedDarkModeCss).toContain(
-      '.storefront-variant-ogabassey.storefront-mode-system .ogabassey-checkout-page'
+      ':is(.text-green-700, .text-green-800)'
+    );
+    expect(normalizedDarkModeCss).toContain(
+      ':is(.text-red-700, .text-red-800)'
     );
     expect(darkModeCss).toContain(
       'background-color: var(--storefront-dark-card);'
@@ -273,12 +274,17 @@ describe('storefront CSS partitioning', () => {
     const coreCss = readStorefrontFile('storefront-core.css');
 
     expect(coreCss).toMatch(/\.ogabassey-footer\b/);
+    expect(coreCss).toMatch(
+      /\.ogabassey-footer\s*\{[^}]*background:\s*#1a1a1a/s
+    );
     expect(coreCss).toMatch(/\.ogabassey-footer\s*\{[^}]*color:\s*#ffffff/);
     expect(coreCss).not.toMatch(/\.ogabassey-footer\s*\{[^}]*border-top:/s);
-    expect(coreCss).toMatch(
-      /background:\s*color-mix\(\s*in srgb,\s*var\(--store-background-text,\s*#111827\)\s*94%,\s*black\s*\)/
+    expect(coreCss).not.toMatch(
+      /\.ogabassey-footer\s*\{[^}]*var\(--store-background-text/s
     );
-    expect(coreCss).toMatch(/color:\s*var\(--store-background,\s*#ffffff\)/);
+    expect(coreCss).not.toMatch(
+      /\.ogabassey-footer\s*\{[^}]*var\(--store-background,/s
+    );
   });
 
   it('loads deferred assistant launcher styles through the assistant chunk stylesheet', () => {

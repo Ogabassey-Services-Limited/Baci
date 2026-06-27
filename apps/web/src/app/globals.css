@@ -106,12 +106,12 @@
     @apply backdrop-blur-md bg-white/70;
   }
 
-  .dark &:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  .dark &:not(.light *):not(.storefront-light *) {
     @apply bg-black/80 border-white/10;
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark &:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+    .dark &:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md bg-black/70;
     }
   }
@@ -125,19 +125,19 @@
 @utility dark {
   /* Only apply blur on devices that can handle it (non-touch, larger screens) */
 
-  & .glass:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  & .glass:not(.light *):not(.storefront-light *) {
     @apply bg-black/80 border-white/10;
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    & .glass:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+    & .glass:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md bg-black/70;
     }
   }
 
   /* Only apply blur on capable devices */
 
-  & .glass-themed:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  & .glass-themed:not(.light *):not(.storefront-light *) {
     background: color-mix(
       in srgb,
       var(--store-background, black) 80%,
@@ -147,7 +147,7 @@
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    & .glass-themed:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+    & .glass-themed:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md;
       background: color-mix(
         in srgb,
@@ -157,7 +157,7 @@
     }
   }
 
-  & .prose-baci:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  & .prose-baci:not(.light *):not(.storefront-light *) {
     @apply text-foreground/90;
   }
 }
@@ -187,7 +187,7 @@
     );
   }
 
-  .dark &:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  .dark &:not(.light *):not(.storefront-light *) {
     background: color-mix(
       in srgb,
       var(--store-background, black) 80%,
@@ -197,7 +197,7 @@
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark &:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+    .dark &:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md;
       background: color-mix(
         in srgb,
@@ -602,7 +602,7 @@
   max-width: 65ch;
   margin-inline: auto;
 
-  .dark &:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  .dark &:not(.light *):not(.storefront-light *) {
     @apply text-foreground/90;
   }
 
@@ -1006,10 +1006,10 @@
     transition: background-color 9999s ease-in-out 0s;
   }
 
-  .dark input:-webkit-autofill:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *),
-  .dark input:-webkit-autofill:hover:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *),
-  .dark input:-webkit-autofill:focus:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *),
-  .dark input:-webkit-autofill:active:not(.light *):not(.storefront-light *):not(.storefront-theme-scope *) {
+  .dark input:-webkit-autofill:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:hover:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:focus:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:active:not(.light *):not(.storefront-light *) {
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset;
     -webkit-text-fill-color: hsl(var(--foreground));
   }

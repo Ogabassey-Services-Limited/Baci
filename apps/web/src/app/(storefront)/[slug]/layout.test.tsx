@@ -9,6 +9,7 @@ import {
 
 const providerSnapshots: unknown[] = [];
 const themeProviderAppearances: unknown[] = [];
+const themeProviderDocumentScopes: unknown[] = [];
 let themeProviderRenders = 0;
 const mockConnection = vi.hoisted(() => vi.fn());
 const mockIsValidMerchantIdentifier = vi.hoisted(() =>
@@ -61,12 +62,15 @@ vi.mock('@/components/storefront/storefront-theme-provider', () => ({
   StorefrontThemeProvider: ({
     appearance,
     children,
+    scopeDocument,
   }: {
     appearance?: unknown;
     children: ReactNode;
+    scopeDocument?: unknown;
   }) => {
     themeProviderRenders += 1;
     themeProviderAppearances.push(appearance);
+    themeProviderDocumentScopes.push(scopeDocument);
     return <div data-testid="storefront-theme-provider">{children}</div>;
   },
 }));
@@ -200,6 +204,7 @@ describe('storefront layout', () => {
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderAppearances.length = 0;
+    themeProviderDocumentScopes.length = 0;
     themeProviderRenders = 0;
   });
 
@@ -339,7 +344,10 @@ describe('storefront layout', () => {
       ({ container, unmount } = render(ui));
     });
 
-    expect(themeProviderAppearances).toEqual([]);
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
+    expect(themeProviderDocumentScopes).toEqual([false]);
     expect(getStorefrontShellSnapshotBase).not.toHaveBeenCalled();
     expect(
       screen.getByRole('status', { name: /loading storefront chrome/i })
@@ -373,7 +381,10 @@ describe('storefront layout', () => {
       ({ unmount } = render(ui));
     });
 
-    expect(themeProviderAppearances).toEqual([]);
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
+    expect(themeProviderDocumentScopes).toEqual([false]);
     expect(screen.getByText('Loading route shell')).toBeInTheDocument();
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })
