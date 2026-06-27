@@ -85,10 +85,17 @@ describe('ReceiptClaimPage server wrapper', () => {
   });
 
   it('still renders the claim preview after recording click tracking', async () => {
+    mockRecordReceiptClaimClickBestEffort.mockRejectedValueOnce(
+      new Error('tracking failed')
+    );
+
     render(await ReceiptClaimPreviewSection({ token: 'claim-token' }));
 
     expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
-    expect(mockRecordReceiptClaimClickBestEffort).toHaveBeenCalled();
+    expect(mockRecordReceiptClaimClickBestEffort).toHaveBeenCalledWith({
+      supabase: { rpc: expect.any(Function) },
+      token: 'claim-token',
+    });
   });
 
   it('prevents tokenized receipt claim pages from being indexed', () => {

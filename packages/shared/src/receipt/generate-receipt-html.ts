@@ -44,6 +44,14 @@ function formatCountryForReceipt(value: string) {
     : normalized;
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasCountryToken(part: string, country: string) {
+  return new RegExp(`(?:^|\\W)${escapeRegExp(country)}(?:\\W|$)`).test(part);
+}
+
 function hasAddressPart(parts: string[], value: string, isCountry = false) {
   const normalizedValue = isCountry
     ? normalizeCountryForComparison(value)
@@ -55,7 +63,7 @@ function hasAddressPart(parts: string[], value: string, isCountry = false) {
       : part.toLowerCase();
     return (
       normalizedPart === normalizedValue ||
-      (isCountry && normalizedPart.includes(normalizedValue))
+      (isCountry && hasCountryToken(normalizedPart, normalizedValue))
     );
   });
 }

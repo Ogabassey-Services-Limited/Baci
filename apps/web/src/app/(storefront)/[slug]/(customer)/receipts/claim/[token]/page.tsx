@@ -71,7 +71,11 @@ export async function ReceiptClaimPreviewSection({ token }: { token: string }) {
     });
 
     if (preview.ok) {
-      await recordReceiptClaimClickBestEffort({ supabase, token });
+      try {
+        await recordReceiptClaimClickBestEffort({ supabase, token });
+      } catch {
+        // Click tracking must not block the receipt claim experience.
+      }
     }
 
     return (

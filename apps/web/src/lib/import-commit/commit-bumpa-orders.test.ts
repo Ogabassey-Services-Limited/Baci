@@ -181,11 +181,15 @@ function createSupabaseMock({
   const loadQuery = {
     select: vi.fn(),
     eq: vi.fn(),
+    in: vi.fn(),
+    order: vi.fn(),
+    range: vi.fn(),
   };
   loadQuery.select.mockReturnValue(loadQuery);
-  loadQuery.eq
-    .mockReturnValueOnce(loadQuery)
-    .mockResolvedValueOnce({ data: existingOrders, error: null });
+  loadQuery.eq.mockReturnValue(loadQuery);
+  loadQuery.in.mockReturnValue(loadQuery);
+  loadQuery.order.mockReturnValue(loadQuery);
+  loadQuery.range.mockResolvedValue({ data: existingOrders, error: null });
 
   const insertOrderQuery = {
     insert: vi.fn(),
@@ -241,6 +245,7 @@ function createSupabaseMock({
 
   return {
     supabase: { from, rpc } as unknown as SupabaseClient,
+    loadQuery,
     insertOrderQuery,
     deleteOrderQuery,
     rpc,
@@ -506,6 +511,39 @@ describe('commitBumpaOrders', () => {
     expect(rpcArgs.p_order_patch.import_metadata).not.toHaveProperty(
       'previewExistingOrderUpdatedAt'
     );
+  });
+
+  it('targets existing imported order lookups to incoming external ids in chunks', async () => {
+    const existingOrders = Array.from({ length: 151 }, (_value, index) => ({
+      external_id: `ext-${index + 1}`,
+      id: `order-existing-${index + 1}`,
+      tracking_token: `tracking-existing-${index + 1}`,
+      updated_at: '2026-03-21T10:00:00.000Z',
+    }));
+    const { loadQuery, supabase } = createSupabaseMock({ existingOrders });
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: existingOrders.map((order, index) =>
+        createOrder({
+          externalSourceId: order.external_id ?? '',
+          orderNumber: `ORD-${index + 1}`,
+        })
+      ),
+    });
+
+    const lookupValueLengths = loadQuery.in.mock.calls.map(
+      ([_field, values]) => values.length
+    );
+    expect(loadQuery.in).toHaveBeenCalledWith(
+      'external_id',
+      expect.arrayContaining(['ext-1'])
+    );
+    expect(lookupValueLengths).toEqual([150, 1]);
+    expect(loadQuery.order).toHaveBeenCalledWith('id');
+    expect(loadQuery.range).toHaveBeenCalledWith(0, 999);
   });
 
   it('uses preview-time updated_at for imported order stale checks', async () => {

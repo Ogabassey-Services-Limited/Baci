@@ -120,6 +120,7 @@ interface ExistingProductRow {
 }
 
 interface ExistingOrderPageQuery {
+  order(column: string): ExistingOrderPageQuery;
   range(
     from: number,
     to: number
@@ -130,6 +131,7 @@ interface ExistingOrderPageQuery {
 }
 
 interface ExistingProductPageQuery {
+  order(column: string): ExistingProductPageQuery;
   range(
     from: number,
     to: number
@@ -234,6 +236,31 @@ function chunkValues<T>(values: T[], size: number) {
   return chunks;
 }
 
+function extractProductImageUrls(images: unknown) {
+  if (!Array.isArray(images)) {
+    return [];
+  }
+
+  return images.flatMap((image) => {
+    if (typeof image === 'string') {
+      const url = image.trim();
+      return url ? [url] : [];
+    }
+
+    if (
+      image &&
+      typeof image === 'object' &&
+      'url' in image &&
+      typeof image.url === 'string'
+    ) {
+      const url = image.url.trim();
+      return url ? [url] : [];
+    }
+
+    return [];
+  });
+}
+
 function extractOrderLookupValues(rawRows: Record<string, string>[]) {
   const externalIds: string[] = [];
   const orderNumbers: string[] = [];
@@ -307,7 +334,8 @@ async function loadExistingOrders(
         .select('id, order_number, external_source, external_id, updated_at')
         .eq('merchant_id', merchantId)
         .eq('external_source', 'bumpa')
-        .in('external_id', externalIdChunk) as unknown as ExistingOrderPageQuery
+        .in('external_id', externalIdChunk)
+        .order('id') as unknown as ExistingOrderPageQuery
     );
 
     rows.forEach((order) => {
@@ -321,10 +349,8 @@ async function loadExistingOrders(
         .from('orders')
         .select('id, order_number, external_source, external_id, updated_at')
         .eq('merchant_id', merchantId)
-        .in(
-          'order_number',
-          orderNumberChunk
-        ) as unknown as ExistingOrderPageQuery
+        .in('order_number', orderNumberChunk)
+        .order('id') as unknown as ExistingOrderPageQuery
     );
 
     rows.forEach((order) => {
@@ -354,7 +380,8 @@ async function loadExistingProducts(
       .select(
         'id, name, sku, price, images, condition, external_source, external_id, status'
       )
-      .eq('merchant_id', merchantId) as unknown as ExistingProductPageQuery
+      .eq('merchant_id', merchantId)
+      .order('id') as unknown as ExistingProductPageQuery
   );
 
   return rows.map(
@@ -369,12 +396,7 @@ async function loadExistingProducts(
             : Number(product.price),
         externalSource: product.external_source,
         externalId: product.external_id,
-        images: Array.isArray(product.images)
-          ? product.images.filter(
-              (image): image is string =>
-                typeof image === 'string' && image.trim() !== ''
-            )
-          : [],
+        images: extractProductImageUrls(product.images),
         condition:
           typeof product.condition === 'string' ? product.condition : null,
         status: product.status,
@@ -399,6 +421,7 @@ async function prepareImportPreviewBuild(
       throw error;
     }
   );
+  void productsPromise.catch(() => undefined);
   const filePromise = readImportFileText(supabase, job.storage_path);
 
   // Await the file first — row count is known as soon as it's parsed

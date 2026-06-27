@@ -16,36 +16,91 @@ interface CommitBumpaOrdersInput {
   importJobId: string;
   orders: NormalizedImportedOrder[];
 }
-
 interface CommitBumpaOrdersResult {
   createdOrders: number;
   updatedOrders: number;
   createdCustomers: number;
 }
-
+const LOOKUP_CHUNK_SIZE = 150;
+const LOOKUP_PAGE_SIZE = 1000;
+interface ExistingImportedOrdersPageQuery {
+  order(column: string): ExistingImportedOrdersPageQuery;
+  range(
+    from: number,
+    to: number
+  ): PromiseLike<{
+    data: ExistingOrderRecord[] | null;
+    error: { message: string } | null;
+  }>;
+}
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function uniqueNonEmpty(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean))
+  );
+}
+function chunkValues<T>(values: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+async function fetchExistingImportedOrderPages(
+  query: ExistingImportedOrdersPageQuery
+) {
+  const rows: ExistingOrderRecord[] = [];
+
+  for (let from = 0; ; from += LOOKUP_PAGE_SIZE) {
+    const { data, error } = await query.range(
+      from,
+      from + LOOKUP_PAGE_SIZE - 1
+    );
+    if (error) {
+      throw new Error(
+        `Failed to load existing imported orders: ${error.message}`
+      );
+    }
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < LOOKUP_PAGE_SIZE) {
+      return rows;
+    }
+  }
+}
+
 async function loadExistingImportedOrders(
   supabase: SupabaseClient,
-  merchantId: string
+  merchantId: string,
+  orders: NormalizedImportedOrder[]
 ) {
-  const { data, error } = await supabase
-    .from('orders')
-    .select(
-      'id, external_id, tracking_token, updated_at, fulfillment_details, shipping_address'
-    )
-    .eq('merchant_id', merchantId)
-    .eq('external_source', 'bumpa');
+  const externalIds = uniqueNonEmpty(
+    orders.map((order) => order.externalSourceId)
+  );
+  const existingOrdersById = new Map<string, ExistingOrderRecord>();
 
-  if (error) {
-    throw new Error(
-      `Failed to load existing imported orders: ${error.message}`
+  for (const externalIdChunk of chunkValues(externalIds, LOOKUP_CHUNK_SIZE)) {
+    const rows = await fetchExistingImportedOrderPages(
+      supabase
+        .from('orders')
+        .select(
+          'id, external_id, tracking_token, updated_at, fulfillment_details, shipping_address'
+        )
+        .eq('merchant_id', merchantId)
+        .eq('external_source', 'bumpa')
+        .in('external_id', externalIdChunk)
+        .order('id') as unknown as ExistingImportedOrdersPageQuery
     );
+
+    rows.forEach((order) => {
+      existingOrdersById.set(order.id, order);
+    });
   }
 
-  return (data || []).map(
+  return Array.from(existingOrdersById.values()).map(
     (order) =>
       ({
         ...order,
@@ -113,7 +168,7 @@ export async function commitBumpaOrders({
 }: CommitBumpaOrdersInput): Promise<CommitBumpaOrdersResult> {
   const [customerResolver, existingOrders] = await Promise.all([
     createImportCustomerResolver(supabase, merchantId),
-    loadExistingImportedOrders(supabase, merchantId),
+    loadExistingImportedOrders(supabase, merchantId, orders),
   ]);
 
   const ordersByExternalId = new Map<string, ExistingOrderRecord>();

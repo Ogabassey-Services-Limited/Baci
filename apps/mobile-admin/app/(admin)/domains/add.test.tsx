@@ -68,4 +68,12 @@ describe('AddDomainScreen', () => {
 
     expect(mocks.push).toHaveBeenCalledWith('/domains/buy');
   });
+
+  it('routes to connecting an existing domain', () => {
+    render(<AddDomainScreen />);
+
+    fireEvent.click(screen.getByText('Connect to a domain'));
+
+    expect(mocks.push).toHaveBeenCalledWith('/domains/connect');
+  });
 });

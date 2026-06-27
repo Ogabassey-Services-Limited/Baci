@@ -159,11 +159,13 @@ function createSupabaseMockWithQueries() {
     select: vi.fn(),
     eq: vi.fn(),
     in: vi.fn(),
+    order: vi.fn(),
     range: vi.fn(),
   };
   ordersQuery.select.mockReturnValue(ordersQuery);
   ordersQuery.eq.mockReturnValue(ordersQuery);
   ordersQuery.in.mockReturnValue(ordersQuery);
+  ordersQuery.order.mockReturnValue(ordersQuery);
   ordersQuery.range.mockResolvedValue({
     data: [
       {
@@ -180,10 +182,12 @@ function createSupabaseMockWithQueries() {
   const productsQuery = {
     select: vi.fn(),
     eq: vi.fn(),
+    order: vi.fn(),
     range: vi.fn(),
   };
   productsQuery.select.mockReturnValue(productsQuery);
   productsQuery.eq.mockReturnValue(productsQuery);
+  productsQuery.order.mockReturnValue(productsQuery);
   productsQuery.range.mockResolvedValue({
     data: [
       {
@@ -191,7 +195,7 @@ function createSupabaseMockWithQueries() {
         name: 'Phone',
         sku: 'SKU-1',
         price: 5000,
-        images: ['https://cdn.example.com/phone.jpg'],
+        images: [{ url: 'https://cdn.example.com/phone.jpg', alt: 'Phone' }],
         condition: 'used',
         external_source: 'bumpa',
         external_id: 'prod-1',
@@ -394,9 +398,10 @@ describe('import-job-service', () => {
     const orderQueryResult = fromMock.mock.results.find(
       (_result, index) => fromMock.mock.calls[index]?.[0] === 'orders'
     );
-    const ordersQuery = orderQueryResult?.value as { in: Mock };
+    const ordersQuery = orderQueryResult?.value as { in: Mock; order: Mock };
     expect(ordersQuery.in).toHaveBeenCalledWith('external_id', ['bumpa-1']);
     expect(ordersQuery.in).toHaveBeenCalledWith('order_number', ['ORD-1']);
+    expect(ordersQuery.order).toHaveBeenCalledWith('id');
   });
 
   it('keeps existing-order lookup chunks below common URL length limits', async () => {
@@ -488,6 +493,7 @@ describe('import-job-service', () => {
       storage_path: 'merchant-1/orders/orders.csv',
     });
 
+    expect(productsQuery.order).toHaveBeenCalledWith('id');
     expect(productsQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
     expect(productsQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
 
@@ -502,6 +508,41 @@ describe('import-job-service', () => {
         name: 'Product 1001',
       })
     );
+  });
+
+  it('observes product preload failures when the CSV read fails first', async () => {
+    const download = vi.fn().mockResolvedValue({
+      data: { text: vi.fn().mockRejectedValue(new Error('file read failed')) },
+      error: null,
+    });
+    const productsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn().mockRejectedValue(new Error('product load failed')),
+    };
+    productsQuery.select.mockReturnValue(productsQuery);
+    productsQuery.eq.mockReturnValue(productsQuery);
+    productsQuery.order.mockReturnValue(productsQuery);
+
+    const supabase = {
+      storage: { from: vi.fn(() => ({ download })) },
+      from: vi.fn((table: string) => {
+        if (table === 'products') return productsQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      buildImportPreviewForJob(supabase, {
+        entity_type: 'products',
+        merchant_id: 'merchant-1',
+        storage_path: 'merchant-1/products/products.csv',
+      })
+    ).rejects.toThrow('file read failed');
+    await Promise.resolve();
+
+    expect(productsQuery.range).toHaveBeenCalled();
   });
 
   it('builds product previews with source rows intact', async () => {
@@ -592,20 +633,24 @@ describe('import-job-service', () => {
       select: vi.fn(),
       eq: vi.fn(),
       in: vi.fn(),
+      order: vi.fn(),
       range: vi.fn(),
     };
     ordersQuery.select.mockReturnValue(ordersQuery);
     ordersQuery.eq.mockReturnValue(ordersQuery);
     ordersQuery.in.mockReturnValue(ordersQuery);
+    ordersQuery.order.mockReturnValue(ordersQuery);
     ordersQuery.range.mockReturnValue(ordersDeferred);
 
     const productsQuery = {
       select: vi.fn(),
       eq: vi.fn(),
+      order: vi.fn(),
       range: vi.fn(),
     };
     productsQuery.select.mockReturnValue(productsQuery);
     productsQuery.eq.mockReturnValue(productsQuery);
+    productsQuery.order.mockReturnValue(productsQuery);
     productsQuery.range.mockReturnValue(productsDeferred);
 
     const supabase = {

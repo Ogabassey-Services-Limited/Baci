@@ -120,6 +120,14 @@ describe('Bumpa imported order item RPC migration', () => {
     expect(triggerFunction).not.toMatch(/MAX\(line_id\)/i);
   });
 
+  it('defaults imported JSON item line IDs from their source order', () => {
+    const replaceOrderItemsFunction = extractReplaceOrderItemsFunction();
+
+    expect(replaceOrderItemsFunction).toMatch(
+      /COALESCE\(item\.line_id,\s*source\.item_index::integer\)/i
+    );
+  });
+
   it('persists imported receipt display snapshots on order items', () => {
     const replaceOrderItemsFunction = extractReplaceOrderItemsFunction();
 

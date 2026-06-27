@@ -159,14 +159,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Shared HTML Receipt via iframe */}
-        <div className="flex min-h-0 flex-1 justify-center bg-gray-50 p-3 md:p-5">
+        <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto bg-gray-50 p-3 md:p-5">
           {/* react-doctor-disable-next-line react-doctor/no-noninteractive-tabindex -- iframe holds scrollable receipt content; tabIndex={0} is a real focus target so keyboard users can reach and scroll it within the modal focus trap. */}
           <iframe
             ref={iframeRef}
             srcDoc={html}
             tabIndex={0}
             title={`${documentTitle} #${orderData.order_number}`}
-            className="block h-[min(720px,calc(90vh-96px))] min-h-[420px] w-[794px] max-w-full shrink-0 border-0 bg-white shadow-sm"
+            className="block h-full min-h-0 w-[794px] max-w-full flex-1 border-0 bg-white shadow-sm"
             sandbox="allow-same-origin"
           />
         </div>

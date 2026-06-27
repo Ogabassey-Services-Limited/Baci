@@ -290,7 +290,7 @@ BEGIN
       WHEN p_is_import THEN COALESCE(item.created_at, now())
       ELSE now()
     END,
-    item.line_id,
+    COALESCE(item.line_id, source.item_index::integer),
     COALESCE(
       item.line_extension_amount,
       item.price * COALESCE(item.quantity, 1)

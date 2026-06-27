@@ -43,6 +43,26 @@ describe('ReceiptCampaignSummary', () => {
     expect(screen.getByText('customer@example.com')).toBeInTheDocument();
     expect(screen.getAllByText('Claimed')).toHaveLength(2);
     expect(screen.getByText('2 clicks')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Receipt campaign recipients' })
+    ).toHaveAttribute('tabindex', '0');
+  });
+
+  it('uses the job summary sent count fallback in the visible sent metric', () => {
+    render(
+      <ReceiptCampaignSummary
+        receiptCampaign={{
+          ...baseReceiptCampaign,
+          sentCount: 0,
+        }}
+        sentCountFallback={4}
+      />
+    );
+
+    expect(
+      screen.getByText('Emails sent').nextElementSibling
+    ).toHaveTextContent('4');
+    expect(screen.getByText(/claim rate 25%/i)).toBeInTheDocument();
   });
 
   it('renders the empty recipient fallback', () => {

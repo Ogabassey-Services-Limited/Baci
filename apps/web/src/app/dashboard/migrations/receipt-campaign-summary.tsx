@@ -28,6 +28,7 @@ function formatCampaignTimestamp(value: string | null) {
 
   return new Intl.DateTimeFormat('en-NG', {
     dateStyle: 'medium',
+    timeZone: 'Africa/Lagos',
     timeStyle: 'short',
   }).format(date);
 }
@@ -60,11 +61,13 @@ export default function ReceiptCampaignSummary({
   receiptCampaign,
   sentCountFallback,
 }: ReceiptCampaignSummaryProps) {
+  const effectiveSentCount =
+    receiptCampaign.sentCount || sentCountFallback || 0;
   const campaignTotal =
-    receiptCampaign.sentCount ||
-    sentCountFallback ||
-    receiptCampaign.totalRecipients ||
-    0;
+    effectiveSentCount || receiptCampaign.totalRecipients || 0;
+  // Horizontal overflow tables need a keyboard focus target so users can scroll
+  // to later columns without pointer input.
+  const keyboardScrollableRegionProps = { tabIndex: 0 };
 
   return (
     <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
@@ -86,7 +89,7 @@ export default function ReceiptCampaignSummary({
         {[
           {
             label: 'Emails sent',
-            value: receiptCampaign.sentCount,
+            value: effectiveSentCount,
           },
           {
             label: 'Link clicked',
@@ -113,7 +116,11 @@ export default function ReceiptCampaignSummary({
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border bg-background">
+      <section
+        aria-label="Receipt campaign recipients"
+        className="overflow-x-auto rounded-lg border bg-background"
+        {...keyboardScrollableRegionProps}
+      >
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -166,7 +173,7 @@ export default function ReceiptCampaignSummary({
             )}
           </tbody>
         </table>
-      </div>
+      </section>
     </section>
   );
 }

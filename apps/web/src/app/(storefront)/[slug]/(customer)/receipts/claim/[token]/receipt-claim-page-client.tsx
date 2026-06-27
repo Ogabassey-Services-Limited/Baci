@@ -1,5 +1,4 @@
 'use client';
-
 import { AlertTriangle, Loader2, ReceiptText, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -45,9 +44,9 @@ export default function ReceiptClaimPageClient({
   const [error, setError] = useState<string | null>(initialError);
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [redeemedToken, setRedeemedToken] = useState<string | null>(null);
+  const loginNavigationInFlight = useRef(false);
   const redemptionInFlightToken = useRef<string | null>(null);
   const preview = initialClaim;
-
   useEffect(() => {
     if (
       !token ||
@@ -62,13 +61,10 @@ export default function ReceiptClaimPageClient({
     ) {
       return;
     }
-
     let cancelled = false;
-
     async function redeemClaim() {
       redemptionInFlightToken.current = token;
       setIsRedeeming(true);
-
       try {
         const response = await fetchWithCsrf(
           `/api/storefront/receipts/claims/${encodeURIComponent(token)}`,
@@ -79,16 +75,13 @@ export default function ReceiptClaimPageClient({
           redirectPath?: string;
           success?: boolean;
         };
-
         if (cancelled) {
           return;
         }
-
         if (!response.ok || !data.success) {
           setError(data.error || 'Unable to claim receipt');
           return;
         }
-
         setRedeemedToken(token);
         router.push(
           asRoute(joinBasePath(basePath, data.redirectPath || '/receipts'))
@@ -101,15 +94,12 @@ export default function ReceiptClaimPageClient({
         if (redemptionInFlightToken.current === token) {
           redemptionInFlightToken.current = null;
         }
-
         if (!cancelled) {
           setIsRedeeming(false);
         }
       }
     }
-
     void redeemClaim();
-
     return () => {
       cancelled = true;
     };
@@ -124,7 +114,6 @@ export default function ReceiptClaimPageClient({
     router,
     token,
   ]);
-
   const loginRedirectPath = joinBasePath(
     basePath,
     `/receipts/claim/${encodeURIComponent(token)}`
@@ -148,7 +137,6 @@ export default function ReceiptClaimPageClient({
     if (!token) {
       return;
     }
-
     try {
       await fetchWithCsrf(loginStartedPath, {
         cache: 'no-store',
@@ -163,7 +151,6 @@ export default function ReceiptClaimPageClient({
 
   async function waitForLoginStartedTrackingWindow() {
     let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
-
     try {
       await Promise.race([
         trackLoginStarted(),
@@ -192,10 +179,18 @@ export default function ReceiptClaimPageClient({
     ) {
       return;
     }
-
+    if (loginNavigationInFlight.current) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
-    await waitForLoginStartedTrackingWindow();
-    router.push(asRoute(loginPath));
+    loginNavigationInFlight.current = true;
+    try {
+      await waitForLoginStartedTrackingWindow();
+      router.push(asRoute(loginPath));
+    } finally {
+      loginNavigationInFlight.current = false;
+    }
   }
 
   return (

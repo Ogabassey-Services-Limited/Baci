@@ -270,6 +270,21 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('<div>NG</div>');
   });
 
+  it('does not suppress short country codes found inside address words', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '10 Georgia Street',
+          country: 'GE',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('10 Georgia Street');
+    expect(html).toContain('<div>GE</div>');
+  });
+
   it.each([
     null,
     '   ',

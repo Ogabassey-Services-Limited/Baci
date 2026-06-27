@@ -184,6 +184,10 @@ describe('ReceiptModal', () => {
       '<html><body>Document</body></html>'
     );
     expect(iframe).toHaveAttribute('tabindex', '0');
+    expect(iframe).toHaveClass('h-full');
+    expect(iframe).toHaveClass('min-h-0');
+    expect(iframe).toHaveClass('flex-1');
+    expect(iframe).not.toHaveClass('min-h-[420px]');
   });
 
   it('keeps the receipt document as the keyboard-reachable scroll target', () => {
