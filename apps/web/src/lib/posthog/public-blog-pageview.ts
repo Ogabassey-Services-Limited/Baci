@@ -1,10 +1,28 @@
+import { resolvePostHogWebTenantContext } from '@/lib/posthog/client-config';
 import { getPostHogProxyPath, type PostHogEnv } from '@/lib/posthog/config';
 
-const PUBLIC_BLOG_DISTINCT_ID_KEY = 'baci_public_blog_distinct_id';
+const DEFAULT_PUBLIC_BLOG_URL_BASE = 'https://usebaci.com';
+const LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY = 'baci_public_blog_distinct_id';
 const POSTHOG_CAPTURE_ENDPOINT = '/capture/';
+const POSTHOG_SDK_PERSISTENCE_KEY_PREFIX = 'ph_';
+const POSTHOG_SDK_PERSISTENCE_KEY_SUFFIX = '_posthog';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
+const LIKELY_BOT_USER_AGENT_PATTERN =
+  /(?:bot|crawler|spider|chrome-lighthouse|pagespeed|headlesschrome|google-inspectiontool|googleother|siteauditbot|semrushbot|ahrefsbot|gptbot|oai-searchbot|chatgpt-user|perplexitybot|vercelbot|facebookexternal|twitterbot|linkedinbot|slackbot)/i;
 
 let lastCapturedPublicBlogPageviewUrl: string | undefined;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getStringProperty(
+  value: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const property = value[key];
+  return typeof property === 'string' && property.trim() ? property : undefined;
+}
 
 function redactUrlQuery(value: string): string {
   const markerIndex = value.search(QUERY_OR_HASH_PATTERN);
@@ -20,31 +38,134 @@ function resolveCurrentUrl(currentUrl?: string): string | undefined {
   );
 }
 
-function getOrCreatePublicBlogDistinctId(): string {
+function getBrowserOrigin(): string | undefined {
   try {
-    const stored = globalThis.localStorage?.getItem(
-      PUBLIC_BLOG_DISTINCT_ID_KEY
-    );
-
-    if (stored) {
-      return stored;
-    }
-
-    const generated =
-      globalThis.crypto?.randomUUID?.() ??
-      `public-blog-${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2)}`;
-
-    globalThis.localStorage?.setItem(PUBLIC_BLOG_DISTINCT_ID_KEY, generated);
-    return generated;
+    return globalThis.location?.origin;
   } catch {
-    return 'public-blog-anonymous';
+    return undefined;
   }
+}
+
+function buildSanitizedUrl(currentUrl: string): URL {
+  return new URL(
+    redactUrlQuery(currentUrl),
+    getBrowserOrigin() ?? DEFAULT_PUBLIC_BLOG_URL_BASE
+  );
+}
+
+function getPostHogSdkPersistenceKey(projectToken: string): string {
+  return `${POSTHOG_SDK_PERSISTENCE_KEY_PREFIX}${projectToken}${POSTHOG_SDK_PERSISTENCE_KEY_SUFFIX}`;
+}
+
+function readStorageValue(key: string): string | undefined {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStorageValue(key: string, value: string): boolean {
+  try {
+    globalThis.localStorage?.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parsePostHogPersistenceValue(
+  value: string | undefined
+): Record<string, unknown> | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const candidates = [value];
+  try {
+    candidates.push(decodeURIComponent(value));
+  } catch {
+    // Some storage adapters persist raw JSON. Ignore invalid URI encodings.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (isRecord(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // Try the next supported PostHog persistence encoding.
+    }
+  }
+
+  return undefined;
+}
+
+function generatePublicBlogDistinctId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `public-blog-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2)}`
+  );
+}
+
+function getExistingSdkDistinctId(projectToken: string): string | undefined {
+  const sdkPersistence = parsePostHogPersistenceValue(
+    readStorageValue(getPostHogSdkPersistenceKey(projectToken))
+  );
+
+  if (sdkPersistence) {
+    return (
+      getStringProperty(sdkPersistence, 'distinct_id') ??
+      getStringProperty(sdkPersistence, 'device_id')
+    );
+  }
+
+  return readStorageValue(LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY);
+}
+
+function seedSdkDistinctId(projectToken: string, distinctId: string): void {
+  const storageKey = getPostHogSdkPersistenceKey(projectToken);
+  const existingPersistence =
+    parsePostHogPersistenceValue(readStorageValue(storageKey)) ?? {};
+  const deviceId = getStringProperty(existingPersistence, 'device_id');
+  const nextPersistence = {
+    ...existingPersistence,
+    device_id: deviceId ?? distinctId,
+    distinct_id: distinctId,
+  };
+
+  writeStorageValue(storageKey, JSON.stringify(nextPersistence));
+}
+
+function getOrCreatePublicBlogDistinctId(projectToken: string): string {
+  const existingSdkDistinctId = getExistingSdkDistinctId(projectToken);
+
+  if (existingSdkDistinctId) {
+    return existingSdkDistinctId;
+  }
+
+  const generated = generatePublicBlogDistinctId();
+  seedSdkDistinctId(projectToken, generated);
+  return generated;
 }
 
 function buildPostHogCaptureUrl(env: PostHogEnv): string {
   return `${getPostHogProxyPath(env)}${POSTHOG_CAPTURE_ENDPOINT}`;
+}
+
+function isLikelyBotUserAgent(): boolean {
+  try {
+    const userAgent = globalThis.navigator?.userAgent;
+    return (
+      typeof userAgent === 'string' &&
+      LIKELY_BOT_USER_AGENT_PATTERN.test(userAgent)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function sendPublicBlogCapture(captureUrl: string, body: string): void {
@@ -74,11 +195,9 @@ export function capturePublicBlogPageview(
 ): void {
   const projectToken = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 
-  if (!projectToken || !currentUrl) {
+  if (!projectToken || !currentUrl || isLikelyBotUserAgent()) {
     return;
   }
-
-  const sanitizedUrl = redactUrlQuery(currentUrl);
 
   if (lastCapturedPublicBlogPageviewUrl === currentUrl) {
     return;
@@ -86,9 +205,14 @@ export function capturePublicBlogPageview(
 
   lastCapturedPublicBlogPageviewUrl = currentUrl;
 
+  const url = buildSanitizedUrl(currentUrl);
+  const sanitizedUrl = url.href;
   const captureUrl = buildPostHogCaptureUrl(env);
-  const url = new URL(sanitizedUrl, globalThis.location?.origin);
-  const distinctId = getOrCreatePublicBlogDistinctId();
+  const distinctId = getOrCreatePublicBlogDistinctId(projectToken);
+  const tenantContext = resolvePostHogWebTenantContext(env, {
+    hostname: url.hostname,
+    pathname: url.pathname,
+  });
   const body = JSON.stringify({
     api_key: projectToken,
     distinct_id: distinctId,
@@ -97,6 +221,8 @@ export function capturePublicBlogPageview(
       $current_url: sanitizedUrl,
       $host: url.hostname,
       $pathname: url.pathname,
+      $process_person_profile: false,
+      ...tenantContext,
       app_surface: 'web',
       capture_mode: 'public_blog_lightweight',
       distinct_id: distinctId,
@@ -107,6 +233,10 @@ export function capturePublicBlogPageview(
   sendPublicBlogCapture(captureUrl, body);
 }
 
-export function resetPublicBlogPageviewDedupeForTests(): void {
+export function resetPublicBlogPageviewDedupe(): void {
   lastCapturedPublicBlogPageviewUrl = undefined;
+}
+
+export function resetPublicBlogPageviewDedupeForTests(): void {
+  resetPublicBlogPageviewDedupe();
 }

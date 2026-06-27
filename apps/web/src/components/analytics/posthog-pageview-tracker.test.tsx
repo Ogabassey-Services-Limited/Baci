@@ -8,12 +8,18 @@ let searchParams = new URLSearchParams();
 const mocks = vi.hoisted(() => ({
   capturePostHogPageview: vi.fn(),
   capturePublicBlogPageview: vi.fn(),
+  hasPostHogBrowserInitialized: vi.fn(() => false),
   initializePostHogBrowser: vi.fn(),
+  resetPublicBlogPageviewDedupe: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
   useSearchParams: () => searchParams,
+}));
+
+vi.mock('@/lib/posthog/browser-state', () => ({
+  hasPostHogBrowserInitialized: mocks.hasPostHogBrowserInitialized,
 }));
 
 vi.mock('@/lib/posthog/browser', () => ({
@@ -23,6 +29,7 @@ vi.mock('@/lib/posthog/browser', () => ({
 
 vi.mock('@/lib/posthog/public-blog-pageview', () => ({
   capturePublicBlogPageview: mocks.capturePublicBlogPageview,
+  resetPublicBlogPageviewDedupe: mocks.resetPublicBlogPageviewDedupe,
 }));
 
 describe('PostHogPageviewTracker', () => {
@@ -31,7 +38,10 @@ describe('PostHogPageviewTracker', () => {
     searchParams = new URLSearchParams();
     mocks.capturePostHogPageview.mockClear();
     mocks.capturePublicBlogPageview.mockClear();
+    mocks.hasPostHogBrowserInitialized.mockReset();
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(false);
     mocks.initializePostHogBrowser.mockClear();
+    mocks.resetPublicBlogPageviewDedupe.mockClear();
     window.history.replaceState(null, '', '/');
   });
 
@@ -43,6 +53,7 @@ describe('PostHogPageviewTracker', () => {
         'http://localhost:3000/'
       );
     });
+    expect(mocks.resetPublicBlogPageviewDedupe).toHaveBeenCalledOnce();
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
@@ -74,7 +85,7 @@ describe('PostHogPageviewTracker', () => {
     });
   });
 
-  it('captures public blog pageviews with the lightweight beacon only', async () => {
+  it('captures public blog pageviews with the lightweight beacon only before the full client initializes', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     window.history.replaceState(null, '', pathname);
 
@@ -92,7 +103,33 @@ describe('PostHogPageviewTracker', () => {
     expect(mocks.capturePostHogPageview).not.toHaveBeenCalled();
   });
 
-  it('captures after a client navigation from blog to a non-blog page', async () => {
+  it('reconfigures an initialized PostHog client to lightweight mode on public blog pages', async () => {
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
+    pathname = '/ogabassey/blog/phone-guide';
+    window.history.replaceState(null, '', pathname);
+
+    render(<PostHogPageviewTracker />);
+
+    await waitFor(() => {
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          NODE_ENV: expect.any(String),
+        }),
+        console,
+        {
+          lightweight: true,
+          pathname: '/ogabassey/blog/phone-guide',
+          hostname: 'localhost',
+        }
+      );
+    });
+    expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
+      'http://localhost:3000/ogabassey/blog/phone-guide'
+    );
+    expect(mocks.capturePublicBlogPageview).not.toHaveBeenCalled();
+  });
+
+  it('captures after a client navigation from blog to a non-blog page and clears lightweight dedupe', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     window.history.replaceState(null, '', pathname);
     const { rerender } = render(<PostHogPageviewTracker />);
@@ -117,6 +154,7 @@ describe('PostHogPageviewTracker', () => {
       );
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
+    expect(mocks.resetPublicBlogPageviewDedupe).toHaveBeenCalledOnce();
     expect(mocks.initializePostHogBrowser).toHaveBeenLastCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),

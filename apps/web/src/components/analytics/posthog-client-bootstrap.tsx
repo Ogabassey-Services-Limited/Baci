@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { hasPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
@@ -22,7 +23,7 @@ export function PostHogClientBootstrap() {
       hostname: globalThis.location?.hostname,
     });
 
-    if (isPublicBlog) {
+    if (isPublicBlog && !hasPostHogBrowserInitialized()) {
       return;
     }
 
@@ -39,10 +40,14 @@ export function PostHogClientBootstrap() {
         }
 
         initializePostHogBrowser(postHogBrowserEnv, console, {
-          lightweight: false,
+          lightweight: isPublicBlog,
           pathname: currentPathname,
           hostname: globalThis.location?.hostname,
         });
+
+        if (isPublicBlog) {
+          return;
+        }
 
         const { initializePostHogInstrumentationIfAllowed } = await import(
           '@/instrumentation-client'
