@@ -448,18 +448,44 @@ describe('storefront layout', () => {
     ]);
   });
 
-  it('calls notFound before route content renders when the shell snapshot is missing', async () => {
+  it('calls notFound inside the OgaBassey theme frame when the shell snapshot is missing', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(null);
 
-    await expect(
-      StorefrontLayoutContent({
-        params: Promise.resolve({ slug: 'missing-store' }),
-        children: <main>Storefront content</main>,
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const ui = await StorefrontLayoutContent({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      children: <main>Storefront content</main>,
+    });
 
-    expect(notFound).toHaveBeenCalledTimes(1);
-    expect(themeProviderRenders).toBe(0);
+    expect(() => render(ui)).toThrow('NEXT_NOT_FOUND');
+
+    expect(notFound).toHaveBeenCalled();
+    expect(themeProviderRenders).toBeGreaterThan(0);
+    expect(themeProviderAppearances).toContainEqual({
+      mode: 'system',
+      variant: 'ogabassey',
+    });
+    expect(providerSnapshots).toEqual([]);
+  });
+
+  it('calls notFound inside the OgaBassey theme frame when the full shell snapshot is missing', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      baseShellSnapshotWithoutCategories
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(null);
+
+    const ui = await StorefrontLayoutContent({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      children: <main>Storefront content</main>,
+    });
+
+    expect(() => render(ui)).toThrow('NEXT_NOT_FOUND');
+
+    expect(notFound).toHaveBeenCalled();
+    expect(themeProviderRenders).toBeGreaterThan(0);
+    expect(themeProviderAppearances).toContainEqual({
+      mode: 'system',
+      variant: 'ogabassey',
+    });
     expect(providerSnapshots).toEqual([]);
   });
 

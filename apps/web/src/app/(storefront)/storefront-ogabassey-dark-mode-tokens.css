@@ -11,7 +11,7 @@
     --storefront-dark-border: #1f2937;
     --storefront-dark-primary: #f59e0b;
     --storefront-dark-primary-foreground: #000000;
-    --storefront-dark-secondary: #dc2626;
+    --storefront-dark-secondary: #1a1a1a;
     --storefront-dark-secondary-foreground: #ffffff;
     --storefront-dark-accent: #f59e0b;
     --storefront-dark-accent-foreground: #000000;
@@ -39,8 +39,8 @@
       --popover-foreground: 210 40% 98% !important;
       --primary: 38 92% 50% !important;
       --primary-foreground: 0 0% 0% !important;
-      --secondary: 0 72% 51% !important;
-      --secondary-foreground: 0 0% 100% !important;
+      --secondary: 0 0% 10% !important;
+      --secondary-foreground: 210 40% 98% !important;
       --muted: 0 0% 15% !important;
       --muted-foreground: 216 12% 84% !important;
       --accent: 38 92% 50% !important;

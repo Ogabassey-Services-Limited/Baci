@@ -134,6 +134,9 @@ describe('storefront CSS partitioning', () => {
     expect(darkModeCss).toContain(
       '--store-primary: var(--storefront-dark-primary) !important;'
     );
+    expect(darkModeCss).toContain(
+      '--store-secondary: var(--storefront-dark-secondary) !important;'
+    );
     expect(darkModeCss).toContain('background-color: #1a1a1a;');
     expect(darkModeCss).toContain('@supports (background-color: color-mix(');
     expect(darkModeCss).toContain('background-color: color-mix(');
@@ -150,6 +153,13 @@ describe('storefront CSS partitioning', () => {
     expect(darkModeCss).toContain(
       'background-color: var(--storefront-dark-card);'
     );
+    expect(normalizedDarkModeCss).toContain(
+      ':is( .bg-white, .bg-gray-50, .bg-gray-100, .bg-blue-50'
+    );
+    expect(normalizedDarkModeCss).toContain('.bg-blue-100\\/50');
+    expect(normalizedDarkModeCss).toContain('.hover\\:bg-blue-100\\/50:hover');
+    expect(normalizedDarkModeCss).toContain('.border-blue-200');
+    expect(normalizedDarkModeCss).toContain(':is(.text-blue-600');
     expect(darkModeCss).toContain('color: var(--storefront-dark-foreground);');
     expect(darkModeCss).not.toMatch(/cursor\s*:\s*url\(/);
     expect(darkModeCss).not.toMatch(/cursor\s*:\s*none/);

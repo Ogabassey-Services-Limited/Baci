@@ -271,6 +271,22 @@ function StorefrontThemeFrame({
   );
 }
 
+function StorefrontNotFoundBoundaryTrigger(): never {
+  notFound();
+}
+
+function StorefrontThemedNotFound({
+  appearance,
+}: {
+  appearance: StorefrontAppearance;
+}) {
+  return (
+    <StorefrontThemeFrame appearance={appearance}>
+      <StorefrontNotFoundBoundaryTrigger />
+    </StorefrontThemeFrame>
+  );
+}
+
 function StorefrontPprStaticShell({
   children,
   loadingFallback,
@@ -299,7 +315,9 @@ export async function StorefrontLayoutContent(props: {
   const { slug } = await props.params;
 
   if (!isValidMerchantIdentifier(slug)) {
-    notFound();
+    return (
+      <StorefrontThemedNotFound appearance={DEFAULT_STOREFRONT_APPEARANCE} />
+    );
   }
 
   const appearance = resolveStorefrontAppearance(slug);
@@ -307,7 +325,7 @@ export async function StorefrontLayoutContent(props: {
   const shellSnapshotBase = await getStorefrontShellSnapshotBase(slug);
 
   if (!shellSnapshotBase) {
-    notFound();
+    return <StorefrontThemedNotFound appearance={appearance} />;
   }
 
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -332,7 +350,7 @@ export async function StorefrontLayoutContent(props: {
   const shellSnapshot = await getStorefrontShellSnapshot(shellSnapshotBase);
 
   if (!shellSnapshot) {
-    notFound();
+    return <StorefrontThemedNotFound appearance={appearance} />;
   }
 
   return (

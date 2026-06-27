@@ -8,7 +8,7 @@ export const OGABASSEY_DARK_TOKENS = {
   border: '#1F2937',
   primary: '#F59E0B',
   primaryForeground: '#000000',
-  secondary: '#DC2626',
+  secondary: '#1A1A1A',
   secondaryForeground: '#FFFFFF',
   accent: '#F59E0B',
   accentForeground: '#000000',
