@@ -4,6 +4,7 @@ vi.mock('server-only', () => ({}));
 
 const {
   mockScopedFrom,
+  mockScopedRpc,
   mockServerFrom,
   mockRegister,
   mockFind,
@@ -11,6 +12,7 @@ const {
   mockAssociate,
 } = vi.hoisted(() => ({
   mockScopedFrom: vi.fn(),
+  mockScopedRpc: vi.fn(),
   mockServerFrom: vi.fn(),
   mockRegister: vi.fn(),
   mockFind: vi.fn(),
@@ -69,11 +71,13 @@ const ROW = {
 
 const scopedSupabase = {
   from: mockScopedFrom,
+  rpc: mockScopedRpc,
 } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
 describe('merchant-email-domain service', () => {
   beforeEach(() => {
     mockScopedFrom.mockReset();
+    mockScopedRpc.mockReset();
     mockServerFrom.mockReset();
     mockRegister.mockReset();
     mockFind.mockReset();
@@ -119,13 +123,14 @@ describe('merchant-email-domain service', () => {
       data: { ...ROW, status: 'verified' },
       error: null,
     });
-    mockScopedFrom.mockReturnValueOnce(updateBuilder);
+    mockScopedRpc.mockReturnValueOnce(updateBuilder);
 
     const result = await verifyMerchantEmailDomain('m1', scopedSupabase);
 
     expect(mockVerify).toHaveBeenCalledWith('dk1');
-    expect(updateBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'verified' })
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_verification',
+      expect.objectContaining({ p_status: 'verified' })
     );
     expect(result.status).toBe('verified');
   });
@@ -154,17 +159,20 @@ describe('merchant-email-domain service', () => {
       associatedMailagentKeys: ['mail_agent_1'],
     });
     const updateBuilder = builderFor({ data: ROW, error: null });
-    mockScopedFrom.mockReturnValueOnce(updateBuilder);
+    mockScopedRpc.mockReturnValueOnce(updateBuilder);
 
     await verifyMerchantEmailDomain('m1', scopedSupabase);
 
     expect(mockFind).toHaveBeenCalledWith('mystore.com');
     expect(mockVerify).toHaveBeenCalledWith('recovered-key');
-    expect(updateBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ zeptomail_domain_id: 'recovered-key' })
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_verification',
+      expect.objectContaining({
+        p_checked_domain: 'mystore.com',
+        p_checked_zeptomail_domain_id: null,
+        p_zeptomail_domain_id: 'recovered-key',
+      })
     );
-    expect(updateBuilder.eq).toHaveBeenCalledWith('domain', 'mystore.com');
-    expect(updateBuilder.is).toHaveBeenCalledWith('zeptomail_domain_id', null);
   });
 
   it('verifyMerchantEmailDomain returns a seeded verified row without a ZeptoMail id when recovery is unavailable', async () => {
@@ -205,12 +213,13 @@ describe('merchant-email-domain service', () => {
       data: { ...ROW, status: 'failed', enabled: false },
       error: null,
     });
-    mockScopedFrom.mockReturnValueOnce(updateBuilder);
+    mockScopedRpc.mockReturnValueOnce(updateBuilder);
 
     const result = await verifyMerchantEmailDomain('m1', scopedSupabase);
 
-    expect(updateBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'failed' })
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_verification',
+      expect.objectContaining({ p_status: 'failed' })
     );
     expect(result.status).toBe('failed');
   });
@@ -231,15 +240,17 @@ describe('merchant-email-domain service', () => {
       associatedMailagentKeys: ['mail_agent_1'],
     });
     const updateBuilder = builderFor({ data: null, error: null });
-    mockScopedFrom.mockReturnValueOnce(updateBuilder);
+    mockScopedRpc.mockReturnValueOnce(updateBuilder);
 
     await expect(
       verifyMerchantEmailDomain('m1', scopedSupabase)
     ).rejects.toThrow('changed while verification was in progress');
-    expect(updateBuilder.eq).toHaveBeenCalledWith('domain', 'old.example');
-    expect(updateBuilder.eq).toHaveBeenCalledWith(
-      'zeptomail_domain_id',
-      'old-key'
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_verification',
+      expect.objectContaining({
+        p_checked_domain: 'old.example',
+        p_checked_zeptomail_domain_id: 'old-key',
+      })
     );
   });
 
@@ -274,7 +285,7 @@ describe('merchant-email-domain service', () => {
     const updateBuilder = builderFor({ data: ROW, error: null });
     mockScopedFrom.mockReturnValueOnce(readBuilder);
     mockScopedFrom.mockReturnValueOnce(ownershipBuilder);
-    mockScopedFrom.mockReturnValueOnce(updateBuilder);
+    mockScopedRpc.mockReturnValueOnce(updateBuilder);
 
     await setMerchantEmailDomainEnabled('m1', true, scopedSupabase);
 
@@ -283,8 +294,10 @@ describe('merchant-email-domain service', () => {
       'www.ogabassey.com',
     ]);
     expect(ownershipBuilder.eq).toHaveBeenCalledWith('status', 'active');
-    expect(updateBuilder.update).toHaveBeenCalledWith({ enabled: true });
-    expect(updateBuilder.eq).toHaveBeenCalledWith('status', 'verified');
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'set_merchant_email_domain_enabled',
+      { p_merchant_id: 'm1', p_enabled: true }
+    );
   });
 
   it('setMerchantEmailDomainEnabled re-checks active storefront ownership before enabling', async () => {
@@ -325,7 +338,7 @@ describe('merchant-email-domain service', () => {
       ...existing,
       associatedMailagentKeys: ['mail_agent_1'],
     });
-    mockScopedFrom.mockReturnValueOnce(builderFor({ data: ROW, error: null }));
+    mockScopedRpc.mockReturnValueOnce(builderFor({ data: ROW, error: null }));
 
     await registerMerchantEmailDomain('m1', 'ogabassey.com', scopedSupabase);
 

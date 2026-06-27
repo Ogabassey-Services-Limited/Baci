@@ -106,6 +106,26 @@ async function merchantStillOwnsSendingDomain(
   return Array.isArray(data) && data.length > 0;
 }
 
+async function fetchActiveCustomDomainForMerchant(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('domains')
+    .select('domain')
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.log('Merchant active custom-domain lookup failed:', error.message);
+    return null;
+  }
+
+  return typeof data?.domain === 'string' ? data.domain : null;
+}
+
 async function fetchMerchantSendingAddress(
   supabase: ReturnType<typeof createClient>,
   merchant: Pick<MerchantBrandingRow, 'id' | 'plan_tier'>
@@ -151,7 +171,7 @@ async function fetchMerchantBranding(
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     let merchant: MerchantBrandingRow | null = null;
     // The resolved live custom domain, sourced from `public.domains` (not from
-    // a `merchants` column). Stays null for slug-based lookups.
+    // a `merchants` column). Slug lookups also resolve this so links land on the custom-domain origin when one exists.
     let resolvedCustomDomain: string | null = null;
 
     if (lookup.slug) {
@@ -166,6 +186,12 @@ async function fetchMerchantBranding(
         console.log('Merchant slug lookup failed:', error.message);
       }
       merchant = data;
+      if (merchant) {
+        resolvedCustomDomain = await fetchActiveCustomDomainForMerchant(
+          supabase,
+          merchant.id
+        );
+      }
     }
 
     if (!merchant && lookup.customDomain) {

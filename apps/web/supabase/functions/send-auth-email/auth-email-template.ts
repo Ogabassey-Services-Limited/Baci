@@ -218,18 +218,30 @@ function isSameMerchantRedirect(
   return false;
 }
 
-function buildMerchantRelativeNext(nextUrl: URL, branding: MerchantBranding) {
-  const route = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+function normalizeStorefrontNextPath(pathname: string): string {
+  // The web storefront has /account, /account/login, and /account/callback;
+  // /account/verify is a mobile placeholder. After /auth/confirm verifies the
+  // token, land web customers on the existing account shell instead of a 404.
+  return pathname === '/account/verify' ? '/account' : pathname;
+}
+
+function buildMerchantRelativeNext(
+  nextUrl: URL,
+  branding: MerchantBranding,
+  options: { includeSlugForSubdomain: boolean }
+) {
+  const pathname = normalizeStorefrontNextPath(nextUrl.pathname);
+  const route = `${pathname}${nextUrl.search}${nextUrl.hash}`;
   const nextLookup = extractMerchantLookup(nextUrl.toString());
 
   if (
+    options.includeSlugForSubdomain &&
     nextLookup?.slug &&
     branding.slug &&
     nextLookup.slug === branding.slug.toLowerCase()
   ) {
     const slugPrefix = `/${nextLookup.slug}`;
-    return nextUrl.pathname === slugPrefix ||
-      nextUrl.pathname.startsWith(`${slugPrefix}/`)
+    return pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)
       ? route
       : `${slugPrefix}${route.startsWith('/') ? route : `/${route}`}`;
   }
@@ -237,27 +249,30 @@ function buildMerchantRelativeNext(nextUrl: URL, branding: MerchantBranding) {
   return route;
 }
 
-// Only a verified CUSTOM domain may carry the token-bearing confirmation link
-// on its own origin: proxy.ts passes `/auth/confirm` through on custom domains
-// with the query string intact. Platform subdomains instead match
-// MAIN_APP_ROUTES and are redirected via `new URL(pathname, ...)`, which DROPS
-// the query (token_hash/type) before the verifier runs — so their confirmation
-// must stay on the platform host.
-function isCustomDomainRedirect(
+function getCustomDomainConfirmationOrigin(
   nextUrl: URL,
   branding: MerchantBranding
-): boolean {
-  if (nextUrl.protocol !== 'https:') {
-    return false;
-  }
+): string | null {
+  const customDomain = normalizeHostname(branding.customDomain ?? '');
+  if (!customDomain) return null;
+
   const nextLookup = extractMerchantLookup(nextUrl.toString());
-  return Boolean(
+  if (
     nextLookup?.customDomain &&
-      branding.customDomain &&
-      getCustomDomainCandidates(branding.customDomain).includes(
-        nextLookup.customDomain
-      )
-  );
+    getCustomDomainCandidates(customDomain).includes(nextLookup.customDomain)
+  ) {
+    return nextUrl.origin;
+  }
+
+  if (
+    nextLookup?.slug &&
+    branding.slug &&
+    nextLookup.slug === branding.slug.toLowerCase()
+  ) {
+    return `https://${customDomain}`;
+  }
+
+  return null;
 }
 
 export function buildAuthEmailConfirmationUrl({
@@ -294,22 +309,27 @@ export function buildAuthEmailConfirmationUrl({
       const nextUrl = new URL(redirectTo);
       if (isSameMerchantRedirect(nextUrl, parsedSiteUrl, branding)) {
         // `/auth/confirm` only accepts same-origin absolute next URLs. Move the
-        // token-bearing link onto the merchant origin ONLY for a custom domain,
-        // which the proxy passes through with the query intact. Same-merchant
-        // subdomains keep the confirmation on the platform host (their /auth
-        // redirect drops the query). `next` stays route-relative either way so
-        // the validator keeps the intended post-login path.
-        if (
-          nextUrl.origin !== parsedSiteUrl.origin &&
-          isCustomDomainRedirect(nextUrl, branding)
-        ) {
-          confirmationUrl = new URL('/auth/confirm', nextUrl.origin);
+        // token-bearing link onto the merchant's custom-domain origin whenever
+        // available, including slug/subdomain redirects for merchants that also
+        // have an active custom domain. That keeps the Supabase session cookie on
+        // the same origin as the eventual account page.
+        const customDomainOrigin = getCustomDomainConfirmationOrigin(
+          nextUrl,
+          branding
+        );
+        const useCustomDomainOrigin = Boolean(
+          customDomainOrigin && customDomainOrigin !== parsedSiteUrl.origin
+        );
+        if (useCustomDomainOrigin && customDomainOrigin) {
+          confirmationUrl = new URL('/auth/confirm', customDomainOrigin);
           confirmationUrl.searchParams.set('token_hash', tokenHash);
           confirmationUrl.searchParams.set('type', emailType);
         }
         confirmationUrl.searchParams.set(
           'next',
-          buildMerchantRelativeNext(nextUrl, branding)
+          buildMerchantRelativeNext(nextUrl, branding, {
+            includeSlugForSubdomain: !useCustomDomainOrigin,
+          })
         );
       }
     } catch {
@@ -318,7 +338,10 @@ export function buildAuthEmailConfirmationUrl({
     return confirmationUrl.toString();
   }
 
-  confirmationUrl.searchParams.set('next', redirectTo);
+  confirmationUrl.searchParams.set(
+    'next',
+    redirectTo === '/account/verify' ? '/account' : redirectTo
+  );
   return confirmationUrl.toString();
 }
 

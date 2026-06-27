@@ -101,7 +101,7 @@ describe('POST /api/storefront/auth/send-code', () => {
           pending_merchant_id: 'merchant-1',
           role: 'customer',
         }),
-        emailRedirectTo: 'https://ogabassey.com/account/verify',
+        emailRedirectTo: 'https://ogabassey.com/account',
       }),
     });
   });
@@ -186,7 +186,27 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
-        emailRedirectTo: 'https://ogabassey.com/account/verify',
+        emailRedirectTo: 'https://ogabassey.com/account',
+      }),
+    });
+  });
+
+  it('prefers the merchant custom domain in production even when the request starts on the subdomain', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
+
+    const response = await POST(
+      makeRequest(
+        { email: 'customer@example.com', merchantSlug: 'ogabassey' },
+        { origin: 'https://ogabassey.usebaci.com' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'customer@example.com',
+      options: expect.objectContaining({
+        emailRedirectTo: 'https://ogabassey.com/account',
       }),
     });
   });
@@ -206,7 +226,7 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
-        emailRedirectTo: 'http://ogabassey.usebaci.com/account/verify',
+        emailRedirectTo: 'http://ogabassey.usebaci.com/account',
       }),
     });
   });
@@ -229,7 +249,7 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
-        emailRedirectTo: 'https://ogabassey.com/account/verify',
+        emailRedirectTo: 'https://ogabassey.com/account',
       }),
     });
   });

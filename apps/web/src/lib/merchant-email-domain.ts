@@ -15,6 +15,11 @@ const TABLE = 'merchant_email_domains';
 const SELECT =
   'domain, sender_local_part, status, enabled, dkim_host, dkim_value, bounce_host, bounce_value';
 
+type EmailDomainWriteRpc =
+  | 'save_merchant_email_domain_registration'
+  | 'save_merchant_email_domain_verification'
+  | 'set_merchant_email_domain_enabled';
+
 export interface MerchantEmailDomain {
   domain: string;
   senderLocalPart: string;
@@ -83,6 +88,19 @@ function stateToColumns(state: SendingDomainState) {
     verified_at: state.verified ? new Date().toISOString() : null,
     ...recordsToColumns(state.records),
   };
+}
+
+async function writeDomainViaRpc(
+  supabase: SupabaseClient,
+  rpcName: EmailDomainWriteRpc,
+  args: Record<string, unknown>,
+  errorPrefix: string
+): Promise<Row | null> {
+  const { data, error } = await supabase.rpc(rpcName, args).maybeSingle();
+  if (error) {
+    throw new Error(`${errorPrefix}: ${error.message}`);
+  }
+  return data as Row | null;
 }
 
 function isUniqueDomainReservationError(error: unknown): boolean {
@@ -207,31 +225,33 @@ export async function registerMerchantEmailDomain(
   const state = await getRegisterableSendingDomain(domain, {
     allowVerifiedReuse: localOwner?.merchant_id === merchantId,
   });
-  const { data, error } = await supabase
-    .from(TABLE)
-    .upsert(
-      {
-        merchant_id: merchantId,
-        domain: state.domain,
-        // Preserve the stored enabled flag when this merchant is re-registering
-        // the SAME domain (idempotent retry) so a verified+enabled domain isn't
-        // silently disabled. A brand-new/changed domain stays off until the
-        // merchant flips it on after verification.
-        enabled:
-          localOwner?.merchant_id === merchantId ? localOwner.enabled : false,
-        ...stateToColumns(state),
-      },
-      { onConflict: 'merchant_id' }
-    )
-    .select(SELECT)
-    .single();
-  if (error) {
+
+  const columns = stateToColumns(state);
+  const data = await writeDomainViaRpc(
+    supabase,
+    'save_merchant_email_domain_registration',
+    {
+      p_merchant_id: merchantId,
+      p_domain: state.domain,
+      p_zeptomail_domain_id: columns.zeptomail_domain_id,
+      p_status: columns.status,
+      p_verified_at: columns.verified_at,
+      p_dkim_host: columns.dkim_host,
+      p_dkim_value: columns.dkim_value,
+      p_bounce_host: columns.bounce_host,
+      p_bounce_value: columns.bounce_value,
+    },
+    'Failed to save email domain'
+  ).catch((error) => {
     if (isUniqueDomainReservationError(error)) {
       throw new Error('Domain is already registered by another merchant');
     }
-    throw new Error(`Failed to save email domain: ${error.message}`);
+    throw error;
+  });
+  if (!data) {
+    throw new Error('Failed to save email domain: no row returned');
   }
-  return rowToDomain(data as Row);
+  return rowToDomain(data);
 }
 
 /** Re-check verification with ZeptoMail and update the stored status. */
@@ -266,31 +286,30 @@ export async function verifyMerchantEmailDomain(
   }
 
   const state = await verifySendingDomain(domainKey);
-  let updateQuery = supabase
-    .from(TABLE)
-    .update({
-      ...stateToColumns(state),
-      // Persist status + enabled from the same transition: a domain that is no
-      // longer verified must never keep `enabled = true`.
-      ...(state.verified ? {} : { enabled: false }),
-    })
-    .eq('merchant_id', merchantId)
-    .eq('domain', existingRow.domain);
-
-  updateQuery = existingRow.zeptomail_domain_id
-    ? updateQuery.eq('zeptomail_domain_id', existingRow.zeptomail_domain_id)
-    : updateQuery.is('zeptomail_domain_id', null);
-
-  const { data, error } = await updateQuery.select(SELECT).maybeSingle();
-  if (error) {
-    throw new Error(`Failed to update email domain: ${error.message}`);
-  }
+  const columns = stateToColumns(state);
+  const data = await writeDomainViaRpc(
+    supabase,
+    'save_merchant_email_domain_verification',
+    {
+      p_merchant_id: merchantId,
+      p_checked_domain: existingRow.domain,
+      p_checked_zeptomail_domain_id: existingRow.zeptomail_domain_id,
+      p_zeptomail_domain_id: columns.zeptomail_domain_id,
+      p_status: columns.status,
+      p_verified_at: columns.verified_at,
+      p_dkim_host: columns.dkim_host,
+      p_dkim_value: columns.dkim_value,
+      p_bounce_host: columns.bounce_host,
+      p_bounce_value: columns.bounce_value,
+    },
+    'Failed to update email domain'
+  );
   if (!data) {
     throw new Error(
       'Sending domain changed while verification was in progress'
     );
   }
-  return rowToDomain(data as Row);
+  return rowToDomain(data);
 }
 
 /** Enable/disable sending from the domain (only a verified domain may enable). */
@@ -322,20 +341,12 @@ export async function setMerchantEmailDomainEnabled(
       existingRow.domain
     );
   }
-  let query = supabase
-    .from(TABLE)
-    .update({ enabled })
-    .eq('merchant_id', merchantId);
-  if (enabled) {
-    // Enforce the verified precondition in the same scoped write so we never
-    // persist `enabled = true` for a domain whose status is not 'verified'
-    // (no read-then-write race).
-    query = query.eq('status', 'verified');
-  }
-  const { data, error } = await query.select(SELECT).maybeSingle();
-  if (error) {
-    throw new Error(`Failed to update email domain: ${error.message}`);
-  }
+  const data = await writeDomainViaRpc(
+    supabase,
+    'set_merchant_email_domain_enabled',
+    { p_merchant_id: merchantId, p_enabled: enabled },
+    'Failed to update email domain'
+  );
   if (!data) {
     throw new Error(
       enabled

@@ -90,16 +90,18 @@ function resolveOtpRedirectUrl(
   const storefrontOrigins = buildStorefrontOrigins(merchant);
   const requestOrigin = getRequestOrigin(request);
 
-  if (requestOrigin && storefrontOrigins.has(requestOrigin)) {
-    return `${requestOrigin}/account/verify`;
+  const customDomainOrigin = merchant.custom_domain
+    ? `https://${merchant.custom_domain.toLowerCase()}`
+    : null;
+  if (customDomainOrigin && process.env.NODE_ENV === 'production') {
+    return `${customDomainOrigin}/account`;
   }
 
-  const preferredOrigin =
-    merchant.custom_domain && process.env.NODE_ENV === 'production'
-      ? `https://${merchant.custom_domain.toLowerCase()}`
-      : Array.from(storefrontOrigins)[0];
+  if (requestOrigin && storefrontOrigins.has(requestOrigin)) {
+    return `${requestOrigin}/account`;
+  }
 
-  return `${preferredOrigin}/account/verify`;
+  return `${Array.from(storefrontOrigins)[0]}/account`;
 }
 
 /**

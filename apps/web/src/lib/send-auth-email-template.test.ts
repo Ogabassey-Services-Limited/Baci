@@ -32,28 +32,29 @@ describe('send-auth-email template helpers', () => {
 
   it('detects Baci merchant subdomains from auth redirects', () => {
     expect(
-      extractMerchantLookup('https://ogabassey.usebaci.com/account/verify')
+      extractMerchantLookup('https://ogabassey.usebaci.com/account')
     ).toEqual({ customDomain: null, slug: 'ogabassey' });
   });
 
   it('detects custom domains from auth redirects', () => {
-    expect(
-      extractMerchantLookup('https://ogabassey.com/account/verify')
-    ).toEqual({ customDomain: 'ogabassey.com', slug: null });
+    expect(extractMerchantLookup('https://ogabassey.com/account')).toEqual({
+      customDomain: 'ogabassey.com',
+      slug: null,
+    });
   });
 
   it('builds same-merchant custom-domain confirmation links with relative next params', () => {
     const rootUrl = buildAuthEmailConfirmationUrl({
       branding: ogabasseyBranding,
       emailType: 'magiclink',
-      redirectTo: 'https://ogabassey.com/account/verify?from=email',
+      redirectTo: 'https://ogabassey.com/account?from=email',
       siteUrl: 'https://usebaci.com',
       tokenHash: 'hash-123',
     });
     const appLocalUrl = buildAppLocalAuthEmailConfirmationUrl({
       branding: ogabasseyBranding,
       emailType: 'magiclink',
-      redirectTo: 'https://ogabassey.com/account/verify?from=email',
+      redirectTo: 'https://ogabassey.com/account?from=email',
       siteUrl: 'https://usebaci.com',
       tokenHash: 'hash-123',
     });
@@ -64,10 +65,10 @@ describe('send-auth-email template helpers', () => {
     expect(url.pathname).toBe('/auth/confirm');
     expect(url.searchParams.get('token_hash')).toBe('hash-123');
     expect(url.searchParams.get('type')).toBe('magiclink');
-    expect(url.searchParams.get('next')).toBe('/account/verify?from=email');
+    expect(url.searchParams.get('next')).toBe('/account?from=email');
   });
 
-  it('keeps same-merchant subdomain confirmation on the platform host and routes next through the slug', () => {
+  it('moves same-merchant subdomain confirmation to the active custom-domain origin when available', () => {
     for (const build of [
       buildAuthEmailConfirmationUrl,
       buildAppLocalAuthEmailConfirmationUrl,
@@ -75,20 +76,40 @@ describe('send-auth-email template helpers', () => {
       const url = build({
         branding: ogabasseyBranding,
         emailType: 'magiclink',
-        redirectTo: 'https://ogabassey.usebaci.com/account/verify?from=email',
+        redirectTo: 'https://ogabassey.usebaci.com/account?from=email',
         siteUrl: 'https://usebaci.com',
         tokenHash: 'hash-123',
       });
 
       const parsed = new URL(url ?? '');
-      expect(parsed.origin).toBe('https://usebaci.com');
+      expect(parsed.origin).toBe('https://ogabassey.com');
       expect(parsed.pathname).toBe('/auth/confirm');
       expect(parsed.searchParams.get('token_hash')).toBe('hash-123');
       expect(parsed.searchParams.get('type')).toBe('magiclink');
-      expect(parsed.searchParams.get('next')).toBe(
-        '/ogabassey/account/verify?from=email'
-      );
+      expect(parsed.searchParams.get('next')).toBe('/account?from=email');
     }
+  });
+
+  it('keeps subdomain-only merchants on the platform host and routes next through the slug', () => {
+    const brandingWithoutCustomDomain = {
+      ...ogabasseyBranding,
+      customDomain: null,
+    };
+
+    const url = buildAuthEmailConfirmationUrl({
+      branding: brandingWithoutCustomDomain,
+      emailType: 'magiclink',
+      redirectTo: 'https://ogabassey.usebaci.com/account?from=email',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+
+    const parsed = new URL(url ?? '');
+    expect(parsed.origin).toBe('https://usebaci.com');
+    expect(parsed.pathname).toBe('/auth/confirm');
+    expect(parsed.searchParams.get('next')).toBe(
+      '/ogabassey/account?from=email'
+    );
   });
 
   it('drops external confirmation next targets', () => {
@@ -114,7 +135,7 @@ describe('send-auth-email template helpers', () => {
       const url = build({
         branding: ogabasseyBranding,
         emailType: 'magiclink',
-        redirectTo: 'http://ogabassey.com/account/verify',
+        redirectTo: 'http://ogabassey.com/account',
         siteUrl: 'https://usebaci.com',
         tokenHash: 'hash-123',
       });
@@ -153,12 +174,12 @@ describe('send-auth-email template helpers', () => {
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
       ogabasseyBranding,
       '123456',
-      'https://ogabassey.com/account/verify'
+      'https://ogabassey.com/account'
     );
 
     expect(html).toContain('Secure sign in');
     expect(html).toContain('123456');
-    expect(html).toContain('href="https://ogabassey.com/account/verify"');
+    expect(html).toContain('href="https://ogabassey.com/account"');
     expect(html).toContain('support@ogabassey.com');
     expect(html).toContain('Ogabassey Never Disappoints.');
     expect(html).toContain('content="light dark"');
@@ -177,7 +198,7 @@ describe('send-auth-email template helpers', () => {
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
       { ...ogabasseyBranding, logoUrl: ogabasseyMerchantLogoUrl },
       '123456',
-      'https://ogabassey.com/account/verify'
+      'https://ogabassey.com/account'
     );
 
     expect(html).toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
@@ -202,7 +223,7 @@ describe('send-auth-email template helpers', () => {
       logoUrl: ogabasseyMerchantLogoUrl,
     };
     const token = '123456';
-    const actionUrl = 'https://ogabassey.com/account/verify';
+    const actionUrl = 'https://ogabassey.com/account';
 
     const rootHtml = generateEmailHtml(
       config,
@@ -265,7 +286,7 @@ describe('send-auth-email template helpers', () => {
       logoUrl: ogabasseyMerchantLogoUrl,
     };
     const token = '123456';
-    const actionUrl = 'https://ogabassey.com/account/verify';
+    const actionUrl = 'https://ogabassey.com/account';
 
     const rootHtml = generateEmailHtml(
       config,
@@ -306,7 +327,7 @@ describe('send-auth-email template helpers', () => {
         supportEmail: 'support@example.com',
       },
       '123456',
-      'https://shop-ogabassey.example.com/account/verify'
+      'https://shop-ogabassey.example.com/account'
     );
 
     expect(html).toContain(`<img src="${resellerLogoUrl}"`);

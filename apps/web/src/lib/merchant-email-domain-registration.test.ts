@@ -2,14 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { mockScopedFrom, mockRegister, mockFind, mockVerify, mockAssociate } =
-  vi.hoisted(() => ({
-    mockScopedFrom: vi.fn(),
-    mockRegister: vi.fn(),
-    mockFind: vi.fn(),
-    mockVerify: vi.fn(),
-    mockAssociate: vi.fn(),
-  }));
+const {
+  mockScopedFrom,
+  mockScopedRpc,
+  mockRegister,
+  mockFind,
+  mockVerify,
+  mockAssociate,
+} = vi.hoisted(() => ({
+  mockScopedFrom: vi.fn(),
+  mockScopedRpc: vi.fn(),
+  mockRegister: vi.fn(),
+  mockFind: vi.fn(),
+  mockVerify: vi.fn(),
+  mockAssociate: vi.fn(),
+}));
 
 vi.mock('@/lib/supabase/admin', () => {
   throw new Error(
@@ -56,11 +63,13 @@ const ROW = {
 
 const scopedSupabase = {
   from: mockScopedFrom,
+  rpc: mockScopedRpc,
 } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
 describe('registerMerchantEmailDomain', () => {
   beforeEach(() => {
     mockScopedFrom.mockReset();
+    mockScopedRpc.mockReset();
     mockRegister.mockReset();
     mockFind.mockReset();
     mockVerify.mockReset();
@@ -92,7 +101,7 @@ describe('registerMerchantEmailDomain', () => {
       },
       error: null,
     });
-    mockScopedFrom.mockReturnValueOnce(upsertBuilder);
+    mockScopedRpc.mockReturnValueOnce(upsertBuilder);
 
     const result = await registerMerchantEmailDomain(
       'm1',
@@ -101,17 +110,16 @@ describe('registerMerchantEmailDomain', () => {
     );
 
     expect(mockRegister).toHaveBeenCalledWith('mystore.com');
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_registration',
       expect.objectContaining({
-        merchant_id: 'm1',
-        domain: 'mystore.com',
-        zeptomail_domain_id: 'dk1',
-        status: 'pending',
-        enabled: false,
-        dkim_host: 'h',
-        bounce_value: 'c',
-      }),
-      { onConflict: 'merchant_id' }
+        p_merchant_id: 'm1',
+        p_domain: 'mystore.com',
+        p_zeptomail_domain_id: 'dk1',
+        p_status: 'pending',
+        p_dkim_host: 'h',
+        p_bounce_value: 'c',
+      })
     );
     expect(result.status).toBe('pending');
   });
@@ -140,14 +148,19 @@ describe('registerMerchantEmailDomain', () => {
       data: { ...ROW, domain: 'ogabassey.com' },
       error: null,
     });
-    mockScopedFrom.mockReturnValueOnce(upsertBuilder);
+    mockScopedRpc.mockReturnValueOnce(upsertBuilder);
 
     await registerMerchantEmailDomain('m1', 'ogabassey.com', scopedSupabase);
 
-    // enabled must NOT be forced back to false for an idempotent re-register.
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ merchant_id: 'm1', enabled: true }),
-      { onConflict: 'merchant_id' }
+    // Preservation is owned by the database RPC so public clients cannot write
+    // `enabled=true` through direct table DML.
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_registration',
+      expect.objectContaining({
+        p_merchant_id: 'm1',
+        p_domain: 'ogabassey.com',
+        p_status: 'verified',
+      })
     );
   });
 
@@ -168,7 +181,7 @@ describe('registerMerchantEmailDomain', () => {
       data: { ...ROW, domain: 'mystore.com', status: 'pending' },
       error: null,
     });
-    mockScopedFrom.mockReturnValueOnce(upsertBuilder);
+    mockScopedRpc.mockReturnValueOnce(upsertBuilder);
 
     await expect(
       registerMerchantEmailDomain('m1', 'mystore.com', scopedSupabase)
@@ -177,9 +190,9 @@ describe('registerMerchantEmailDomain', () => {
     expect(mockAssociate).toHaveBeenCalledWith(
       expect.objectContaining({ domainKey: 'existing-key' })
     );
-    expect(upsertBuilder.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ zeptomail_domain_id: 'existing-key' }),
-      { onConflict: 'merchant_id' }
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_registration',
+      expect.objectContaining({ p_zeptomail_domain_id: 'existing-key' })
     );
   });
 
@@ -222,7 +235,7 @@ describe('registerMerchantEmailDomain', () => {
     );
     // RLS can hide another merchant's reserved sending-domain row.
     mockScopedFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
-    mockScopedFrom.mockReturnValueOnce(
+    mockScopedRpc.mockReturnValueOnce(
       builderFor({
         data: null,
         error: {
