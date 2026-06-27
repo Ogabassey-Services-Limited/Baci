@@ -131,6 +131,27 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
             </ul>
           </section>
 
+          <section className="mt-8 rounded-2xl border border-store-border bg-store-background-text/5 p-5">
+            <h2 className="text-xl font-semibold">
+              How to use this comparison
+            </h2>
+            <div className="mt-3 space-y-3 text-sm text-store-background-text/70 sm:text-base">
+              <p>
+                Check the verdict first, then review the differences and table
+                rows for {leftColumnLabel} and {rightColumnLabel}. Prioritize
+                the specs, price range, condition, warranty and delivery details
+                that affect how you plan to use this product category.
+              </p>
+              <p>
+                Before checkout, confirm live availability, selected variant,
+                regional compatibility and included accessories on the product
+                page. Similar model names can hide different storage, platform,
+                display or bundle details, so use the table as a shortlist
+                before opening the final product listing.
+              </p>
+            </div>
+          </section>
+
           <section className="mt-10 overflow-x-auto rounded-2xl border border-store-border bg-store-background shadow-sm">
             <table
               aria-label="Product comparison table"

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { headers } from 'next/headers';
-import { Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 
@@ -46,7 +46,9 @@ vi.mock('@/types/about-page', async () => {
 });
 
 vi.mock('../pages/about/about-page-client', () => ({
-  AboutPageClient: () => <div data-testid="about-client">About UI</div>,
+  AboutPageClient: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="about-client">About UI{children}</div>
+  ),
 }));
 
 const notFound = vi.fn(() => {

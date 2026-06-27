@@ -135,6 +135,12 @@ describe('ComparePageContent', () => {
       screen.getByRole('table', { name: /Product comparison table/i })
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', { name: 'How to use this comparison' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Check the verdict first, then review the differences/i)
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('link', { name: 'Best Phones in Nigeria' })
     ).toHaveAttribute(
       'href',

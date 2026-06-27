@@ -10,6 +10,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate, type TemplateComponents } from '@/templates/registry';
 import type { MerchantAboutPage } from '@/types/about-page';
+import { ContentPageCrawlSummary } from '../content-page-crawl-summary';
 import { AboutPageClient } from '../pages/about/about-page-client';
 import { AboutJsonLd } from './about-json-ld';
 
@@ -109,11 +110,18 @@ async function AboutContent({ params }: PageProps) {
       if (templateAbout) {
         const { AboutComponent, merchantData } = templateAbout;
         return (
-          <AboutComponent
-            merchant={merchantData}
-            storeSlug={merchant.slug}
-            isPreview={false}
-          />
+          <>
+            <AboutComponent
+              merchant={merchantData}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+            <ContentPageCrawlSummary
+              kind="about"
+              merchantName={merchant.business_name}
+              businessType={merchant.business_type}
+            />
+          </>
         );
       }
     }
@@ -125,6 +133,12 @@ async function AboutContent({ params }: PageProps) {
       merchant={merchant}
       aboutPage={aboutPage}
       legacyContent={legacyAboutContent}
-    />
+    >
+      <ContentPageCrawlSummary
+        kind="about"
+        merchantName={merchant.business_name}
+        businessType={merchant.business_type}
+      />
+    </AboutPageClient>
   );
 }

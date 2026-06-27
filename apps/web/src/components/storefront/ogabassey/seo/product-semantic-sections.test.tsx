@@ -68,8 +68,8 @@ describe('ProductSemanticSections', () => {
       />,
     );
 
-    // The "Buying context" trust-bullet section was removed from the PDP, so
-    // trust bullets in the model must NOT render.
+    // The old "Buying context" trust-bullet section was removed from the PDP,
+    // so trust bullets in the model must NOT render.
     expect(
       screen.queryByRole('heading', { name: 'Buying context' })
     ).not.toBeInTheDocument();
@@ -78,7 +78,9 @@ describe('ProductSemanticSections', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Ships across Nigeria')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Product buying context' })
+      screen.getByRole('heading', {
+        name: 'Product details and buying checklist',
+      })
     ).toBeInTheDocument();
     expect(
       screen.getByText('Samsung Galaxy S25 is listed by Ogabassey in Smartphones.')
@@ -174,7 +176,9 @@ describe('ProductSemanticSections', () => {
     );
 
     expect(
-      screen.getByRole('heading', { name: 'Product buying context' })
+      screen.getByRole('heading', {
+        name: 'Product details and buying checklist',
+      })
     ).toBeInTheDocument();
     expect(
       screen.getByText('Steam Deck is listed by Ogabassey in Portable Gaming.')

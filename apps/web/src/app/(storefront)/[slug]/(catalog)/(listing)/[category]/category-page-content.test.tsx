@@ -220,6 +220,12 @@ describe('CategoryPageContent', () => {
     expect(schemaScripts[0]?.textContent).toContain('"@type":"CollectionPage"');
     expect(schemaScripts[1]?.textContent).toContain('"@type":"BreadcrumbList"');
     expect(schemaScripts[2]?.textContent).toContain('"@type":"FAQPage"');
+    expect(
+      screen.getByRole('heading', { name: 'Buying Phones on Demo Store' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/compare the product name, brand, price/i)
+    ).toBeInTheDocument();
   });
 
   it('passes the merchant payout currency into collection schema generation', async () => {

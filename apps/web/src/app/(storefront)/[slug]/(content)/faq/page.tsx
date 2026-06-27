@@ -12,6 +12,7 @@ import { generateFAQSchema, getIndexableRobotsMetadata } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
+import { ContentPageCrawlSummary } from '../content-page-crawl-summary';
 import { FAQPageClient } from '../pages/faq/faq-page-client';
 
 interface PageProps {
@@ -140,11 +141,18 @@ async function FAQContent({ params }: PageProps) {
       if (templateHelpUi) {
         const { HelpComponent } = templateHelpUi;
         return (
-          <HelpComponent
-            merchant={templateHelpUi.merchantData}
-            storeSlug={merchant.slug}
-            isPreview={false}
-          />
+          <>
+            <HelpComponent
+              merchant={templateHelpUi.merchantData}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+            <ContentPageCrawlSummary
+              kind="faq"
+              merchantName={merchant.business_name}
+              businessType={merchant.business_type}
+            />
+          </>
         );
       }
     }
@@ -156,6 +164,12 @@ async function FAQContent({ params }: PageProps) {
       merchant={merchant}
       faqItems={faqItems}
       legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
-    />
+    >
+      <ContentPageCrawlSummary
+        kind="faq"
+        merchantName={merchant.business_name}
+        businessType={merchant.business_type}
+      />
+    </FAQPageClient>
   );
 }
