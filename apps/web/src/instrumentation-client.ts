@@ -1,8 +1,11 @@
+import { initializeChunkLoadRecovery } from '@/lib/chunk-load-recovery';
 import { logger } from '@/lib/logger';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
+
+initializeChunkLoadRecovery();
 
 async function initializePostHogInstrumentation() {
   try {

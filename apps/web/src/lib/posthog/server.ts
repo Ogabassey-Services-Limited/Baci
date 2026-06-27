@@ -4,6 +4,7 @@ import { sanitizePostHogProperties } from '@/lib/posthog/client-config';
 import {
   DEFAULT_POSTHOG_INGEST_HOST,
   getPostHogIngestHost,
+  getPostHogReleaseContext,
   normalizePostHogHost,
   type PostHogEnv,
 } from '@/lib/posthog/config';
@@ -111,6 +112,7 @@ export async function captureServerException(
         runtime: 'nodejs',
         deployment_environment:
           process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
+        ...getPostHogReleaseContext(process.env),
       })
     );
 

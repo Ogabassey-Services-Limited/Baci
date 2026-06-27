@@ -1,30 +1,77 @@
 import Constants from 'expo-constants';
 import PostHog from 'posthog-react-native';
 import { createLogger } from '@/lib/logger';
+import {
+  type AnalyticsProperties,
+  sanitizeAnalyticsCaptureEvent,
+  sanitizeAnalyticsProperties,
+} from './analytics-privacy';
+import { buildAnalyticsTracingHostnames } from './analytics-tracing-hostnames';
 
 const log = createLogger('Analytics');
 
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';
 const POSTHOG_HOST =
   Constants.expoConfig?.extra?.posthogHost || 'https://eu.i.posthog.com';
+const APP_VERSION = Constants.expoConfig?.version;
+const API_URL = Constants.expoConfig?.extra?.apiUrl;
 const MERCHANT_ID = Constants.expoConfig?.extra?.merchantId;
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug;
 const MERCHANT_DOMAIN = Constants.expoConfig?.extra?.merchantDomain;
 
 let posthogClient: PostHog | null = null;
 
-function getAnalyticsSuperProperties() {
-  return {
-    app_surface: 'mobile-storefront',
-    merchant_id: MERCHANT_ID,
-    merchant_slug: MERCHANT_SLUG,
-    merchant_domain: MERCHANT_DOMAIN,
-  };
+function getAnalyticsSuperProperties(): AnalyticsProperties {
+  return (
+    sanitizeAnalyticsProperties({
+      app_surface: 'mobile-storefront',
+      release_version: APP_VERSION,
+      merchant_id: MERCHANT_ID,
+      merchant_slug: MERCHANT_SLUG,
+      merchant_domain: MERCHANT_DOMAIN,
+    }) ?? {}
+  );
 }
 
 function registerAnalyticsSuperProperties(): void {
   if (!posthogClient) return;
   void posthogClient.register(getAnalyticsSuperProperties());
+}
+
+function hasFilteredValue(value: unknown): boolean {
+  if (value === '[Filtered]') {
+    return true;
+  }
+
+  if (typeof value === 'string') {
+    return value.includes('[Filtered]');
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(hasFilteredValue);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.values(value).some(hasFilteredValue);
+  }
+
+  return false;
+}
+
+function sanitizeAnalyticsPersonProperties(
+  properties: Record<string, unknown> | undefined
+): AnalyticsProperties {
+  const sanitized = sanitizeAnalyticsProperties(properties) ?? {};
+  return Object.entries(sanitized).reduce<AnalyticsProperties>(
+    (filteredProperties, [key, value]) => {
+      if (!hasFilteredValue(value)) {
+        filteredProperties[key] = value;
+      }
+
+      return filteredProperties;
+    },
+    {}
+  );
 }
 
 export function initAnalytics(): void {
@@ -36,6 +83,11 @@ export function initAnalytics(): void {
   try {
     posthogClient = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
+      addTracingHeaders: buildAnalyticsTracingHostnames({
+        apiUrl: API_URL,
+        merchantDomain: MERCHANT_DOMAIN,
+      }),
+      before_send: sanitizeAnalyticsCaptureEvent,
       captureAppLifecycleEvents: true,
       customAppProperties: (properties) => ({
         ...properties,
@@ -99,7 +151,7 @@ export function identifyUser(
   if (!posthogClient) return;
 
   posthogClient.identify(userId, {
-    ...properties,
+    ...sanitizeAnalyticsPersonProperties(properties),
     $set_once: {
       first_seen: new Date().toISOString(),
     },
@@ -116,7 +168,14 @@ export function setUserProperties(
   properties: Record<string, string | number | boolean | null>
 ): void {
   if (!posthogClient) return;
-  posthogClient.capture('$set', { $set: properties });
+  const sanitizedProperties = sanitizeAnalyticsPersonProperties(properties);
+  if (Object.keys(sanitizedProperties).length === 0) {
+    return;
+  }
+
+  posthogClient.capture('$set', {
+    $set: sanitizedProperties,
+  });
 }
 
 export function trackEvent(
@@ -126,7 +185,7 @@ export function trackEvent(
   if (!posthogClient) return;
 
   posthogClient.capture(eventName, {
-    ...properties,
+    ...sanitizeAnalyticsProperties(properties),
     timestamp: new Date().toISOString(),
   });
 }
@@ -143,7 +202,10 @@ export function captureException(
 ): void {
   if (!posthogClient) return;
 
-  posthogClient.captureException(error, properties);
+  posthogClient.captureException(
+    error,
+    sanitizeAnalyticsProperties(properties)
+  );
 }
 
 export function trackScreen(
@@ -153,7 +215,7 @@ export function trackScreen(
   if (!posthogClient) return;
 
   posthogClient.screen(screenName, {
-    ...properties,
+    ...sanitizeAnalyticsProperties(properties),
     timestamp: new Date().toISOString(),
   });
 }

@@ -12,6 +12,7 @@ import {
   getPostHogAssetsHost,
   getPostHogIngestHost,
   getPostHogProxyPath,
+  getPostHogPublicBuildEnv,
   getPostHogReleaseVersion,
   getPostHogUiHost,
   isPostHogSourceMapUploadEnabled,
@@ -74,6 +75,7 @@ const POSTHOG_SOURCE_MAP_API_KEY = process.env.POSTHOG_API_KEY?.trim();
 const POSTHOG_SOURCE_MAP_PROJECT_ID = process.env.POSTHOG_PROJECT_ID?.trim();
 const POSTHOG_SOURCE_MAP_UPLOAD_ENABLED = isPostHogSourceMapUploadEnabled();
 const NEXT_DEPLOYMENT_ID = getNextDeploymentId();
+const POSTHOG_PUBLIC_BUILD_ENV = getPostHogPublicBuildEnv();
 
 function getPostHogRewriteRules() {
   const proxyPath = getPostHogProxyPath();
@@ -98,6 +100,7 @@ function getPostHogRewriteRules() {
 
 const nextConfig: NextConfig = {
   deploymentId: NEXT_DEPLOYMENT_ID,
+  env: POSTHOG_PUBLIC_BUILD_ENV,
 
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // jsPDF stays external here so server PDF generators can use the package

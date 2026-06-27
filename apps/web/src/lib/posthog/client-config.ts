@@ -1,11 +1,13 @@
 import type { CaptureResult, PostHogConfig, Properties } from 'posthog-js';
 import {
   getPostHogProxyPath,
+  getPostHogReleaseContext,
   getPostHogUiHost,
   type PostHogEnv,
 } from '@/lib/posthog/config';
 import { sanitizePostHogExceptionText } from '@/lib/posthog/exception-text';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
+import { getPostHogTracingHeaderHostnames } from '@/lib/posthog/tracing-hostnames';
 
 const SENSITIVE_PROPERTY_TOKENS = new Set([
   'password',
@@ -521,11 +523,13 @@ export function buildPostHogClientConfig(
   projectToken: string | undefined = getPublicPostHogProjectToken(),
   options: PostHogClientConfigOptions = {}
 ): Partial<PostHogConfig> {
+  const tracingHeaders = getPostHogTracingHeaderHostnames(env);
   const baseConfig: Partial<PostHogConfig> = {
     api_host: getPostHogProxyPath(env),
     ui_host: getPostHogUiHost(env),
     defaults: '2026-05-30',
     advanced_disable_flags: false,
+    person_profiles: 'identified_only',
     autocapture: true,
     rageclick: true,
     capture_dead_clicks: true,
@@ -539,10 +543,10 @@ export function buildPostHogClientConfig(
       capture_unhandled_rejections: true,
       capture_console_errors: false,
     },
-    // Keep PostHog's web-vitals autocapture disabled. In posthog-js@1.387.0
-    // WebVitalsAutocapture exposes startIfEnabled() but no stop(), so enabling
-    // it on a full page would leak observers into public blog SPA transitions.
-    // CWV collection remains handled by WebVitalsReporter.
+    // Keep PostHog's web-vitals autocapture disabled: CWV collection remains
+    // handled by WebVitalsReporter so SEO/content routes can drop expensive
+    // metrics selectively without leaving extra observers active after SPA
+    // transitions.
     capture_performance: false,
     disable_session_recording: false,
     session_recording: {
@@ -554,6 +558,11 @@ export function buildPostHogClientConfig(
     // Project credential keys are intentionally absent here:
     // restorePostHogProjectCredentialProperties rewrites token/api_key after
     // sanitization, and blacklisting them would break PostHog ingestion.
+    rate_limiting: {
+      events_per_second: 8,
+      events_burst_limit: 64,
+    },
+    ...(tracingHeaders.length > 0 ? { tracing_headers: tracingHeaders } : {}),
     property_blacklist: [
       'password',
       'secret',
@@ -575,6 +584,7 @@ export function buildPostHogClientConfig(
         app_surface: 'web',
         deployment_environment:
           env.NEXT_PUBLIC_VERCEL_ENV || env.NODE_ENV || 'development',
+        ...getPostHogReleaseContext(env),
         ...resolvePostHogWebTenantContext(env),
       });
     },
