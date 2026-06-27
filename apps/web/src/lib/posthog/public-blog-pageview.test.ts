@@ -127,7 +127,7 @@ describe('capturePublicBlogPageview', () => {
       Promise.resolve(new Response(null))
     );
 
-    stubStorage({
+    const storage = stubStorage({
       ph_ph_public_posthog: JSON.stringify({ $device_id: 'sdk-device-1' }),
     });
     vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
@@ -143,16 +143,56 @@ describe('capturePublicBlogPageview', () => {
       distinct_id: 'sdk-device-1',
       properties: { distinct_id: 'sdk-device-1' },
     });
+    expect(JSON.parse(storage.get('ph_ph_public_posthog') ?? '{}')).toEqual(
+      expect.objectContaining({
+        $device_id: 'sdk-device-1',
+        distinct_id: 'sdk-device-1',
+      })
+    );
   });
 
-  it('uses a generated per-page fallback when storage is blocked', () => {
+  it('migrates the legacy public blog distinct ID into SDK persistence', () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Promise.resolve(new Response(null))
+    );
+    const storage = stubStorage({
+      baci_public_blog_distinct_id: 'legacy-blog-id',
+    });
+
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
+
+    capturePublicBlogPageview(
+      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
+      'https://ogabassey.com/blog'
+    );
+
+    expect(parseFetchBody(fetch)).toMatchObject({
+      distinct_id: 'legacy-blog-id',
+      properties: { distinct_id: 'legacy-blog-id' },
+    });
+    expect(JSON.parse(storage.get('ph_ph_public_posthog') ?? '{}')).toEqual(
+      expect.objectContaining({
+        $device_id: 'legacy-blog-id',
+        distinct_id: 'legacy-blog-id',
+      })
+    );
+  });
+
+  it('reuses an in-memory fallback distinct ID when storage is blocked', () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Promise.resolve(new Response(null))
     );
 
     vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
     vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('crypto', { randomUUID: () => 'storage-blocked-id' });
+    const randomUUID = vi
+      .fn<() => `${string}-${string}-${string}-${string}-${string}`>()
+      .mockReturnValueOnce('00000000-0000-4000-8000-000000000001')
+      .mockReturnValueOnce('00000000-0000-4000-8000-000000000002');
+
+    vi.stubGlobal('crypto', { randomUUID });
     vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
     vi.stubGlobal('localStorage', {
       getItem: () => {
@@ -163,15 +203,20 @@ describe('capturePublicBlogPageview', () => {
       },
     });
 
-    capturePublicBlogPageview(
-      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
-      'https://ogabassey.com/blog'
-    );
+    const env = { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' };
+    capturePublicBlogPageview(env, 'https://ogabassey.com/blog');
+    capturePublicBlogPageview(env, 'https://ogabassey.com/blog/post');
 
-    expect(parseFetchBody(fetch)).toMatchObject({
-      distinct_id: 'storage-blocked-id',
-      properties: { distinct_id: 'storage-blocked-id' },
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(parseFetchBody(fetch, 0)).toMatchObject({
+      distinct_id: '00000000-0000-4000-8000-000000000001',
+      properties: { distinct_id: '00000000-0000-4000-8000-000000000001' },
     });
+    expect(parseFetchBody(fetch, 1)).toMatchObject({
+      distinct_id: '00000000-0000-4000-8000-000000000001',
+      properties: { distinct_id: '00000000-0000-4000-8000-000000000001' },
+    });
+    expect(randomUUID).toHaveBeenCalledOnce();
   });
 
   it('does nothing without a public project token', () => {

@@ -11,6 +11,7 @@ const LIKELY_BOT_USER_AGENT_PATTERN =
   /(?:bot|crawler|spider|chrome-lighthouse|pagespeed|headlesschrome|google-inspectiontool|googleother|siteauditbot|semrushbot|ahrefsbot|gptbot|oai-searchbot|chatgpt-user|perplexitybot|vercelbot|facebookexternal|twitterbot|linkedinbot|slackbot)/i;
 
 let lastCapturedPublicBlogPageviewUrl: string | undefined;
+const inMemoryPublicBlogDistinctIds = new Map<string, string>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -67,7 +68,11 @@ function readStorageValue(key: string): string | undefined {
 
 function writeStorageValue(key: string, value: string): boolean {
   try {
-    globalThis.localStorage?.setItem(key, value);
+    if (!globalThis.localStorage) {
+      return false;
+    }
+
+    globalThis.localStorage.setItem(key, value);
     return true;
   } catch {
     return false;
@@ -116,17 +121,31 @@ function getExistingSdkDistinctId(projectToken: string): string | undefined {
     readStorageValue(getPostHogSdkPersistenceKey(projectToken))
   );
 
-  if (sdkPersistence) {
-    return (
-      getStringProperty(sdkPersistence, 'distinct_id') ??
-      getStringProperty(sdkPersistence, '$device_id')
-    );
+  const sdkDistinctId = sdkPersistence
+    ? getStringProperty(sdkPersistence, 'distinct_id')
+    : undefined;
+  if (sdkDistinctId) {
+    return sdkDistinctId;
   }
 
-  return readStorageValue(LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY);
+  const sdkDeviceId = sdkPersistence
+    ? getStringProperty(sdkPersistence, '$device_id')
+    : undefined;
+  if (sdkDeviceId) {
+    seedSdkDistinctId(projectToken, sdkDeviceId);
+    return sdkDeviceId;
+  }
+
+  const legacyDistinctId = readStorageValue(LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY);
+  if (legacyDistinctId) {
+    seedSdkDistinctId(projectToken, legacyDistinctId);
+    return legacyDistinctId;
+  }
+
+  return undefined;
 }
 
-function seedSdkDistinctId(projectToken: string, distinctId: string): void {
+function seedSdkDistinctId(projectToken: string, distinctId: string): boolean {
   const storageKey = getPostHogSdkPersistenceKey(projectToken);
   const existingPersistence =
     parsePostHogPersistenceValue(readStorageValue(storageKey)) ?? {};
@@ -137,7 +156,7 @@ function seedSdkDistinctId(projectToken: string, distinctId: string): void {
     distinct_id: distinctId,
   };
 
-  writeStorageValue(storageKey, JSON.stringify(nextPersistence));
+  return writeStorageValue(storageKey, JSON.stringify(nextPersistence));
 }
 
 function getOrCreatePublicBlogDistinctId(projectToken: string): string {
@@ -147,8 +166,17 @@ function getOrCreatePublicBlogDistinctId(projectToken: string): string {
     return existingSdkDistinctId;
   }
 
+  const inMemoryDistinctId = inMemoryPublicBlogDistinctIds.get(projectToken);
+  if (inMemoryDistinctId) {
+    return inMemoryDistinctId;
+  }
+
   const generated = generatePublicBlogDistinctId();
-  seedSdkDistinctId(projectToken, generated);
+  if (seedSdkDistinctId(projectToken, generated)) {
+    inMemoryPublicBlogDistinctIds.delete(projectToken);
+  } else {
+    inMemoryPublicBlogDistinctIds.set(projectToken, generated);
+  }
   return generated;
 }
 
@@ -239,4 +267,5 @@ export function resetPublicBlogPageviewDedupe(): void {
 
 export function resetPublicBlogPageviewDedupeForTests(): void {
   resetPublicBlogPageviewDedupe();
+  inMemoryPublicBlogDistinctIds.clear();
 }
