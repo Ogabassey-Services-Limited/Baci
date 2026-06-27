@@ -9,6 +9,9 @@ export const INSURANCE_COLORS = {
     background: '#FEF3C7',
     foreground: '#92400E',
   },
+  cta: {
+    foreground: '#ffffff',
+  },
 } as const;
 
 export const styles = StyleSheet.create({

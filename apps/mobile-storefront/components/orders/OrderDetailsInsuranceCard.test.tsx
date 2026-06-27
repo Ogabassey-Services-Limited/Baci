@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { OrderDetailsInsuranceCard } from './OrderDetailsInsuranceCard';
@@ -341,6 +342,7 @@ describe('OrderDetailsInsuranceCard', () => {
           ...policyWithLinks,
           claim_link: null,
           inspection_link: null,
+          inspection_status: 'completed',
         }}
         isDelivered
         isPaid

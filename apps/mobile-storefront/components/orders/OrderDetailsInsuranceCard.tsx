@@ -215,9 +215,14 @@ export function OrderDetailsInsuranceCard({
             <Ionicons
               name="shield-checkmark-outline"
               size={18}
-              color="#ffffff"
+              color={INSURANCE_COLORS.cta.foreground}
             />
-            <Text style={[styles.trackButtonText, { color: '#ffffff' }]}>
+            <Text
+              style={[
+                styles.trackButtonText,
+                { color: INSURANCE_COLORS.cta.foreground },
+              ]}
+            >
               Activate Protection
             </Text>
           </TouchableOpacity>
@@ -261,9 +266,14 @@ export function OrderDetailsInsuranceCard({
             <Ionicons
               name="shield-checkmark-outline"
               size={18}
-              color="#ffffff"
+              color={INSURANCE_COLORS.cta.foreground}
             />
-            <Text style={[styles.trackButtonText, { color: '#ffffff' }]}>
+            <Text
+              style={[
+                styles.trackButtonText,
+                { color: INSURANCE_COLORS.cta.foreground },
+              ]}
+            >
               {showContinueClaim ? 'Continue Claim' : 'File a Claim'}
             </Text>
           </TouchableOpacity>

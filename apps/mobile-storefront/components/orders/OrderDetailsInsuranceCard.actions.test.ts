@@ -16,6 +16,37 @@ describe('resolveInsuranceCardActions', () => {
     });
   });
 
+  it('treats placeholder pending claim status as unstarted until claim progress exists', () => {
+    expect(
+      resolveInsuranceCardActions({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStatus: 'pending',
+        inspectionStatus: 'completed',
+        isDelivered: true,
+        onFileClaim: jest.fn(),
+      })
+    ).toMatchObject({
+      showContinueClaim: false,
+      showClaim: true,
+    });
+  });
+
+  it('continues pending claims after stage or comments are present', () => {
+    expect(
+      resolveInsuranceCardActions({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimStage: 'Document review',
+        claimStatus: 'pending',
+        inspectionStatus: 'completed',
+        isDelivered: true,
+        onFileClaim: jest.fn(),
+      })
+    ).toMatchObject({
+      showContinueClaim: true,
+      showClaim: false,
+    });
+  });
+
   it('hides claim continuation for terminal claims', () => {
     expect(
       resolveInsuranceCardActions({

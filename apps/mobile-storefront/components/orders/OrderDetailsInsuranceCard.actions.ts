@@ -31,13 +31,18 @@ export function resolveInsuranceCardActions({
 }: ResolveInsuranceCardActionsInput) {
   const normalizedInspectionStatus = inspectionStatus?.toLowerCase();
   const normalizedClaimStatus = claimStatus?.trim().toLowerCase();
+  const hasExplicitClaimProgress =
+    !!claimStage?.trim() || !!claimComment?.trim();
+  const isPlaceholderPendingClaim =
+    normalizedClaimStatus === 'pending' && !hasExplicitClaimProgress;
   const terminalClaim = normalizedClaimStatus
     ? TERMINAL_CLAIM_STATUSES.has(normalizedClaimStatus)
     : false;
   const claimAlreadyStarted =
-    !!claimStage ||
-    !!claimComment ||
-    (!!normalizedClaimStatus && normalizedClaimStatus !== 'none');
+    hasExplicitClaimProgress ||
+    (!!normalizedClaimStatus &&
+      normalizedClaimStatus !== 'none' &&
+      !isPlaceholderPendingClaim);
 
   const inspectionPending =
     normalizedInspectionStatus !== 'completed' &&
