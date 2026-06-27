@@ -149,7 +149,6 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 |------|---------|
 | `/tailwind.config.ts` | Tailwind CSS configuration (colors, fonts, plugins) |
 | `/src/app/globals.css` | CSS variables for theming (lines 6-70) |
-| `/src/ai/genkit.ts` | Genkit initialization and model configuration |
 | `/docs/blueprint.md` | 2100+ line comprehensive architecture documentation |
 | `/docs/adr/001-business-type-journey-architecture.md` | Architecture decision record for business type system |
 
@@ -303,11 +302,7 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-Use Genkit Dev UI: `npm run genkit:dev`
-1. Navigate to http://localhost:4000
-2. Test each flow individually with sample inputs
-3. Verify output schemas match TypeScript types
-4. Test error handling with invalid inputs
+Test the actual Next.js UI integration with Gemini directly. The previous Genkit integration and its Dev UI have been removed. Use the UI to verify Vercel AI SDK integration.
 
 ---
 
@@ -332,29 +327,6 @@ const form = useForm<FormValues>({
     {/* FormField components */}
   </form>
 </FormProvider>
-```
-
-### AI Flow Pattern
-All Genkit flows follow this pattern:
-```typescript
-// 1. Define input/output schemas
-const InputSchema = z.object({ /* input fields */ });
-const OutputSchema = z.object({ /* output fields */ });
-
-// 2. Create flow function
-export async function flowName(input: Input): Promise<Output> {
-  return flow(input);
-}
-
-// 3. Define Genkit flow
-const flow = ai.defineFlow({
-  name: 'flowName',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema
-}, async (input) => {
-  // AI logic here
-  return output;
-});
 ```
 
 ### Component Pattern
@@ -410,7 +382,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### External Docs
 - **Next.js 15:** https://nextjs.org/docs
-- **Genkit:** https://firebase.google.com/docs/genkit
+- **Vercel AI SDK:** https://sdk.vercel.ai/docs
 - **Tailwind CSS:** https://tailwindcss.com/docs
 - **Radix UI:** https://www.radix-ui.com/primitives/docs/overview/introduction
 - **React Hook Form:** https://react-hook-form.com/get-started
@@ -418,12 +390,10 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-npm run dev              # Start Next.js dev server on port 9002
-npm run genkit:dev       # Start Genkit Dev UI on port 4000
-npm run genkit:watch     # Genkit with hot reload
-npm run build            # Production build
-npm run typecheck        # TypeScript type checking
-npm run lint             # ESLint
+pnpm turbo dev              # Start Next.js dev server on port 9002
+pnpm turbo build            # Production build
+pnpm turbo typecheck        # TypeScript type checking
+pnpm turbo lint             # Biome linting
 ```
 
 ---
