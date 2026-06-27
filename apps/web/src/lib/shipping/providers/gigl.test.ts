@@ -30,6 +30,25 @@ const loginResponseWithoutCustomerType = {
   },
 };
 
+function loginResponseWithToken(
+  token: string,
+  userChannelCode = 'ECO038082',
+  userChannelType = 2
+) {
+  return {
+    success: true,
+    data: {
+      message: 'Success',
+      status: 200,
+      data: {
+        'access-token': token,
+        UserChannelCode: userChannelCode,
+        UserChannelType: userChannelType,
+      },
+    },
+  };
+}
+
 const stationsResponse = {
   success: true,
   data: {
@@ -168,6 +187,22 @@ function jsonResponse(payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function abortingFetchResponse(_url: unknown, init?: RequestInit) {
+  return new Promise<Response>((_resolve, reject) => {
+    const signal = init?.signal;
+    const abort = () => {
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+
+    signal?.addEventListener('abort', abort, { once: true });
   });
 }
 
@@ -367,6 +402,119 @@ describe('GiglProvider', () => {
     ]);
   });
 
+  it('rejects malformed price envelopes with schema validation', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            message: 'Success',
+            status: 200,
+            data: {
+              GrandTotal: '8941.43',
+            },
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            message: 'Success',
+            status: 200,
+            data: {},
+          },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
+  });
+
+  it('refreshes a stale cached token once when GIGL rejects it', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithToken('old-token')))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithToken('new-token')))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(jsonResponse(priceResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+
+    const oldStationHeaders = new Headers(
+      fetchMock.mock.calls[1]?.[1]?.headers
+    );
+    const freshStationHeaders = new Headers(
+      fetchMock.mock.calls[3]?.[1]?.headers
+    );
+    const priceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
+
+    expect(oldStationHeaders.get('access-token')).toBe('old-token');
+    expect(freshStationHeaders.get('access-token')).toBe('new-token');
+    expect(priceHeaders.get('access-token')).toBe('new-token');
+  });
+
+  it('rebuilds price retry payloads with refreshed channel data', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(loginResponseWithToken('old-token', 'OLD-CODE', 2))
+      )
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(loginResponseWithToken('new-token', 'NEW-CODE', 4))
+      )
+      .mockResolvedValueOnce(jsonResponse(priceResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+
+    const oldPriceHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
+    const newPriceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
+    const oldPricePayload = JSON.parse(
+      String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
+    );
+    const newPricePayload = JSON.parse(
+      String(fetchMock.mock.calls[4]?.[1]?.body ?? '{}')
+    );
+
+    expect(oldPriceHeaders.get('access-token')).toBe('old-token');
+    expect(oldPricePayload).toMatchObject({
+      CustomerCode: 'OLD-CODE',
+      CustomerType: 2,
+    });
+    expect(newPriceHeaders.get('access-token')).toBe('new-token');
+    expect(newPricePayload).toMatchObject({
+      CustomerCode: 'NEW-CODE',
+      CustomerType: 4,
+    });
+  });
+
   it('books the selected station-pickup quote semantics', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -448,15 +596,7 @@ describe('GiglProvider', () => {
     process.env.GIGL_QUOTE_TIMEOUT_MS = '25';
     vi.resetModules();
     vi.useFakeTimers();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        () =>
-          new Promise<Response>(() => {
-            // Intentionally unresolved to exercise the provider-level timeout.
-          })
-      )
-    );
+    vi.stubGlobal('fetch', vi.fn(abortingFetchResponse));
 
     const { GiglProvider } = await import('./gigl');
     const provider = new GiglProvider();

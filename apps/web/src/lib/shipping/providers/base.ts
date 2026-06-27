@@ -152,10 +152,19 @@ export abstract class BaseShippingProvider implements ShippingProvider {
     url: string,
     options: RequestInit & { timeout?: number } = {}
   ): Promise<Response> {
-    const { timeout = 30000, ...fetchOptions } = options;
+    const { timeout = 30000, signal: requestSignal, ...fetchOptions } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const abortFromRequest = () => controller.abort(requestSignal?.reason);
+
+    if (requestSignal?.aborted) {
+      controller.abort(requestSignal.reason);
+    } else {
+      requestSignal?.addEventListener('abort', abortFromRequest, {
+        once: true,
+      });
+    }
 
     try {
       const response = await fetch(url, {
@@ -166,6 +175,7 @@ export abstract class BaseShippingProvider implements ShippingProvider {
       return response;
     } finally {
       clearTimeout(timeoutId);
+      requestSignal?.removeEventListener('abort', abortFromRequest);
     }
   }
 }

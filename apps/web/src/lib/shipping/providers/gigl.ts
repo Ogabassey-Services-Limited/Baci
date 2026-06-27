@@ -3,6 +3,7 @@
  * Refactored from /src/lib/gigl.ts to implement ShippingProvider interface
  */
 
+import type { z } from 'zod';
 import { mapGiglStatus } from '../status-mapper';
 import type {
   BookingRequest,
@@ -15,6 +16,7 @@ import type {
   UnifiedLocation,
 } from '../types';
 import { BaseShippingProvider } from './base';
+import { type GiglStation, giglSchemas } from './gigl.schemas';
 
 // =============================================================================
 // CONFIGURATION
@@ -53,66 +55,11 @@ interface GiglToken {
   expiresAt: number;
 }
 
-interface GiglStation {
-  StationId: number;
-  StationName: string;
-  StationCode: string;
-  State?: string;
-  StateName?: string;
-  City?: string;
-  Address?: string;
-  Latitude?: number;
-  Longitude?: number;
-}
-
-interface GiglPriceData {
-  GrandTotal: number;
-  MainCharge?: number;
-  DeliverPrice?: number;
-  PickupCharge?: number;
-  InsuranceValue?: number;
-  DeclaredValue?: number;
-  Discount?: number;
-  ShipmentItems?: unknown[];
-}
-
-interface GiglLoginData {
-  'access-token'?: string;
-  UserChannelCode?: string;
-  UserChannelType?: number;
-  CustomerType?: number;
-}
-
-interface GiglApiEnvelope {
+type GiglApiEnvelope = {
   status: number;
   message?: string;
   data?: unknown;
-}
-
-interface GiglBookingData {
-  Waybill: string;
-  [key: string]: unknown;
-}
-
-interface GiglTrackingResponse {
-  status: number;
-  data: Array<{
-    Waybill: string;
-    Origin: string;
-    Destination: string;
-    PickupOptions: number;
-    DeliveryType: number;
-    MobileShipmentTrackings: Array<{
-      Status: string;
-      ScanStatusReason: string;
-      DateTime: string;
-      DepartureServiceCentre?: {
-        Name: string;
-        Address?: string;
-      };
-    }>;
-  }>;
-}
+};
 
 // GIGL Enums
 enum VehicleType {
@@ -159,49 +106,66 @@ export class GiglProvider extends BaseShippingProvider {
   // AUTHENTICATION
   // ==========================================================================
 
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return value !== null && typeof value === 'object' && !Array.isArray(value);
-  }
-
-  private readString(value: unknown): string | undefined {
-    return typeof value === 'string' && value.length > 0 ? value : undefined;
-  }
-
   private readNumber(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isFinite(value)
       ? value
       : undefined;
   }
 
+  private isAbortError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      (error.name === 'AbortError' || error.name === 'TimeoutError')
+    );
+  }
+
   private unwrapApiEnvelope(payload: unknown): GiglApiEnvelope {
-    if (!this.isRecord(payload)) {
+    const parsed = giglSchemas.envelopeObject.safeParse(payload);
+
+    if (!parsed.success) {
       return {
         status: 500,
         data: payload,
       };
     }
 
-    const nested = payload.data;
+    const outer = parsed.data;
+    const nestedEnvelope = giglSchemas.envelopeObject.safeParse(outer.data);
     if (
-      this.isRecord(nested) &&
-      ('data' in nested || 'status' in nested || 'message' in nested)
+      nestedEnvelope.success &&
+      (nestedEnvelope.data.data !== undefined ||
+        nestedEnvelope.data.status !== undefined ||
+        nestedEnvelope.data.message !== undefined)
     ) {
       return {
-        status:
-          this.readNumber(nested.status) ??
-          this.readNumber(payload.status) ??
-          200,
-        message:
-          this.readString(nested.message) || this.readString(payload.message),
-        data: nested.data,
+        status: nestedEnvelope.data.status ?? outer.status ?? 200,
+        message: nestedEnvelope.data.message || outer.message,
+        data: nestedEnvelope.data.data,
       };
     }
 
     return {
-      status: this.readNumber(payload.status) ?? 200,
-      message: this.readString(payload.message),
-      data: payload.data,
+      status: outer.status ?? 200,
+      message: outer.message,
+      data: outer.data,
     };
+  }
+
+  private parseEnvelopeData<T>(
+    envelope: GiglApiEnvelope,
+    schema: z.ZodType<T>,
+    description: string
+  ): T {
+    const parsed = schema.safeParse(envelope.data);
+    if (!parsed.success) {
+      this.log('warn', `Invalid GIGL ${description} response`, {
+        status: envelope.status,
+        issues: parsed.error.issues,
+      });
+      throw new Error(`Invalid GIGL ${description} response`);
+    }
+
+    return parsed.data;
   }
 
   private normalizeCustomerType(...values: unknown[]): number {
@@ -215,7 +179,10 @@ export class GiglProvider extends BaseShippingProvider {
     return 0;
   }
 
-  private async getApiToken(timeout?: number): Promise<GiglToken> {
+  private async getApiToken(
+    timeout?: number,
+    signal?: AbortSignal
+  ): Promise<GiglToken> {
     if (cachedToken && Date.now() < cachedToken.expiresAt) {
       return cachedToken;
     }
@@ -231,6 +198,7 @@ export class GiglProvider extends BaseShippingProvider {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: GIGL_EMAIL, password: GIGL_PASSWORD }),
       timeout,
+      signal,
     });
 
     if (!response.ok) {
@@ -244,15 +212,15 @@ export class GiglProvider extends BaseShippingProvider {
 
     const result = await response.json();
     const envelope = this.unwrapApiEnvelope(result);
-    const loginData = envelope.data as GiglLoginData | undefined;
-    const token = this.isRecord(loginData)
-      ? this.readString(loginData['access-token'])
-      : undefined;
-    const userChannelCode = this.isRecord(loginData)
-      ? this.readString(loginData.UserChannelCode)
-      : undefined;
+    const loginData = this.parseEnvelopeData(
+      envelope,
+      giglSchemas.loginData,
+      'login'
+    );
+    const token = loginData['access-token'];
+    const userChannelCode = loginData.UserChannelCode;
 
-    if (!token || !userChannelCode) {
+    if (envelope.status !== 200) {
       throw new Error('Invalid GIGL login response');
     }
 
@@ -267,6 +235,55 @@ export class GiglProvider extends BaseShippingProvider {
     };
 
     return cachedToken;
+  }
+
+  private invalidateCachedToken(token?: string): void {
+    if (!token || cachedToken?.token === token) {
+      cachedToken = null;
+    }
+  }
+
+  private async safeFetchWithAccessToken(
+    url: string,
+    tokenData: GiglToken,
+    buildRequest: (tokenData: GiglToken) => RequestInit & { timeout?: number }
+  ): Promise<{ response: Response; tokenData: GiglToken }> {
+    const withAccessToken = (
+      options: RequestInit & { timeout?: number },
+      token: string
+    ) => {
+      const headers = new Headers(options.headers);
+      headers.set('access-token', token);
+
+      return {
+        ...options,
+        headers,
+      };
+    };
+
+    const initialOptions = buildRequest(tokenData);
+    let response = await this.safeFetch(
+      url,
+      withAccessToken(initialOptions, tokenData.token)
+    );
+
+    if (response.status !== 401) {
+      return { response, tokenData };
+    }
+
+    this.log('warn', 'GIGL token rejected; refreshing token');
+    this.invalidateCachedToken(tokenData.token);
+
+    const refreshedToken = await this.getApiToken(
+      initialOptions.timeout,
+      initialOptions.signal ?? undefined
+    );
+    response = await this.safeFetch(
+      url,
+      withAccessToken(buildRequest(refreshedToken), refreshedToken.token)
+    );
+
+    return { response, tokenData: refreshedToken };
   }
 
   // ==========================================================================
@@ -285,21 +302,25 @@ export class GiglProvider extends BaseShippingProvider {
     }));
   }
 
-  async getStations(timeout?: number): Promise<GiglStation[]> {
+  async getStations(
+    timeout?: number,
+    signal?: AbortSignal
+  ): Promise<GiglStation[]> {
     // Check cache
     if (this.stationsCache && Date.now() < this.stationsCacheExpiry) {
       return this.stationsCache;
     }
 
-    const tokenData = await this.getApiToken(timeout);
+    const tokenData = await this.getApiToken(timeout, signal);
 
-    const response = await this.safeFetch(
+    const { response } = await this.safeFetchWithAccessToken(
       `${GIGL_BASE_URL}/localstations/get`,
-      {
+      tokenData,
+      () => ({
         method: 'GET',
-        headers: { 'access-token': tokenData.token },
         timeout,
-      }
+        signal,
+      })
     );
 
     if (!response.ok) {
@@ -312,7 +333,7 @@ export class GiglProvider extends BaseShippingProvider {
     const result = await response.json();
     const envelope = this.unwrapApiEnvelope(result);
 
-    if (envelope.status !== 200 || !Array.isArray(envelope.data)) {
+    if (envelope.status !== 200) {
       this.log('warn', 'Invalid GIGL stations response', {
         status: envelope.status,
         message: envelope.message,
@@ -320,7 +341,11 @@ export class GiglProvider extends BaseShippingProvider {
       throw new Error('Invalid GIGL stations response');
     }
 
-    this.stationsCache = envelope.data as GiglStation[];
+    this.stationsCache = this.parseEnvelopeData(
+      envelope,
+      giglSchemas.stationsData,
+      'stations'
+    );
     this.stationsCacheExpiry = Date.now() + this.STATIONS_CACHE_TTL;
 
     return this.stationsCache || [];
@@ -332,18 +357,20 @@ export class GiglProvider extends BaseShippingProvider {
 
   private async findStationById(
     stationId: number,
-    timeout?: number
+    timeout?: number,
+    signal?: AbortSignal
   ): Promise<GiglStation | null> {
-    const stations = await this.getStations(timeout);
+    const stations = await this.getStations(timeout, signal);
     return stations.find((station) => station.StationId === stationId) || null;
   }
 
   private async findStationForCity(
     city: string,
     state: string,
-    timeout?: number
+    timeout?: number,
+    signal?: AbortSignal
   ): Promise<GiglStation | null> {
-    const stations = await this.getStations(timeout);
+    const stations = await this.getStations(timeout, signal);
 
     // Try exact city match first
     const normalizedCity = this.normalizeLocation(city);
@@ -370,47 +397,33 @@ export class GiglProvider extends BaseShippingProvider {
   // GET QUOTES
   // ==========================================================================
 
-  async getQuotes(request: QuoteRequest): Promise<ShippingQuote[]> {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-    try {
-      return await Promise.race([
-        this.getQuotesWithinTimeout(request),
-        new Promise<ShippingQuote[]>((resolve) => {
-          timeoutId = setTimeout(() => {
-            this.log('warn', 'GIGL quote timed out', {
-              timeoutMs: GIGL_QUOTE_TIMEOUT_MS,
-            });
-            resolve([]);
-          }, GIGL_QUOTE_TIMEOUT_MS);
-        }),
-      ]);
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    }
+  getQuotes(request: QuoteRequest): Promise<ShippingQuote[]> {
+    const signal = AbortSignal.timeout(GIGL_QUOTE_TIMEOUT_MS);
+    return this.getQuotesWithinTimeout(request, signal);
   }
 
   private async getQuotesWithinTimeout(
-    request: QuoteRequest
+    request: QuoteRequest,
+    signal: AbortSignal
   ): Promise<ShippingQuote[]> {
     try {
-      const tokenData = await this.getApiToken(GIGL_QUOTE_TIMEOUT_MS);
+      const tokenData = await this.getApiToken(GIGL_QUOTE_TIMEOUT_MS, signal);
 
       // Find stations for sender and receiver
       const senderStation = request.sender
         ? await this.findStationForCity(
             request.sender.city,
             request.sender.state,
-            GIGL_QUOTE_TIMEOUT_MS
+            GIGL_QUOTE_TIMEOUT_MS,
+            signal
           )
         : null;
 
       const receiverStation = await this.findStationForCity(
         request.receiver.city,
         request.receiver.state,
-        GIGL_QUOTE_TIMEOUT_MS
+        GIGL_QUOTE_TIMEOUT_MS,
+        signal
       );
 
       if (!receiverStation) {
@@ -440,7 +453,8 @@ export class GiglProvider extends BaseShippingProvider {
         PickupOptions.HomeDelivery,
         totalWeight,
         totalValue,
-        GIGL_QUOTE_TIMEOUT_MS
+        GIGL_QUOTE_TIMEOUT_MS,
+        signal
       );
 
       // If home delivery fails, try station pickup
@@ -453,7 +467,8 @@ export class GiglProvider extends BaseShippingProvider {
           PickupOptions.ServiceCentre,
           totalWeight,
           totalValue,
-          GIGL_QUOTE_TIMEOUT_MS
+          GIGL_QUOTE_TIMEOUT_MS,
+          signal
         );
 
         if (stationPickupQuote) {
@@ -465,6 +480,13 @@ export class GiglProvider extends BaseShippingProvider {
 
       return [homeDeliveryQuote];
     } catch (error) {
+      if (signal.aborted || this.isAbortError(error)) {
+        this.log('warn', 'GIGL quote timed out', {
+          timeoutMs: GIGL_QUOTE_TIMEOUT_MS,
+        });
+        return [];
+      }
+
       this.log('error', 'Failed to get GIGL quotes', { error: String(error) });
       return [];
     }
@@ -478,10 +500,12 @@ export class GiglProvider extends BaseShippingProvider {
     pickupOption: PickupOptions,
     totalWeight: number,
     totalValue: number,
-    timeout?: number
+    timeout?: number,
+    signal?: AbortSignal
   ): Promise<ShippingQuote | null> {
     try {
-      const payload = {
+      const activeTokenData = cachedToken ?? tokenData;
+      const buildPayload = (currentTokenData: GiglToken) => ({
         SenderStationId: senderStation?.StationId ?? 4, // Default to Lagos
         ReceiverStationId: receiverStation.StationId,
         SenderLocation: senderStation
@@ -501,8 +525,8 @@ export class GiglProvider extends BaseShippingProvider {
         DeliveryOptionIds:
           pickupOption === PickupOptions.HomeDelivery ? [2] : [11],
         IsFromAgility: false,
-        CustomerCode: tokenData.userChannelCode,
-        CustomerType: tokenData.customerType,
+        CustomerCode: currentTokenData.userChannelCode,
+        CustomerType: currentTokenData.customerType,
         Value: totalValue,
         ShipmentItems: request.items.map((item) => ({
           ItemName: item.name,
@@ -513,17 +537,21 @@ export class GiglProvider extends BaseShippingProvider {
           IsVolumetric: false,
           ShipmentType: ShipmentType.Regular,
         })),
-      };
-
-      const response = await this.safeFetch(`${GIGL_BASE_URL}/price`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'access-token': tokenData.token,
-        },
-        body: JSON.stringify(payload),
-        timeout,
       });
+
+      const { response } = await this.safeFetchWithAccessToken(
+        `${GIGL_BASE_URL}/price`,
+        activeTokenData,
+        (currentTokenData) => ({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(buildPayload(currentTokenData)),
+          timeout,
+          signal,
+        })
+      );
 
       if (!response.ok) {
         const error = await response.text();
@@ -536,14 +564,17 @@ export class GiglProvider extends BaseShippingProvider {
 
       const result = await response.json();
       const envelope = this.unwrapApiEnvelope(result);
-      const priceData = envelope.data as GiglPriceData | undefined;
-      const grandTotal = this.isRecord(priceData)
-        ? this.readNumber(priceData.GrandTotal)
-        : undefined;
 
-      if (envelope.status !== 200 || !grandTotal) {
+      if (envelope.status !== 200) {
         return null;
       }
+
+      const priceData = this.parseEnvelopeData(
+        envelope,
+        giglSchemas.priceData,
+        'price'
+      );
+      const grandTotal = priceData.GrandTotal;
 
       const isStationPickup = pickupOption === PickupOptions.ServiceCentre;
 
@@ -580,6 +611,10 @@ export class GiglProvider extends BaseShippingProvider {
         rawResponse: priceData,
       };
     } catch (error) {
+      if (signal?.aborted || this.isAbortError(error)) {
+        throw error;
+      }
+
       this.log('error', 'Error fetching GIGL quote', { error: String(error) });
       return null;
     }
@@ -699,16 +734,17 @@ export class GiglProvider extends BaseShippingProvider {
       })),
     };
 
-    const response = await this.safeFetch(
+    const bookingTokenData = cachedToken ?? tokenData;
+    const { response } = await this.safeFetchWithAccessToken(
       `${GIGL_BASE_URL}/capture/preshipment`,
-      {
+      bookingTokenData,
+      () => ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'access-token': tokenData.token,
         },
         body: JSON.stringify(payload),
-      }
+      })
     );
 
     if (!response.ok) {
@@ -722,14 +758,17 @@ export class GiglProvider extends BaseShippingProvider {
 
     const result = await response.json();
     const envelope = this.unwrapApiEnvelope(result);
-    const bookingData = envelope.data as GiglBookingData | undefined;
-    const waybill = this.isRecord(bookingData)
-      ? this.readString(bookingData.Waybill)
-      : undefined;
 
-    if (envelope.status !== 200 || !waybill) {
+    if (envelope.status !== 200) {
       throw new Error('Invalid GIGL booking response');
     }
+
+    const bookingData = this.parseEnvelopeData(
+      envelope,
+      giglSchemas.bookingData,
+      'booking'
+    );
+    const waybill = bookingData.Waybill;
 
     return {
       provider: 'GIGL',
@@ -755,12 +794,12 @@ export class GiglProvider extends BaseShippingProvider {
   async trackShipment(trackingNumber: string): Promise<TrackingResult> {
     const tokenData = await this.getApiToken();
 
-    const response = await this.safeFetch(
+    const { response } = await this.safeFetchWithAccessToken(
       `${GIGL_BASE_URL}/track/mobileShipment?Waybill=${encodeURIComponent(trackingNumber)}`,
-      {
+      tokenData,
+      () => ({
         method: 'GET',
-        headers: { 'access-token': tokenData.token },
-      }
+      })
     );
 
     if (!response.ok) {
@@ -770,9 +809,18 @@ export class GiglProvider extends BaseShippingProvider {
 
     const result = await response.json();
     const envelope = this.unwrapApiEnvelope(result);
-    const trackingData = envelope.data as GiglTrackingResponse['data'];
 
-    if (!Array.isArray(trackingData) || trackingData.length === 0) {
+    if (envelope.status !== 200) {
+      throw new Error('Invalid GIGL tracking response');
+    }
+
+    const trackingData = this.parseEnvelopeData(
+      envelope,
+      giglSchemas.trackingData,
+      'tracking'
+    );
+
+    if (trackingData.length === 0) {
       throw new Error('Shipment not found');
     }
 
