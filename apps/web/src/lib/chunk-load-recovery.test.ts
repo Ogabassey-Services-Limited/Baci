@@ -160,6 +160,102 @@ describe('chunk-load recovery', () => {
     ]);
   });
 
+  it('uses a stable dpl query value before asset hashing', async () => {
+    vi.resetModules();
+    document.head.innerHTML = `
+      <script src="/_next/static/chunks/app/layout-abc123.js?dpl=deploy-123"></script>
+      <script src="/_next/static/chunks/app/page-def456.js?dpl=deploy-123"></script>
+    `;
+
+    const storage = new Map<string, string>();
+    const addEventListenerSpy = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation(() => undefined);
+    window.history.pushState({}, '', '/checkout');
+    vi.spyOn(window, 'sessionStorage', 'get').mockReturnValue({
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+        throw new Error('stop before jsdom navigation');
+      },
+      clear: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+      removeItem: vi.fn(),
+    });
+    const { initializeChunkLoadRecovery } = await import(
+      './chunk-load-recovery'
+    );
+
+    initializeChunkLoadRecovery();
+    const errorListener = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === 'error'
+    )?.[1];
+    expect(errorListener).toEqual(expect.any(Function));
+
+    (errorListener as EventListener)({
+      error: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+      message: 'ChunkLoadError',
+    } as ErrorEvent);
+
+    expect(
+      storage.has('baci:chunk-load-recovery:dpl:deploy-123:/checkout')
+    ).toBe(true);
+  });
+
+  it('freezes the loaded-asset fallback at initialization', async () => {
+    vi.resetModules();
+    document.head.innerHTML = `
+      <script src="/_next/static/chunks/app/initial-abc123.js"></script>
+    `;
+
+    const storage = new Map<string, string>();
+    const addEventListenerSpy = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation(() => undefined);
+    window.history.pushState({}, '', '/checkout');
+    vi.spyOn(window, 'sessionStorage', 'get').mockReturnValue({
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+        throw new Error('stop before jsdom navigation');
+      },
+      clear: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+      removeItem: vi.fn(),
+    });
+    const { initializeChunkLoadRecovery } = await import(
+      './chunk-load-recovery'
+    );
+
+    initializeChunkLoadRecovery();
+    document.head.insertAdjacentHTML(
+      'beforeend',
+      '<script src="/_next/static/chunks/app/later-def456.js?dpl=later-deploy"></script>'
+    );
+    const errorListener = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === 'error'
+    )?.[1];
+    expect(errorListener).toEqual(expect.any(Function));
+
+    (errorListener as EventListener)({
+      error: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+      message: 'ChunkLoadError',
+    } as ErrorEvent);
+
+    expect(Array.from(storage.keys())).toEqual([
+      expect.stringMatching(
+        /^baci:chunk-load-recovery:assets-[a-z0-9]+:\/checkout$/
+      ),
+    ]);
+    expect(Array.from(storage.keys()).join(' ')).not.toContain('later-deploy');
+  });
+
   it('keys browser recovery with Next deployment id after Next removes data-dpl-id', async () => {
     vi.resetModules();
     Object.defineProperty(globalThis, NEXT_DEPLOYMENT_ID_GLOBAL, {

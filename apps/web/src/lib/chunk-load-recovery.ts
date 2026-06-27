@@ -98,21 +98,33 @@ function getNormalizedNextAssetReference(
 }
 
 function getLoadedNextAssetFingerprint(): string | undefined {
-  const assetReferences = Array.from(
-    document.querySelectorAll(NEXT_ASSET_ELEMENT_SELECTOR),
-    (element) =>
-      getNormalizedNextAssetReference(
-        element.getAttribute('src') || element.getAttribute('href')
-      )
-  )
-    .filter((entry): entry is string => typeof entry === 'string')
-    .sort();
+  const assetReferences = new Set<string>();
 
-  if (assetReferences.length === 0) {
+  for (const element of document.querySelectorAll(
+    NEXT_ASSET_ELEMENT_SELECTOR
+  )) {
+    const assetReference = getNormalizedNextAssetReference(
+      element.getAttribute('src') || element.getAttribute('href')
+    );
+
+    if (!assetReference) {
+      continue;
+    }
+
+    if (assetReference.startsWith('dpl:')) {
+      return assetReference;
+    }
+
+    assetReferences.add(assetReference);
+  }
+
+  if (assetReferences.size === 0) {
     return undefined;
   }
 
-  return `assets-${hashDeploymentFingerprint(assetReferences.join('|'))}`;
+  return `assets-${hashDeploymentFingerprint(
+    Array.from(assetReferences).sort().join('|')
+  )}`;
 }
 
 function getCurrentDeploymentId(): string {
@@ -181,8 +193,9 @@ export function initializeChunkLoadRecovery(): void {
   }
 
   chunkLoadRecoveryInitialized = true;
+  const initialDeploymentId = getCurrentDeploymentId();
   const handlers = createChunkLoadRecoveryHandlers({
-    getDeploymentId: getCurrentDeploymentId,
+    getDeploymentId: () => initialDeploymentId,
     getPathname: () => window.location.pathname,
     getSessionStorage: () => window.sessionStorage,
     reload: () => window.location.reload(),
