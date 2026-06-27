@@ -4,15 +4,20 @@ import {
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-colors';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 
+function getSatoriSafeText(value: string | null | undefined): string {
+  return (value || '').replace(/₦\s*/g, 'NGN ').replace(/\s+/g, ' ').trim();
+}
+
 function truncate(value: string | null | undefined, maxLength: number): string {
-  if (!value) return '';
+  const safeValue = getSatoriSafeText(value);
+  if (!safeValue) return '';
   if (maxLength <= 0) return '';
-  if (maxLength <= 3 && value.length > maxLength) {
+  if (maxLength <= 3 && safeValue.length > maxLength) {
     return '.'.repeat(maxLength);
   }
-  return value.length > maxLength
-    ? `${value.slice(0, maxLength - 3)}...`
-    : value;
+  return safeValue.length > maxLength
+    ? `${safeValue.slice(0, maxLength - 3)}...`
+    : safeValue;
 }
 
 export function renderGenericFallback(title: string) {
@@ -29,7 +34,9 @@ export function renderGenericFallback(title: string) {
         color: 'white',
       }}
     >
-      <div style={{ fontSize: 60, fontWeight: 400 }}>{title}</div>
+      <div style={{ fontSize: 60, fontWeight: 400 }}>
+        {getSatoriSafeText(title)}
+      </div>
     </div>
   );
 }
@@ -82,7 +89,7 @@ export function renderMerchantFallback(
           />
         ) : null}
         <div style={{ fontSize: 30, fontWeight: 400 }}>
-          {data.merchantBusinessName}
+          {getSatoriSafeText(data.merchantBusinessName)}
         </div>
       </div>
       <div
@@ -183,7 +190,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
             />
           ) : null}
           <div style={{ fontSize: 26, fontWeight: 400 }}>
-            {data.merchantBusinessName}
+            {getSatoriSafeText(data.merchantBusinessName)}
           </div>
         </div>
 
@@ -203,7 +210,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
                 textTransform: 'uppercase',
               }}
             >
-              {post.category}
+              {getSatoriSafeText(post.category)}
             </div>
           ) : null}
           <div
@@ -217,7 +224,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
           </div>
           {post?.author_name ? (
             <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 22 }}>
-              {`By ${post.author_name}`}
+              {`By ${getSatoriSafeText(post.author_name)}`}
             </div>
           ) : null}
         </div>

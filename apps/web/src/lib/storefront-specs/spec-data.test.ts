@@ -163,4 +163,31 @@ describe('buildProductSpecData', () => {
       },
     ]);
   });
+
+  it('normalizes malformed stored specification sections before rendering PDP specs', () => {
+    const result = buildProductSpecData({
+      detailedSpecs: [
+        {
+          category: undefined,
+          items: [
+            { label: ' Face value ', value: ' ₦30 gift card ' },
+            { label: '', value: 'ignored' },
+            { label: 'Numeric value', value: 30 },
+          ],
+        },
+      ] as unknown as Parameters<
+        typeof buildProductSpecData
+      >[0]['detailedSpecs'],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: [
+          { label: 'Face value', value: '₦30 gift card' },
+          { label: 'Numeric value', value: '30' },
+        ],
+      },
+    ]);
+  });
 });
