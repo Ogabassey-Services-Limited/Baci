@@ -30,26 +30,7 @@ describe('blog page shell', () => {
     mockBlogPageContent.mockReturnValue(<div>Blog page content</div>);
   });
 
-  it('renders the blog loading boundary while listing content is pending', () => {
-    mockBlogPageContent.mockImplementation(() => {
-      throw new Promise(() => {
-        // Keep the listing suspended to verify the local PPR shell.
-      });
-    });
-
-    render(
-      <BlogPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
-    );
-
-    expect(
-      screen.getByRole('status', { name: /loading blog posts/i })
-    ).toBeInTheDocument();
-  });
-
-  it('renders listing content below the route shell boundary', () => {
+  it('renders listing content directly so raw HTML keeps post anchors', () => {
     render(
       <BlogPage
         params={Promise.resolve({ slug: 'test-store' })}

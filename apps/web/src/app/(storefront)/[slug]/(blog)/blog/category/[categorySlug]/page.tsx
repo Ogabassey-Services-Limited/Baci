@@ -1,8 +1,19 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
+import { getCachedBlogListing } from '@/lib/cached-data';
+import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import { BlogListingFallback } from '../../BlogListingFallback';
-import { resolveBlogCategoryHub } from '../../blog-category-hub';
+import {
+  type ResolvedBlogCategoryHub,
+  resolveBlogCategoryHub,
+} from '../../blog-category-hub';
+import {
+  canUseCleanBlogCategorySlug,
+  getBlogCategorySlug,
+  getCollidingBlogCategorySlugs,
+} from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogPageContent } from '../../blog-page-content';
@@ -23,6 +34,52 @@ const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   title: 'Blog Category Not Found',
   robots: { index: false, follow: false },
 };
+
+const OGABASSEY_CATEGORY_STATIC_TENANTS = [
+  OGABASSEY_DOMAIN,
+  'ogabassey',
+  'www.ogabassey.com',
+] as const;
+const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
+  'laptops',
+  'smartphones',
+] as const;
+
+function getStaticCategorySlugs(categories: string[]): string[] {
+  const publicCategories = filterPublicBlogCategories(categories);
+  const collidingSlugs = getCollidingBlogCategorySlugs(publicCategories);
+  const slugs = publicCategories
+    .map((category) => getBlogCategorySlug(category))
+    .filter(
+      (categorySlug) =>
+        canUseCleanBlogCategorySlug(categorySlug) &&
+        !collidingSlugs.has(categorySlug)
+    );
+
+  return [...new Set(slugs)].sort();
+}
+
+export async function generateStaticParams(): Promise<
+  Array<{ slug: string; categorySlug: string }>
+> {
+  let categorySlugs: string[] = [];
+
+  try {
+    const listing = await getCachedBlogListing(OGABASSEY_DOMAIN, { page: 1 });
+    categorySlugs = getStaticCategorySlugs(listing?.categories ?? []);
+  } catch {
+    categorySlugs = [];
+  }
+
+  const staticCategorySlugs =
+    categorySlugs.length > 0
+      ? categorySlugs
+      : [...OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS];
+
+  return OGABASSEY_CATEGORY_STATIC_TENANTS.flatMap((slug) =>
+    staticCategorySlugs.map((categorySlug) => ({ slug, categorySlug }))
+  );
+}
 
 export async function generateMetadata({
   params,
@@ -54,18 +111,15 @@ export async function generateMetadata({
 }
 
 async function BlogCategoryPageContent({
-  params,
+  hub,
   searchParams,
-}: BlogCategoryPageProps) {
-  const [{ slug, categorySlug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const hub = await resolveBlogCategoryHub(slug, categorySlug);
-  if (!hub) {
-    notFound();
-  }
-
+  slug,
+}: {
+  hub: ResolvedBlogCategoryHub;
+  searchParams: BlogCategoryPageProps['searchParams'];
+  slug: string;
+}) {
+  const resolvedSearchParams = await searchParams;
   const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
   const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
   const currentPage = parseBlogListingPage(page);
@@ -86,13 +140,25 @@ async function BlogCategoryPageContent({
   );
 }
 
-export default function BlogCategoryPage(props: BlogCategoryPageProps) {
-  // Keep request-time params/searchParams and category resolution below an
-  // explicit Suspense boundary so Cache Components can prerender a stable PPR
-  // shell instead of bailing out on cache misses.
+export default async function BlogCategoryPage({
+  params,
+  searchParams,
+}: BlogCategoryPageProps) {
+  // Resolve invalid category hubs before the PPR shell streams. Under Cache
+  // Components, a notFound() below a streamed shell becomes a soft 404.
+  const { slug, categorySlug } = await params;
+  const hub = await resolveBlogCategoryHub(slug, categorySlug);
+  if (!hub) {
+    notFound();
+  }
+
   return (
     <Suspense fallback={<BlogListingFallback />}>
-      <BlogCategoryPageContent {...props} />
+      <BlogCategoryPageContent
+        hub={hub}
+        searchParams={searchParams}
+        slug={slug}
+      />
     </Suspense>
   );
 }

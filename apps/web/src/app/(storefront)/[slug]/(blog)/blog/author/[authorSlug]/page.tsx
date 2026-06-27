@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { getBlogAuthorBySlug } from '@/lib/blog-authors';
+import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
+import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
+import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -16,6 +20,47 @@ const AUTHOR_NOT_FOUND_METADATA: Metadata = {
   title: 'Author Not Found',
   robots: { index: false, follow: false },
 };
+
+const OGABASSEY_AUTHOR_STATIC_TENANTS = [
+  OGABASSEY_DOMAIN,
+  'ogabassey',
+  'www.ogabassey.com',
+] as const;
+
+export function generateStaticParams(): Array<{
+  slug: string;
+  authorSlug: string;
+}> {
+  return OGABASSEY_AUTHOR_STATIC_TENANTS.flatMap((slug) =>
+    getBlogAuthorSlugs().map((authorSlug) => ({ slug, authorSlug }))
+  );
+}
+
+async function assertAuthorRouteBeforeShell(params: AuthorPageProps['params']) {
+  const { slug, authorSlug } = await params;
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
+
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
+  if (profile) {
+    return { slug, authorSlug: normalizedAuthorSlug };
+  }
+
+  const fallbackOutcome = await resolveBlogCatchAllOutcome({
+    params: Promise.resolve({
+      slug,
+      catchAll: ['author', normalizedAuthorSlug],
+    }),
+  });
+
+  if (fallbackOutcome.type === 'redirect') {
+    if (fallbackOutcome.status === 308) {
+      permanentRedirect(asRoute(fallbackOutcome.url));
+    }
+    redirect(asRoute(fallbackOutcome.url));
+  }
+
+  notFound();
+}
 
 export async function generateMetadata({
   params,
@@ -79,13 +124,21 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogAuthorPage(props: AuthorPageProps) {
-  // Keep request-time params/searchParams and author listing fetches below an
-  // explicit Suspense boundary so Cache Components can prerender a stable PPR
-  // shell instead of bailing out on cache misses.
+export default async function BlogAuthorPage({
+  params,
+  searchParams,
+}: AuthorPageProps) {
+  // Redirect/notFound decisions must happen before the PPR shell streams so
+  // legacy author-prefixed post URLs keep real HTTP redirects and bad author
+  // hubs keep hard 404 semantics.
+  const resolvedParams = await assertAuthorRouteBeforeShell(params);
+
   return (
     <Suspense fallback={<BlogListingFallback />}>
-      <BlogAuthorPageContent {...props} />
+      <BlogAuthorPageContent
+        params={Promise.resolve(resolvedParams)}
+        searchParams={searchParams}
+      />
     </Suspense>
   );
 }

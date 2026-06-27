@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
@@ -29,7 +29,11 @@ vi.mock('../../blog-page-content', () => ({
     mockBlogPageContent(props as MockBlogPageContentProps),
 }));
 
-const { default: BlogCategoryPage, generateMetadata } = await import('./page');
+const {
+  default: BlogCategoryPage,
+  generateMetadata,
+  generateStaticParams,
+} = await import('./page');
 
 describe('blog category page', () => {
   beforeEach(() => {
@@ -51,16 +55,15 @@ describe('blog category page', () => {
     });
   });
 
-  it('renders the blog loading boundary while category resolution is pending', () => {
-    mockResolveBlogCategoryHub.mockImplementationOnce(
-      () =>
-        new Promise(() => {
-          // Keep category resolution suspended to verify the local PPR shell.
-        })
-    );
+  it('renders the blog loading boundary while category content is pending', async () => {
+    mockBlogPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep category listing content suspended to verify the local PPR shell.
+      });
+    });
 
     render(
-      BlogCategoryPage({
+      await BlogCategoryPage({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           categorySlug: 'smartphones',
@@ -74,10 +77,23 @@ describe('blog category page', () => {
     ).toBeInTheDocument();
   });
 
-  it('calls notFound when the category hub cannot be resolved', async () => {
+  it('generates static params for public OgaBassey category hubs', async () => {
+    const params = await generateStaticParams();
+
+    expect(params).toContainEqual({
+      slug: 'ogabassey.com',
+      categorySlug: 'laptops',
+    });
+    expect(params).toContainEqual({
+      slug: 'ogabassey.com',
+      categorySlug: 'smartphones',
+    });
+  });
+
+  it('calls notFound before rendering the shell when the category hub cannot be resolved', async () => {
     mockResolveBlogCategoryHub.mockResolvedValueOnce(null);
 
-    render(
+    await expect(
       BlogCategoryPage({
         params: Promise.resolve({
           slug: 'ogabassey.com',
@@ -85,11 +101,10 @@ describe('blog category page', () => {
         }),
         searchParams: Promise.resolve({}),
       })
-    );
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    await waitFor(() => {
-      expect(mockNotFound).toHaveBeenCalledTimes(1);
-    });
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
   it('uses indexable metadata with the clean category canonical', async () => {
