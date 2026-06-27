@@ -129,6 +129,26 @@ describe('PostHogPageviewTracker', () => {
     expect(mocks.capturePublicBlogPageview).not.toHaveBeenCalled();
   });
 
+  it('clears public blog dedupe before importing the full browser client on non-blog pages', async () => {
+    render(<PostHogPageviewTracker />);
+
+    await waitFor(() => {
+      expect(mocks.capturePostHogPageview).toHaveBeenCalledWith(
+        'http://localhost:3000/'
+      );
+    });
+
+    const [resetOrder] =
+      mocks.resetPublicBlogPageviewDedupe.mock.invocationCallOrder;
+    const [initializeOrder] =
+      mocks.initializePostHogBrowser.mock.invocationCallOrder;
+    const [captureOrder] =
+      mocks.capturePostHogPageview.mock.invocationCallOrder;
+
+    expect(resetOrder).toBeLessThan(initializeOrder);
+    expect(resetOrder).toBeLessThan(captureOrder);
+  });
+
   it('captures after a client navigation from blog to a non-blog page and clears lightweight dedupe', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     window.history.replaceState(null, '', pathname);

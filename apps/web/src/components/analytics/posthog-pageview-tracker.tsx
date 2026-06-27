@@ -44,6 +44,10 @@ export function PostHogPageviewTracker() {
           return;
         }
 
+        if (!isPublicBlog) {
+          resetPublicBlogPageviewDedupe();
+        }
+
         const { capturePostHogPageview, initializePostHogBrowser } =
           await import('@/lib/posthog/browser');
 
@@ -56,10 +60,6 @@ export function PostHogPageviewTracker() {
           pathname: currentPathname,
           hostname,
         });
-
-        if (!isPublicBlog) {
-          resetPublicBlogPageviewDedupe();
-        }
 
         capturePostHogPageview(currentUrl);
       } catch (error) {
