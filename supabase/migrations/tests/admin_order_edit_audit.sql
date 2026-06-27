@@ -366,6 +366,7 @@ BEGIN
     now() + interval '15 minutes'
   FROM public.order_items oi
   WHERE oi.order_id = p_order_id
+  ORDER BY oi.id
   LIMIT 1;
 END;
 $$;
