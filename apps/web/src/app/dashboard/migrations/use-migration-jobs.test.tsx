@@ -251,7 +251,9 @@ describe('useMigrationJobs', () => {
     await waitFor(() => {
       expect(result.current.selectedJob?.receiptCampaign?.claimedCount).toBe(1);
     });
-    expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-completed');
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-completed');
+    });
   });
 
   it('does not overwrite the selected job when an older refresh resolves late', async () => {

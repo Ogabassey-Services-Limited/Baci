@@ -164,7 +164,7 @@ describe('ReceiptModal', () => {
     expect(print).toHaveBeenCalledTimes(1);
   });
 
-  it('centers the receipt document viewport inside the desktop modal', () => {
+  it('embeds the generated receipt document in a focusable modal iframe', () => {
     render(
       <ReceiptModal
         isOpen
@@ -174,10 +174,16 @@ describe('ReceiptModal', () => {
       />
     );
 
-    expect(screen.getByRole('dialog')).toHaveClass('w-[min(100%,980px)]');
-    expect(screen.getByTitle('Receipt #ORD-001')).toHaveClass(
-      'max-w-[794px]'
+    const dialog = screen.getByRole('dialog', { name: 'Receipt Details' });
+    const iframe = screen.getByTitle('Receipt #ORD-001');
+
+    expect(dialog).toContainElement(iframe);
+    expect(iframe).toHaveAttribute('sandbox', 'allow-same-origin');
+    expect(iframe).toHaveAttribute(
+      'srcdoc',
+      '<html><body>Document</body></html>'
     );
+    expect(iframe).toHaveAttribute('tabindex', '0');
   });
 
   it.each(modalVariants)(

@@ -147,10 +147,11 @@ export default function ReceiptClaimPageClient({
       return;
     }
 
-    void fetch(loginStartedPath, {
+    void fetchWithCsrf(loginStartedPath, {
       cache: 'no-store',
       headers: { accept: 'application/json' },
       keepalive: true,
+      method: 'POST',
     }).catch(() => undefined);
   }
 

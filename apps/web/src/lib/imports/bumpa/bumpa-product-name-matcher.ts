@@ -80,7 +80,11 @@ export function createBumpaProductNameMatcher(
       tokens: tokenizeMatchName(product.name),
     } satisfies IndexedProduct;
 
-    if (!productsByName.has(normalizedName)) {
+    const existingExactProduct = productsByName.get(normalizedName);
+    if (
+      !existingExactProduct ||
+      activeStatusWeight(product) > activeStatusWeight(existingExactProduct)
+    ) {
       productsByName.set(normalizedName, product);
     }
 

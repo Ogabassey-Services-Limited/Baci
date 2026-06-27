@@ -1,3 +1,5 @@
+-- disable-transaction
+
 ALTER TABLE public.receipt_claims
   ADD COLUMN IF NOT EXISTS first_clicked_at timestamp with time zone,
   ADD COLUMN IF NOT EXISTS last_clicked_at timestamp with time zone,
@@ -26,7 +28,7 @@ EXCEPTION
 END;
 $$;
 
-CREATE INDEX IF NOT EXISTS idx_receipt_claims_campaign_activity
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_receipt_claims_campaign_activity
   ON public.receipt_claims (
     merchant_id,
     import_job_id,

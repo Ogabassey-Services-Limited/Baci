@@ -52,4 +52,35 @@ describe('createBumpaProductNameMatcher', () => {
 
     expect(matchProduct('Pixel 7a 128gb (Premium Used)')?.id).toBe('pixel');
   });
+
+  it('prefers active products when exact normalized names collide', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        id: 'archived-fold',
+        name: 'Samsung Galaxy Z Fold 5',
+        status: 'archived',
+      }),
+      product({
+        id: 'active-fold',
+        name: 'Samsung Galaxy Z Fold 5 (Premium Used)',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('Samsung Galaxy Fold 5 (Premium Used)')?.id).toBe(
+      'active-fold'
+    );
+  });
+
+  it('returns null when the imported product cannot be matched', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        id: 'fold-5',
+        name: 'Samsung Galaxy Z Fold 5',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('Oraimo Power Bank 20000mAh')).toBeNull();
+  });
 });

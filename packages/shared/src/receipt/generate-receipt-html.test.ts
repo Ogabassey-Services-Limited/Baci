@@ -205,6 +205,31 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('<div class="info-name">imported</div>');
   });
 
+  it('labels unpaid receipt payment methods as pending', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        payment_method: 'card',
+        payment_status: 'pending',
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Pending');
+    expect(html).not.toContain('<div class="info-name">card</div>');
+  });
+
+  it.each([
+    null,
+    '   ',
+  ])('labels paid receipt payment method %s as verified', (paymentMethod) => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({ payment_method: paymentMethod }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('<div class="info-name">Verified</div>');
+  });
+
   it('never leaks the private account email onto the receipt', () => {
     // With no support email and no business name, the receipt must not fall
     // back to `merchant.email` (the private login address) for either the

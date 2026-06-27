@@ -34,8 +34,8 @@ const baseCampaignStats = {
     {
       claimedAt: '2026-06-27T10:05:00.000Z',
       clickCount: 2,
-      customerEmail: 'basseybjohn@gmail.com',
-      customerName: 'Bassey John',
+      customerEmail: 'customer@example.com',
+      customerName: 'Customer Example',
       firstClickedAt: '2026-06-27T10:00:00.000Z',
       firstLoginStartedAt: '2026-06-27T10:02:00.000Z',
       id: 'claim-1',
@@ -192,6 +192,34 @@ describe('GET /api/import-jobs/[jobId]', () => {
     const supabase = createSupabaseMock({
       data: null,
       error: { message: 'function missing' },
+    });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: createRouteContext(supabase),
+    });
+    vi.mocked(getImportJobForMerchant).mockResolvedValue({
+      id: jobId,
+      entity_type: 'orders',
+      status: 'completed',
+      summary: { validRows: 3 },
+    } as never);
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/import-jobs/${jobId}`),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      job: expect.objectContaining({
+        receiptCampaign: null,
+      }),
+    });
+  });
+
+  it('does not fail the job detail response when campaign stats are malformed', async () => {
+    const supabase = createSupabaseMock({
+      data: { claimedCount: 'not-a-number' },
+      error: null,
     });
     vi.mocked(resolveImportRouteContext).mockResolvedValue({
       context: createRouteContext(supabase),

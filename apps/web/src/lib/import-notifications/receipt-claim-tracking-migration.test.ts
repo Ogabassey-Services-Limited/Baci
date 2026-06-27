@@ -11,6 +11,13 @@ const migrationSql = readFileSync(
 );
 
 describe('receipt claim tracking migration', () => {
+  it('builds the campaign activity index without a transaction lock', () => {
+    expect(migrationSql.startsWith('-- disable-transaction')).toBe(true);
+    expect(migrationSql).toMatch(
+      /CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_receipt_claims_campaign_activity/i
+    );
+  });
+
   it('adds click and login-start counters to receipt claims', () => {
     expect(migrationSql).toMatch(/ADD COLUMN IF NOT EXISTS first_clicked_at/i);
     expect(migrationSql).toMatch(/ADD COLUMN IF NOT EXISTS last_clicked_at/i);

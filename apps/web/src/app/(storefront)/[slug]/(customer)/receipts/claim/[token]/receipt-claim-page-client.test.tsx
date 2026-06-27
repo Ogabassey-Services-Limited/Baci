@@ -159,12 +159,13 @@ describe('ReceiptClaimPageClient', () => {
       screen.getByRole('link', { name: 'Sign in to claim receipt' })
     );
 
-    expect(fetch).toHaveBeenCalledWith(
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
       '/api/storefront/receipts/claims/claim-token/login-email',
       {
         cache: 'no-store',
         headers: { accept: 'application/json' },
         keepalive: true,
+        method: 'POST',
       }
     );
   });

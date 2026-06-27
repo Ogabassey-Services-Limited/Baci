@@ -2,16 +2,21 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
 
+const mockCheckCsrfProtection = vi.fn();
 const mockCreateClient = vi.fn();
 const mockConsoleError = vi
   .spyOn(console, 'error')
   .mockImplementation(() => undefined);
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockCreateClient(),
 }));
 
-import { GET } from './route';
+import { GET, POST } from './route';
 
 const baseClaim = {
   claimed_at: null,
@@ -67,6 +72,7 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsoleError.mockClear();
+    mockCheckCsrfProtection.mockResolvedValue({ response: null, valid: true });
   });
 
   it('returns 400 for invalid claim tokens', async () => {
@@ -89,28 +95,70 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'record_receipt_claim_login_started',
+      expect.anything()
+    );
+    expect(body).toEqual({ emailHint: 'basseybjohn@yahoo.co.uk' });
+  });
+
+  it('records login-start activity from POST', async () => {
+    const supabase = createSupabaseRpcMock({ data: baseClaim, error: null });
+    mockCreateClient.mockResolvedValue(supabase);
+
+    const response = await POST(getRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ success: true });
     expect(supabase.rpc).toHaveBeenCalledWith(
       'record_receipt_claim_login_started',
       {
         p_token_hash: hashReceiptClaimToken('claim-token'),
       }
     );
-    expect(body).toEqual({ emailHint: 'basseybjohn@yahoo.co.uk' });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'preview_receipt_claim',
+      expect.anything()
+    );
   });
 
-  it('still returns an email hint when login tracking fails', async () => {
+  it('returns a non-fatal response when POST login tracking fails', async () => {
     const supabase = createSupabaseRpcMock(
       { data: baseClaim, error: null },
       { data: null, error: { message: 'tracking write failed' } }
     );
     mockCreateClient.mockResolvedValue(supabase);
 
-    const response = await GET(getRequest(), params);
+    const response = await POST(getRequest(), params);
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ emailHint: 'basseybjohn@yahoo.co.uk' });
+    expect(body).toEqual({ success: false });
     expect(mockConsoleError).toHaveBeenCalled();
+  });
+
+  it('returns 400 for invalid POST claim tokens', async () => {
+    const response = await POST(getRequest(), invalidParams);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid receipt claim link' });
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when POST csrf validation fails', async () => {
+    mockCheckCsrfProtection.mockResolvedValue({
+      response: null,
+      valid: false,
+    });
+
+    const response = await POST(getRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Invalid CSRF token' });
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
   it('returns an empty email hint when claim data has an invalid email', async () => {

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   loadReceiptClaimLoginEmailHint,
   parseReceiptClaimToken,
@@ -32,15 +33,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: hint.error }, { status: hint.status });
     }
 
-    try {
-      await recordReceiptClaimLoginStarted({ supabase, token });
-    } catch (trackingError) {
-      console.error(
-        'Failed to record receipt claim login start',
-        trackingError
-      );
-    }
-
     return NextResponse.json({ emailHint: hint.emailHint });
   } catch (error) {
     console.error('Failed to load receipt claim login email', error);
@@ -48,5 +40,33 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       { error: 'Failed to load receipt claim login email' },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  const token = await parseToken(context);
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Invalid receipt claim link' },
+      { status: 400 }
+    );
+  }
+
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
+
+  try {
+    const supabase = await createClient();
+    await recordReceiptClaimLoginStarted({ supabase, token });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to record receipt claim login start', error);
+    return NextResponse.json({ success: false });
   }
 }
