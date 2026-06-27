@@ -162,12 +162,23 @@ export default function ReceiptClaimPageClient({
   }
 
   async function waitForLoginStartedTrackingWindow() {
-    await Promise.race([
-      trackLoginStarted(),
-      new Promise<void>((resolve) => {
-        globalThis.setTimeout(resolve, LOGIN_STARTED_TRACKING_TIMEOUT_MS);
-      }),
-    ]);
+    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
+
+    try {
+      await Promise.race([
+        trackLoginStarted(),
+        new Promise<void>((resolve) => {
+          timeoutId = globalThis.setTimeout(
+            resolve,
+            LOGIN_STARTED_TRACKING_TIMEOUT_MS
+          );
+        }),
+      ]);
+    } finally {
+      if (timeoutId !== null) {
+        globalThis.clearTimeout(timeoutId);
+      }
+    }
   }
 
   async function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {

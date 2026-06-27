@@ -129,7 +129,7 @@ function createOrderPreviewRow(
   };
 }
 
-function createSupabaseMock() {
+function createSupabaseMockWithQueries() {
   const download = vi.fn().mockResolvedValue({
     data: {
       text: vi.fn().mockResolvedValue('id\norder-1'),
@@ -180,9 +180,11 @@ function createSupabaseMock() {
   const productsQuery = {
     select: vi.fn(),
     eq: vi.fn(),
+    range: vi.fn(),
   };
   productsQuery.select.mockReturnValue(productsQuery);
-  productsQuery.eq.mockResolvedValue({
+  productsQuery.eq.mockReturnValue(productsQuery);
+  productsQuery.range.mockResolvedValue({
     data: [
       {
         id: 'product-1',
@@ -199,7 +201,7 @@ function createSupabaseMock() {
     error: null,
   });
 
-  return {
+  const supabase = {
     storage: {
       from: vi.fn(() => ({
         download,
@@ -217,6 +219,16 @@ function createSupabaseMock() {
       return productsQuery;
     }),
   } as unknown as SupabaseClient;
+
+  return {
+    ordersQuery,
+    productsQuery,
+    supabase,
+  };
+}
+
+function createSupabaseMock() {
+  return createSupabaseMockWithQueries().supabase;
 }
 
 describe('import-job-service', () => {
@@ -431,6 +443,67 @@ describe('import-job-service', () => {
     expect(Math.max(...lookupValueLengths)).toBeLessThanOrEqual(150);
   });
 
+  it('paginates existing product preload for large merchant catalogs', async () => {
+    const { productsQuery, supabase } = createSupabaseMockWithQueries();
+    const createProductRow = (index: number) => ({
+      condition: index % 2 === 0 ? 'used' : null,
+      external_id: `prod-${index}`,
+      external_source: 'bumpa',
+      id: `product-${index}`,
+      images: [`https://cdn.example.com/product-${index}.jpg`],
+      name: `Product ${index}`,
+      price: 5000 + index,
+      sku: `SKU-${index}`,
+      status: 'active',
+    });
+    const firstPage = Array.from({ length: 1000 }, (_value, index) =>
+      createProductRow(index + 1)
+    );
+    const secondPage = [createProductRow(1001)];
+
+    productsQuery.range.mockImplementation((from: number) =>
+      Promise.resolve({
+        data: from === 0 ? firstPage : secondPage,
+        error: null,
+      })
+    );
+    vi.mocked(parseCsvText).mockReturnValue({
+      headers: ['id', 'order_number'],
+      rows: [{ id: 'bumpa-1', order_number: 'ORD-1' }],
+    });
+    vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
+      (async function* () {
+        yield await Promise.resolve({
+          rows: [],
+          partialSummary: createPreviewSummary(),
+          processedRows: 1,
+          totalRows: 1,
+        });
+      })()
+    );
+
+    await buildImportPreviewForJob(supabase, {
+      entity_type: 'orders',
+      merchant_id: 'merchant-1',
+      storage_path: 'merchant-1/orders/orders.csv',
+    });
+
+    expect(productsQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(productsQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
+
+    const [previewArgs] =
+      vi.mocked(buildBumpaOrderPreviewChunks).mock.calls.at(-1) || [];
+    expect(previewArgs?.existingProducts).toHaveLength(1001);
+    expect(previewArgs?.existingProducts.at(-1)).toEqual(
+      expect.objectContaining({
+        externalId: 'prod-1001',
+        id: 'product-1001',
+        images: ['https://cdn.example.com/product-1001.jpg'],
+        name: 'Product 1001',
+      })
+    );
+  });
+
   it('builds product previews with source rows intact', async () => {
     const supabase = createSupabaseMock();
     vi.mocked(parseCsvText).mockReturnValue({
@@ -529,9 +602,11 @@ describe('import-job-service', () => {
     const productsQuery = {
       select: vi.fn(),
       eq: vi.fn(),
+      range: vi.fn(),
     };
     productsQuery.select.mockReturnValue(productsQuery);
-    productsQuery.eq.mockReturnValue(productsDeferred);
+    productsQuery.eq.mockReturnValue(productsQuery);
+    productsQuery.range.mockReturnValue(productsDeferred);
 
     const supabase = {
       storage: { from: vi.fn(() => ({ download })) },

@@ -107,12 +107,34 @@ interface ExistingOrderRow {
   updated_at: string | null;
 }
 
+interface ExistingProductRow {
+  id: string;
+  name: string;
+  sku: string | null;
+  price: number | string | null;
+  images: unknown;
+  condition: string | null;
+  external_source: string | null;
+  external_id: string | null;
+  status: string | null;
+}
+
 interface ExistingOrderPageQuery {
   range(
     from: number,
     to: number
   ): PromiseLike<{
     data: ExistingOrderRow[] | null;
+    error: { message: string } | null;
+  }>;
+}
+
+interface ExistingProductPageQuery {
+  range(
+    from: number,
+    to: number
+  ): PromiseLike<{
+    data: ExistingProductRow[] | null;
     error: { message: string } | null;
   }>;
 }
@@ -249,6 +271,27 @@ async function fetchExistingOrderPages(query: ExistingOrderPageQuery) {
   }
 }
 
+async function fetchExistingProductPages(query: ExistingProductPageQuery) {
+  const rows: ExistingProductRow[] = [];
+
+  for (let from = 0; ; from += LOOKUP_PAGE_SIZE) {
+    const { data, error } = await query.range(
+      from,
+      from + LOOKUP_PAGE_SIZE - 1
+    );
+    if (error) {
+      throw new Error(`Failed to load existing products: ${error.message}`);
+    }
+
+    const page = data || [];
+    rows.push(...page);
+
+    if (page.length < LOOKUP_PAGE_SIZE) {
+      return rows;
+    }
+  }
+}
+
 async function loadExistingOrders(
   supabase: SupabaseClient,
   merchantId: string,
@@ -305,18 +348,16 @@ async function loadExistingProducts(
   supabase: SupabaseClient,
   merchantId: string
 ) {
-  const { data, error } = await supabase
-    .from('products')
-    .select(
-      'id, name, sku, price, images, condition, external_source, external_id, status'
-    )
-    .eq('merchant_id', merchantId);
+  const rows = await fetchExistingProductPages(
+    supabase
+      .from('products')
+      .select(
+        'id, name, sku, price, images, condition, external_source, external_id, status'
+      )
+      .eq('merchant_id', merchantId) as unknown as ExistingProductPageQuery
+  );
 
-  if (error) {
-    throw new Error(`Failed to load existing products: ${error.message}`);
-  }
-
-  return (data || []).map(
+  return rows.map(
     (product) =>
       ({
         id: product.id,
