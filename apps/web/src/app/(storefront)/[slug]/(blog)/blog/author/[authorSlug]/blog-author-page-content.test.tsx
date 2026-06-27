@@ -170,7 +170,7 @@ describe('BlogAuthorPageContent', () => {
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
-    ).toHaveAttribute('href', 'https://ogabassey.com/blog/best-phones');
+    ).toHaveAttribute('href', '../best-phones');
 
     const scripts = container.querySelectorAll(
       'script[type="application/ld+json"]'
@@ -211,7 +211,7 @@ describe('BlogAuthorPageContent', () => {
     );
   });
 
-  it('uses canonical store URLs for author navigation without request headers', async () => {
+  it('uses origin-preserving relative navigation without request headers', async () => {
     render(
       await BlogAuthorPageContent({
         params: Promise.resolve({
@@ -223,7 +223,7 @@ describe('BlogAuthorPageContent', () => {
 
     expect(screen.getByRole('link', { name: /Back to Blog/ })).toHaveAttribute(
       'href',
-      'https://ogabassey.com/blog'
+      '..'
     );
     expect(mockHeaders).not.toHaveBeenCalled();
   });

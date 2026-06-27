@@ -68,15 +68,15 @@ export async function BlogAuthorPageContent({
 
   const { merchant, author, posts, totalPosts, totalPages, currentPage } = data;
   const baseUrl = buildStoreUrl(merchant);
-  // Use canonical store URLs instead of request-header-derived route prefixes.
-  // This keeps author pages crawlable from raw HTML while avoiding dynamic
-  // request APIs that can make Cache Components/PPR fail static-shell creation.
-  const basePath = baseUrl;
+  // Keep interactive navigation relative to the current storefront origin.
+  // This avoids request-header dynamic APIs while preserving custom-domain,
+  // merchant-subdomain, preview, and /slug-prefixed browsing contexts.
+  const blogRouteHref = '..';
+  const authorRouteHref = `./${normalizedAuthorSlug}`;
   const authorPageUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
-  const authorRoutePath = `${basePath}/blog/author/${normalizedAuthorSlug}`;
 
   const buildAuthorPageHref = (page: number): string =>
-    page > 1 ? `${authorRoutePath}?page=${page}` : authorRoutePath;
+    page > 1 ? `${authorRouteHref}?page=${page}` : authorRouteHref;
   const buildAuthorPageUrl = (page: number): string =>
     page > 1 ? `${authorPageUrl}?page=${page}` : authorPageUrl;
 
@@ -162,7 +162,7 @@ export async function BlogAuthorPageContent({
         <div className="border-b bg-card">
           <div className="container mx-auto px-4 py-4">
             <Link
-              href={asRoute(`${basePath}/blog`)}
+              href={asRoute(blogRouteHref)}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="size-4" />
@@ -219,7 +219,7 @@ export async function BlogAuthorPageContent({
             {posts.map((post) => (
               <li key={post.id}>
                 <Link
-                  href={asRoute(`${basePath}/blog/${post.slug}`)}
+                  href={asRoute(`../${post.slug}`)}
                   className="block h-full rounded-xl border border-border p-4 transition-colors hover:bg-muted"
                 >
                   {post.featured_image_url && (

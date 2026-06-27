@@ -138,11 +138,11 @@ describe('BlogAuthorPageContent navigation', () => {
     );
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
-      'https://ogabassey.com/blog/author/bassey-john'
+      './bassey-john'
     );
     expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
       'href',
-      'https://ogabassey.com/blog/author/bassey-john?page=3'
+      './bassey-john?page=3'
     );
     expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
 
@@ -169,12 +169,10 @@ describe('BlogAuthorPageContent navigation', () => {
         }),
         searchParams: Promise.resolve({ page: '5' }),
       })
-    ).rejects.toThrow(
-      'NEXT_REDIRECT:https://ogabassey.com/blog/author/bassey-john?page=3'
-    );
+    ).rejects.toThrow('NEXT_REDIRECT:./bassey-john?page=3');
   });
 
-  it('keeps author links canonical without relying on merchant headers', async () => {
+  it('keeps author navigation origin-preserving without relying on merchant headers', async () => {
     render(
       await BlogAuthorPageContent({
         params: Promise.resolve({
@@ -186,10 +184,30 @@ describe('BlogAuthorPageContent navigation', () => {
 
     expect(screen.getByRole('link', { name: /Back to Blog/ })).toHaveAttribute(
       'href',
-      'https://ogabassey.com/blog'
+      '..'
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
-    ).toHaveAttribute('href', 'https://ogabassey.com/blog/best-phones');
+    ).toHaveAttribute('href', '../best-phones');
+
+    expect(
+      new URL('..', 'https://ogabassey.com/blog/author/bassey-john').href
+    ).toBe('https://ogabassey.com/blog/');
+    expect(
+      new URL(
+        '..',
+        'https://preview.usebaci.com/ogabassey/blog/author/bassey-john'
+      ).href
+    ).toBe('https://preview.usebaci.com/ogabassey/blog/');
+    expect(
+      new URL('../best-phones', 'https://ogabassey.com/blog/author/bassey-john')
+        .href
+    ).toBe('https://ogabassey.com/blog/best-phones');
+    expect(
+      new URL(
+        '../best-phones',
+        'https://preview.usebaci.com/ogabassey/blog/author/bassey-john'
+      ).href
+    ).toBe('https://preview.usebaci.com/ogabassey/blog/best-phones');
   });
 });
