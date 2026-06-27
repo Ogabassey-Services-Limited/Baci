@@ -10,6 +10,7 @@ const {
   mockFind,
   mockVerify,
   mockAssociate,
+  mockVercelVerifyDomain,
 } = vi.hoisted(() => ({
   mockScopedFrom: vi.fn(),
   mockScopedRpc: vi.fn(),
@@ -18,6 +19,7 @@ const {
   mockFind: vi.fn(),
   mockVerify: vi.fn(),
   mockAssociate: vi.fn(),
+  mockVercelVerifyDomain: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/admin', () => {
@@ -33,6 +35,11 @@ vi.mock('@/lib/zeptomail-domains', () => ({
   findSendingDomainByName: mockFind,
   verifySendingDomain: mockVerify,
   associateSendingDomainWithConfiguredMailagent: mockAssociate,
+}));
+vi.mock('@/lib/vercel', () => ({
+  vercel: {
+    verifyDomain: mockVercelVerifyDomain,
+  },
 }));
 
 import {
@@ -83,6 +90,13 @@ describe('merchant-email-domain service', () => {
     mockFind.mockReset();
     mockVerify.mockReset();
     mockAssociate.mockReset();
+    mockVercelVerifyDomain.mockReset();
+    mockVercelVerifyDomain.mockResolvedValue({
+      name: 'ogabassey.com',
+      apexName: 'ogabassey.com',
+      projectId: 'project_1',
+      verified: true,
+    });
   });
 
   it('getMerchantEmailDomain maps a row into domain + DNS records', async () => {
@@ -279,7 +293,7 @@ describe('merchant-email-domain service', () => {
       error: null,
     });
     const ownershipBuilder = builderFor({
-      data: [{ id: 'domain-1' }],
+      data: [{ id: 'domain-1', domain: 'ogabassey.com' }],
       error: null,
     });
     const updateBuilder = builderFor({ data: ROW, error: null });
@@ -294,10 +308,45 @@ describe('merchant-email-domain service', () => {
       'www.ogabassey.com',
     ]);
     expect(ownershipBuilder.eq).toHaveBeenCalledWith('status', 'active');
+    expect(mockVercelVerifyDomain).toHaveBeenCalledWith('ogabassey.com');
     expect(mockScopedRpc).toHaveBeenCalledWith(
       'set_merchant_email_domain_enabled',
       { p_merchant_id: 'm1', p_enabled: true }
     );
+  });
+
+  it('setMerchantEmailDomainEnabled requires live Vercel verification before enabling', async () => {
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({
+        data: { domain: 'ogabassey.com', status: 'verified' },
+        error: null,
+      })
+    );
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({
+        data: [{ id: 'domain-1', domain: 'ogabassey.com' }],
+        error: null,
+      })
+    );
+    mockVercelVerifyDomain.mockResolvedValueOnce({
+      name: 'ogabassey.com',
+      apexName: 'ogabassey.com',
+      projectId: 'project_1',
+      verified: false,
+      verification: [
+        {
+          type: 'TXT',
+          domain: '_vercel.ogabassey.com',
+          value: 'token',
+          reason: 'Missing TXT record',
+        },
+      ],
+    });
+
+    await expect(
+      setMerchantEmailDomainEnabled('m1', true, scopedSupabase)
+    ).rejects.toThrow('active verified storefront domain');
+    expect(mockScopedRpc).not.toHaveBeenCalled();
   });
 
   it('setMerchantEmailDomainEnabled re-checks active storefront ownership before enabling', async () => {
@@ -324,7 +373,10 @@ describe('merchant-email-domain service', () => {
       associatedMailagentKeys: [],
     };
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-1' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-1', domain: 'ogabassey.com' }],
+        error: null,
+      })
     );
     mockScopedFrom.mockReturnValueOnce(
       builderFor({

@@ -9,6 +9,7 @@ const {
   mockFind,
   mockVerify,
   mockAssociate,
+  mockVercelVerifyDomain,
 } = vi.hoisted(() => ({
   mockScopedFrom: vi.fn(),
   mockScopedRpc: vi.fn(),
@@ -16,6 +17,7 @@ const {
   mockFind: vi.fn(),
   mockVerify: vi.fn(),
   mockAssociate: vi.fn(),
+  mockVercelVerifyDomain: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/admin', () => {
@@ -31,6 +33,11 @@ vi.mock('@/lib/zeptomail-domains', () => ({
   findSendingDomainByName: mockFind,
   verifySendingDomain: mockVerify,
   associateSendingDomainWithConfiguredMailagent: mockAssociate,
+}));
+vi.mock('@/lib/vercel', () => ({
+  vercel: {
+    verifyDomain: mockVercelVerifyDomain,
+  },
 }));
 
 import { registerMerchantEmailDomain } from './merchant-email-domain';
@@ -74,7 +81,14 @@ describe('registerMerchantEmailDomain', () => {
     mockFind.mockReset();
     mockVerify.mockReset();
     mockAssociate.mockReset();
+    mockVercelVerifyDomain.mockReset();
     mockAssociate.mockImplementation((state) => Promise.resolve(state));
+    mockVercelVerifyDomain.mockResolvedValue({
+      name: 'mystore.com',
+      apexName: 'mystore.com',
+      projectId: 'project_1',
+      verified: true,
+    });
   });
 
   it('registerMerchantEmailDomain registers with ZeptoMail then upserts pending', async () => {
@@ -89,7 +103,10 @@ describe('registerMerchantEmailDomain', () => {
       ],
     });
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-id' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'mystore.com' }],
+        error: null,
+      })
     );
     mockScopedFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
     const upsertBuilder = builderFor({
@@ -134,7 +151,10 @@ describe('registerMerchantEmailDomain', () => {
     });
     // 1) ownership check passes
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-id' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'ogabassey.com' }],
+        error: null,
+      })
     );
     // 2) local owner = this merchant, already enabled
     mockScopedFrom.mockReturnValueOnce(
@@ -174,7 +194,10 @@ describe('registerMerchantEmailDomain', () => {
       records: [{ type: 'TXT', host: 'h', value: 'v' }],
     });
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-id' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'mystore.com' }],
+        error: null,
+      })
     );
     mockScopedFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
     const upsertBuilder = builderFor({
@@ -205,9 +228,42 @@ describe('registerMerchantEmailDomain', () => {
     expect(mockRegister).not.toHaveBeenCalled();
   });
 
+  it('registerMerchantEmailDomain verifies storefront ownership with Vercel before reserving a sender', async () => {
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'mystore.com' }],
+        error: null,
+      })
+    );
+    mockVercelVerifyDomain.mockResolvedValueOnce({
+      name: 'mystore.com',
+      apexName: 'mystore.com',
+      projectId: 'project_1',
+      verified: false,
+      verification: [
+        {
+          type: 'TXT',
+          domain: '_vercel.mystore.com',
+          value: 'token',
+          reason: 'Missing TXT record',
+        },
+      ],
+    });
+
+    await expect(
+      registerMerchantEmailDomain('m1', 'mystore.com', scopedSupabase)
+    ).rejects.toThrow('active verified storefront domain');
+    expect(mockVercelVerifyDomain).toHaveBeenCalledWith('mystore.com');
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(mockScopedRpc).not.toHaveBeenCalled();
+  });
+
   it('registerMerchantEmailDomain refuses domains reserved by another merchant', async () => {
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-id' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'mystore.com' }],
+        error: null,
+      })
     );
     mockScopedFrom.mockReturnValueOnce(
       builderFor({
@@ -231,7 +287,10 @@ describe('registerMerchantEmailDomain', () => {
       records: [{ type: 'TXT', host: 'h', value: 'v' }],
     });
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-id' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'mystore.com' }],
+        error: null,
+      })
     );
     // RLS can hide another merchant's reserved sending-domain row.
     mockScopedFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
@@ -261,7 +320,10 @@ describe('registerMerchantEmailDomain', () => {
       records: [{ type: 'TXT', host: 'h', value: 'v' }],
     });
     mockScopedFrom.mockReturnValueOnce(
-      builderFor({ data: [{ id: 'domain-id' }], error: null })
+      builderFor({
+        data: [{ id: 'domain-id', domain: 'mystore.com' }],
+        error: null,
+      })
     );
     mockScopedFrom.mockReturnValueOnce(builderFor({ data: null, error: null }));
 

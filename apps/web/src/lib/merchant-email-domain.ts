@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { vercel } from '@/lib/vercel';
 import {
   associateSendingDomainWithConfiguredMailagent,
   findSendingDomainByName,
@@ -47,6 +48,11 @@ interface DomainOwnerRow {
   merchant_id: string;
   status: 'pending' | 'verified' | 'failed';
   enabled: boolean;
+}
+
+interface StorefrontDomainOwnershipRow {
+  id: string;
+  domain: string;
 }
 
 function rowToDomain(row: Row): MerchantEmailDomain {
@@ -123,19 +129,23 @@ function domainOwnershipCandidates(domain: string): string[] {
     : [normalized, `www.${normalized}`];
 }
 
-async function assertMerchantOwnsActiveStorefrontDomain(
+function isVercelDomainVerified(
+  verification: Awaited<ReturnType<typeof vercel.verifyDomain>>
+) {
+  return (
+    verification.verified === true &&
+    (!verification.verification || verification.verification.length === 0)
+  );
+}
+
+async function assertMerchantOwnsVerifiedStorefrontDomain(
   supabase: SupabaseClient,
   merchantId: string,
   domain: string
 ) {
-  // Ownership = an *active* storefront domain row for this merchant. Do NOT
-  // additionally require `verified_at`: most live custom domains in `domains`
-  // carry a null `verified_at`, so filtering on it would reject legitimately
-  // active storefronts (and mismatch the auth-branding lookup, which also keys
-  // on status='active' only).
   const { data, error } = await supabase
     .from('domains')
-    .select('id')
+    .select('id, domain')
     .eq('merchant_id', merchantId)
     .in('domain', domainOwnershipCandidates(domain))
     .eq('status', 'active')
@@ -148,6 +158,32 @@ async function assertMerchantOwnsActiveStorefrontDomain(
       'Domain must be an active verified storefront domain before email sending can be configured'
     );
   }
+
+  const verifiedDomain = await firstVerifiedVercelDomain(
+    data as StorefrontDomainOwnershipRow[]
+  );
+  if (!verifiedDomain) {
+    throw new Error(
+      'Domain must be an active verified storefront domain before email sending can be configured'
+    );
+  }
+}
+
+async function firstVerifiedVercelDomain(
+  rows: StorefrontDomainOwnershipRow[]
+): Promise<StorefrontDomainOwnershipRow | null> {
+  for (const row of rows) {
+    try {
+      const verification = await vercel.verifyDomain(row.domain);
+      if (isVercelDomainVerified(verification)) {
+        return row;
+      }
+    } catch {
+      // Fail closed: a Vercel/API error means the local `domains` row is not a
+      // sufficient proof of sender ownership for self-serve email domains.
+    }
+  }
+  return null;
 }
 
 async function getLocalDomainOwner(
@@ -215,7 +251,11 @@ export async function registerMerchantEmailDomain(
   scopedSupabase: SupabaseClient
 ): Promise<MerchantEmailDomain> {
   const supabase = scopedSupabase;
-  await assertMerchantOwnsActiveStorefrontDomain(supabase, merchantId, domain);
+  await assertMerchantOwnsVerifiedStorefrontDomain(
+    supabase,
+    merchantId,
+    domain
+  );
 
   const localOwner = await getLocalDomainOwner(supabase, domain);
   if (localOwner && localOwner.merchant_id !== merchantId) {
@@ -335,7 +375,7 @@ export async function setMerchantEmailDomainEnabled(
     if (existingRow?.status !== 'verified') {
       throw new Error('Domain must be verified before enabling');
     }
-    await assertMerchantOwnsActiveStorefrontDomain(
+    await assertMerchantOwnsVerifiedStorefrontDomain(
       supabase,
       merchantId,
       existingRow.domain
