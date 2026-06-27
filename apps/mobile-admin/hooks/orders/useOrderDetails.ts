@@ -1,7 +1,11 @@
-import type { OrderFulfillmentDetails } from '@baci/shared';
+import {
+  MOBILE_ADMIN_ORDER_ITEMS_COLUMNS,
+  type OrderFulfillmentDetails,
+} from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { ORDER_COLUMNS } from '@/lib/orders';
+import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
@@ -9,10 +13,14 @@ import { useBranchScope } from '../useBranchScope';
 import { useMerchant } from '../useMerchant';
 
 interface OrderItemRow {
+  condition: string | null;
   has_assurance: boolean | null;
   id: string;
+  image_url: string | null;
+  item_description: string | null;
   name: string | null;
   price: number;
+  product_match_status: 'custom' | 'linked' | 'unreviewed' | null;
   product_id: string | null;
   products:
     | {
@@ -51,6 +59,8 @@ interface OrderItemRow {
       }>
     | null;
   quantity: number;
+  variant_attributes: unknown;
+  variant_id: string | null;
   variant_name: string | null;
 }
 
@@ -83,7 +93,7 @@ export async function fetchOrderById(
     supabase
       .from('order_items')
       .select(
-        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition, category, category_id, categories(name, slug))'
+        `${MOBILE_ADMIN_ORDER_ITEMS_COLUMNS}, products(name, images, condition, category, category_id, categories(name, slug))`
       )
       .eq('order_id', orderId),
     supabase
@@ -199,15 +209,22 @@ export async function fetchOrderById(
       return {
         category: categoryName,
         category_slug: productCategory?.slug ?? undefined,
-        condition: product?.condition ?? undefined,
+        condition: item.condition ?? undefined,
+        details: item.item_description ?? undefined,
+        display_condition: item.condition ?? product?.condition ?? undefined,
+        display_image_url: item.image_url ?? product?.images?.[0],
         has_assurance: item.has_assurance ?? undefined,
         id: item.id,
-        image_url: product?.images?.[0],
+        image_url: item.image_url ?? undefined,
         name: itemName,
         price: item.price,
-        product_id: item.product_id ?? `custom-${item.id}`,
+        product_id: item.product_id ?? null,
+        product_match_status: item.product_match_status ?? undefined,
         product_name: itemName,
         quantity: item.quantity,
+        variant_attributes:
+          normalizeVariantAttributes(item.variant_attributes) ?? undefined,
+        variant_id: item.variant_id ?? null,
         variant_name: item.variant_name ?? undefined,
       };
     }),

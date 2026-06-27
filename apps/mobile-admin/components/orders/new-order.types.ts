@@ -1,3 +1,4 @@
+import type { VariantAttributes } from '@baci/shared';
 import type { Customer } from '@/hooks/useCustomers';
 import type { SelectableManualOrderProduct } from '@/lib/manual-order-line-item';
 
@@ -23,6 +24,7 @@ export interface OrderItem {
   details?: string;
   is_custom?: boolean;
   variant_id: string | null;
+  variant_attributes?: VariantAttributes | null;
   variant_name: string | null;
 }
 

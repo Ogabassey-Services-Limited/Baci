@@ -10,6 +10,7 @@ import {
 } from '../../blog-page-content.test-utils';
 
 interface MockBlogPageContentProps {
+  isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
@@ -68,6 +69,7 @@ describe('blog category page', () => {
     );
     expect(mockBlogPageContent).toHaveBeenCalledWith(
       expect.objectContaining({
+        isCleanCategoryRoute: true,
         itemListSchemaUrl: 'https://ogabassey.com/blog/category/smartphones',
         params: expect.any(Promise),
         searchParams: expect.any(Promise),

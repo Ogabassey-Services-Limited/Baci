@@ -1,15 +1,22 @@
-import type { OrderFulfillmentDetails } from '@baci/shared';
+import type { OrderFulfillmentDetails, VariantAttributes } from '@baci/shared';
 import type { PaymentStatus, ShippingStatus } from '@/hooks/useOrders';
 
 export interface OrderDetailsItem {
   condition?: string;
+  display_condition?: string;
+  display_image_url?: string;
+  has_assurance?: boolean;
   id: string;
   image_url?: string;
   name: string;
   price: number;
   product_name?: string;
   product_id?: string | null;
+  product_match_status?: 'custom' | 'linked' | 'unreviewed';
   quantity: number;
+  details?: string;
+  variant_attributes?: VariantAttributes | null;
+  variant_id?: string | null;
   variant_name?: string;
 }
 

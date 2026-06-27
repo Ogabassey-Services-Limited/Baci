@@ -1,4 +1,5 @@
 import type { PostgrestError } from '@supabase/supabase-js';
+import type { VariantAttributes } from '@baci/shared';
 
 interface CreateOrderResult {
   id: string;
@@ -14,6 +15,7 @@ interface OrderItemInsertRow {
   product_match_status?: 'custom' | 'linked' | 'unreviewed';
   quantity: number;
   variant_id?: string | null;
+  variant_attributes?: VariantAttributes | null;
   variant_name?: string | null;
 }
 

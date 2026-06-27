@@ -133,6 +133,34 @@ describe('OrderDetailsItemsCard', () => {
     expect(screen.getByText('image-outline')).toBeInTheDocument();
   });
 
+  it('uses display-only product fallbacks without requiring persisted snapshots', () => {
+    render(
+      <OrderDetailsItemsCard
+        colors={colors}
+        formatPrice={(amount) => `₦${amount}`}
+        items={[
+          {
+            display_condition: 'used',
+            display_image_url: 'https://example.com/catalog-phone.jpg',
+            id: 'item-with-fallbacks',
+            name: 'Legacy Phone',
+            price: 120000,
+            product_id: 'product-1',
+            quantity: 1,
+          },
+        ]}
+        onSelectItem={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Condition: Used')).toBeInTheDocument();
+    expect(mocks.safeImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: { uri: 'https://example.com/catalog-phone.jpg' },
+      })
+    );
+  });
+
   it('forwards the selected order item when a row is pressed', () => {
     const onSelectItem = vi.fn();
 

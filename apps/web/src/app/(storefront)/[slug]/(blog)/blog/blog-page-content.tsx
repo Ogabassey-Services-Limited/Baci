@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
@@ -14,6 +14,11 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { getTemplate } from '@/templates/registry';
+import {
+  buildBlogCategoryHref,
+  findBlogCategoryLabelBySlug,
+  getBlogCategorySlug,
+} from './blog-category-routing';
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { preloadOgabasseyRootBlogListingHeroImage } from './blog-listing-hero-image-preload';
 import { parseBlogListingPage } from './blog-listing-page-params';
@@ -28,16 +33,72 @@ import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
+  isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
+    [key: string]: BlogSearchParamValue;
     category?: BlogSearchParamValue;
     page?: BlogSearchParamValue;
     search?: BlogSearchParamValue;
   }>;
 }
 
+const BLOG_CATEGORY_REDIRECT_FILTER_PARAMS = new Set([
+  'category',
+  'page',
+  'search',
+]);
+
+function findPublicCategoryLabel(
+  publicCategories: string[],
+  category: string
+): string | null {
+  const trimmedCategory = category.trim();
+  const normalizedCategory = trimmedCategory.toLowerCase();
+
+  return (
+    publicCategories.find(
+      (publicCategory) =>
+        publicCategory.trim().toLowerCase() === normalizedCategory
+    ) ??
+    findBlogCategoryLabelBySlug(
+      publicCategories,
+      getBlogCategorySlug(trimmedCategory)
+    )
+  );
+}
+
+function appendPreservedBlogCategoryRedirectParams(
+  href: string,
+  searchParamValues: Record<string, BlogSearchParamValue>
+): string {
+  const preservedParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParamValues)) {
+    if (BLOG_CATEGORY_REDIRECT_FILTER_PARAMS.has(key)) {
+      continue;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    for (const paramValue of values) {
+      if (paramValue === undefined) {
+        continue;
+      }
+      preservedParams.append(key, paramValue);
+    }
+  }
+
+  const queryString = preservedParams.toString();
+  if (!queryString) {
+    return href;
+  }
+
+  return `${href}${href.includes('?') ? '&' : '?'}${queryString}`;
+}
+
 export async function BlogPageContent({
+  isCleanCategoryRoute = false,
   itemListSchemaUrl,
   params,
   searchParams,
@@ -72,6 +133,27 @@ export async function BlogPageContent({
   const basePath = baseUrl;
   const templateBasePath = baseUrl;
   const authorLinks = getBlogAuthorPageLinks(slug);
+
+  if (!isCleanCategoryRoute && category && !search && currentPage === 1) {
+    const categoryLabel = findPublicCategoryLabel(publicCategories, category);
+    if (categoryLabel) {
+      const categoryHref = buildBlogCategoryHref(
+        basePath,
+        categoryLabel,
+        publicCategories
+      );
+      if (!categoryHref.includes('?')) {
+        permanentRedirect(
+          asRoute(
+            appendPreservedBlogCategoryRedirectParams(
+              categoryHref,
+              searchParamValues
+            )
+          )
+        );
+      }
+    }
+  }
 
   if (currentPage > totalPages) {
     redirect(

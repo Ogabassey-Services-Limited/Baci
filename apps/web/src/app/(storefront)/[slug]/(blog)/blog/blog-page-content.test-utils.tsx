@@ -55,6 +55,9 @@ const hoistedMocks = vi.hoisted(() => ({
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
   }),
+  mockPermanentRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
+  }),
   mockRedirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
@@ -69,6 +72,7 @@ export const {
   mockGetTemplate,
   mockHeaders,
   mockNotFound,
+  mockPermanentRedirect,
   mockPreloadBlogListingFeaturedImage,
   mockRedirect,
   mockTemplateBlogRenderer,
@@ -88,6 +92,7 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  permanentRedirect: (url: string) => mockPermanentRedirect(url),
   redirect: (url: string) => mockRedirect(url),
 }));
 
@@ -304,6 +309,7 @@ export function resetBlogPageContentMocks() {
   mockPreloadBlogListingFeaturedImage.mockClear();
   mockResolveBlogCategoryHub.mockReset();
   mockNotFound.mockClear();
+  mockPermanentRedirect.mockClear();
   mockRedirect.mockClear();
   mockHeaders.mockReset();
   mockHeaders.mockReturnValue(new Headers());

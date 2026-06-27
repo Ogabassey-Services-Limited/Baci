@@ -14,9 +14,12 @@ import {
   getProductPickerRowSubtitle,
   getProductPickerRowTitle,
 } from '@/lib/order-product-picker';
+import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
+import { buildVariantOptionGroups } from '@/lib/product-variant-option-selector';
 import { NewOrderProductSheetEmptyState } from './NewOrderProductSheetEmptyState';
 import { MODAL_FLATLIST_PROPS } from './new-order.shared';
 import { styles } from './new-order.styles';
+import { ProductVariantOptionSelector } from './ProductVariantOptionSelector';
 
 interface NewOrderProductSheetProps {
   controller: ReturnType<typeof useNewOrderController>;
@@ -42,6 +45,28 @@ export function NewOrderProductSheet({
     setProductSearch,
     showProductModal,
   } = controller;
+  const structuredVariantRows: AdminProductVariant[] =
+    isPickingVariant && selectedParentProduct
+      ? selectableProductRows.map((row): AdminProductVariant => ({
+          ...row,
+          cost_price: null,
+          images: row.images ?? [],
+          parent_product_id:
+            row.parent_product_id ?? selectedParentProduct.id ?? null,
+          primary_image: row.images?.[0] ?? null,
+          source: 'structured',
+          stock_quantity: 0,
+        }))
+      : [];
+  const variantOptionGroups =
+    structuredVariantRows.length > 0
+      ? buildVariantOptionGroups(structuredVariantRows, {})
+      : [];
+  const showProductFirstVariantSelector = Boolean(
+    isPickingVariant &&
+      selectedParentProduct &&
+      variantOptionGroups.some((group) => group.values.length > 1)
+  );
 
   return (
     <AppPageSheet
@@ -137,92 +162,107 @@ export function NewOrderProductSheet({
           </>
         ) : null}
 
-        <FlatList
-          // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
-          getItemLayout={(data, index) => ({
-            length: 72,
-            offset: 72 * index,
-            index,
-          })}
-          {...MODAL_FLATLIST_PROPS}
-          data={selectableProductRows}
-          keyExtractor={(item) => item.id}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <NewOrderProductSheetEmptyState controller={controller} />
-          }
-          ListFooterComponent={
-            !isPickingVariant && isFetchingMoreProducts ? (
-              <ActivityIndicator
-                color={colors.primary}
-                size="small"
-                style={{ paddingVertical: 16 }}
-              />
-            ) : null
-          }
-          onEndReached={() => {
-            if (
-              !isPickingVariant &&
-              hasMoreProducts &&
-              !isFetchingMoreProducts
-            ) {
-              void fetchMoreProducts();
+        {showProductFirstVariantSelector && selectedParentProduct ? (
+          <ProductVariantOptionSelector
+            colors={colors}
+            formatPrice={formatPrice}
+            onAddProduct={handleAddProduct}
+            parentProduct={selectedParentProduct}
+            variantOptionGroups={variantOptionGroups}
+            variants={structuredVariantRows}
+          />
+        ) : (
+          <FlatList
+            {...MODAL_FLATLIST_PROPS}
+            // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+            getItemLayout={(_data, index) => ({
+              length: 72,
+              offset: 72 * index,
+              index,
+            })}
+            data={selectableProductRows}
+            keyExtractor={(item) => item.id}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <NewOrderProductSheetEmptyState controller={controller} />
             }
-          }}
-          onEndReachedThreshold={0.4}
-          renderItem={({ item }) => {
-            const pickerTitle = getProductPickerRowTitle(
-              item,
-              selectedParentProduct?.name
-            );
-            const pickerSubtitle = getProductPickerRowSubtitle(item);
+            ListFooterComponent={
+              !isPickingVariant && isFetchingMoreProducts ? (
+                <ActivityIndicator
+                  color={colors.primary}
+                  size="small"
+                  style={{ paddingVertical: 16 }}
+                />
+              ) : null
+            }
+            onEndReached={() => {
+              if (
+                !isPickingVariant &&
+                hasMoreProducts &&
+                !isFetchingMoreProducts
+              ) {
+                void fetchMoreProducts();
+              }
+            }}
+            onEndReachedThreshold={0.4}
+            renderItem={({ item }) => {
+              const pickerTitle = getProductPickerRowTitle(
+                item,
+                selectedParentProduct?.name
+              );
+              const pickerSubtitle = getProductPickerRowSubtitle(item);
 
-            return (
-              <Pressable
-                accessibilityLabel={
-                  isPickingVariant
-                    ? `Add ${pickerTitle}`
-                    : `Select ${pickerTitle}`
-                }
-                accessibilityRole="button"
-                onPress={() =>
-                  isPickingVariant
-                    ? handleAddProduct({
-                        ...item,
-                        images:
-                          item.images?.length > 0
-                            ? item.images
-                            : (selectedParentProduct?.images ?? []),
-                      })
-                    : handleSelectProduct(item)
-                }
-                style={[
-                  styles.productItem,
-                  { borderBottomColor: colors.border, height: 72 },
-                ]}
-              >
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text
-                    numberOfLines={1}
-                    style={{ color: colors.text, fontSize: 16 }}
-                  >
-                    {pickerTitle}
+              return (
+                <Pressable
+                  accessibilityLabel={
+                    isPickingVariant
+                      ? `Add ${pickerTitle}`
+                      : `Select ${pickerTitle}`
+                  }
+                  accessibilityRole="button"
+                  onPress={() =>
+                    isPickingVariant
+                      ? handleAddProduct({
+                          ...item,
+                          images:
+                            item.images?.length > 0
+                              ? item.images
+                              : (selectedParentProduct?.images ?? []),
+                          parent_product_id:
+                            item.parent_product_id ??
+                            selectedParentProduct?.id ??
+                            null,
+                        })
+                      : handleSelectProduct(item)
+                  }
+                  style={[
+                    styles.productItem,
+                    { borderBottomColor: colors.border, height: 72 },
+                  ]}
+                >
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{ color: colors.text, fontSize: 16 }}
+                    >
+                      {pickerTitle}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={{ color: colors.textSecondary, fontSize: 12 }}
+                    >
+                      {pickerSubtitle}
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.text, fontWeight: '500' }}>
+                    {formatPrice(item.price)}
                   </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={{ color: colors.textSecondary, fontSize: 12 }}
-                  >
-                    {pickerSubtitle}
-                  </Text>
-                </View>
-                <Text style={{ color: colors.text, fontWeight: '500' }}>
-                  {formatPrice(item.price)}
-                </Text>
-              </Pressable>
-            );
-          }}
-        />
+                </Pressable>
+              );
+            }}
+          />
+        )}
       </View>
     </AppPageSheet>
   );
