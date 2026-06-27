@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 let pathname = '/';
 
 const mocks = vi.hoisted(() => ({
+  hasPostHogBrowserInitialized: vi.fn(() => false),
   initializePostHogBrowser: vi.fn(),
   initializePostHogInstrumentationIfAllowed: vi.fn(),
 }));
@@ -17,6 +18,10 @@ vi.mock('@/instrumentation-client', () => ({
     mocks.initializePostHogInstrumentationIfAllowed,
 }));
 
+vi.mock('@/lib/posthog/browser-state', () => ({
+  hasPostHogBrowserInitialized: mocks.hasPostHogBrowserInitialized,
+}));
+
 vi.mock('@/lib/posthog/browser', () => ({
   initializePostHogBrowser: mocks.initializePostHogBrowser,
 }));
@@ -28,6 +33,8 @@ function importPostHogClientBootstrap() {
 afterEach(() => {
   pathname = '/';
   vi.clearAllMocks();
+  mocks.hasPostHogBrowserInitialized.mockReset();
+  mocks.hasPostHogBrowserInitialized.mockReturnValue(false);
   vi.resetModules();
   vi.unstubAllGlobals();
 });
@@ -58,7 +65,7 @@ describe('PostHogClientBootstrap', () => {
     );
   });
 
-  it('initializes lightweight PostHog on public blog pages without full instrumentation', async () => {
+  it('does not initialize the full PostHog browser client on initial public blog pages', async () => {
     pathname = '/ogabassey/blog/phone-guide';
     vi.stubGlobal('location', {
       pathname,
@@ -68,10 +75,28 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     render(<PostHogClientBootstrap />);
+
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
+    expect(
+      mocks.initializePostHogInstrumentationIfAllowed
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reconfigures an already initialized PostHog browser client on public blog pages', async () => {
+    mocks.hasPostHogBrowserInitialized.mockReturnValue(true);
+    pathname = '/ogabassey/blog/phone-guide';
+    vi.stubGlobal('location', {
+      pathname,
+      href: 'https://usebaci.com/ogabassey/blog/phone-guide',
+      hostname: 'usebaci.com',
+    });
+    const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
+
+    render(<PostHogClientBootstrap />);
+
     await vi.waitFor(() => {
       expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
-
     expect(mocks.initializePostHogBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         NODE_ENV: expect.any(String),
@@ -98,10 +123,8 @@ describe('PostHogClientBootstrap', () => {
     const { PostHogClientBootstrap } = await importPostHogClientBootstrap();
 
     const { rerender } = render(<PostHogClientBootstrap />);
-    await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
-    });
 
+    expect(mocks.initializePostHogBrowser).not.toHaveBeenCalled();
     expect(
       mocks.initializePostHogInstrumentationIfAllowed
     ).not.toHaveBeenCalled();
@@ -115,7 +138,7 @@ describe('PostHogClientBootstrap', () => {
     rerender(<PostHogClientBootstrap />);
 
     await vi.waitFor(() => {
-      expect(mocks.initializePostHogBrowser).toHaveBeenCalledTimes(2);
+      expect(mocks.initializePostHogBrowser).toHaveBeenCalledOnce();
     });
     expect(mocks.initializePostHogBrowser).toHaveBeenLastCalledWith(
       expect.objectContaining({

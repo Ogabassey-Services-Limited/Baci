@@ -3,7 +3,12 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { hasPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { getPostHogBrowserEnv } from '@/lib/posthog/config';
+import {
+  capturePublicBlogPageview,
+  resetPublicBlogPageviewDedupe,
+} from '@/lib/posthog/public-blog-pageview';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
 
 const postHogBrowserEnv = getPostHogBrowserEnv();
@@ -25,10 +30,24 @@ export function PostHogPageviewTracker() {
       typeof globalThis.location !== 'undefined'
         ? globalThis.location.href
         : `${currentPathname}${currentSearch}`;
+    const hostname = globalThis.location?.hostname;
     let cancelled = false;
 
     async function capturePageview() {
       try {
+        const isPublicBlog = isPublicBlogPathname(currentPathname, {
+          hostname,
+        });
+
+        if (isPublicBlog && !hasPostHogBrowserInitialized()) {
+          capturePublicBlogPageview(postHogBrowserEnv, currentUrl);
+          return;
+        }
+
+        if (!isPublicBlog) {
+          resetPublicBlogPageviewDedupe();
+        }
+
         const { capturePostHogPageview, initializePostHogBrowser } =
           await import('@/lib/posthog/browser');
 
@@ -37,10 +56,11 @@ export function PostHogPageviewTracker() {
         }
 
         initializePostHogBrowser(postHogBrowserEnv, console, {
-          lightweight: isPublicBlogPathname(currentPathname),
+          lightweight: isPublicBlog,
           pathname: currentPathname,
-          hostname: globalThis.location?.hostname,
+          hostname,
         });
+
         capturePostHogPageview(currentUrl);
       } catch (error) {
         if (!cancelled) {
