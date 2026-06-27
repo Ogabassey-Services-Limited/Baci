@@ -1,3 +1,4 @@
+import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -75,6 +76,14 @@ function flattenOrderItemProductData(item: OrderItem) {
     category_slug: categories?.slug || item.category_slug,
     categories,
   };
+}
+
+function getOrderItemVariantName(item: OrderItem) {
+  return (
+    item.variant_name ||
+    formatCanonicalProductConditionLabel(item.condition) ||
+    undefined
+  );
 }
 
 async function fetchProductRouteDetails(
@@ -178,7 +187,7 @@ function mapOrderItemsWithRoutes(
       price: item.price,
       image_url: item.image_url,
       condition: item.condition,
-      variant_name: item.variant_name,
+      variant_name: getOrderItemVariantName(item),
       product_images: item.product_images,
       ...flattenOrderItemProductData(item),
       ...(productRouteDetails?.get(item.product_id) || {}),

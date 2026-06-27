@@ -30,6 +30,8 @@ interface ReceiptClaimPageClientProps {
   token: string;
 }
 
+const LOGIN_STARTED_TRACKING_TIMEOUT_MS = 750;
+
 export default function ReceiptClaimPageClient({
   initialClaim,
   initialEmailHint,
@@ -159,6 +161,15 @@ export default function ReceiptClaimPageClient({
     }
   }
 
+  async function waitForLoginStartedTrackingWindow() {
+    await Promise.race([
+      trackLoginStarted(),
+      new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, LOGIN_STARTED_TRACKING_TIMEOUT_MS);
+      }),
+    ]);
+  }
+
   async function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {
     if (
       event.defaultPrevented ||
@@ -172,7 +183,7 @@ export default function ReceiptClaimPageClient({
     }
 
     event.preventDefault();
-    await trackLoginStarted();
+    await waitForLoginStartedTrackingWindow();
     router.push(asRoute(loginPath));
   }
 

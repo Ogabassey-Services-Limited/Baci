@@ -178,6 +178,42 @@ describe('OgabasseyV2Receipts', () => {
     ).toBeVisible();
   });
 
+  it('falls back to item condition when a receipt item has no variant label', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      createJsonResponse({
+        orders: [
+          {
+            id: 'order-1',
+            order_number: 'ORD-260724-04060',
+            created_at: '2026-07-24T10:00:00.000Z',
+            total: 930000,
+            amount_paid: 930000,
+            currency: 'NGN',
+            payment_status: 'paid',
+            items: [
+              {
+                condition: 'open_box',
+                id: 'item-1',
+                name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
+                image_url: 'https://cdn.example.com/fold-5.png',
+                quantity: 1,
+                price: 930000,
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(<OgabasseyV2Receipts />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB (Open Box)',
+      })
+    ).toBeVisible();
+  });
+
   it('shows the additional device count when a receipt contains more than one device', async () => {
     vi.mocked(fetch).mockResolvedValue(
       createJsonResponse({

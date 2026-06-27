@@ -21,6 +21,8 @@ describe('order tracking condition migration', () => {
   });
 
   it('returns tracking RPC order items in a stable order', () => {
-    expect(migrationSql).toMatch(/jsonb_agg\([\s\S]*ORDER BY oi\.id/i);
+    expect(migrationSql).toMatch(
+      /jsonb_agg\([\s\S]*ORDER BY oi\.line_id NULLS LAST, oi\.id/i
+    );
   });
 });

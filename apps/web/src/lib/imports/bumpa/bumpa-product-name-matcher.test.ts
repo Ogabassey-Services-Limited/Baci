@@ -133,6 +133,49 @@ describe('createBumpaProductNameMatcher', () => {
     );
   });
 
+  it('does not guess between condition-specific products when the import has no condition', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        condition: 'new',
+        id: 'iphone-13-new',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+      product({
+        condition: 'used',
+        id: 'iphone-13-used',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('iPhone 13 128GB')).toBeNull();
+  });
+
+  it('prefers an unconditioned catalog product for no-condition imports', () => {
+    const matchProduct = createBumpaProductNameMatcher([
+      product({
+        condition: 'new',
+        id: 'iphone-13-new',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+      product({
+        id: 'iphone-13',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+      product({
+        condition: 'used',
+        id: 'iphone-13-used',
+        name: 'iPhone 13 128GB',
+        status: 'active',
+      }),
+    ]);
+
+    expect(matchProduct('iPhone 13 128GB')?.id).toBe('iphone-13');
+  });
+
   it('uses an explicit condition override when fulfillment text carries the condition', () => {
     const matchProduct = createBumpaProductNameMatcher([
       product({

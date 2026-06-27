@@ -25,7 +25,7 @@ const receiptClaimMerchantSchema = z.object({
 });
 
 const nonNegativeIntegerSchema = z.number().int().nonnegative();
-const nullableIsoDateTimeSchema = z.iso.datetime().nullable();
+const nullableIsoDateTimeSchema = z.iso.datetime({ offset: true }).nullable();
 
 const receiptClaimCampaignRecipientSchema = z.object({
   claimedAt: nullableIsoDateTimeSchema,

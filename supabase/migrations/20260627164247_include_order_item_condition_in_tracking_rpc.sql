@@ -164,7 +164,7 @@ BEGIN
             'price', oi.price,
             'product_images', p.images
           )
-          ORDER BY oi.id
+          ORDER BY oi.line_id NULLS LAST, oi.id
         )
         FROM order_items oi
         LEFT JOIN products p ON p.id = oi.product_id

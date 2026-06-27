@@ -305,7 +305,6 @@ describe('GET /api/storefront/orders/[id]', () => {
               name: 'Test Product',
               quantity: 2,
               price: 5000,
-              variant_name: 'Used',
             },
           ],
         },

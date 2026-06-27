@@ -116,6 +116,52 @@ function hasDifferentConditions(
   );
 }
 
+function pickBestIndexedProduct(candidates: IndexedProduct[]) {
+  return candidates.reduce<IndexedProduct | null>(
+    (bestCandidate, candidate) => {
+      if (
+        !bestCandidate ||
+        activeStatusWeight(candidate.product) >
+          activeStatusWeight(bestCandidate.product)
+      ) {
+        return candidate;
+      }
+
+      return bestCandidate;
+    },
+    null
+  );
+}
+
+function pickUnambiguousProduct(
+  candidates: IndexedProduct[],
+  queryCondition: string | null
+) {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (!queryCondition) {
+    const unconditionedCandidates = candidates.filter(
+      (candidate) => !candidate.condition
+    );
+    if (unconditionedCandidates.length > 0) {
+      return pickBestIndexedProduct(unconditionedCandidates)?.product ?? null;
+    }
+
+    const conditionCount = new Set(
+      candidates
+        .map((candidate) => candidate.condition)
+        .filter((condition): condition is string => Boolean(condition))
+    ).size;
+    if (conditionCount > 1) {
+      return null;
+    }
+  }
+
+  return pickBestIndexedProduct(candidates)?.product ?? null;
+}
+
 function hasAccessoryOnlyCandidateTokens(
   queryTokens: Set<string>,
   candidateTokens: Set<string>
@@ -202,7 +248,7 @@ export function createBumpaProductNameMatcher(
   products: ExistingImportedProduct[]
 ) {
   const productsByConditionedName = new Map<string, ExistingImportedProduct>();
-  const productsByName = new Map<string, ExistingImportedProduct>();
+  const productsByName = new Map<string, IndexedProduct[]>();
   const indexedProducts = products.map((product) => {
     const normalizedName = normalizeMatchName(product.name);
     const condition = readProductCondition(product);
@@ -223,12 +269,11 @@ export function createBumpaProductNameMatcher(
       productsByConditionedName.set(conditionedKey, product);
     }
 
-    const existingExactProduct = productsByName.get(normalizedName);
-    if (
-      !existingExactProduct ||
-      activeStatusWeight(product) > activeStatusWeight(existingExactProduct)
-    ) {
-      productsByName.set(normalizedName, product);
+    const exactProducts = productsByName.get(normalizedName);
+    if (exactProducts) {
+      exactProducts.push(indexedProduct);
+    } else {
+      productsByName.set(normalizedName, [indexedProduct]);
     }
 
     return indexedProduct;
@@ -248,20 +293,20 @@ export function createBumpaProductNameMatcher(
       return conditionedProduct;
     }
 
-    const exactProduct = productsByName.get(normalizedName);
-    if (
-      exactProduct &&
-      !hasDifferentConditions(
-        queryCondition,
-        readProductCondition(exactProduct)
-      )
-    ) {
+    const exactProduct = pickUnambiguousProduct(
+      (productsByName.get(normalizedName) ?? []).filter(
+        (candidate) =>
+          !hasDifferentConditions(queryCondition, candidate.condition)
+      ),
+      queryCondition
+    );
+    if (exactProduct) {
       return exactProduct;
     }
 
     const queryTokens = tokenizeMatchName(productName);
-    let bestMatch: { product: ExistingImportedProduct; score: number } | null =
-      null;
+    let bestScore = 0;
+    let bestMatches: IndexedProduct[] = [];
 
     for (const candidate of indexedProducts) {
       if (hasDifferentConditions(queryCondition, candidate.condition)) {
@@ -273,17 +318,14 @@ export function createBumpaProductNameMatcher(
         continue;
       }
 
-      if (
-        !bestMatch ||
-        score > bestMatch.score ||
-        (score === bestMatch.score &&
-          activeStatusWeight(candidate.product) >
-            activeStatusWeight(bestMatch.product))
-      ) {
-        bestMatch = { product: candidate.product, score };
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatches = [candidate];
+      } else if (score === bestScore) {
+        bestMatches.push(candidate);
       }
     }
 
-    return bestMatch?.product ?? null;
+    return pickUnambiguousProduct(bestMatches, queryCondition);
   };
 }

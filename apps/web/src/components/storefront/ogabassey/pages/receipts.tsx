@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import {
   AlertCircle,
   CheckCircle2,
@@ -91,7 +92,10 @@ function getReceiptItemName(item: Record<string, unknown> | undefined) {
 }
 
 function getReceiptItemVariantName(item: Record<string, unknown> | undefined) {
-  return getStringValue(item?.variant_name);
+  return (
+    getStringValue(item?.variant_name) ||
+    formatCanonicalProductConditionLabel(getStringValue(item?.condition))
+  );
 }
 
 function getReceiptItemDisplayName(item: Record<string, unknown> | undefined) {

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -105,6 +105,7 @@ describe('ReceiptClaimPageClient', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -173,33 +174,31 @@ describe('ReceiptClaimPageClient', () => {
     );
   });
 
-  it('waits for login-start tracking to begin before routing to login', async () => {
-    const user = userEvent.setup();
+  it('routes to login after a short tracking window when login-start tracking stalls', async () => {
+    vi.useFakeTimers();
     const loginStart = createDeferred<Response>();
     mockFetchWithCsrf.mockReturnValue(loginStart.promise);
 
     renderClient();
 
-    const clickPromise = user.click(
-      screen.getByRole('link', { name: 'Sign in to claim receipt' })
+    fireEvent.click(
+      screen.getByRole('link', { name: 'Sign in to claim receipt' }),
+      { button: 0 }
     );
 
-    await waitFor(() => {
-      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
-        '/api/storefront/receipts/claims/claim-token/login-email',
-        expect.objectContaining({ method: 'POST' })
-      );
-    });
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+      '/api/storefront/receipts/claims/claim-token/login-email',
+      expect.objectContaining({ method: 'POST' })
+    );
     expect(mockPush).not.toHaveBeenCalled();
 
-    loginStart.resolve(createJsonResponse({ success: true }));
-    await clickPromise;
+    await vi.advanceTimersByTimeAsync(750);
 
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(
-        '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
-      );
-    });
+    expect(mockPush).toHaveBeenCalledWith(
+      '/account/login?redirect=%2Freceipts%2Fclaim%2Fclaim-token'
+    );
+
+    loginStart.resolve(createJsonResponse({ success: true }));
   });
 
   it('redeems the claim and sends authenticated customers to receipts', async () => {
