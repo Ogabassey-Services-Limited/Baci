@@ -77,7 +77,8 @@ BEGIN
     WHERE n.nspname = 'public'
       AND c.relname = 'product_variants'
       AND p.polname = 'product_variants_select_by_merchant_access'
-      AND pg_get_expr(p.polqual, p.polrelid) LIKE '%orders%view%'
+      AND regexp_replace(pg_get_expr(p.polqual, p.polrelid), '\s+', ' ', 'g')
+        LIKE '%''orders''::text, ''view''::text%'
   ) THEN
     RAISE EXCEPTION 'product variants select policy still grants variant reads to orders.view';
   END IF;
