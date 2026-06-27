@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS public.order_audit_events (
   order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   actor_user_id uuid NOT NULL,
   action text NOT NULL CHECK (action IN ('order.update')),
+  change_category text NOT NULL DEFAULT 'internal'
+    CHECK (change_category IN ('customer_visible', 'financial', 'internal')),
   changed_fields text[] NOT NULL DEFAULT ARRAY[]::text[],
   before_snapshot jsonb NOT NULL,
   after_snapshot jsonb NOT NULL,
@@ -436,7 +438,13 @@ BEGIN
     SELECT 1
     FROM jsonb_array_elements(v_items) AS item
     WHERE NULLIF(item ->> 'product_id', '') IS NULL
-      AND COALESCE(NULLIF(item ->> 'product_match_status', ''), 'linked') <> 'custom'
+      AND COALESCE(
+        NULLIF(item ->> 'product_match_status', ''),
+        CASE
+          WHEN NULLIF(item ->> 'product_id', '') IS NULL THEN 'custom'
+          ELSE 'linked'
+        END
+      ) <> 'custom'
   ) THEN
     RAISE EXCEPTION 'order_item_product_required' USING ERRCODE = '23503';
   END IF;
@@ -784,6 +792,7 @@ BEGIN
     order_id,
     actor_user_id,
     action,
+    change_category,
     changed_fields,
     before_snapshot,
     after_snapshot,
@@ -793,6 +802,7 @@ BEGIN
     p_order_id,
     v_actor,
     'order.update',
+    v_change_category,
     v_changed_fields,
     v_before,
     v_after,

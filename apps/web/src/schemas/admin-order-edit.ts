@@ -12,10 +12,10 @@ const editCustomerSchema = z.object({
 
 const editShippingAddressSchema = z.object({
   address: z.string().trim().max(500),
-  city: z.string().trim().max(100).optional(),
+  city: z.string().trim().max(100).nullable().optional(),
   name: z.string().trim().min(1).max(200),
   phone: z.string().trim().max(40),
-  state: z.string().trim().max(100).optional(),
+  state: z.string().trim().max(100).nullable().optional(),
 });
 
 const editOrderItemSchema = z.object({
@@ -25,7 +25,7 @@ const editOrderItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
   price: moneySchema,
   product_id: z.uuid().nullable(),
-  product_match_status: z.enum(['custom', 'linked', 'unreviewed']),
+  product_match_status: z.enum(['custom', 'linked', 'unreviewed']).optional(),
   quantity: z.number().int().positive().max(999),
   variant_id: z.uuid().nullable(),
   variant_attributes: z.record(z.string(), z.unknown()).nullable().optional(),

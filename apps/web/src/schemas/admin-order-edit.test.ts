@@ -104,6 +104,40 @@ describe('adminOrderEditSchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('accepts null city and state values from mobile blank-field normalization', () => {
+    const result = adminOrderEditSchema.safeParse({
+      ...validPayload,
+      shipping_address: {
+        ...validPayload.shipping_address,
+        city: null,
+        state: null,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts custom items that omit product match status', () => {
+    const result = adminOrderEditSchema.safeParse({
+      ...validPayload,
+      items: [
+        {
+          image_url: null,
+          item_description: 'Manual line item',
+          name: 'Custom setup service',
+          price: 5000,
+          product_id: null,
+          quantity: 1,
+          variant_id: null,
+          variant_attributes: null,
+          variant_name: null,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('order edit helpers', () => {

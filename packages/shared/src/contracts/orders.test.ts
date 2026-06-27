@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   extractOrderDeliveryAddress,
   MOBILE_ADMIN_ORDER_COLUMNS,
+  MOBILE_ADMIN_ORDER_ITEMS_COLUMNS,
+  MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY,
+  normalizeOrderEditChangeCategory,
+  shouldNotifyCustomerForOrderEdit,
   WEB_ORDER_COLUMNS,
   WEB_ORDER_ITEMS_COLUMNS,
   WEB_ORDER_WITH_ITEMS_QUERY,
@@ -65,6 +69,95 @@ describe('order column constants', () => {
     expect(mobileAdminColumns).toContain('fulfillment_details');
     expect(mobileAdminColumns).toContain('self_fulfillment_data');
     expect(mobileAdminColumns).toContain('recorded_by_user_id');
+  });
+
+  it('includes mobile admin order item snapshot fields required by edit mode', () => {
+    const mobileItemColumns = MOBILE_ADMIN_ORDER_ITEMS_COLUMNS.split(',').map(
+      (column) => column.trim()
+    );
+
+    expect(mobileItemColumns).toEqual(
+      expect.arrayContaining([
+        'condition',
+        'details:item_description',
+        'image_url',
+        'item_description',
+        'product_name:name',
+        'product_match_status',
+        'variant_id',
+        'variant_attributes',
+        'variant_name',
+      ])
+    );
+    expect(MOBILE_ADMIN_ORDER_ITEMS_COLUMNS).not.toContain('*');
+  });
+
+  it('MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY composes order and item columns', () => {
+    expect(MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY).toContain(
+      MOBILE_ADMIN_ORDER_COLUMNS
+    );
+    expect(MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY).toContain('items:order_items(');
+    expect(MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY).toContain(
+      MOBILE_ADMIN_ORDER_ITEMS_COLUMNS
+    );
+  });
+});
+
+describe('normalizeOrderEditChangeCategory', () => {
+  it('keeps supported categories and rejects unsupported RPC values', () => {
+    expect(normalizeOrderEditChangeCategory('financial')).toBe('financial');
+    expect(normalizeOrderEditChangeCategory('customer_visible')).toBe(
+      'customer_visible'
+    );
+    expect(normalizeOrderEditChangeCategory('internal')).toBe('internal');
+    expect(normalizeOrderEditChangeCategory('none')).toBeNull();
+    expect(normalizeOrderEditChangeCategory(null)).toBeNull();
+    expect(normalizeOrderEditChangeCategory(undefined)).toBeNull();
+    expect(normalizeOrderEditChangeCategory(123)).toBeNull();
+  });
+});
+
+describe('shouldNotifyCustomerForOrderEdit', () => {
+  it('allows customer-visible and financial opt-in changes', () => {
+    expect(
+      shouldNotifyCustomerForOrderEdit({
+        change_category: 'customer_visible',
+        notify_customer: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldNotifyCustomerForOrderEdit({
+        change_category: 'financial',
+        notify_customer: true,
+      })
+    ).toBe(true);
+  });
+
+  it('rejects internal or opt-out changes', () => {
+    expect(
+      shouldNotifyCustomerForOrderEdit({
+        change_category: 'internal',
+        notify_customer: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldNotifyCustomerForOrderEdit({
+        change_category: 'financial',
+        notify_customer: false,
+      })
+    ).toBe(false);
+    expect(shouldNotifyCustomerForOrderEdit({})).toBe(false);
+    expect(
+      shouldNotifyCustomerForOrderEdit({
+        change_category: null,
+        notify_customer: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldNotifyCustomerForOrderEdit({
+        change_category: 'financial',
+      })
+    ).toBe(false);
   });
 });
 

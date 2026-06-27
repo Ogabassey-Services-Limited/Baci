@@ -23,6 +23,7 @@ import { useCreateCustomer } from '@/hooks/useCustomers';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { createNewOrderTotals } from '@/lib/new-order-totals';
+import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
@@ -40,15 +41,12 @@ export function useNewOrderController() {
   const queryClient = useQueryClient();
   const createCustomerMutation = useCreateCustomer();
 
-  // State
   const [date, setDate] = useState(new Date());
   const [selectedChannel, setSelectedChannel] =
     useState<OrderSource>('physical');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
-  const [customer, setCustomer] = useState<CustomerInfo>(
-    createEmptyCustomerInfo
-  );
+  const [customer, setCustomer] = useState<CustomerInfo>(createEmptyCustomerInfo);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,7 +73,6 @@ export function useNewOrderController() {
     }
   }
 
-  // Search & Form
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
     useState<SelectedParentProduct>(null);
@@ -117,7 +114,6 @@ export function useNewOrderController() {
     setSelectedBranchId,
   });
 
-  // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
   const [deliveryInfo, setDeliveryInfo] = useState(createEmptyDeliveryInfo);
 
@@ -140,7 +136,12 @@ export function useNewOrderController() {
   const isPickingVariant = selectedParentProduct !== null;
   const selectableProductRows: SelectableOrderProduct[] = isPickingVariant
     ? (selectedParentProductVariantsData ?? [])
-    : filteredProducts;
+    : filteredProducts.map((product) => ({
+        ...product,
+        variant_attributes: normalizeVariantAttributes(
+          product.variant_attributes
+        ),
+      }));
 
   const productActions = createNewOrderProductActions({
     customItem,

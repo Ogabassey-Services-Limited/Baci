@@ -89,4 +89,104 @@ describe('buildStructuredVariantPickerItems', () => {
       price: 500000,
     });
   });
+
+  it('normalizes variant attributes to JSON-safe values', () => {
+    const rows = buildStructuredVariantPickerItems({
+      parentProduct: {
+        images: [],
+        name: 'Galaxy S26',
+        price: 900000,
+      },
+      variants: [
+        {
+          attributes: {
+            color: 'Black',
+            ignored: undefined,
+            specs: { esim: true, storage: '512GB' },
+          },
+          id: 'variant-4',
+        },
+      ],
+    });
+
+    expect(rows[0]?.variant_attributes).toEqual({
+      color: 'Black',
+      specs: { esim: true, storage: '512GB' },
+    });
+  });
+
+  it('normalizes legacy keyed attribute arrays into object attributes', () => {
+    const rows = buildStructuredVariantPickerItems({
+      parentProduct: {
+        images: [],
+        name: 'Galaxy S26',
+        price: 900000,
+      },
+      variants: [
+        {
+          attributes: [
+            { name: 'Colour', value: 'Silver' },
+            { name: 'Storage', value: '1TB' },
+            { label: 'Warranty label', name: 'Warranty', value: null },
+          ],
+          id: 'variant-legacy',
+        },
+      ],
+    });
+
+    expect(rows[0]?.variant_attributes).toEqual({
+      Colour: 'Silver',
+      Storage: '1TB',
+      Warranty: null,
+    });
+  });
+
+  it('preserves explicit null variant attribute values', () => {
+    const rows = buildStructuredVariantPickerItems({
+      parentProduct: {
+        images: [],
+        name: 'Galaxy S26',
+        price: 900000,
+      },
+      variants: [
+        {
+          attributes: {
+            color: null,
+            ignored: undefined,
+            storage: '512GB',
+          },
+          id: 'variant-5',
+        },
+      ],
+    });
+
+    expect(rows[0]?.variant_attributes).toEqual({
+      color: null,
+      storage: '512GB',
+    });
+  });
+
+  it('drops non-finite numeric variant attribute values', () => {
+    const rows = buildStructuredVariantPickerItems({
+      parentProduct: {
+        images: [],
+        name: 'Galaxy S26',
+        price: 900000,
+      },
+      variants: [
+        {
+          attributes: {
+            finite: 512,
+            infinity: Number.POSITIVE_INFINITY,
+            nan: Number.NaN,
+          },
+          id: 'variant-6',
+        },
+      ],
+    });
+
+    expect(rows[0]?.variant_attributes).toEqual({
+      finite: 512,
+    });
+  });
 });

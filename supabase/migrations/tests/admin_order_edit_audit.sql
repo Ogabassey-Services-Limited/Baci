@@ -465,6 +465,62 @@ BEGIN
         'id', v_customer_id,
         'name', 'Ada Buyer',
         'email', 'ada@example.com',
+        'phone', '+2348012345678'
+      ),
+      'discount_amount', 0,
+      'gift_wrapping_fee', 0,
+      'items', jsonb_build_array(
+        jsonb_build_object(
+          'condition', null,
+          'image_url', null,
+          'item_description', 'Manual add-on',
+          'name', 'Custom setup service',
+          'price', 5000,
+          'product_id', null,
+          'quantity', 1,
+          'variant_id', null,
+          'variant_attributes', null,
+          'variant_name', null
+        )
+      ),
+      'notes', 'Original note',
+      'notify_customer', false,
+      'shipping_address', jsonb_build_object(
+        'address', '12 Allen Avenue',
+        'city', 'Ikeja',
+        'name', 'Ada Buyer',
+        'phone', '+2348012345678',
+        'state', 'Lagos'
+      ),
+      'shipping_fee', 2500,
+      'source', 'physical',
+      'tax_amount', 0
+    )
+  );
+
+  IF v_result ->> 'change_category' <> 'financial' THEN
+    RAISE EXCEPTION 'expected custom line edit to be financial, got %', v_result;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.order_items
+    WHERE order_id = v_order_id
+      AND product_id IS NULL
+      AND product_match_status = 'custom'
+      AND name = 'Custom setup service'
+  ) THEN
+    RAISE EXCEPTION 'custom line item default did not persist as custom';
+  END IF;
+
+  v_result := public.update_admin_order(
+    v_order_id,
+    jsonb_build_object(
+      'branch_id', null,
+      'customer', jsonb_build_object(
+        'id', v_customer_id,
+        'name', 'Ada Buyer',
+        'email', 'ada@example.com',
         'phone', '+2348099999999'
       ),
       'discount_amount', 0,
@@ -533,8 +589,9 @@ BEGIN
     FROM public.order_audit_events
     WHERE order_id = v_order_id
       AND action = 'order.update'
-  ) <> 1 THEN
-    RAISE EXCEPTION 'expected one audit event after successful edit';
+      AND change_category = 'financial'
+  ) <> 2 THEN
+    RAISE EXCEPTION 'expected two audit events after successful edits';
   END IF;
 
   UPDATE public.orders

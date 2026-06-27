@@ -17,6 +17,55 @@ export const WEB_ORDER_WITH_ITEMS_QUERY_PUBLIC = `${WEB_ORDER_COLUMNS_PUBLIC}, o
 export const MOBILE_ADMIN_ORDER_COLUMNS =
   'id, order_number, merchant_id, branch_id, customer_id, customer_name, customer_email, customer_phone, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, amount_paid, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, selected_quote_id, shipping_provider, tracking_number, tracking_token, shipment_id, fulfillment_type, fulfillment_details, self_fulfillment_data, created_at, updated_at';
 
+export const MOBILE_ADMIN_ORDER_ITEMS_COLUMNS =
+  'id, product_id, condition, has_assurance, image_url, item_description, details:item_description, product_match_status, variant_id, variant_name, variant_attributes, name, product_name:name, quantity, price';
+
+export const MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY = `${MOBILE_ADMIN_ORDER_COLUMNS}, items:order_items(${MOBILE_ADMIN_ORDER_ITEMS_COLUMNS})`;
+
+export type OrderEditChangeCategory =
+  | 'customer_visible'
+  | 'financial'
+  | 'internal';
+
+export const CUSTOMER_NOTIFICATION_ORDER_EDIT_CATEGORIES: readonly OrderEditChangeCategory[] =
+  ['customer_visible', 'financial'];
+
+export interface OrderEditNotificationDecision {
+  change_category?: OrderEditChangeCategory | null;
+  notify_customer?: boolean | null;
+}
+
+export interface OrderAuditEventContract {
+  change_category: OrderEditChangeCategory;
+  changed_fields: string[];
+}
+
+export function normalizeOrderEditChangeCategory(
+  value: unknown
+): OrderEditChangeCategory | null {
+  if (
+    value === 'customer_visible' ||
+    value === 'financial' ||
+    value === 'internal'
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+export function shouldNotifyCustomerForOrderEdit(
+  result: OrderEditNotificationDecision
+): boolean {
+  return Boolean(
+    result.notify_customer &&
+      result.change_category &&
+      CUSTOMER_NOTIFICATION_ORDER_EDIT_CATEGORIES.includes(
+        result.change_category
+      )
+  );
+}
+
 type ShippingAddressLike = {
   address?: unknown;
   address_line1?: unknown;

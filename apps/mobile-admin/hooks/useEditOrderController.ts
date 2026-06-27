@@ -1,0 +1,161 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
+import {
+  buildEditOrderPayload,
+  type EditableOrderRecord,
+  isOrderFinanciallyLocked,
+  mapOrderItemsForEdit,
+  readShippingAddressValue,
+} from '@/lib/edit-order-payload';
+import { useUpdateOrder } from './orders/useUpdateOrder';
+import { useNewOrderController } from './useNewOrderController';
+import { useOrder } from './useOrders';
+
+export function useEditOrderController() {
+  const rawParams = useLocalSearchParams<{ id?: string }>();
+  const orderId = Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id;
+  const baseController = useNewOrderController();
+  const orderQuery = useOrder(orderId ?? '');
+  const updateOrderMutation = useUpdateOrder();
+  const [notifyCustomer, setNotifyCustomer] = useState(false);
+  const prefilledOrderIdRef = useRef<string | null>(null);
+  const order = orderQuery.data as EditableOrderRecord | undefined;
+  const {
+    setCustomer,
+    setDeliveryInfo,
+    setDiscount,
+    setNotes,
+    setOrderItems,
+    setSameAsCustomer,
+    setSelectedBranchId,
+    setSelectedChannel,
+    setShippingFee,
+    setTaxes,
+  } = baseController;
+
+  useEffect(() => {
+    if (!order || prefilledOrderIdRef.current === order.id) {
+      return;
+    }
+
+    prefilledOrderIdRef.current = order.id;
+    const address = readShippingAddressValue(order.shipping_address, 'address');
+    const explicitShippingName = readShippingAddressValue(
+      order.shipping_address,
+      'name'
+    );
+    const explicitShippingPhone = readShippingAddressValue(
+      order.shipping_address,
+      'phone'
+    );
+    const customerName = order.customer_name ?? '';
+    const customerPhone = order.customer_phone ?? '';
+    const shippingName = explicitShippingName || customerName;
+    const shippingPhone = explicitShippingPhone || customerPhone;
+    const sameAsCustomer =
+      shippingName === customerName && shippingPhone === customerPhone;
+
+    setCustomer({
+      address,
+      email: order.customer_email ?? '',
+      id: order.customer_id ?? null,
+      name: customerName,
+      phone: customerPhone,
+    });
+    setSelectedBranchId(
+      typeof order.branch_id === 'string' ? order.branch_id : null
+    );
+    setSelectedChannel(order.source ?? 'physical');
+    setOrderItems(mapOrderItemsForEdit(order.items));
+    setNotes(order.notes ?? '');
+    setDiscount(Number(order.discount_amount) || 0);
+    setShippingFee(Number(order.shipping_fee) || 0);
+    setTaxes(Number(order.tax_amount) || 0);
+    setSameAsCustomer(sameAsCustomer);
+    setDeliveryInfo({
+      address,
+      city: readShippingAddressValue(order.shipping_address, 'city'),
+      name: shippingName,
+      phone: shippingPhone,
+      state: readShippingAddressValue(order.shipping_address, 'state'),
+    });
+  }, [
+    order,
+    setCustomer,
+    setDeliveryInfo,
+    setDiscount,
+    setNotes,
+    setOrderItems,
+    setSameAsCustomer,
+    setSelectedBranchId,
+    setSelectedChannel,
+    setShippingFee,
+    setTaxes,
+  ]);
+
+  const handleSubmit = async () => {
+    if (updateOrderMutation.isPending) {
+      return;
+    }
+
+    if (!orderId) {
+      Alert.alert('Invalid order', 'This order link is missing an id.');
+      return;
+    }
+
+    if (!baseController.customer.name.trim()) {
+      Alert.alert('Required', 'Please select a customer for this order');
+      return;
+    }
+
+    if (baseController.orderItems.length === 0) {
+      Alert.alert('Required', 'Please add at least one product');
+      return;
+    }
+
+    try {
+      await updateOrderMutation.mutateAsync({
+        orderId,
+        payload: buildEditOrderPayload({
+          customer: baseController.customer,
+          deliveryInfo: baseController.deliveryInfo,
+          discount: baseController.discount,
+          notes: baseController.notes,
+          notifyCustomer,
+          orderItems: baseController.orderItems,
+          sameAsCustomer: baseController.sameAsCustomer,
+          selectedBranchId: baseController.selectedBranchId,
+          selectedChannel: baseController.selectedChannel,
+          shippingFee: baseController.shippingFee,
+          taxesToUse: baseController.taxesToUse,
+        }),
+      });
+      baseController.setShowSuccessModal(true);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update order';
+      Alert.alert('Error', message);
+    }
+  };
+
+  return {
+    ...baseController,
+    editError: orderQuery.error,
+    handleSubmit,
+    isEditError: orderQuery.isError,
+    isEditLoading: orderQuery.isLoading,
+    isFinancialLocked: order ? isOrderFinanciallyLocked(order) : false,
+    isSubmitting: updateOrderMutation.isPending,
+    notifyCustomer,
+    order,
+    orderId,
+    setNotifyCustomer,
+    updateOrderMutation,
+    viewOrder: () => {
+      if (orderId) {
+        router.replace(`/order/${orderId}`);
+      }
+    },
+  };
+}
