@@ -9,41 +9,17 @@ interface ProductSemanticSectionsProps {
 export function ProductSemanticSections({
   model,
 }: ProductSemanticSectionsProps) {
-  const contextParagraphs = model.contextParagraphs ?? [];
   const hasCards = Boolean(
     model.alternatives || model.sameBrand || model.samePrice,
   );
-  const hasContext = contextParagraphs.length > 0;
   const hasGuideLinks = model.guideLinks.length > 0;
 
-  if (!model.supportLinks.length && !hasContext && !hasGuideLinks && !hasCards) {
+  if (!model.supportLinks.length && !hasGuideLinks && !hasCards) {
     return null;
   }
 
   return (
     <section className="ogabassey-pdp-semantic-sections">
-      {hasContext ? (
-        <section
-          aria-labelledby="product-details-buying-checklist"
-          className="ogabassey-pdp-semantic-card"
-        >
-          <h2
-            id="product-details-buying-checklist"
-            className="ogabassey-pdp-semantic-card__title"
-          >
-            Product details and buying checklist
-          </h2>
-          {contextParagraphs.map((paragraph, index) => (
-            <p
-              key={index}
-              className="ogabassey-pdp-semantic-card__description"
-            >
-              {paragraph}
-            </p>
-          ))}
-        </section>
-      ) : null}
-
       {hasGuideLinks ? (
         <section
           aria-labelledby="product-guide-links"

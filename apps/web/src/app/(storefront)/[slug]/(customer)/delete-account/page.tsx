@@ -25,8 +25,8 @@ export async function generateMetadata({
     title: `Delete Account | ${merchant.business_name}`,
     description: `Request deletion of your ${merchant.business_name} account and associated data.`,
     robots: {
-      index: false,
-      follow: false,
+      index: true,
+      follow: true,
     },
     openGraph: {
       title: `Delete Account | ${merchant.business_name}`,

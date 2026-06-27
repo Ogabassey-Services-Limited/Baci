@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
-import { DELETE, GET } from './route';
+import { DELETE, GET, PATCH } from './route';
 
 const mockCreateAdminClient = vi.fn();
 const mockCreateClient = vi.fn();
@@ -37,29 +37,22 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-function createRequest(): NextRequest {
+function createRequest(method: 'DELETE' | 'PATCH'): NextRequest {
   return new Request('http://localhost/api/admin/notifications/123', {
-    method: 'DELETE',
+    method,
+    body:
+      method === 'PATCH' ? JSON.stringify({ title: 'Updated title' }) : null,
+    headers: method === 'PATCH' ? { 'Content-Type': 'application/json' } : {},
   }) as NextRequest;
 }
 
 function createMockSupabase(options?: {
   deleteError?: { message: string } | null;
-  notification?: {
-    id: string;
-    sent_at: string | null;
-    target_merchant_ids?: string[] | null;
-    target_segment?: string | null;
-    target_type?: string;
-    title?: string;
-  } | null;
+  notification?: { id: string; sent_at: string | null; title?: string } | null;
 }) {
   const notification = options?.notification ?? {
     id: '123e4567-e89b-12d3-a456-426614174000',
     sent_at: null,
-    target_merchant_ids: null,
-    target_segment: null,
-    target_type: 'all',
     title: 'Launch update',
   };
   const deleteError = options?.deleteError ?? null;
@@ -227,6 +220,25 @@ describe('/api/admin/notifications/[id]', () => {
     });
   });
 
+  it('returns 403 when CSRF validation fails on PATCH', async () => {
+    mockCheckCsrfProtection.mockResolvedValueOnce({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    });
+
+    const response = await PATCH(createRequest('PATCH'), {
+      params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
   it('returns 403 when CSRF validation fails on DELETE', async () => {
     mockCheckCsrfProtection.mockResolvedValueOnce({
       valid: false,
@@ -236,7 +248,7 @@ describe('/api/admin/notifications/[id]', () => {
       ),
     });
 
-    const response = await DELETE(createRequest(), {
+    const response = await DELETE(createRequest('DELETE'), {
       params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
     });
     const body = await response.json();
@@ -247,7 +259,7 @@ describe('/api/admin/notifications/[id]', () => {
   });
 
   it('deletes notifications after passing CSRF validation', async () => {
-    const response = await DELETE(createRequest(), {
+    const response = await DELETE(createRequest('DELETE'), {
       params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
     });
     const body = await response.json();

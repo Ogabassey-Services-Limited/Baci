@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ComponentType } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
@@ -12,6 +13,7 @@ import { asRoute } from '@/lib/routes';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
+import { isDomainIdentifier } from '@/lib/validation';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { getTemplate } from '@/templates/registry';
 import { BlogDiscoverySection } from './blog-discovery-section';
@@ -24,6 +26,7 @@ import {
   type BlogSearchParamValue,
   toSingleBlogSearchParam,
 } from './blog-search-params';
+import { getBlogStorefrontPathPrefix } from './blog-storefront-path-prefix';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -69,8 +72,9 @@ export async function BlogPageContent({
     typeof organizationSchema['@id'] === 'string'
       ? organizationSchema['@id']
       : buildBlogOrganizationId(baseUrl);
-  const basePath = baseUrl;
-  const templateBasePath = baseUrl;
+  const basePath = isDomainIdentifier(slug)
+    ? ''
+    : getBlogStorefrontPathPrefix(await headers(), merchant);
   const authorLinks = getBlogAuthorPageLinks(slug);
 
   if (currentPage > totalPages) {
@@ -247,7 +251,7 @@ export async function BlogPageContent({
               organizationSchema={organizationSchema}
               itemListSchema={effectiveSearchQuery ? undefined : itemListSchema}
               BlogComponent={templateBlogUi.BlogComponent}
-              basePath={templateBasePath}
+              basePath={basePath}
               blogPosts={templateBlogUi.posts}
               categories={templateBlogUi.categories}
               category={category}

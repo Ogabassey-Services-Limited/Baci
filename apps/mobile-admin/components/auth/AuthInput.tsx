@@ -65,11 +65,7 @@ export function AuthInput({
       <View
         style={[
           styles.inputWrapper,
-          {
-            backgroundColor: wrapperColor,
-            borderColor,
-            opacity: editable !== false ? 1 : 0.6,
-          },
+          { backgroundColor: wrapperColor, borderColor, opacity: editable !== false ? 1 : 0.6 },
         ]}
       >
         <Ionicons

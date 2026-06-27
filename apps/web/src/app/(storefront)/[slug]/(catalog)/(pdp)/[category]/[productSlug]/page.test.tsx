@@ -469,15 +469,10 @@ vi.mock('@/components/storefront/ogabassey/pdp/client-islands', () => ({
   OgabasseyPdpBelowFoldIsland: (props: {
     product: unknown;
     semanticSections?: ReactNode;
-    serverPrimaryDetails?: ReactNode;
-    storeSlug: string;
   }) => {
     mockOgabasseyPdpDeferredDetailIsland(props);
     return (
-      <section aria-label="Product details">
-        {props.serverPrimaryDetails}
-        {props.semanticSections}
-      </section>
+      <section aria-label="Product details">{props.semanticSections}</section>
     );
   },
 }));
@@ -705,21 +700,8 @@ function isRscElement(
   return isRecord(value) && isValidElement<ResolveRscElementProps>(value);
 }
 
-function isReactClassComponent(type: unknown) {
-  return (
-    typeof type === 'function' &&
-    Boolean(
-      (
-        type as {
-          prototype?: { isReactComponent?: unknown };
-        }
-      ).prototype?.isReactComponent
-    )
-  );
-}
-
 function isServerComponent(type: unknown): type is ServerComponent {
-  return typeof type === 'function' && !isReactClassComponent(type);
+  return typeof type === 'function';
 }
 
 function isAsyncServerComponent(type: unknown): type is ServerComponent {
@@ -1802,49 +1784,6 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.description).not.toContain('in Nigeria');
   });
 
-  it('formats OgaBassey PDP product display with the merchant payout currency', async () => {
-    mockGetRequestScopedMerchant.mockResolvedValueOnce({
-      ...baseMerchant,
-      country: 'GH',
-      payout_currency: 'GHS',
-      template_id: OGABASSEY_TEMPLATE_ID,
-    });
-    mockGetCachedProductWithDetails.mockResolvedValue({
-      ...categorizedDetailedProduct,
-      name: 'Pixel 10',
-      slug: 'pixel-10',
-      description: 'Google Pixel phone.',
-      price: 999,
-      category: 'Smartphones',
-      categories: {
-        id: 'cat-smartphones',
-        name: 'Smartphones',
-        slug: 'smartphones',
-        parent_id: null,
-      },
-    });
-
-    render(
-      await resolveRsc(
-        await CategoryProductPage({
-          params: Promise.resolve({
-            slug: 'teststore',
-            category: 'smartphones',
-            productSlug: 'pixel-10',
-          }),
-          searchParams: Promise.resolve({}),
-        })
-      )
-    );
-
-    const ogabasseyProps = mockOgabasseyPdpDeferredDetailIsland.mock.calls
-      .at(-1)
-      ?.at(0) as { product?: { price?: string } } | undefined;
-
-    expect(ogabasseyProps?.product?.price).toBe('GHS 999');
-    expect(ogabasseyProps?.product?.price).not.toContain('₦');
-  });
-
   it('leaves variant query redirects to page rendering, not metadata generation', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
@@ -2191,11 +2130,6 @@ describe('[category]/[productSlug] page render', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: /product details/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('region', {
-        name: /HP Laptop 14-ep0063nia overview and specifications/i,
-      })
     ).toBeInTheDocument();
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
     expect(
@@ -2580,7 +2514,7 @@ describe('[category]/[productSlug] page render', () => {
     );
   });
 
-  it('strips HTML tags from crawlable summary and visible overview text', async () => {
+  it('strips HTML tags from hidden summary description text', async () => {
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
       description:
@@ -2601,8 +2535,8 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(
-      screen.getAllByText('A premium laptop built for creators.')
-    ).not.toHaveLength(0);
+      screen.getByText('A premium laptop built for creators.')
+    ).toBeInTheDocument();
     expect(screen.queryByText(/<strong>/)).not.toBeInTheDocument();
   });
 
@@ -2649,7 +2583,7 @@ describe('[category]/[productSlug] page render', () => {
           }
         | undefined;
 
-    expect(screen.getAllByText(expectedDescription).length).toBeGreaterThan(0);
+    expect(screen.getByText(expectedDescription)).toBeInTheDocument();
     expect(screen.queryByText(/Current listed price/i)).not.toBeInTheDocument();
     expect(ogabasseyProps?.product?.description).toBe(expectedDescription);
     expect(criticalCommerceProviderProps?.cartProduct?.description).toBe(
@@ -4303,7 +4237,6 @@ describe('[category]/[productSlug] page render', () => {
       ...baseMerchant,
       support_email: 'support@test.example',
       support_phone: '+2348000000000',
-      template_id: OGABASSEY_TEMPLATE_ID,
       trust_profile: {
         return_policy: {
           summary: 'Returns accepted within 7 days.',
@@ -4410,12 +4343,6 @@ describe('[category]/[productSlug] page render', () => {
         product: expect.objectContaining({
           slug: 'samsung-galaxy-z-trifold',
         }),
-      })
-    );
-    expect(mockOgabasseyPdpDeferredDetailIsland).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serverPrimaryDetails: expect.anything(),
-        storeSlug: 'teststore',
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(

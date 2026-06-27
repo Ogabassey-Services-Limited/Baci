@@ -182,7 +182,7 @@ async function loadExistingOrders(
 ) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, order_number, external_source, external_id, updated_at')
+    .select('id, order_number, external_source, external_id')
     .eq('merchant_id', merchantId);
 
   if (error) {
@@ -196,7 +196,6 @@ async function loadExistingOrders(
         orderNumber: order.order_number,
         externalSource: order.external_source,
         externalId: order.external_id,
-        updatedAt: order.updated_at,
       }) satisfies ExistingImportedOrder
   );
 }

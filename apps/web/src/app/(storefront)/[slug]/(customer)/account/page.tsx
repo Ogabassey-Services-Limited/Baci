@@ -5,7 +5,7 @@ import { AccountPageClient } from './account-client';
 export const metadata: Metadata = {
   title: 'Your Account',
   description: 'Manage your account, orders, and preferences.',
-  robots: { index: false, follow: false },
+  robots: { index: false },
 };
 
 export default async function AccountPage({

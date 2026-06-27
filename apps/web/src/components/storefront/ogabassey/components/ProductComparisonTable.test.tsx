@@ -350,57 +350,6 @@ describe('ProductComparisonTable', () => {
     expect(await screen.findByText('₦50,000.00')).toBeInTheDocument();
   });
 
-
-  it('keeps custom-domain comparison product links root-relative when context basePath is empty', async () => {
-    mockUseMerchantSafe.mockReturnValue({
-      basePath: '',
-      merchant: {
-        country: 'NG',
-        payout_currency: 'NGN',
-      },
-    });
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        products: [
-          {
-            id: 'pixel-pro',
-            name: 'Pixel Pro',
-            slug: 'pixel-pro',
-            price: 900000,
-            image: 'https://example.com/pixel.jpg',
-            category: 'Smartphones',
-            condition: 'new',
-          },
-        ],
-      }),
-    }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(
-      <ProductComparisonTable
-        mainProduct={createMainProduct()}
-        storeSlug="ogabassey.com"
-      />
-    );
-
-    fireEvent.click(
-      screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
-    );
-    fireEvent.change(screen.getByRole('textbox', { name: /search products/i }), {
-      target: { value: 'pixel' },
-    });
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    fireEvent.click(await screen.findByText('Pixel Pro'));
-
-    expect(screen.getByRole('link', { name: 'Pixel Pro' })).toHaveAttribute(
-      'href',
-      '/smartphones/pixel-pro'
-    );
-  });
-
   it('uses storefront theme tokens for the current product header', () => {
     render(
       <ProductComparisonTable

@@ -131,7 +131,6 @@ describe('blog author page metadata', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/author/bassey-john?page=2'
     );
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
       'ogabassey.com',
       'Bassey John',

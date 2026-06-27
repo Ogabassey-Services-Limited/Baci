@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
-import { checkRateLimit } from '@/lib/rate-limiter';
 import { createClient } from '@/lib/supabase/server';
 import { adminGenerateHeroImagesRequestSchema } from '@/schemas/admin-generate-hero-images';
 import { generateHeroImageBatch } from '@/services/hero-image-generator';
@@ -57,23 +56,6 @@ export async function POST(request: NextRequest) {
       );
     }
     const { category, count } = parseResult.data;
-
-    // Cost control: each call generates up to 20 Imagen images (billed per
-    // image), so throttle per user — the middleware limiter is only per-IP.
-    const supabase = await createClient();
-    const withinRateLimit = await checkRateLimit(
-      supabase,
-      auth.user.id,
-      'admin_ai_image_gen',
-      5,
-      1
-    );
-    if (!withinRateLimit) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded', code: 'rate_limited' },
-        { status: 429 }
-      );
-    }
 
     logger.info({ message: 'Generating hero images batch', category, count });
 

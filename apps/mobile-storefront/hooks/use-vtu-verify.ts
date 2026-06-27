@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase';
 export interface VerifyResult {
   verified: boolean;
   customerName?: string;
-  address?: string;
   message: string;
   requireValidationRef?: boolean;
   validationReference?: string;
@@ -16,7 +15,6 @@ export interface VerifyResult {
 const VerifyResultSchema = z.object({
   verified: z.boolean(),
   customerName: z.string().optional(),
-  address: z.string().optional(),
   message: z.string(),
   requireValidationRef: z.boolean().optional(),
   validationReference: z.string().optional(),

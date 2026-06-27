@@ -1,7 +1,6 @@
 'use client';
 
 import { HelpCircle, Search } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
@@ -38,14 +37,12 @@ interface FAQPageClientProps {
   };
   faqItems: FAQItem[];
   legacyContent?: string;
-  children?: ReactNode;
 }
 
 export function FAQPageClient({
   merchant,
   faqItems,
   legacyContent,
-  children,
 }: FAQPageClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const hasStructuredFAQs = faqItems.length > 0;
@@ -218,7 +215,6 @@ export function FAQPageClient({
                   <ContactCTA />
                 </div>
               </div>
-              {children}
             </main>
 
             <StorefrontFooter />

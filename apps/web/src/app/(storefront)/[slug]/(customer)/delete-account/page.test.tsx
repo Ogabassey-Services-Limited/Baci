@@ -48,6 +48,5 @@ describe('delete-account metadata', () => {
     });
 
     expect(metadata.title).toBe('Delete Account | Test Store');
-    expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 });

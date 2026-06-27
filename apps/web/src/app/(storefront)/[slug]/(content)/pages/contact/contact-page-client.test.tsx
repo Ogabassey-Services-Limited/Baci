@@ -81,21 +81,6 @@ describe('ContactPageClient', () => {
     expect(screen.getByText('123 Test Street')).toBeInTheDocument();
   });
 
-  it('renders crawl summary children before the storefront footer', () => {
-    render(
-      <ContactPageClient merchant={mockMerchant}>
-        <section data-testid="crawl-summary">SEO crawl summary</section>
-      </ContactPageClient>
-    );
-
-    const summary = screen.getByTestId('crawl-summary');
-    const footer = screen.getByTestId('footer');
-
-    expect(
-      summary.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-  });
-
   it('submits form with correct field names matching API contract', async () => {
     fetchWithCsrfMock.mockResolvedValueOnce({ ok: true });
 

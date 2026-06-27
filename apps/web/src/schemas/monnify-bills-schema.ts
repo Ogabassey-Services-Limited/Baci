@@ -198,8 +198,6 @@ export function monnifyListResponseBodySchema<T extends z.ZodTypeAny>(
 // Validate Customer Response Body Schema (flat + nested vendInstruction support)
 export const validateCustomerResponseBodySchema = z.object({
   customerName: z.string().optional().nullable(),
-  // Meter/customer address (e.g. EKEDC prepaid) — surfaced for the receipt.
-  address: z.string().optional().nullable(),
   validationReference: z.string().optional().nullable(),
   requireValidationRef: z.boolean().optional().nullable(),
   vendInstruction: z

@@ -47,7 +47,6 @@ function makeOrder(
     updatedAt: null,
     couponCode: null,
     shippingOption: null,
-    shippingAddress: null,
     receiptReady: true,
     items: [
       {
