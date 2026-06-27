@@ -2889,6 +2889,8 @@ export const CheckoutPage: React.FC = () => {
             <DiscountCodeInput
               merchantId={merchant?.id || ''}
               cartTotal={effectiveCheckoutCartTotal}
+              currencyCountryCode={merchant?.country ?? 'NG'}
+              payoutCurrency={merchant?.payout_currency ?? null}
               productIds={checkoutCart.map((item) => item.id)}
               appliedDiscount={appliedDiscount}
               onApply={setAppliedDiscount}
