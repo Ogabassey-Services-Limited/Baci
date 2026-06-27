@@ -116,10 +116,33 @@ describe('capturePublicBlogPageview', () => {
     });
     expect(JSON.parse(storage.get('ph_ph_public_posthog') ?? '{}')).toEqual(
       expect.objectContaining({
-        device_id: 'generated-sdk-id',
+        $device_id: 'generated-sdk-id',
         distinct_id: 'generated-sdk-id',
       })
     );
+  });
+
+  it('uses the PostHog SDK device ID field when distinct ID is not persisted yet', () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Promise.resolve(new Response(null))
+    );
+
+    stubStorage({
+      ph_ph_public_posthog: JSON.stringify({ $device_id: 'sdk-device-1' }),
+    });
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0' });
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('location', { origin: 'https://ogabassey.com' });
+
+    capturePublicBlogPageview(
+      { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'ph_public' },
+      'https://ogabassey.com/blog'
+    );
+
+    expect(parseFetchBody(fetch)).toMatchObject({
+      distinct_id: 'sdk-device-1',
+      properties: { distinct_id: 'sdk-device-1' },
+    });
   });
 
   it('uses a generated per-page fallback when storage is blocked', () => {

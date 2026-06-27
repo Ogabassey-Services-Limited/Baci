@@ -119,7 +119,7 @@ function getExistingSdkDistinctId(projectToken: string): string | undefined {
   if (sdkPersistence) {
     return (
       getStringProperty(sdkPersistence, 'distinct_id') ??
-      getStringProperty(sdkPersistence, 'device_id')
+      getStringProperty(sdkPersistence, '$device_id')
     );
   }
 
@@ -130,10 +130,10 @@ function seedSdkDistinctId(projectToken: string, distinctId: string): void {
   const storageKey = getPostHogSdkPersistenceKey(projectToken);
   const existingPersistence =
     parsePostHogPersistenceValue(readStorageValue(storageKey)) ?? {};
-  const deviceId = getStringProperty(existingPersistence, 'device_id');
+  const deviceId = getStringProperty(existingPersistence, '$device_id');
   const nextPersistence = {
     ...existingPersistence,
-    device_id: deviceId ?? distinctId,
+    $device_id: deviceId ?? distinctId,
     distinct_id: distinctId,
   };
 
