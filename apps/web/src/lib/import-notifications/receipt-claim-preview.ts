@@ -30,6 +30,8 @@ export type ReceiptClaimPreviewWithLoginEmailHintResult =
   | { ok: true; claim: ReceiptClaimPreview; emailHint: string }
   | { ok: false; error: string; status: 400 | 404 | 410 };
 
+const RECEIPT_CLAIM_ACTIVITY_TIMEOUT_MS = 300;
+
 export function parseReceiptClaimToken(token: string | undefined) {
   const parsed = receiptClaimRouteParamsSchema.safeParse({ token });
   return parsed.success ? parsed.data.token : null;
@@ -141,4 +143,101 @@ export async function loadReceiptClaimLoginEmailHint({
     emailHint: sanitizeCustomerLoginEmailPrefill(record.claim.customer_email),
     ok: true,
   };
+}
+
+async function recordReceiptClaimActivity({
+  rpcName,
+  supabase,
+  token,
+}: {
+  rpcName: 'record_receipt_claim_click' | 'record_receipt_claim_login_started';
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  const { error } = await supabase.rpc(rpcName, {
+    p_token_hash: hashReceiptClaimToken(token),
+  });
+
+  if (error) {
+    throw new Error(
+      `Failed to record receipt claim activity: ${error.message}`
+    );
+  }
+}
+
+export async function recordReceiptClaimClick({
+  supabase,
+  token,
+}: {
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  await recordReceiptClaimActivity({
+    rpcName: 'record_receipt_claim_click',
+    supabase,
+    token,
+  });
+}
+
+export async function recordReceiptClaimLoginStarted({
+  supabase,
+  token,
+}: {
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  await recordReceiptClaimActivity({
+    rpcName: 'record_receipt_claim_login_started',
+    supabase,
+    token,
+  });
+}
+
+async function recordReceiptClaimActivityBestEffort({
+  logMessage,
+  rpcName,
+  supabase,
+  token,
+}: {
+  logMessage: string;
+  rpcName: 'record_receipt_claim_click' | 'record_receipt_claim_login_started';
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  const tracking = recordReceiptClaimActivity({
+    rpcName,
+    supabase,
+    token,
+  }).catch((error: unknown) => {
+    console.error(logMessage, error);
+  });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await Promise.race([
+      tracking,
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, RECEIPT_CLAIM_ACTIVITY_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+export async function recordReceiptClaimClickBestEffort({
+  supabase,
+  token,
+}: {
+  supabase: SupabaseClient;
+  token: string;
+}) {
+  await recordReceiptClaimActivityBestEffort({
+    logMessage: 'Failed to record receipt claim click',
+    rpcName: 'record_receipt_claim_click',
+    supabase,
+    token,
+  });
 }

@@ -1,3 +1,4 @@
+import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -13,6 +14,7 @@ interface OrderItem {
   id: string;
   product_id: string;
   image_url?: string | null;
+  condition?: string | null;
   variant_name?: string;
   product_name?: string;
   name?: string;
@@ -74,6 +76,14 @@ function flattenOrderItemProductData(item: OrderItem) {
     category_slug: categories?.slug || item.category_slug,
     categories,
   };
+}
+
+function getOrderItemVariantName(item: OrderItem) {
+  return (
+    item.variant_name ||
+    formatCanonicalProductConditionLabel(item.condition) ||
+    undefined
+  );
 }
 
 async function fetchProductRouteDetails(
@@ -176,6 +186,8 @@ function mapOrderItemsWithRoutes(
       quantity: item.quantity,
       price: item.price,
       image_url: item.image_url,
+      condition: item.condition,
+      variant_name: getOrderItemVariantName(item),
       product_images: item.product_images,
       ...flattenOrderItemProductData(item),
       ...(productRouteDetails?.get(item.product_id) || {}),
@@ -303,6 +315,7 @@ export async function GET(
               id,
               product_id,
               image_url,
+              condition,
               variant_name,
               product_name:name,
               quantity,

@@ -195,6 +195,108 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('mailto:support@shop.example');
   });
 
+  it('labels imported paid receipt payment methods for customers', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({ payment_method: 'imported' }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Verified imported payment');
+    expect(html).not.toContain('<div class="info-name">imported</div>');
+  });
+
+  it('labels unpaid receipt payment methods as pending', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        payment_method: 'card',
+        payment_status: 'pending',
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Pending');
+    expect(html).not.toContain('<div class="info-name">card</div>');
+  });
+
+  it('includes postal code and country in the customer address block', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '12 Admiralty Way',
+          city: 'Lekki',
+          state: 'Lagos',
+          postal_code: '100001',
+          country: 'Nigeria',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('12 Admiralty Way');
+    expect(html).toContain('Lekki, Lagos');
+    expect(html).toContain('100001');
+    expect(html).toContain('Nigeria');
+  });
+
+  it('does not duplicate country when the imported full address already contains it', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '10 Marina, Lagos, Nigeria',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'NG',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html.match(/Nigeria/g) ?? []).toHaveLength(1);
+    expect(html).not.toContain('<div>NG</div>');
+  });
+
+  it('renders standalone Nigerian country codes as Nigeria', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '12 Admiralty Way',
+          country: 'NG',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Nigeria');
+    expect(html).not.toContain('<div>NG</div>');
+  });
+
+  it('does not suppress short country codes found inside address words', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        shipping_address: {
+          address_line1: '10 Georgia Street',
+          country: 'GE',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('10 Georgia Street');
+    expect(html).toContain('<div>GE</div>');
+  });
+
+  it.each([
+    null,
+    '   ',
+  ])('labels paid receipt payment method %s as verified', (paymentMethod) => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({ payment_method: paymentMethod }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('<div class="info-name">Verified</div>');
+  });
+
   it('never leaks the private account email onto the receipt', () => {
     // With no support email and no business name, the receipt must not fall
     // back to `merchant.email` (the private login address) for either the

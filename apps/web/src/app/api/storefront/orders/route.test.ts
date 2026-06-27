@@ -71,6 +71,8 @@ function createSupabaseMock(input?: {
         id: string;
         product_id: string;
         image_url?: string | null;
+        condition?: string | null;
+        variant_name?: string | null;
         name: string;
         quantity: number;
         price: number;
@@ -269,6 +271,8 @@ describe('GET /api/storefront/orders', () => {
                     id: 'item-1',
                     product_id: 'product-1',
                     name: 'Imported Product',
+                    condition: 'used',
+                    variant_name: 'Used',
                     quantity: 2,
                     price: 70000,
                     has_assurance: false,
@@ -324,6 +328,8 @@ describe('GET /api/storefront/orders', () => {
               id: 'item-1',
               product_id: 'product-1',
               name: 'Imported Product',
+              condition: 'used',
+              variant_name: 'Used',
               quantity: 2,
               price: 70000,
               has_assurance: false,
@@ -421,6 +427,8 @@ describe('GET /api/storefront/orders', () => {
                     id: 'item-1',
                     product_id: 'product-1',
                     image_url: null,
+                    condition: 'used',
+                    variant_name: 'Used',
                     name: 'Samsung Galaxy S26',
                     quantity: 1,
                     price: 1283968.38,
@@ -457,6 +465,8 @@ describe('GET /api/storefront/orders', () => {
       expect.objectContaining({
         image_url:
           'https://cdn.ogabassey.com/core-assets/products/samsung-galaxy-s25-navy.avif',
+        condition: 'used',
+        variant_name: 'Used',
         product_images: [
           'https://cdn.ogabassey.com/core-assets/products/samsung-galaxy-s25-navy.avif',
         ],

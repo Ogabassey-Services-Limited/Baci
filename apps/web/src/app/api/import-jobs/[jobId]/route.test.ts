@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { noStoreMock } = vi.hoisted(() => ({
   noStoreMock: vi.fn(),
@@ -25,12 +25,49 @@ import { GET } from './route';
 
 const jobId = '00000000-0000-4000-8000-000000000001';
 
-function createRouteContext(): ImportRouteContext {
+const baseCampaignStats = {
+  claimedCount: 1,
+  clickedCount: 1,
+  lastActivityAt: '2026-06-27T10:05:00.000Z',
+  loginStartedCount: 1,
+  recipients: [
+    {
+      claimedAt: '2026-06-27T10:05:00.000Z',
+      clickCount: 2,
+      customerEmail: 'customer@example.com',
+      customerName: 'Customer Example',
+      firstClickedAt: '2026-06-27T10:00:00.000Z',
+      firstLoginStartedAt: '2026-06-27T10:02:00.000Z',
+      id: 'claim-1',
+      lastClickedAt: '2026-06-27T10:01:00.000Z',
+      lastLoginStartedAt: '2026-06-27T10:02:00.000Z',
+      loginStartedCount: 1,
+      notificationSentAt: '2026-06-27T09:59:00.000Z',
+    },
+  ],
+  sentCount: 1,
+  totalRecipients: 1,
+};
+
+function createSupabaseMock(
+  campaignResponse: { data: unknown; error: unknown } = {
+    data: baseCampaignStats,
+    error: null,
+  }
+) {
+  return {
+    rpc: vi.fn().mockResolvedValue(campaignResponse),
+  };
+}
+
+function createRouteContext(
+  supabase = createSupabaseMock()
+): ImportRouteContext {
   return {
     merchantContext: {
       merchantId: 'merchant-1',
     } as ImportRouteContext['merchantContext'],
-    supabase: {} as ImportRouteContext['supabase'],
+    supabase: supabase as unknown as ImportRouteContext['supabase'],
     userId: 'user-1',
   };
 }
@@ -42,6 +79,10 @@ describe('GET /api/import-jobs/[jobId]', () => {
       context: createRouteContext(),
     });
     vi.mocked(hasImportRoutePermission).mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('disables caching via unstable_noStore', async () => {
@@ -118,6 +159,10 @@ describe('GET /api/import-jobs/[jobId]', () => {
   });
 
   it('returns job details with commit and notify capability flags', async () => {
+    const supabase = createSupabaseMock();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: createRouteContext(supabase),
+    });
     vi.mocked(getImportJobForMerchant).mockResolvedValue({
       id: jobId,
       entity_type: 'orders',
@@ -135,6 +180,100 @@ describe('GET /api/import-jobs/[jobId]', () => {
       job: expect.objectContaining({
         canCommit: true,
         canNotify: false,
+        receiptCampaign: baseCampaignStats,
+      }),
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'get_receipt_claim_campaign_stats',
+      {
+        p_import_job_id: jobId,
+        p_merchant_id: 'merchant-1',
+      }
+    );
+  });
+
+  it('does not fail the job detail response when campaign stats cannot load', async () => {
+    const supabase = createSupabaseMock({
+      data: null,
+      error: { message: 'function missing' },
+    });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: createRouteContext(supabase),
+    });
+    vi.mocked(getImportJobForMerchant).mockResolvedValue({
+      id: jobId,
+      entity_type: 'orders',
+      status: 'completed',
+      summary: { validRows: 3 },
+    } as never);
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/import-jobs/${jobId}`),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      job: expect.objectContaining({
+        receiptCampaign: null,
+      }),
+    });
+  });
+
+  it('does not fail the job detail response when campaign stats are malformed', async () => {
+    const supabase = createSupabaseMock({
+      data: { claimedCount: 'not-a-number' },
+      error: null,
+    });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: createRouteContext(supabase),
+    });
+    vi.mocked(getImportJobForMerchant).mockResolvedValue({
+      id: jobId,
+      entity_type: 'orders',
+      status: 'completed',
+      summary: { validRows: 3 },
+    } as never);
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/import-jobs/${jobId}`),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      job: expect.objectContaining({
+        receiptCampaign: null,
+      }),
+    });
+  });
+
+  it('does not hang the job detail response when campaign stats time out', async () => {
+    vi.useFakeTimers();
+    const supabase = {
+      rpc: vi.fn(() => new Promise(() => undefined)),
+    };
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: createRouteContext(supabase),
+    });
+    vi.mocked(getImportJobForMerchant).mockResolvedValue({
+      id: jobId,
+      entity_type: 'orders',
+      status: 'completed',
+      summary: { validRows: 3 },
+    } as never);
+
+    const responsePromise = GET(
+      new NextRequest(`http://localhost/api/import-jobs/${jobId}`),
+      { params: Promise.resolve({ jobId }) }
+    );
+    await vi.advanceTimersByTimeAsync(2500);
+    const response = await responsePromise;
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      job: expect.objectContaining({
+        receiptCampaign: null,
       }),
     });
   });

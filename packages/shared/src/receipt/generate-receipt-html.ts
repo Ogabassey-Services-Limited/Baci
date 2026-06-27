@@ -23,6 +23,78 @@ import { buildSocialItems } from './receipt-social';
 import { getReceiptStatusConfig } from './receipt-status';
 import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 
+function normalizeAddressPart(value: string | null | undefined) {
+  const normalized = value?.trim().replace(/\s+/g, ' ');
+  return normalized || null;
+}
+
+function normalizeCountryForComparison(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'ng' || normalized === 'nga') {
+    return 'nigeria';
+  }
+
+  return normalized.replace(/\b(?:ng|nga)\b/g, 'nigeria');
+}
+
+function formatCountryForReceipt(value: string) {
+  const normalized = value.trim();
+  return normalizeCountryForComparison(normalized) === 'nigeria'
+    ? 'Nigeria'
+    : normalized;
+}
+
+function tokenizeCountryForComparison(value: string) {
+  return value.split(/[^a-z0-9]+/i).filter(Boolean);
+}
+
+function hasCountryToken(part: string, country: string) {
+  const partTokens = tokenizeCountryForComparison(part);
+  const countryTokens = tokenizeCountryForComparison(country);
+
+  if (countryTokens.length === 0 || countryTokens.length > partTokens.length) {
+    return false;
+  }
+
+  return partTokens.some((_token, index) =>
+    countryTokens.every((countryToken, offset) => {
+      return partTokens[index + offset] === countryToken;
+    })
+  );
+}
+
+function hasAddressPart(parts: string[], value: string, isCountry = false) {
+  const normalizedValue = isCountry
+    ? normalizeCountryForComparison(value)
+    : value.toLowerCase();
+
+  return parts.some((part) => {
+    const normalizedPart = isCountry
+      ? normalizeCountryForComparison(part)
+      : part.toLowerCase();
+    return (
+      normalizedPart === normalizedValue ||
+      (isCountry && hasCountryToken(normalizedPart, normalizedValue))
+    );
+  });
+}
+
+function appendAddressPart(
+  parts: string[],
+  value: string | null | undefined,
+  options: { isCountry?: boolean } = {}
+) {
+  const normalized = normalizeAddressPart(value);
+  const displayValue = options.isCountry
+    ? normalized && formatCountryForReceipt(normalized)
+    : normalized;
+  if (!displayValue || hasAddressPart(parts, displayValue, options.isCountry)) {
+    return;
+  }
+
+  parts.push(displayValue);
+}
+
 export function generateReceiptHtml(
   order: ReceiptOrder,
   merchant: ReceiptMerchant,
@@ -62,11 +134,15 @@ export function generateReceiptHtml(
   const contactPhone = merchant.support_phone || merchant.phone;
 
   const addr = order.shipping_address;
-  const addressParts = [
-    addr?.address_line1,
-    addr?.address_line2,
-    [addr?.city, addr?.state].filter(Boolean).join(', '),
-  ].filter((part): part is string => Boolean(part));
+  const addressParts: string[] = [];
+  appendAddressPart(addressParts, addr?.address_line1);
+  appendAddressPart(addressParts, addr?.address_line2);
+  appendAddressPart(
+    addressParts,
+    [addr?.city, addr?.state].filter(Boolean).join(', ')
+  );
+  appendAddressPart(addressParts, addr?.postal_code);
+  appendAddressPart(addressParts, addr?.country, { isCountry: true });
 
   return renderReceiptDocument({
     order,

@@ -256,7 +256,7 @@ describe('buildItems', () => {
       [
         {
           id: 'pixel-7a',
-          name: 'Google Pixel 7a 128GB (Premium Used)',
+          name: 'Google Pixel 7a 128GB (Used)',
           sku: null,
           price: 300000,
           externalSource: null,
@@ -322,9 +322,11 @@ describe('buildItems', () => {
     const items = buildItems(row, []);
 
     expect(items).toHaveLength(1);
-    expect(items[0].productName).toBe(
-      'Iphone 16pro 256gb Physical Sim (Premium Used)'
-    );
+    expect(items[0]).toMatchObject({
+      condition: 'used',
+      productName: 'Iphone 16pro 256gb Physical Sim',
+      variantName: 'Used',
+    });
   });
 
   it('removes a matching customer-name prefix before standalone double-pipe markers with extra fragments', () => {
@@ -416,7 +418,9 @@ describe('buildItems', () => {
       matchSource: 'name',
       productId: 'laptop',
       productName:
-        'HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11 || UK used',
+        'HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11',
+      condition: 'used',
+      variantName: 'Used',
     });
   });
 

@@ -81,6 +81,7 @@ export interface StorefrontAccountDocumentItemRow {
   id: string;
   product_id: string | null;
   variant_id: string | null;
+  condition?: string | null;
   variant_name: string | null;
   name: string;
   quantity: number | null;

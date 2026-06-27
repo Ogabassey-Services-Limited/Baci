@@ -205,4 +205,131 @@ describe('buildItems', () => {
       }),
     ]);
   });
+
+  it('uses matched catalog snapshots for imported Fold names with bracketed condition', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'Samsung Galaxy Fold 5 512GB (Premium Used)',
+        'Product Quantity': '1',
+        'Sub Total': '930000.00',
+      }),
+      [
+        {
+          id: 'fold-5',
+          name: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
+          sku: null,
+          price: 930000,
+          images: ['https://cdn.example.com/fold-5.jpg'],
+          condition: 'used',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'fold-5',
+      productName: 'Samsung Galaxy Z Fold 5 / Z Fold 5 12GB 512GB',
+      condition: 'used',
+      variantName: 'Used',
+      imageUrl: 'https://cdn.example.com/fold-5.jpg',
+      unitPrice: 930000,
+      lineTotal: 930000,
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
+  it('does not use untrusted plain condition words as catalog match overrides', () => {
+    const items = buildItems(
+      makeRow({
+        Products: 'New 2025 Apple iPad M3 256GB WiFi',
+        'Product Quantity': '1',
+        'Sub Total': '500000.00',
+      }),
+      [
+        {
+          id: 'ipad-generic',
+          name: 'New 2025 Apple iPad M3 256GB WiFi',
+          sku: null,
+          price: 500_000,
+          images: ['https://cdn.example.com/ipad-generic.jpg'],
+          condition: null,
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+        {
+          id: 'ipad-new',
+          name: 'New 2025 Apple iPad M3 256GB WiFi',
+          sku: null,
+          price: 700_000,
+          images: ['https://cdn.example.com/ipad-new.jpg'],
+          condition: 'new',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'ipad-generic',
+      productName: 'New 2025 Apple iPad M3 256GB WiFi',
+      condition: null,
+      variantName: null,
+      imageUrl: 'https://cdn.example.com/ipad-generic.jpg',
+      unitPrice: 500_000,
+      lineTotal: 500_000,
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
+  it('uses rich fulfillment condition when choosing between catalog condition variants', () => {
+    const items = buildItems(
+      makeRow({
+        'Sub Total': '450000.00',
+        items_json: JSON.stringify([
+          {
+            description: 'Premium Used IMEI: 123456789012345',
+            name: 'iPhone 13 128GB',
+            quantity: 1,
+          },
+        ]),
+      }),
+      [
+        {
+          id: 'iphone-13-new',
+          name: 'iPhone 13 128GB',
+          sku: null,
+          price: 600000,
+          images: ['https://cdn.example.com/iphone-new.jpg'],
+          condition: 'new',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+        {
+          id: 'iphone-13-used',
+          name: 'iPhone 13 128GB',
+          sku: null,
+          price: 450000,
+          images: ['https://cdn.example.com/iphone-used.jpg'],
+          condition: 'used',
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ]
+    );
+
+    expect(items[0]).toMatchObject({
+      productId: 'iphone-13-used',
+      condition: 'used',
+      variantName: 'Used',
+      imageUrl: 'https://cdn.example.com/iphone-used.jpg',
+    });
+  });
 });

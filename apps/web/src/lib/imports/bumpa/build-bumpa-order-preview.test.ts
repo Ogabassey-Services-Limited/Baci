@@ -281,6 +281,39 @@ describe('buildBumpaOrderPreview', () => {
     });
   });
 
+  it('matches Bumpa Fold imports to active Samsung Z Fold catalog products', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: 'samsung-fold-alias',
+          'Order Number': '06401',
+          Products: 'Samsung Galaxy Fold 5 512GB (Premium Used)',
+          'Product SKU': '',
+          'Product Quantity': '1.00',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [
+        {
+          id: 'product-fold-5',
+          name: 'Samsung Galaxy Z Fold 5',
+          sku: null,
+          price: 930000,
+          externalSource: null,
+          externalId: null,
+          status: 'active',
+        },
+      ],
+    });
+
+    expect(result.rows[0]?.payload?.items[0]).toMatchObject({
+      productId: 'product-fold-5',
+      matched: true,
+      matchSource: 'name',
+    });
+  });
+
   it('marks review-excluded rich import rows invalid before commit', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [

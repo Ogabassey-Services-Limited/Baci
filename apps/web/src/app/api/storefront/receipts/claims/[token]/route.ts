@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
-import { loadReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
+import {
+  loadReceiptClaimPreview,
+  recordReceiptClaimClickBestEffort,
+} from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 import { receiptClaimRouteParamsSchema } from '@/schemas/receipt-claim-route-params';
 import { redeemReceiptClaimResultSchema } from '@/schemas/receipt-claim-rpc';
@@ -53,6 +56,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         { status: preview.status }
       );
     }
+
+    await recordReceiptClaimClickBestEffort({ supabase, token });
 
     return NextResponse.json({ claim: preview.claim });
   } catch (error) {

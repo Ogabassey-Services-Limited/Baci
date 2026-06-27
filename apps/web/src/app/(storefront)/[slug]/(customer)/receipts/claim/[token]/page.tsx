@@ -10,6 +10,7 @@ import {
 import {
   loadReceiptClaimPreviewWithLoginEmailHint,
   parseReceiptClaimToken,
+  recordReceiptClaimClickBestEffort,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 import ReceiptClaimPageClient from './receipt-claim-page-client';
@@ -68,6 +69,14 @@ export async function ReceiptClaimPreviewSection({ token }: { token: string }) {
       supabase,
       token,
     });
+
+    if (preview.ok) {
+      try {
+        await recordReceiptClaimClickBestEffort({ supabase, token });
+      } catch {
+        // Click tracking must not block the receipt claim experience.
+      }
+    }
 
     return (
       <ReceiptClaimPageClient

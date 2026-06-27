@@ -1,7 +1,10 @@
+import { buildBumpaItemImportMetadata } from '@/lib/imports/bumpa/bumpa-order-enrichment';
 import {
-  buildBumpaItemImportMetadata,
-  buildBumpaProductNameCandidates,
-} from '@/lib/imports/bumpa/bumpa-order-enrichment';
+  buildBumpaOrderItemSnapshot,
+  getTrustedBumpaNameCondition,
+  normalizeBumpaConditionForCatalog,
+} from '@/lib/imports/bumpa/bumpa-order-item-snapshot';
+import { createBumpaProductNameMatcher } from '@/lib/imports/bumpa/bumpa-product-name-matcher';
 import type { ExistingImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 import {
   inferBumpaOrderItemPrices,
@@ -17,18 +20,6 @@ function parseMoneyValue(value: string) {
 
 function normalizeNameKey(value: string) {
   return sanitizeText(value).toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-function findProductByName(
-  productsByName: Map<string, ExistingImportedProduct>,
-  productName: string
-) {
-  for (const candidate of buildBumpaProductNameCandidates(productName)) {
-    const matchedProduct = productsByName.get(normalizeNameKey(candidate));
-    if (matchedProduct) return matchedProduct;
-  }
-
-  return null;
 }
 
 function splitPipeField(value: string) {
@@ -166,14 +157,12 @@ export function buildItems(
   existingProducts: ExistingImportedProduct[]
 ) {
   const productsBySku = new Map<string, ExistingImportedProduct>();
-  const productsByName = new Map<string, ExistingImportedProduct>();
+  const matchProductByName = createBumpaProductNameMatcher(existingProducts);
 
   existingProducts.forEach((product) => {
     if (product.sku) {
       productsBySku.set(product.sku.trim().toUpperCase(), product);
     }
-
-    productsByName.set(normalizeNameKey(product.name), product);
   });
 
   const richItems = parseBumpaRichItems(row.items_json).filter(
@@ -215,31 +204,50 @@ export function buildItems(
     const rawSku = sanitizeText(richItem?.sku || skus[index] || '');
     const sku = rawSku || null;
     const matchedBySku = sku ? productsBySku.get(sku.toUpperCase()) : null;
-    const matchedByName = findProductByName(productsByName, productName);
-    const matchedProduct = matchedBySku || matchedByName || null;
     const metadataSource = [productName, richItem?.fulfillmentText || '']
       .filter(Boolean)
       .join(' ');
+    const bumpaMetadata = buildBumpaItemImportMetadata(
+      metadataSource || productName
+    );
+    const fulfillmentMetadata = richItem?.fulfillmentText
+      ? buildBumpaItemImportMetadata(richItem.fulfillmentText)
+      : null;
+    const trustedMatchCondition =
+      normalizeBumpaConditionForCatalog(fulfillmentMetadata?.condition) ??
+      normalizeBumpaConditionForCatalog(
+        getTrustedBumpaNameCondition(productName)
+      );
+    const importMetadata = {
+      bumpa: bumpaMetadata,
+    };
+    const matchedByName = matchProductByName(
+      productName,
+      trustedMatchCondition
+    );
+    const matchedProduct = matchedBySku || matchedByName || null;
+    const itemSnapshot = buildBumpaOrderItemSnapshot({
+      importedProductName: productName,
+      importMetadata,
+      matchedProduct,
+    });
     const shouldUseCatalogPrice = !richItem || richItem.lineTotal === null;
 
     return {
       productId: matchedProduct?.id || null,
-      productName,
+      productName: itemSnapshot.productName,
       sku,
       quantity,
+      condition: itemSnapshot.condition,
+      variantName: itemSnapshot.variantName,
+      imageUrl: itemSnapshot.imageUrl,
       matched: Boolean(matchedProduct),
       matchSource: matchedBySku ? 'sku' : matchedByName ? 'name' : 'unmatched',
       provisionalUnitPrice:
         richItem?.unitPrice ??
         (shouldUseCatalogPrice ? (matchedProduct?.price ?? null) : null),
       provisionalLineTotal: richItem?.lineTotal ?? null,
-      ...(richItem?.fulfillmentText
-        ? {
-            importMetadata: {
-              bumpa: buildBumpaItemImportMetadata(metadataSource),
-            },
-          }
-        : {}),
+      importMetadata,
     } satisfies ProvisionalBumpaOrderItem;
   });
 

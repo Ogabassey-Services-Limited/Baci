@@ -24,6 +24,23 @@ const receiptClaimMerchantSchema = z.object({
   slug: z.string().nullable(),
 });
 
+const nonNegativeIntegerSchema = z.number().int().nonnegative();
+const nullableIsoDateTimeSchema = z.iso.datetime({ offset: true }).nullable();
+
+const receiptClaimCampaignRecipientSchema = z.object({
+  claimedAt: nullableIsoDateTimeSchema,
+  clickCount: nonNegativeIntegerSchema,
+  customerEmail: z.string(),
+  customerName: z.string().nullable(),
+  firstClickedAt: nullableIsoDateTimeSchema,
+  firstLoginStartedAt: nullableIsoDateTimeSchema,
+  id: z.string(),
+  lastClickedAt: nullableIsoDateTimeSchema,
+  lastLoginStartedAt: nullableIsoDateTimeSchema,
+  loginStartedCount: nonNegativeIntegerSchema,
+  notificationSentAt: nullableIsoDateTimeSchema,
+});
+
 export const receiptClaimRecordSchema = z.object({
   claimed_at: z.string().nullable(),
   claimed_by_user_id: z.string().nullable(),
@@ -55,10 +72,23 @@ export const createReceiptClaimResultSchema = z.object({
   status: z.enum(['created', 'skipped']),
 });
 
+export const receiptClaimCampaignStatsSchema = z.object({
+  claimedCount: nonNegativeIntegerSchema,
+  clickedCount: nonNegativeIntegerSchema,
+  lastActivityAt: nullableIsoDateTimeSchema,
+  loginStartedCount: nonNegativeIntegerSchema,
+  recipients: z.array(receiptClaimCampaignRecipientSchema),
+  sentCount: nonNegativeIntegerSchema,
+  totalRecipients: nonNegativeIntegerSchema,
+});
+
 export type ReceiptClaimRecord = z.infer<typeof receiptClaimRecordSchema>;
 export type CreateReceiptClaimResult = z.infer<
   typeof createReceiptClaimResultSchema
 >;
 export type RedeemReceiptClaimResult = z.infer<
   typeof redeemReceiptClaimResultSchema
+>;
+export type ReceiptClaimCampaignStats = z.infer<
+  typeof receiptClaimCampaignStatsSchema
 >;

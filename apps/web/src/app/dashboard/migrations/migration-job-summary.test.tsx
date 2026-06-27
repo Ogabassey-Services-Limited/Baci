@@ -248,4 +248,52 @@ describe('MigrationJobSummary', () => {
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: /needs fix/i })).toBeDisabled();
   });
+  it('shows receipt campaign empty-recipient guidance', () => {
+    render(
+      <MigrationJobSummary
+        activeFilter="all"
+        acting={false}
+        error={null}
+        loading={false}
+        onFilterChange={vi.fn()}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-receipts-empty',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'completed',
+          original_filename: 'orders.csv',
+          processed_rows: 1,
+          total_rows: 1,
+          summary: {
+            receiptReadyOrders: 1,
+            sentCount: 0,
+            validRows: 1,
+          },
+          receiptCampaign: {
+            claimedCount: 0,
+            clickedCount: 0,
+            lastActivityAt: null,
+            loginStartedCount: 0,
+            recipients: [],
+            sentCount: 0,
+            totalRecipients: 0,
+          },
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: null,
+          notified_at: null,
+          canCommit: false,
+          canNotify: false,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText('No receipt notification recipients yet.')
+    ).toBeInTheDocument();
+    expect(screen.getByText(/claim rate 0%/i)).toBeInTheDocument();
+  });
 });

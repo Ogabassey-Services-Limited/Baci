@@ -1,9 +1,8 @@
 'use client';
-
 import { AlertTriangle, Loader2, ReceiptText, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,6 +29,8 @@ interface ReceiptClaimPageClientProps {
   token: string;
 }
 
+const LOGIN_STARTED_TRACKING_TIMEOUT_MS = 750;
+
 export default function ReceiptClaimPageClient({
   initialClaim,
   initialEmailHint,
@@ -43,9 +44,9 @@ export default function ReceiptClaimPageClient({
   const [error, setError] = useState<string | null>(initialError);
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [redeemedToken, setRedeemedToken] = useState<string | null>(null);
+  const loginNavigationInFlight = useRef(false);
   const redemptionInFlightToken = useRef<string | null>(null);
   const preview = initialClaim;
-
   useEffect(() => {
     if (
       !token ||
@@ -60,13 +61,10 @@ export default function ReceiptClaimPageClient({
     ) {
       return;
     }
-
     let cancelled = false;
-
     async function redeemClaim() {
       redemptionInFlightToken.current = token;
       setIsRedeeming(true);
-
       try {
         const response = await fetchWithCsrf(
           `/api/storefront/receipts/claims/${encodeURIComponent(token)}`,
@@ -77,16 +75,13 @@ export default function ReceiptClaimPageClient({
           redirectPath?: string;
           success?: boolean;
         };
-
         if (cancelled) {
           return;
         }
-
         if (!response.ok || !data.success) {
           setError(data.error || 'Unable to claim receipt');
           return;
         }
-
         setRedeemedToken(token);
         router.push(
           asRoute(joinBasePath(basePath, data.redirectPath || '/receipts'))
@@ -99,15 +94,12 @@ export default function ReceiptClaimPageClient({
         if (redemptionInFlightToken.current === token) {
           redemptionInFlightToken.current = null;
         }
-
         if (!cancelled) {
           setIsRedeeming(false);
         }
       }
     }
-
     void redeemClaim();
-
     return () => {
       cancelled = true;
     };
@@ -122,7 +114,6 @@ export default function ReceiptClaimPageClient({
     router,
     token,
   ]);
-
   const loginRedirectPath = joinBasePath(
     basePath,
     `/receipts/claim/${encodeURIComponent(token)}`
@@ -140,6 +131,67 @@ export default function ReceiptClaimPageClient({
     basePath,
     `/account/login?${loginSearchParams.toString()}`
   );
+  const loginStartedPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/login-email`;
+
+  async function trackLoginStarted() {
+    if (!token) {
+      return;
+    }
+    try {
+      await fetchWithCsrf(loginStartedPath, {
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+        keepalive: true,
+        method: 'POST',
+      });
+    } catch {
+      return;
+    }
+  }
+
+  async function waitForLoginStartedTrackingWindow() {
+    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
+    try {
+      await Promise.race([
+        trackLoginStarted(),
+        new Promise<void>((resolve) => {
+          timeoutId = globalThis.setTimeout(
+            resolve,
+            LOGIN_STARTED_TRACKING_TIMEOUT_MS
+          );
+        }),
+      ]);
+    } finally {
+      if (timeoutId !== null) {
+        globalThis.clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  async function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+    if (loginNavigationInFlight.current) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    loginNavigationInFlight.current = true;
+    try {
+      await waitForLoginStartedTrackingWindow();
+      router.push(asRoute(loginPath));
+    } finally {
+      loginNavigationInFlight.current = false;
+    }
+  }
 
   return (
     <main className="min-h-screen bg-store-background px-4 py-10 text-store-background-text">
@@ -222,7 +274,7 @@ export default function ReceiptClaimPageClient({
                     asChild
                     className="w-full bg-store-primary text-store-primary-text hover:bg-store-primary/90"
                   >
-                    <Link href={asRoute(loginPath)}>
+                    <Link href={asRoute(loginPath)} onClick={handleLoginClick}>
                       Sign in to claim receipt
                     </Link>
                   </Button>

@@ -8,6 +8,7 @@ import ReceiptClaimPage, {
 const mockCreateClient = vi.fn();
 const mockLoadReceiptClaimPreviewWithLoginEmailHint = vi.fn();
 const mockParseReceiptClaimToken = vi.fn();
+const mockRecordReceiptClaimClickBestEffort = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockCreateClient(),
@@ -18,6 +19,8 @@ vi.mock('@/lib/import-notifications/receipt-claim-preview', () => ({
     mockLoadReceiptClaimPreviewWithLoginEmailHint(...args),
   parseReceiptClaimToken: (...args: unknown[]) =>
     mockParseReceiptClaimToken(...args),
+  recordReceiptClaimClickBestEffort: (...args: unknown[]) =>
+    mockRecordReceiptClaimClickBestEffort(...args),
 }));
 
 vi.mock('./receipt-claim-page-client', () => ({
@@ -60,6 +63,7 @@ describe('ReceiptClaimPage server wrapper', () => {
       emailHint: 'bassey@example.com',
       ok: true,
     });
+    mockRecordReceiptClaimClickBestEffort.mockResolvedValue(undefined);
   });
 
   it('loads the claim preview in the async section and passes it to the client shell', async () => {
@@ -74,6 +78,24 @@ describe('ReceiptClaimPage server wrapper', () => {
     expect(screen.getByText('error:none')).toBeInTheDocument();
     expect(screen.getByText('email:bassey@example.com')).toBeInTheDocument();
     expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
+    expect(mockRecordReceiptClaimClickBestEffort).toHaveBeenCalledWith({
+      supabase: { rpc: expect.any(Function) },
+      token: 'claim-token',
+    });
+  });
+
+  it('still renders the claim preview after recording click tracking', async () => {
+    mockRecordReceiptClaimClickBestEffort.mockRejectedValueOnce(
+      new Error('tracking failed')
+    );
+
+    render(await ReceiptClaimPreviewSection({ token: 'claim-token' }));
+
+    expect(screen.getByText('name:Bassey John')).toBeInTheDocument();
+    expect(mockRecordReceiptClaimClickBestEffort).toHaveBeenCalledWith({
+      supabase: { rpc: expect.any(Function) },
+      token: 'claim-token',
+    });
   });
 
   it('prevents tokenized receipt claim pages from being indexed', () => {
