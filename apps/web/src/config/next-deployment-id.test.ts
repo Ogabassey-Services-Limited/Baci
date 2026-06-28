@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getNextDeploymentId } from './next-deployment-id';
+import {
+  applyNextDeploymentIdEnv,
+  getNextDeploymentId,
+} from './next-deployment-id';
 
 describe('getNextDeploymentId', () => {
   it('prefers the neutral prebuilt deployment id source', () => {
@@ -13,13 +16,13 @@ describe('getNextDeploymentId', () => {
     ).toBe('28113940786_2_4ed230c08d512b42ae');
   });
 
-  it('keeps explicit Next deployment id as a manual override fallback', () => {
+  it('does not use raw NEXT_DEPLOYMENT_ID as a custom id source', () => {
     expect(
       getNextDeploymentId({
         NEXT_DEPLOYMENT_ID: 'manual-release-123',
         GITHUB_SHA: 'commit-sha',
       })
-    ).toBe('manual-release-123');
+    ).toBe('commit-sha');
   });
 
   it('ignores Vercel deployment ids because their dpl_ prefix is reserved for custom IDs', () => {
@@ -31,10 +34,10 @@ describe('getNextDeploymentId', () => {
     ).toBe('commit-sha');
   });
 
-  it('normalizes separators to Vercel custom deployment id safe characters', () => {
+  it('normalizes neutral source separators to Vercel custom deployment id safe characters', () => {
     expect(
       getNextDeploymentId({
-        NEXT_DEPLOYMENT_ID: 'release-2026.06.23_v1.0.0:prod',
+        BACI_NEXT_DEPLOYMENT_ID_SOURCE: 'release-2026.06.23_v1.0.0:prod',
       })
     ).toBe('release-2026-06-23_v1-0-0-prod');
   });
@@ -60,23 +63,23 @@ describe('getNextDeploymentId', () => {
   it('skips blank and unsafe deployment ids before falling back', () => {
     expect(
       getNextDeploymentId({
-        NEXT_DEPLOYMENT_ID: '   ',
+        BACI_NEXT_DEPLOYMENT_ID_SOURCE: '   ',
         GITHUB_SHA: 'commit-sha',
       })
     ).toBe('commit-sha');
   });
 
-  it('rewrites the reserved Vercel deployment prefix for explicit custom IDs', () => {
+  it('rewrites the reserved Vercel deployment prefix for neutral custom IDs', () => {
     expect(
       getNextDeploymentId({
-        NEXT_DEPLOYMENT_ID: 'dpl_manual-release',
+        BACI_NEXT_DEPLOYMENT_ID_SOURCE: 'dpl_manual-release',
       })
     ).toBe('baci_dpl_manual-release');
   });
 
   it('keeps rewritten max-length dpl-prefixed custom ids within Vercel limits', () => {
     const deploymentId = getNextDeploymentId({
-      NEXT_DEPLOYMENT_ID: `dpl_${'a'.repeat(28)}`,
+      BACI_NEXT_DEPLOYMENT_ID_SOURCE: `dpl_${'a'.repeat(28)}`,
     });
 
     expect(deploymentId).toHaveLength(32);
@@ -86,10 +89,29 @@ describe('getNextDeploymentId', () => {
   it('skips ids that only contain unsafe characters', () => {
     expect(
       getNextDeploymentId({
-        NEXT_DEPLOYMENT_ID: '///',
+        BACI_NEXT_DEPLOYMENT_ID_SOURCE: '///',
         GITHUB_SHA: 'fallback-dpl',
       })
     ).toBe('fallback-dpl');
+  });
+
+  it('mirrors the normalized id into NEXT_DEPLOYMENT_ID for Next config export', () => {
+    const env = {
+      BACI_NEXT_DEPLOYMENT_ID_SOURCE: 'dpl_manual-release',
+      NEXT_DEPLOYMENT_ID: 'dpl_raw-platform-id',
+    };
+
+    expect(applyNextDeploymentIdEnv(env)).toBe('baci_dpl_manual-release');
+    expect(env.NEXT_DEPLOYMENT_ID).toBe('baci_dpl_manual-release');
+  });
+
+  it('clears raw NEXT_DEPLOYMENT_ID when no safe custom id is available', () => {
+    const env: Record<string, string | undefined> = {
+      NEXT_DEPLOYMENT_ID: 'dpl_raw-platform-id',
+    };
+
+    expect(applyNextDeploymentIdEnv(env)).toBeUndefined();
+    expect(env).not.toHaveProperty('NEXT_DEPLOYMENT_ID');
   });
 
   it('leaves local development without a synthetic deployment id', () => {

@@ -3,7 +3,7 @@ import bundleAnalyzer from '@next/bundle-analyzer';
 import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
 import { OGABASSEY_AGENT_DISCOVERY_LINK_HEADER } from './src/config/agent-discovery-link-header';
-import { getNextDeploymentId } from './src/config/next-deployment-id';
+import { applyNextDeploymentIdEnv } from './src/config/next-deployment-id';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
@@ -74,7 +74,7 @@ const OGABASSEY_PDP_LINK_HEADER_VALUE = OGABASSEY_AGENT_DISCOVERY_LINK_HEADER;
 const POSTHOG_SOURCE_MAP_API_KEY = process.env.POSTHOG_API_KEY?.trim();
 const POSTHOG_SOURCE_MAP_PROJECT_ID = process.env.POSTHOG_PROJECT_ID?.trim();
 const POSTHOG_SOURCE_MAP_UPLOAD_ENABLED = isPostHogSourceMapUploadEnabled();
-const NEXT_DEPLOYMENT_ID = getNextDeploymentId();
+const NEXT_DEPLOYMENT_ID = applyNextDeploymentIdEnv();
 const POSTHOG_PUBLIC_BUILD_ENV = getPostHogPublicBuildEnv();
 
 function getPostHogRewriteRules() {

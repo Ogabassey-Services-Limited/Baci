@@ -1,7 +1,8 @@
 /**
- * Lookup priority is array order: the neutral prebuilt source wins, explicit
- * NEXT_DEPLOYMENT_ID remains a manual/local override, and GITHUB_SHA is the
- * fallback for non-Vercel prebuilt builds.
+ * Lookup priority is array order: the neutral prebuilt source wins and
+ * GITHUB_SHA is the fallback for non-Vercel prebuilt builds. Do not read
+ * NEXT_DEPLOYMENT_ID as an input source: Next/Vercel also observe that exact
+ * env var directly, so unnormalized manual values can bypass this helper.
  *
  * Vercel's prebuilt Skew Protection custom deployment IDs must not use the
  * reserved dpl_ prefix, must be at most 32 characters, and may only contain
@@ -10,7 +11,6 @@
  */
 const DEPLOYMENT_ID_ENV_KEYS = [
   'BACI_NEXT_DEPLOYMENT_ID_SOURCE',
-  'NEXT_DEPLOYMENT_ID',
   'GITHUB_SHA',
 ] as const;
 
@@ -42,16 +42,18 @@ function normalizeDeploymentId(value: string | undefined): string | undefined {
 
 type DeploymentIdEnvKey =
   | (typeof DEPLOYMENT_ID_ENV_KEYS)[number]
-  // Accept this key in tests/input fixtures, but do not iterate it above:
-  // Vercel reserves the dpl_ prefix for platform deployment IDs, so it is not
-  // valid as a custom prebuilt Skew Protection deploymentId.
+  // Accept these keys in tests/input fixtures, but do not iterate them above:
+  // NEXT_DEPLOYMENT_ID is the env var Next/Vercel also read directly, and
+  // VERCEL_DEPLOYMENT_ID uses Vercel's reserved dpl_ deployment prefix. Neither
+  // is valid as a custom prebuilt Skew Protection deploymentId input.
+  | 'NEXT_DEPLOYMENT_ID'
   | 'VERCEL_DEPLOYMENT_ID';
 
 type DeploymentIdEnv = Partial<Record<DeploymentIdEnvKey, string | undefined>>;
+type MutableDeploymentIdEnv = Record<string, string | undefined>;
 
 const DEFAULT_DEPLOYMENT_ID_ENV: DeploymentIdEnv = {
   BACI_NEXT_DEPLOYMENT_ID_SOURCE: process.env.BACI_NEXT_DEPLOYMENT_ID_SOURCE,
-  NEXT_DEPLOYMENT_ID: process.env.NEXT_DEPLOYMENT_ID,
   GITHUB_SHA: process.env.GITHUB_SHA,
 };
 
@@ -67,4 +69,23 @@ export function getNextDeploymentId(
   }
 
   return undefined;
+}
+
+/**
+ * Keep Next's direct `process.env.NEXT_DEPLOYMENT_ID` override synchronized
+ * with the normalized config value before `next.config.ts` is exported. If no
+ * safe custom ID is configured, clear it so a raw dpl_ or oversized manual env
+ * value cannot bypass the normalization above.
+ */
+export function applyNextDeploymentIdEnv(
+  env: MutableDeploymentIdEnv = process.env,
+  deploymentId = getNextDeploymentId(env)
+): string | undefined {
+  if (deploymentId) {
+    env.NEXT_DEPLOYMENT_ID = deploymentId;
+  } else {
+    delete env.NEXT_DEPLOYMENT_ID;
+  }
+
+  return deploymentId;
 }
