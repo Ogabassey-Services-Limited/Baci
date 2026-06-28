@@ -50,7 +50,7 @@ export default function MenuScreen() {
   const router = useRouter();
 
   const canAccessFeature = (feature: MobileFeatureGate) =>
-    baciFeatureGates.hasFeature(merchant, feature);
+    isPro || baciFeatureGates.hasFeature(merchant, feature);
 
   const proBadge = (feature: MobileFeatureGate) =>
     canAccessFeature(feature) ? undefined : 'PRO';

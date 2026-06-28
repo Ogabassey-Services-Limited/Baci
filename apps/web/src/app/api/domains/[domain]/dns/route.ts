@@ -9,6 +9,7 @@ import { logAudit } from '@/lib/audit-logger';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { validateDNSRecordBatch } from '@/lib/dns-validator';
 import { getDomainDNSRecords, updateDomainDNSRecords } from '@/lib/go54';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
 /**
@@ -39,6 +40,15 @@ export async function GET(
 
     if (!hasPermission(access, 'settings', 'view')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      access.merchantId,
+      'custom_domain'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
     }
 
     // Rate Limiting
@@ -128,6 +138,15 @@ export async function POST(
 
     if (!hasPermission(access, 'settings', 'edit')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      access.merchantId,
+      'custom_domain'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
     }
 
     // Rate Limiting (Stricter for updates)

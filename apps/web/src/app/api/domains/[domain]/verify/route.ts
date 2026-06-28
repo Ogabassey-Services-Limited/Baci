@@ -8,6 +8,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
 import { vercel } from '@/lib/vercel';
 
@@ -101,6 +102,15 @@ export async function POST(
     }
 
     const merchantId = merchantContext.merchantId;
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'custom_domain'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
 
     const { data: domainRecord, error: domainError } = await supabase
       .from('domains')

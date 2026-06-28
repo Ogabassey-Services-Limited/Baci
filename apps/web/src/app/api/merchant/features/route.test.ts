@@ -210,6 +210,11 @@ function makeRequest(
 
 beforeEach(() => {
   resetMerchantFeatureSchemaMocks();
+  mockGetMerchantFeatureAccess.mockReset();
+  mockGetMerchantFeatureAccess.mockResolvedValue({
+    allowed: true,
+    error: null,
+  });
 });
 
 describe('GET /api/merchant/features', () => {
@@ -524,6 +529,40 @@ describe('PATCH /api/merchant/features', () => {
     expect(insertPayload).toBeNull();
   });
 
+  it('returns 500 when growth integration access cannot be checked before PATCH', async () => {
+    const { PATCH } = await import('./route');
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: { message: 'entitlement lookup failed' },
+    });
+
+    const res = await PATCH(
+      makeRequest('PATCH', { facebook_capi_token: 'new-token' })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.error).toBe('Failed to verify merchant plan');
+    expect(updatePayload).toBeNull();
+    expect(insertPayload).toBeNull();
+  });
+
+  it('allows locked merchants to clear analytics credentials with PATCH', async () => {
+    const { PATCH } = await import('./route');
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const res = await PATCH(
+      makeRequest('PATCH', { facebook_capi_token: null })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockGetMerchantFeatureAccess).not.toHaveBeenCalled();
+    expect(updatePayload).toMatchObject({ facebook_capi_token: null });
+  });
+
   it('does not reset existing Klump settings on sparse PATCH payloads', async () => {
     const { PATCH } = await import('./route');
 
@@ -780,6 +819,37 @@ describe('PUT /api/merchant/features', () => {
     expect(res.status).toBe(402);
     expect(json.code).toBe('requires_upgrade');
     expect(upsertPayload).toBeNull();
+  });
+
+  it('returns 500 when growth integration access cannot be checked before PUT', async () => {
+    const { PUT } = await import('./route');
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: { message: 'entitlement lookup failed' },
+    });
+
+    const res = await PUT(
+      makeRequest('PUT', { google_analytics_id: 'G-LOCKED' })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.error).toBe('Failed to verify merchant plan');
+    expect(upsertPayload).toBeNull();
+  });
+
+  it('allows locked merchants to clear analytics credentials with PUT', async () => {
+    const { PUT } = await import('./route');
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const res = await PUT(makeRequest('PUT', { google_analytics_id: null }));
+
+    expect(res.status).toBe(200);
+    expect(mockGetMerchantFeatureAccess).not.toHaveBeenCalled();
+    expect(upsertPayload).toMatchObject({ google_analytics_id: null });
   });
 
   it('returns 500 when upsert fails', async () => {

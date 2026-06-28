@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetUser = vi.fn();
 const mockSupabase = { auth: { getUser: mockGetUser } };
+const mockRequireMerchantFeatureAccess = vi.fn();
 
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock('@/lib/supabase/server', () => ({
@@ -52,6 +53,10 @@ vi.mock('@/lib/jumia/consignment', () => ({
   getConsignmentStock: (...a: unknown[]) => mockGetStock(...a),
   createConsignmentOrder: (...a: unknown[]) => mockCreateOrder(...a),
   updateConsignmentOrder: (...a: unknown[]) => mockUpdateOrder(...a),
+}));
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mockRequireMerchantFeatureAccess(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -116,7 +121,10 @@ function setupAuth() {
 import { GET, PATCH, POST } from './route';
 
 describe('Consignment GET', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+  });
 
   it('returns 401 when unauthenticated', async () => {
     mockGetUser.mockResolvedValue({
@@ -171,6 +179,33 @@ describe('Consignment GET', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 402 before creating a Jumia client when marketplace sync is locked', async () => {
+    setupAuth();
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const res = await GET(
+      makeGetRequest({
+        integrationId: INT_ID,
+        sku: 'S1',
+        businessClientCode: 'BC',
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockGetStock).not.toHaveBeenCalled();
+  });
+
   it('returns 500 for unexpected non-JumiaApiError exceptions', async () => {
     setupAuth();
     mockForIntegration.mockRejectedValue(new Error('unexpected'));
@@ -217,7 +252,10 @@ describe('Consignment GET', () => {
 });
 
 describe('Consignment POST', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+  });
 
   it('returns 401 when unauthenticated', async () => {
     mockGetUser.mockResolvedValue({
@@ -284,6 +322,34 @@ describe('Consignment POST', () => {
     expect(res.status).toBe(403);
   });
 
+  it('returns 402 before creating a Jumia client when marketplace sync is locked', async () => {
+    setupAuth();
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const res = await POST(
+      makeJsonRequest('POST', {
+        integrationId: INT_ID,
+        businessClientCode: 'BC1',
+        shippingDate: '2026-04-01',
+        products: [{ sku: 'SKU1', quantity: 10 }],
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockCreateOrder).not.toHaveBeenCalled();
+  });
+
   it('propagates JumiaApiError status', async () => {
     setupAuth();
     const { JumiaApiError } = await import('@/lib/jumia/client');
@@ -318,7 +384,10 @@ describe('Consignment POST', () => {
 });
 
 describe('Consignment PATCH', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+  });
 
   it('returns 401 when unauthenticated', async () => {
     mockGetUser.mockResolvedValue({
@@ -382,6 +451,33 @@ describe('Consignment PATCH', () => {
       })
     );
     expect(res.status).toBe(403);
+  });
+
+  it('returns 402 before creating a Jumia client when marketplace sync is locked', async () => {
+    setupAuth();
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const res = await PATCH(
+      makeJsonRequest('PATCH', {
+        integrationId: INT_ID,
+        purchaseOrderNumber: 'PO-1',
+        isShipped: true,
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockUpdateOrder).not.toHaveBeenCalled();
   });
 
   it('propagates JumiaApiError status', async () => {

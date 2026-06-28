@@ -1,0 +1,163 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockGetUser = vi.fn();
+const mockMerchantSingle = vi.fn();
+const mockMappingSingle = vi.fn();
+const mockMappingUpdate = vi.fn();
+const mockForIntegration = vi.fn();
+const mockRequireMerchantFeatureAccess = vi.fn();
+const mockUpdatePrice = vi.fn();
+const mockUpdateStatus = vi.fn();
+
+const mockSupabase = {
+  auth: { getUser: mockGetUser },
+  from: vi.fn((table: string) => {
+    if (table === 'merchants') {
+      return {
+        select: () => ({
+          eq: () => ({
+            single: mockMerchantSingle,
+          }),
+        }),
+      };
+    }
+
+    if (table === 'jumia_product_mappings') {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              single: mockMappingSingle,
+            }),
+          }),
+        }),
+        update: (...args: unknown[]) => ({
+          eq: () => ({
+            eq: () => mockMappingUpdate(...args),
+          }),
+        }),
+      };
+    }
+
+    return {};
+  }),
+};
+
+vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => mockSupabase),
+}));
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+}));
+vi.mock('@/lib/jumia/client', () => ({
+  JumiaClient: {
+    forIntegration: (...args: unknown[]) => mockForIntegration(...args),
+  },
+}));
+vi.mock('@/lib/jumia/feeds', () => ({
+  updatePrice: (...args: unknown[]) => mockUpdatePrice(...args),
+  updateStatus: (...args: unknown[]) => mockUpdateStatus(...args),
+}));
+vi.mock('@/lib/jumia/helpers', () => ({
+  JumiaApiError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+  },
+}));
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mockRequireMerchantFeatureAccess(...args),
+}));
+
+const INTEGRATION_ID = '00000000-0000-4000-8000-000000000099';
+const MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+const PRODUCT_ID = '00000000-0000-4000-8000-000000000002';
+
+function makeRequest(body: Record<string, unknown>) {
+  return new NextRequest(
+    'http://localhost/api/marketplace/jumia/products/update',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
+const { POST } = await import('./route');
+
+describe('POST /api/marketplace/jumia/products/update', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: MERCHANT_ID },
+      error: null,
+    });
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+  });
+
+  it('returns 401 when user is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const response = await POST(
+      makeRequest({
+        integrationId: INTEGRATION_ID,
+        overrides: { is_active: false },
+        productId: PRODUCT_ID,
+      })
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns 402 before reading mappings or creating a Jumia client when marketplace sync is locked', async () => {
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const response = await POST(
+      makeRequest({
+        integrationId: INTEGRATION_ID,
+        overrides: { is_active: false },
+        productId: PRODUCT_ID,
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mockRequireMerchantFeatureAccess).toHaveBeenCalledWith(
+      mockSupabase,
+      MERCHANT_ID,
+      'marketplace_sync'
+    );
+    expect(mockSupabase.from).not.toHaveBeenCalledWith(
+      'jumia_product_mappings'
+    );
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockMappingUpdate).not.toHaveBeenCalled();
+    expect(mockUpdatePrice).not.toHaveBeenCalled();
+    expect(mockUpdateStatus).not.toHaveBeenCalled();
+  });
+});

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   revalidateMerchantFeed: vi.fn(),
+  requireMerchantFeatureAccess: vi.fn(),
   triggerDomainEdgeConfigSync: vi.fn(),
   vercelRemoveDomain: vi.fn(),
 }));
@@ -47,13 +48,18 @@ vi.mock('@/lib/go54', () => ({
   updateDomainNameservers: vi.fn(),
 }));
 
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mocks.requireMerchantFeatureAccess(...args),
+}));
+
 vi.mock('@/lib/vercel', () => ({
   vercel: {
     removeDomain: (...args: unknown[]) => mocks.vercelRemoveDomain(...args),
   },
 }));
 
-const { DELETE } = await import('./route');
+const { DELETE, POST } = await import('./route');
 
 function createDeleteQuery() {
   type DeleteQuery = Promise<{ error: null }> & {
@@ -86,6 +92,14 @@ function createRequest() {
   });
 }
 
+function createPostRequest(body: Record<string, unknown>) {
+  return new NextRequest('http://localhost/api/domains/shop.example.com', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 describe('DELETE /api/domains/[domain]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -97,6 +111,7 @@ describe('DELETE /api/domains/[domain]', () => {
     });
     mocks.getUserAccess.mockResolvedValue({ merchantId: 'merchant-1' });
     mocks.hasPermission.mockReturnValue(true);
+    mocks.requireMerchantFeatureAccess.mockResolvedValue(null);
     mocks.vercelRemoveDomain.mockResolvedValue(undefined);
   });
 
@@ -108,5 +123,53 @@ describe('DELETE /api/domains/[domain]', () => {
     expect(response.status).toBe(200);
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
     expect(mocks.after).toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/domains/[domain]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
+    mocks.hasPermission.mockReturnValue(true);
+    mocks.requireMerchantFeatureAccess.mockResolvedValue(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Custom domains require Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+  });
+
+  it('returns 402 before reading domain details when custom domains are locked', async () => {
+    const supabase = {
+      from: vi.fn(() => {
+        throw new Error('domain lookup should not run');
+      }),
+    };
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+    mocks.getUserAccess.mockResolvedValue({ merchantId: 'merchant-1' });
+
+    const response = await POST(
+      createPostRequest({ action: 'update_lock', data: { lock: true } }),
+      {
+        params: Promise.resolve({ domain: 'shop.example.com' }),
+      }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mocks.requireMerchantFeatureAccess).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'custom_domain'
+    );
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });

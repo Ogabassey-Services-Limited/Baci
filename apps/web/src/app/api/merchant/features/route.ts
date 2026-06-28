@@ -265,10 +265,17 @@ const GROWTH_INTEGRATION_SETTINGS_FIELDS = new Set<
   'twitter_pixel_id',
 ]);
 
-function includesGrowthIntegrationSetting(updates: Record<string, unknown>) {
-  return [...GROWTH_INTEGRATION_SETTINGS_FIELDS].some(
-    (field) => field in updates
-  );
+function hasNonEmptyGrowthIntegrationSetting(updates: Record<string, unknown>) {
+  return [...GROWTH_INTEGRATION_SETTINGS_FIELDS].some((field) => {
+    if (!(field in updates)) {
+      return false;
+    }
+
+    const value = updates[field];
+    return typeof value === 'string'
+      ? value.trim().length > 0
+      : value !== null && value !== undefined;
+  });
 }
 
 type MerchantFeatureDefaultField = Exclude<
@@ -421,12 +428,22 @@ export async function PATCH(request: NextRequest) {
       sanitizedUpdates.rewards_page_enabled = sanitizedUpdates.loyalty_enabled;
     }
 
-    if (includesGrowthIntegrationSetting(sanitizedUpdates)) {
+    if (hasNonEmptyGrowthIntegrationSetting(sanitizedUpdates)) {
       const featureAccess = await getMerchantFeatureAccess(
         auth.supabase,
         access.merchantId,
         'growth_integrations'
       );
+      if (featureAccess.error) {
+        console.error(
+          'Error checking growth integration access:',
+          featureAccess.error
+        );
+        return jsonNoStore(
+          { error: 'Failed to verify merchant plan' },
+          { status: 500 }
+        );
+      }
       if (!featureAccess.allowed) {
         return withNoStore(
           merchantFeatureUpgradeResponse('growth_integrations')
@@ -558,12 +575,22 @@ export async function PUT(request: NextRequest) {
     }
     const sanitizedSettings = parsedSettings.data;
 
-    if (includesGrowthIntegrationSetting(sanitizedSettings)) {
+    if (hasNonEmptyGrowthIntegrationSetting(sanitizedSettings)) {
       const featureAccess = await getMerchantFeatureAccess(
         auth.supabase,
         access.merchantId,
         'growth_integrations'
       );
+      if (featureAccess.error) {
+        console.error(
+          'Error checking growth integration access:',
+          featureAccess.error
+        );
+        return jsonNoStore(
+          { error: 'Failed to verify merchant plan' },
+          { status: 500 }
+        );
+      }
       if (!featureAccess.allowed) {
         return withNoStore(
           merchantFeatureUpgradeResponse('growth_integrations')

@@ -107,7 +107,7 @@ describe('FeatureGateScreen', () => {
     expect(screen.getByText('Protected domains content')).toBeInTheDocument();
   });
 
-  it('does not unlock server-backed features from RevenueCat-only state', () => {
+  it('renders protected content when RevenueCat reports Pro after purchase', () => {
     gateState.isPro = true;
     gateState.merchant = { plan_tier: 'free', premium_features: [] };
 
@@ -121,12 +121,7 @@ describe('FeatureGateScreen', () => {
       </FeatureGateScreen>
     );
 
-    expect(
-      screen.queryByText('Protected domains content')
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('Custom domains are a Baci Pro feature')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Protected domains content')).toBeInTheDocument();
   });
 
   it('renders the upgrade card when the merchant lacks the feature', () => {

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   mutations: [] as MutationRecord[],
   revalidateMerchantFeed: vi.fn(),
+  requireMerchantFeatureAccess: vi.fn(),
   triggerDomainEdgeConfigSync: vi.fn(),
   vercelVerifyDomain: vi.fn(),
 }));
@@ -49,6 +50,11 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...args: unknown[]) =>
     mocks.getMerchantForApiRequest(...args),
   toUserAccess: vi.fn(() => ({})),
+}));
+
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mocks.requireMerchantFeatureAccess(...args),
 }));
 
 vi.mock('@/lib/vercel', () => ({
@@ -137,6 +143,7 @@ describe('POST /api/domains/[domain]/verify', () => {
       merchantId: 'merchant-1',
     });
     mocks.hasPermission.mockReturnValue(true);
+    mocks.requireMerchantFeatureAccess.mockResolvedValue(null);
   });
 
   it('scopes the verified-domain status update to the authenticated merchant', async () => {
@@ -181,5 +188,25 @@ describe('POST /api/domains/[domain]/verify', () => {
       ['id', 'domain-1'],
       ['merchant_id', 'merchant-1'],
     ]);
+  });
+
+  it('returns 402 before Vercel verification when custom domains are locked', async () => {
+    mocks.requireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Custom domains require Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mocks.vercelVerifyDomain).not.toHaveBeenCalled();
+    expect(mocks.mutations).toHaveLength(0);
   });
 });

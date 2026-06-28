@@ -20,6 +20,7 @@ import {
   jumiaErrorResponse,
 } from '@/lib/jumia/client';
 import { updateStock } from '@/lib/jumia/feeds';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { createClient } from '@/lib/supabase/server';
 
@@ -90,6 +91,15 @@ export async function POST(request: NextRequest) {
       );
     }
     const integrationId = parsedIntegrationId.data;
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
 
     // Load Jumia client (validates integration ownership + active status)
     let jumiaClient: JumiaClient;

@@ -6,6 +6,7 @@ import { JumiaClient } from '@/lib/jumia/client';
 import { updatePrice, updateStatus } from '@/lib/jumia/feeds';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
 
 /** Strict ISO 8601 date or datetime: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS with optional offset/Z */
@@ -202,6 +203,15 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantId = merchant.id;
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
 
     // Verify product mapping exists and belongs to this merchant
     const { data: mapping, error: mappingError } = await supabase

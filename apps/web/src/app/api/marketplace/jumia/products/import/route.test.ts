@@ -5,48 +5,55 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /*  Mocks — vi.hoisted ensures variables exist before vi.mock hoisting */
 /* ------------------------------------------------------------------ */
 
-const { mockSelect, mockSupabase, mockForIntegration, mockGetAllProducts } =
-  vi.hoisted(() => {
-    const mockSelect = vi.fn();
-    const mockSupabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'products') {
-          return {
-            select: () => ({
-              eq: () => ({
-                in: mockSelect,
-              }),
+const {
+  mockSelect,
+  mockSupabase,
+  mockForIntegration,
+  mockGetAllProducts,
+  mockRequireMerchantFeatureAccess,
+} = vi.hoisted(() => {
+  const mockSelect = vi.fn();
+  const mockSupabase = {
+    from: vi.fn((table: string) => {
+      if (table === 'products') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: mockSelect,
             }),
-            upsert: () => ({
-              select: vi.fn().mockResolvedValue({
-                data: [{ id: 'new-1', sku: 'SKU-A' }],
-                error: null,
-              }),
+          }),
+          upsert: () => ({
+            select: vi.fn().mockResolvedValue({
+              data: [{ id: 'new-1', sku: 'SKU-A' }],
+              error: null,
             }),
-          };
-        }
-        if (table === 'jumia_product_mappings') {
-          return {
-            select: () => ({
-              eq: () => ({
-                in: vi.fn().mockResolvedValue({ data: [], error: null }),
-              }),
+          }),
+        };
+      }
+      if (table === 'jumia_product_mappings') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: vi.fn().mockResolvedValue({ data: [], error: null }),
             }),
-            upsert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        return {};
-      }),
-    };
-    const mockForIntegration = vi.fn();
-    const mockGetAllProducts = vi.fn();
-    return {
-      mockSelect,
-      mockSupabase,
-      mockForIntegration,
-      mockGetAllProducts,
-    };
-  });
+          }),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      return {};
+    }),
+  };
+  const mockForIntegration = vi.fn();
+  const mockGetAllProducts = vi.fn();
+  const mockRequireMerchantFeatureAccess = vi.fn();
+  return {
+    mockSelect,
+    mockSupabase,
+    mockForIntegration,
+    mockGetAllProducts,
+    mockRequireMerchantFeatureAccess,
+  };
+});
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
@@ -88,6 +95,10 @@ vi.mock('@/lib/logger', () => ({
     trace: vi.fn(),
   },
 }));
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mockRequireMerchantFeatureAccess(...args),
+}));
 vi.mock('@/lib/sanitize-core', () => ({
   sanitizeText: (v: string) => v,
   stripHtmlTags: (v: string) => v,
@@ -117,7 +128,10 @@ function makePostRequest(body: unknown) {
 import { POST } from './route';
 
 describe('Products Import POST', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+  });
 
   it('returns 403 on CSRF failure', async () => {
     const { checkCsrfProtection } = await import('@/lib/csrf');
@@ -143,6 +157,31 @@ describe('Products Import POST', () => {
   it('returns 400 for invalid input', async () => {
     const res = await POST(makePostRequest({ integrationId: 'bad-uuid' }));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 402 before creating a Jumia client when marketplace sync is locked', async () => {
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mockRequireMerchantFeatureAccess).toHaveBeenCalledWith(
+      mockSupabase,
+      '00000000-0000-4000-8000-000000000001',
+      'marketplace_sync'
+    );
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockGetAllProducts).not.toHaveBeenCalled();
   });
 
   it('returns 404 when JumiaClient.forIntegration throws 404', async () => {

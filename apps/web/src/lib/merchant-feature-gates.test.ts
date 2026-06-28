@@ -3,6 +3,7 @@ import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
   merchantHasFeature,
+  requireMerchantFeatureAccess,
 } from './merchant-feature-gates';
 
 describe('merchantHasFeature', () => {
@@ -95,6 +96,56 @@ describe('merchantFeatureUpgradeResponse', () => {
     await expect(response.json()).resolves.toEqual({
       code: 'requires_upgrade',
       error: 'Growth integrations require Baci Pro',
+    });
+  });
+});
+
+describe('requireMerchantFeatureAccess', () => {
+  it('returns null when the merchant has access', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'pro',
+        premium_features: [],
+      },
+      error: null,
+    });
+    const eq = vi.fn(() => ({ single }));
+    const select = vi.fn(() => ({ eq }));
+    const supabase = {
+      from: vi.fn(() => ({ select })),
+    };
+
+    await expect(
+      requireMerchantFeatureAccess(
+        supabase as never,
+        'merchant-1',
+        'marketplace_sync'
+      )
+    ).resolves.toBeNull();
+  });
+
+  it('returns 500 when entitlement lookup fails', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+    const eq = vi.fn(() => ({ single }));
+    const select = vi.fn(() => ({ eq }));
+    const supabase = {
+      from: vi.fn(() => ({ select })),
+    };
+
+    const response = await requireMerchantFeatureAccess(
+      supabase as never,
+      'merchant-1',
+      'marketplace_sync'
+    );
+
+    expect(response?.status).toBe(500);
+    await expect(response?.json()).resolves.toEqual({
+      error: 'Failed to verify merchant plan',
     });
   });
 });
