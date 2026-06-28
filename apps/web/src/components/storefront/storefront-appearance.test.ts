@@ -4,6 +4,7 @@ import {
   getStorefrontAppearanceClasses,
   getStorefrontAppearanceClassName,
   getStorefrontDocumentAppearanceClasses,
+  resolveKnownStorefrontAppearance,
   resolveStorefrontAppearance,
 } from './storefront-appearance';
 
@@ -44,6 +45,27 @@ describe('resolveStorefrontAppearance', () => {
       variant: 'ogabassey',
     });
     expect(resolveStorefrontAppearance('https://www.ogabassey.com/')).toEqual({
+      mode: 'system',
+      variant: 'ogabassey',
+    });
+  });
+});
+
+describe('resolveKnownStorefrontAppearance', () => {
+  it('returns null for missing and unknown appearance identifiers', () => {
+    expect(resolveKnownStorefrontAppearance(undefined)).toBeNull();
+    expect(resolveKnownStorefrontAppearance(null)).toBeNull();
+    expect(resolveKnownStorefrontAppearance('generic-store')).toBeNull();
+  });
+
+  it('returns the OgaBassey appearance for known identifiers', () => {
+    expect(resolveKnownStorefrontAppearance('OgaBassey.com:443')).toEqual({
+      mode: 'system',
+      variant: 'ogabassey',
+    });
+    expect(
+      resolveKnownStorefrontAppearance('https://www.OgaBassey.com:443/')
+    ).toEqual({
       mode: 'system',
       variant: 'ogabassey',
     });

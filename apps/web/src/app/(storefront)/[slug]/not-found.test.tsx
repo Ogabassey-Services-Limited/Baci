@@ -1,30 +1,29 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockUseMerchantSafe = vi.fn();
+const mockHeaders = vi.hoisted(() => vi.fn());
+const themeProviderAppearances: unknown[] = [];
 
-vi.mock('next/link', () => ({
-  default: ({
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
+}));
+
+vi.mock('@/components/storefront/storefront-theme-provider', () => ({
+  StorefrontThemeProvider: ({
+    appearance,
     children,
-    href,
   }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
+    appearance?: unknown;
+    children: ReactNode;
+  }) => {
+    themeProviderAppearances.push(appearance);
+    return <div data-testid="storefront-theme-provider">{children}</div>;
+  },
 }));
 
-vi.mock('@/components/themed/themed-button', () => ({
-  ThemedButton: ({ children }: { children: React.ReactNode }) => (
-    <button type="button">{children}</button>
-  ),
-}));
-
-vi.mock('@/hooks/merchant/use-merchant', () => ({
-  useMerchantSafe: () => mockUseMerchantSafe(),
-}));
-
-vi.mock('@/lib/routes', () => ({
-  asRoute: (value: string) => value,
+vi.mock('./storefront-not-found-content', () => ({
+  StorefrontNotFoundContent: () => <div>Missing storefront page</div>,
 }));
 
 import StorefrontNotFound from './not-found';
@@ -32,84 +31,90 @@ import StorefrontNotFound from './not-found';
 describe('StorefrontNotFound', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseMerchantSafe.mockReturnValue({
-      basePath: '',
-      loading: false,
-      merchant: {
-        business_name: 'Ogabassey',
-        pages: { contact: true },
-      },
-    });
+    themeProviderAppearances.length = 0;
   });
 
-  it('renders storefront navigation links for the missing page', () => {
-    render(<StorefrontNotFound />);
-
-    expect(
-      screen.getByRole('heading', { level: 1, name: /page not found/i })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /home/i })).toHaveAttribute(
-      'href',
-      '/'
+  it('uses the OgaBassey system appearance when proxy headers identify the merchant', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-merchant-slug', 'ogabassey']])
     );
-    expect(screen.getByRole('link', { name: /all products/i })).toHaveAttribute(
-      'href',
-      '/#products'
+
+    render(await StorefrontNotFound());
+
+    expect(screen.getByText('Missing storefront page')).toBeInTheDocument();
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
+  });
+
+  it('keeps scanning when an earlier candidate resolves to the default appearance', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['x-merchant-slug', 'unknown-storefront'],
+        ['host', 'ogabassey.com'],
+      ])
     );
-    expect(screen.getByRole('link', { name: /contact us/i })).toHaveAttribute(
-      'href',
-      '/pages/contact'
+
+    render(await StorefrontNotFound());
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
+  });
+
+  it('uses the OgaBassey system appearance when the custom-domain host matches', async () => {
+    mockHeaders.mockResolvedValue(new Headers([['host', 'ogabassey.com']]));
+
+    render(await StorefrontNotFound());
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
+  });
+
+  it('uses the OgaBassey system appearance when the custom-domain header matches', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'OgaBassey.com:443']])
     );
+
+    render(await StorefrontNotFound());
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
   });
 
-  it('renders an accessible loading state before merchant context resolves', () => {
-    mockUseMerchantSafe.mockReturnValue({
-      basePath: '',
-      loading: true,
-      merchant: null,
-    });
+  it('uses the OgaBassey system appearance when the path identifies the merchant', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-pathname', '/ogabassey.com/missing-page']])
+    );
 
-    render(<StorefrontNotFound />);
+    render(await StorefrontNotFound());
 
-    expect(screen.getByRole('status', { name: /loading page/i })).toBeVisible();
-    expect(
-      screen.queryByRole('heading', { level: 1, name: /page not found/i })
-    ).not.toBeInTheDocument();
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
   });
 
-  it('omits the contact link when the merchant disables the contact page', () => {
-    mockUseMerchantSafe.mockReturnValue({
-      basePath: '',
-      loading: false,
-      merchant: {
-        business_name: 'Ogabassey',
-        pages: { contact: false },
-      },
-    });
+  it('uses the OgaBassey system appearance when the forwarded host matches', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-forwarded-host', 'ogabassey.com:443, proxy.local']])
+    );
 
-    render(<StorefrontNotFound />);
+    render(await StorefrontNotFound());
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: /page not found/i })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /contact us/i })).toBeNull();
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
   });
 
-  it('falls back to a generic store label when merchant is unavailable', () => {
-    mockUseMerchantSafe.mockReturnValue({
-      basePath: '',
-      loading: false,
-      merchant: null,
-    });
+  it('uses the default light appearance for unrelated storefront hosts', async () => {
+    mockHeaders.mockResolvedValue(new Headers([['host', 'example.com']]));
 
-    render(<StorefrontNotFound />);
+    render(await StorefrontNotFound());
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: /page not found/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /back to store/i })
-    ).toBeVisible();
-    expect(screen.queryByRole('link', { name: /contact us/i })).toBeNull();
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
   });
 });

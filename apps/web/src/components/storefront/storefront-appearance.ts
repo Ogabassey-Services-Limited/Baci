@@ -29,7 +29,8 @@ function normalizeStorefrontIdentifier(identifier: string): string {
     .toLowerCase()
     .replace(/^https?:\/\//, '')
     .replace(/^www\./, '')
-    .replace(/\/$/, '');
+    .replace(/\/$/, '')
+    .replace(/:\d+$/, '');
 }
 
 const OGABASSEY_APPEARANCE_IDENTIFIERS = new Set([
@@ -53,6 +54,21 @@ export function resolveStorefrontAppearance(
   }
 
   return createDefaultStorefrontAppearance();
+}
+
+export function resolveKnownStorefrontAppearance(
+  identifier: string | null | undefined
+): StorefrontAppearance | null {
+  if (!identifier) {
+    return null;
+  }
+
+  const normalizedIdentifier = normalizeStorefrontIdentifier(identifier);
+  if (!OGABASSEY_APPEARANCE_IDENTIFIERS.has(normalizedIdentifier)) {
+    return null;
+  }
+
+  return resolveStorefrontAppearance(normalizedIdentifier);
 }
 
 export function getStorefrontAppearanceClasses(
