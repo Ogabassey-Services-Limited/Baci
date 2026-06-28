@@ -169,6 +169,28 @@ describe('POST /api/storefront/auth/google', () => {
     );
   });
 
+  it('allows localhost storefront redirect URLs outside production', async () => {
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        redirectUrl: 'http://ogabassey.localhost:3010/account/callback',
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(oauthRouteMocks.signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          redirectTo: 'http://ogabassey.localhost:3010/account/callback',
+        }),
+      })
+    );
+  });
+
   it('normalizes relative redirect URLs to the configured app origin', async () => {
     const { POST } = await import('./route');
 

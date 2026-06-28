@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveTrustedStorefrontRedirectUrl } from './oauth-redirect';
 
 vi.mock('@/env', () => ({
@@ -12,6 +12,10 @@ const merchant = {
 };
 
 describe('resolveTrustedStorefrontRedirectUrl', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('defaults to the app account URL when no redirect is supplied', () => {
     expect(resolveTrustedStorefrontRedirectUrl(undefined, merchant)).toBe(
       'https://usebaci.com/account'
@@ -43,6 +47,40 @@ describe('resolveTrustedStorefrontRedirectUrl', () => {
         merchant
       )
     ).toBe('https://ogabassey.com/account/callback');
+  });
+
+  it('allows localhost storefront origins outside production', () => {
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'http://ogabassey.localhost:3010/account/callback',
+        merchant
+      )
+    ).toBe('http://ogabassey.localhost:3010/account/callback');
+
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'http://localhost:3010/ogabassey/account/callback',
+        merchant
+      )
+    ).toBe('http://localhost:3010/ogabassey/account/callback');
+
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'http://127.0.0.1:3010/account/callback',
+        merchant
+      )
+    ).toBe('http://127.0.0.1:3010/account/callback');
+  });
+
+  it('rejects localhost storefront origins in production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    expect(
+      resolveTrustedStorefrontRedirectUrl(
+        'http://ogabassey.localhost:3010/account/callback',
+        merchant
+      )
+    ).toBeNull();
   });
 
   it('rejects unrelated absolute origins', () => {

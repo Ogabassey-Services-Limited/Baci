@@ -2,6 +2,7 @@ import { getAppUrl, getRootDomain } from '@/env';
 
 const HOSTNAME_PATTERN =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+const IPV4_LOOPBACK_PATTERN = /^127(?:\.\d{1,3}){3}$/;
 
 type StorefrontOAuthMerchant = {
   custom_domain?: string | null;
@@ -50,6 +51,25 @@ function buildTrustedStorefrontRedirectOrigins(
   return trustedOrigins;
 }
 
+function isDevelopmentLoopbackRedirect(parsed: URL): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === '[::1]' ||
+    hostname === '::1' ||
+    IPV4_LOOPBACK_PATTERN.test(hostname)
+  );
+}
+
 export function resolveTrustedStorefrontRedirectUrl(
   redirectUrl: string | undefined,
   merchant: StorefrontOAuthMerchant
@@ -66,6 +86,10 @@ export function resolveTrustedStorefrontRedirectUrl(
       : new URL(redirectUrl);
 
     if (!buildTrustedStorefrontRedirectOrigins(merchant).has(parsed.origin)) {
+      if (isDevelopmentLoopbackRedirect(parsed)) {
+        return parsed.toString();
+      }
+
       return null;
     }
 
