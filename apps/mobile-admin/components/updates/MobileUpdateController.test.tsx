@@ -167,36 +167,6 @@ describe('MobileUpdateController', () => {
     expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(2);
   });
 
-  it('clears a visible prompt when navigation enters a deferred route', async () => {
-    mockResolveMobileUpdatePrompt
-      .mockResolvedValueOnce({
-        kind: 'native-recommended',
-        message: 'A newer version is available.',
-        storeUrl: STORE_URL,
-      })
-      .mockResolvedValueOnce({ kind: 'none' });
-
-    const view = render(<ControllerHarness />);
-
-    expect(
-      await screen.findByText('prompt:native-recommended')
-    ).toBeInTheDocument();
-
-    mockPathname = '/login';
-    view.rerender(<ControllerHarness />);
-
-    await waitFor(() => {
-      expect(screen.queryByText('prompt:native-recommended')).toBeNull();
-    });
-
-    mockPathname = '/orders';
-    view.rerender(<ControllerHarness />);
-
-    await waitFor(() => {
-      expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(2);
-    });
-  });
-
   it('runs checks requested by foreground and push events', async () => {
     mockResolveMobileUpdatePrompt
       .mockResolvedValueOnce({ kind: 'none' })

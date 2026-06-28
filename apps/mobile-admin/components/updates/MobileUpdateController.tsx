@@ -27,6 +27,7 @@ async function runMobileUpdateCheck(params: {
   hasDeferredCheckRef: { current: boolean };
   hasPrompt: boolean;
   inFlightRef: { current: boolean };
+  latestPathnameRef: { current: string | null | undefined };
   pathname: string;
   setPrompt: (prompt: MobileUpdatePrompt) => void;
 }) {
@@ -53,6 +54,11 @@ async function runMobileUpdateCheck(params: {
       case 'none':
         return;
       default:
+        if (shouldDeferMobileUpdatePrompt(params.latestPathnameRef.current)) {
+          params.hasDeferredCheckRef.current = true;
+          return;
+        }
+
         if (result.kind === 'native-required' && !result.storeUrl) {
           if (__DEV__) {
             console.warn(
@@ -77,12 +83,15 @@ export function MobileUpdateController() {
   const [prompt, setPrompt] = useState<MobileUpdatePrompt | null>(null);
   const inFlightRef = useRef(false);
   const hasDeferredCheckRef = useRef(false);
+  const latestPathnameRef = useRef<string | null | undefined>(pathname);
+  latestPathnameRef.current = pathname;
 
   const runCheck = useEffectEvent(() =>
     runMobileUpdateCheck({
       hasDeferredCheckRef,
       hasPrompt: prompt !== null,
       inFlightRef,
+      latestPathnameRef,
       pathname,
       setPrompt,
     })

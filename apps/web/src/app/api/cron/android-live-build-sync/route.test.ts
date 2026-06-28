@@ -144,7 +144,7 @@ describe('GET /api/cron/android-live-build-sync', () => {
     ]);
   });
 
-  it('returns 200 with mixed results when at least one requested app syncs', async () => {
+  it('returns 502 with mixed results when any requested app errors', async () => {
     mockReconcile.mockImplementation((app: 'storefront' | 'admin') => {
       if (app === 'admin') return Promise.reject(new Error('play down'));
       return Promise.resolve({
@@ -159,7 +159,8 @@ describe('GET /api/cron/android-live-build-sync', () => {
     const response = await GET(cronRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(502);
+    expect(body.error).toBe('One or more Android live-build syncs failed');
     expect(body.results).toContainEqual({
       app: 'storefront',
       synced: true,
@@ -178,7 +179,7 @@ describe('GET /api/cron/android-live-build-sync', () => {
     const body = await response.json();
 
     expect(response.status).toBe(502);
-    expect(body.error).toBe('Every Android live-build sync failed');
+    expect(body.error).toBe('One or more Android live-build syncs failed');
     expect(body.results).toEqual([{ app: 'admin', error: 'sync_failed' }]);
   });
 });
