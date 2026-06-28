@@ -4,7 +4,10 @@ import type {
   AdminProductSearchFilters,
   AdminProductStockFilter,
 } from '@/lib/product-search';
-import { fetchAdminProductSearchRows } from '@/lib/product-search';
+import {
+  applyAdminProductStockFilter,
+  fetchAdminProductSearchRows,
+} from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
 import type { Product, ProductStatus, ProductsPage } from './products.types';
 
@@ -41,17 +44,10 @@ export async function fetchProducts(
 
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.category) query = query.eq('category_id', filters.category);
-
-  if (filters?.stockFilter === 'out_of_stock') {
-    query = query.eq('manage_stock', true).lte('stock_quantity', 0);
-  } else if (filters?.stockFilter === 'low_stock') {
-    query = query
-      .eq('manage_stock', true)
-      .gt('stock_quantity', 0)
-      .lte('stock_quantity', 5);
-  } else if (filters?.stockFilter === 'in_stock') {
-    query = query.eq('manage_stock', true).gt('stock_quantity', 0);
+  if (!filters?.status && filters?.stockFilter) {
+    query = query.neq('status', 'archived');
   }
+  query = applyAdminProductStockFilter(query, filters?.stockFilter);
 
   const { data, error, count } = await query;
   if (error) throw new Error(error.message);

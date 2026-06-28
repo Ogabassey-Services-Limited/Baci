@@ -167,6 +167,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/discounts'),
         },
         {
+          id: 'negotiations',
+          icon: 'chatbubbles-outline',
+          label: 'Negotiation Requests',
+          description: 'Manage price negotiation requests',
+          onPress: () => router.push('/(admin)/negotiations'),
+        },
+        {
           id: 'staff',
           icon: 'people-outline',
           label: 'Staff',

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { router } from 'expo-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import ProductsScreen from './products';
+import ProductsScreen from '../../../app/(admin)/(tabs)/products';
 
 vi.mock('@shopify/flash-list', async () => {
   const React = await import('react');
@@ -49,7 +50,18 @@ const productHookMocks = vi.hoisted(() => ({
 vi.mock('@/hooks/useProducts', () => ({
   useProducts: productHookMocks.useProducts,
   useCategories: () => ({ data: [], isLoading: false }),
-  useInventoryStats: () => ({ data: null, isLoading: false }),
+  useInventoryStats: () => ({
+    data: {
+      activeCount: 0,
+      inventoryCost: 0,
+      inventoryValue: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      totalProducts: 0,
+      totalStock: 0,
+    },
+    isLoading: false,
+  }),
   useCreateCategory: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useTopSellingProducts', () => ({
@@ -111,6 +123,7 @@ vi.mock('@/components/ui/SafeImage', async () => {
 
 describe('ProductsScreen', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     productHookMocks.useProducts.mockImplementation(
       (filters?: { search?: string }) => ({
         data: {
@@ -155,8 +168,40 @@ describe('ProductsScreen', () => {
     expect(getByRole('button', { name: 'Add new product' })).toBeTruthy();
     expect(getAllByText('In Stock (0)')[0]).toBeTruthy();
     expect(getAllByText('Items (0)')[0]).toBeTruthy();
+    expect(getAllByText('Out of Stock (0)')[0]).toBeTruthy();
+    expect(getByRole('button', { name: 'Scan barcode' })).toBeTruthy();
     expect(getAllByText('Start managing stock')[0]).toBeTruthy();
     expect(getAllByText('Add Stocked Item')[0]).toBeTruthy();
+  });
+
+  it('opens the barcode scanner from the products search row', () => {
+    render(<ProductsScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scan barcode' }));
+
+    expect(router.push).toHaveBeenCalledWith('/scan');
+  });
+
+  it('requests low-stock products from the products tab', () => {
+    render(<ProductsScreen />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Low Stock (0)' }));
+
+    expect(productHookMocks.useProducts).toHaveBeenLastCalledWith({
+      search: undefined,
+      stockFilter: 'low_stock',
+    });
+  });
+
+  it('requests out-of-stock products from the products tab', () => {
+    render(<ProductsScreen />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Out of Stock (0)' }));
+
+    expect(productHookMocks.useProducts).toHaveBeenLastCalledWith({
+      search: undefined,
+      stockFilter: 'out_of_stock',
+    });
   });
 
   it('shows a product load error state when the product query fails', () => {

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { router } from 'expo-router';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -71,7 +72,17 @@ vi.mock('@/components/dashboard', async () => {
     BranchSwitcher: () => <Text>branch-switcher</Text>,
     InsightCard: () => <Text>insight-card</Text>,
     ProgressCard: () => <Text>progress-card</Text>,
-    QuickActionButton: ({ label }: { label: string }) => <Text>{label}</Text>,
+    QuickActionButton: ({
+      label,
+      onPress,
+    }: {
+      label: string;
+      onPress?: () => void;
+    }) => (
+      <button type="button" onClick={onPress}>
+        {label}
+      </button>
+    ),
     RevenueChart: () => <Text>revenue-chart</Text>,
     StatCard: ({ label }: { label: string }) => <Text>{label}</Text>,
     WelcomeHeader: () => <Text>welcome-header</Text>,
@@ -189,7 +200,7 @@ vi.mock('@/types/upload', () => ({
   createUploadFile: vi.fn(),
 }));
 
-import HomeScreen from '@/app/(admin)/(tabs)/index';
+import HomeScreen from '../../../app/(admin)/(tabs)/index';
 
 describe('HomeScreen', () => {
   beforeEach(() => {
@@ -215,5 +226,14 @@ describe('HomeScreen', () => {
     screen.getByText('New');
     expect(screen.queryByText('Visits (all stores)')).toBeNull();
     expect(screen.queryByText('New (all stores)')).toBeNull();
+  });
+
+  it('navigates to negotiations when Negotiation Requests quick action is pressed', () => {
+    render(<HomeScreen />);
+
+    const button = screen.getByRole('button', { name: 'Negotiation Requests' });
+    fireEvent.click(button);
+
+    expect(router.push).toHaveBeenCalledWith('/(admin)/negotiations');
   });
 });

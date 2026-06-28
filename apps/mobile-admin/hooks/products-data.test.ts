@@ -16,7 +16,9 @@ type ProductsQuery = Promise<ProductsQueryResult> & {
   gt: (column: string, value: unknown) => ProductsQuery;
   is: (column: string, value: unknown) => ProductsQuery;
   lte: (column: string, value: unknown) => ProductsQuery;
+  neq: (column: string, value: unknown) => ProductsQuery;
   order: (column: string, options: unknown) => ProductsQuery;
+  or: (filters: string) => ProductsQuery;
   range: (from: number, to: number) => ProductsQuery;
   select: (columns: string, options?: unknown) => ProductsQuery;
 };
@@ -27,7 +29,9 @@ function createProductsQuery(result: ProductsQueryResult): ProductsQuery {
   query.gt = vi.fn(() => query) as ProductsQuery['gt'];
   query.is = vi.fn(() => query) as ProductsQuery['is'];
   query.lte = vi.fn(() => query) as ProductsQuery['lte'];
+  query.neq = vi.fn(() => query) as ProductsQuery['neq'];
   query.order = vi.fn(() => query) as ProductsQuery['order'];
+  query.or = vi.fn(() => query) as ProductsQuery['or'];
   query.range = vi.fn(() => query) as ProductsQuery['range'];
   query.select = vi.fn(() => query) as ProductsQuery['select'];
   return query;
@@ -41,7 +45,8 @@ vi.mock('@/lib/product-inventory', () => ({
   normalizeProductInventory: mocks.normalizeProductInventory,
 }));
 
-vi.mock('@/lib/product-search', () => ({
+vi.mock('@/lib/product-search', async () => ({
+  ...(await vi.importActual('@/lib/product-search')),
   fetchAdminProductSearchRows: vi.fn(),
 }));
 
@@ -53,6 +58,19 @@ describe('fetchProducts stock filters', () => {
     mocks.normalizeProductInventory.mockClear();
   });
 
+  it('excludes archived products from stock results by default', async () => {
+    const query = createProductsQuery({ count: 0, data: [], error: null });
+    mocks.from.mockReturnValueOnce(query);
+
+    await fetchProducts('merchant-1', 0, { stockFilter: 'in_stock' });
+
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
+    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.or).toHaveBeenCalledWith(
+      'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
+    );
+  });
+
   it('restricts out-of-stock results to managed inventory', async () => {
     const query = createProductsQuery({ count: 0, data: [], error: null });
     mocks.from.mockReturnValueOnce(query);
@@ -60,18 +78,36 @@ describe('fetchProducts stock filters', () => {
     await fetchProducts('merchant-1', 0, { stockFilter: 'out_of_stock' });
 
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
-    expect(query.lte).toHaveBeenCalledWith('stock_quantity', 0);
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
+    expect(query.or).toHaveBeenCalledWith(
+      'and(stock_quantity.is.null,stock.is.null),and(stock_quantity.is.null,stock.lte.0),and(stock_quantity.lte.0,stock.is.null),and(stock_quantity.lte.0,stock.lte.0)'
+    );
   });
 
-  it('restricts low-stock results to managed inventory above zero and at threshold', async () => {
+  it('keeps archived products when an explicit status filter is selected', async () => {
+    const query = createProductsQuery({ count: 0, data: [], error: null });
+    mocks.from.mockReturnValueOnce(query);
+
+    await fetchProducts('merchant-1', 0, {
+      status: 'archived',
+      stockFilter: 'out_of_stock',
+    });
+
+    expect(query.eq).toHaveBeenCalledWith('status', 'archived');
+    expect(query.neq).not.toHaveBeenCalledWith('status', 'archived');
+  });
+
+  it('restricts low-stock results to managed effective stock above zero and at threshold', async () => {
     const query = createProductsQuery({ count: 0, data: [], error: null });
     mocks.from.mockReturnValueOnce(query);
 
     await fetchProducts('merchant-1', 0, { stockFilter: 'low_stock' });
 
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
-    expect(query.gt).toHaveBeenCalledWith('stock_quantity', 0);
-    expect(query.lte).toHaveBeenCalledWith('stock_quantity', 5);
+    expect(query.or).toHaveBeenCalledWith(
+      'and(stock_quantity.gt.0,stock_quantity.lte.5),and(stock_quantity.is.null,stock.gt.0,stock.lte.5),and(stock_quantity.lte.0,stock.gt.0,stock.lte.5)'
+    );
   });
 
   it('excludes untracked inventory from in-stock management results', async () => {
@@ -90,7 +126,10 @@ describe('fetchProducts stock filters', () => {
     });
 
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
-    expect(query.gt).toHaveBeenCalledWith('stock_quantity', 0);
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
+    expect(query.or).toHaveBeenCalledWith(
+      'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
+    );
     expect(mocks.normalizeProductInventory).toHaveBeenCalledWith(row);
   });
 

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import MenuScreen from './menu';
+import MenuScreen from '../../../app/(admin)/(tabs)/menu';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
@@ -130,5 +130,17 @@ describe('MenuScreen', () => {
     );
 
     expect(mocks.push).toHaveBeenCalledWith('/domains');
+  });
+
+  it('navigates to negotiations from the menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Negotiation Requests. Manage price negotiation requests',
+      })
+    );
+
+    expect(mocks.push).toHaveBeenCalledWith('/(admin)/negotiations');
   });
 });

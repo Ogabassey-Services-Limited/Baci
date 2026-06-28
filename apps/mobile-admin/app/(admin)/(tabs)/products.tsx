@@ -21,6 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CategoryItem } from '@/components/product/CategoryItem';
 import { ProductItem } from '@/components/product/ProductItem';
+import { ProductsSearchActions } from '@/components/product/ProductsSearchActions';
 import { ProductsStatCards } from '@/components/product/ProductsStatCards';
 import type { Category } from '@/components/product/product.shared';
 import { TopSellingProductItem } from '@/components/product/TopSellingProductItem';
@@ -79,7 +80,6 @@ interface TabButtonProps {
 function TabButton({ id, label, activeTab, onSelect }: TabButtonProps) {
   const { colors } = useTheme();
   const isActive = activeTab === id;
-  if (id === 'out_of_stock') return null;
 
   return (
     <Pressable
@@ -201,6 +201,7 @@ export default function ProductsScreen() {
   // Collapsible search bar animation — useState initializer keeps a stable
   // Animated.Value without reading a ref during render (React Compiler safe).
   const [searchBarAnim] = useState(() => new Animated.Value(1));
+  const [isSearchActionsVisible, setIsSearchActionsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
@@ -211,6 +212,7 @@ export default function ProductsScreen() {
     if (Math.abs(diff) > 10) {
       if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
         isSearchVisible.current = false;
+        setIsSearchActionsVisible(false);
         Animated.timing(searchBarAnim, {
           toValue: 0,
           duration: 200,
@@ -218,6 +220,7 @@ export default function ProductsScreen() {
         }).start();
       } else if (diff < 0 && !isSearchVisible.current) {
         isSearchVisible.current = true;
+        setIsSearchActionsVisible(true);
         Animated.timing(searchBarAnim, {
           toValue: 1,
           duration: 200,
@@ -291,6 +294,16 @@ export default function ProductsScreen() {
           onPress: null,
         };
       }
+      if (activeTab === 'out_of_stock') {
+        return {
+          icon: 'checkmark-circle-outline' as const,
+          title: 'Nothing depleted',
+          description:
+            'All managed inventory items have stock available right now.',
+          buttonLabel: null,
+          onPress: null,
+        };
+      }
       return {
         icon: 'calculator-outline' as const,
         title: 'Start managing stock',
@@ -331,62 +344,15 @@ export default function ProductsScreen() {
         onTabChange={handleTopTabChange}
       />
 
-      {/* Collapsible Search Bar */}
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          {
-            opacity: searchBarAnim,
-            transform: [
-              {
-                translateY: searchBarAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-60, 0],
-                }),
-              },
-              {
-                scaleY: searchBarAnim,
-              },
-            ],
-          },
-        ]}
-      >
-        <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
-          <Ionicons name="search" size={20} color={colors.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search products..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="Search products"
-            accessibilityRole="search"
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 ? (
-            <Pressable
-              onPress={() => setSearchQuery('')}
-              accessibilityLabel="Clear search"
-              accessibilityRole="button"
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={{
-                minWidth: 44,
-                minHeight: 44,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color={colors.textMuted}
-              />
-            </Pressable>
-          ) : null}
-        </View>
-      </Animated.View>
+      <ProductsSearchActions
+        colors={colors}
+        isVisible={isSearchActionsVisible}
+        onClearSearch={() => setSearchQuery('')}
+        onScanPress={() => router.push('/scan')}
+        onSearchChange={setSearchQuery}
+        searchBarAnim={searchBarAnim}
+        searchQuery={searchQuery}
+      />
 
       <ProductsStatCards activeTab={topTab} />
 
@@ -414,6 +380,12 @@ export default function ProductsScreen() {
               <TabButton
                 id="low_stock"
                 label={`Low Stock (${inventoryStats?.lowStockCount ?? 0})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="out_of_stock"
+                label={`Out of Stock (${inventoryStats?.outOfStockCount ?? 0})`}
                 activeTab={activeTab}
                 onSelect={setActiveTab}
               />
@@ -808,25 +780,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  searchContainer: {
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    paddingVertical: SPACING.xs,
   },
   statsContainer: {
     flexDirection: 'row',

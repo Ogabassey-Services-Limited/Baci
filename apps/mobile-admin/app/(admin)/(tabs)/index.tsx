@@ -474,11 +474,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/(admin)/order/new')}
             />
             <QuickActionButton
-              icon="mail-outline"
-              label="Send Emails"
+              icon="chatbubbles-outline"
+              label="Negotiation Requests"
               iconColor={colors.gold}
               backgroundColor={colors.goldLight}
-              onPress={() => router.push('/(admin)/(tabs)/customers')}
+              onPress={() => router.push('/(admin)/negotiations')}
             />
             <QuickActionButton
               icon="cube-outline"

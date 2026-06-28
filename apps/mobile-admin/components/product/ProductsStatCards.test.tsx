@@ -60,6 +60,7 @@ describe('ProductsStatCards', () => {
         inventoryCost: 30000,
         totalStock: 100,
         lowStockCount: 5,
+        outOfStockCount: 2,
       },
       isLoading: false,
     } as unknown as ReturnType<typeof useInventoryStats>);
@@ -70,6 +71,10 @@ describe('ProductsStatCards', () => {
     screen.getByText('₦50k');
     screen.getByText('Stock Cost');
     screen.getByText('₦30k');
+    screen.getByText('Low Stock');
+    screen.getByText('5');
+    screen.getByText('Out of Stock');
+    screen.getByText('2');
   });
 
   it('shows loading indicators for both metric sources', () => {
@@ -105,6 +110,7 @@ describe('ProductsStatCards', () => {
         inventoryCost: 0,
         totalStock: 0,
         lowStockCount: 0,
+        outOfStockCount: 0,
       },
       isLoading: false,
     } as unknown as ReturnType<typeof useInventoryStats>);
@@ -113,7 +119,10 @@ describe('ProductsStatCards', () => {
 
     screen.getByText('Total Value');
     screen.getByText('Stock Cost');
+    screen.getByText('Low Stock');
+    screen.getByText('Out of Stock');
     expect(screen.getAllByText('₦0')).toHaveLength(2);
+    expect(screen.getAllByText('0')).toHaveLength(2);
   });
 
   it('renders an analytics error state for website stats failures', () => {
@@ -153,6 +162,7 @@ describe('ProductsStatCards', () => {
         inventoryValue: 50000,
         inventoryCost: 30000,
         lowStockCount: 5,
+        outOfStockCount: 2,
         totalStock: 100,
       },
       isLoading: false,
