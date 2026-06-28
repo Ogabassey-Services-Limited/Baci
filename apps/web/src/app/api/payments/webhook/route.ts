@@ -63,9 +63,14 @@ import {
   scheduleVoucherPinBackfill,
 } from '@/lib/vtu-voucher-backfill';
 import { sendEmail } from '@/lib/zeptomail';
-import { referenceSchema } from '@/schemas/payments';
+import {
+  paystackZeroCandidateReviewGatewayResponseSchema,
+  referenceSchema,
+} from '@/schemas/payments';
 
 type PaymentGateway = 'paystack' | 'korapay';
+
+type VerifiedGatewayAmount = { amount: number; currency?: string };
 
 interface PaymentTransactionRecord {
   amount: number | string | null;
@@ -156,7 +161,7 @@ function acknowledgePaystackWebhookForReview(
 function getVerifiedAmount(
   gateway: PaymentGateway,
   gatewayResponse: Record<string, unknown>
-): { amount: number; currency?: string } | null {
+): VerifiedGatewayAmount | null {
   const rawAmount = gatewayResponse.amount;
   if (
     typeof rawAmount !== 'number' ||
@@ -173,6 +178,87 @@ function getVerifiedAmount(
   const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
 
   return { amount, currency };
+}
+
+const POSTGRES_UNIQUE_VIOLATION = '23505';
+const SUPABASE_NO_ROWS_RETURNED = 'PGRST116';
+
+function isSupabaseNoRowsError(error: unknown) {
+  const supabaseError = error as {
+    code?: string;
+    details?: string | null;
+    message?: string | null;
+  } | null;
+  if (supabaseError?.code !== SUPABASE_NO_ROWS_RETURNED) {
+    return false;
+  }
+  const details = `${supabaseError.details ?? ''} ${
+    supabaseError.message ?? ''
+  }`;
+  return /\b0 rows?\b/i.test(details);
+}
+
+async function filePaystackZeroCandidateReview({
+  gatewayResponse,
+  reference,
+  receiverAccountNumber,
+  supabase,
+  verifiedAmount,
+}: {
+  gatewayResponse: Record<string, unknown>;
+  reference: string;
+  receiverAccountNumber: string | null;
+  supabase: SupabaseClient;
+  verifiedAmount: VerifiedGatewayAmount | null;
+}): Promise<{ duplicate: boolean; ok: true } | { error: unknown; ok: false }> {
+  const parsedGatewayResponse =
+    paystackZeroCandidateReviewGatewayResponseSchema.safeParse(gatewayResponse);
+  if (!parsedGatewayResponse.success) {
+    logger.error({
+      message: 'Invalid Paystack response for zero-candidate payment review',
+      reference,
+      error: parsedGatewayResponse.error.flatten(),
+    });
+    return { error: parsedGatewayResponse.error, ok: false };
+  }
+
+  const reviewGatewayResponse = parsedGatewayResponse.data;
+  const reviewRow = {
+    candidates: [],
+    issue_type: 'payment_match_zero_candidates',
+    metadata: {
+      channel: reviewGatewayResponse.channel,
+      currency: verifiedAmount?.currency ?? null,
+      customer_email: reviewGatewayResponse.customer.email,
+      paid_at: reviewGatewayResponse.paid_at,
+      receiver_account_number: receiverAccountNumber,
+      verified_amount: verifiedAmount?.amount ?? null,
+    },
+    paystack_ref: reference,
+    reason:
+      'Verified Paystack charge.success webhook did not match any local transaction, order payment account, wallet top-up, or chat order.',
+  };
+
+  const { error } = await supabase
+    .from('reconciliation_review')
+    .insert(reviewRow);
+  if (!error) return { duplicate: false, ok: true };
+
+  if ((error as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION) {
+    logger.info({
+      message:
+        'Paystack zero-candidate payment review already filed (expected webhook retry no-op)',
+      reference,
+    });
+    return { duplicate: true, ok: true };
+  }
+
+  logger.error({
+    message: 'Failed to file Paystack zero-candidate payment review',
+    reference,
+    error: sanitizeForLog(error),
+  });
+  return { error, ok: false };
 }
 
 async function handleWalletTopUpIfNeeded({
@@ -685,6 +771,11 @@ export async function POST(request: NextRequest) {
             status: orderAccountResult.status,
           });
         }
+        if (orderAccountResult.kind === 'error') {
+          return NextResponse.json(orderAccountResult.body, {
+            status: orderAccountResult.status,
+          });
+        }
         if (orderAccountResult.kind === 'match') {
           resolvedAgenticTransaction =
             orderAccountResult.transaction as AgenticPaystackDvaTransaction;
@@ -1069,7 +1160,46 @@ export async function POST(request: NextRequest) {
       transactionError = transactionResult.error;
     }
 
-    if (transactionError || !transaction) {
+    if (transactionError && !isSupabaseNoRowsError(transactionError)) {
+      logger.error({
+        message: 'Transaction lookup failed',
+        reference,
+        error: sanitizeForLog(transactionError),
+      });
+      return NextResponse.json(
+        { error: 'Transaction lookup failed' },
+        { status: 500 }
+      );
+    }
+
+    if (!transaction) {
+      if (gateway === 'paystack') {
+        const reviewResult = await filePaystackZeroCandidateReview({
+          gatewayResponse,
+          reference,
+          receiverAccountNumber: getPaystackDvaReceiverAccountNumber(body),
+          supabase,
+          verifiedAmount,
+        });
+        if (!reviewResult.ok) {
+          return NextResponse.json(
+            { error: 'Payment reconciliation review unavailable' },
+            { status: 500 }
+          );
+        }
+
+        logger.warn({
+          message:
+            'Paystack webhook acknowledged with zero local payment candidates',
+          reference,
+          duplicateReview: reviewResult.duplicate,
+        });
+        return NextResponse.json({
+          code: 'PAYSTACK_PAYMENT_MATCH_ZERO_CANDIDATES',
+          message: 'Paystack webhook accepted for reconciliation review',
+        });
+      }
+
       logger.error({
         message: 'Transaction not found',
         reference,

@@ -49,6 +49,7 @@ const ctxBase = {
 
 function createSupabaseMock(opts: {
   accountRows?: unknown[];
+  accountLookupError?: unknown;
   insertResult?: { data: unknown; error: unknown };
   reuseLookupResult?: { data: unknown; error: unknown };
   reviewError?: unknown;
@@ -69,7 +70,10 @@ function createSupabaseMock(opts: {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: rows, error: null }),
+            eq: vi.fn().mockResolvedValue({
+              data: opts.accountLookupError ? null : rows,
+              error: opts.accountLookupError ?? null,
+            }),
           }),
         };
       }
@@ -283,6 +287,33 @@ describe('confirmPaystackDvaByOrderAccount — ambiguous match', () => {
 });
 
 describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
+  it('returns a 500 error when order_payment_accounts lookup fails', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountLookupError: {
+        code: '57014',
+        message: 'canceling statement due to statement timeout',
+      },
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result).toEqual({
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    });
+    expect(state.insertCalls).toHaveLength(0);
+    expect(state.reviewUpserts).toHaveLength(0);
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'B1 order_payment_accounts lookup failed',
+      })
+    );
+  });
+
   it('still returns 409 review when the reconciliation_review insert fails (logged-and-continue)', async () => {
     // Two candidates match → ambiguous → helper attempts to file a
     // reconciliation_review row. The DB rejects the insert (e.g.,
@@ -371,13 +402,12 @@ describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
     );
   });
 
-  it('falls through (kind:none) when a non-23505 transaction insert error occurs', async () => {
+  it('returns a 500 error when a non-23505 transaction insert error occurs', async () => {
     // Single match → helper tries to insert the pending transaction.
     // The DB rejects with a non-conflict error code (e.g., 23502
     // not-null violation). The helper must NOT treat this like a
     // benign unique violation and must NOT consult the reuse-lookup;
-    // it falls through so the caller can use its existing
-    // gateway_reference path.
+    // it fails closed so the webhook can return a retryable 5xx.
     const { supabase, state } = createSupabaseMock({
       insertResult: {
         data: null,
@@ -390,11 +420,46 @@ describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
       ...ctxBase,
     });
 
-    expect(result).toEqual({ kind: 'none' });
+    expect(result).toEqual({
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    });
     expect(state.insertCalls).toHaveLength(1);
     // Critical: the reuse-lookup path (used for 23505 retries) must
     // NOT fire for a non-conflict error.
     expect(state.reuseLookups).toBe(0);
+  });
+
+  it('returns a 500 error when a unique-violation retry cannot re-read the transaction', async () => {
+    const { supabase, state } = createSupabaseMock({
+      insertResult: {
+        data: null,
+        error: { code: '23505', message: 'duplicate gateway reference' },
+      },
+      reuseLookupResult: {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+      },
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result).toEqual({
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    });
+    expect(state.insertCalls).toHaveLength(1);
+    expect(state.reuseLookups).toBe(1);
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'B1 single-match insert collided but re-read failed',
+      })
+    );
   });
 });
 

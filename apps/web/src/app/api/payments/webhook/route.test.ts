@@ -211,8 +211,36 @@ vi.mock('@/lib/vtu-fulfillment', () => ({
   ),
 }));
 
-// Mock reference schema
+// Mock payment schemas
 vi.mock('@/schemas/payments', () => ({
+  paystackZeroCandidateReviewGatewayResponseSchema: {
+    safeParse: vi.fn((value: unknown) => {
+      const response =
+        value && typeof value === 'object'
+          ? (value as Record<string, unknown>)
+          : {};
+      const customer =
+        response.customer &&
+        typeof response.customer === 'object' &&
+        !Array.isArray(response.customer)
+          ? (response.customer as Record<string, unknown>)
+          : {};
+
+      return {
+        data: {
+          ...response,
+          channel:
+            typeof response.channel === 'string' ? response.channel : null,
+          customer: {
+            email: typeof customer.email === 'string' ? customer.email : null,
+          },
+          paid_at:
+            typeof response.paid_at === 'string' ? response.paid_at : null,
+        },
+        success: true,
+      };
+    }),
+  },
   referenceSchema: {
     safeParse: vi.fn((value: unknown) => {
       if (typeof value === 'string' && value.length > 0) {
@@ -934,7 +962,11 @@ describe('POST /api/payments/webhook', () => {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { message: 'Not found', code: 'PGRST116' },
+              error: {
+                message: 'Not found',
+                code: 'PGRST116',
+                details: 'The result contains 0 rows',
+              },
             }),
           } as any;
         }
@@ -952,6 +984,472 @@ describe('POST /api/payments/webhook', () => {
 
       expect(response.status).toBe(404);
       expect(data).toEqual({ error: 'Transaction not found' });
+    });
+
+    async function preparePaystackZeroCandidateRequest({
+      reviewError = null,
+      transactionError = {
+        code: 'PGRST116',
+        message: 'Not found',
+        details: 'The result contains 0 rows',
+      },
+    }: {
+      reviewError?: null | { code?: string; message: string };
+      transactionError?: {
+        code?: string;
+        details?: string;
+        message: string;
+      };
+    } = {}) {
+      const reference = '09FG260626140359226K1RHXD';
+      const body = {
+        event: 'charge.success',
+        data: {
+          amount: 100000,
+          reference,
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const reviewInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: reviewError });
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference,
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-06-27T20:37:08.000Z',
+          created_at: '2026-06-27T20:36:00.000Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: transactionError,
+            }),
+          } as any;
+        }
+        if (table === 'reconciliation_review') {
+          return { insert: reviewInsert } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      return { logger, reference, request, reviewInsert };
+    }
+
+    it('does not acknowledge Paystack payments when local transaction lookup fails', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          amount: 100000,
+          reference: '09FG260626140359226K1RHXD',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const reviewInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference: '09FG260626140359226K1RHXD',
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-06-27T20:37:08.000Z',
+          created_at: '2026-06-27T20:36:00.000Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: {
+                code: '57014',
+                message: 'canceling statement due to statement timeout',
+              },
+            }),
+          } as any;
+        }
+        if (table === 'reconciliation_review') {
+          return { insert: reviewInsert } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Transaction lookup failed' });
+      expect(reviewInsert).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Transaction lookup failed',
+          reference: '09FG260626140359226K1RHXD',
+        })
+      );
+    });
+
+    it('does not acknowledge Paystack payments when singular transaction lookup finds duplicate rows', async () => {
+      const { logger, request, reviewInsert } =
+        await preparePaystackZeroCandidateRequest({
+          transactionError: {
+            code: 'PGRST116',
+            details: 'The result contains 2 rows',
+            message: 'JSON object requested, multiple (or no) rows returned',
+          },
+        });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Transaction lookup failed' });
+      expect(reviewInsert).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Transaction lookup failed',
+          reference: '09FG260626140359226K1RHXD',
+        })
+      );
+    });
+
+    it('does not acknowledge Paystack payments when DVA order-account matching fails transiently', async () => {
+      const reference = '09FG260626140359226K1RHXD';
+      const body = {
+        event: 'charge.success',
+        data: {
+          amount: 100000,
+          reference,
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const reviewInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+      const transactionLookup = vi.fn();
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference,
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-06-27T20:37:08.000Z',
+          created_at: '2026-06-27T20:36:00.000Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'order_payment_accounts') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: null,
+                error: {
+                  code: '57014',
+                  message: 'canceling statement due to statement timeout',
+                },
+              }),
+            }),
+          } as any;
+        }
+        if (table === 'transactions') {
+          transactionLookup(table);
+        }
+        if (table === 'reconciliation_review') {
+          return { insert: reviewInsert } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        error: 'Paystack DVA matching temporarily unavailable',
+      });
+      expect(reviewInsert).not.toHaveBeenCalled();
+      expect(transactionLookup).not.toHaveBeenCalled();
+      expect(mockConfirmPaystackWalletDvaTopUp).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'B1 order_payment_accounts lookup failed',
+        })
+      );
+    });
+
+    it('acknowledges verified Paystack payments with zero local candidates after filing review', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          amount: 100000,
+          reference: '09FG260626140359226K1RHXD',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const reviewInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference: '09FG260626140359226K1RHXD',
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-06-27T20:37:08.000Z',
+          created_at: '2026-06-27T20:36:00.000Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
+            }),
+          } as any;
+        }
+        if (table === 'reconciliation_review') {
+          return { insert: reviewInsert } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        code: 'PAYSTACK_PAYMENT_MATCH_ZERO_CANDIDATES',
+        message: 'Paystack webhook accepted for reconciliation review',
+      });
+      expect(reviewInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          candidates: [],
+          issue_type: 'payment_match_zero_candidates',
+          paystack_ref: '09FG260626140359226K1RHXD',
+          metadata: expect.objectContaining({
+            channel: 'bank_transfer',
+            currency: 'NGN',
+            customer_email: 'customer@example.com',
+            verified_amount: 1000,
+          }),
+        })
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          duplicateReview: false,
+          message:
+            'Paystack webhook acknowledged with zero local payment candidates',
+          reference: '09FG260626140359226K1RHXD',
+        })
+      );
+      expect(logger.error).not.toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Transaction not found' })
+      );
+    });
+
+    it('acknowledges duplicate Paystack zero-candidate review inserts as webhook retry no-ops', async () => {
+      const { logger, reference, request, reviewInsert } =
+        await preparePaystackZeroCandidateRequest({
+          reviewError: {
+            code: '23505',
+            message:
+              'duplicate key value violates unique constraint "reconciliation_review_open_by_paystack_ref_idx"',
+          },
+        });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        code: 'PAYSTACK_PAYMENT_MATCH_ZERO_CANDIDATES',
+        message: 'Paystack webhook accepted for reconciliation review',
+      });
+      expect(reviewInsert).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            'Paystack zero-candidate payment review already filed (expected webhook retry no-op)',
+          reference,
+        })
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          duplicateReview: true,
+          message:
+            'Paystack webhook acknowledged with zero local payment candidates',
+          reference,
+        })
+      );
+    });
+
+    it('returns 500 when Paystack zero-candidate review filing fails', async () => {
+      const { logger, reference, request, reviewInsert } =
+        await preparePaystackZeroCandidateRequest({
+          reviewError: {
+            code: 'XX000',
+            message: 'internal database error',
+          },
+        });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        error: 'Payment reconciliation review unavailable',
+      });
+      expect(reviewInsert).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Failed to file Paystack zero-candidate payment review',
+          reference,
+        })
+      );
+      expect(logger.warn).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            'Paystack webhook acknowledged with zero local payment candidates',
+        })
+      );
     });
   });
 
@@ -1289,7 +1787,11 @@ describe('POST /api/payments/webhook', () => {
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
           data: null,
-          error: { code: 'PGRST116', message: 'Not found' },
+          error: {
+            code: 'PGRST116',
+            message: 'Not found',
+            details: 'The result contains 0 rows',
+          },
         }),
       });
       const transactionUpdate = vi.fn().mockReturnValue({
@@ -1483,7 +1985,11 @@ describe('POST /api/payments/webhook', () => {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
           } as any;
         }
@@ -1608,7 +2114,11 @@ describe('POST /api/payments/webhook', () => {
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
             update: transactionUpdate,
           } as any;
@@ -1724,7 +2234,11 @@ describe('POST /api/payments/webhook', () => {
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
             update: transactionUpdate,
           } as any;
@@ -1833,7 +2347,11 @@ describe('POST /api/payments/webhook', () => {
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
             update: transactionUpdate,
           } as any;
