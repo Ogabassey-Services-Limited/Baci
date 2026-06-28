@@ -12,7 +12,7 @@
 - **Framework:** Next.js 15.0.0 (App Router)
 - **Language:** TypeScript 5.5.4 (strict mode)
 - **Styling:** Tailwind CSS 3.4.7 + shadcn/ui
-- **AI Engine:** Vercel AI SDK with Gemini 1.5 Flash models
+- **AI Engine:** Vercel AI SDK with Gemini 2.5 Flash models
 - **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
 - **Database:** Supabase (PostgreSQL)
 - **Authentication:** Supabase Auth
@@ -419,8 +419,8 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-pnpm dev                 # Start Next.js dev server on port 9002
-pnpm build               # Production build
+pnpm turbo dev           # Start Next.js dev server on port 9002
+pnpm turbo build         # Production build
 pnpm turbo typecheck     # TypeScript type checking
 pnpm turbo lint          # Biome linting
 ```

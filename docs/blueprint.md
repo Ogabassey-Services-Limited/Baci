@@ -361,7 +361,7 @@ User Navigates to /dashboard/products/add
 pnpm turbo typecheck
 
 # Dev server
-pnpm dev  # http://localhost:9002
+pnpm turbo dev  # http://localhost:9002
 
 ```
 
@@ -430,7 +430,7 @@ pnpm dev  # http://localhost:9002
 
 3. **Test your changes:**
    - Run `pnpm turbo typecheck` for type errors
-   - Test in browser: `pnpm dev`
+   - Test in browser: `pnpm turbo dev`
 
 4. **Ask the user:**
    - If documentation is unclear
