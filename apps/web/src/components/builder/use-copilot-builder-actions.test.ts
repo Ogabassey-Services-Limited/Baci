@@ -1,0 +1,190 @@
+import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+import type { Data } from '@puckeditor/core';
+import { renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useCopilotBuilderActions } from './use-copilot-builder-actions';
+
+vi.mock('@copilotkit/react-core', () => ({
+  useCopilotAction: vi.fn(),
+  useCopilotReadable: vi.fn(),
+}));
+
+vi.mock('./component-schema', () => ({
+  COMPONENT_SCHEMA: {
+    Hero: { type: 'Hero' },
+    ProductGrid: { type: 'ProductGrid' },
+  },
+}));
+
+type BuilderActionArgs = Record<string, unknown>;
+
+type RegisteredBuilderAction = {
+  handler: (args: BuilderActionArgs) => string;
+  name: string;
+};
+
+function createData(content: Data['content'] = []): Data {
+  return { content, root: { props: {} } };
+}
+
+function getRegisteredAction(name: string): RegisteredBuilderAction {
+  const registration = vi
+    .mocked(useCopilotAction)
+    .mock.calls.map(([config]) => config as unknown as RegisteredBuilderAction)
+    .find((config) => config.name === name);
+
+  if (!registration) {
+    throw new Error(`Expected ${name} to be registered`);
+  }
+
+  return registration;
+}
+
+describe('useCopilotBuilderActions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(Date, 'now').mockReturnValue(1234);
+  });
+
+  it('registers readable builder state for the assistant', () => {
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([
+          { props: { id: 'hero-1', title: 'Welcome' }, type: 'Hero' },
+        ]),
+        setData: vi.fn(),
+      })
+    );
+
+    expect(useCopilotReadable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: expect.stringContaining('current storefront'),
+        value: expect.stringContaining('Welcome'),
+      })
+    );
+  });
+
+  it('registers add, update, and remove actions', () => {
+    renderHook(() =>
+      useCopilotBuilderActions({ data: createData(), setData: vi.fn() })
+    );
+
+    expect(
+      vi.mocked(useCopilotAction).mock.calls.map(([config]) => config.name)
+    ).toEqual(['addComponent', 'updateComponent', 'removeComponent']);
+  });
+
+  it('adds a supported component with parsed props at the requested position', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([{ props: { id: 'hero-1' }, type: 'Hero' }]),
+        setData,
+      })
+    );
+
+    const result = getRegisteredAction('addComponent').handler({
+      componentType: 'ProductGrid',
+      position: 0,
+      props: '{"title":"Featured"}',
+    });
+
+    expect(result).toBe('Added ProductGrid at position 0.');
+    expect(setData).toHaveBeenCalledWith({
+      content: [
+        {
+          props: { id: 'ProductGrid-1234', title: 'Featured' },
+          type: 'ProductGrid',
+        },
+        { props: { id: 'hero-1' }, type: 'Hero' },
+      ],
+      root: { props: {} },
+    });
+  });
+
+  it('does not add unsupported components', () => {
+    const setData = vi.fn();
+    renderHook(() => useCopilotBuilderActions({ data: createData(), setData }));
+
+    const result = getRegisteredAction('addComponent').handler({
+      componentType: 'UnknownBlock',
+    });
+
+    expect(result).toBe('Invalid component type: UnknownBlock.');
+    expect(setData).not.toHaveBeenCalled();
+  });
+
+  it('updates a component with parsed JSON props', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([
+          { props: { id: 'hero-1', title: 'Old title' }, type: 'Hero' },
+        ]),
+        setData,
+      })
+    );
+
+    const result = getRegisteredAction('updateComponent').handler({
+      index: 0,
+      updates: '{"title":"New title"}',
+    });
+
+    expect(result).toBe('Updated component at index 0.');
+    expect(setData).toHaveBeenCalledWith({
+      content: [{ props: { id: 'hero-1', title: 'New title' }, type: 'Hero' }],
+      root: { props: {} },
+    });
+  });
+
+  it('does not update when the index or JSON payload is invalid', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([{ props: { id: 'hero-1' }, type: 'Hero' }]),
+        setData,
+      })
+    );
+
+    const updateComponent = getRegisteredAction('updateComponent');
+
+    expect(updateComponent.handler({ index: 1, updates: '{}' })).toBe(
+      'Invalid index: 1. Component not found.'
+    );
+    expect(updateComponent.handler({ index: 0, updates: 'not-json' })).toBe(
+      'Failed to parse updates JSON.'
+    );
+    expect(setData).not.toHaveBeenCalled();
+  });
+
+  it('removes a component at the requested index', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: createData([
+          { props: { id: 'hero-1' }, type: 'Hero' },
+          { props: { id: 'grid-1' }, type: 'ProductGrid' },
+        ]),
+        setData,
+      })
+    );
+
+    const result = getRegisteredAction('removeComponent').handler({ index: 0 });
+
+    expect(result).toBe('Removed Hero at index 0.');
+    expect(setData).toHaveBeenCalledWith({
+      content: [{ props: { id: 'grid-1' }, type: 'ProductGrid' }],
+      root: { props: {} },
+    });
+  });
+
+  it('does not remove a component for an invalid index', () => {
+    const setData = vi.fn();
+    renderHook(() => useCopilotBuilderActions({ data: createData(), setData }));
+
+    expect(getRegisteredAction('removeComponent').handler({ index: 0 })).toBe(
+      'Invalid index: 0'
+    );
+    expect(setData).not.toHaveBeenCalled();
+  });
+});

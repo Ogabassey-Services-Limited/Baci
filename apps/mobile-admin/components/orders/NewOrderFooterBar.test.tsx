@@ -29,24 +29,46 @@ vi.mock('react-native', async () => {
       children,
       disabled,
       onPress,
+      style,
     }: {
       accessibilityLabel?: string;
-      accessibilityState?: { busy?: boolean; disabled?: boolean };
+      accessibilityState?: {
+        busy?: boolean;
+        checked?: boolean;
+        disabled?: boolean;
+      };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
-    }) =>
-      React.createElement(
+      style?: ((state: { pressed: boolean }) => unknown) | unknown;
+    }) => {
+      const flattenStyle = (value: unknown): Record<string, unknown> => {
+        if (Array.isArray(value)) {
+          return Object.assign({}, ...value.filter(Boolean).map(flattenStyle));
+        }
+        if (value && typeof value === 'object') {
+          return value as Record<string, unknown>;
+        }
+        return {};
+      };
+      const resolvedStyle = flattenStyle(
+        typeof style === 'function' ? style({ pressed: false }) : style
+      );
+
+      return React.createElement(
         'button',
         {
           'aria-busy': accessibilityState?.busy ? 'true' : undefined,
+          'aria-checked': accessibilityState?.checked ? 'true' : undefined,
           'aria-label': accessibilityLabel,
+          'data-shadow-color': resolvedStyle.shadowColor,
           disabled: disabled || accessibilityState?.disabled,
           onClick: () => onPress?.(),
           type: 'button',
         },
         children
-      ),
+      );
+    },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
@@ -74,6 +96,7 @@ vi.mock('./new-order.styles', () => ({ styles: {} }));
 type FooterController = Pick<
   ReturnType<typeof useNewOrderController>,
   | 'colors'
+  | 'shadows'
   | 'formatPrice'
   | 'handleSubmit'
   | 'isSubmitting'
@@ -104,6 +127,11 @@ function makeController(
       textOnPrimary: '#ffffff',
       textSecondary: '#64748b',
       warning: '#d97706',
+    },
+    shadows: {
+      lg: { shadowColor: '#334155' },
+      md: { shadowColor: '#64748b' },
+      sm: { shadowColor: '#94a3b8' },
     },
     formatPrice: (amount: number) => `₦${amount.toFixed(2)}`,
     handleSubmit: vi.fn(),
@@ -139,6 +167,22 @@ describe('NewOrderFooterBar', () => {
     expect(screen.getByText('Total Amount')).toBeInTheDocument();
     expect(screen.getByText('₦5000.00')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save Order' })).toBeDisabled();
+  });
+
+  it('uses the themed shadow token for the selected payment status', () => {
+    const controller = makeController({
+      paymentStatus: 'paid',
+      shadows: {
+        ...makeController().shadows,
+        md: { ...makeController().shadows.md, shadowColor: '#123456' },
+      },
+    });
+
+    render(<NewOrderFooterBar controller={controller} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Payment status: paid' })
+    ).toHaveAttribute('data-shadow-color', '#123456');
   });
 
   it('shows partial-payment controls and forwards payment method and amount changes', () => {
