@@ -92,7 +92,7 @@ describe('Ogabassey Footer', () => {
     expect(footer?.className).not.toContain('text-store-primary-text');
   });
 
-  it('renders a named pattern overlay that does not depend on the page background token', () => {
+  it('renders the branded gadget pattern overlay instead of a dot texture', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
       socialLinks: {},
       derivedLinks: {},

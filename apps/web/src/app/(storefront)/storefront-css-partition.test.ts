@@ -303,21 +303,27 @@ describe('storefront CSS partitioning', () => {
     expect(coreCss).not.toMatch(/\.ogabassey-chat-/);
   });
 
+  it('keeps category hub discovery card styles in the shared storefront core stylesheet', () => {
+    const coreCss = readStorefrontFile('storefront-core.css');
+
+    expect(coreCss).toMatch(/\.ogabassey-category-hub-card(?!-)\b/);
+    expect(coreCss).toMatch(/\.ogabassey-category-hub-card-grid\b/);
+    expect(coreCss).toMatch(
+      /\.ogabassey-category-hub-card-grid\s*\{[^}]*display:\s*grid/s
+    );
+    expect(coreCss).toMatch(
+      /\.ogabassey-category-hub-card__description\s*\{[^}]*font-size:\s*0\.9375rem/s
+    );
+  });
+
   it('keeps OgaBassey footer contrast styles in the shared core stylesheet', () => {
     const coreCss = readStorefrontFile('storefront-core.css');
 
     expect(coreCss).toMatch(/\.ogabassey-footer\b/);
-    expect(coreCss).toMatch(/\.ogabassey-footer__pattern\b/);
     expect(coreCss).toMatch(
       /\.ogabassey-footer\s*\{[^}]*background:\s*#1a1a1a/s
     );
     expect(coreCss).toMatch(/\.ogabassey-footer\s*\{[^}]*color:\s*#ffffff/);
-    expect(coreCss).toMatch(
-      /\.ogabassey-footer__pattern\s*\{[^}]*currentColor/s
-    );
-    expect(coreCss).toMatch(
-      /\.ogabassey-footer__pattern\s*\{[^}]*background-size:\s*24px 24px/s
-    );
     expect(coreCss).not.toMatch(/\.ogabassey-footer\s*\{[^}]*border-top:/s);
     expect(coreCss).not.toMatch(
       /\.ogabassey-footer\s*\{[^}]*var\(--store-background-text/s
@@ -326,7 +332,7 @@ describe('storefront CSS partitioning', () => {
       /\.ogabassey-footer\s*\{[^}]*var\(--store-background,/s
     );
     expect(coreCss).not.toMatch(
-      /\.ogabassey-footer__pattern\s*\{[^}]*var\(--store-background/s
+      /\.ogabassey-footer__pattern\s*\{[^}]*radial-gradient/s
     );
   });
 

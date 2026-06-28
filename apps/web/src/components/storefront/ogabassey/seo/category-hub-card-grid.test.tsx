@@ -31,8 +31,19 @@ describe('CategoryHubCardGrid', () => {
       screen.getByRole('heading', { name: 'Best for' })
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', { name: 'Best for' }).closest('section')
+    ).toHaveClass('ogabassey-category-hub-card');
+    expect(
       screen.getByRole('link', { name: 'Best for Photography' })
     ).toHaveAttribute('href', '/smartphones/apple-pro');
+    expect(
+      screen.getByRole('link', { name: 'Best for Photography' }).closest('h4')
+    ).toHaveClass('ogabassey-category-hub-card-grid__title');
+    expect(
+      screen
+        .getByRole('link', { name: 'Best for Photography' })
+        .closest('article')
+    ).toHaveClass('ogabassey-category-hub-card-grid__item');
     expect(
       screen.getByRole('link', {
         name: 'Compare Apple Pro vs Samsung Ultra',
@@ -65,5 +76,25 @@ describe('CategoryHubCardGrid', () => {
     expect(
       screen.queryByRole('link', { name: /compare samsung/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('does not depend on PDP-only semantic classes for category listing pages', () => {
+    const { container } = render(
+      <CategoryHubCardGrid
+        title="Best price bands"
+        cards={[
+          {
+            title: 'Best Smartphones Under ₦500,000',
+            description: 'Value picks in the first band.',
+            href: '/smartphones/best-under/under-500k',
+          },
+        ]}
+      />
+    );
+
+    expect(
+      container.querySelector('.ogabassey-category-hub-card')
+    ).not.toBeNull();
+    expect(container.innerHTML).not.toContain('ogabassey-pdp-semantic');
   });
 });

@@ -52,6 +52,7 @@ export const GadgetPattern: React.FC<{
 }> = ({ className = '', opacity = 0.05 }) => {
   return (
     <div
+      aria-hidden="true"
       className={className}
       data-testid="ogabassey-gadget-pattern"
       style={{
