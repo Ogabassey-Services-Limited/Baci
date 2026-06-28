@@ -19,10 +19,10 @@ import type {
  * by the live-build reconciler), with no redeploy.
  *
  * The env var (`MOBILE_<APP>_<PLATFORM>_LATEST_BUILD`) is kept as a fallback
- * and recovery source when the DB row is missing/unreadable. Android can also
- * use a newer env value over a stale DB row because there is no App Store
- * Connect-style live-build reconciler in this branch; iOS DB rows always win
- * when present because they represent the actual App Store live build.
+ * and recovery source when the DB row is missing/unreadable. DB rows always win
+ * when present because they represent the actual store live build; release
+ * workflows may write env immediately after upload, before store review or
+ * processing makes a build installable.
  */
 
 // Short in-process cache so the per-app-open release-policy reads don't hit the
@@ -110,8 +110,6 @@ export async function readLatestLiveBuild(
   );
 
   if (value === null) {
-    value = envValue;
-  } else if (platform === 'android' && envValue !== null && envValue > value) {
     value = envValue;
   }
 

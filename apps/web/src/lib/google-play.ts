@@ -38,6 +38,7 @@ interface GoogleServiceAccountJson {
 }
 
 interface GooglePlayRelease {
+  activeArtifacts?: Array<{ versionCode?: number | string }>;
   versionCodes?: string[];
   status?: string;
   releaseLifecycleState?: string;
@@ -94,7 +95,6 @@ export async function createGooglePlayJwtAssertion(
     iat: nowSeconds,
     iss: credentials.clientEmail,
     scope: ANDROID_PUBLISHER_SCOPE,
-    sub: credentials.clientEmail,
   };
 
   return new CompactSign(new Uint8Array(Buffer.from(JSON.stringify(payload))))
@@ -149,6 +149,21 @@ function parseVersionCode(value: string): number | null {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+function getReleaseVersionCodes(release: GooglePlayRelease): string[] {
+  const activeArtifactVersionCodes = (release.activeArtifacts ?? [])
+    .map((artifact) => artifact.versionCode)
+    .filter((versionCode): versionCode is number | string =>
+      ['number', 'string'].includes(typeof versionCode)
+    )
+    .map(String);
+
+  if (activeArtifactVersionCodes.length > 0) {
+    return activeArtifactVersionCodes;
+  }
+
+  return release.versionCodes ?? [];
+}
+
 /**
  * Resolve the highest Android versionCode currently live on a Google Play track,
  * or null when the track has no published/completed release.
@@ -182,7 +197,7 @@ export async function fetchLiveGooglePlayBuild(
   const payload = (await response.json()) as GooglePlayTrackReleasesPayload;
   const liveBuilds = (payload.releases ?? [])
     .filter(isLiveGooglePlayRelease)
-    .flatMap((release) => release.versionCodes ?? [])
+    .flatMap(getReleaseVersionCodes)
     .map(parseVersionCode)
     .filter((value): value is number => value !== null);
 
