@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   useAnalyticsOverview: vi.fn(),
   useLocalSearchParams: vi.fn(),
+  useMerchant: vi.fn(),
+  useRevenueCat: vi.fn(),
 }));
 
 vi.mock('react-native', async () => {
@@ -19,7 +21,7 @@ vi.mock('react-native', async () => {
       children,
       onPress,
     }: {
-      children?: React.ReactNode;
+      children?: ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
@@ -29,19 +31,17 @@ vi.mock('react-native', async () => {
         },
         children
       ),
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
+    ScrollView: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
-    Text: ({ children }: { children?: React.ReactNode }) =>
+    Text: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
+    View: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  SafeAreaView: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
@@ -52,7 +52,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('@/components/billing/FeatureGateScreen', () => ({
-  FeatureGateScreen: ({ children }: { children?: React.ReactNode }) => children,
+  FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
 }));
 
 vi.mock('expo-router', async () => {
@@ -68,6 +68,14 @@ vi.mock('expo-router', async () => {
 
 vi.mock('@/hooks/useAnalyticsOverview', () => ({
   useAnalyticsOverview: mocks.useAnalyticsOverview,
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: mocks.useMerchant,
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
 }));
 
 vi.mock('@/hooks/useCurrency', () => ({
@@ -107,6 +115,15 @@ import AnalyticsInsightsScreen from '@/app/(admin)/analytics/insights';
 describe('AnalyticsInsightsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+      },
+    });
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.useLocalSearchParams.mockReturnValue({
       filterLabel: 'This month',
       kind: 'blog',

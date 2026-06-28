@@ -10,17 +10,32 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { styles } from '@/components/analytics/analytics-insights.styles';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates } from '@/lib/feature-gates';
 
 interface InsightRow {
   id: string;
   label: string;
   value: string;
 }
+
+type InsightsRange = {
+  endDate: Date;
+  startDate: Date;
+};
+
+const INSIGHT_TITLES: Record<string, string> = {
+  blog: 'Blog Analytics',
+  brands: 'Top Vendors',
+  customers: 'Top Customers',
+  'payment-methods': 'Payment Methods',
+};
 
 function parseDateParam(value: string | undefined, fallback: Date): Date {
   if (!value || value.trim() === '') {
@@ -35,8 +50,9 @@ function getSingleParam(value?: string | string[]) {
 }
 
 export default function AnalyticsInsightsScreen() {
-  const { colors, isDark } = useTheme();
-  const { format: formatCurrency } = useCurrency();
+  const { colors } = useTheme();
+  const { merchant } = useMerchant();
+  const { isPro } = useRevenueCat();
   const params = useLocalSearchParams<{
     endDate?: string | string[];
     filterLabel?: string | string[];
@@ -60,19 +76,54 @@ export default function AnalyticsInsightsScreen() {
     parsedStart.getTime() <= parsedEnd.getTime()
       ? { endDate: parsedEnd, startDate: parsedStart }
       : { endDate: parsedStart, startDate: parsedEnd };
+  const hasAdvancedAnalytics =
+    isPro || baciFeatureGates.hasFeature(merchant, 'advanced_analytics');
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: INSIGHT_TITLES[kind] || 'Analytics',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <FeatureGateScreen
+        description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
+        feature="advanced_analytics"
+        title="Advanced analytics are a Baci Pro feature"
+      >
+        {hasAdvancedAnalytics ? (
+          <AnalyticsInsightsContent
+            filterLabel={filterLabelParam}
+            kind={kind}
+            range={range}
+          />
+        ) : null}
+      </FeatureGateScreen>
+    </>
+  );
+}
+
+function AnalyticsInsightsContent({
+  filterLabel,
+  kind,
+  range,
+}: {
+  filterLabel?: string;
+  kind: string;
+  range: InsightsRange;
+}) {
+  const { colors, isDark } = useTheme();
+  const { format: formatCurrency } = useCurrency();
   const {
     data: analytics,
     isLoading,
     error,
     refetch,
   } = useAnalyticsOverview(range);
-
-  const titles: Record<string, string> = {
-    blog: 'Blog Analytics',
-    brands: 'Top Vendors',
-    customers: 'Top Customers',
-    'payment-methods': 'Payment Methods',
-  };
 
   const formatCurrencyNoDecimals = (amount: number) =>
     formatCurrency(amount, {
@@ -151,7 +202,7 @@ export default function AnalyticsInsightsScreen() {
           ]}
         >
           <Text style={[styles.heroEyebrow, { color: colors.textSecondary }]}>
-            {filterLabelParam || 'Selected period'}
+            {filterLabel || 'Selected period'}
           </Text>
           {kind === 'blog' ? (
             <>
@@ -183,7 +234,7 @@ export default function AnalyticsInsightsScreen() {
                 {rows.length.toLocaleString()}
               </Text>
               <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                Ranked breakdown for {filterLabelParam || 'the selected period'}
+                Ranked breakdown for {filterLabel || 'the selected period'}
               </Text>
             </>
           )}
@@ -210,33 +261,16 @@ export default function AnalyticsInsightsScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: titles[kind] || 'Analytics',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
-      <FeatureGateScreen
-        description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
-        feature="advanced_analytics"
-        title="Advanced analytics are a Baci Pro feature"
-      >
-        <SafeAreaView
-          style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['bottom']}
-        >
-          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-          <ScrollView contentContainerStyle={styles.content}>
-            {renderBody()}
-            <View style={styles.footerSpace} />
-          </ScrollView>
-        </SafeAreaView>
-      </FeatureGateScreen>
-    </>
+      <ScrollView contentContainerStyle={styles.content}>
+        {renderBody()}
+        <View style={styles.footerSpace} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }

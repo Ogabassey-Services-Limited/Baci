@@ -85,12 +85,15 @@ export const baciFeatureGates = {
     merchant,
     now = new Date(),
   }: ProductCreationGateInput) {
-    const count = Math.max(0, Number(activeProductCount ?? 0));
+    const numericCount = Number(activeProductCount);
+    const hasKnownCount = Number.isFinite(numericCount);
+    const count = hasKnownCount ? Math.max(0, numericCount) : 0;
     const features = normalizePremiumFeatures(merchant?.premium_features);
     const hasUnlimitedProducts =
       Boolean(merchant && hasActivePaidPlan(merchant, now)) ||
       hasProductLimitGrant(features);
-    const allowed = hasUnlimitedProducts || count < FREE_PRODUCT_LIMIT;
+    const allowed =
+      hasUnlimitedProducts || (hasKnownCount && count < FREE_PRODUCT_LIMIT);
 
     return {
       allowed,

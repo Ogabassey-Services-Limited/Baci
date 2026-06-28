@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   useAnalyticsOverview: vi.fn(),
   useLocalSearchParams: vi.fn(),
+  useMerchant: vi.fn(),
+  useRevenueCat: vi.fn(),
 }));
 
 vi.mock('expo-router', async () => {
@@ -64,6 +66,14 @@ vi.mock('@/components/billing/FeatureGateScreen', () => ({
   FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
 }));
 
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: mocks.useMerchant,
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
+}));
+
 vi.mock('@/hooks/useAnalyticsOverview', () => ({
   useAnalyticsOverview: mocks.useAnalyticsOverview,
 }));
@@ -94,6 +104,15 @@ vi.mock('@/hooks/useTheme', () => ({
 describe('AnalyticsInsightsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+      },
+    });
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.useLocalSearchParams.mockReturnValue({
       filterLabel: 'This month',
       kind: 'blog',
@@ -139,5 +158,13 @@ describe('AnalyticsInsightsScreen', () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByText('Try again'));
     expect(mocks.refetch).toHaveBeenCalled();
+  });
+
+  it('does not mount the overview query for merchants without advanced analytics', () => {
+    mocks.useRevenueCat.mockReturnValue({ isPro: false });
+
+    render(<AnalyticsInsightsScreen />);
+
+    expect(mocks.useAnalyticsOverview).not.toHaveBeenCalled();
   });
 });

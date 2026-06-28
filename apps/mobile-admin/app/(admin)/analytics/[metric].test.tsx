@@ -10,13 +10,16 @@ const mocks = vi.hoisted(() => ({
   },
   share: vi.fn(),
   useAnalyticsDetail: vi.fn(),
+  useMerchant: vi.fn(),
+  useRevenueCat: vi.fn(),
 }));
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
     Stack: {
-      Screen: () => React.createElement('div'),
+      Screen: ({ options }: { options?: { headerRight?: () => ReactNode } }) =>
+        React.createElement('div', null, options?.headerRight?.()),
     },
     useLocalSearchParams: () => ({
       filterLabel: 'This month',
@@ -84,6 +87,14 @@ vi.mock('@/components/billing/FeatureGateScreen', () => ({
   FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
 }));
 
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: mocks.useMerchant,
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
+}));
+
 vi.mock('@/hooks/useAnalyticsDetail', () => ({
   METRIC_CONFIG: {
     revenue: {
@@ -124,6 +135,15 @@ vi.mock('@/hooks/useTheme', () => ({
 describe('AnalyticsDetailScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+      },
+    });
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.useAnalyticsDetail.mockReturnValue({
       data: {
         bestPeriod: { label: 'June', value: 120_000 },
@@ -168,5 +188,16 @@ describe('AnalyticsDetailScreen', () => {
       screen.getByRole('button', { name: 'Retry fetching analytics data' })
     );
     expect(mocks.refetch).toHaveBeenCalled();
+  });
+
+  it('does not mount detail queries or the share action for merchants without advanced analytics', () => {
+    mocks.useRevenueCat.mockReturnValue({ isPro: false });
+
+    render(<AnalyticsDetailScreen />);
+
+    expect(mocks.useAnalyticsDetail).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', { name: 'Share analytics metric' })
+    ).toBeNull();
   });
 });

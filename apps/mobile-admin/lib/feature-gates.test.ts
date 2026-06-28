@@ -55,4 +55,13 @@ describe('baciFeatureGates', () => {
       })
     ).toMatchObject({ allowed: false, limit: 1000, requiresUpgrade: true });
   });
+
+  it('blocks free product creation when the active product count is unknown', () => {
+    expect(
+      baciFeatureGates.canCreateProduct({
+        activeProductCount: undefined,
+        merchant: { plan_tier: 'free', premium_features: [] },
+      })
+    ).toMatchObject({ allowed: false, limit: 1000, requiresUpgrade: true });
+  });
 });

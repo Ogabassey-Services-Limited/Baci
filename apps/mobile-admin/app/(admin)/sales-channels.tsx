@@ -19,25 +19,22 @@ export default function SalesChannelsScreen() {
   const router = useRouter();
 
   return (
-    <FeatureGateScreen
-      description="Connect and sync marketplace channels when Baci Pro is active."
-      feature="marketplace_sync"
-      title="Marketplace sync is a Baci Pro feature"
-    >
-      <>
-        <Stack.Screen
-          options={{
-            title: 'Marketplaces',
-            headerLeft: () => (
-              <Pressable
-                onPress={() => router.back()}
-                style={styles.backButton}
-              >
-                <Ionicons name="arrow-back" size={24} color={colors.text} />
-              </Pressable>
-            ),
-          }}
-        />
+    <>
+      <Stack.Screen
+        options={{
+          title: 'Marketplaces',
+          headerLeft: () => (
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
+      <FeatureGateScreen
+        description="Connect and sync marketplace channels when Baci Pro is active."
+        feature="marketplace_sync"
+        title="Marketplace sync is a Baci Pro feature"
+      >
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
           edges={['bottom']}
@@ -128,8 +125,8 @@ export default function SalesChannelsScreen() {
             </View>
           </ScrollView>
         </SafeAreaView>
-      </>
-    </FeatureGateScreen>
+      </FeatureGateScreen>
+    </>
   );
 }
 

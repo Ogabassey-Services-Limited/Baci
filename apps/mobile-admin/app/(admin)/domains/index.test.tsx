@@ -25,13 +25,17 @@ const mocks = vi.hoisted(() => ({
     back: vi.fn(),
     push: vi.fn(),
   },
+  useMerchant: vi.fn(),
+  useQuery: vi.fn(),
+  useRevenueCat: vi.fn(),
 }));
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
     Stack: {
-      Screen: () => React.createElement('div'),
+      Screen: () =>
+        React.createElement('div', { 'data-testid': 'stack-screen' }),
     },
     useRouter: () => mocks.router,
   };
@@ -45,7 +49,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => mocks.queryState,
+  useQuery: mocks.useQuery,
 }));
 
 vi.mock('react-native', () => ({
@@ -144,16 +148,11 @@ vi.mock('@/hooks/useDomainActions', () => ({
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({
-    merchant: { id: 'merchant-1', slug: 'baci-test' },
-    primaryDomain: {
-      domain: 'store.baci.test',
-      domain_type: 'subdomain',
-      id: 'primary-domain',
-      is_primary: true,
-      status: 'active',
-    },
-  }),
+  useMerchant: mocks.useMerchant,
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -182,6 +181,24 @@ vi.mock('@/lib/supabase', () => ({
 describe('DomainsDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useQuery.mockImplementation(() => mocks.queryState);
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+        slug: 'baci-test',
+      },
+      primaryDomain: {
+        domain: 'store.baci.test',
+        domain_type: 'subdomain',
+        id: 'primary-domain',
+        is_primary: true,
+        status: 'active',
+      },
+    });
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.queryState.data = [
       {
         created_at: '2026-06-01T00:00:00.000Z',
@@ -215,5 +232,14 @@ describe('DomainsDashboard', () => {
 
     expect(mocks.router.push).toHaveBeenCalledWith('/domains/buy');
     expect(mocks.router.push).toHaveBeenCalledWith('/domains/connect');
+  });
+
+  it('keeps stack options mounted without loading domains when custom domains are locked', () => {
+    mocks.useRevenueCat.mockReturnValue({ isPro: false });
+
+    render(<DomainsDashboard />);
+
+    expect(screen.getByTestId('stack-screen')).toBeTruthy();
+    expect(mocks.useQuery).not.toHaveBeenCalled();
   });
 });

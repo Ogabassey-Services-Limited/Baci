@@ -21,10 +21,19 @@ import { StoreLinkCard } from '@/components/domains/StoreLinkCard';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDomainActions } from '@/hooks/useDomainActions';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates } from '@/lib/feature-gates';
 import { supabase } from '@/lib/supabase';
 
 type DomainStatus = Domain['status'];
+type PrimaryDomain = {
+  domain: string;
+  domain_type: Domain['domain_type'];
+  id: string;
+  is_primary: boolean;
+  status: string;
+} | null;
 
 const VALID_DOMAIN_STATUSES: ReadonlySet<DomainStatus> = new Set([
   'active',
@@ -64,10 +73,43 @@ async function fetchMerchantDomains(merchantId: string): Promise<Domain[]> {
 }
 
 export default function DomainsDashboard() {
-  const { colors, shadows, isDark } = useTheme();
   const { merchant, primaryDomain: merchantPrimaryDomain } = useMerchant();
-  const router = useRouter();
+  const { isPro } = useRevenueCat();
   const merchantId = merchant?.id;
+  const hasCustomDomain =
+    isPro || baciFeatureGates.hasFeature(merchant, 'custom_domain');
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <FeatureGateScreen
+        description="Connect and manage branded domains when Baci Pro is active."
+        feature="custom_domain"
+        title="Custom domains are a Baci Pro feature"
+      >
+        {hasCustomDomain ? (
+          <DomainsDashboardContent
+            merchantId={merchantId}
+            merchantPrimaryDomain={merchantPrimaryDomain}
+            merchantSlug={merchant?.slug}
+          />
+        ) : null}
+      </FeatureGateScreen>
+    </>
+  );
+}
+
+function DomainsDashboardContent({
+  merchantId,
+  merchantPrimaryDomain,
+  merchantSlug,
+}: {
+  merchantId?: string;
+  merchantPrimaryDomain: PrimaryDomain;
+  merchantSlug?: string | null;
+}) {
+  const { colors, shadows, isDark } = useTheme();
+  const router = useRouter();
   const fallbackDomains = merchantPrimaryDomain
     ? [
         normalizeDomain({
@@ -119,118 +161,100 @@ export default function DomainsDashboard() {
   };
 
   return (
-    <FeatureGateScreen
-      description="Connect and manage branded domains when Baci Pro is active."
-      feature="custom_domain"
-      title="Custom domains are a Baci Pro feature"
-    >
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        <SafeAreaView
-          style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['top']}
-        >
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[styles.backButton, { backgroundColor: colors.card }]}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>
-              Domains
-            </Text>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-              />
-            }
-          >
-            <StoreLinkCard
-              primaryDomain={merchantPrimaryDomain?.domain}
-              merchantSlug={merchant?.slug || undefined}
-            />
-
-            <Text
-              style={[styles.sectionTitle, { color: colors.textSecondary }]}
-            >
-              CUSTOM DOMAINS
-            </Text>
-
-            {loading ? (
-              <Text
-                style={[styles.loadingText, { color: colors.textSecondary }]}
-              >
-                Loading domains…
-              </Text>
-            ) : fetchError ? (
-              <Pressable
-                style={[
-                  styles.errorCard,
-                  { backgroundColor: colors.errorLight },
-                ]}
-                onPress={onRefresh}
-              >
-                <Ionicons name="alert-circle" size={20} color={colors.error} />
-                <Text style={[styles.errorText, { color: colors.error }]}>
-                  Failed to load domains
-                </Text>
-                <Ionicons name="refresh" size={16} color={colors.error} />
-              </Pressable>
-            ) : domains.filter((d) => d.domain_type !== 'subdomain').length ===
-              0 ? (
-              <DomainEmptyState
-                onBuyDomain={() => router.push('/domains/buy')}
-                onConnectDomain={() => router.push('/domains/connect')}
-              />
-            ) : (
-              <View style={styles.domainsList}>
-                {domains
-                  .filter((d) => d.domain_type !== 'subdomain')
-                  .map((domain) => (
-                    <DomainItemCard
-                      key={domain.id}
-                      domain={domain}
-                      onOpenOptions={handleOpenOptions}
-                      actionLoading={actionLoading}
-                    />
-                  ))}
-              </View>
-            )}
-
-            <View style={{ height: 100 }} />
-          </ScrollView>
-
-          {/* Add FAB */}
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top']}
+      >
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable
-            style={[
-              styles.fab,
-              { backgroundColor: colors.primary },
-              shadows.lg,
-            ]}
-            onPress={() => router.push('/domains/add')}
+            onPress={() => router.back()}
+            style={[styles.backButton, { backgroundColor: colors.card }]}
           >
-            <Ionicons name="add" size={32} color="#FFF" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
-        </SafeAreaView>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Domains
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-        <DomainOptionsSheet
-          visible={optionsVisible}
-          domain={selectedDomain}
-          onClose={() => setOptionsVisible(false)}
-          onAction={handleOptionAction}
-        />
-      </>
-    </FeatureGateScreen>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <StoreLinkCard
+            primaryDomain={merchantPrimaryDomain?.domain}
+            merchantSlug={merchantSlug || undefined}
+          />
+
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            CUSTOM DOMAINS
+          </Text>
+
+          {loading ? (
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Loading domains…
+            </Text>
+          ) : fetchError ? (
+            <Pressable
+              style={[styles.errorCard, { backgroundColor: colors.errorLight }]}
+              onPress={onRefresh}
+            >
+              <Ionicons name="alert-circle" size={20} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                Failed to load domains
+              </Text>
+              <Ionicons name="refresh" size={16} color={colors.error} />
+            </Pressable>
+          ) : domains.filter((d) => d.domain_type !== 'subdomain').length ===
+            0 ? (
+            <DomainEmptyState
+              onBuyDomain={() => router.push('/domains/buy')}
+              onConnectDomain={() => router.push('/domains/connect')}
+            />
+          ) : (
+            <View style={styles.domainsList}>
+              {domains
+                .filter((d) => d.domain_type !== 'subdomain')
+                .map((domain) => (
+                  <DomainItemCard
+                    key={domain.id}
+                    domain={domain}
+                    onOpenOptions={handleOpenOptions}
+                    actionLoading={actionLoading}
+                  />
+                ))}
+            </View>
+          )}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* Add FAB */}
+        <Pressable
+          style={[styles.fab, { backgroundColor: colors.primary }, shadows.lg]}
+          onPress={() => router.push('/domains/add')}
+        >
+          <Ionicons name="add" size={32} color="#FFF" />
+        </Pressable>
+      </SafeAreaView>
+
+      <DomainOptionsSheet
+        visible={optionsVisible}
+        domain={selectedDomain}
+        onClose={() => setOptionsVisible(false)}
+        onAction={handleOptionAction}
+      />
+    </>
   );
 }
 

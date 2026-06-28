@@ -21,12 +21,15 @@ import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type AnalyticsState,
   analyticsStatesEqual,
   buildAnalyticsDiff,
 } from '@/lib/analytics-config-diff';
+import { baciFeatureGates } from '@/lib/feature-gates';
 import { supabase } from '@/lib/supabase';
 
 const INITIAL_STATE: AnalyticsState = {
@@ -197,8 +200,13 @@ const PlatformCard = ({
 export default function AnalyticsConfigScreen() {
   const { colors, shadows } = useTheme();
   const { user } = useAuth();
+  const { merchant: merchantContext } = useMerchant();
+  const { isPro } = useRevenueCat();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const hasGrowthIntegrations =
+    isPro ||
+    baciFeatureGates.hasFeature(merchantContext, 'growth_integrations');
 
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
   const analyticsRef = useRef<AnalyticsState>(INITIAL_STATE);
@@ -221,7 +229,7 @@ export default function AnalyticsConfigScreen() {
   // enabled until the merchant edits the form, so cached query data can be
   // replaced by fresher server data before the buffer becomes dirty. Once dirty,
   // refetches stop repainting the editable buffer.
-  const { data: merchant, isLoading } = useQuery({
+  const { data: trackingConfig, isLoading } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -242,7 +250,7 @@ export default function AnalyticsConfigScreen() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: Boolean(user?.id && hasGrowthIntegrations),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: shouldBackgroundRefetch,
     refetchOnReconnect: shouldBackgroundRefetch,
@@ -252,8 +260,8 @@ export default function AnalyticsConfigScreen() {
   // edits the form. This lets cached data be replaced by a fresher refetch while
   // the form is clean, but prevents background refetches from clobbering typed
   // edits once dirty.
-  if (merchant && !isDirty) {
-    const seeded = toAnalyticsState(merchant);
+  if (trackingConfig && !isDirty) {
+    const seeded = toAnalyticsState(trackingConfig);
     if (!analyticsStatesEqual(seededSnapshot, seeded)) {
       setSeededSnapshot(seeded);
       analyticsRef.current = seeded;
@@ -359,21 +367,23 @@ export default function AnalyticsConfigScreen() {
       <Stack.Screen
         options={{
           title: 'Analytics & Tracking',
-          headerRight: () => (
-            <Pressable
-              onPress={handleSave}
-              disabled={saveMutation.isPending}
-              style={styles.saveButton}
-            >
-              {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.saveText, { color: colors.primary }]}>
-                  Save
-                </Text>
-              )}
-            </Pressable>
-          ),
+          headerRight: hasGrowthIntegrations
+            ? () => (
+                <Pressable
+                  onPress={handleSave}
+                  disabled={saveMutation.isPending}
+                  style={styles.saveButton}
+                >
+                  {saveMutation.isPending ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.saveText, { color: colors.primary }]}>
+                      Save
+                    </Text>
+                  )}
+                </Pressable>
+              )
+            : undefined,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerTintColor: colors.text,

@@ -17,6 +17,10 @@ const queryClientMocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   setQueryData: vi.fn(),
 }));
+const accessMocks = vi.hoisted(() => ({
+  useMerchant: vi.fn(),
+  useRevenueCat: vi.fn(),
+}));
 
 // Captures the Supabase `.update()` payload so tests can assert exactly which
 // analytics fields were written (drift vector V3: a save must not rewrite
@@ -183,14 +187,11 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({
-    isLoading: false,
-    merchant: { plan_tier: 'pro', premium_features: [] },
-  }),
+  useMerchant: accessMocks.useMerchant,
 }));
 
 vi.mock('@/hooks/useRevenueCat', () => ({
-  useRevenueCat: () => ({ isPro: true }),
+  useRevenueCat: accessMocks.useRevenueCat,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -239,6 +240,11 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
       error: null,
     }));
     mutationMocks.state.options = null;
+    accessMocks.useMerchant.mockReturnValue({
+      isLoading: false,
+      merchant: { plan_tier: 'pro', premium_features: [] },
+    });
+    accessMocks.useRevenueCat.mockReturnValue({ isPro: true });
     queryMocks.useQuery.mockReturnValue({
       data: { ...merchantAnalytics },
       isError: false,
@@ -273,6 +279,21 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
 
     expect(firstResult.data).not.toBe(merchantAnalytics);
     expect(merchantAnalytics.tiktok_pixel_id).toBe('');
+  });
+
+  it('does not enable the tracking credentials query for merchants without growth integrations', () => {
+    accessMocks.useMerchant.mockReturnValue({
+      isLoading: false,
+      merchant: { plan_tier: 'free', premium_features: [] },
+    });
+    accessMocks.useRevenueCat.mockReturnValue({ isPro: false });
+
+    render(<AnalyticsConfigScreen />);
+
+    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      enabled?: boolean;
+    };
+    expect(options.enabled).toBe(false);
   });
 
   it('falls back to default unconfigured state when analytics data is missing after a query error', () => {
@@ -321,6 +342,11 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
       error: null,
     }));
     mutationMocks.state.options = null;
+    accessMocks.useMerchant.mockReturnValue({
+      isLoading: false,
+      merchant: { plan_tier: 'pro', premium_features: [] },
+    });
+    accessMocks.useRevenueCat.mockReturnValue({ isPro: true });
   });
 
   function expandMetaCard() {

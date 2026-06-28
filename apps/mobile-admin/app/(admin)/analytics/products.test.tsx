@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   router: {
     push: vi.fn(),
   },
+  useMerchant: vi.fn(),
+  useRevenueCat: vi.fn(),
   useTopSellingProducts: vi.fn(),
 }));
 
@@ -88,6 +90,14 @@ vi.mock('@/components/billing/FeatureGateScreen', () => ({
   FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
 }));
 
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: mocks.useMerchant,
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
+}));
+
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({
     format: (amount: number) => `NGN ${amount}`,
@@ -118,6 +128,15 @@ vi.mock('@/hooks/useTopSellingProducts', () => ({
 describe('AnalyticsProductsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+      },
+    });
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.useTopSellingProducts.mockReturnValue({
       data: [
         {
@@ -147,5 +166,13 @@ describe('AnalyticsProductsScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Galaxy S26/i }));
 
     expect(mocks.router.push).toHaveBeenCalledWith('/product/product-1');
+  });
+
+  it('does not mount the products query for merchants without advanced analytics', () => {
+    mocks.useRevenueCat.mockReturnValue({ isPro: false });
+
+    render(<AnalyticsProductsScreen />);
+
+    expect(mocks.useTopSellingProducts).not.toHaveBeenCalled();
   });
 });
