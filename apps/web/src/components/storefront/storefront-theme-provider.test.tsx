@@ -22,9 +22,11 @@ const DOCUMENT_COUNT_ATTRS = [
   'data-storefront-variant-ogabassey-count',
   'data-storefront-mode-system-count',
 ];
+const DOCUMENT_HYDRATION_READY_ATTR = 'data-storefront-theme-hydration-ready';
 const DOCUMENT_ATTRS = [
   ...DOCUMENT_COUNT_ATTRS,
   ...DOCUMENT_COUNT_ATTRS.map((attr) => `${attr}-preexisting`),
+  DOCUMENT_HYDRATION_READY_ATTR,
 ];
 
 function cleanupDocumentThemeState() {
@@ -113,6 +115,43 @@ describe('StorefrontThemeProvider', () => {
     expect(
       document.documentElement.getAttribute('data-storefront-theme-scope-count')
     ).toBeNull();
+  });
+
+  it('applies document classes immediately for later mounts after the hydration turn', () => {
+    const first = render(
+      <StorefrontThemeProvider>
+        <div>first</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).not.toHaveClass('storefront-theme-scope');
+    flushDeferredPortalThemeMode();
+    expect(document.documentElement).toHaveClass('storefront-theme-scope');
+    expect(document.documentElement).toHaveAttribute(
+      DOCUMENT_HYDRATION_READY_ATTR,
+      'true'
+    );
+
+    first.unmount();
+    expect(document.documentElement).not.toHaveClass('storefront-theme-scope');
+    expect(document.documentElement).toHaveAttribute(
+      DOCUMENT_HYDRATION_READY_ATTR,
+      'true'
+    );
+
+    render(
+      <StorefrontThemeProvider
+        appearance={{ mode: 'system', variant: 'ogabassey' }}
+      >
+        <div>second</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).toHaveClass('storefront-theme-scope');
+    expect(document.documentElement).toHaveClass(
+      'storefront-variant-ogabassey'
+    );
+    expect(document.documentElement).toHaveClass('storefront-mode-system');
   });
 
   it('can scope fallback wrapper classes without document-level portal classes', () => {

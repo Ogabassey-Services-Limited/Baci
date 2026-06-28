@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import {
   DEFAULT_STOREFRONT_APPEARANCE,
   getStorefrontAppearanceClassName,
@@ -12,6 +12,7 @@ const DOCUMENT_CLASS_COUNT_ATTRS: Record<string, string> = {
   light: 'data-storefront-light-mode-count',
   'storefront-light': 'data-storefront-light-count',
 };
+const DOCUMENT_HYDRATION_READY_ATTR = 'data-storefront-theme-hydration-ready';
 
 function getDocumentClassCountAttr(className: string): string {
   return DOCUMENT_CLASS_COUNT_ATTRS[className] ?? `data-${className}-count`;
@@ -67,6 +68,14 @@ function decrementDocumentClasses(target: HTMLElement, classNames: string[]) {
   }
 }
 
+function isDocumentThemeHydrationReady(target: HTMLElement): boolean {
+  return target.getAttribute(DOCUMENT_HYDRATION_READY_ATTR) === 'true';
+}
+
+function markDocumentThemeHydrationReady(target: HTMLElement) {
+  target.setAttribute(DOCUMENT_HYDRATION_READY_ATTR, 'true');
+}
+
 /**
  * Scopes storefront theming away from the Baci app shell. Default storefronts
  * stay forced light, while tenant-approved variants can opt into system-aware
@@ -93,7 +102,6 @@ export function StorefrontThemeProvider({
   const normalizedAppearance: StorefrontAppearance = { mode, variant };
   const wrapperClassName =
     getStorefrontAppearanceClassName(normalizedAppearance);
-  const hasAppliedDocumentClassesRef = useRef(false);
 
   useEffect(() => {
     if (!scopeDocument) {
@@ -109,15 +117,15 @@ export function StorefrontThemeProvider({
       variant,
     });
     const applyDocumentClasses = () => {
+      markDocumentThemeHydrationReady(root);
       incrementDocumentClasses(root, documentClasses);
       incrementDocumentClasses(body, documentClasses);
       applied = true;
-      hasAppliedDocumentClassesRef.current = true;
     };
 
     // Defer document-level mutations until after React's hydration turn; mutating
     // html/body from a layout effect can invalidate streamed PPR boundaries.
-    if (hasAppliedDocumentClassesRef.current) {
+    if (isDocumentThemeHydrationReady(root)) {
       applyDocumentClasses();
     } else {
       timeoutId = window.setTimeout(applyDocumentClasses, 0);

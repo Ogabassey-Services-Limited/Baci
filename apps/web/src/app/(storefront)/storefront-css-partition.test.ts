@@ -307,16 +307,26 @@ describe('storefront CSS partitioning', () => {
     const coreCss = readStorefrontFile('storefront-core.css');
 
     expect(coreCss).toMatch(/\.ogabassey-footer\b/);
+    expect(coreCss).toMatch(/\.ogabassey-footer__pattern\b/);
     expect(coreCss).toMatch(
       /\.ogabassey-footer\s*\{[^}]*background:\s*#1a1a1a/s
     );
     expect(coreCss).toMatch(/\.ogabassey-footer\s*\{[^}]*color:\s*#ffffff/);
+    expect(coreCss).toMatch(
+      /\.ogabassey-footer__pattern\s*\{[^}]*currentColor/s
+    );
+    expect(coreCss).toMatch(
+      /\.ogabassey-footer__pattern\s*\{[^}]*background-size:\s*24px 24px/s
+    );
     expect(coreCss).not.toMatch(/\.ogabassey-footer\s*\{[^}]*border-top:/s);
     expect(coreCss).not.toMatch(
       /\.ogabassey-footer\s*\{[^}]*var\(--store-background-text/s
     );
     expect(coreCss).not.toMatch(
       /\.ogabassey-footer\s*\{[^}]*var\(--store-background,/s
+    );
+    expect(coreCss).not.toMatch(
+      /\.ogabassey-footer__pattern\s*\{[^}]*var\(--store-background/s
     );
   });
 

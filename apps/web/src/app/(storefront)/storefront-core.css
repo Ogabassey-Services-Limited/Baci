@@ -112,6 +112,18 @@
     color: #ffffff;
   }
 
+  .ogabassey-footer__pattern {
+    background-image: radial-gradient(
+      color-mix(in srgb, currentColor 22%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+    inset: 0;
+    opacity: 0.1;
+    pointer-events: none;
+    position: absolute;
+  }
+
   .ogabassey-ad-slot {
     flex: 0 0 auto;
     height: var(--ad-slot-h);

@@ -57,27 +57,27 @@ describe('OGABASSEY_DARK_TOKENS', () => {
       OGABASSEY_DARK_TOKENS.secondaryForeground,
       OGABASSEY_DARK_TOKENS.secondary
     );
-    expectLargeContrast(
+    expectAaContrast(
       'success on background',
       OGABASSEY_DARK_TOKENS.success,
       OGABASSEY_DARK_TOKENS.background
     );
-    expectLargeContrast(
+    expectAaContrast(
       'rating on background',
       OGABASSEY_DARK_TOKENS.rating,
       OGABASSEY_DARK_TOKENS.background
     );
-    expectLargeContrast(
+    expectAaContrast(
       'price on background',
       OGABASSEY_DARK_TOKENS.price,
       OGABASSEY_DARK_TOKENS.background
     );
-    expectLargeContrast(
+    expectAaContrast(
       'error on background',
       OGABASSEY_DARK_TOKENS.error,
       OGABASSEY_DARK_TOKENS.background
     );
-    expectLargeContrast(
+    expectAaContrast(
       'warning on background',
       OGABASSEY_DARK_TOKENS.warning,
       OGABASSEY_DARK_TOKENS.background
