@@ -8,6 +8,7 @@ const PUBLIC_CALLBACK_URL =
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantIdForApiUser = vi.fn();
+const mockGetMerchantFeatureAccess = vi.fn();
 const mockExchangeJumiaCode = vi.fn();
 const mockGetShops = vi.fn();
 const mockLoggerError = vi.fn();
@@ -115,6 +116,11 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  getMerchantFeatureAccess: (...args: unknown[]) =>
+    mockGetMerchantFeatureAccess(...args),
+}));
+
 vi.mock('@/env', () => ({
   getConfiguredAppUrl: mockGetConfiguredAppUrl,
   getJumiaClientId: vi.fn(() => process.env.JUMIA_CLIENT_ID),
@@ -184,6 +190,10 @@ describe('Jumia callback route', () => {
     mockGetMerchantIdForApiUser.mockResolvedValue(
       '00000000-0000-4000-8000-000000000001'
     );
+    mockGetMerchantFeatureAccess.mockResolvedValue({
+      allowed: true,
+      error: null,
+    });
     mockExchangeJumiaCode.mockResolvedValue({
       access_token: 'access',
       refresh_token: 'refresh',
@@ -375,6 +385,38 @@ describe('Jumia callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('error=no_code');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with requires_upgrade before token exchange when marketplace sync is locked', async () => {
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=requires_upgrade'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with plan_verification_failed before token exchange when entitlement lookup fails', async () => {
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: { message: 'database unavailable' },
+    });
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=plan_verification_failed'
+    );
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
   });

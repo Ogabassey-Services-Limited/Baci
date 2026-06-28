@@ -6,14 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /* ------------------------------------------------------------------ */
 
 const {
-  mockGetMerchantFeatureAccess,
+  mockRequireMerchantFeatureAccess,
   mockMaybeSingle,
   mockUpsert,
   mockSupabase,
   mockForIntegration,
   mockCreateProduct,
 } = vi.hoisted(() => {
-  const mockGetMerchantFeatureAccess = vi.fn();
+  const mockRequireMerchantFeatureAccess = vi.fn();
   const mockMaybeSingle = vi.fn();
   const mockUpsert = vi.fn();
   const mockSupabase = {
@@ -34,7 +34,7 @@ const {
   const mockForIntegration = vi.fn();
   const mockCreateProduct = vi.fn();
   return {
-    mockGetMerchantFeatureAccess,
+    mockRequireMerchantFeatureAccess,
     mockMaybeSingle,
     mockUpsert,
     mockSupabase,
@@ -59,16 +59,8 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 vi.mock('@/lib/merchant-feature-gates', () => ({
-  getMerchantFeatureAccess: (...args: unknown[]) =>
-    mockGetMerchantFeatureAccess(...args),
-  merchantFeatureUpgradeResponse: () =>
-    Response.json(
-      {
-        code: 'requires_upgrade',
-        error: 'Marketplace sync requires Baci Pro',
-      },
-      { status: 402 }
-    ),
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mockRequireMerchantFeatureAccess(...args),
 }));
 
 vi.mock('@/lib/jumia/feeds', () => ({
@@ -121,10 +113,7 @@ import { POST } from './route';
 describe('Products Export POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetMerchantFeatureAccess.mockResolvedValue({
-      allowed: true,
-      error: null,
-    });
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
   });
 
   it('returns 403 on CSRF failure', async () => {
@@ -156,16 +145,40 @@ describe('Products Export POST', () => {
   });
 
   it('returns 402 before exporting products when marketplace sync is locked', async () => {
-    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
-      allowed: false,
-      error: null,
-    });
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
 
     const res = await POST(makePostRequest(VALID_BODY));
 
     expect(res.status).toBe(402);
     const json = await res.json();
     expect(json.code).toBe('requires_upgrade');
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockCreateProduct).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 before exporting products when marketplace sync entitlement lookup fails', async () => {
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          error: 'Failed to verify merchant plan',
+        },
+        { status: 500 }
+      )
+    );
+
+    const res = await POST(makePostRequest(VALID_BODY));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Failed to verify merchant plan');
     expect(mockForIntegration).not.toHaveBeenCalled();
     expect(mockCreateProduct).not.toHaveBeenCalled();
   });

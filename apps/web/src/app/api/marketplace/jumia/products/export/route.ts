@@ -9,10 +9,7 @@ import { JumiaClient } from '@/lib/jumia/client';
 import { createProduct } from '@/lib/jumia/feeds';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
-import {
-  getMerchantFeatureAccess,
-  merchantFeatureUpgradeResponse,
-} from '@/lib/merchant-feature-gates';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 
 const VariationSchema = z.object({
@@ -92,13 +89,13 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = auth.supabase;
-    const featureAccess = await getMerchantFeatureAccess(
+    const featureGateResponse = await requireMerchantFeatureAccess(
       supabase,
       merchantId,
       'marketplace_sync'
     );
-    if (!featureAccess.allowed) {
-      return merchantFeatureUpgradeResponse('marketplace_sync');
+    if (featureGateResponse) {
+      return featureGateResponse;
     }
 
     let jumia: JumiaClient;

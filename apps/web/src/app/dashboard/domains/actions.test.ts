@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   revalidatePath: vi.fn(),
   revalidateMerchantFeed: vi.fn(),
+  requireMerchantFeatureAccess: vi.fn(),
   triggerDomainEdgeConfigSync: vi.fn(),
   updateDomainQuery: {
     eq: vi.fn(),
@@ -45,6 +46,11 @@ vi.mock('@/lib/merchant-server', () => ({
   ensurePermission: (...args: unknown[]) => mocks.ensurePermission(...args),
 }));
 
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mocks.requireMerchantFeatureAccess(...args),
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mocks.supabaseClient),
 }));
@@ -68,6 +74,7 @@ describe('setPrimaryDomain', () => {
       data: { user: { id: 'user-1' } },
       error: null,
     });
+    mocks.requireMerchantFeatureAccess.mockResolvedValue(null);
     mocks.ensurePermission.mockResolvedValue({
       merchant: { id: 'merchant-1' },
       staffAccess: { isOwner: true },
@@ -92,6 +99,11 @@ describe('setPrimaryDomain', () => {
 
     expect(result).toEqual({ success: true });
     expect(mocks.ensurePermission).toHaveBeenCalledWith('settings', 'edit');
+    expect(mocks.requireMerchantFeatureAccess).toHaveBeenCalledWith(
+      mocks.supabaseClient,
+      'merchant-1',
+      'custom_domain'
+    );
     expect(mocks.supabaseClient.from).toHaveBeenCalledWith('domains');
     expect(mocks.selectDomainQuery.eq).toHaveBeenCalledWith(
       'domain',
@@ -108,5 +120,25 @@ describe('setPrimaryDomain', () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard/domains');
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
     expect(mocks.triggerDomainEdgeConfigSync).toHaveBeenCalled();
+  });
+
+  it('returns the upgrade error before mutating domains when custom domains are locked', async () => {
+    mocks.requireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        { error: 'Custom domains require Baci Starter or higher' },
+        { status: 402 }
+      )
+    );
+
+    const result = await setPrimaryDomain('shop.example.com');
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Custom domains require Baci Starter or higher',
+    });
+    expect(mocks.domainsTable.select).not.toHaveBeenCalled();
+    expect(mocks.domainsTable.update).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.revalidateMerchantFeed).not.toHaveBeenCalled();
   });
 });
