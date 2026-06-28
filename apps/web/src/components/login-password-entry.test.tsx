@@ -45,4 +45,43 @@ describe('LoginPasswordEntry', () => {
     expect(onPasswordlessRequest).toHaveBeenCalledTimes(1);
     expect(onTogglePassword).toHaveBeenCalledTimes(1);
   });
+
+  it('updates aria-pressed when password visibility is toggled', () => {
+    const onTogglePassword = vi.fn();
+
+    const { rerender } = render(
+      <LoginPasswordEntry
+        action={formAction}
+        defaultEmail="admin@example.com"
+        disabled={false}
+        onForgotPassword={vi.fn()}
+        onPasswordlessRequest={vi.fn()}
+        onTogglePassword={onTogglePassword}
+        redirectTo="/dashboard/orders"
+        showPassword={false}
+      />
+    );
+
+    const toggleBtn = screen.getByRole('button', { name: 'Show password' });
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(toggleBtn);
+    expect(onTogglePassword).toHaveBeenCalledTimes(1);
+
+    // Re-render with showPassword=true to simulate parent component state change
+    rerender(
+      <LoginPasswordEntry
+        action={formAction}
+        defaultEmail="admin@example.com"
+        disabled={false}
+        onForgotPassword={vi.fn()}
+        onPasswordlessRequest={vi.fn()}
+        onTogglePassword={onTogglePassword}
+        redirectTo="/dashboard/orders"
+        showPassword={true}
+      />
+    );
+
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('true');
+  });
 });
