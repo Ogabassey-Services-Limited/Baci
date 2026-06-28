@@ -98,7 +98,7 @@ BEGIN
           AND GREATEST(
             CASE
               WHEN p.stock_quantity IS NULL THEN coalesce(p.stock, 0)
-              WHEN coalesce(p.stock_quantity, 0) = 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
+              WHEN coalesce(p.stock_quantity, 0) <= 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
               ELSE p.stock_quantity
             END,
             0
@@ -110,7 +110,7 @@ BEGIN
           AND GREATEST(
             CASE
               WHEN p.stock_quantity IS NULL THEN coalesce(p.stock, 0)
-              WHEN coalesce(p.stock_quantity, 0) = 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
+              WHEN coalesce(p.stock_quantity, 0) <= 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
               ELSE p.stock_quantity
             END,
             0
@@ -118,7 +118,7 @@ BEGIN
           AND GREATEST(
             CASE
               WHEN p.stock_quantity IS NULL THEN coalesce(p.stock, 0)
-              WHEN coalesce(p.stock_quantity, 0) = 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
+              WHEN coalesce(p.stock_quantity, 0) <= 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
               ELSE p.stock_quantity
             END,
             0
@@ -130,7 +130,7 @@ BEGIN
           AND GREATEST(
             CASE
               WHEN p.stock_quantity IS NULL THEN coalesce(p.stock, 0)
-              WHEN coalesce(p.stock_quantity, 0) = 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
+              WHEN coalesce(p.stock_quantity, 0) <= 0 AND coalesce(p.stock, 0) > 0 THEN p.stock
               ELSE p.stock_quantity
             END,
             0
