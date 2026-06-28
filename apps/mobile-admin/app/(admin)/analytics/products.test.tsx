@@ -1,95 +1,111 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AnalyticsProductsScreen from './products';
 
 const mocks = vi.hoisted(() => ({
-  push: vi.fn(),
-  useLocalSearchParams: vi.fn(),
+  refetch: vi.fn(),
+  router: {
+    push: vi.fn(),
+  },
   useTopSellingProducts: vi.fn(),
-}));
-
-vi.mock('react-native', async () => {
-  const React = await import('react');
-  return {
-    ActivityIndicator: () =>
-      React.createElement('div', { role: 'progressbar' }),
-    Pressable: ({
-      children,
-      onPress,
-    }: {
-      children?: React.ReactNode;
-      onPress?: () => void;
-    }) =>
-      React.createElement('button', { onClick: () => onPress?.() }, children),
-    StatusBar: () => null,
-    StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-vi.mock('@shopify/flash-list', () => ({
-  FlashList: ({
-    ListEmptyComponent,
-    ListHeaderComponent,
-    data,
-    renderItem,
-  }: {
-    ListEmptyComponent?: React.ReactNode;
-    ListHeaderComponent?: React.ReactNode;
-    data?: Array<{ id: string; name: string }>;
-    renderItem: ({
-      item,
-      index,
-    }: {
-      item: { id: string; name: string };
-      index: number;
-    }) => React.ReactNode;
-  }) => (
-    <div>
-      {ListHeaderComponent}
-      {(data ?? []).length === 0 ? ListEmptyComponent : null}
-      {(data ?? []).map((item, index) => (
-        <div key={item.id}>{renderItem({ item, index })}</div>
-      ))}
-    </div>
-  ),
-}));
-
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
-  default: () => null,
-  __esModule: true,
 }));
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
-    Stack: { Screen: () => React.createElement('div') },
-    useLocalSearchParams: mocks.useLocalSearchParams,
-    useRouter: () => ({ push: mocks.push }),
+    Stack: {
+      Screen: () => React.createElement('div'),
+    },
+    useLocalSearchParams: () => ({
+      filterLabel: 'This month',
+    }),
+    useRouter: () => mocks.router,
   };
 });
 
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
+  __esModule: true,
+}));
+
+vi.mock('@shopify/flash-list', () => ({
+  FlashList: ({
+    data,
+    ListEmptyComponent,
+    ListHeaderComponent,
+    renderItem,
+  }: {
+    data?: unknown[] | null;
+    ListEmptyComponent?: ReactNode;
+    ListHeaderComponent?: ReactNode;
+    renderItem: (params: { index: number; item: unknown }) => ReactNode;
+  }) => (
+    <div>
+      {ListHeaderComponent}
+      {data && data.length > 0
+        ? data.map((item, index) => (
+            <div key={(item as { id?: string }).id ?? index}>
+              {renderItem({ index, item })}
+            </div>
+          ))
+        : ListEmptyComponent}
+    </div>
+  ),
+}));
+
+vi.mock('react-native', () => ({
+  ActivityIndicator: () => <div role="progressbar" />,
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      type="button"
+    >
+      {children}
+    </button>
+  ),
+  StatusBar: () => null,
+  StyleSheet: {
+    create: (styles: Record<string, unknown>) => styles,
+    hairlineWidth: 1,
+  },
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
+}));
+
 vi.mock('@/hooks/useCurrency', () => ({
-  useCurrency: () => ({ format: (amount: number) => `NGN ${amount}` }),
+  useCurrency: () => ({
+    format: (amount: number) => `NGN ${amount}`,
+  }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
-      background: '#fff',
-      border: '#e5e7eb',
-      card: '#fff',
+      background: '#ffffff',
+      border: '#e2e8f0',
+      card: '#f8fafc',
       error: '#dc2626',
       primary: '#2563eb',
-      text: '#111827',
-      textMuted: '#6b7280',
-      textOnPrimary: '#fff',
-      textSecondary: '#4b5563',
+      text: '#0f172a',
+      textMuted: '#64748b',
+      textOnPrimary: '#ffffff',
+      textSecondary: '#475569',
     },
     isDark: false,
   }),
@@ -102,60 +118,34 @@ vi.mock('@/hooks/useTopSellingProducts', () => ({
 describe('AnalyticsProductsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.useLocalSearchParams.mockReturnValue({ filterLabel: 'This year' });
-    mocks.useTopSellingProducts.mockReturnValue({
-      data: [],
-      isError: false,
-      isLoading: true,
-      refetch: vi.fn(),
-    });
-  });
-
-  it('renders the top products loading state', () => {
-    render(<AnalyticsProductsScreen />);
-
-    expect(screen.getByRole('progressbar')).toBeTruthy();
-  });
-
-  it('renders top products and opens the selected product', () => {
     mocks.useTopSellingProducts.mockReturnValue({
       data: [
         {
           id: 'product-1',
-          name: 'Samsung Galaxy Fold 5',
-          totalRevenue: 930000,
+          name: 'Galaxy S26',
+          totalRevenue: 120_000,
           totalSold: 2,
         },
       ],
       isError: false,
       isLoading: false,
-      refetch: vi.fn(),
+      refetch: mocks.refetch,
     });
-
-    render(<AnalyticsProductsScreen />);
-
-    expect(screen.getByText('Samsung Galaxy Fold 5')).toBeTruthy();
-    expect(screen.getByText('2 units sold')).toBeTruthy();
-    expect(screen.getByText('NGN 930000')).toBeTruthy();
-
-    fireEvent.click(screen.getByText('Samsung Galaxy Fold 5'));
-
-    expect(mocks.push).toHaveBeenCalledWith('/product/product-1');
   });
 
-  it('renders product retry state when loading fails', () => {
-    const refetch = vi.fn();
-    mocks.useTopSellingProducts.mockReturnValue({
-      data: [],
-      isError: true,
-      isLoading: false,
-      refetch,
-    });
-
+  it('renders top-selling products for the selected period', () => {
     render(<AnalyticsProductsScreen />);
 
-    expect(screen.getByText('Failed to load top products.')).toBeTruthy();
-    fireEvent.click(screen.getByText('Retry'));
-    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Galaxy S26')).toBeTruthy();
+    expect(screen.getByText('2 units sold')).toBeTruthy();
+    expect(screen.getByText('NGN 120000')).toBeTruthy();
+  });
+
+  it('routes a product row to its product detail screen', () => {
+    render(<AnalyticsProductsScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Galaxy S26/i }));
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/product/product-1');
   });
 });

@@ -51,6 +51,10 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: React.ReactNode }) => children,
+}));
+
 vi.mock('expo-router', async () => {
   const React = await import('react');
 

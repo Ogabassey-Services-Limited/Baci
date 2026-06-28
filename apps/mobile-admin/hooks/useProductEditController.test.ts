@@ -1,8 +1,12 @@
 import { renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routeParamsState = vi.hoisted(() => ({
   current: { id: 'new' } as { id: string; sku?: string },
+}));
+
+const persistenceState = vi.hoisted(() => ({
+  lastParams: null as Record<string, unknown> | null,
 }));
 
 vi.mock('expo-router', () => ({
@@ -13,7 +17,7 @@ vi.mock('expo-router', () => ({
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
     isLoading: false,
-    merchant: { id: 'merch-1' },
+    merchant: { id: 'merch-1', plan_tier: 'free', premium_features: [] },
   }),
 }));
 
@@ -29,6 +33,9 @@ vi.mock('@/hooks/useProducts', () => ({
     isPending: false,
   }),
   useCreateProduct: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useInventoryStats: () => ({
+    data: { totalProducts: 1000 },
+  }),
   useProduct: () => ({ data: undefined, error: null }),
   useUpdateProduct: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateProductStatus: () => ({
@@ -49,11 +56,14 @@ vi.mock('./createProductEditImageActions', () => ({
 }));
 
 vi.mock('./createProductEditPersistenceActions', () => ({
-  createProductEditPersistenceActions: () => ({
-    handleCreateCategory: vi.fn(),
-    handleSave: vi.fn(),
-    handleStatusToggle: vi.fn(),
-  }),
+  createProductEditPersistenceActions: (params: Record<string, unknown>) => {
+    persistenceState.lastParams = params;
+    return {
+      handleCreateCategory: vi.fn(),
+      handleSave: vi.fn(),
+      handleStatusToggle: vi.fn(),
+    };
+  },
 }));
 
 vi.mock('./createProductEditVariantActions', () => ({
@@ -76,11 +86,26 @@ vi.mock('./createProductEditVariantActions', () => ({
 import { useProductEditController } from './useProductEditController';
 
 describe('useProductEditController', () => {
+  beforeEach(() => {
+    persistenceState.lastParams = null;
+  });
+
   it('initialises in new-product mode when id is "new"', () => {
     routeParamsState.current = { id: 'new' };
     const { result } = renderHook(() => useProductEditController());
 
     expect(result.current.isEditing).toBe(false);
+  });
+
+  it('passes the product creation gate to the persistence actions', () => {
+    routeParamsState.current = { id: 'new' };
+    renderHook(() => useProductEditController());
+
+    expect(persistenceState.lastParams?.productCreationGate).toMatchObject({
+      allowed: false,
+      limit: 1000,
+      requiresUpgrade: true,
+    });
   });
 
   it('initialises in edit mode when id is a valid UUID', () => {

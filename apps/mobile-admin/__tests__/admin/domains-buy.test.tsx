@@ -22,6 +22,10 @@ vi.mock('@/components/ui/AppFormScreen', async () => {
   return createAppFormScreenMock();
 });
 
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
+}));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 

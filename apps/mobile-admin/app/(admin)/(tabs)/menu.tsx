@@ -18,9 +18,11 @@ import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates, type MobileFeatureGate } from '@/lib/feature-gates';
 
 interface MenuItem {
   id: string;
@@ -43,8 +45,34 @@ export default function MenuScreen() {
   const { signOut } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
+  const { merchant } = useMerchant();
   const { unregisterPush } = usePushNotifications();
   const router = useRouter();
+
+  const canAccessFeature = (feature: MobileFeatureGate) =>
+    isPro || baciFeatureGates.hasFeature(merchant, feature);
+
+  const proBadge = (feature: MobileFeatureGate) =>
+    canAccessFeature(feature) ? undefined : 'PRO';
+
+  const openFeature = (
+    feature: MobileFeatureGate,
+    label: string,
+    pathname: string
+  ) => {
+    if (canAccessFeature(feature)) {
+      router.push(pathname);
+      return;
+    }
+
+    Alert.alert('Baci Pro', `${label} is available on Baci Pro.`, [
+      { text: 'Not now', style: 'cancel' },
+      {
+        text: 'Upgrade',
+        onPress: () => router.push('/(admin)/subscribe'),
+      },
+    ]);
+  };
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -89,7 +117,9 @@ export default function MenuScreen() {
           icon: 'cart-outline',
           label: 'Marketplaces',
           description: 'Connect Jumia, Konga, etc.',
-          onPress: () => router.push('/sales-channels'),
+          badge: proBadge('marketplace_sync'),
+          onPress: () =>
+            openFeature('marketplace_sync', 'Marketplaces', '/sales-channels'),
         },
         {
           id: 'payments',
@@ -124,7 +154,8 @@ export default function MenuScreen() {
           icon: 'globe-outline',
           label: 'Domains',
           description: 'Custom domain settings',
-          onPress: () => router.push('/domains'),
+          badge: proBadge('custom_domain'),
+          onPress: () => openFeature('custom_domain', 'Domains', '/domains'),
         },
       ],
     },
@@ -150,7 +181,13 @@ export default function MenuScreen() {
           icon: 'rocket-outline',
           label: 'Growth & Marketing',
           description: 'Pixels, CAPI, Setup',
-          onPress: () => router.push('/analytics-config'),
+          badge: proBadge('growth_integrations'),
+          onPress: () =>
+            openFeature(
+              'growth_integrations',
+              'Growth & Marketing',
+              '/analytics-config'
+            ),
         },
         {
           id: 'expenses',

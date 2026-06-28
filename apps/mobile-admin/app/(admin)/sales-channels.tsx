@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { JumiaChannelCard } from '@/components/marketplace/JumiaChannelCard';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -18,99 +19,117 @@ export default function SalesChannelsScreen() {
   const router = useRouter();
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Marketplaces',
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
-          ),
-        }}
-      />
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['bottom']}
-      >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+    <FeatureGateScreen
+      description="Connect and sync marketplace channels when Baci Pro is active."
+      feature="marketplace_sync"
+      title="Marketplace sync is a Baci Pro feature"
+    >
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Marketplaces',
+            headerLeft: () => (
+              <Pressable
+                onPress={() => router.back()}
+                style={styles.backButton}
+              >
+                <Ionicons name="arrow-back" size={24} color={colors.text} />
+              </Pressable>
+            ),
+          }}
+        />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
-          <View style={styles.header}>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Connect your store to major marketplaces to sync inventory and
-              orders automatically.
-            </Text>
-          </View>
-
-          <JumiaChannelCard colors={colors} shadows={shadows} />
-
-          {/* Pending Channels */}
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, opacity: 0.6 },
-            ]}
+          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
           >
-            <View style={styles.channelHeader}>
-              <View
-                style={[
-                  styles.iconContainer,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
-                <Text
-                  style={[styles.iconText, { color: colors.textOnPrimary }]}
+            <View style={styles.header}>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                Connect your store to major marketplaces to sync inventory and
+                orders automatically.
+              </Text>
+            </View>
+
+            <JumiaChannelCard colors={colors} shadows={shadows} />
+
+            {/* Pending Channels */}
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, opacity: 0.6 },
+              ]}
+            >
+              <View style={styles.channelHeader}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: colors.primary },
+                  ]}
                 >
-                  K
-                </Text>
-              </View>
-              <View style={styles.channelInfo}>
-                <Text style={[styles.channelTitle, { color: colors.text }]}>
-                  Konga
-                </Text>
-                <Text
-                  style={[styles.channelDesc, { color: colors.textSecondary }]}
-                >
-                  Coming soon
-                </Text>
+                  <Text
+                    style={[styles.iconText, { color: colors.textOnPrimary }]}
+                  >
+                    K
+                  </Text>
+                </View>
+                <View style={styles.channelInfo}>
+                  <Text style={[styles.channelTitle, { color: colors.text }]}>
+                    Konga
+                  </Text>
+                  <Text
+                    style={[
+                      styles.channelDesc,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Coming soon
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, opacity: 0.6 },
-            ]}
-          >
-            <View style={styles.channelHeader}>
-              <View
-                style={[styles.iconContainer, { backgroundColor: colors.text }]}
-              >
-                <Ionicons
-                  name="logo-amazon"
-                  size={20}
-                  color={colors.background}
-                />
-              </View>
-              <View style={styles.channelInfo}>
-                <Text style={[styles.channelTitle, { color: colors.text }]}>
-                  Amazon
-                </Text>
-                <Text
-                  style={[styles.channelDesc, { color: colors.textSecondary }]}
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, opacity: 0.6 },
+              ]}
+            >
+              <View style={styles.channelHeader}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: colors.text },
+                  ]}
                 >
-                  Coming soon
-                </Text>
+                  <Ionicons
+                    name="logo-amazon"
+                    size={20}
+                    color={colors.background}
+                  />
+                </View>
+                <View style={styles.channelInfo}>
+                  <Text style={[styles.channelTitle, { color: colors.text }]}>
+                    Amazon
+                  </Text>
+                  <Text
+                    style={[
+                      styles.channelDesc,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Coming soon
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
+          </ScrollView>
+        </SafeAreaView>
+      </>
+    </FeatureGateScreen>
   );
 }
 

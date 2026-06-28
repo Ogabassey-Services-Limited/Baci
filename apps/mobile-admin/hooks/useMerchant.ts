@@ -41,6 +41,13 @@ export const MerchantSchema = z.object({
   favicon_png_192_url: z.string().nullable(),
   is_published: z.boolean(),
   phone: z.string().nullable(),
+  plan_expires_at: z.string().nullable().optional(),
+  plan_tier: z
+    .enum(['free', 'starter', 'pro', 'business', 'enterprise'])
+    .nullable()
+    .optional()
+    .default('free'),
+  premium_features: z.array(z.string()).nullable().optional().default([]),
   vat_registration_status: z
     .enum(['not_registered', 'registered', 'exempt', 'pending'])
     .nullable(),

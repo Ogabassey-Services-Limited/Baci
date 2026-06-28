@@ -12,10 +12,12 @@ import {
   useCategories,
   useCreateCategory,
   useCreateProduct,
+  useInventoryStats,
   useProduct,
   useUpdateProduct,
   useUpdateProductStatus,
 } from '@/hooks/useProducts';
+import { baciFeatureGates } from '@/lib/feature-gates';
 import { normalizeComparableProductName } from '@/lib/product-matching';
 import { buildVariantFormValues } from '@/lib/product-variant-form';
 import { stripHtmlTags } from '@/lib/utils';
@@ -91,6 +93,7 @@ export function useProductEditController() {
   const { data: categories = [] } = useCategories();
   const createCategoryMutation = useCreateCategory();
   const { data: product, error: productError } = useProduct(id ?? 'new');
+  const { data: inventoryStats } = useInventoryStats();
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
   const updateStatusMutation = useUpdateProductStatus();
@@ -208,6 +211,13 @@ export function useProductEditController() {
       isEditing,
       newCategoryName,
       openProduct: (productId) => router.push(`/product/${productId}`),
+      productCreationGate: {
+        ...baciFeatureGates.canCreateProduct({
+          activeProductCount: inventoryStats?.totalProducts,
+          merchant,
+        }),
+        onUpgrade: () => router.push('/(admin)/subscribe'),
+      },
       resetCategoryForm: () => {
         setNewCategoryName('');
         setIsCreatingCategory(false);

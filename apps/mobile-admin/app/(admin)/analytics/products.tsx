@@ -16,6 +16,7 @@ import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useTopSellingProducts';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 
 function getSingleParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
@@ -95,81 +96,91 @@ export default function AnalyticsProductsScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: filterLabelParam
-            ? `Top Products · ${filterLabelParam}`
-            : 'Top Products',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <FeatureGateScreen
+      description="Product rankings and segmented analytics are available when Baci Pro is active."
+      feature="advanced_analytics"
+      title="Advanced analytics are a Baci Pro feature"
+    >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: filterLabelParam
+              ? `Top Products · ${filterLabelParam}`
+              : 'Top Products',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+          }}
+        />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      <FlashList
-        data={topProducts}
-        renderItem={renderProductItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          isLoading ? (
-            <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          !isLoading && isError ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={48}
-                color={colors.error}
-              />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Failed to load top products.
-              </Text>
-              <Pressable
-                accessibilityHint="Retries loading the product list"
-                accessibilityLabel="Retry fetching products"
-                accessibilityRole="button"
-                accessible
-                onPress={() => {
-                  void refetch();
-                }}
-                style={[
-                  styles.retryButton,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
+        <FlashList
+          data={topProducts}
+          renderItem={renderProductItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            isLoading ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            !isLoading && isError ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={48}
+                  color={colors.error}
+                />
                 <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
+                  Failed to load top products.
+                </Text>
+                <Pressable
+                  accessibilityHint="Retries loading the product list"
+                  accessibilityLabel="Retry fetching products"
+                  accessibilityRole="button"
+                  accessible
+                  onPress={() => {
+                    void refetch();
+                  }}
                   style={[
-                    styles.retryButtonText,
-                    { color: colors.textOnPrimary },
+                    styles.retryButton,
+                    { backgroundColor: colors.primary },
                   ]}
                 >
-                  Retry
+                  <Text
+                    style={[
+                      styles.retryButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Retry
+                  </Text>
+                </Pressable>
+              </View>
+            ) : !isLoading ? (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="cube-outline"
+                  size={48}
+                  color={colors.textMuted}
+                />
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
+                  No product data available for this period.
                 </Text>
-              </Pressable>
-            </View>
-          ) : !isLoading ? (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="cube-outline"
-                size={48}
-                color={colors.textMuted}
-              />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No product data available for this period.
-              </Text>
-            </View>
-          ) : null
-        }
-      />
-    </View>
+              </View>
+            ) : null
+          }
+        />
+      </View>
+    </FeatureGateScreen>
   );
 }
 

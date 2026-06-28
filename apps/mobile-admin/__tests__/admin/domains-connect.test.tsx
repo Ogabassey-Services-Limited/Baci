@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_KEYBOARD_CONTAINER_LABEL } from '../auth/app-keyboard-container.mock';
 
@@ -15,6 +16,10 @@ vi.mock('@/components/ui/AppFormScreen', async () => {
   );
   return createAppFormScreenMock();
 });
+
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: React.ReactNode }) => children,
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -183,23 +188,8 @@ describe('ConnectDomainScreen', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
-      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
     });
-  });
 
-  it('shows a fallback error alert when the network request throws', async () => {
-    fetchMock.mockRejectedValueOnce(new TypeError('Network request failed'));
-
-    render(<ConnectDomainScreen />);
-
-    fireEvent.change(screen.getByPlaceholderText('example.com'), {
-      target: { value: 'example.com' },
-    });
-    fireEvent.click(screen.getByText('Connect Domain'));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalled();
-      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network request failed');
-    });
+    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
   });
 });

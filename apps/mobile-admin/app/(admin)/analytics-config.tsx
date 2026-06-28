@@ -4,7 +4,7 @@ import Ionicons, {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,16 +17,29 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  type AnalyticsState,
-  analyticsStatesEqual,
-  buildAnalyticsDiff,
-} from '@/lib/analytics-config-diff';
 import { supabase } from '@/lib/supabase';
+
+interface AnalyticsState {
+  // Google Analytics 4
+  google_analytics_id: string;
+  ga4_api_secret: string;
+  // Facebook/Meta
+  facebook_pixel_id: string;
+  facebook_capi_token: string;
+  // TikTok
+  tiktok_pixel_id: string;
+  tiktok_access_token: string;
+  // Snapchat
+  snapchat_pixel_id: string;
+  snapchat_capi_token: string;
+  // Feature toggle
+  offline_conversions_enabled: boolean;
+}
 
 const INITIAL_STATE: AnalyticsState = {
   google_analytics_id: '',
@@ -39,20 +52,6 @@ const INITIAL_STATE: AnalyticsState = {
   snapchat_capi_token: '',
   offline_conversions_enabled: true,
 };
-
-function toAnalyticsState(merchant: Partial<AnalyticsState>): AnalyticsState {
-  return {
-    google_analytics_id: merchant.google_analytics_id || '',
-    ga4_api_secret: merchant.ga4_api_secret || '',
-    facebook_pixel_id: merchant.facebook_pixel_id || '',
-    facebook_capi_token: merchant.facebook_capi_token || '',
-    tiktok_pixel_id: merchant.tiktok_pixel_id || '',
-    tiktok_access_token: merchant.tiktok_access_token || '',
-    snapchat_pixel_id: merchant.snapchat_pixel_id || '',
-    snapchat_capi_token: merchant.snapchat_capi_token || '',
-    offline_conversions_enabled: merchant.offline_conversions_enabled !== false,
-  };
-}
 
 // Help links for each platform
 const HELP_LINKS = {
@@ -200,26 +199,9 @@ export default function AnalyticsConfigScreen() {
   const queryClient = useQueryClient();
 
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
-  const analyticsRef = useRef<AnalyticsState>(INITIAL_STATE);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
-  const [seededSnapshot, setSeededSnapshot] = useState<AnalyticsState | null>(
-    null
-  );
-  // Recovery guard: background refetches are suppressed ONLY once the buffer has
-  // been seeded AND the user has edited it. If the initial query errors and the
-  // user starts typing before reconnect, `isDirty` is true while `seededSnapshot`
-  // is still null — gating on `!isDirty` alone would disable the reconnect
-  // refetch and leave Save stuck on "still loading" forever. Keeping recovery
-  // enabled until the first successful seed lets a reconnect refetch seed the
-  // buffer so Save can succeed.
-  const hasSeeded = seededSnapshot !== null;
-  const shouldBackgroundRefetch = !(hasSeeded && isDirty);
 
-  // Fetch merchant data with all analytics fields. Background revalidation stays
-  // enabled until the merchant edits the form, so cached query data can be
-  // replaced by fresher server data before the buffer becomes dirty. Once dirty,
-  // refetches stop repainting the editable buffer.
+  // Fetch merchant data with all analytics fields
   const { data: merchant, isLoading } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
     queryFn: async () => {
@@ -243,60 +225,49 @@ export default function AnalyticsConfigScreen() {
     },
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: shouldBackgroundRefetch,
-    refetchOnReconnect: shouldBackgroundRefetch,
   });
 
-  // Seed/reseed the editable buffer from fetched merchant data until the user
-  // edits the form. This lets cached data be replaced by a fresher refetch while
-  // the form is clean, but prevents background refetches from clobbering typed
-  // edits once dirty.
-  if (merchant && !isDirty) {
-    const seeded = toAnalyticsState(merchant);
-    if (!analyticsStatesEqual(seededSnapshot, seeded)) {
-      setSeededSnapshot(seeded);
-      analyticsRef.current = seeded;
-      setAnalytics(seeded);
-    }
+  // Seed the editable form state from freshly fetched merchant data during
+  // render (avoids the stale frame + cascading re-render of an effect sync).
+  const [prevMerchant, setPrevMerchant] = useState<typeof merchant>(undefined);
+  if (merchant && merchant !== prevMerchant) {
+    setPrevMerchant(merchant);
+    setAnalytics({
+      google_analytics_id: merchant.google_analytics_id || '',
+      ga4_api_secret: merchant.ga4_api_secret || '',
+      facebook_pixel_id: merchant.facebook_pixel_id || '',
+      facebook_capi_token: merchant.facebook_capi_token || '',
+      tiktok_pixel_id: merchant.tiktok_pixel_id || '',
+      tiktok_access_token: merchant.tiktok_access_token || '',
+      snapchat_pixel_id: merchant.snapchat_pixel_id || '',
+      snapchat_capi_token: merchant.snapchat_capi_token || '',
+      offline_conversions_enabled:
+        merchant.offline_conversions_enabled !== false,
+    });
   }
 
-  // Save Mutation — writes only the fields the user actually changed (per-field
-  // dirty diff vs the seeded snapshot). A no-op save (no diff) skips the write
-  // entirely so unchanged analytics fields are never rewritten.
+  // Save Mutation
   const saveMutation = useMutation({
-    mutationFn: async (submittedAnalytics?: AnalyticsState) => {
-      if (!seededSnapshot) {
-        throw new Error(
-          'Analytics settings are still loading. Please try again.'
-        );
-      }
-
-      const savedAnalytics = submittedAnalytics ?? analyticsRef.current;
-      const update = buildAnalyticsDiff(savedAnalytics, seededSnapshot);
-
-      if (Object.keys(update).length === 0) {
-        return savedAnalytics;
-      }
-
+    mutationFn: async () => {
       const { error } = await supabase
         .from('merchants')
-        .update(update)
+        .update({
+          google_analytics_id: analytics.google_analytics_id || null,
+          ga4_api_secret: analytics.ga4_api_secret || null,
+          facebook_pixel_id: analytics.facebook_pixel_id || null,
+          facebook_capi_token: analytics.facebook_capi_token || null,
+          tiktok_pixel_id: analytics.tiktok_pixel_id || null,
+          tiktok_access_token: analytics.tiktok_access_token || null,
+          snapchat_pixel_id: analytics.snapchat_pixel_id || null,
+          snapchat_capi_token: analytics.snapchat_capi_token || null,
+          offline_conversions_enabled: analytics.offline_conversions_enabled,
+        })
         .eq('user_id', user?.id);
 
       if (error) throw error;
-      return savedAnalytics;
+      return true;
     },
-    onSuccess: (savedAnalytics = analyticsRef.current) => {
-      const hasPendingEdits = !analyticsStatesEqual(
-        analyticsRef.current,
-        savedAnalytics
-      );
-      setSeededSnapshot(savedAnalytics);
-      setIsDirty(hasPendingEdits);
-      queryClient.setQueryData(
-        ['merchant-analytics-full', user?.id],
-        savedAnalytics
-      );
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
       queryClient.invalidateQueries({ queryKey: ['merchant-analytics-full'] });
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
@@ -310,19 +281,14 @@ export default function AnalyticsConfigScreen() {
   });
 
   const handleSave = () => {
-    saveMutation.mutate({ ...analyticsRef.current });
+    saveMutation.mutate();
   };
 
   const updateField = (
     field: keyof AnalyticsState,
     value: string | boolean
   ) => {
-    setIsDirty(true);
-    setAnalytics((prev) => {
-      const next = { ...prev, [field]: value };
-      analyticsRef.current = next;
-      return next;
-    });
+    setAnalytics((prev) => ({ ...prev, [field]: value }));
   };
 
   const toggleSection = (section: string) => {
@@ -354,271 +320,283 @@ export default function AnalyticsConfigScreen() {
   );
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Analytics & Tracking',
-          headerRight: () => (
-            <Pressable
-              onPress={handleSave}
-              disabled={saveMutation.isPending}
-              style={styles.saveButton}
-            >
-              {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.saveText, { color: colors.primary }]}>
-                  Save
-                </Text>
-              )}
-            </Pressable>
-          ),
-          headerStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-          headerTintColor: colors.text,
-        }}
-      />
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['bottom']}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+    <FeatureGateScreen
+      description="Enable advanced pixels, conversion APIs, and offline conversion tracking when Baci Pro is active."
+      feature="growth_integrations"
+      title="Growth integrations are a Baci Pro feature"
+    >
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Analytics & Tracking',
+            headerRight: () => (
+              <Pressable
+                onPress={handleSave}
+                disabled={saveMutation.isPending}
+                style={styles.saveButton}
+              >
+                {saveMutation.isPending ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={[styles.saveText, { color: colors.primary }]}>
+                    Save
+                  </Text>
+                )}
+              </Pressable>
+            ),
+            headerStyle: { backgroundColor: colors.background },
+            headerShadowVisible: false,
+            headerTintColor: colors.text,
+          }}
+        />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
-          {/* Info Banner */}
-          <View
-            style={[
-              styles.infoBanner,
-              { backgroundColor: `${colors.primary}10` },
-            ]}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Ionicons name="rocket-outline" size={24} color={colors.primary} />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: colors.text }]}>
-                Server-Side Tracking
-              </Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                Configure CAPI tokens to track conversions even when customers
-                use ad blockers. Your orders will be automatically reported to
-                ad platforms.
-              </Text>
-            </View>
-          </View>
-
-          {/* Meta/Facebook */}
-          <PlatformCard
-            title="Meta (Facebook/Instagram)"
-            icon="logo-facebook"
-            iconColor="#1877F2"
-            isExpanded={expandedSection === 'facebook'}
-            onToggle={() => toggleSection('facebook')}
-            helpKey="facebook"
-            isConfigured={isFacebookConfigured}
-            colors={colors}
-            shadows={shadows}
-          >
-            <InputField
-              label="Pixel ID"
-              value={analytics.facebook_pixel_id}
-              field="facebook_pixel_id"
-              placeholder="1234567890123456"
-              icon="code-outline"
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <InputField
-              label="Conversions API Token"
-              value={analytics.facebook_capi_token}
-              field="facebook_capi_token"
-              placeholder="EAAxxxxxxxx..."
-              icon="key-outline"
-              secureTextEntry
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Get your token from Events Manager → Settings → Generate Access
-              Token
-            </Text>
-          </PlatformCard>
-
-          {/* TikTok */}
-          <PlatformCard
-            title="TikTok"
-            icon="logo-tiktok"
-            iconColor={colors.text}
-            isExpanded={expandedSection === 'tiktok'}
-            onToggle={() => toggleSection('tiktok')}
-            helpKey="tiktok"
-            isConfigured={isTikTokConfigured}
-            colors={colors}
-            shadows={shadows}
-          >
-            <InputField
-              label="Pixel ID"
-              value={analytics.tiktok_pixel_id}
-              field="tiktok_pixel_id"
-              placeholder="CXXXXXXXXXXXXXXXXX"
-              icon="code-outline"
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <InputField
-              label="Events API Access Token"
-              value={analytics.tiktok_access_token}
-              field="tiktok_access_token"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx"
-              icon="key-outline"
-              secureTextEntry
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Get your token from TikTok Ads Manager → Assets → Events → Web
-              Events → Settings
-            </Text>
-          </PlatformCard>
-
-          {/* Google Analytics */}
-          <PlatformCard
-            title="Google Analytics 4 & Ads"
-            icon="logo-google"
-            iconColor="#EA4335"
-            isExpanded={expandedSection === 'google'}
-            onToggle={() => toggleSection('google')}
-            helpKey="google"
-            isConfigured={isGoogleConfigured}
-            colors={colors}
-            shadows={shadows}
-          >
-            <InputField
-              label="Measurement ID"
-              value={analytics.google_analytics_id}
-              field="google_analytics_id"
-              placeholder="G-XXXXXXXXXX"
-              icon="analytics-outline"
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <InputField
-              label="API Secret"
-              value={analytics.ga4_api_secret}
-              field="ga4_api_secret"
-              placeholder="xXxXxXxXxXxX"
-              icon="key-outline"
-              secureTextEntry
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Data sent here syncs to Google Ads if accounts are linked. Get API
-              secret from GA4 → Admin → Data Streams.
-            </Text>
-          </PlatformCard>
-
-          {/* Snapchat */}
-          <PlatformCard
-            title="Snapchat"
-            icon="logo-snapchat"
-            iconColor="#FFFC00"
-            isExpanded={expandedSection === 'snapchat'}
-            onToggle={() => toggleSection('snapchat')}
-            helpKey="snapchat"
-            isConfigured={isSnapchatConfigured}
-            colors={colors}
-            shadows={shadows}
-          >
-            <InputField
-              label="Pixel ID"
-              value={analytics.snapchat_pixel_id}
-              field="snapchat_pixel_id"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx"
-              icon="code-outline"
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <InputField
-              label="Conversions API Token"
-              value={analytics.snapchat_capi_token}
-              field="snapchat_capi_token"
-              placeholder="eyJxxxxxxxxx..."
-              icon="key-outline"
-              secureTextEntry
-              colors={colors}
-              onUpdateField={updateField}
-            />
-            <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Get your token from Snapchat Ads Manager → Events Manager →
-              Conversions API
-            </Text>
-          </PlatformCard>
-
-          {/* Toggle for offline conversions */}
-          <View
-            style={[
-              styles.toggleCard,
-              { backgroundColor: colors.card },
-              shadows.sm,
-            ]}
-          >
-            <View style={styles.toggleContent}>
-              <View style={styles.toggleInfo}>
-                <Text style={[styles.toggleTitle, { color: colors.text }]}>
-                  Auto-Upload Conversions
+            {/* Info Banner */}
+            <View
+              style={[
+                styles.infoBanner,
+                { backgroundColor: `${colors.primary}10` },
+              ]}
+            >
+              <Ionicons
+                name="rocket-outline"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoTitle, { color: colors.text }]}>
+                  Server-Side Tracking
                 </Text>
                 <Text
-                  style={[
-                    styles.toggleSubtitle,
-                    { color: colors.textSecondary },
-                  ]}
+                  style={[styles.infoText, { color: colors.textSecondary }]}
                 >
-                  Automatically send orders to ad platforms when payments are
-                  confirmed
+                  Configure CAPI tokens to track conversions even when customers
+                  use ad blockers. Your orders will be automatically reported to
+                  ad platforms.
                 </Text>
               </View>
-              <Pressable
-                style={[
-                  styles.toggle,
-                  {
-                    backgroundColor: analytics.offline_conversions_enabled
-                      ? colors.primary
-                      : colors.border,
-                  },
-                ]}
-                onPress={() =>
-                  updateField(
-                    'offline_conversions_enabled',
-                    !analytics.offline_conversions_enabled
-                  )
-                }
-              >
-                <View
-                  testID="offline-conversions-toggle-knob"
+            </View>
+
+            {/* Meta/Facebook */}
+            <PlatformCard
+              title="Meta (Facebook/Instagram)"
+              icon="logo-facebook"
+              iconColor="#1877F2"
+              isExpanded={expandedSection === 'facebook'}
+              onToggle={() => toggleSection('facebook')}
+              helpKey="facebook"
+              isConfigured={isFacebookConfigured}
+              colors={colors}
+              shadows={shadows}
+            >
+              <InputField
+                label="Pixel ID"
+                value={analytics.facebook_pixel_id}
+                field="facebook_pixel_id"
+                placeholder="1234567890123456"
+                icon="code-outline"
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <InputField
+                label="Conversions API Token"
+                value={analytics.facebook_capi_token}
+                field="facebook_capi_token"
+                placeholder="EAAxxxxxxxx..."
+                icon="key-outline"
+                secureTextEntry
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <Text style={[styles.hint, { color: colors.textMuted }]}>
+                Get your token from Events Manager → Settings → Generate Access
+                Token
+              </Text>
+            </PlatformCard>
+
+            {/* TikTok */}
+            <PlatformCard
+              title="TikTok"
+              icon="logo-tiktok"
+              iconColor={colors.text}
+              isExpanded={expandedSection === 'tiktok'}
+              onToggle={() => toggleSection('tiktok')}
+              helpKey="tiktok"
+              isConfigured={isTikTokConfigured}
+              colors={colors}
+              shadows={shadows}
+            >
+              <InputField
+                label="Pixel ID"
+                value={analytics.tiktok_pixel_id}
+                field="tiktok_pixel_id"
+                placeholder="CXXXXXXXXXXXXXXXXX"
+                icon="code-outline"
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <InputField
+                label="Events API Access Token"
+                value={analytics.tiktok_access_token}
+                field="tiktok_access_token"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx"
+                icon="key-outline"
+                secureTextEntry
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <Text style={[styles.hint, { color: colors.textMuted }]}>
+                Get your token from TikTok Ads Manager → Assets → Events → Web
+                Events → Settings
+              </Text>
+            </PlatformCard>
+
+            {/* Google Analytics */}
+            <PlatformCard
+              title="Google Analytics 4 & Ads"
+              icon="logo-google"
+              iconColor="#EA4335"
+              isExpanded={expandedSection === 'google'}
+              onToggle={() => toggleSection('google')}
+              helpKey="google"
+              isConfigured={isGoogleConfigured}
+              colors={colors}
+              shadows={shadows}
+            >
+              <InputField
+                label="Measurement ID"
+                value={analytics.google_analytics_id}
+                field="google_analytics_id"
+                placeholder="G-XXXXXXXXXX"
+                icon="analytics-outline"
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <InputField
+                label="API Secret"
+                value={analytics.ga4_api_secret}
+                field="ga4_api_secret"
+                placeholder="xXxXxXxXxXxX"
+                icon="key-outline"
+                secureTextEntry
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <Text style={[styles.hint, { color: colors.textMuted }]}>
+                Data sent here syncs to Google Ads if accounts are linked. Get
+                API secret from GA4 → Admin → Data Streams.
+              </Text>
+            </PlatformCard>
+
+            {/* Snapchat */}
+            <PlatformCard
+              title="Snapchat"
+              icon="logo-snapchat"
+              iconColor="#FFFC00"
+              isExpanded={expandedSection === 'snapchat'}
+              onToggle={() => toggleSection('snapchat')}
+              helpKey="snapchat"
+              isConfigured={isSnapchatConfigured}
+              colors={colors}
+              shadows={shadows}
+            >
+              <InputField
+                label="Pixel ID"
+                value={analytics.snapchat_pixel_id}
+                field="snapchat_pixel_id"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx"
+                icon="code-outline"
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <InputField
+                label="Conversions API Token"
+                value={analytics.snapchat_capi_token}
+                field="snapchat_capi_token"
+                placeholder="eyJxxxxxxxxx..."
+                icon="key-outline"
+                secureTextEntry
+                colors={colors}
+                onUpdateField={updateField}
+              />
+              <Text style={[styles.hint, { color: colors.textMuted }]}>
+                Get your token from Snapchat Ads Manager → Events Manager →
+                Conversions API
+              </Text>
+            </PlatformCard>
+
+            {/* Toggle for offline conversions */}
+            <View
+              style={[
+                styles.toggleCard,
+                { backgroundColor: colors.card },
+                shadows.sm,
+              ]}
+            >
+              <View style={styles.toggleContent}>
+                <View style={styles.toggleInfo}>
+                  <Text style={[styles.toggleTitle, { color: colors.text }]}>
+                    Auto-Upload Conversions
+                  </Text>
+                  <Text
+                    style={[
+                      styles.toggleSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Automatically send orders to ad platforms when payments are
+                    confirmed
+                  </Text>
+                </View>
+                <Pressable
                   style={[
-                    styles.toggleKnob,
+                    styles.toggle,
                     {
-                      backgroundColor: colors.textOnPrimary,
-                      transform: [
-                        {
-                          translateX: analytics.offline_conversions_enabled
-                            ? 20
-                            : 2,
-                        },
-                      ],
+                      backgroundColor: analytics.offline_conversions_enabled
+                        ? colors.primary
+                        : colors.border,
                     },
                   ]}
-                />
-              </Pressable>
+                  onPress={() =>
+                    updateField(
+                      'offline_conversions_enabled',
+                      !analytics.offline_conversions_enabled
+                    )
+                  }
+                >
+                  <View
+                    testID="offline-conversions-toggle-knob"
+                    style={[
+                      styles.toggleKnob,
+                      {
+                        backgroundColor: colors.textOnPrimary,
+                        transform: [
+                          {
+                            translateX: analytics.offline_conversions_enabled
+                              ? 20
+                              : 2,
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                </Pressable>
+              </View>
             </View>
-          </View>
 
-          {/* Spacer for bottom */}
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </SafeAreaView>
-    </>
+            {/* Spacer for bottom */}
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </SafeAreaView>
+      </>
+    </FeatureGateScreen>
   );
 }
 

@@ -255,6 +255,7 @@ vi.mock('@/hooks/useProducts', () => ({
   useCategories: () => ({ data: [] }),
   useCreateCategory: () => ({ isPending: false, mutate: vi.fn() }),
   useCreateProduct: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useInventoryStats: () => ({ data: { totalProducts: 0 } }),
   useProduct: mocks.useProduct,
   useUpdateProduct: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useUpdateProductStatus: () => ({ isPending: false, mutate: vi.fn() }),

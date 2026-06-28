@@ -41,6 +41,10 @@ vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: React.ReactNode }) => children,
 }));
 
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: React.ReactNode }) => children,
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {

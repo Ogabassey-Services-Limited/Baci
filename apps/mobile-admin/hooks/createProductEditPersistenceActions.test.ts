@@ -178,6 +178,51 @@ describe('createProductEditPersistenceActions', () => {
     expect(routerBack).toHaveBeenCalled();
   });
 
+  it('blocks new product creation when the free product limit is reached', async () => {
+    const createProduct = vi.fn();
+    const openUpgrade = vi.fn();
+    const formData = {
+      ...createInitialProductEditFormData(),
+      name: 'New Product',
+      price: 2500,
+    };
+
+    const actions = createProductEditPersistenceActions({
+      createCategory: vi.fn(),
+      createProduct,
+      formData,
+      hasVariantConditionAxis: false,
+      isEditing: false,
+      newCategoryName: '',
+      openProduct: vi.fn(),
+      productCreationGate: {
+        allowed: false,
+        limit: 1000,
+        onUpgrade: openUpgrade,
+        requiresUpgrade: true,
+      },
+      resetCategoryForm: vi.fn(),
+      revertStatus: vi.fn(),
+      routerBack: vi.fn(),
+      saveInFlightRef: { current: false },
+      selectCreatedCategory: vi.fn(),
+      updateProduct: vi.fn(),
+      updateStatus: vi.fn(),
+    });
+
+    await actions.handleSave();
+
+    expect(createProduct).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Baci Pro',
+      'Free stores can create up to 1,000 products. Upgrade to Baci Pro to add more.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Upgrade', onPress: openUpgrade },
+      ]
+    );
+  });
+
   it('short-circuits when a save is already in flight', async () => {
     const createProduct = vi.fn();
     const updateProduct = vi.fn();

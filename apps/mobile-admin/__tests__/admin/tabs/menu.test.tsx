@@ -1,112 +1,143 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MenuScreen from '../../../app/(admin)/(tabs)/menu';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
-  push: vi.fn(),
-  replace: vi.fn(),
+  hasFeature: vi.fn(),
+  isPro: true,
   resetOnboarding: vi.fn(),
+  router: {
+    push: vi.fn(),
+    replace: vi.fn(),
+  },
   signOut: vi.fn(),
   unregisterPush: vi.fn(),
 }));
 
-vi.mock('react-native', async () => {
-  const React = await import('react');
-
-  return {
-    Alert: { alert: mocks.alert },
-    Pressable: ({
-      accessibilityLabel,
-      children,
-      onPress,
-    }: {
-      accessibilityLabel?: string;
-      children?: React.ReactNode;
-      onPress?: () => void;
-    }) =>
-      React.createElement(
-        'button',
-        { 'aria-label': accessibilityLabel, onClick: () => onPress?.() },
-        children
-      ),
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    StatusBar: () => null,
-    StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: React.ReactNode }) => children,
+vi.mock('expo-router', () => ({
+  useRouter: () => mocks.router,
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
-  default: () => null,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
+  Ionicons: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
+vi.mock('react-native', () => ({
+  Alert: { alert: mocks.alert },
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    disabled,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    disabled?: boolean;
+    onPress?: () => void;
+  }) => (
+    <button
+      aria-label={accessibilityLabel}
+      disabled={disabled}
+      onClick={() => onPress?.()}
+      type="button"
+    >
+      {children}
+    </button>
+  ),
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  StatusBar: () => null,
+  StyleSheet: {
+    create: (styles: Record<string, unknown>) => styles,
+  },
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
+}));
+
 vi.mock('@/components/settings/SubscriptionStatusCard', () => ({
-  SubscriptionStatusCard: ({ onPress }: { onPress: () => void }) => (
-    <button type="button" onClick={onPress}>
-      Subscription
+  SubscriptionStatusCard: ({ onPress }: { onPress?: () => void }) => (
+    <button onClick={() => onPress?.()} type="button">
+      Subscription status
     </button>
   ),
 }));
 
-vi.mock('expo-router', () => ({
-  useRouter: () => ({
-    push: mocks.push,
-    replace: mocks.replace,
+vi.mock('@/context/OnboardingContext', () => ({
+  useOnboarding: () => ({
+    resetOnboarding: mocks.resetOnboarding,
   }),
 }));
 
-vi.mock('@/context/OnboardingContext', () => ({
-  useOnboarding: () => ({ resetOnboarding: mocks.resetOnboarding }),
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    signOut: mocks.signOut,
+  }),
 }));
 
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: () => ({ signOut: mocks.signOut }),
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({
+    merchant: { id: 'merchant-1', premium_features: [] },
+  }),
 }));
 
 vi.mock('@/hooks/usePushNotifications', () => ({
-  usePushNotifications: () => ({ unregisterPush: mocks.unregisterPush }),
+  usePushNotifications: () => ({
+    unregisterPush: mocks.unregisterPush,
+  }),
 }));
 
 vi.mock('@/hooks/useRevenueCat', () => ({
-  useRevenueCat: () => ({ customerInfo: null, isPro: false }),
+  useRevenueCat: () => ({
+    customerInfo: null,
+    isPro: mocks.isPro,
+  }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
-      background: '#fff',
-      border: '#e5e7eb',
-      card: '#fff',
+      background: '#ffffff',
+      border: '#e2e8f0',
+      card: '#ffffff',
       cardHover: '#f8fafc',
       error: '#dc2626',
       gold: '#b45309',
       goldLight: '#fef3c7',
       primary: '#2563eb',
-      text: '#111827',
-      textMuted: '#6b7280',
-      textSecondary: '#4b5563',
+      text: '#0f172a',
+      textMuted: '#64748b',
+      textSecondary: '#475569',
     },
     isDark: false,
     shadows: { sm: {} },
   }),
 }));
 
+vi.mock('@/lib/feature-gates', () => ({
+  baciFeatureGates: {
+    hasFeature: (...args: unknown[]) => mocks.hasFeature(...args),
+  },
+}));
+
 describe('MenuScreen', () => {
   beforeEach(() => {
-    vi.stubGlobal('__DEV__', false);
     vi.clearAllMocks();
+    vi.stubGlobal('__DEV__', false);
+    mocks.hasFeature.mockReturnValue(true);
+    mocks.isPro = true;
   });
 
   afterEach(() => {
@@ -122,14 +153,45 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Payment Methods')).toBeTruthy();
   });
 
-  it('navigates to domains from the menu', () => {
+  it('routes accessible feature rows directly', () => {
     render(<MenuScreen />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Domains. Custom domain settings' })
+      screen.getByRole('button', { name: /Domains\. Custom domain settings/i })
     );
 
-    expect(mocks.push).toHaveBeenCalledWith('/domains');
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains');
+  });
+
+  it('routes feature rows when RevenueCat reports Pro', () => {
+    mocks.hasFeature.mockReturnValue(false);
+
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Domains\. Custom domain settings/i })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains');
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
+  it('does not route locked feature rows without DB or RevenueCat access', () => {
+    mocks.hasFeature.mockReturnValue(false);
+    mocks.isPro = false;
+
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Domains\. Custom domain settings/i })
+    );
+
+    expect(mocks.router.push).not.toHaveBeenCalledWith('/domains');
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Baci Pro',
+      'Domains is available on Baci Pro.',
+      expect.any(Array)
+    );
   });
 
   it('navigates to negotiations from the menu', () => {
@@ -141,6 +203,6 @@ describe('MenuScreen', () => {
       })
     );
 
-    expect(mocks.push).toHaveBeenCalledWith('/(admin)/negotiations');
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/negotiations');
   });
 });

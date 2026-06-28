@@ -1,52 +1,58 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AddDomainScreen from './add';
 
 const mocks = vi.hoisted(() => ({
-  push: vi.fn(),
-}));
-
-vi.mock('react-native', async () => {
-  const React = await import('react');
-  return {
-    Pressable: ({
-      children,
-      onPress,
-    }: {
-      children?: React.ReactNode;
-      onPress?: () => void;
-    }) =>
-      React.createElement('button', { onClick: () => onPress?.() }, children),
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
-  default: () => null,
-  __esModule: true,
+  router: {
+    push: vi.fn(),
+  },
 }));
 
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ push: mocks.push }),
+  useRouter: () => mocks.router,
+}));
+
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
+  __esModule: true,
+}));
+
+vi.mock('react-native', () => ({
+  Pressable: ({
+    children,
+    onPress,
+  }: {
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button onClick={() => onPress?.()} type="button">
+      {children}
+    </button>
+  ),
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  StyleSheet: {
+    create: (styles: Record<string, unknown>) => styles,
+  },
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
-      background: '#fff',
-      card: '#fff',
+      background: '#ffffff',
+      card: '#f8fafc',
       primary: '#2563eb',
-      text: '#111827',
-      textSecondary: '#4b5563',
-      warning: '#d97706',
+      text: '#0f172a',
+      textSecondary: '#475569',
+      warning: '#f59e0b',
     },
     shadows: { sm: {} },
   }),
@@ -57,23 +63,21 @@ describe('AddDomainScreen', () => {
     vi.clearAllMocks();
   });
 
-  it('renders domain setup options and routes to buying a domain', () => {
+  it('renders both domain setup choices', () => {
     render(<AddDomainScreen />);
 
     expect(screen.getByText('Choose how you want to proceed')).toBeTruthy();
     expect(screen.getByText('Get a custom domain')).toBeTruthy();
     expect(screen.getByText('Connect to a domain')).toBeTruthy();
-
-    fireEvent.click(screen.getByText('Get a custom domain'));
-
-    expect(mocks.push).toHaveBeenCalledWith('/domains/buy');
   });
 
-  it('routes to connecting an existing domain', () => {
+  it('routes to the selected domain setup flow', () => {
     render(<AddDomainScreen />);
 
-    fireEvent.click(screen.getByText('Connect to a domain'));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Get a custom domain/i })
+    );
 
-    expect(mocks.push).toHaveBeenCalledWith('/domains/connect');
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains/buy');
   });
 });

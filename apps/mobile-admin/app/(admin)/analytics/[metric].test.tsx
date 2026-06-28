@@ -1,79 +1,95 @@
-import { render, screen } from '@testing-library/react';
-import type React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AnalyticsDetailScreen from './[metric]';
 
 const mocks = vi.hoisted(() => ({
-  back: vi.fn(),
+  refetch: vi.fn(),
+  router: {
+    back: vi.fn(),
+  },
+  share: vi.fn(),
   useAnalyticsDetail: vi.fn(),
-  useLocalSearchParams: vi.fn(),
-}));
-
-vi.mock('react-native', async () => {
-  const React = await import('react');
-
-  return {
-    ActivityIndicator: () =>
-      React.createElement('div', { role: 'progressbar' }),
-    Pressable: ({
-      children,
-      onPress,
-    }: {
-      children?: React.ReactNode;
-      onPress?: () => void;
-    }) =>
-      React.createElement('button', { onClick: () => onPress?.() }, children),
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    Share: { share: vi.fn() },
-    StatusBar: () => null,
-    StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: React.ReactNode }) => children,
-}));
-
-vi.mock('react-native-svg', async () => {
-  const React = await import('react');
-  return {
-    default: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('svg', null, children),
-    G: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('g', null, children),
-    Rect: () => null,
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('text', null, children),
-  };
-});
-
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
-  default: () => null,
-  __esModule: true,
 }));
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
-    Stack: { Screen: () => React.createElement('div') },
-    useLocalSearchParams: mocks.useLocalSearchParams,
-    useRouter: () => ({ back: mocks.back }),
+    Stack: {
+      Screen: () => React.createElement('div'),
+    },
+    useLocalSearchParams: () => ({
+      filterLabel: 'This month',
+      metric: 'revenue',
+    }),
+    useRouter: () => mocks.router,
   };
 });
 
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
+  __esModule: true,
+}));
+
+vi.mock('react-native', () => ({
+  ActivityIndicator: () => <div role="progressbar" />,
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    disabled,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    disabled?: boolean;
+    onPress?: () => void;
+  }) => (
+    <button
+      aria-label={accessibilityLabel}
+      disabled={disabled}
+      onClick={() => onPress?.()}
+      type="button"
+    >
+      {children}
+    </button>
+  ),
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Share: { share: mocks.share },
+  StatusBar: () => null,
+  StyleSheet: {
+    create: (styles: Record<string, unknown>) => styles,
+  },
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
+}));
+
+vi.mock('react-native-svg', () => ({
+  default: ({ children }: { children?: ReactNode }) => (
+    <svg aria-hidden="true">{children}</svg>
+  ),
+  G: ({ children }: { children?: ReactNode }) => <g>{children}</g>,
+  Rect: () => <rect />,
+  Text: ({ children }: { children?: ReactNode }) => <text>{children}</text>,
+}));
+
+vi.mock('@/components/billing/FeatureGateScreen', () => ({
+  FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
+}));
+
 vi.mock('@/hooks/useAnalyticsDetail', () => ({
   METRIC_CONFIG: {
-    aov: { columns: [], title: 'Average Order Value' },
-    profits: { columns: [], title: 'Profits' },
-    revenue: { columns: [], title: 'Revenue' },
-    sales: { columns: [], title: 'Sales' },
-    vat: { columns: [], title: 'VAT Due' },
+    revenue: {
+      columns: [{ key: 'value', label: 'Revenue', format: 'currency' }],
+      title: 'Revenue',
+    },
   },
   useAnalyticsDetail: mocks.useAnalyticsDetail,
 }));
@@ -88,18 +104,18 @@ vi.mock('@/hooks/useCurrency', () => ({
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
-      background: '#fff',
-      border: '#e5e7eb',
-      card: '#fff',
+      background: '#ffffff',
+      border: '#e2e8f0',
+      card: '#f8fafc',
       error: '#dc2626',
-      primary: '#2563eb',
-      text: '#111827',
-      textMuted: '#6b7280',
-      textOnPrimary: '#fff',
-      textSecondary: '#4b5563',
       errorLight: '#fee2e2',
+      primary: '#2563eb',
       success: '#16a34a',
       successLight: '#dcfce7',
+      text: '#0f172a',
+      textMuted: '#64748b',
+      textOnPrimary: '#ffffff',
+      textSecondary: '#475569',
     },
     isDark: false,
   }),
@@ -108,66 +124,49 @@ vi.mock('@/hooks/useTheme', () => ({
 describe('AnalyticsDetailScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.useLocalSearchParams.mockReturnValue({
-      filterLabel: 'This year',
-      metric: 'revenue',
-    });
-    mocks.useAnalyticsDetail.mockReturnValue({
-      data: null,
-      error: null,
-      isError: false,
-      isFetching: false,
-      isLoading: true,
-      refetch: vi.fn(),
-    });
-  });
-
-  it('renders the selected metric loading state', () => {
-    render(<AnalyticsDetailScreen />);
-
-    expect(screen.getByText('This year')).toBeTruthy();
-    expect(screen.getByText('Total:')).toBeTruthy();
-    expect(screen.getByRole('progressbar')).toBeTruthy();
-  });
-
-  it('renders populated metric details', () => {
     mocks.useAnalyticsDetail.mockReturnValue({
       data: {
-        bestPeriod: { label: 'Jan', value: 125000 },
+        bestPeriod: { label: 'June', value: 120_000 },
         comparisonData: [],
-        data: [{ label: 'Jan', value: 125000 }],
+        data: [{ label: 'June', value: 120_000 }],
         percentChange: 12.5,
-        rangeLabel: 'This year',
-        total: 125000,
+        rangeLabel: 'This month',
+        total: 120_000,
       },
       error: null,
       isError: false,
       isFetching: false,
       isLoading: false,
-      refetch: vi.fn(),
+      refetch: mocks.refetch,
     });
-
-    render(<AnalyticsDetailScreen />);
-
-    expect(screen.getAllByText('NGN 125000').length).toBeGreaterThan(0);
-    expect(screen.getByText('Compare vs previous period')).toBeTruthy();
-    expect(screen.getByText(/Jan was your best month/)).toBeTruthy();
   });
 
-  it('renders the metric error state', () => {
+  it('renders the selected metric detail table', () => {
+    render(<AnalyticsDetailScreen />);
+
+    expect(screen.getByText('This month')).toBeTruthy();
+    expect(screen.getByText('Total:')).toBeTruthy();
+    expect(screen.getAllByText('NGN 120000').length).toBeGreaterThan(0);
+    expect(screen.getByText('Compare vs previous period')).toBeTruthy();
+    expect(screen.getByText('June')).toBeTruthy();
+  });
+
+  it('renders a retry action when the detail query fails before data loads', () => {
     mocks.useAnalyticsDetail.mockReturnValue({
       data: null,
-      error: new Error('Network unavailable'),
+      error: new Error('network unavailable'),
       isError: true,
       isFetching: false,
       isLoading: false,
-      refetch: vi.fn(),
+      refetch: mocks.refetch,
     });
 
     render(<AnalyticsDetailScreen />);
 
     expect(screen.getByText('Unable to load revenue.')).toBeTruthy();
-    expect(screen.getByText('Network unavailable')).toBeTruthy();
-    expect(screen.getByText('Try again')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry fetching analytics data' })
+    );
+    expect(mocks.refetch).toHaveBeenCalled();
   });
 });

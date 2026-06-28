@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { styles } from '@/components/analytics/analytics-insights.styles';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -209,27 +210,33 @@ export default function AnalyticsInsightsScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: titles[kind] || 'Analytics',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['bottom']}
-      >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <FeatureGateScreen
+      description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
+      feature="advanced_analytics"
+      title="Advanced analytics are a Baci Pro feature"
+    >
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: titles[kind] || 'Analytics',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+          }}
+        />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-        <ScrollView contentContainerStyle={styles.content}>
-          {renderBody()}
-          <View style={styles.footerSpace} />
-        </ScrollView>
-      </SafeAreaView>
-    </>
+          <ScrollView contentContainerStyle={styles.content}>
+            {renderBody()}
+            <View style={styles.footerSpace} />
+          </ScrollView>
+        </SafeAreaView>
+      </>
+    </FeatureGateScreen>
   );
 }

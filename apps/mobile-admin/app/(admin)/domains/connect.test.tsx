@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ConnectDomainScreen from './connect';
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +11,13 @@ const mocks = vi.hoisted(() => ({
   router: {
     dismissAll: vi.fn(),
     push: vi.fn(),
+  },
+  subscription: {
+    isPro: true,
+    merchant: {
+      plan_tier: 'free',
+      premium_features: [],
+    },
   },
 }));
 
@@ -39,6 +46,19 @@ vi.mock('@/hooks/useTheme', () => ({
       textSecondary: '#334155',
     },
     shadows: { sm: {} },
+  }),
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({
+    isLoading: false,
+    merchant: mocks.subscription.merchant,
+  }),
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: () => ({
+    isPro: mocks.subscription.isPro,
   }),
 }));
 
@@ -120,7 +140,21 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
+}));
+
 describe('ConnectDomainScreen', () => {
+  beforeEach(() => {
+    mocks.subscription.isPro = true;
+    mocks.subscription.merchant = {
+      plan_tier: 'free',
+      premium_features: [],
+    };
+  });
+
   it('uses compact keyboard offset preset for the form shell', () => {
     render(<ConnectDomainScreen />);
 
@@ -134,5 +168,18 @@ describe('ConnectDomainScreen', () => {
     expect(screen.getByText('Connect Existing Domain')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('example.com')).toBeInTheDocument();
     expect(screen.getByText('Connect Domain')).toBeInTheDocument();
+  });
+
+  it('renders an upgrade gate for free merchants', () => {
+    mocks.subscription.isPro = false;
+
+    render(<ConnectDomainScreen />);
+
+    expect(
+      screen.getByText('Custom domains are a Baci Pro feature')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Connect Existing Domain')
+    ).not.toBeInTheDocument();
   });
 });
