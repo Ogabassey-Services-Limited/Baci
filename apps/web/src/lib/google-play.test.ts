@@ -1,37 +1,15 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
   fetchLiveGooglePlayBuild,
   parseGooglePlayServiceAccountJson,
 } from './google-play';
 
-const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCvN4vRXiOgrUkh
-SNKlF/SbgHLTdySsxw/uoyBPlUWuzCK9MflkjnAX26IxrLyA+uE4LrcK5wcKH5Rb
-aVASYXGiPp/XsFfXs+5VNZiQ01QniTecsYi/RtWbCXhlg6yJ+CeHIuw4lgSOKxuq
-BeK7nqA04wc7dwPO3qYBEd4rqAAUwV43Sn9mcGoJ3clmByKvHYJhXsSUd3rlemSE
-pWPE2FAzKyhBTZHIYiibYk0qMDLyfXfDAgoBMeR1xJoDMxlbOz7gbNrxx1/S9NgE
-+KAccwPWcFC5ODdCyT3Rf9K69uAmgv21wPYzClg9eda+ENKDWa4omNp0gUXDRkqa
-61mjSdanAgMBAAECggEAUeK/sSUxuVHCr499AjLj2hh5kWJI/YY6Z+hMnWTBoCM+
-yPSl/NykfkHi1xxHLHAS+VK7sJivrYd8qgvZo/1uQcjKot6C7wfkBmZ52pUo6yEx
-oEVIBzxvb3lJjweuhvw2XO1xQDC8CEUVNKxzfgNwE8dWBfBlEzTyl+Vl0zk8cHX3
-+EYKFn58R1uCjWFLjnZWq7s+shL7LJhg+jOfWriqYZVL1kxcETM1X8KyipXvPgal
-wrR38kLgW5IV7tj5rphexSSp3q3ERYj+wdgb8yr6vYE3XnGQBFBRuM1x7Migz3Eq
-JEW9m1SDJjj39Zutk2PH2LYkgw7Cq7Tzk3ePDkRwIQKBgQDfZZ8YNv9k2k0lMifk
-tXMEKjeY6v6GCFNlycuH4mP4OL49lqGlNzwgnE9oDksvisEuzpCBKWtCpEi+Df27
-9hUtqxcJp6Jsx1O149oOvKmynQWMyMie+WNNePJqlA6nyyB4ROCLpU/oj4slxpPT
-Dwz/kkHGEWqI2smnalEXEjhklQKBgQDIydzdZs1wyu6bXmaSqguKd906mIH5HQwi
-g/tQFGdlTKQaetwupuLopPhUXWMCPEGWAfclWwMXYiFGgKKWZxqnrgBWIFJ2CyaY
-5QyIQLxUQz8xvM6PCxvd4ZpjwOnpdBNe+v3BTfP0Wp1/IR2vluzeOdAqV8LONMBy
-Tn/TlfQjSwKBgQCMUrribPlzkiRPLvgcE1XR0ermZQXHj0dDcsQj8LK24n2tFgcn
-TlC4czb1t7TGgjPigOIIH8o+LA99QjCVdnfLHeL0r5W5GmOcpyj7hMpbZYJs8loC
-cchMi6JKDAJAp7kXkrwxO3+8Jx5Sdi+4rYWOq4IhNiNjH3r3bDLPeSRvGQKBgFp3
-WSQIJZgkVs16Aw0hwIFq8CpufGEZTVZf0OOLzeo+VdH4eSwr1SCs85ZPXUSskYBc
-8lXKY+ItPIDfhGHvonraUxx7A6xb6dAJo1PglvoAMoDeaNLaVnvqIf2/9aRRwEiT
-HbHyxW/bRAr7iLyMa7zUn430bLkr22mlJMLYVV9xAoGBAIJEYIqvUgr8ydpJC6ij
-hxu9drHEOahTsP77ini85ZO2wbiln7F1AU6TZDQbu7xm3ySR4plcq1jIJH7VZnq3
-BJYjY4OADElDxBnLmsPmv54cbRKmqEnZnXDCx788NDwnzZ3HIcn/wJxRP94lCnHQ
-4BHxkCE0z7jdw8eHfNVgGdFS
------END PRIVATE KEY-----`;
+const PRIVATE_KEY = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+})
+  .privateKey.export({ format: 'pem', type: 'pkcs8' })
+  .toString();
 
 function credentials() {
   return {
