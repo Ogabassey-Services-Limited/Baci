@@ -10,3 +10,7 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+## 2026-06-28 — Replace Hardcoded shadowColor in Admin Order Form
+**Learning:** The NewOrderFooterBar was hardcoding a shadow color, failing to use dynamic shadows from the useTheme hook that was already wired in via the controller.
+**Action:** Destructure 'shadows' from the controller, and apply 'shadows.md.shadowColor' directly to dynamically theme the shadow for Light/Dark modes.
+**Source:** apps/mobile-admin/constants/theme.ts

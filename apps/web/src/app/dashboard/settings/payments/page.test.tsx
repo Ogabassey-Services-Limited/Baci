@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MockMerchantBankFormProps = {
+  countryCode?: string | null;
   initialData?: {
     accountNumber?: string;
+    accountName?: string;
     bankName?: string;
     businessName?: string;
   };
@@ -157,14 +159,40 @@ describe('PaymentSettingsPage', () => {
     });
   });
 
-  it('does not collect bank account details for India merchants', async () => {
+  it('collects manual invoice bank details for India merchants', async () => {
+    useMerchantMock.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        bank_account_number: 'IN-123456789012',
+        bank_account_name: 'Yodha Shopping',
+        bank_name: 'HDFC Bank',
+        paystack_subaccount_code: null,
+      },
+      loading: false,
+      reloadMerchant: reloadMerchantMock,
+    });
+
     render(<PaymentSettingsPage />);
 
     expect(
-      await screen.findByText(/bank settlement unavailable/i)
+      await screen.findByText(/manual invoice bank details/i)
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('merchant-bank-form')).not.toBeInTheDocument();
-    expect(screen.queryByText(/bank details saved/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /mock bank form/i })
+    ).toBeInTheDocument();
+    expect(merchantBankFormProps[0]).toEqual(
+      expect.objectContaining({
+        countryCode: 'IN',
+        initialData: expect.objectContaining({
+          accountNumber: 'IN-123456789012',
+          accountName: 'Yodha Shopping',
+          bankName: 'HDFC Bank',
+          businessName: 'Yodha Shopping',
+        }),
+      })
+    );
   });
 
   it('does not show hardcoded Nigerian currency labels for India merchants', async () => {

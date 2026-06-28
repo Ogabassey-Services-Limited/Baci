@@ -321,6 +321,10 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   }
   const shippingProvider = shippingProviderResolution.provider;
   const clientPayableAmount = payWithWallet ? total - walletAmountUsed : total;
+  const billingAddressLine1 =
+    deliveryMethod === 'door' && isNewAddressMode
+      ? newAddressStreet
+      : shippingAddressData.address;
 
   if (
     isKlumpUnavailableForGatewayAmount({
@@ -471,7 +475,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         customerName: `${firstName} ${lastName}`.trim(),
         customerPhone,
         billingAddress: {
-          line1: newAddressStreet || shippingAddressData.address,
+          line1: billingAddressLine1,
           city: shippingAddressData.city,
           state: shippingAddressData.state,
           country: 'NG',
@@ -501,6 +505,13 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         `${firstName} ${lastName}`.trim(),
         customerPhone,
         paymentMethod,
+        {
+          line1: billingAddressLine1,
+          city: shippingAddressData.city || 'Lagos',
+          state: shippingAddressData.state || 'Lagos',
+          country: 'NG',
+          zip_code: '100001',
+        },
       );
 
       if (result.crypto_payment) {
@@ -697,6 +708,13 @@ async function initializeCardPayment(
   name: string,
   phone: string,
   gateway: string,
+  billingAddress: {
+    line1: string;
+    city: string;
+    state?: string;
+    country: string;
+    zip_code: string;
+  },
 ) {
   const res = await fetch('/api/payments/initialize', {
     method: 'POST',
@@ -709,6 +727,7 @@ async function initializeCardPayment(
       customer_name: name,
       customer_phone: phone,
       gateway,
+      billing_address: billingAddress,
     }),
   });
 
