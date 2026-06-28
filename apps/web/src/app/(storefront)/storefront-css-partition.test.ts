@@ -337,6 +337,21 @@ describe('storefront CSS partitioning', () => {
     );
   });
 
+  it('keeps the cart empty-state styles in the shared storefront core stylesheet', () => {
+    const coreCss = readStorefrontFile('storefront-core.css');
+
+    expect(coreCss).toMatch(/\.ogabassey-cart-empty-state\b/);
+    expect(coreCss).toMatch(
+      /\.ogabassey-cart-empty-state\s*\{[^}]*var\(--ogabassey-surface\)/s
+    );
+    expect(coreCss).toMatch(
+      /\.ogabassey-cart-empty-state__primary-action\s*\{[^}]*var\(--ogabassey-brand\)/s
+    );
+    expect(coreCss).not.toMatch(
+      /\.ogabassey-cart-empty-state\s*\{[^}]*background:\s*#fff/s
+    );
+  });
+
   it('keeps OgaBassey footer contrast styles in the shared core stylesheet', () => {
     const coreCss = readStorefrontFile('storefront-core.css');
 

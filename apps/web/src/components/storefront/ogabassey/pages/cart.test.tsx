@@ -11,7 +11,34 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-let mockMerchant: { id: string; slug: string } | null = { id: 'merchant-xyz', slug: 'test-store' };
+let mockMerchant: { id: string; slug: string } | null = {
+  id: 'merchant-xyz',
+  slug: 'test-store',
+};
+
+type MockCartItem = {
+  id: string;
+  cartItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  category: string;
+  brand: string;
+};
+
+let mockCartItems: MockCartItem[] = [
+  {
+    id: 'p1',
+    cartItemId: 'ci-1',
+    name: 'Test Product',
+    price: 20000,
+    quantity: 2,
+    image: '/product.jpg',
+    category: 'electronics',
+    brand: 'Brand',
+  },
+];
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
@@ -25,18 +52,7 @@ const mockApplyCartWideNegotiation = vi.fn();
 
 vi.mock('@/hooks/cart', () => ({
   useCart: () => ({
-    cart: [
-      {
-        id: 'p1',
-        cartItemId: 'ci-1',
-        name: 'Test Product',
-        price: 20000,
-        quantity: 2,
-        image: '/product.jpg',
-        category: 'electronics',
-        brand: 'Brand',
-      },
-    ],
+    cart: mockCartItems,
     removeFromCart: vi.fn(),
     updateQuantity: vi.fn(),
     applyNegotiatedPrice: mockApplyNegotiatedPrice,
@@ -93,11 +109,42 @@ describe('OgabasseyV2CartPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMerchant = { id: 'merchant-xyz', slug: 'test-store' };
+    mockCartItems = [
+      {
+        id: 'p1',
+        cartItemId: 'ci-1',
+        name: 'Test Product',
+        price: 20000,
+        quantity: 2,
+        image: '/product.jpg',
+        category: 'electronics',
+        brand: 'Brand',
+      },
+    ];
   });
 
   it('renders cart items', () => {
     render(<OgabasseyV2CartPage storeSlug="test-store" />);
     expect(screen.getByText('Test Product')).toBeInTheDocument();
+  });
+
+  it('renders the cart-specific empty state when no items are in the cart', () => {
+    mockCartItems = [];
+
+    render(<OgabasseyV2CartPage />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Your cart is empty' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/currently not available/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /start shopping/i })
+    ).toHaveAttribute('href', '/test-store');
+    expect(
+      screen.getByRole('link', { name: 'Browse smartphones' })
+    ).toHaveAttribute('href', '/test-store/smartphones');
   });
 
   it('links cart items to canonical product routes', () => {

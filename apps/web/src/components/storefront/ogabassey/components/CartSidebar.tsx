@@ -211,8 +211,8 @@ export const CartSidebar: React.FC = () => {
                 <div className="flex-1 flex items-center justify-center">
                   <EmptyState
                     variant="cart"
-                    title="Your cart is empty 🤧"
-                    description="Sorry, the product you are looking for is currently not available at the moment."
+                    title="Your cart is empty"
+                    description="Add an item to your cart and it will appear here."
                     actionLabel="Start Shopping"
                     onAction={() => setIsCartOpen(false)}
                   />

@@ -24,9 +24,9 @@ import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
-import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
+import { CartEmptyState } from './cart-empty-state';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -54,6 +54,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     cartTotal,
   } = useCart();
   const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath ?? `/${storeSlug || 'ogabassey'}`;
   const negotiationVatRate =
     merchantContext?.merchant?.vat_registration_status === 'registered'
       ? (merchantContext.merchant.vat_rate ?? 7.5) / 100
@@ -143,7 +144,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
             </span>
           </h1>
           <Link
-            href={`/${storeSlug || 'ogabassey'}` as any}
+            href={asRoute(basePath || '/')}
             className="text-sm font-medium text-red-600 hover:text-red-700 hidden md:block"
           >
             Continue Shopping
@@ -151,14 +152,8 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
         </div>
 
         {cart.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center pb-32 md:pb-0">
-            <EmptyState
-              variant="cart"
-              title="Your cart is empty 🤧"
-              description="Sorry, the product you are looking for is currently not available at the moment."
-              actionLabel="Start Shopping"
-              actionLink={`/${storeSlug || 'ogabassey'}`}
-            />
+          <div className="flex-1 flex items-start justify-center pb-20">
+            <CartEmptyState basePath={basePath || '/'} />
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
@@ -167,7 +162,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
               {cart.map((item) => {
                 const productHref = getStorefrontProductHref(
                   item,
-                  merchantContext?.basePath || `/${storeSlug || 'ogabassey'}`
+                  basePath
                 );
                 const priceToUse =
                   item.negotiatedPrice !== undefined

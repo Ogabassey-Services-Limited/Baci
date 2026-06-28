@@ -40,10 +40,10 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
-import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
+import { CartEmptyState } from './cart-empty-state';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { isProductNegotiable } from '@baci/shared/lib';
 import {
@@ -230,14 +230,8 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
         </div>
 
         {displayCart.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center pb-32 md:pb-0">
-            <EmptyState
-              variant="cart"
-              title="Your cart is empty 🤧"
-              description="Sorry, the product you are looking for is currently not available at the moment."
-              actionLabel="Start Shopping"
-              actionLink={basePath || '/'}
-            />
+          <div className="flex-1 flex items-start justify-center pb-20">
+            <CartEmptyState basePath={basePath || '/'} />
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
