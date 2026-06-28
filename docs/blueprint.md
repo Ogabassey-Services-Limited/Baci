@@ -382,7 +382,6 @@ npm run dev  # http://localhost:9002
 - ✅ Submit works
 
 **After AI Flow Changes:**
-- ✅ Test in Genkit Dev UI with sample data
 - ✅ Test with all business types
 - ✅ Test error handling (network issues)
 - ✅ Verify output schema matches TypeScript types
@@ -430,8 +429,7 @@ npm run dev  # http://localhost:9002
    ```
 
 3. **Test your changes:**
-   - Use Genkit Dev UI for AI flows
-   - Run `npm run typecheck` for type errors
+      - Run `npm run typecheck` for type errors
    - Test in browser: `npm run dev`
 
 4. **Ask the user:**

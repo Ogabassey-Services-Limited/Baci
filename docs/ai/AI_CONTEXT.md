@@ -12,7 +12,7 @@
 - **Framework:** Next.js 15.0.0 (App Router)
 - **Language:** TypeScript 5.5.4 (strict mode)
 - **Styling:** Tailwind CSS 3.4.7 + shadcn/ui
-- **AI Engine:** Google Genkit 1.20.0 with Gemini 2.5 Flash models
+- **AI Engine:** Vercel AI SDK with Gemini 1.5 Flash models
 - **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
 - **Database:** Supabase (PostgreSQL)
 - **Authentication:** Supabase Auth
@@ -135,7 +135,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 | `/src/app/dashboard/layout.tsx` | Dashboard layout with sidebar | - | Sidebar component |
 | `/src/app/page.tsx` | Landing page | - | UI components |
 
-### AI Flows (Genkit)
+### AI Flows (Vercel AI SDK)
 
 | File | Purpose | Input | Output |
 |------|---------|-------|--------|
@@ -332,26 +332,36 @@ const form = useForm<FormValues>({
 ```
 
 ### AI Flow Pattern
-All Genkit flows follow this pattern:
+All Vercel AI SDK flows follow this pattern:
 ```typescript
+import { generateText, generateObject } from 'ai';
+import { google } from '@ai-sdk/google';
+import { z } from 'zod';
+
 // 1. Define input/output schemas
 const InputSchema = z.object({ /* input fields */ });
 const OutputSchema = z.object({ /* output fields */ });
 
 // 2. Create flow function
 export async function flowName(input: Input): Promise<Output> {
-  return flow(input);
-}
+  // Validate input if needed
+  const validatedInput = InputSchema.parse(input);
 
-// 3. Define Genkit flow
-const flow = ai.defineFlow({
-  name: 'flowName',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema
-}, async (input) => {
-  // AI logic here
-  return output;
-});
+  // 3. Use Vercel AI SDK to generate content
+  const { text } = await generateText({
+    model: google('gemini-1.5-flash'),
+    prompt: `Generated prompt based on ${validatedInput}`,
+  });
+
+  // Or for structured output:
+  // const { object } = await generateObject({
+  //   model: google('gemini-1.5-flash'),
+  //   schema: OutputSchema,
+  //   prompt: ...,
+  // });
+
+  return text;
+}
 ```
 
 ### Component Pattern
@@ -384,7 +394,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 | Model | Use Case | Token Limit | Cost |
 |-------|----------|-------------|------|
-| `gemini-2.5-flash` | Text generation (descriptions) | 1M input, 8K output | Low |
+| `gemini-1.5-flash` | Text generation (descriptions) | 1M input, 8K output | Low |
 | `gemini-2.5-flash-image-preview` | Image generation & analysis | 1M input, 8K output | Medium |
 
 ### Prompt Engineering Tips
