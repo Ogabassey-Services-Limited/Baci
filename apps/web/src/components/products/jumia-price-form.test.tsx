@@ -1,10 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { JumiaPriceForm } from './jumia-price-form';
 
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: vi.fn(() => ({ merchant: { country: 'NG' } })),
+  useMerchantSafe: vi.fn(),
 }));
 
 vi.mock('@/components/themed/themed-input', async () => {
@@ -77,6 +78,12 @@ function createOverrides(
 }
 
 describe('JumiaPriceForm', () => {
+  beforeEach(() => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { country: 'NG' },
+    } as any);
+  });
+
   it('renders price inputs with currency symbol', () => {
     render(
       <JumiaPriceForm
@@ -92,6 +99,27 @@ describe('JumiaPriceForm', () => {
     ).toBeInTheDocument();
     // Naira symbol is rendered
     expect(screen.getAllByText('\u20A6').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders price inputs with default USD currency symbol when country is unknown', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { country: 'US' },
+    } as any);
+
+    render(
+      <JumiaPriceForm
+        overrides={createOverrides()}
+        setOverrides={vi.fn()}
+        basePrice={5000}
+      />
+    );
+
+    expect(screen.getByLabelText('Jumia Base Price')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Jumia Sale Price (Optional)')
+    ).toBeInTheDocument();
+    // Dollar symbol is rendered
+    expect(screen.getAllByText('$').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders sale date inputs', () => {
