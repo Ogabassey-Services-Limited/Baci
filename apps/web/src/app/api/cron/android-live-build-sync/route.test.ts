@@ -111,12 +111,19 @@ describe('GET /api/cron/android-live-build-sync', () => {
     ]);
   });
 
-  it('returns 400 for an invalid app query', async () => {
+  it('returns 400 with validation details for an invalid app query', async () => {
     const response = await GET(
       cronRequest('/api/cron/android-live-build-sync?app=merchant')
     );
+    const body = await response.json();
 
     expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid app');
+    expect(body.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: [], code: 'invalid_value' }),
+      ])
+    );
     expect(mockReconcile).not.toHaveBeenCalled();
   });
 

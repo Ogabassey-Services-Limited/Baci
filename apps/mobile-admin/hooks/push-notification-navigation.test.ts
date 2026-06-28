@@ -18,7 +18,7 @@ vi.mock('@/services/push-notifications', () => ({
   },
 }));
 
-function makeResponse(data: Record<string, unknown>): NotificationResponse {
+function makeResponse(data: unknown): NotificationResponse {
   return {
     notification: {
       request: {
@@ -107,5 +107,21 @@ describe('handleNotificationTap', () => {
 
     expect(requestUpdateCheck).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledWith('/(admin)/order/42');
+  });
+
+  it.each([
+    null,
+    'order',
+    ['order'],
+    42,
+    new Date('2026-06-28'),
+  ])('ignores invalid notification data: %s', (data) => {
+    const router = { push: vi.fn() };
+    const requestUpdateCheck = vi.fn();
+
+    handleNotificationTap(router, makeResponse(data), requestUpdateCheck);
+
+    expect(requestUpdateCheck).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
   });
 });

@@ -15,13 +15,6 @@ import {
 } from './mobile-update-events';
 import { shouldDeferMobileUpdatePrompt } from './mobile-update-route-safety';
 
-// The admin app ships native-only (no EAS Update / OTA configured), so there is
-// no expo-updates channel/runtimeVersion to read — and the gate's client guard
-// requires both non-empty. We pass stable placeholders so the build-number gate
-// runs; the server ignores channel/runtimeVersion for native build gating. OTA
-// is disabled, so the prompt only ever asks the user to update via the store.
-const ADMIN_UPDATE_CHANNEL = 'production';
-
 function getSupportedPlatform() {
   const platform = getRuntimePlatform();
   return platform === 'android' || platform === 'ios'
@@ -44,13 +37,13 @@ async function runMobileUpdateCheck(params: {
     const result = await resolveMobileUpdatePrompt({
       apiBaseUrl: BASE_URL,
       buildNumber: Application.nativeBuildVersion,
-      channel: ADMIN_UPDATE_CHANNEL,
+      channel: null,
       checkForUpdateAsync: async () => ({ isAvailable: false }),
       isOtaEnabled: false,
       nativeVersion: Application.nativeApplicationVersion,
       pathname: params.pathname,
       platform: getSupportedPlatform(),
-      runtimeVersion: Application.nativeApplicationVersion,
+      runtimeVersion: null,
     });
 
     switch (result.kind) {

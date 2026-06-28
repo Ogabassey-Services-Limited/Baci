@@ -216,6 +216,65 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('normalizes blank mobile release env values instead of exposing them', async () => {
+    vi.stubEnv('APP_STORE_CONNECT_BUNDLE_ID', '   ');
+    vi.stubEnv('APP_STORE_CONNECT_ADMIN_BUNDLE_ID', '   ');
+    vi.stubEnv('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', '   ');
+    vi.stubEnv('GOOGLE_PLAY_PACKAGE_NAME', '   ');
+    vi.stubEnv('GOOGLE_PLAY_ADMIN_PACKAGE_NAME', '   ');
+    vi.stubEnv('APP_STORE_CONNECT_WEBHOOK_SECRET', '   ');
+    vi.stubEnv('APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET', '   ');
+
+    const {
+      getAppStoreConnectBundleId,
+      getAppStoreConnectWebhookSecret,
+      getGooglePlayPackageName,
+      getGooglePlayServiceAccountJson,
+    } = await loadEnvModule();
+
+    expect(getAppStoreConnectBundleId('storefront')).toBe('com.ogabassey.app');
+    expect(getAppStoreConnectBundleId('admin')).toBe('com.ogabassey.baci');
+    expect(getGooglePlayPackageName('storefront')).toBe('com.ogabassey.store');
+    expect(getGooglePlayPackageName('admin')).toBe('com.ogabassey.baci');
+    expect(getGooglePlayServiceAccountJson()).toBeUndefined();
+    expect(getAppStoreConnectWebhookSecret('storefront')).toBeUndefined();
+    expect(getAppStoreConnectWebhookSecret('admin')).toBeUndefined();
+  });
+
+  it('trims configured mobile release env values', async () => {
+    vi.stubEnv('APP_STORE_CONNECT_BUNDLE_ID', ' com.example.storefront ');
+    vi.stubEnv('APP_STORE_CONNECT_ADMIN_BUNDLE_ID', ' com.example.admin ');
+    vi.stubEnv(
+      'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+      ' {"client_email":"bot@example.com"} '
+    );
+    vi.stubEnv('GOOGLE_PLAY_PACKAGE_NAME', ' com.example.store ');
+    vi.stubEnv('GOOGLE_PLAY_ADMIN_PACKAGE_NAME', ' com.example.baci ');
+    vi.stubEnv('APP_STORE_CONNECT_WEBHOOK_SECRET', ' storefront-secret ');
+    vi.stubEnv('APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET', ' admin-secret ');
+
+    const {
+      getAppStoreConnectBundleId,
+      getAppStoreConnectWebhookSecret,
+      getGooglePlayPackageName,
+      getGooglePlayServiceAccountJson,
+    } = await loadEnvModule();
+
+    expect(getAppStoreConnectBundleId('storefront')).toBe(
+      'com.example.storefront'
+    );
+    expect(getAppStoreConnectBundleId('admin')).toBe('com.example.admin');
+    expect(getGooglePlayPackageName('storefront')).toBe('com.example.store');
+    expect(getGooglePlayPackageName('admin')).toBe('com.example.baci');
+    expect(getGooglePlayServiceAccountJson()).toBe(
+      '{"client_email":"bot@example.com"}'
+    );
+    expect(getAppStoreConnectWebhookSecret('storefront')).toBe(
+      'storefront-secret'
+    );
+    expect(getAppStoreConnectWebhookSecret('admin')).toBe('admin-secret');
+  });
+
   it('defaults the terminal idempotency record window to 24 hours', async () => {
     const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();
 

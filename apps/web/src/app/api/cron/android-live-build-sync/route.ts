@@ -19,11 +19,17 @@ import {
 
 export const maxDuration = 60;
 
-function requestedApps(request: NextRequest): MobileApp[] | null {
+type RequestedAppsResult =
+  | { apps: MobileApp[]; success: true }
+  | { issues: unknown; success: false };
+
+function requestedApps(request: NextRequest): RequestedAppsResult {
   const rawApp = request.nextUrl.searchParams.get('app');
-  if (!rawApp) return [...MOBILE_APPS];
+  if (!rawApp) return { apps: [...MOBILE_APPS], success: true };
   const parsed = mobileAppSchema.safeParse(rawApp);
-  return parsed.success ? [parsed.data] : null;
+  return parsed.success
+    ? { apps: [parsed.data], success: true }
+    : { issues: parsed.error.issues, success: false };
 }
 
 export async function GET(request: NextRequest) {
@@ -41,10 +47,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const apps = requestedApps(request);
-  if (!apps) {
-    return NextResponse.json({ error: 'Invalid app' }, { status: 400 });
+  const requested = requestedApps(request);
+  if (!requested.success) {
+    return NextResponse.json(
+      { error: 'Invalid app', issues: requested.issues },
+      { status: 400 }
+    );
   }
+  const { apps } = requested;
 
   const results: Record<string, unknown>[] = [];
   let errored = 0;

@@ -55,9 +55,11 @@ vi.mock('./MobileUpdateModal', () => ({
         <button aria-label="accept update" onClick={onAccept} type="button">
           accept
         </button>
-        <button aria-label="dismiss update" onClick={onDismiss} type="button">
-          dismiss
-        </button>
+        {prompt.kind === 'native-required' ? null : (
+          <button aria-label="dismiss update" onClick={onDismiss} type="button">
+            dismiss
+          </button>
+        )}
       </div>
     ) : null,
 }));
@@ -114,12 +116,12 @@ describe('MobileUpdateController', () => {
       expect.objectContaining({
         apiBaseUrl: 'https://usebaci.com',
         buildNumber: '42',
-        channel: 'production',
+        channel: null,
         isOtaEnabled: false,
         nativeVersion: '2.0.0',
         pathname: '/orders',
         platform: 'ios',
-        runtimeVersion: '2.0.0',
+        runtimeVersion: null,
       })
     );
   });
@@ -248,7 +250,7 @@ describe('MobileUpdateController', () => {
     expect(screen.queryByText('prompt:native-recommended')).toBeNull();
   });
 
-  it('keeps required native prompts visible when dismiss is requested', async () => {
+  it('does not render a dismiss action for required native prompts', async () => {
     mockResolveMobileUpdatePrompt.mockResolvedValue({
       kind: 'native-required',
       message: 'Install the latest app.',
@@ -260,8 +262,9 @@ describe('MobileUpdateController', () => {
     expect(
       await screen.findByText('prompt:native-required')
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'dismiss update' }));
-
+    expect(
+      screen.queryByRole('button', { name: 'dismiss update' })
+    ).not.toBeInTheDocument();
     expect(screen.getByText('prompt:native-required')).toBeInTheDocument();
   });
 

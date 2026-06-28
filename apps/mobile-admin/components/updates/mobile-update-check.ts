@@ -44,14 +44,28 @@ function hasText(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function resolvePolicyMetadata(
+  value: string | null | undefined,
+  isOtaEnabled: boolean
+) {
+  if (hasText(value)) return value.trim();
+  return isOtaEnabled ? '' : 'native-only';
+}
+
 function buildReleasePolicyUrl(input: ResolveMobileUpdatePromptInput) {
   const url = new URL('/api/mobile/release-policy', input.apiBaseUrl);
   url.searchParams.set('app', 'admin');
   url.searchParams.set('platform', input.platform);
-  url.searchParams.set('runtimeVersion', input.runtimeVersion ?? '');
+  url.searchParams.set(
+    'runtimeVersion',
+    resolvePolicyMetadata(input.runtimeVersion, input.isOtaEnabled)
+  );
   url.searchParams.set('nativeVersion', input.nativeVersion ?? '');
   url.searchParams.set('buildNumber', input.buildNumber ?? '');
-  url.searchParams.set('channel', input.channel ?? '');
+  url.searchParams.set(
+    'channel',
+    resolvePolicyMetadata(input.channel, input.isOtaEnabled)
+  );
   return url.toString();
 }
 
@@ -77,9 +91,14 @@ export async function resolveMobileUpdatePrompt(
   if (
     !hasText(input.apiBaseUrl) ||
     !hasText(input.nativeVersion) ||
-    !hasText(input.runtimeVersion) ||
-    !hasText(input.channel) ||
     !hasText(input.buildNumber)
+  ) {
+    return { kind: 'none' };
+  }
+
+  if (
+    input.isOtaEnabled &&
+    (!hasText(input.runtimeVersion) || !hasText(input.channel))
   ) {
     return { kind: 'none' };
   }

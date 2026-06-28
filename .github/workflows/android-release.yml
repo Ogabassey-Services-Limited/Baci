@@ -275,6 +275,8 @@ jobs:
           fi
 
           curl --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 \
+            --connect-timeout 10 \
+            --max-time 60 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$ANDROID_LIVE_BUILD_SYNC_URL"
 

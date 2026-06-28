@@ -56,7 +56,14 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   return trimmed || undefined;
-}, z.string().optional());
+}, z.string().trim().min(1).optional());
+
+const defaultedTrimmedStringSchema = (defaultValue: string) =>
+  z.preprocess((value) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }, z.string().trim().min(1).default(defaultValue));
 
 const optionalTrimmedUrlSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
@@ -246,18 +253,23 @@ const serverSchema = z
     ASC_API_KEY_ID: z.string().optional(),
     ASC_API_ISSUER_ID: z.string().optional(),
     ASC_API_PRIVATE_KEY: z.string().optional(),
-    APP_STORE_CONNECT_BUNDLE_ID: z.string().default('com.ogabassey.app'),
-    APP_STORE_CONNECT_ADMIN_BUNDLE_ID: z.string().default('com.ogabassey.baci'),
+    APP_STORE_CONNECT_BUNDLE_ID:
+      defaultedTrimmedStringSchema('com.ogabassey.app'),
+    APP_STORE_CONNECT_ADMIN_BUNDLE_ID:
+      defaultedTrimmedStringSchema('com.ogabassey.baci'),
     // Google Play Developer API (read-only) — used by the
     // android-live-build-sync cron to learn which versionCode is actually live
     // on the Play production track before the in-app update gate advances.
-    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: z.string().optional(),
-    GOOGLE_PLAY_PACKAGE_NAME: z.string().default('com.ogabassey.store'),
-    GOOGLE_PLAY_ADMIN_PACKAGE_NAME: z.string().default('com.ogabassey.baci'),
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: optionalTrimmedStringSchema,
+    GOOGLE_PLAY_PACKAGE_NAME: defaultedTrimmedStringSchema(
+      'com.ogabassey.store'
+    ),
+    GOOGLE_PLAY_ADMIN_PACKAGE_NAME:
+      defaultedTrimmedStringSchema('com.ogabassey.baci'),
     // Secrets configured when registering each App Store Connect webhook; used
     // to verify the X-Apple-Signature HMAC on inbound webhook deliveries.
-    APP_STORE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
-    APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET: z.string().optional(),
+    APP_STORE_CONNECT_WEBHOOK_SECRET: optionalTrimmedStringSchema,
+    APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET: optionalTrimmedStringSchema,
     IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
     IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
     IMPORT_JOB_TRIGGER_URL: httpsOrLocalhostUrl(
@@ -1228,7 +1240,7 @@ export const getAppStoreConnectBundleId = (
     : (env?.APP_STORE_CONNECT_BUNDLE_ID ?? 'com.ogabassey.app');
 
 export const getGooglePlayServiceAccountJson = () =>
-  env?.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON?.trim() || undefined;
+  env?.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
 
 export const getGooglePlayPackageName = (
   app: 'storefront' | 'admin' = 'storefront'

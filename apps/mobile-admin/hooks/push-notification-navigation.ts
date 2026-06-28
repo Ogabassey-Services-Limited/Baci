@@ -70,6 +70,16 @@ export function navigateToNotificationTarget(
   }
 }
 
+function isPlainNotificationData(
+  value: unknown
+): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 /**
  * Handle a tapped notification: trigger an in-app update check for
  * `mobile_update_available` nudges (without navigating), otherwise route to the
@@ -82,12 +92,12 @@ export function handleNotificationTap(
     reason: 'push-notification'
   ) => void = requestMobileUpdateCheck
 ) {
-  const data = response.notification.request.content.data as Record<
-    string,
-    unknown
-  >;
+  const data = response.notification.request.content.data;
+  if (!isPlainNotificationData(data)) {
+    return;
+  }
 
-  if (data?.type === 'mobile_update_available') {
+  if (data.type === 'mobile_update_available') {
     requestUpdateCheck('push-notification');
     return;
   }

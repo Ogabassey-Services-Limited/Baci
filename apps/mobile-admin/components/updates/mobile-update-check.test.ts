@@ -169,6 +169,57 @@ describe('resolveMobileUpdatePrompt', () => {
     expect(checkForUpdateAsync).not.toHaveBeenCalled();
   });
 
+  it('does not require OTA metadata for native-only release checks', async () => {
+    const fetchPolicy = createFetchPolicyMock().mockResolvedValue({
+      ...cleanPolicy,
+      nativeUpdateRecommended: true,
+      storeUrl: 'https://apps.apple.com/app/id6480000000',
+    });
+    const checkForUpdateAsync = createCheckForUpdateMock();
+
+    const result = await resolveMobileUpdatePrompt({
+      ...baseInput,
+      channel: null,
+      checkForUpdateAsync,
+      fetchPolicy,
+      isOtaEnabled: false,
+      pathname: '/orders',
+      runtimeVersion: null,
+    });
+
+    expect(result).toMatchObject({
+      kind: 'native-recommended',
+      storeUrl: 'https://apps.apple.com/app/id6480000000',
+    });
+    expect(checkForUpdateAsync).not.toHaveBeenCalled();
+    const requestedUrl = fetchPolicy.mock.calls[0]?.[0] ?? '';
+    expect(new URL(requestedUrl).searchParams.get('channel')).toBe(
+      'native-only'
+    );
+    expect(new URL(requestedUrl).searchParams.get('runtimeVersion')).toBe(
+      'native-only'
+    );
+  });
+
+  it('requires channel and runtime version only when OTA checks are enabled', async () => {
+    const fetchPolicy = createFetchPolicyMock();
+    const checkForUpdateAsync = createCheckForUpdateMock();
+
+    const result = await resolveMobileUpdatePrompt({
+      ...baseInput,
+      channel: ' ',
+      checkForUpdateAsync,
+      fetchPolicy,
+      isOtaEnabled: true,
+      pathname: '/orders',
+      runtimeVersion: null,
+    });
+
+    expect(result.kind).toBe('none');
+    expect(fetchPolicy).not.toHaveBeenCalled();
+    expect(checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
   it('fails open when policy or OTA checks throw', async () => {
     const policyFailure = await resolveMobileUpdatePrompt({
       ...baseInput,

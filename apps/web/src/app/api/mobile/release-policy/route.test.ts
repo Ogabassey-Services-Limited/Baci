@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(async () => ({ from: vi.fn() })),
+  readLatestLiveBuild: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -16,12 +17,12 @@ vi.mock('@/lib/mobile-release-gate-store', async () => {
   const { parseBuildNumber, readMobilePlatformEnv } = await vi.importActual<
     typeof import('@/lib/mobile-update-gate')
   >('@/lib/mobile-update-gate');
+  mocks.readLatestLiveBuild.mockImplementation(
+    (app: 'storefront' | 'admin', platform: 'android' | 'ios') =>
+      parseBuildNumber(readMobilePlatformEnv(app, platform, 'LATEST_BUILD'))
+  );
   return {
-    readLatestLiveBuild: async (
-      app: 'storefront' | 'admin',
-      platform: 'android' | 'ios',
-      _client: unknown
-    ) => parseBuildNumber(readMobilePlatformEnv(app, platform, 'LATEST_BUILD')),
+    readLatestLiveBuild: mocks.readLatestLiveBuild,
   };
 });
 
@@ -252,21 +253,26 @@ describe('GET /api/mobile/release-policy', () => {
       app: 'admin',
       platform: 'ios',
       runtimeVersion: '2.0.0',
-      nativeVersion: '2.0.0',
-      buildNumber: '9',
+      nativeVersion: '2.1.0',
+      buildNumber: '21',
       channel: 'production',
     });
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(mocks.createClient).toHaveBeenCalledTimes(1);
+    expect(mocks.readLatestLiveBuild).toHaveBeenCalledWith(
+      'admin',
+      'ios',
+      expect.anything()
+    );
     expect(body).toMatchObject({
       enabled: true,
       latestNativeVersion: '2.2.0',
       message: 'A newer admin build is available.',
       minNativeVersion: '2.1.0',
       nativeUpdateRecommended: true,
-      nativeUpdateRequired: true,
+      nativeUpdateRequired: false,
       storeUrl: 'https://apps.apple.com/app/id6480000000',
     });
   });
