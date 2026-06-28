@@ -14,6 +14,8 @@ export interface AnalyticsDateRange {
   startDate: Date;
 }
 
+const DEFAULT_ANALYTICS_RANGE_MS = 6 * 24 * 60 * 60 * 1000;
+
 const FILTER_LABELS: Record<AnalyticsDateFilter, string> = {
   custom: 'Custom range',
   last_month: 'Last month',
@@ -28,6 +30,55 @@ const FILTER_LABELS: Record<AnalyticsDateFilter, string> = {
 
 export function getAnalyticsFilterLabel(filter: AnalyticsDateFilter) {
   return FILTER_LABELS[filter];
+}
+
+export function createDefaultAnalyticsDateRange(
+  now = new Date()
+): AnalyticsDateRange {
+  const endDate = new Date(now);
+  const startDate = new Date(endDate.getTime() - DEFAULT_ANALYTICS_RANGE_MS);
+  return { endDate, startDate };
+}
+
+export function resolveAnalyticsDateRangeParams({
+  endDateParam,
+  fallbackRange,
+  startDateParam,
+}: {
+  endDateParam?: string;
+  fallbackRange: AnalyticsDateRange;
+  startDateParam?: string;
+}): AnalyticsDateRange {
+  const normalizedStartParam = startDateParam?.trim();
+  const normalizedEndParam = endDateParam?.trim();
+
+  if (!normalizedStartParam && !normalizedEndParam) {
+    return fallbackRange;
+  }
+
+  const parsedStartDate = normalizedStartParam
+    ? new Date(normalizedStartParam)
+    : fallbackRange.startDate;
+  const parsedEndDate = normalizedEndParam
+    ? new Date(normalizedEndParam)
+    : fallbackRange.endDate;
+  const startDate = Number.isNaN(parsedStartDate.getTime())
+    ? fallbackRange.startDate
+    : parsedStartDate;
+  const endDate = Number.isNaN(parsedEndDate.getTime())
+    ? fallbackRange.endDate
+    : parsedEndDate;
+
+  if (
+    startDate === fallbackRange.startDate &&
+    endDate === fallbackRange.endDate
+  ) {
+    return fallbackRange;
+  }
+
+  return startDate.getTime() <= endDate.getTime()
+    ? { endDate, startDate }
+    : { endDate: startDate, startDate: endDate };
 }
 
 export function resolveAnalyticsDateRange(

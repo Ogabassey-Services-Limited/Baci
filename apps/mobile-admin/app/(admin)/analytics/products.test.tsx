@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   router: {
     push: vi.fn(),
   },
+  useLocalSearchParams: vi.fn(),
   useMerchant: vi.fn(),
   useRevenueCat: vi.fn(),
   useTopSellingProducts: vi.fn(),
@@ -19,9 +20,7 @@ vi.mock('expo-router', async () => {
     Stack: {
       Screen: () => React.createElement('div'),
     },
-    useLocalSearchParams: () => ({
-      filterLabel: 'This month',
-    }),
+    useLocalSearchParams: mocks.useLocalSearchParams,
     useRouter: () => mocks.router,
   };
 });
@@ -137,6 +136,9 @@ describe('AnalyticsProductsScreen', () => {
       },
     });
     mocks.useRevenueCat.mockReturnValue({ isPro: true });
+    mocks.useLocalSearchParams.mockReturnValue({
+      filterLabel: 'This month',
+    });
     mocks.useTopSellingProducts.mockReturnValue({
       data: [
         {
@@ -166,6 +168,32 @@ describe('AnalyticsProductsScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Galaxy S26/i }));
 
     expect(mocks.router.push).toHaveBeenCalledWith('/product/product-1');
+  });
+
+  it('uses a stable all-time fallback range when route date params are absent', () => {
+    const { rerender } = render(<AnalyticsProductsScreen />);
+    const firstRange = mocks.useTopSellingProducts.mock.calls.at(-1)?.[1];
+
+    rerender(<AnalyticsProductsScreen />);
+    const secondRange = mocks.useTopSellingProducts.mock.calls.at(-1)?.[1];
+
+    expect(firstRange.startDate.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+    expect(firstRange.endDate.toISOString()).toBe('9999-12-31T23:59:59.999Z');
+    expect(secondRange).toBe(firstRange);
+  });
+
+  it('uses route date params when they are supplied', () => {
+    mocks.useLocalSearchParams.mockReturnValue({
+      endDate: '2026-04-10T23:59:59.999Z',
+      filterLabel: 'Custom',
+      startDate: '2026-04-01T00:00:00.000Z',
+    });
+
+    render(<AnalyticsProductsScreen />);
+
+    const range = mocks.useTopSellingProducts.mock.calls.at(-1)?.[1];
+    expect(range.startDate.toISOString()).toBe('2026-04-01T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2026-04-10T23:59:59.999Z');
   });
 
   it('does not mount the products query for merchants without advanced analytics', () => {

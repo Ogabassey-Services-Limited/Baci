@@ -187,4 +187,16 @@ describe('MenuScreen', () => {
       expect.any(Array)
     );
   });
+
+  it('navigates to negotiations from the menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Negotiation Requests. Manage price negotiation requests',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/negotiations');
+  });
 });

@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,15 +20,23 @@ import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useTopSellingProducts';
+import {
+  type AnalyticsDateRange,
+  resolveAnalyticsDateRangeParams,
+} from '@/lib/analytics-period';
 import { baciFeatureGates } from '@/lib/feature-gates';
 
-type AnalyticsProductsRange = {
-  endDate: Date;
-  startDate: Date;
-};
+const ALL_TIME_END_ISO = '9999-12-31T23:59:59.999Z';
 
 function getSingleParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function createAllTimeAnalyticsDateRange(): AnalyticsDateRange {
+  return {
+    endDate: new Date(ALL_TIME_END_ISO),
+    startDate: new Date(0),
+  };
 }
 
 export default function AnalyticsProductsScreen() {
@@ -39,22 +48,15 @@ export default function AnalyticsProductsScreen() {
     filterLabel?: string | string[];
     startDate?: string | string[];
   }>();
+  const [fallbackRange] = useState(createAllTimeAnalyticsDateRange);
   const startDateParam = getSingleParam(params.startDate);
   const endDateParam = getSingleParam(params.endDate);
   const filterLabelParam = getSingleParam(params.filterLabel);
-  const parsedStartDate = startDateParam ? new Date(startDateParam) : null;
-  const parsedEndDate = endDateParam ? new Date(endDateParam) : null;
-  const range =
-    parsedStartDate &&
-    parsedEndDate &&
-    !Number.isNaN(parsedStartDate.getTime()) &&
-    !Number.isNaN(parsedEndDate.getTime()) &&
-    parsedStartDate.getTime() <= parsedEndDate.getTime()
-      ? {
-          endDate: parsedEndDate,
-          startDate: parsedStartDate,
-        }
-      : undefined;
+  const range = resolveAnalyticsDateRangeParams({
+    endDateParam,
+    fallbackRange,
+    startDateParam,
+  });
   const hasAdvancedAnalytics =
     isPro || baciFeatureGates.hasFeature(merchant, 'advanced_analytics');
 
@@ -86,11 +88,7 @@ export default function AnalyticsProductsScreen() {
   );
 }
 
-function AnalyticsProductsContent({
-  range,
-}: {
-  range?: AnalyticsProductsRange;
-}) {
+function AnalyticsProductsContent({ range }: { range: AnalyticsDateRange }) {
   const { colors, isDark } = useTheme();
   const { format: formatCurrency } = useCurrency();
   const router = useRouter();

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import BuyDomainScreen from './buy';
 
 const mocks = vi.hoisted(() => ({
@@ -112,17 +113,22 @@ vi.mock('@/components/domains/DomainSearchResultCard', () => ({
     domain,
     onBuy,
   }: {
-    domain: { domain: string };
+    domain: { available: boolean; domain: string };
     onBuy: () => void;
   }) => (
-    <button onClick={onBuy} type="button">
-      Buy {domain.domain}
-    </button>
+    <div>
+      <span>{domain.domain}</span>
+      <span>{domain.available ? 'Available' : 'Unavailable'}</span>
+      <button onClick={onBuy} type="button">
+        Buy {domain.domain}
+      </button>
+    </div>
   ),
 }));
 
 vi.mock('@/components/domains/perform-domain-search', () => ({
-  performDomainSearch: mocks.performDomainSearch,
+  performDomainSearch: (query: string, context: unknown) =>
+    mocks.performDomainSearch(query, context),
 }));
 
 vi.mock('@/components/ui/AppFormScreen', () => ({
@@ -177,5 +183,105 @@ describe('BuyDomainScreen', () => {
       'Please enter a valid domain (e.g. mystore.com)'
     );
     expect(mocks.performDomainSearch).not.toHaveBeenCalled();
+  });
+
+  it('renders search results after a successful lookup', async () => {
+    mocks.performDomainSearch.mockImplementationOnce(
+      (
+        _query: string,
+        context: {
+          setLastLookupSucceeded: (value: boolean) => void;
+          setLoading: (value: boolean) => void;
+          setResults: (results: DomainSearchResult[]) => void;
+        }
+      ) => {
+        context.setResults([
+          {
+            available: true,
+            currency: 'NGN',
+            domain: 'baci.com',
+            popular: true,
+            price: 25000,
+          },
+        ]);
+        context.setLastLookupSucceeded(true);
+        context.setLoading(false);
+      }
+    );
+
+    render(<BuyDomainScreen />);
+
+    const input = screen.getByLabelText('Search domain');
+    fireEvent.change(input, { target: { value: 'baci.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(await screen.findByText('baci.com')).toBeTruthy();
+    expect(screen.getByText('Available')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Buy baci.com' })).toBeTruthy();
+  });
+
+  it('shows the empty state only after a successful lookup with no results', async () => {
+    mocks.performDomainSearch.mockImplementationOnce(
+      (
+        _query: string,
+        context: {
+          setLastLookupSucceeded: (value: boolean) => void;
+          setLoading: (value: boolean) => void;
+          setResults: (results: DomainSearchResult[]) => void;
+        }
+      ) => {
+        context.setResults([]);
+        context.setLastLookupSucceeded(true);
+        context.setLoading(false);
+      }
+    );
+
+    render(<BuyDomainScreen />);
+
+    const input = screen.getByLabelText('Search domain');
+    fireEvent.change(input, { target: { value: 'missing.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(await screen.findByText('No results found.')).toBeTruthy();
+  });
+
+  it('clears results when the search input is cleared', async () => {
+    mocks.performDomainSearch.mockImplementationOnce(
+      (
+        _query: string,
+        context: {
+          setLastLookupSucceeded: (value: boolean) => void;
+          setLoading: (value: boolean) => void;
+          setResults: (results: DomainSearchResult[]) => void;
+        }
+      ) => {
+        context.setResults([
+          {
+            available: true,
+            currency: 'NGN',
+            domain: 'baci.com',
+            popular: true,
+            price: 25000,
+          },
+        ]);
+        context.setLastLookupSucceeded(true);
+        context.setLoading(false);
+      }
+    );
+
+    render(<BuyDomainScreen />);
+
+    const input = screen.getByLabelText('Search domain');
+    fireEvent.change(input, { target: { value: 'baci.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(await screen.findByText('baci.com')).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear domain search' })
+    );
+
+    expect(screen.queryByText('baci.com')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Buy baci.com' })).toBeNull();
   });
 });
