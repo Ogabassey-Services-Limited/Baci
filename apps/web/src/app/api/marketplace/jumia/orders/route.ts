@@ -20,6 +20,10 @@ import {
 } from '@/lib/jumia/client';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
+import {
+  getMerchantFeatureAccess,
+  merchantFeatureUpgradeResponse,
+} from '@/lib/merchant-feature-gates';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
@@ -65,6 +69,15 @@ export async function GET(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    const featureAccess = await getMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (!featureAccess.allowed) {
+      return merchantFeatureUpgradeResponse('marketplace_sync');
+    }
+
     const { searchParams } = new URL(request.url);
 
     const GetQuerySchema = z.object({
@@ -207,6 +220,15 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    const featureAccess = await getMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (!featureAccess.allowed) {
+      return merchantFeatureUpgradeResponse('marketplace_sync');
+    }
+
     const { searchParams } = new URL(request.url);
     const rawIntegrationId = searchParams.get('integrationId');
 

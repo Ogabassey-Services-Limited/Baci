@@ -13,6 +13,10 @@ const revenueCatState = vi.hoisted(() => ({
   isPro: false,
 }));
 
+const inventoryStatsState = vi.hoisted(() => ({
+  totalProducts: 1000 as number | undefined,
+}));
+
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => routeParamsState.current,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
@@ -44,7 +48,10 @@ vi.mock('@/hooks/useProducts', () => ({
   }),
   useCreateProduct: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useInventoryStats: () => ({
-    data: { totalProducts: 1000 },
+    data:
+      inventoryStatsState.totalProducts === undefined
+        ? undefined
+        : { totalProducts: inventoryStatsState.totalProducts },
   }),
   useProduct: () => ({ data: undefined, error: null }),
   useUpdateProduct: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -98,6 +105,7 @@ import { useProductEditController } from './useProductEditController';
 describe('useProductEditController', () => {
   beforeEach(() => {
     persistenceState.lastParams = null;
+    inventoryStatsState.totalProducts = 1000;
     revenueCatState.isPro = false;
   });
 
@@ -119,13 +127,25 @@ describe('useProductEditController', () => {
     });
   });
 
-  it('allows RevenueCat Pro merchants to create products beyond the free limit', () => {
+  it('does not let RevenueCat-only Pro state bypass the server-enforced product limit', () => {
     revenueCatState.isPro = true;
     routeParamsState.current = { id: 'new' };
     renderHook(() => useProductEditController());
 
     expect(persistenceState.lastParams?.productCreationGate).toMatchObject({
+      allowed: false,
+      requiresUpgrade: true,
+    });
+  });
+
+  it('does not require an upgrade while inventory stats are still loading', () => {
+    inventoryStatsState.totalProducts = undefined;
+    routeParamsState.current = { id: 'new' };
+    renderHook(() => useProductEditController());
+
+    expect(persistenceState.lastParams?.productCreationGate).toMatchObject({
       allowed: true,
+      hasKnownCount: false,
       requiresUpgrade: false,
     });
   });

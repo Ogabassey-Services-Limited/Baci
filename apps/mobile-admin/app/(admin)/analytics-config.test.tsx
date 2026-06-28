@@ -281,12 +281,12 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     expect(merchantAnalytics.tiktok_pixel_id).toBe('');
   });
 
-  it('does not enable the tracking credentials query for merchants without growth integrations', () => {
+  it('does not enable the tracking credentials query for merchants without a DB growth entitlement', () => {
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
       merchant: { plan_tier: 'free', premium_features: [] },
     });
-    accessMocks.useRevenueCat.mockReturnValue({ isPro: false });
+    accessMocks.useRevenueCat.mockReturnValue({ isPro: true });
 
     render(<AnalyticsConfigScreen />);
 

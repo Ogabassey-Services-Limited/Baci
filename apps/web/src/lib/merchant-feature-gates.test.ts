@@ -22,6 +22,12 @@ describe('merchantHasFeature', () => {
         'custom_domain'
       )
     ).toBe(true);
+    expect(
+      merchantHasFeature(
+        { plan_tier: 'free', premium_features: ['growth_integrations'] },
+        'growth_integrations'
+      )
+    ).toBe(true);
   });
 
   it('blocks expired paid plans without an explicit grant', () => {
@@ -79,6 +85,16 @@ describe('merchantFeatureUpgradeResponse', () => {
     await expect(response.json()).resolves.toEqual({
       code: 'requires_upgrade',
       error: 'Custom domains require Baci Pro',
+    });
+  });
+
+  it('returns a growth integrations upgrade response', async () => {
+    const response = merchantFeatureUpgradeResponse('growth_integrations');
+
+    expect(response.status).toBe(402);
+    await expect(response.json()).resolves.toEqual({
+      code: 'requires_upgrade',
+      error: 'Growth integrations require Baci Pro',
     });
   });
 });

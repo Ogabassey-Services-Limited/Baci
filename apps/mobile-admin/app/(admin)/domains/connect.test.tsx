@@ -1,13 +1,15 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ConnectDomainScreen from './connect';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   formScreenProps: {
     keyboardOffsetPreset: 'default' as 'default' | 'compactHeader',
   },
+  getSession: vi.fn(),
   router: {
     dismissAll: vi.fn(),
     push: vi.fn(),
@@ -15,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   subscription: {
     isPro: true,
     merchant: {
-      plan_tier: 'free',
+      plan_tier: 'pro',
       premium_features: [],
     },
   },
@@ -65,7 +67,7 @@ vi.mock('@/hooks/useRevenueCat', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getSession: vi.fn(),
+      getSession: mocks.getSession,
     },
   },
 }));
@@ -98,7 +100,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 vi.mock('react-native', () => ({
   StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
-  Alert: { alert: vi.fn() },
+  Alert: { alert: mocks.alert },
   Platform: { OS: 'web' },
   Pressable: ({
     accessibilityLabel,
@@ -148,9 +150,14 @@ vi.mock('react-native-safe-area-context', () => ({
 
 describe('ConnectDomainScreen', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn());
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'session-token' } },
+    });
     mocks.subscription.isPro = true;
     mocks.subscription.merchant = {
-      plan_tier: 'free',
+      plan_tier: 'pro',
       premium_features: [],
     };
   });
@@ -171,7 +178,11 @@ describe('ConnectDomainScreen', () => {
   });
 
   it('renders an upgrade gate for free merchants', () => {
-    mocks.subscription.isPro = false;
+    mocks.subscription.isPro = true;
+    mocks.subscription.merchant = {
+      plan_tier: 'free',
+      premium_features: [],
+    };
 
     render(<ConnectDomainScreen />);
 
@@ -181,5 +192,20 @@ describe('ConnectDomainScreen', () => {
     expect(
       screen.queryByText('Connect Existing Domain')
     ).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback error alert when the network request throws', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('Network unavailable'));
+
+    render(<ConnectDomainScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('example.com'), {
+      target: { value: 'shop.example.com' },
+    });
+    fireEvent.click(screen.getByText('Connect Domain'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network unavailable');
+    });
   });
 });

@@ -90,19 +90,21 @@ export default function AnalyticsInsightsScreen() {
           headerShadowVisible: false,
         }}
       />
-      <FeatureGateScreen
-        description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
-        feature="advanced_analytics"
-        title="Advanced analytics are a Baci Pro feature"
-      >
-        {hasAdvancedAnalytics ? (
-          <AnalyticsInsightsContent
-            filterLabel={filterLabelParam}
-            kind={kind}
-            range={range}
-          />
-        ) : null}
-      </FeatureGateScreen>
+      {hasAdvancedAnalytics ? (
+        <AnalyticsInsightsContent
+          filterLabel={filterLabelParam}
+          kind={kind}
+          range={range}
+        />
+      ) : (
+        <FeatureGateScreen
+          description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
+          feature="advanced_analytics"
+          title="Advanced analytics are a Baci Pro feature"
+        >
+          {null}
+        </FeatureGateScreen>
+      )}
     </>
   );
 }

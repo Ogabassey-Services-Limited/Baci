@@ -14,6 +14,10 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { type ContactInfo, registerDomain } from '@/lib/go54';
+import {
+  merchantFeatureUpgradeResponse,
+  merchantHasFeature,
+} from '@/lib/merchant-feature-gates';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
@@ -129,7 +133,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(
-        'id, first_name, last_name, business_name, email, phone, phone_number, support_phone, address, business_address, city, state, postal_code, zipcode, country'
+        'id, plan_tier, plan_expires_at, premium_features, first_name, last_name, business_name, email, phone, phone_number, support_phone, address, business_address, city, state, postal_code, zipcode, country'
       )
       .eq('id', merchantId)
       .single();
@@ -139,6 +143,10 @@ export async function POST(request: NextRequest) {
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+
+    if (!merchantHasFeature(merchant, 'custom_domain')) {
+      return merchantFeatureUpgradeResponse('custom_domain');
     }
 
     // Verify payment before proceeding

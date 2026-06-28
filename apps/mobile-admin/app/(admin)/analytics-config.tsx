@@ -22,7 +22,6 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type AnalyticsState,
@@ -201,12 +200,12 @@ export default function AnalyticsConfigScreen() {
   const { colors, shadows } = useTheme();
   const { user } = useAuth();
   const { merchant: merchantContext } = useMerchant();
-  const { isPro } = useRevenueCat();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const hasGrowthIntegrations =
-    isPro ||
-    baciFeatureGates.hasFeature(merchantContext, 'growth_integrations');
+  const hasGrowthIntegrations = baciFeatureGates.hasFeature(
+    merchantContext,
+    'growth_integrations'
+  );
 
   const [analytics, setAnalytics] = useState<AnalyticsState>(INITIAL_STATE);
   const analyticsRef = useRef<AnalyticsState>(INITIAL_STATE);

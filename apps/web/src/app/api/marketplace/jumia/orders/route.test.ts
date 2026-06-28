@@ -1,0 +1,156 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  forIntegration: vi.fn(),
+  getAllOrders: vi.fn(),
+  getMerchantFeatureAccess: vi.fn(),
+  getMerchantForApiRequest: vi.fn(),
+  hasPermission: vi.fn(),
+  supabase: {
+    auth: {
+      getUser: vi.fn(),
+    },
+    from: vi.fn((table: string) => {
+      if (table === 'marketplace_integrations') {
+        return {
+          update: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => Promise.resolve({ error: null })),
+            })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    }),
+  },
+}));
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  hasPermission: (...args: unknown[]) => mocks.hasPermission(...args),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+}));
+
+vi.mock('@/lib/expo-push', () => ({
+  notifyJumiaOrder: vi.fn(),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mocks.getMerchantForApiRequest(...args),
+  toUserAccess: vi.fn(() => ({})),
+}));
+
+vi.mock('@/lib/jumia/client', () => ({
+  JumiaApiError: class JumiaApiError extends Error {
+    status: number;
+
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+  JumiaClient: {
+    forIntegration: (...args: unknown[]) => mocks.forIntegration(...args),
+  },
+  jumiaErrorResponse: (error: { message: string; status: number }) =>
+    Response.json({ error: error.message }, { status: error.status }),
+}));
+
+vi.mock('@/lib/jumia/orders', () => ({
+  getAllOrders: (...args: unknown[]) => mocks.getAllOrders(...args),
+  getOrderItems: vi.fn(),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn() },
+}));
+
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  getMerchantFeatureAccess: (...args: unknown[]) =>
+    mocks.getMerchantFeatureAccess(...args),
+  merchantFeatureUpgradeResponse: () =>
+    Response.json(
+      {
+        code: 'requires_upgrade',
+        error: 'Marketplace sync requires Baci Pro',
+      },
+      { status: 402 }
+    ),
+}));
+
+vi.mock('@/lib/sanitize-core', () => ({
+  sanitizeText: (value: string) => value,
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => mocks.supabase),
+}));
+
+import { POST } from './route';
+
+const INTEGRATION_ID = '00000000-0000-4000-8000-000000000099';
+
+function makePostRequest() {
+  return new NextRequest(
+    `http://localhost/api/marketplace/jumia/orders?integrationId=${INTEGRATION_ID}`,
+    { method: 'POST' }
+  );
+}
+
+describe('Jumia orders POST', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.supabase.auth.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    mocks.getMerchantForApiRequest.mockResolvedValue({
+      merchantId: '00000000-0000-4000-8000-000000000001',
+    });
+    mocks.hasPermission.mockReturnValue(true);
+    mocks.getMerchantFeatureAccess.mockResolvedValue({
+      allowed: true,
+      error: null,
+    });
+    mocks.forIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mocks.getAllOrders.mockResolvedValue([]);
+  });
+
+  it('returns 402 before syncing orders when marketplace sync is locked', async () => {
+    mocks.getMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const response = await POST(makePostRequest());
+
+    expect(response.status).toBe(402);
+    const json = await response.json();
+    expect(json.code).toBe('requires_upgrade');
+    expect(mocks.forIntegration).not.toHaveBeenCalled();
+    expect(mocks.getAllOrders).not.toHaveBeenCalled();
+  });
+
+  it('syncs orders when marketplace sync is available', async () => {
+    const response = await POST(makePostRequest());
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json).toMatchObject({ success: true, synced: 0, newOrders: 0 });
+    expect(mocks.forIntegration).toHaveBeenCalledWith(
+      mocks.supabase,
+      '00000000-0000-4000-8000-000000000001',
+      INTEGRATION_ID
+    );
+    expect(mocks.getAllOrders).toHaveBeenCalled();
+  });
+});

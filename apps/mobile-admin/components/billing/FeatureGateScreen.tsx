@@ -4,7 +4,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import { baciFeatureGates, type MobileFeatureGate } from '@/lib/feature-gates';
 import { FeatureUpgradeCard } from './FeatureUpgradeCard';
@@ -24,9 +23,8 @@ export function FeatureGateScreen({
 }: FeatureGateScreenProps) {
   const { colors } = useTheme();
   const { merchant, isLoading } = useMerchant();
-  const { isPro } = useRevenueCat();
   const router = useRouter();
-  const hasAccess = isPro || baciFeatureGates.hasFeature(merchant, feature);
+  const hasAccess = baciFeatureGates.hasFeature(merchant, feature);
 
   if (isLoading) {
     return (

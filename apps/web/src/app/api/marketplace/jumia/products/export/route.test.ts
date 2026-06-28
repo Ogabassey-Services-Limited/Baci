@@ -6,12 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /* ------------------------------------------------------------------ */
 
 const {
+  mockGetMerchantFeatureAccess,
   mockMaybeSingle,
   mockUpsert,
   mockSupabase,
   mockForIntegration,
   mockCreateProduct,
 } = vi.hoisted(() => {
+  const mockGetMerchantFeatureAccess = vi.fn();
   const mockMaybeSingle = vi.fn();
   const mockUpsert = vi.fn();
   const mockSupabase = {
@@ -32,6 +34,7 @@ const {
   const mockForIntegration = vi.fn();
   const mockCreateProduct = vi.fn();
   return {
+    mockGetMerchantFeatureAccess,
     mockMaybeSingle,
     mockUpsert,
     mockSupabase,
@@ -53,6 +56,19 @@ vi.mock('@/lib/api-auth', () => ({
   getMerchantIdForApiUser: vi
     .fn()
     .mockResolvedValue('00000000-0000-4000-8000-000000000001'),
+}));
+
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  getMerchantFeatureAccess: (...args: unknown[]) =>
+    mockGetMerchantFeatureAccess(...args),
+  merchantFeatureUpgradeResponse: () =>
+    Response.json(
+      {
+        code: 'requires_upgrade',
+        error: 'Marketplace sync requires Baci Pro',
+      },
+      { status: 402 }
+    ),
 }));
 
 vi.mock('@/lib/jumia/feeds', () => ({
@@ -103,7 +119,13 @@ function makePostRequest(body: unknown) {
 import { POST } from './route';
 
 describe('Products Export POST', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetMerchantFeatureAccess.mockResolvedValue({
+      allowed: true,
+      error: null,
+    });
+  });
 
   it('returns 403 on CSRF failure', async () => {
     const { checkCsrfProtection } = await import('@/lib/csrf');
@@ -131,6 +153,21 @@ describe('Products Export POST', () => {
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toBe('Invalid input');
+  });
+
+  it('returns 402 before exporting products when marketplace sync is locked', async () => {
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const res = await POST(makePostRequest(VALID_BODY));
+
+    expect(res.status).toBe(402);
+    const json = await res.json();
+    expect(json.code).toBe('requires_upgrade');
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockCreateProduct).not.toHaveBeenCalled();
   });
 
   it('returns matching status when JumiaApiError is thrown', async () => {

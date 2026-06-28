@@ -17,6 +17,20 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateMerchant: (...args: unknown[]) => mockRevalidateMerchant(...args),
 }));
 
+const mockGetMerchantFeatureAccess = vi.fn();
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  getMerchantFeatureAccess: (...args: unknown[]) =>
+    mockGetMerchantFeatureAccess(...args),
+  merchantFeatureUpgradeResponse: () =>
+    Response.json(
+      {
+        code: 'requires_upgrade',
+        error: 'Growth integrations require Baci Pro',
+      },
+      { status: 402 }
+    ),
+}));
+
 let csrfValid = true;
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(() =>
@@ -220,6 +234,10 @@ describe('GET /api/merchant/features', () => {
     selectColumns = null;
     throwOnInsert = false;
     csrfValid = true;
+    mockGetMerchantFeatureAccess.mockResolvedValue({
+      allowed: true,
+      error: null,
+    });
   });
 
   it('selects all VTU category and customer cashback fields', async () => {
@@ -488,6 +506,24 @@ describe('PATCH /api/merchant/features', () => {
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
+  it('returns 402 before updating analytics credentials without growth integrations', async () => {
+    const { PATCH } = await import('./route');
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const res = await PATCH(
+      makeRequest('PATCH', { facebook_capi_token: 'new-token' })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(json.code).toBe('requires_upgrade');
+    expect(updatePayload).toBeNull();
+    expect(insertPayload).toBeNull();
+  });
+
   it('does not reset existing Klump settings on sparse PATCH payloads', async () => {
     const { PATCH } = await import('./route');
 
@@ -657,6 +693,10 @@ describe('PUT /api/merchant/features', () => {
     upsertError = null;
     upsertPayload = null;
     csrfValid = true;
+    mockGetMerchantFeatureAccess.mockResolvedValue({
+      allowed: true,
+      error: null,
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -723,6 +763,23 @@ describe('PUT /api/merchant/features', () => {
     expect(upsertPayload).not.toHaveProperty('offline_conversions_enabled');
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('returns 402 before replacing analytics credentials without growth integrations', async () => {
+    const { PUT } = await import('./route');
+    mockGetMerchantFeatureAccess.mockResolvedValueOnce({
+      allowed: false,
+      error: null,
+    });
+
+    const res = await PUT(
+      makeRequest('PUT', { google_analytics_id: 'G-LOCKED' })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(json.code).toBe('requires_upgrade');
+    expect(upsertPayload).toBeNull();
   });
 
   it('returns 500 when upsert fails', async () => {

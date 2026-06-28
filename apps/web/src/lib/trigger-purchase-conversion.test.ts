@@ -30,6 +30,9 @@ const analyticsConfig = {
   ga4_api_secret: null,
   google_analytics_id: null,
   offline_conversions_enabled: true,
+  plan_expires_at: null,
+  plan_tier: 'pro',
+  premium_features: [],
   snapchat_capi_token: null,
   snapchat_pixel_id: null,
   tiktok_access_token: null,
@@ -212,6 +215,28 @@ describe('triggerPurchaseConversion', () => {
     await triggerPurchaseConversion(
       createSupabaseMock({
         data: { ...analyticsConfig, offline_conversions_enabled: false },
+      }) as never,
+      'merchant-1',
+      validOrder
+    );
+
+    expect(mockSendPurchaseConversion).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Offline conversions disabled by merchant',
+      })
+    );
+  });
+
+  it('does not send conversions when growth integrations are locked', async () => {
+    await triggerPurchaseConversion(
+      createSupabaseMock({
+        data: {
+          ...analyticsConfig,
+          plan_tier: 'free',
+          facebook_capi_token: 'locked-token',
+          facebook_pixel_id: 'locked-pixel',
+        },
       }) as never,
       'merchant-1',
       validOrder

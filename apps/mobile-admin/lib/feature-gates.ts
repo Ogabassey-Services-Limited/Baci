@@ -15,6 +15,9 @@ type FeatureGateMerchant = {
 
 type ProductCreationGateInput = {
   activeProductCount: number | null | undefined;
+  // Server-backed product limits are enforced from merchant DB entitlements.
+  // This legacy input is intentionally ignored until RevenueCat entitlements
+  // are mirrored and verified server-side.
   hasRevenueCatPro?: boolean;
   merchant: FeatureGateMerchant | null | undefined;
   now?: Date;
@@ -83,7 +86,6 @@ export const baciFeatureGates = {
 
   canCreateProduct({
     activeProductCount,
-    hasRevenueCatPro = false,
     merchant,
     now = new Date(),
   }: ProductCreationGateInput) {
@@ -92,14 +94,14 @@ export const baciFeatureGates = {
     const count = hasKnownCount ? Math.max(0, numericCount) : 0;
     const features = normalizePremiumFeatures(merchant?.premium_features);
     const hasUnlimitedProducts =
-      hasRevenueCatPro ||
       Boolean(merchant && hasActivePaidPlan(merchant, now)) ||
       hasProductLimitGrant(features);
     const allowed =
-      hasUnlimitedProducts || (hasKnownCount && count < FREE_PRODUCT_LIMIT);
+      hasUnlimitedProducts || !hasKnownCount || count < FREE_PRODUCT_LIMIT;
 
     return {
       allowed,
+      hasKnownCount,
       limit: FREE_PRODUCT_LIMIT,
       remaining: hasUnlimitedProducts
         ? Number.POSITIVE_INFINITY

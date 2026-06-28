@@ -27,7 +27,6 @@ const mocks = vi.hoisted(() => ({
   },
   useMerchant: vi.fn(),
   useQuery: vi.fn(),
-  useRevenueCat: vi.fn(),
 }));
 
 vi.mock('expo-router', async () => {
@@ -151,10 +150,6 @@ vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: mocks.useMerchant,
 }));
 
-vi.mock('@/hooks/useRevenueCat', () => ({
-  useRevenueCat: mocks.useRevenueCat,
-}));
-
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -186,7 +181,7 @@ describe('DomainsDashboard', () => {
       merchant: {
         id: 'merchant-1',
         plan_expires_at: null,
-        plan_tier: 'free',
+        plan_tier: 'pro',
         premium_features: [],
         slug: 'baci-test',
       },
@@ -198,7 +193,6 @@ describe('DomainsDashboard', () => {
         status: 'active',
       },
     });
-    mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.queryState.data = [
       {
         created_at: '2026-06-01T00:00:00.000Z',
@@ -235,7 +229,16 @@ describe('DomainsDashboard', () => {
   });
 
   it('keeps stack options mounted without loading domains when custom domains are locked', () => {
-    mocks.useRevenueCat.mockReturnValue({ isPro: false });
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+        slug: 'baci-test',
+      },
+      primaryDomain: null,
+    });
 
     render(<DomainsDashboard />);
 

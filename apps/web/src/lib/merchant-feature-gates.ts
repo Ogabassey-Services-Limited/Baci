@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-export type MerchantFeatureGate = 'custom_domain' | 'marketplace_sync';
+export type MerchantFeatureGate =
+  | 'custom_domain'
+  | 'growth_integrations'
+  | 'marketplace_sync';
 
 type MerchantFeatureSource = {
   plan_expires_at?: string | null;
@@ -12,6 +15,7 @@ type MerchantFeatureSource = {
 const ALL_FEATURES = 'all_features';
 const FEATURE_MESSAGES: Record<MerchantFeatureGate, string> = {
   custom_domain: 'Custom domains require Baci Pro',
+  growth_integrations: 'Growth integrations require Baci Pro',
   marketplace_sync: 'Marketplace sync requires Baci Pro',
 };
 const PAID_PLAN_TIERS = new Set(['pro', 'business', 'enterprise']);

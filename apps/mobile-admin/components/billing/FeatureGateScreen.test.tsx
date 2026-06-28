@@ -90,7 +90,24 @@ vi.mock('react-native-safe-area-context', async () => {
 });
 
 describe('FeatureGateScreen', () => {
-  it('renders the protected content when RevenueCat says the merchant is pro', () => {
+  it('renders the protected content when the merchant has a DB entitlement', () => {
+    gateState.isPro = true;
+    gateState.merchant = { plan_tier: 'pro', premium_features: [] };
+
+    render(
+      <FeatureGateScreen
+        description="Connect branded domains."
+        feature="custom_domain"
+        title="Custom domains are a Baci Pro feature"
+      >
+        <span>Protected domains content</span>
+      </FeatureGateScreen>
+    );
+
+    expect(screen.getByText('Protected domains content')).toBeInTheDocument();
+  });
+
+  it('does not unlock server-backed features from RevenueCat-only state', () => {
     gateState.isPro = true;
     gateState.merchant = { plan_tier: 'free', premium_features: [] };
 
@@ -104,7 +121,12 @@ describe('FeatureGateScreen', () => {
       </FeatureGateScreen>
     );
 
-    expect(screen.getByText('Protected domains content')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Protected domains content')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Custom domains are a Baci Pro feature')
+    ).toBeInTheDocument();
   });
 
   it('renders the upgrade card when the merchant lacks the feature', () => {

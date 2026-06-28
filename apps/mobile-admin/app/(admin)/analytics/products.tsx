@@ -71,15 +71,17 @@ export default function AnalyticsProductsScreen() {
           headerShadowVisible: false,
         }}
       />
-      <FeatureGateScreen
-        description="Product rankings and segmented analytics are available when Baci Pro is active."
-        feature="advanced_analytics"
-        title="Advanced analytics are a Baci Pro feature"
-      >
-        {hasAdvancedAnalytics ? (
-          <AnalyticsProductsContent range={range} />
-        ) : null}
-      </FeatureGateScreen>
+      {hasAdvancedAnalytics ? (
+        <AnalyticsProductsContent range={range} />
+      ) : (
+        <FeatureGateScreen
+          description="Product rankings and segmented analytics are available when Baci Pro is active."
+          feature="advanced_analytics"
+          title="Advanced analytics are a Baci Pro feature"
+        >
+          {null}
+        </FeatureGateScreen>
+      )}
     </>
   );
 }
