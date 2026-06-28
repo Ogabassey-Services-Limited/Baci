@@ -3,11 +3,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   RADIUS,
   SPACING,
-  TYPOGRAPHY,
   type ThemeColors,
+  TYPOGRAPHY,
 } from '@/constants/theme';
 
 type FeatureUpgradeCardProps = {
+  actionLabel?: string;
   colors: ThemeColors;
   description: string;
   onUpgrade: () => void;
@@ -15,6 +16,7 @@ type FeatureUpgradeCardProps = {
 };
 
 export function FeatureUpgradeCard({
+  actionLabel = 'Upgrade to Baci Pro',
   colors,
   description,
   onUpgrade,
@@ -38,14 +40,14 @@ export function FeatureUpgradeCard({
         {description}
       </Text>
       <Pressable
-        accessibilityLabel="Upgrade to Baci Pro"
+        accessibilityLabel={actionLabel}
         accessibilityRole="button"
         onPress={onUpgrade}
         style={[styles.button, { backgroundColor: colors.primary }]}
       >
         <Ionicons name="arrow-up-circle-outline" size={18} color="#FFFFFF" />
         <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
-          Upgrade to Baci Pro
+          {actionLabel}
         </Text>
       </Pressable>
     </View>

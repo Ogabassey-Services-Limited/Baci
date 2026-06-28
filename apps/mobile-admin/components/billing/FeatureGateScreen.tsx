@@ -13,6 +13,7 @@ type FeatureGateScreenProps = {
   children: ReactNode;
   description: string;
   feature: MobileFeatureGate;
+  serverEntitlementRequired?: boolean;
   title: string;
 };
 
@@ -20,13 +21,17 @@ export function FeatureGateScreen({
   children,
   description,
   feature,
+  serverEntitlementRequired = false,
   title,
 }: FeatureGateScreenProps) {
   const { colors } = useTheme();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
   const router = useRouter();
-  const hasAccess = isPro || baciFeatureGates.hasFeature(merchant, feature);
+  const hasServerAccess = baciFeatureGates.hasFeature(merchant, feature);
+  const hasAccess = hasServerAccess || (!serverEntitlementRequired && isPro);
+  const isWaitingForServerEntitlement =
+    serverEntitlementRequired && isPro && !hasServerAccess;
 
   if (isLoading) {
     return (
@@ -42,6 +47,13 @@ export function FeatureGateScreen({
   }
 
   if (!hasAccess) {
+    const gateDescription = isWaitingForServerEntitlement
+      ? 'Your Pro purchase is active on this device. This server-backed feature unlocks after your merchant plan finishes syncing.'
+      : description;
+    const gateTitle = isWaitingForServerEntitlement
+      ? 'Pro access is syncing'
+      : title;
+
     return (
       <SafeAreaView
         edges={['bottom']}
@@ -49,10 +61,15 @@ export function FeatureGateScreen({
       >
         <View style={styles.gateContent}>
           <FeatureUpgradeCard
+            actionLabel={
+              isWaitingForServerEntitlement
+                ? 'Open subscriptions'
+                : 'Upgrade to Baci Pro'
+            }
             colors={colors}
-            description={description}
+            description={gateDescription}
             onUpgrade={() => router.push('/(admin)/subscribe')}
-            title={title}
+            title={gateTitle}
           />
         </View>
       </SafeAreaView>

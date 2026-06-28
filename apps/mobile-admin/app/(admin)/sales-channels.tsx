@@ -33,6 +33,7 @@ export default function SalesChannelsScreen() {
       <FeatureGateScreen
         description="Connect and sync marketplace channels when Baci Pro is active."
         feature="marketplace_sync"
+        serverEntitlementRequired
         title="Marketplace sync is a Baci Pro feature"
       >
         <SafeAreaView

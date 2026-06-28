@@ -178,7 +178,7 @@ describe('ConnectDomainScreen', () => {
   });
 
   it('renders an upgrade gate for free merchants', () => {
-    mocks.subscription.isPro = true;
+    mocks.subscription.isPro = false;
     mocks.subscription.merchant = {
       plan_tier: 'free',
       premium_features: [],

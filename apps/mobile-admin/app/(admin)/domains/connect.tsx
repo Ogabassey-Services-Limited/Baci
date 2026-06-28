@@ -191,6 +191,7 @@ export default function ConnectDomainScreen() {
       <FeatureGateScreen
         description="Connect branded domains when Baci Pro is active."
         feature="custom_domain"
+        serverEntitlementRequired
         title="Custom domains are a Baci Pro feature"
       >
         <ScrollView
@@ -309,6 +310,7 @@ export default function ConnectDomainScreen() {
     <FeatureGateScreen
       description="Connect branded domains when Baci Pro is active."
       feature="custom_domain"
+      serverEntitlementRequired
       title="Custom domains are a Baci Pro feature"
     >
       <AppFormScreen

@@ -70,4 +70,20 @@ describe('FeatureUpgradeCard', () => {
 
     expect(onUpgrade).toHaveBeenCalledOnce();
   });
+
+  it('uses a custom action label when provided', () => {
+    render(
+      <FeatureUpgradeCard
+        actionLabel="Open subscriptions"
+        colors={LIGHT_COLORS}
+        description="Your purchase is syncing."
+        onUpgrade={vi.fn()}
+        title="Pro access is syncing"
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Open subscriptions' })
+    ).toBeInTheDocument();
+  });
 });

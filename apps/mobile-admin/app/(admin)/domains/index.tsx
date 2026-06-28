@@ -85,6 +85,7 @@ export default function DomainsDashboard() {
       <FeatureGateScreen
         description="Connect and manage branded domains when Baci Pro is active."
         feature="custom_domain"
+        serverEntitlementRequired
         title="Custom domains are a Baci Pro feature"
       >
         {hasCustomDomain ? (

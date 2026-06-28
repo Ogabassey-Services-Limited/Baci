@@ -13,6 +13,7 @@ export default function AddDomainScreen() {
     <FeatureGateScreen
       description="Register or connect a branded domain when Baci Pro is active."
       feature="custom_domain"
+      serverEntitlementRequired
       title="Custom domains are a Baci Pro feature"
     >
       <ScrollView

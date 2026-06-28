@@ -86,10 +86,6 @@ vi.mock('react-native-safe-area-context', () => ({
   ),
 }));
 
-vi.mock('@/components/billing/FeatureGateScreen', () => ({
-  FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
-}));
-
 vi.mock('@/components/domains/DomainEmptyState', () => ({
   DomainEmptyState: ({
     onBuyDomain,
@@ -163,8 +159,11 @@ vi.mock('@/hooks/useTheme', () => ({
       card: '#f8fafc',
       error: '#dc2626',
       errorLight: '#fee2e2',
+      gold: '#b45309',
+      goldLight: '#fef3c7',
       primary: '#2563eb',
       text: '#0f172a',
+      textOnPrimary: '#ffffff',
       textSecondary: '#475569',
     },
     isDark: false,
@@ -252,7 +251,7 @@ describe('DomainsDashboard', () => {
     expect(mocks.useQuery).not.toHaveBeenCalled();
   });
 
-  it('renders domains for RevenueCat Pro users before DB entitlement syncs', () => {
+  it('waits for server entitlement for RevenueCat Pro users before DB entitlement syncs', () => {
     mocks.useRevenueCat.mockReturnValue({ isPro: true });
     mocks.useMerchant.mockReturnValue({
       merchant: {
@@ -273,8 +272,8 @@ describe('DomainsDashboard', () => {
 
     render(<DomainsDashboard />);
 
-    expect(screen.getByText('CUSTOM DOMAINS')).toBeTruthy();
-    expect(screen.getByText('shop.example.com')).toBeTruthy();
-    expect(mocks.useQuery).toHaveBeenCalled();
+    expect(screen.getByText('Pro access is syncing')).toBeTruthy();
+    expect(screen.queryByText('CUSTOM DOMAINS')).toBeNull();
+    expect(mocks.useQuery).not.toHaveBeenCalled();
   });
 });

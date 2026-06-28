@@ -172,6 +172,8 @@ vi.mock('@/hooks/useTheme', () => ({
       background: '#000',
       border: '#222',
       card: '#111',
+      gold: '#b45309',
+      goldLight: '#fef3c7',
       primary: '#3b82f6',
       text: THEME_TEXT,
       textMuted: '#888',
@@ -281,7 +283,7 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     expect(merchantAnalytics.tiktok_pixel_id).toBe('');
   });
 
-  it('enables the tracking credentials query for RevenueCat Pro users before DB entitlement syncs', () => {
+  it('does not fetch tracking credentials for RevenueCat-only users before DB entitlement syncs', () => {
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
       merchant: { plan_tier: 'free', premium_features: [] },
@@ -293,7 +295,8 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
       enabled?: boolean;
     };
-    expect(options.enabled).toBe(true);
+    expect(options.enabled).toBe(false);
+    expect(screen.getByText('Pro access is syncing')).toBeInTheDocument();
   });
 
   it('does not enable the tracking credentials query for locked free merchants', () => {

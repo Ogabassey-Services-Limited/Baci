@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
@@ -122,6 +122,31 @@ describe('FeatureGateScreen', () => {
     );
 
     expect(screen.getByText('Protected domains content')).toBeInTheDocument();
+  });
+
+  it('waits for a DB entitlement when server access is required', () => {
+    gateState.isPro = true;
+    gateState.merchant = { plan_tier: 'free', premium_features: [] };
+
+    render(
+      <FeatureGateScreen
+        description="Connect branded domains."
+        feature="custom_domain"
+        serverEntitlementRequired
+        title="Custom domains are a Baci Pro feature"
+      >
+        <span>Protected domains content</span>
+      </FeatureGateScreen>
+    );
+
+    expect(
+      screen.queryByText('Protected domains content')
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Pro access is syncing')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open subscriptions' }));
+
+    expect(gateState.router.push).toHaveBeenCalledWith('/(admin)/subscribe');
   });
 
   it('renders the upgrade card when the merchant lacks the feature', () => {

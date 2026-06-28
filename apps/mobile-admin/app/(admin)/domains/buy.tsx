@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { styles } from '@/components/domains/buy-domain.styles';
 import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultCard';
 import {
@@ -18,7 +19,6 @@ import {
 } from '@/components/domains/domain-api-helpers';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { performDomainSearch } from '@/components/domains/perform-domain-search';
-import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -152,6 +152,7 @@ export default function BuyDomainScreen() {
     <FeatureGateScreen
       description="Search, register, and activate branded domains when Baci Pro is active."
       feature="custom_domain"
+      serverEntitlementRequired
       title="Custom domains are a Baci Pro feature"
     >
       <AppFormScreen
