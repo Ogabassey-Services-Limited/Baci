@@ -250,6 +250,7 @@ jobs:
         env:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_TOKEN: ${{ github.token }}
           GH_EVENT_NAME: ${{ github.event_name }}
@@ -282,7 +283,9 @@ jobs:
               # relevant mobile-admin/shared changes on large successor commits.
               # Fetch the current main commit and use git diff pathspecs instead;
               # this inspects the local object graph without the API file cap.
-              git fetch --no-tags --prune --depth=1 origin "+refs/heads/main:refs/remotes/origin/main"
+              BASIC_AUTH="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+              git -c "http.${GITHUB_SERVER_URL}/.extraheader=AUTHORIZATION: basic ${BASIC_AUTH}" \
+                fetch --no-tags --prune --depth=1 origin "+refs/heads/main:refs/remotes/origin/main"
               RELEVANT_SUCCESSOR_FILES="$(git diff --name-only "${GITHUB_SHA}" "${CURRENT_MAIN_SHA}" -- pnpm-lock.yaml apps/mobile-admin packages/shared)"
               if [ -n "$RELEVANT_SUCCESSOR_FILES" ]; then
                 echo "Relevant successor release files:"
