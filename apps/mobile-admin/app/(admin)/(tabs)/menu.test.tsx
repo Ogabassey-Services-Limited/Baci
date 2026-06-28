@@ -7,6 +7,12 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   hasFeature: vi.fn(),
   isPro: true,
+  merchant: {
+    id: 'merchant-1',
+    plan_expires_at: null as string | null,
+    plan_tier: 'free' as string | null,
+    premium_features: [] as string[],
+  },
   resetOnboarding: vi.fn(),
   router: {
     push: vi.fn(),
@@ -65,9 +71,15 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('@/components/settings/SubscriptionStatusCard', () => ({
-  SubscriptionStatusCard: ({ onPress }: { onPress?: () => void }) => (
+  SubscriptionStatusCard: ({
+    isPro,
+    onPress,
+  }: {
+    isPro?: boolean;
+    onPress?: () => void;
+  }) => (
     <button onClick={() => onPress?.()} type="button">
-      Subscription status
+      {isPro ? 'Baci Pro Merchant Active' : 'Free Plan UPGRADE'}
     </button>
   ),
 }));
@@ -86,7 +98,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
-    merchant: { id: 'merchant-1', premium_features: [] },
+    merchant: mocks.merchant,
   }),
 }));
 
@@ -135,6 +147,12 @@ describe('MenuScreen', () => {
     vi.stubGlobal('__DEV__', false);
     mocks.hasFeature.mockReturnValue(true);
     mocks.isPro = true;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: [],
+    };
   });
 
   it('renders the main menu sections', () => {
@@ -198,5 +216,34 @@ describe('MenuScreen', () => {
     );
 
     expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/negotiations');
+  });
+
+  it('opens the subscription screen from the free plan card', () => {
+    mocks.hasFeature.mockReturnValue(false);
+    mocks.isPro = false;
+
+    render(<MenuScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Free Plan UPGRADE/i }));
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/subscribe');
+  });
+
+  it('shows Pro status when the merchant has a server-backed Pro entitlement', () => {
+    mocks.hasFeature.mockImplementation(
+      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
+    );
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+
+    render(<MenuScreen />);
+
+    expect(screen.getByText(/Baci Pro Merchant Active/i)).toBeTruthy();
+    expect(screen.queryByText(/Free Plan UPGRADE/i)).toBeNull();
   });
 });
