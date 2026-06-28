@@ -1,5 +1,5 @@
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared/receipt';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ReceiptModal } from './ReceiptModal';
@@ -209,6 +209,41 @@ describe('ReceiptModal', () => {
     expect(iframe).toHaveFocus();
   });
 
+  it('sizes the receipt preview to the viewport with a scrollable document area', () => {
+    render(
+      <ReceiptModal
+        isOpen
+        merchantData={merchant}
+        onClose={vi.fn()}
+        orderData={createOrder('paid')}
+      />
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Receipt Details' });
+    const iframe = screen.getByTitle('Receipt #ORD-001');
+    const previewArea = iframe.parentElement;
+
+    expect(dialog).toHaveClass('h-dvh');
+    expect(dialog).toHaveClass('max-h-dvh');
+    expect(dialog).toHaveClass('max-w-[1440px]');
+    expect(dialog.className).toContain('md:h-[calc(100dvh_-_2rem)]');
+    expect(dialog.className).toContain(
+      'md:max-h-[calc(100dvh_-_2rem)]'
+    );
+    expect(dialog).toHaveClass('bg-[var(--store-surface,#ffffff)]');
+    expect(dialog).not.toHaveClass('max-h-[90vh]');
+    expect(dialog).not.toHaveClass('max-w-[1024px]');
+    expect(previewArea).toHaveClass('min-h-0');
+    expect(previewArea).toHaveClass('items-center');
+    expect(previewArea).toHaveClass('overflow-auto');
+    expect(previewArea).toHaveClass(
+      'bg-[var(--store-muted-surface,#f9fafb)]'
+    );
+    expect(iframe).toHaveClass('h-full');
+    expect(iframe).toHaveClass('flex-1');
+    expect(iframe).toHaveClass('bg-[var(--store-surface,#ffffff)]');
+  });
+
   it.each(modalVariants)(
     'closes the $label modal when Escape is pressed',
     async ({ label, paymentStatus }) => {
@@ -303,10 +338,8 @@ describe('ReceiptModal', () => {
   );
 
   it.each(modalVariants)(
-    'allows tab to leave the $label iframe so its interactive content is reachable',
-    async ({ label, paymentStatus }) => {
-      const user = userEvent.setup();
-
+    'does not cancel native tabbing from the $label iframe document',
+    ({ label, paymentStatus }) => {
       render(
         <ReceiptModal
           isOpen
@@ -316,8 +349,8 @@ describe('ReceiptModal', () => {
         />
       );
 
-      const printButton = screen.getByRole('button', {
-        name: `Print ${label}`,
+      const dialog = screen.getByRole('dialog', {
+        name: `${label === 'receipt' ? 'Receipt' : 'Invoice'} Details`,
       });
       const iframe = screen.getByTitle(
         `${label === 'receipt' ? 'Receipt' : 'Invoice'} #ORD-001`
@@ -331,8 +364,39 @@ describe('ReceiptModal', () => {
       // and prevent them from reaching interactive content (e.g. mailto: /
       // tel: links inside an unpaid invoice) rendered inside the iframe
       // document.
+      expect(
+        fireEvent.keyDown(dialog, { cancelable: true, key: 'Tab' })
+      ).toBe(true);
+    }
+  );
+
+  it.each(modalVariants)(
+    'wraps focus back to the $label controls after tab leaves the iframe',
+    async ({ label, paymentStatus }) => {
+      const user = userEvent.setup();
+
+      render(
+        <ReceiptModal
+          isOpen
+          merchantData={merchant}
+          onClose={vi.fn()}
+          orderData={createOrder(paymentStatus)}
+        />
+      );
+
+      const iframe = screen.getByTitle(
+        `${label === 'receipt' ? 'Receipt' : 'Invoice'} #ORD-001`
+      );
+      const printButton = screen.getByRole('button', {
+        name: `Print ${label}`,
+      });
+
+      iframe.focus();
+      expect(iframe).toHaveFocus();
+
       await user.tab();
-      expect(printButton).not.toHaveFocus();
+
+      expect(printButton).toHaveFocus();
     }
   );
 

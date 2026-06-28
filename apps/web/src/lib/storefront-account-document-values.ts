@@ -62,6 +62,133 @@ export function buildCustomerAddress(
   };
 }
 
+function normalizeReceiptVariantDescriptor(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizeReceiptVariantDescriptor(value: string | null | undefined) {
+  const normalizedValue = normalizeReceiptVariantDescriptor(value || '');
+  return normalizedValue ? normalizedValue.split(' ') : [];
+}
+
+function includesReceiptVariantDescriptor(
+  value: string | null | undefined,
+  descriptor: string
+) {
+  const valueTokens = tokenizeReceiptVariantDescriptor(value);
+  const descriptorTokens = tokenizeReceiptVariantDescriptor(descriptor);
+
+  if (!valueTokens.length || !descriptorTokens.length) {
+    return false;
+  }
+
+  for (
+    let index = 0;
+    index <= valueTokens.length - descriptorTokens.length;
+    index += 1
+  ) {
+    if (
+      descriptorTokens.every(
+        (token, tokenIndex) => valueTokens[index + tokenIndex] === token
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isBracketedConditionSegment(segment: string, conditionLabel: string) {
+  const normalizedSegment = normalizeReceiptVariantDescriptor(segment);
+  const normalizedCondition = normalizeReceiptVariantDescriptor(conditionLabel);
+
+  if (!normalizedSegment || !normalizedCondition) {
+    return false;
+  }
+
+  if (normalizedSegment === normalizedCondition) {
+    return true;
+  }
+
+  if (normalizedCondition === 'used') {
+    return (
+      normalizedSegment === 'premium used' || normalizedSegment === 'uk used'
+    );
+  }
+
+  if (normalizedCondition === 'new') {
+    return normalizedSegment === 'brand new';
+  }
+
+  return false;
+}
+
+function getBracketedReceiptNameSegments(value: string | null | undefined) {
+  const segments: string[] = [];
+  const source = value || '';
+  let segmentStart = -1;
+  let closingBracket: ')' | ']' | null = null;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (!closingBracket && (character === '(' || character === '[')) {
+      segmentStart = index + 1;
+      closingBracket = character === '(' ? ')' : ']';
+      continue;
+    }
+
+    if (closingBracket && character === closingBracket) {
+      if (segmentStart >= 0 && segmentStart < index) {
+        segments.push(source.slice(segmentStart, index));
+      }
+
+      segmentStart = -1;
+      closingBracket = null;
+    }
+  }
+
+  return segments;
+}
+
+function itemNameHasBracketedConditionLabel(
+  value: string | null | undefined,
+  conditionLabel: string
+) {
+  for (const segment of getBracketedReceiptNameSegments(value)) {
+    if (isBracketedConditionSegment(segment, conditionLabel)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function buildReceiptVariantName(item: StorefrontAccountDocumentItemRow) {
+  const variantName = item.variant_name?.trim();
+  const conditionLabel = formatCanonicalProductConditionLabel(item.condition);
+
+  if (!conditionLabel) {
+    return variantName || undefined;
+  }
+
+  if (
+    itemNameHasBracketedConditionLabel(item.name, conditionLabel) ||
+    includesReceiptVariantDescriptor(variantName, conditionLabel)
+  ) {
+    return variantName || undefined;
+  }
+
+  return variantName ? `${variantName}, ${conditionLabel}` : conditionLabel;
+}
+
 export function buildOrderItems(
   itemRows: StorefrontAccountDocumentItemRow[]
 ): StorefrontOrderItem[] {
@@ -90,10 +217,7 @@ export function buildOrderItems(
       product_id: item.product_id || '',
       variant_id: item.variant_id || undefined,
       condition: item.condition || undefined,
-      variant_name:
-        item.variant_name ||
-        formatCanonicalProductConditionLabel(item.condition) ||
-        undefined,
+      variant_name: buildReceiptVariantName(item),
       name: item.name,
       product_name: item.name,
       quantity: item.quantity,
