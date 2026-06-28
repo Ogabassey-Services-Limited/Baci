@@ -239,21 +239,21 @@ export default function AnalyticsDetailScreen() {
     const isRetrying = isFetching;
 
     return (
-      <FeatureGateScreen
-        description="Metric drilldowns, comparisons, and sharing are available when Baci Pro is active."
-        feature="advanced_analytics"
-        title="Advanced analytics are a Baci Pro feature"
-      >
-        <>
-          <Stack.Screen
-            options={{
-              headerShown: true,
-              title: config.title,
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.text,
-              headerShadowVisible: false,
-            }}
-          />
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: config.title,
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+          }}
+        />
+        <FeatureGateScreen
+          description="Metric drilldowns, comparisons, and sharing are available when Baci Pro is active."
+          feature="advanced_analytics"
+          title="Advanced analytics are a Baci Pro feature"
+        >
           <SafeAreaView
             style={[styles.container, { backgroundColor: colors.background }]}
             edges={['bottom']}
@@ -314,44 +314,40 @@ export default function AnalyticsDetailScreen() {
               </Pressable>
             </View>
           </SafeAreaView>
-        </>
-      </FeatureGateScreen>
+        </FeatureGateScreen>
+      </>
     );
   }
 
   return (
-    <FeatureGateScreen
-      description="Metric drilldowns, comparisons, and sharing are available when Baci Pro is active."
-      feature="advanced_analytics"
-      title="Advanced analytics are a Baci Pro feature"
-    >
-      <>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            title: config.title,
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-            headerLeft: () => (
-              <Pressable
-                onPress={() => router.back()}
-                style={{ marginRight: SPACING.md }}
-              >
-                <Ionicons name="arrow-back" size={24} color={colors.text} />
-              </Pressable>
-            ),
-            headerRight: () => (
-              <Pressable
-                onPress={handleShare}
-                style={{ marginLeft: SPACING.md }}
-              >
-                <Ionicons name="share-outline" size={22} color={colors.text} />
-              </Pressable>
-            ),
-          }}
-        />
-
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: config.title,
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.back()}
+              style={{ marginRight: SPACING.md }}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </Pressable>
+          ),
+          headerRight: () => (
+            <Pressable onPress={handleShare} style={{ marginLeft: SPACING.md }}>
+              <Ionicons name="share-outline" size={22} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
+      <FeatureGateScreen
+        description="Metric drilldowns, comparisons, and sharing are available when Baci Pro is active."
+        feature="advanced_analytics"
+        title="Advanced analytics are a Baci Pro feature"
+      >
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
           edges={['bottom']}
@@ -639,8 +635,8 @@ export default function AnalyticsDetailScreen() {
             <View style={styles.bottomSpacer} />
           </ScrollView>
         </SafeAreaView>
-      </>
-    </FeatureGateScreen>
+      </FeatureGateScreen>
+    </>
   );
 }
 

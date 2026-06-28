@@ -26,6 +26,12 @@ import { createProductEditImageActions } from './createProductEditImageActions';
 import { createProductEditPersistenceActions } from './createProductEditPersistenceActions';
 import { createProductEditVariantActions } from './createProductEditVariantActions';
 
+type FulfillmentSourceItem = {
+  id?: string;
+  imei?: string;
+  serial_number?: string;
+};
+
 function createFulfillmentItemDraft(
   overrides: Partial<Omit<ProductFulfillmentItemDraft, 'id'>> = {}
 ): ProductFulfillmentItemDraft {
@@ -37,14 +43,7 @@ function createFulfillmentItemDraft(
 }
 
 function normalizeFulfillmentItems(
-  items:
-    | Array<{
-        id?: string;
-        imei?: string;
-        serial_number?: string;
-      }>
-    | null
-    | undefined,
+  items: FulfillmentSourceItem[] | null | undefined,
   fallbackCount = 0
 ): ProductFulfillmentItemDraft[] {
   const normalizedItems =
@@ -97,10 +96,6 @@ export function useProductEditController() {
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
   const updateStatusMutation = useUpdateProductStatus();
-  // Stable mutable flight lock held in state instead of useRef: it is passed
-  // to createProductEditPersistenceActions during render, and React Compiler
-  // forbids refs escaping into render-time calls. It is only read/written
-  // inside event handlers (runSingleFlight).
   const [saveInFlightLock] = useState(() => ({ current: false }));
 
   const { data: productNameSuggestions = [] } = useProductNameSuggestions({
@@ -121,9 +116,6 @@ export function useProductEditController() {
       typeof variant.condition === 'string' && variant.condition.trim() !== ''
   );
 
-  // Seed the form from the loaded product during render (guarded one-shot
-  // initialization) instead of inside an effect: avoids the extra committed
-  // frame of stale UI and the compiler's set-state-in-effect bailout.
   if (product && !isInitialized) {
     setFormData({
       brand: product.brand ?? product.brands?.name ?? '',
@@ -140,11 +132,7 @@ export function useProductEditController() {
               items: normalizeFulfillmentItems(
                 (
                   product.fulfillment_details as {
-                    items: Array<{
-                      id?: string;
-                      imei?: string;
-                      serial_number?: string;
-                    }>;
+                    items: FulfillmentSourceItem[];
                   }
                 ).items
               ),

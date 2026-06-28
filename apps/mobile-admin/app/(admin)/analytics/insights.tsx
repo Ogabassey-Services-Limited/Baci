@@ -210,21 +210,21 @@ export default function AnalyticsInsightsScreen() {
   };
 
   return (
-    <FeatureGateScreen
-      description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
-      feature="advanced_analytics"
-      title="Advanced analytics are a Baci Pro feature"
-    >
-      <>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            title: titles[kind] || 'Analytics',
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-          }}
-        />
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: titles[kind] || 'Analytics',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <FeatureGateScreen
+        description="Segmented breakdowns and deeper insights are available when Baci Pro is active."
+        feature="advanced_analytics"
+        title="Advanced analytics are a Baci Pro feature"
+      >
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
           edges={['bottom']}
@@ -236,7 +236,7 @@ export default function AnalyticsInsightsScreen() {
             <View style={styles.footerSpace} />
           </ScrollView>
         </SafeAreaView>
-      </>
-    </FeatureGateScreen>
+      </FeatureGateScreen>
+    </>
   );
 }
