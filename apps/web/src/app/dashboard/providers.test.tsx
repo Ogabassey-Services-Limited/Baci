@@ -79,6 +79,12 @@ vi.mock('@/contexts/product-context', () => ({
   ),
 }));
 
+vi.mock('@/components/dashboard/upgrade-modal', () => ({
+  UpgradeModalProvider: ({ children }: { children: React.ReactNode }) => (
+    <section aria-label="Upgrade Modal Provider">{children}</section>
+  ),
+}));
+
 vi.mock('./client-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="client-layout">{children}</div>
@@ -230,6 +236,18 @@ describe('DashboardProviders', () => {
     expect(
       screen.getByRole('region', { name: 'Product Provider' })
     ).toBeInTheDocument();
+  });
+
+  it('wraps the dashboard shell in UpgradeModalProvider', () => {
+    render(
+      <DashboardProviders>
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'Upgrade Modal Provider' })
+    ).toContainElement(screen.getByTestId('client-layout'));
   });
 
   it('disables storefront overlays inside the dashboard shell', () => {
