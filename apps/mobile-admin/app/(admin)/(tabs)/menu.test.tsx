@@ -143,4 +143,16 @@ describe('MenuScreen', () => {
 
     expect(mocks.push).toHaveBeenCalledWith('/(admin)/negotiations');
   });
+
+  it('navigates to inventory from the menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Inventory. Track and manage stock levels',
+      })
+    );
+
+    expect(mocks.push).toHaveBeenCalledWith('/(admin)/(tabs)/inventory');
+  });
 });

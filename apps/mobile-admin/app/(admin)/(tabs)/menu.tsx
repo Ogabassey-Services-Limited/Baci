@@ -174,6 +174,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/(admin)/negotiations'),
         },
         {
+          id: 'inventory',
+          icon: 'cube-outline',
+          label: 'Inventory',
+          description: 'Track and manage stock levels',
+          onPress: () => router.push('/(admin)/(tabs)/inventory'),
+        },
+        {
           id: 'staff',
           icon: 'people-outline',
           label: 'Staff',
