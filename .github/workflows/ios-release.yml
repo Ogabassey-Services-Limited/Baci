@@ -265,8 +265,11 @@ jobs:
             # against the fetched remote-tracking object. This avoids GitHub
             # Compare API file-list caps and avoids a race where an API SHA and a
             # later branch fetch point at different main commits.
-            BASIC_AUTH="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-            git -c "http.${GITHUB_SERVER_URL}/.extraheader=AUTHORIZATION: basic ${BASIC_AUTH}" \
+            # Use Git's credential helper instead of precomputing a Basic
+            # auth header. GitHub masks GITHUB_TOKEN itself in logs, but it does
+            # not automatically mask transformed values such as base64 output.
+            # shellcheck disable=SC2016 # Git invokes the helper later; keep env expansion out of this shell.
+            git -c credential.helper='!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f' \
               fetch --no-tags --prune --depth=1 origin "+refs/heads/main:refs/remotes/origin/main"
             FETCHED_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
             if [ -z "$FETCHED_MAIN_SHA" ]; then
@@ -341,7 +344,12 @@ jobs:
           SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           IOS_ADMIN_IDFA_METADATA_CONFIRMED: ${{ vars.IOS_ADMIN_IDFA_METADATA_CONFIRMED }}
-        run: bundle exec fastlane ios submit
+        run: |
+          if [ -z "${IOS_RELEASE_NOTES:-}" ]; then
+            echo "::error::IOS_RELEASE_NOTES was not resolved before App Store submission"
+            exit 1
+          fi
+          bundle exec fastlane ios submit
 
       - name: Clean up secrets
         if: always()
