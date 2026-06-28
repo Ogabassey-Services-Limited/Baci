@@ -134,9 +134,6 @@ export function MobileUpdateController() {
       // native variants that carry a storeUrl.
       if (prompt.kind !== 'ota-available' && prompt.storeUrl) {
         await Linking.openURL(prompt.storeUrl);
-      } else if (prompt.kind === 'native-required') {
-        setPrompt(null);
-        return;
       }
 
       if (prompt.kind === 'native-recommended') {
