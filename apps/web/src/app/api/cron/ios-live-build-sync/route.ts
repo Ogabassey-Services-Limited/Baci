@@ -3,15 +3,16 @@ import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { reconcileIosLiveBuild } from '@/lib/ios-live-build-reconcile';
 import { logger } from '@/lib/logger';
-import { readMobileUpdatesEnabled } from '@/lib/mobile-update-gate';
+import { MOBILE_APPS } from '@/schemas/mobile-release-policy';
 
 // Manual fallback only - DO NOT enable Vercel Cron for this route.
 // Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
 //
-// Daily SELF-HEAL backstop for the in-app update gate. The primary trigger is
-// the App Store Connect webhook (/api/mobile/appstore-webhook), which fires the
-// instant a version goes live. This cron only exists to recover if a webhook
-// delivery is ever missed, so it runs once a day rather than polling.
+// Daily SELF-HEAL backstop for the in-app update gate, across every app. The
+// primary trigger is the per-app App Store Connect webhook
+// (/api/mobile/appstore-webhook), which fires the instant a version goes live.
+// This cron only exists to recover if a webhook delivery is ever missed, so it
+// runs once a day rather than polling.
 
 export const maxDuration = 60;
 
@@ -30,36 +31,48 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!readMobileUpdatesEnabled()) {
-    return NextResponse.json({ skipped: 'updates_disabled' });
+  const results: Record<string, unknown>[] = [];
+  let errored = 0;
+
+  for (const app of MOBILE_APPS) {
+    try {
+      const result = await reconcileIosLiveBuild(app, 'app_store_connect_cron');
+      if (!result.synced) {
+        results.push({ app, skipped: result.skipped });
+        continue;
+      }
+
+      logger.info({
+        message: 'Synced iOS live build to update gate (cron backstop)',
+        app,
+        build: result.build,
+        versionString: result.versionString,
+      });
+      results.push({
+        app,
+        synced: true,
+        build: result.build,
+        versionString: result.versionString,
+      });
+    } catch (error) {
+      errored += 1;
+      logger.error({
+        message: 'ios-live-build-sync failed',
+        app,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      results.push({ app, error: 'sync_failed' });
+    }
   }
 
-  try {
-    const result = await reconcileIosLiveBuild('app_store_connect_cron');
-    if (!result.synced) {
-      return NextResponse.json({ skipped: result.skipped });
-    }
-
-    logger.info({
-      message: 'Synced iOS live build to update gate (cron backstop)',
-      build: result.build,
-      versionString: result.versionString,
-    });
-
-    return NextResponse.json({
-      synced: true,
-      platform: 'ios',
-      build: result.build,
-      versionString: result.versionString,
-    });
-  } catch (error) {
-    logger.error({
-      message: 'ios-live-build-sync failed',
-      error: error instanceof Error ? error.message : String(error),
-    });
+  // Any app failure means that app's gate may stay stale. Keep per-app
+  // successes in the response, but return non-2xx so cron monitoring alerts.
+  if (errored > 0) {
     return NextResponse.json(
-      { error: 'App Store Connect sync failed' },
+      { error: 'One or more iOS live-build syncs failed', results },
       { status: 502 }
     );
   }
+
+  return NextResponse.json({ results });
 }

@@ -105,10 +105,7 @@ describe('AdminLayout', () => {
 
     await waitFor(() => {
       expect(mocks.push.registerPush).toHaveBeenCalledTimes(1);
-      expect(mocks.push.registerPush).toHaveBeenCalledWith(
-        'user-1',
-        'merchant-1'
-      );
+      expect(mocks.push.registerPush).toHaveBeenCalledWith('merchant-1');
     });
   });
 
@@ -140,10 +137,7 @@ describe('AdminLayout', () => {
     });
 
     expect(mocks.push.registerPush).toHaveBeenCalledTimes(1);
-    expect(mocks.push.registerPush).toHaveBeenCalledWith(
-      'user-1',
-      'merchant-1'
-    );
+    expect(mocks.push.registerPush).toHaveBeenCalledWith('merchant-1');
 
     consoleErrorSpy.mockRestore();
   });

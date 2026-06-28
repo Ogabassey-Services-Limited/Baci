@@ -3,6 +3,7 @@ import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
 import {
   parseBuildNumber,
   readMobilePlatformEnv,
+  readMobileUpdateMessage,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
 import { createClient } from '@/lib/supabase/server';
@@ -80,27 +81,30 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!readMobileUpdatesEnabled()) {
+  const { app, buildNumber, nativeVersion, platform } = parsedQuery.data;
+
+  if (!readMobileUpdatesEnabled(app)) {
     return disabledResponse();
   }
 
-  const { buildNumber, nativeVersion, platform } = parsedQuery.data;
-  const minNativeVersion = readMobilePlatformEnv(platform, 'MIN_VERSION');
-  const latestNativeVersion = readMobilePlatformEnv(platform, 'LATEST_VERSION');
-  const minNativeBuild = parseBuildNumber(
-    readMobilePlatformEnv(platform, 'MIN_BUILD')
+  const minNativeVersion = readMobilePlatformEnv(app, platform, 'MIN_VERSION');
+  const latestNativeVersion = readMobilePlatformEnv(
+    app,
+    platform,
+    'LATEST_VERSION'
   );
-  // DB-first (the App Store's actual live build, kept current by the
-  // ios-live-build-sync cron), falling back to the LATEST_BUILD env var. The
-  // table has an explicit public RLS read policy, so this public route must use
-  // the request-scoped server client instead of a service-role fallback.
+  const minNativeBuild = parseBuildNumber(
+    readMobilePlatformEnv(app, platform, 'MIN_BUILD')
+  );
+  // DB-first (the store's actual live build, kept current by the live-build
+  // reconciler), falling back to the LATEST_BUILD env var. The table has an
+  // explicit public RLS read policy, so this public route must use the
+  // request-scoped server client instead of a service-role fallback.
   const supabase = await createClient();
-  const latestNativeBuild = await readLatestLiveBuild(platform, supabase);
+  const latestNativeBuild = await readLatestLiveBuild(app, platform, supabase);
   const installedBuild = parseBuildNumber(buildNumber);
-  const storeUrl = readMobilePlatformEnv(platform, 'STORE_URL');
-  const message =
-    process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() ||
-    'A newer version of Ogabassey is available.';
+  const storeUrl = readMobilePlatformEnv(app, platform, 'STORE_URL');
+  const message = readMobileUpdateMessage(app);
 
   // REQUIRED is an operator-forced floor: either the marketing version below
   // MIN_VERSION or the build below MIN_BUILD. Both are deliberately set by an

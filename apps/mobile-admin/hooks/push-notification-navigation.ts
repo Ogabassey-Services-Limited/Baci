@@ -1,5 +1,7 @@
+import type { NotificationResponse } from 'expo-notifications';
 import type { Href } from 'expo-router';
-import type { getNotificationNavigationParams } from '@/services/push-notifications';
+import { requestMobileUpdateCheck } from '@/components/updates/mobile-update-events';
+import { getNotificationNavigationParams } from '@/services/push-notifications';
 
 interface AdminRouter {
   push: (href: Href) => void;
@@ -66,4 +68,42 @@ export function navigateToNotificationTarget(
     default:
       router.push('/(admin)/(tabs)');
   }
+}
+
+function isPlainNotificationData(
+  value: unknown
+): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/**
+ * Handle a tapped notification: trigger an in-app update check for
+ * `mobile_update_available` nudges (without navigating), otherwise route to the
+ * notification's navigation target.
+ */
+export function handleNotificationTap(
+  router: AdminRouter,
+  response: NotificationResponse,
+  requestUpdateCheck: (
+    reason: 'push-notification'
+  ) => void = requestMobileUpdateCheck
+) {
+  const data = response.notification.request.content.data;
+  if (!isPlainNotificationData(data)) {
+    return;
+  }
+
+  if (data.type === 'mobile_update_available') {
+    requestUpdateCheck('push-notification');
+    return;
+  }
+
+  navigateToNotificationTarget(
+    router,
+    getNotificationNavigationParams(response)
+  );
 }

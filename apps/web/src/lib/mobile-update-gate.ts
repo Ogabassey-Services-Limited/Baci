@@ -1,10 +1,16 @@
-import type { MobileReleasePolicyPlatform } from '@/schemas/mobile-release-policy';
+import type {
+  MobileApp,
+  MobileReleasePolicyPlatform,
+} from '@/schemas/mobile-release-policy';
 
 /**
- * Shared readers for the storefront in-app update gate env vars, used by both
- * the release-policy route (per-request gating) and the update-nudge cron
- * (server-initiated push). Keeping them here avoids drift in the env-var naming
- * and the build-number parsing across the two call sites.
+ * Shared readers for the in-app update gate env vars, used by the release-policy
+ * route (per-request gating), the update-nudge cron (server-initiated push) and
+ * the live-build reconciler. Keeping them here avoids drift in the env-var
+ * naming and the build-number parsing across call sites.
+ *
+ * Env vars are namespaced per app: `MOBILE_<APP>_<PLATFORM>_<KEY>` (e.g.
+ * `MOBILE_STOREFRONT_IOS_LATEST_BUILD`, `MOBILE_ADMIN_ANDROID_STORE_URL`).
  */
 
 export type MobileUpdatePlatformKey =
@@ -14,22 +20,35 @@ export type MobileUpdatePlatformKey =
   | 'LATEST_BUILD'
   | 'MIN_BUILD';
 
-/** Whether the storefront update gate is enabled at all. */
-export function readMobileUpdatesEnabled(): boolean {
-  const value =
-    process.env.MOBILE_STOREFRONT_UPDATES_ENABLED?.trim().toLowerCase();
+/** Whether the update gate is enabled for an app at all. */
+export function readMobileUpdatesEnabled(app: MobileApp): boolean {
+  const value = process.env[`MOBILE_${app.toUpperCase()}_UPDATES_ENABLED`]
+    ?.trim()
+    .toLowerCase();
   return value === 'true' || value === '1' || value === 'yes';
 }
 
-/** Read a `MOBILE_STOREFRONT_<PLATFORM>_<KEY>` env var (trimmed) or null. */
+/** Read a `MOBILE_<APP>_<PLATFORM>_<KEY>` env var (trimmed) or null. */
 export function readMobilePlatformEnv(
+  app: MobileApp,
   platform: MobileReleasePolicyPlatform,
   key: MobileUpdatePlatformKey
 ): string | null {
   return (
-    process.env[`MOBILE_STOREFRONT_${platform.toUpperCase()}_${key}`]?.trim() ||
-    null
+    process.env[
+      `MOBILE_${app.toUpperCase()}_${platform.toUpperCase()}_${key}`
+    ]?.trim() || null
   );
+}
+
+/** Operator-controlled prompt copy for an app, or a sensible default. */
+export function readMobileUpdateMessage(app: MobileApp): string {
+  const configured =
+    process.env[`MOBILE_${app.toUpperCase()}_UPDATE_MESSAGE`]?.trim();
+  if (configured) return configured;
+  return app === 'admin'
+    ? 'A newer version of the Baci admin app is available.'
+    : 'A newer version of Ogabassey is available.';
 }
 
 /**

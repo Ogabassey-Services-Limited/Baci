@@ -11,8 +11,8 @@
  */
 
 import { getAdminNotificationNavigationTarget } from '@baci/shared';
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
-import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
 import {
   getRuntimePlatform,
@@ -20,47 +20,30 @@ import {
 } from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
 import { setupAndroidChannels } from './push-notification-channels';
+import {
+  getLoadedPushDeviceModule,
+  getPushNotificationRuntime,
+  getPushNotificationsModule,
+} from './push-notification-native-modules';
 
-// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Device: typeof DeviceType | null = null;
-let Notifications: typeof NotificationsType | null = null;
-
-const loadNativeModules = async () => {
-  if (isRuntimePlatform('web')) return;
-  try {
-    const dev = await import('expo-device');
-    Device = dev;
-
-    if (!Device?.isDevice) {
-      if (__DEV__) {
-        console.log('[Push] Native notifications skipped on simulator');
-      }
-      return;
-    }
-
-    const notif = await import('expo-notifications');
-    Notifications = notif;
-
-    // Configure notification behavior after successful load
-    if (Notifications) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-    }
-  } catch (e) {
-    console.debug('[Push] Native modules ignored or failed to load:', e);
-  }
-};
-
-loadNativeModules();
-
-// Note: Notification handler is configured inside loadNativeModules() above
+/**
+ * Parse the installed native build number (Android `versionCode`, iOS
+ * `CFBundleVersion`) into a non-negative integer for update-nudge targeting,
+ * or `null` when unavailable/malformed.
+ *
+ * Uses strict `Number(...)` (not `parseInt`) to mirror the server-side gate's
+ * parser, so a partially numeric build like `646-beta` or a dotted `646.1` is
+ * rejected as malformed rather than truncated to `646`.
+ */
+export function resolveNativeBuildNumber(
+  value: string | null = Application.nativeBuildVersion
+): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
 
 export interface PushNotificationState {
   token: string | null;
@@ -72,7 +55,7 @@ export interface PushNotificationState {
  * Request push notification permissions
  */
 export async function requestPermissions(): Promise<NotificationsType.PermissionStatus> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications)
     return 'undetermined' as NotificationsType.PermissionStatus;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -90,10 +73,7 @@ export async function requestPermissions(): Promise<NotificationsType.Permission
  * Returns null if registration fails or device doesn't support push
  */
 export async function registerForPushNotifications(): Promise<string | null> {
-  // Native modules must be loaded before we can register
-  if (!Device || !Notifications) {
-    await loadNativeModules();
-  }
+  const { Device, Notifications } = await getPushNotificationRuntime();
 
   if (!Notifications) {
     console.warn('[Push] Notifications module not available');
@@ -146,30 +126,29 @@ export async function registerForPushNotifications(): Promise<string | null> {
 }
 
 /**
- * Save push token to Supabase for the current merchant
- * Uses upsert to handle token refresh (same token = update last_used_at)
+ * Save push token to Supabase for the current merchant.
+ *
+ * Registers via the SECURITY DEFINER RPC `register_push_token` instead of a raw
+ * upsert. Expo push tokens are device-unique, so when a different account signs
+ * in on the same device the upsert's UPDATE branch (on conflict: token) hits a
+ * row still owned by the previous user_id and is blocked by RLS (42501). The RPC
+ * derives ownership from the authenticated Supabase session, re-claims the token
+ * atomically, and records the native build number used by the release-policy
+ * update gate.
  */
 export async function savePushTokenToServer(
   token: string,
-  userId: string,
   merchantId: string
 ): Promise<boolean> {
   try {
-    const { error } = await supabase.from('push_tokens').upsert(
-      {
-        user_id: userId,
-        merchant_id: merchantId,
-        token: token,
-        platform: getRuntimePlatform(),
-        device_name: Device?.modelName || 'Unknown Device',
-        app_type: 'admin',
-        is_active: true,
-        last_used_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'token',
-      }
-    );
+    const { error } = await supabase.rpc('register_push_token', {
+      p_token: token,
+      p_merchant_id: merchantId,
+      p_platform: getRuntimePlatform(),
+      p_device_name: getLoadedPushDeviceModule()?.modelName || 'Unknown Device',
+      p_app_type: 'admin',
+      p_build_number: resolveNativeBuildNumber(),
+    });
 
     if (error) {
       console.error('[Push] Failed to save push token:', error);
@@ -237,7 +216,7 @@ export async function scheduleLocalNotification(
   data?: Record<string, unknown>,
   triggerSeconds: number = 1
 ): Promise<string> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) throw new Error('Notifications module not available');
 
   const id = await Notifications.scheduleNotificationAsync({
@@ -261,7 +240,7 @@ export async function scheduleLocalNotification(
  * Get the current badge count
  */
 export async function getBadgeCount(): Promise<number> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return 0;
   return await Notifications.getBadgeCountAsync();
 }
@@ -270,7 +249,7 @@ export async function getBadgeCount(): Promise<number> {
  * Set the badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return;
   await Notifications.setBadgeCountAsync(count);
 }
@@ -279,7 +258,7 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Clear the badge
  */
 export async function clearBadge(): Promise<void> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return;
   await Notifications.setBadgeCountAsync(0);
 }
@@ -288,7 +267,7 @@ export async function clearBadge(): Promise<void> {
  * Cancel all pending notifications
  */
 export async function cancelAllNotifications(): Promise<void> {
-  if (!Notifications) await loadNativeModules();
+  const Notifications = await getPushNotificationsModule();
   if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }

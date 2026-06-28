@@ -249,6 +249,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Upload to Google Play (full production rollout)
+        id: play_upload
         if: success() && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.upload_guard.outputs.allow_upload == 'true')
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
@@ -260,6 +261,26 @@ jobs:
           # Keep automatic releases in the normal Play review flow. Manual
           # recovery dispatches can set this after Play rejects automatic review.
           changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
+
+      - name: Reconcile Android live-build update gate
+        if: success() && steps.play_upload.outcome == 'success'
+        shell: bash
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ANDROID_LIVE_BUILD_SYNC_URL: https://usebaci.com/api/cron/android-live-build-sync?app=admin
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is missing; skipping non-fatal Android live-build gate reconciliation"
+            exit 0
+          fi
+
+          if ! curl --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 \
+            --connect-timeout 10 \
+            --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$ANDROID_LIVE_BUILD_SYNC_URL"; then
+            echo "::warning::Android live-build gate reconciliation failed after Play upload; release remains published"
+          fi
 
       - name: Clean up keystore
         if: always()

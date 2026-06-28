@@ -12,7 +12,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({ from: vi.fn() }),
 }));
 
-vi.mock('@/lib/expo-push', () => ({
+vi.mock('@/lib/mobile-update-nudge', () => ({
   notifyStorefrontUpdateAvailable: (...args: unknown[]) => mockNotify(...args),
 }));
 
@@ -25,9 +25,10 @@ vi.mock('@/lib/mobile-release-gate-store', async () => {
   >('@/lib/mobile-update-gate');
   return {
     readLatestLiveBuild: async (
+      app: 'storefront' | 'admin',
       platform: 'android' | 'ios',
       _client: unknown
-    ) => parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
+    ) => parseBuildNumber(readMobilePlatformEnv(app, platform, 'LATEST_BUILD')),
   };
 });
 
@@ -46,6 +47,8 @@ describe('GET /api/cron/storefront-update-nudge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('CRON_SECRET', SECRET);
+    // Keep admin out of the loop unless a test opts it in.
+    vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'false');
     // Default: a clean successful send (1 delivered, throttle stamped).
     mockNotify.mockResolvedValue({
       platform: 'android',
@@ -58,7 +61,7 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     });
   });
 
-  // Both platforms fully configured (latest build + store URL).
+  // Both storefront platforms fully configured (latest build + store URL).
   function stubBothPlatforms() {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
     vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_BUILD', '646');
@@ -91,15 +94,24 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     expect(mockNotify).not.toHaveBeenCalled();
   });
 
-  it('skips entirely when updates are disabled', async () => {
+  it('skips every platform when updates are disabled', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'false');
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ skipped: 'updates_disabled', results: [] });
     expect(mockNotify).not.toHaveBeenCalled();
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      platform: 'android',
+      skipped: 'updates_disabled',
+    });
+    expect(body.results).toContainEqual({
+      app: 'storefront',
+      platform: 'ios',
+      skipped: 'updates_disabled',
+    });
   });
 
   it('skips a platform with no configured latest build', async () => {
@@ -118,6 +130,7 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     expect(mockNotify).toHaveBeenCalledTimes(1);
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({
+        appType: 'storefront',
         platform: 'android',
         latestBuild: 646,
         storeUrl:
@@ -125,6 +138,7 @@ describe('GET /api/cron/storefront-update-nudge', () => {
       })
     );
     expect(body.results).toContainEqual({
+      app: 'storefront',
       platform: 'ios',
       skipped: 'no_latest_build',
     });
@@ -141,6 +155,7 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     expect(response.status).toBe(200);
     expect(mockNotify).not.toHaveBeenCalled();
     expect(body.results).toContainEqual({
+      app: 'storefront',
       platform: 'android',
       skipped: 'no_store_url',
     });
@@ -154,10 +169,38 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     expect(response.status).toBe(200);
     expect(mockNotify).toHaveBeenCalledTimes(2);
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ platform: 'android', latestBuild: 646 })
+      expect.objectContaining({
+        appType: 'storefront',
+        platform: 'android',
+        latestBuild: 646,
+      })
     );
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ platform: 'ios', latestBuild: 390 })
+      expect.objectContaining({
+        appType: 'storefront',
+        platform: 'ios',
+        latestBuild: 390,
+      })
+    );
+  });
+
+  it('nudges the admin app installs with appType admin', async () => {
+    vi.stubEnv('MOBILE_ADMIN_UPDATES_ENABLED', 'true');
+    vi.stubEnv('MOBILE_ADMIN_ANDROID_LATEST_BUILD', '120');
+    vi.stubEnv(
+      'MOBILE_ADMIN_ANDROID_STORE_URL',
+      'https://play.google.com/store/apps/details?id=com.ogabassey.baci'
+    );
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+
+    expect(response.status).toBe(200);
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appType: 'admin',
+        platform: 'android',
+        latestBuild: 120,
+      })
     );
   });
 
@@ -169,10 +212,9 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe(
-      'One or more storefront update nudges degraded or failed'
-    );
+    expect(body.error).toBe('One or more update nudges degraded or failed');
     expect(body.results).toContainEqual({
+      app: 'storefront',
       platform: 'android',
       skipped: 'error',
     });
@@ -194,8 +236,17 @@ describe('GET /api/cron/storefront-update-nudge', () => {
     });
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
 
     expect(response.status).toBe(500);
+    expect(body.results).toContainEqual(
+      expect.objectContaining({
+        app: 'storefront',
+        platform: 'android',
+        sent: 0,
+        failed: 5,
+      })
+    );
   });
 
   it('returns 500 when the throttle stamp failed', async () => {

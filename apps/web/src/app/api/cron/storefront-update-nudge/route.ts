@@ -1,24 +1,27 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
-import {
-  notifyStorefrontUpdateAvailable,
-  type StorefrontUpdateNudgeResult,
-} from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
 import {
   readMobilePlatformEnv,
+  readMobileUpdateMessage,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
+import {
+  notifyStorefrontUpdateAvailable,
+  type StorefrontUpdateNudgeResult,
+} from '@/lib/mobile-update-nudge';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { MOBILE_APPS } from '@/schemas/mobile-release-policy';
 
 // Manual fallback only - DO NOT enable Vercel Cron for this route.
 // Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
 //
-// Sends the "update available" push to storefront installs on an older build
-// than MOBILE_STOREFRONT_<PLATFORM>_LATEST_BUILD. Each device is throttled
-// server-side (last_update_push_at), so running this daily is safe and idempotent.
+// Sends the "update available" push to installs (storefront AND admin) on an
+// older build than MOBILE_<APP>_<PLATFORM>_LATEST_BUILD (DB-backed live build,
+// env fallback). Each device is throttled server-side (last_update_push_at), so
+// running this daily is safe and idempotent.
 
 // A real backlog can send up to the per-platform cap (5k tokens) of chunked
 // Expo + DB calls, so allow well beyond the default function duration to avoid
@@ -27,9 +30,15 @@ export const maxDuration = 300;
 
 const PLATFORMS = ['android', 'ios'] as const;
 
-type PlatformOutcome =
-  | StorefrontUpdateNudgeResult
-  | { platform: (typeof PLATFORMS)[number]; skipped: string };
+type Outcome =
+  | (StorefrontUpdateNudgeResult & {
+      app: (typeof MOBILE_APPS)[number];
+    })
+  | {
+      app: (typeof MOBILE_APPS)[number];
+      platform: (typeof PLATFORMS)[number];
+      skipped: string;
+    };
 
 export async function GET(request: NextRequest) {
   // Auth: fail-closed when CRON_SECRET is not configured.
@@ -46,79 +55,86 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!readMobileUpdatesEnabled()) {
-    return NextResponse.json({ skipped: 'updates_disabled', results: [] });
-  }
-
-  // Optional operator-controlled copy; falls back to the send fn's default.
-  const body =
-    process.env.MOBILE_STOREFRONT_UPDATE_MESSAGE?.trim() || undefined;
-
-  const results: PlatformOutcome[] = [];
+  const results: Outcome[] = [];
   let errored = 0;
   const supabase = createAdminClient();
 
-  for (const platform of PLATFORMS) {
-    const latestBuild = await readLatestLiveBuild(platform, supabase);
-    if (latestBuild === null) {
-      results.push({ platform, skipped: 'no_latest_build' });
+  for (const app of MOBILE_APPS) {
+    if (!readMobileUpdatesEnabled(app)) {
+      for (const platform of PLATFORMS) {
+        results.push({ app, platform, skipped: 'updates_disabled' });
+      }
       continue;
     }
 
-    // Without a store URL the prompt's "Open store" action is a dead end (the
-    // release-policy gate returns a null storeUrl), so don't nudge users we
-    // can't route to the store.
-    const storeUrl = readMobilePlatformEnv(platform, 'STORE_URL');
-    if (!storeUrl) {
-      results.push({ platform, skipped: 'no_store_url' });
-      continue;
-    }
+    // Optional operator-controlled copy; falls back to the send fn's default.
+    const body = readMobileUpdateMessage(app);
 
-    try {
-      const result = await notifyStorefrontUpdateAvailable({
-        platform,
-        latestBuild,
-        storeUrl,
-        body,
-      });
-      results.push(result);
+    for (const platform of PLATFORMS) {
+      const latestBuild = await readLatestLiveBuild(app, platform, supabase);
+      if (latestBuild === null) {
+        results.push({ app, platform, skipped: 'no_latest_build' });
+        continue;
+      }
 
-      // notifyStorefrontUpdateAvailable resolves (doesn't throw) for Expo/DB
-      // failures — a select error or a total send failure comes back as a
-      // delivered-nothing result, and a throttle-stamp write failure leaves
-      // devices un-throttled. Both must alert, not just thrown errors.
-      const deliveredNothing =
-        result.sent === 0 && (result.failed > 0 || result.errors.length > 0);
-      if (deliveredNothing || result.stampFailed) {
+      // Without a store URL the prompt's "Open store" action is a dead end (the
+      // release-policy gate returns a null storeUrl), so don't nudge users we
+      // can't route to the store.
+      const storeUrl = readMobilePlatformEnv(app, platform, 'STORE_URL');
+      if (!storeUrl) {
+        results.push({ app, platform, skipped: 'no_store_url' });
+        continue;
+      }
+
+      try {
+        const result = await notifyStorefrontUpdateAvailable({
+          appType: app,
+          platform,
+          latestBuild,
+          storeUrl,
+          body,
+        });
+        results.push({ app, ...result });
+
+        // notifyStorefrontUpdateAvailable resolves (doesn't throw) for Expo/DB
+        // failures — a select error or a total send failure comes back as a
+        // delivered-nothing result, and a throttle-stamp write failure leaves
+        // devices un-throttled. Both must alert, not just thrown errors.
+        const deliveredNothing =
+          result.sent === 0 && (result.failed > 0 || result.errors.length > 0);
+        if (deliveredNothing || result.stampFailed) {
+          errored += 1;
+          logger.error({
+            message: 'Update nudge degraded',
+            app,
+            platform,
+            sent: result.sent,
+            failed: result.failed,
+            stampFailed: result.stampFailed,
+            errors: result.errors,
+          });
+        }
+      } catch (error) {
         errored += 1;
         logger.error({
-          message: 'Storefront update nudge degraded',
+          message: 'Update nudge failed',
+          app,
           platform,
-          sent: result.sent,
-          failed: result.failed,
-          stampFailed: result.stampFailed,
-          errors: result.errors,
+          error,
         });
+        results.push({ app, platform, skipped: 'error' });
       }
-    } catch (error) {
-      errored += 1;
-      logger.error({
-        message: 'Storefront update nudge failed',
-        platform,
-        error,
-      });
-      results.push({ platform, skipped: 'error' });
     }
   }
 
-  // Any platform that threw OR returned a degraded result (delivered nothing /
-  // failed to write the throttle) is a real failure — return non-2xx so
-  // run-web-cron.mjs exits non-zero and the schedule alerts. Healthy platforms'
-  // sends already persisted, so surfacing the failure doesn't undo that work.
+  // Any (app, platform) that threw OR returned a degraded result (delivered
+  // nothing / failed to write the throttle) is a real failure — return non-2xx
+  // so run-web-cron.mjs exits non-zero and the schedule alerts. Healthy sends
+  // already persisted, so surfacing the failure doesn't undo that work.
   if (errored > 0) {
     return NextResponse.json(
       {
-        error: 'One or more storefront update nudges degraded or failed',
+        error: 'One or more update nudges degraded or failed',
         results,
       },
       { status: 500 }

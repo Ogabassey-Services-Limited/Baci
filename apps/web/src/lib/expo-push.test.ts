@@ -74,7 +74,7 @@ let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
 let notifyNewReview: typeof import('./expo-push').notifyNewReview;
-let notifyStorefrontUpdateAvailable: typeof import('./expo-push').notifyStorefrontUpdateAvailable;
+let notifyStorefrontUpdateAvailable: typeof import('./mobile-update-nudge').notifyStorefrontUpdateAvailable;
 beforeEach(async () => {
   vi.clearAllMocks();
 
@@ -88,7 +88,8 @@ beforeEach(async () => {
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
   notifyNewReview = mod.notifyNewReview;
-  notifyStorefrontUpdateAvailable = mod.notifyStorefrontUpdateAvailable;
+  notifyStorefrontUpdateAvailable = (await import('./mobile-update-nudge'))
+    .notifyStorefrontUpdateAvailable;
 });
 
 afterEach(() => {
@@ -810,5 +811,36 @@ describe('notifyStorefrontUpdateAvailable', () => {
     // Delivered, but throttle not written → caller must alert/retry.
     expect(result.sent).toBe(1);
     expect(result.stampFailed).toBe(true);
+  });
+
+  it('filters by app_type admin when appType is admin', async () => {
+    const selectChain = createChainableMock([
+      { id: 'id1', token: 'ExponentPushToken[a]' },
+    ]);
+    const ticketInsertChain = createChainableMock();
+    const stampChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain)
+        .mockReturnValueOnce(ticketInsertChain)
+        .mockReturnValueOnce(stampChain)
+        .mockReturnValueOnce(attemptInsertChain),
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 't1' },
+    ]);
+
+    const result = await notifyStorefrontUpdateAvailable({
+      appType: 'admin',
+      platform: 'ios',
+      latestBuild: 22,
+    });
+
+    expect(selectChain.eq).toHaveBeenCalledWith('app_type', 'admin');
+    expect(result).toMatchObject({ platform: 'ios', sent: 1 });
   });
 });

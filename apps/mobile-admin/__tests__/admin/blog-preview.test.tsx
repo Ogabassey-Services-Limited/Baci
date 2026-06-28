@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -133,6 +134,16 @@ vi.mock('@/lib/supabase', () => ({
 
 import BlogPreviewScreen from '@/app/(admin)/blog/preview';
 
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+}
+
 function setupPreviewFetch() {
   const single = vi.fn().mockResolvedValue({
     data: {
@@ -169,8 +180,14 @@ describe('BlogPreviewScreen', () => {
   it('renders a merchant-scoped mobile article preview with the featured image', async () => {
     const { eqId, eqMerchant, select } = setupPreviewFetch();
 
+    const queryClient = createTestQueryClient();
+
     act(() => {
-      render(<BlogPreviewScreen />);
+      render(
+        <QueryClientProvider client={queryClient}>
+          <BlogPreviewScreen />
+        </QueryClientProvider>
+      );
     });
 
     await waitFor(() => {

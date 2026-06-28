@@ -283,6 +283,9 @@ importers:
       expo-apple-authentication:
         specifier: ~56.0.4
         version: 56.0.4(expo@56.0.12)(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      expo-application:
+        specifier: ~56.0.3
+        version: 56.0.3(expo@56.0.12)
       expo-auth-session:
         specifier: ~56.0.14
         version: 56.0.14(expo@56.0.12)(react-native@0.85.3(patch_hash=179de07dbcfa833d88e7af27cd1afed000eb28405eb7825171b42b183eeeb8a7)(@babel/core@7.29.6)(@react-native/jest-preset@0.85.3(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.85.3(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)

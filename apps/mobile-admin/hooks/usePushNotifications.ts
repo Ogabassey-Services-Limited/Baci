@@ -46,13 +46,11 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   clearBadge,
-  getNotificationNavigationParams,
   registerForPushNotifications,
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
-import { navigateToNotificationTarget } from './push-notification-navigation';
-import { useAuth } from './useAuth';
+import { handleNotificationTap } from './push-notification-navigation';
 import { useMerchant } from './useMerchant';
 
 const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
@@ -63,7 +61,6 @@ const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
  * so callers can treat completion as "registration attempt finished".
  */
 async function performPushRegistration(
-  userId: string,
   merchantId: string,
   onRegistered: (pushToken: string) => void
 ): Promise<void> {
@@ -78,8 +75,9 @@ async function performPushRegistration(
       return;
     }
 
-    // Save to server
-    const saved = await savePushTokenToServer(pushToken, userId, merchantId);
+    // Save to server. The RPC derives user ownership from the current
+    // authenticated Supabase session; callers only provide merchant scope.
+    const saved = await savePushTokenToServer(pushToken, merchantId);
 
     if (saved) {
       // Store locally for logout cleanup
@@ -98,7 +96,7 @@ interface UsePushNotificationsResult {
   token: string | null;
   isRegistered: boolean;
   isLoading: boolean;
-  registerPush: (userId?: string, merchantId?: string) => Promise<void>;
+  registerPush: (merchantId?: string) => Promise<void>;
   unregisterPush: () => Promise<void>;
 }
 
@@ -108,7 +106,6 @@ export function usePushNotifications(): UsePushNotificationsResult {
   const [isLoading, setIsLoading] = useState(false);
 
   const { merchant } = useMerchant();
-  const { user } = useAuth();
   const router = useRouter();
 
   // Refs for notification listeners
@@ -117,17 +114,16 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
   /**
    * Register for push notifications.
-   * Accepts explicit userId/merchantId so the caller's values are used
-   * instead of relying on closure state which may be stale due to
-   * React Compiler memoization.
+   * Accepts an explicit merchantId so layout code can pass the merchant that
+   * triggered registration; user ownership is derived by the server RPC from
+   * the current authenticated Supabase session.
    */
-  async function registerPush(userId?: string, merchantId?: string) {
-    const resolvedUserId = userId ?? user?.id;
+  async function registerPush(merchantId?: string) {
     const resolvedMerchantId = merchantId ?? merchant?.id;
 
-    if (!resolvedUserId || !resolvedMerchantId) {
+    if (!resolvedMerchantId) {
       if (__DEV__) {
-        console.log('[Push] Cannot register: missing user or merchant');
+        console.log('[Push] Cannot register: missing merchant');
       }
       return;
     }
@@ -135,14 +131,10 @@ export function usePushNotifications(): UsePushNotificationsResult {
     setIsLoading(true);
 
     // performPushRegistration never rejects, so loading always resets.
-    await performPushRegistration(
-      resolvedUserId,
-      resolvedMerchantId,
-      (pushToken) => {
-        setToken(pushToken);
-        setIsRegistered(true);
-      }
-    );
+    await performPushRegistration(resolvedMerchantId, (pushToken) => {
+      setToken(pushToken);
+      setIsRegistered(true);
+    });
 
     setIsLoading(false);
   }
@@ -205,10 +197,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
             // Clear badge on interaction
             void clearBadge();
-            navigateToNotificationTarget(
-              router,
-              getNotificationNavigationParams(response)
-            );
+            handleNotificationTap(router, response);
           }
         );
 
@@ -220,10 +209,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
           }
 
           void clearBadge();
-          navigateToNotificationTarget(
-            router,
-            getNotificationNavigationParams(response)
-          );
+          handleNotificationTap(router, response);
         })
         .catch((error) => {
           if (__DEV__) {

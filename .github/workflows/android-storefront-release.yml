@@ -289,6 +289,26 @@ jobs:
             echo "::warning::Vercel env sync failed (HTTP ${HTTP_CODE}): $(cat /tmp/vercel_env.json)"
           fi
 
+      - name: Reconcile storefront Android live-build update gate
+        if: success() && steps.play_upload.outcome == 'success'
+        shell: bash
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ANDROID_LIVE_BUILD_SYNC_URL: https://usebaci.com/api/cron/android-live-build-sync?app=storefront
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is missing; skipping non-fatal storefront Android live-build gate reconciliation"
+            exit 0
+          fi
+
+          if ! curl --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 \
+            --connect-timeout 10 \
+            --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$ANDROID_LIVE_BUILD_SYNC_URL"; then
+            echo "::warning::Storefront Android live-build gate reconciliation failed after Play upload; release remains published"
+          fi
+
       - name: Clean up keystore
         if: always()
         run: rm -f "${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}"
