@@ -17,9 +17,14 @@ describe('push-notification-native-modules', () => {
 
   it('does not import native notification modules on web', async () => {
     runtimePlatform = 'web';
-    vi.doMock('expo-device', () => {
+    const loadDevice = vi.fn(() => {
       throw new Error('should not load device module');
     });
+    const loadNotifications = vi.fn(() => {
+      throw new Error('should not load notifications module');
+    });
+    vi.doMock('expo-device', loadDevice);
+    vi.doMock('expo-notifications', loadNotifications);
 
     const { getPushNotificationRuntime } = await import(
       './push-notification-native-modules'
@@ -29,6 +34,8 @@ describe('push-notification-native-modules', () => {
       Device: null,
       Notifications: null,
     });
+    expect(loadDevice).not.toHaveBeenCalled();
+    expect(loadNotifications).not.toHaveBeenCalled();
   });
 
   it('loads notifications on physical devices and configures the handler', async () => {
@@ -61,7 +68,7 @@ describe('push-notification-native-modules', () => {
     expect(setNotificationHandler).toHaveBeenCalledTimes(1);
   });
 
-  it('caches unsupported simulator state instead of retrying native imports', async () => {
+  it('loads notifications on simulators without retrying native imports', async () => {
     const loadDevice = vi.fn(() => ({
       isDevice: false,
       modelName: 'Android Emulator',
@@ -75,15 +82,17 @@ describe('push-notification-native-modules', () => {
     const { getPushNotificationRuntime, getPushNotificationsModule } =
       await import('./push-notification-native-modules');
 
-    await expect(getPushNotificationRuntime()).resolves.toMatchObject({
-      Notifications: null,
-    });
-    await expect(getPushNotificationRuntime()).resolves.toMatchObject({
-      Notifications: null,
-    });
-    await expect(getPushNotificationsModule()).resolves.toBeNull();
+    const runtime = await getPushNotificationRuntime();
+    const secondRuntime = await getPushNotificationRuntime();
+
+    expect(runtime.Device?.isDevice).toBe(false);
+    expect(runtime.Notifications).toBeTruthy();
+    expect(secondRuntime.Notifications).toBe(runtime.Notifications);
+    await expect(getPushNotificationsModule()).resolves.toBe(
+      runtime.Notifications
+    );
 
     expect(loadDevice).toHaveBeenCalledTimes(1);
-    expect(loadNotifications).not.toHaveBeenCalled();
+    expect(loadNotifications).toHaveBeenCalledTimes(1);
   });
 });

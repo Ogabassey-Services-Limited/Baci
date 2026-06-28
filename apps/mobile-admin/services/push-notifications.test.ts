@@ -81,7 +81,7 @@ describe('push notification native loading', () => {
     );
   });
 
-  it('skips the notifications module on simulators', async () => {
+  it('loads the notifications module but skips push-token registration on simulators', async () => {
     const notificationModule = {
       setNotificationHandler: vi.fn(),
       getExpoPushTokenAsync: vi.fn(),
@@ -98,7 +98,7 @@ describe('push notification native loading', () => {
     );
 
     await expect(registerForPushNotifications()).resolves.toBeNull();
-    expect(notificationModule.setNotificationHandler).not.toHaveBeenCalled();
+    expect(notificationModule.setNotificationHandler).toHaveBeenCalled();
     expect(notificationModule.getExpoPushTokenAsync).not.toHaveBeenCalled();
   });
 

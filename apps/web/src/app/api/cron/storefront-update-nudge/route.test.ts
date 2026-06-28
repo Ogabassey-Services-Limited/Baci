@@ -12,7 +12,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({ from: vi.fn() }),
 }));
 
-vi.mock('@/lib/expo-push', () => ({
+vi.mock('@/lib/mobile-update-nudge', () => ({
   notifyStorefrontUpdateAvailable: (...args: unknown[]) => mockNotify(...args),
 }));
 

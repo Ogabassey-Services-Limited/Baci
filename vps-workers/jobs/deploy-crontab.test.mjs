@@ -77,18 +77,14 @@ describe('deploy crontab', () => {
 
   it('schedules the Android live-build sync daily backstop through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const androidCronLine = deployScript
+      .split('\n')
+      .find((line) => line.includes('/api/cron/android-live-build-sync'));
 
+    assert.ok(androidCronLine);
     assert.match(
-      deployScript,
-      /45 9\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/android-live-build-sync\.lock/
-    );
-    assert.match(
-      deployScript,
-      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/android-live-build-sync/
-    );
-    assert.match(
-      deployScript,
-      />> \$REMOTE_DIR\/logs\/android-live-build-sync\.log 2>&1/
+      androidCronLine,
+      /^45 9\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/android-live-build-sync\.lock bash -lc 'cd \$REMOTE_DIR && \$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/android-live-build-sync' >> \$REMOTE_DIR\/logs\/android-live-build-sync\.log 2>&1$/
     );
   });
 

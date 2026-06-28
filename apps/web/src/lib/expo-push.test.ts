@@ -74,7 +74,7 @@ let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
 let notifyNewReview: typeof import('./expo-push').notifyNewReview;
-let notifyStorefrontUpdateAvailable: typeof import('./expo-push').notifyStorefrontUpdateAvailable;
+let notifyStorefrontUpdateAvailable: typeof import('./mobile-update-nudge').notifyStorefrontUpdateAvailable;
 beforeEach(async () => {
   vi.clearAllMocks();
 
@@ -88,7 +88,8 @@ beforeEach(async () => {
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
   notifyNewReview = mod.notifyNewReview;
-  notifyStorefrontUpdateAvailable = mod.notifyStorefrontUpdateAvailable;
+  notifyStorefrontUpdateAvailable = (await import('./mobile-update-nudge'))
+    .notifyStorefrontUpdateAvailable;
 });
 
 afterEach(() => {

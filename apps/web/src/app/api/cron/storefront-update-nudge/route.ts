@@ -1,10 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
-import {
-  notifyStorefrontUpdateAvailable,
-  type StorefrontUpdateNudgeResult,
-} from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
 import {
@@ -12,6 +8,10 @@ import {
   readMobileUpdateMessage,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
+import {
+  notifyStorefrontUpdateAvailable,
+  type StorefrontUpdateNudgeResult,
+} from '@/lib/mobile-update-nudge';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { MOBILE_APPS } from '@/schemas/mobile-release-policy';
 

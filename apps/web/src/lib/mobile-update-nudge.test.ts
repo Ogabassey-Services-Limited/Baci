@@ -80,6 +80,44 @@ describe('notifyStorefrontUpdateAvailable', () => {
     );
   });
 
+  it('records a failed attempt when sending update nudges throws', async () => {
+    const selectChain = createChainableMock([
+      { id: 'token-row-1', token: 'ExponentPushToken[1]' },
+      { id: 'token-row-2', token: 'ExponentPushToken[2]' },
+    ]);
+    mocks.createAdminClient.mockReturnValue({
+      from: vi.fn().mockReturnValue(selectChain),
+    });
+    mocks.sendPushNotifications.mockRejectedValueOnce(new Error('Expo down'));
+
+    const { notifyStorefrontUpdateAvailable } = await import(
+      './mobile-update-nudge'
+    );
+
+    const result = await notifyStorefrontUpdateAvailable({
+      platform: 'android',
+      latestBuild: 125,
+    });
+
+    expect(result).toMatchObject({
+      platform: 'android',
+      eligible: 2,
+      sent: 0,
+      failed: 2,
+      errors: ['Expo down'],
+      stampFailed: false,
+    });
+    expect(selectChain.update).not.toHaveBeenCalled();
+    expect(selectChain.in).not.toHaveBeenCalledWith('id', expect.any(Array));
+    expect(mocks.recordPushAttempt).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        tokenCount: 2,
+        result: expect.objectContaining({ failed: 2 }),
+      })
+    );
+  });
+
   it('sends update nudges and stamps successfully nudged token ids', async () => {
     const selectChain = createChainableMock([
       { id: 'token-row-1', token: 'ExponentPushToken[1]' },

@@ -968,4 +968,3 @@ export type {
   StorefrontUpdateNudgeParams,
   StorefrontUpdateNudgeResult,
 } from './mobile-update-nudge';
-export { notifyStorefrontUpdateAvailable } from './mobile-update-nudge';

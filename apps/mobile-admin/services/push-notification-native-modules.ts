@@ -22,13 +22,6 @@ export const loadPushNotificationNativeModules = () => {
       const dev = await import('expo-device');
       Device = dev;
 
-      if (!Device?.isDevice) {
-        if (__DEV__) {
-          console.log('[Push] Native notifications skipped on simulator');
-        }
-        return;
-      }
-
       const notif = await import('expo-notifications');
       Notifications = notif;
 
