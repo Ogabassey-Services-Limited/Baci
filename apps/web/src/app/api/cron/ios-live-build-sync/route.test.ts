@@ -153,7 +153,7 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     });
   });
 
-  it('returns 502 only when every app errors', async () => {
+  it('returns 502 when every app errors', async () => {
     mockReconcile.mockRejectedValue(new Error('asc down'));
 
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
@@ -185,7 +185,7 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     expect(body.results).toContainEqual({ app: 'admin', error: 'sync_failed' });
   });
 
-  it('returns 200 when one app errors but another succeeds', async () => {
+  it('returns 502 when one app errors but another succeeds', async () => {
     mockReconcile.mockImplementation((app: 'storefront' | 'admin') => {
       if (app === 'admin') return Promise.reject(new Error('asc down'));
       return Promise.resolve({
@@ -200,7 +200,8 @@ describe('GET /api/cron/ios-live-build-sync', () => {
     const response = await GET(cronRequest(`Bearer ${SECRET}`));
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(502);
+    expect(body.error).toBe('One or more iOS live-build syncs failed');
     expect(body.results).toContainEqual({
       app: 'storefront',
       synced: true,

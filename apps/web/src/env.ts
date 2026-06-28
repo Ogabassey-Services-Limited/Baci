@@ -248,6 +248,12 @@ const serverSchema = z
     ASC_API_PRIVATE_KEY: z.string().optional(),
     APP_STORE_CONNECT_BUNDLE_ID: z.string().default('com.ogabassey.app'),
     APP_STORE_CONNECT_ADMIN_BUNDLE_ID: z.string().default('com.ogabassey.baci'),
+    // Google Play Developer API (read-only) — used by the
+    // android-live-build-sync cron to learn which versionCode is actually live
+    // on the Play production track before the in-app update gate advances.
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: z.string().optional(),
+    GOOGLE_PLAY_PACKAGE_NAME: z.string().default('com.ogabassey.store'),
+    GOOGLE_PLAY_ADMIN_PACKAGE_NAME: z.string().default('com.ogabassey.baci'),
     // Secrets configured when registering each App Store Connect webhook; used
     // to verify the X-Apple-Signature HMAC on inbound webhook deliveries.
     APP_STORE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
@@ -593,6 +599,11 @@ const getEnv = () => {
         APP_STORE_CONNECT_BUNDLE_ID: process.env.APP_STORE_CONNECT_BUNDLE_ID,
         APP_STORE_CONNECT_ADMIN_BUNDLE_ID:
           process.env.APP_STORE_CONNECT_ADMIN_BUNDLE_ID,
+        GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:
+          process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+        GOOGLE_PLAY_PACKAGE_NAME: process.env.GOOGLE_PLAY_PACKAGE_NAME,
+        GOOGLE_PLAY_ADMIN_PACKAGE_NAME:
+          process.env.GOOGLE_PLAY_ADMIN_PACKAGE_NAME,
         APP_STORE_CONNECT_WEBHOOK_SECRET:
           process.env.APP_STORE_CONNECT_WEBHOOK_SECRET,
         APP_STORE_CONNECT_ADMIN_WEBHOOK_SECRET:
@@ -1215,6 +1226,16 @@ export const getAppStoreConnectBundleId = (
   app === 'admin'
     ? (env?.APP_STORE_CONNECT_ADMIN_BUNDLE_ID ?? 'com.ogabassey.baci')
     : (env?.APP_STORE_CONNECT_BUNDLE_ID ?? 'com.ogabassey.app');
+
+export const getGooglePlayServiceAccountJson = () =>
+  env?.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON?.trim() || undefined;
+
+export const getGooglePlayPackageName = (
+  app: 'storefront' | 'admin' = 'storefront'
+) =>
+  app === 'admin'
+    ? (env?.GOOGLE_PLAY_ADMIN_PACKAGE_NAME ?? 'com.ogabassey.baci')
+    : (env?.GOOGLE_PLAY_PACKAGE_NAME ?? 'com.ogabassey.store');
 
 export const getAppStoreConnectWebhookSecret = (
   app: 'storefront' | 'admin' = 'storefront'

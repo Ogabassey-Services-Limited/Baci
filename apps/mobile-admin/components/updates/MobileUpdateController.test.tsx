@@ -124,30 +124,20 @@ describe('MobileUpdateController', () => {
     );
   });
 
-  it('defers cold-start checks while the root route resolves auth redirects', async () => {
+  it('does not defer update prompts on the dashboard home route', async () => {
     mockPathname = '/';
-    mockResolveMobileUpdatePrompt
-      .mockResolvedValueOnce({ kind: 'deferred' })
-      .mockResolvedValueOnce({
-        kind: 'native-recommended',
-        message: 'A newer version is available.',
-        storeUrl: STORE_URL,
-      });
-
-    const view = render(<ControllerHarness />);
-
-    await waitFor(() => {
-      expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(1);
+    mockResolveMobileUpdatePrompt.mockResolvedValueOnce({
+      kind: 'native-recommended',
+      message: 'A newer version is available.',
+      storeUrl: STORE_URL,
     });
-    expect(screen.queryByText('prompt:native-recommended')).toBeNull();
 
-    mockPathname = '/orders';
-    view.rerender(<ControllerHarness />);
+    render(<ControllerHarness />);
 
     expect(
       await screen.findByText('prompt:native-recommended')
     ).toBeInTheDocument();
-    expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(2);
+    expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(1);
   });
 
   it('reruns a deferred check when navigation returns to a safe route', async () => {

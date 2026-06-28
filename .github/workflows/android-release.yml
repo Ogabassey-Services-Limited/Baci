@@ -262,11 +262,21 @@ jobs:
           # recovery dispatches can set this after Play rejects automatic review.
           changesNotSentForReview: ${{ github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review }}
 
-      # Do not update mobile_release_gate or MOBILE_ADMIN_ANDROID_LATEST_BUILD
-      # here. A successful Google Play upload can still be pending review or
-      # processing, so bumping the runtime-visible gate at this point can prompt
-      # users to install a build that is not downloadable yet. Android gate
-      # updates must come from a live-track confirmation/reconciler.
+      - name: Reconcile Android live-build update gate
+        if: success() && steps.play_upload.outcome == 'success'
+        shell: bash
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ANDROID_LIVE_BUILD_SYNC_URL: https://usebaci.com/api/cron/android-live-build-sync?app=admin
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is required to reconcile the Android live-build gate"
+            exit 1
+          fi
+
+          curl --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$ANDROID_LIVE_BUILD_SYNC_URL"
 
       - name: Clean up keystore
         if: always()
