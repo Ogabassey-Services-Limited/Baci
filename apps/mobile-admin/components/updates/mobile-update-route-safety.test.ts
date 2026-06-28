@@ -3,6 +3,7 @@ import { shouldDeferMobileUpdatePrompt } from './mobile-update-route-safety';
 
 describe('shouldDeferMobileUpdatePrompt', () => {
   it.each([
+    ['/'],
     ['/complete-profile'],
     ['/domains/buy'],
     ['/domains/buy/review'],
@@ -19,7 +20,6 @@ describe('shouldDeferMobileUpdatePrompt', () => {
   });
 
   it.each([
-    ['/'],
     ['/(auth)'],
     ['/(auth)/login'],
     ['/(admin)'],

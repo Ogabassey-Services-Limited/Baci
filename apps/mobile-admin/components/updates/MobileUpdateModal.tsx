@@ -1,4 +1,5 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import { RADIUS, SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import type { MobileUpdatePrompt } from './mobile-update-check';
@@ -25,7 +26,7 @@ function getAcceptLabel(prompt: MobileUpdatePrompt) {
   return prompt.kind === 'ota-available' ? 'Update now' : 'Open store';
 }
 
-const ignoreRequiredModalCloseRequest = () => {};
+const ignoreRequiredModalCloseRequest = () => undefined;
 
 export function MobileUpdateModal({
   onAccept,
@@ -40,14 +41,12 @@ export function MobileUpdateModal({
   const isRequired = prompt.kind === 'native-required';
 
   return (
-    <Modal
-      animationType="fade"
-      transparent
+    <AppDialogModal
+      dismissOnBackdropPress={!isRequired}
+      onClose={isRequired ? ignoreRequiredModalCloseRequest : onDismiss}
       visible={visible}
-      statusBarTranslucent
-      onRequestClose={isRequired ? ignoreRequiredModalCloseRequest : onDismiss}
     >
-      <View style={[styles.overlay, { backgroundColor: colors.backdrop }]}>
+      <View>
         <View
           style={[
             styles.card,
@@ -97,7 +96,7 @@ export function MobileUpdateModal({
           )}
         </View>
       </View>
-    </Modal>
+    </AppDialogModal>
   );
 }
 
@@ -114,12 +113,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
-  },
-  overlay: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    padding: SPACING.lg,
   },
   primaryButton: {
     alignItems: 'center',

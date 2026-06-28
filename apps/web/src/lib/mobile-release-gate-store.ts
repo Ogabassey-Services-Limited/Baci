@@ -19,10 +19,10 @@ import type {
  * by the live-build reconciler), with no redeploy.
  *
  * The env var (`MOBILE_<APP>_<PLATFORM>_LATEST_BUILD`) is kept as a fallback
- * and recovery source: if the DB row is missing/unreadable it is used directly,
- * and if the env value is newer than a stale DB row it wins. That keeps the
- * Android release workflow's Vercel-env fallback effective after a transient DB
- * sync failure while preserving the DB row as the normal runtime-visible source.
+ * and recovery source when the DB row is missing/unreadable. Android can also
+ * use a newer env value over a stale DB row because there is no App Store
+ * Connect-style live-build reconciler in this branch; iOS DB rows always win
+ * when present because they represent the actual App Store live build.
  */
 
 // Short in-process cache so the per-app-open release-policy reads don't hit the
@@ -111,7 +111,7 @@ export async function readLatestLiveBuild(
 
   if (value === null) {
     value = envValue;
-  } else if (envValue !== null && envValue > value) {
+  } else if (platform === 'android' && envValue !== null && envValue > value) {
     value = envValue;
   }
 

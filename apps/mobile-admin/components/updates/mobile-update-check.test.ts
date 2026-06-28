@@ -42,7 +42,7 @@ describe('resolveMobileUpdatePrompt', () => {
       }),
       fetchPolicy,
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(fetchPolicy).toHaveBeenCalledTimes(1);
@@ -83,7 +83,7 @@ describe('resolveMobileUpdatePrompt', () => {
         storeUrl: 'https://apps.apple.com/app/id6472735367',
       }),
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(result).toMatchObject({
@@ -110,7 +110,7 @@ describe('resolveMobileUpdatePrompt', () => {
         storeUrl: null,
       }),
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(result.kind).toBe('none');
@@ -133,7 +133,7 @@ describe('resolveMobileUpdatePrompt', () => {
         storeUrl: '   ',
       }),
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(result.kind).toBe('none');
@@ -148,7 +148,7 @@ describe('resolveMobileUpdatePrompt', () => {
       }),
       fetchPolicy: createFetchPolicyMock().mockResolvedValue(cleanPolicy),
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(result.kind).toBe('ota-available');
@@ -162,7 +162,7 @@ describe('resolveMobileUpdatePrompt', () => {
       checkForUpdateAsync,
       fetchPolicy: createFetchPolicyMock().mockResolvedValue(cleanPolicy),
       isOtaEnabled: false,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(result.kind).toBe('none');
@@ -177,7 +177,7 @@ describe('resolveMobileUpdatePrompt', () => {
         new Error('network down')
       ),
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     const otaFailure = await resolveMobileUpdatePrompt({
@@ -187,7 +187,7 @@ describe('resolveMobileUpdatePrompt', () => {
       ),
       fetchPolicy: createFetchPolicyMock().mockResolvedValue(cleanPolicy),
       isOtaEnabled: true,
-      pathname: '/',
+      pathname: '/orders',
     });
 
     expect(policyFailure.kind).toBe('none');

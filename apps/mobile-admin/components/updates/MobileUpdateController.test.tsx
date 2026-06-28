@@ -13,7 +13,7 @@ const mockResolveMobileUpdatePrompt =
 const mockOpenUrl = vi.fn<(url: string) => Promise<void>>();
 const mockAppStateListeners = new Set<AppStateListener>();
 let mockPlatformOS = 'ios';
-let mockPathname = '/';
+let mockPathname = '/orders';
 
 vi.mock('expo-application', () => ({
   nativeApplicationVersion: '2.0.0',
@@ -88,7 +88,7 @@ describe('MobileUpdateController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAppStateListeners.clear();
-    mockPathname = '/';
+    mockPathname = '/orders';
     mockPlatformOS = 'ios';
     mockOpenUrl.mockResolvedValue(undefined);
     mockResolveMobileUpdatePrompt.mockResolvedValue({ kind: 'none' });
@@ -117,11 +117,37 @@ describe('MobileUpdateController', () => {
         channel: 'production',
         isOtaEnabled: false,
         nativeVersion: '2.0.0',
-        pathname: '/',
+        pathname: '/orders',
         platform: 'ios',
         runtimeVersion: '2.0.0',
       })
     );
+  });
+
+  it('defers cold-start checks while the root route resolves auth redirects', async () => {
+    mockPathname = '/';
+    mockResolveMobileUpdatePrompt
+      .mockResolvedValueOnce({ kind: 'deferred' })
+      .mockResolvedValueOnce({
+        kind: 'native-recommended',
+        message: 'A newer version is available.',
+        storeUrl: STORE_URL,
+      });
+
+    const view = render(<ControllerHarness />);
+
+    await waitFor(() => {
+      expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText('prompt:native-recommended')).toBeNull();
+
+    mockPathname = '/orders';
+    view.rerender(<ControllerHarness />);
+
+    expect(
+      await screen.findByText('prompt:native-recommended')
+    ).toBeInTheDocument();
+    expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(2);
   });
 
   it('reruns a deferred check when navigation returns to a safe route', async () => {
@@ -140,7 +166,7 @@ describe('MobileUpdateController', () => {
       expect(mockResolveMobileUpdatePrompt).toHaveBeenCalledTimes(1);
     });
 
-    mockPathname = '/';
+    mockPathname = '/orders';
     view.rerender(<ControllerHarness />);
 
     expect(

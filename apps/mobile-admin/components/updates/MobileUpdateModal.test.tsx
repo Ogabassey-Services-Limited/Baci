@@ -4,6 +4,31 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { MobileUpdateModal } from './MobileUpdateModal';
 
+vi.mock('@/components/ui/AppDialogModal', () => ({
+  AppDialogModal: ({
+    children,
+    dismissOnBackdropPress,
+    onClose,
+    visible,
+  }: {
+    children?: ReactNode;
+    dismissOnBackdropPress?: boolean;
+    onClose?: () => void;
+    visible?: boolean;
+  }) =>
+    visible ? (
+      <section
+        aria-label="update-modal"
+        data-dismissible={dismissOnBackdropPress ? 'true' : 'false'}
+      >
+        <button aria-label="dialog close" onClick={onClose} type="button">
+          close
+        </button>
+        {children}
+      </section>
+    ) : null,
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -19,23 +44,6 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  Modal: ({
-    children,
-    onRequestClose,
-    visible,
-  }: {
-    children?: ReactNode;
-    onRequestClose?: () => void;
-    visible?: boolean;
-  }) =>
-    visible ? (
-      <section
-        aria-label="update-modal"
-        data-on-request-close={!!onRequestClose}
-      >
-        {children}
-      </section>
-    ) : null,
   Pressable: ({
     accessibilityLabel,
     children,

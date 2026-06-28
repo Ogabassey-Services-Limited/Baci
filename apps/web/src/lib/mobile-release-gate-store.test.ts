@@ -66,13 +66,22 @@ describe('readLatestLiveBuild', () => {
     expect(result).toBe(646);
   });
 
-  it('uses a newer env fallback when the DB row is stale', async () => {
+  it('uses a newer Android env fallback when the DB row is stale', async () => {
     vi.stubEnv('MOBILE_ADMIN_ANDROID_LATEST_BUILD', '125');
     const { client } = makeReadClient({ data: { latest_live_build: 120 } });
 
     const result = await readLatestLiveBuild('admin', 'android', client);
 
     expect(result).toBe(125);
+  });
+
+  it('keeps an iOS DB live row when the env fallback is newer', async () => {
+    vi.stubEnv('MOBILE_ADMIN_IOS_LATEST_BUILD', '125');
+    const { client } = makeReadClient({ data: { latest_live_build: 120 } });
+
+    const result = await readLatestLiveBuild('admin', 'ios', client);
+
+    expect(result).toBe(120);
   });
 
   it('keeps the DB value when the env fallback is older', async () => {
