@@ -4,9 +4,6 @@ import { notFound } from 'next/navigation';
 import type { BreadcrumbList, CollectionPage } from 'schema-dts';
 import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
-import { InternalLinkEquitySection } from '@/components/storefront/ogabassey/seo/internal-link-equity-section';
-import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
-import { OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS } from '@/config/ogabassey-internal-link-equity';
 import {
   getCachedCategories,
   getRequestScopedMerchant,
@@ -156,7 +153,6 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const deepLinkProducts = firstPageProductIndex.products
     .filter((product) => product.slug)
     .slice(0, 18);
-  const showInternalLinkEquitySection = merchant.id === OGABASSEY_MERCHANT_ID;
 
   return (
     <>
@@ -213,13 +209,6 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                 ))}
               </div>
             </section>
-          )}
-
-          {showInternalLinkEquitySection && (
-            <InternalLinkEquitySection
-              groups={OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS}
-              pathPrefix={pathPrefix}
-            />
           )}
 
           {currentProductIndex.products.length === 0 ? (

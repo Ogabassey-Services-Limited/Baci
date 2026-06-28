@@ -130,7 +130,7 @@ describe('BlogAuthorPageContent', () => {
       name: 'Bassey John',
       sameAs: [
         'https://www.linkedin.com/in/bassey-john-6a277885',
-        'https://twitter.com/digitalogaa',
+        'https://x.com/digitalogaa',
       ],
     });
     mockGetCachedBlogAuthor.mockResolvedValue(authorData);
@@ -162,7 +162,7 @@ describe('BlogAuthorPageContent', () => {
     );
     expect(screen.getByRole('link', { name: 'X' })).toHaveAttribute(
       'href',
-      'https://twitter.com/digitalogaa'
+      'https://x.com/digitalogaa'
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
@@ -205,17 +205,6 @@ describe('BlogAuthorPageContent', () => {
     expect(profileScript?.textContent).toContain(
       '"url":"https://ogabassey.com/blog/author/bassey-john"'
     );
-  });
-
-  it('does not read request headers for custom-domain author listings', async () => {
-    await BlogAuthorPageContent({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        authorSlug: 'bassey-john',
-      }),
-    });
-
-    expect(mockHeaders).not.toHaveBeenCalled();
   });
 
   it('redirects legacy author-prefixed post URLs before falling through to 404', async () => {

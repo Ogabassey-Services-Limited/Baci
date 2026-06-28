@@ -7,11 +7,6 @@ interface BlogAuthorProfile {
   sameAs: readonly string[];
 }
 
-interface BlogAuthorPageLink {
-  name: string;
-  slug: string;
-}
-
 /**
  * Canonical identity data for the small, stable set of named blog authors,
  * keyed by the author-name slug (`generateSlug(author_name)`).
@@ -31,7 +26,7 @@ const BLOG_AUTHOR_PROFILES: Record<string, BlogAuthorProfile> = {
     sameAs: [
       'https://www.instagram.com/bassey__j',
       'https://www.linkedin.com/in/bassey-john-6a277885',
-      'https://twitter.com/digitalogaa',
+      'https://x.com/digitalogaa',
     ],
   },
   bolakale: {
@@ -39,7 +34,7 @@ const BLOG_AUTHOR_PROFILES: Record<string, BlogAuthorProfile> = {
     sameAs: [
       'https://www.instagram.com/earthmover007',
       'https://www.linkedin.com/in/michael-bolakale',
-      'https://twitter.com/earthmover007',
+      'https://x.com/earthmover007',
     ],
   },
 };
@@ -116,18 +111,4 @@ export function hasBlogAuthorPage(
 /** All known author-page slugs (for `generateStaticParams`). */
 export function getBlogAuthorSlugs(): string[] {
   return Object.keys(BLOG_AUTHOR_PROFILES);
-}
-
-/** Crawlable author hub link metadata for tenants that own these profiles. */
-export function getBlogAuthorPageLinks(
-  tenantIdentifier: string | null | undefined
-): BlogAuthorPageLink[] {
-  if (!canUseOgabasseyAuthorProfiles(tenantIdentifier)) {
-    return [];
-  }
-
-  return Object.entries(BLOG_AUTHOR_PROFILES).map(([slug, profile]) => ({
-    name: profile.name,
-    slug,
-  }));
 }

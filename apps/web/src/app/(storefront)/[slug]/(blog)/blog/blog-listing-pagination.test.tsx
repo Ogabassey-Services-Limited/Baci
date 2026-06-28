@@ -57,22 +57,6 @@ describe('BlogListingPagination', () => {
     );
   });
 
-  it('renders direct crawl discovery links for every blog archive page', () => {
-    render(
-      <BlogListingPagination storeBasePath="" currentPage={1} totalPages={36} />
-    );
-
-    expect(screen.getByText('Browse blog archive pages')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Blog page 20' })).toHaveAttribute(
-      'href',
-      '/blog?page=20'
-    );
-    expect(screen.getByRole('link', { name: 'Blog page 36' })).toHaveAttribute(
-      'href',
-      '/blog?page=36'
-    );
-  });
-
   it('omits Previous on the first page and Next on the last page', () => {
     const { rerender } = render(
       <BlogListingPagination storeBasePath="" currentPage={1} totalPages={10} />
@@ -127,11 +111,5 @@ describe('BlogListingPagination', () => {
     expect(next.getAttribute('href')).toContain('category=phones');
     expect(next.getAttribute('href')).toContain('search=pixel');
     expect(next.getAttribute('href')).toContain('page=3');
-
-    const discoveryLink = screen.getByRole('link', { name: 'Blog page 5' });
-    expect(discoveryLink.getAttribute('href')).toContain('/acme/blog?');
-    expect(discoveryLink.getAttribute('href')).toContain('category=phones');
-    expect(discoveryLink.getAttribute('href')).toContain('search=pixel');
-    expect(discoveryLink.getAttribute('href')).toContain('page=5');
   });
 });

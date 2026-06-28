@@ -31,8 +31,6 @@ export interface NormalizedBiller {
   categoryName: string;
   provider: 'kuda' | 'monnify';
   billerCode?: string;
-  /** Provider-supplied logo URL (Kuda returns this); rendered in the app. */
-  billerIconUrl?: string;
   billItems?: NormalizedBillItem[];
 }
 

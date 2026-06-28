@@ -1018,7 +1018,6 @@ describe('category page route', () => {
       fallbackName: 'Maybe Real',
       fallbackDescription: 'Maybe real',
       isInactiveCategory: false,
-      productIdsQueryFailed: true,
       productsQueryFailed: true,
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
@@ -1050,32 +1049,6 @@ describe('category page route', () => {
     });
 
     expect(metadata.title).toBeTruthy();
-    expect(notFound).not.toHaveBeenCalled();
-  });
-
-  it('returns soft-not-found metadata for known out-of-range pages even when category lookup fails open', async () => {
-    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
-      ...categoryPageData,
-      categoryQueryFailed: true,
-      productIdsQueryFailed: false,
-      products: smartphoneHubProducts.slice(0, 20),
-      productSlots: smartphoneHubProducts.slice(0, 20),
-    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
-      searchParams: Promise.resolve({ page: '2' }),
-    });
-
-    expect(getCachedCategoryPageData).toHaveBeenCalledWith(
-      'merchant-1',
-      'smartphones',
-      'test-store',
-      20,
-      20
-    );
-    expect(metadata.title).toBe('Category page not found');
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(notFound).not.toHaveBeenCalled();
   });
 
@@ -1141,32 +1114,6 @@ describe('category page route', () => {
         title: 'Category page not found',
       },
     });
-  });
-
-  it('fails open but noindexes out-of-range metadata pages when product ID pagination is unknown', async () => {
-    vi.mocked(getCachedCategoryPageData).mockResolvedValueOnce({
-      isCollection: false,
-      category: { id: 'cat-1', name: 'Smartphones', slug: 'smartphones' },
-      products: [],
-      fallbackName: 'Smartphones',
-      fallbackDescription: 'Smartphones',
-      isInactiveCategory: false,
-      productIdsQueryFailed: true,
-      productsQueryFailed: true,
-    } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'test-store',
-        category: 'smartphones',
-      }),
-      searchParams: Promise.resolve({ page: '3' }),
-    });
-
-    expect(metadata.title).not.toBe('Category page not found');
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
-    expect(metadata.alternates).not.toBeNull();
-    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {

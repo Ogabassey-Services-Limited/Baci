@@ -28,9 +28,6 @@ export const kudaBillerSchema = z.object({
   billerType: z.string(),
   categoryId: z.string(),
   categoryName: z.string(),
-  // Kuda may send an explicit null for empty logos; accept null/undefined so a
-  // null never fails the strict array parse and drops every biller.
-  billerIconUrl: z.string().nullish(),
   billItems: z.array(kudaBillItemSchema).optional(),
 });
 

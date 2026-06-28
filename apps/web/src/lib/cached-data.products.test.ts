@@ -679,10 +679,6 @@ describe('cached-data product query projections', () => {
       { id: 'cat-smartphones' },
       { id: 'cat-iphone' },
     ];
-    const productIdsResult = {
-      data: [{ id: 'product-1' }, { id: 'product-2' }],
-      error: null,
-    };
     const productQueryResult = {
       data: [
         { id: 'product-1', name: 'iPhone 15', brand: 'Apple' },
@@ -692,7 +688,6 @@ describe('cached-data product query projections', () => {
     };
     harness.mockQueryExecution
       .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
-      .mockImplementationOnce(() => Promise.resolve(productIdsResult))
       .mockImplementationOnce(() => Promise.resolve(productQueryResult));
 
     const result = await getCachedCategoryPageData(
@@ -711,96 +706,6 @@ describe('cached-data product query projections', () => {
     expect(selectArg).toContain('product_key_specs (');
     expect(selectArg).not.toMatch(/,\s*product_key_specs\s*,/);
     expect(result.products).toEqual(productQueryResult.data);
-    expect(harness.mockOrder).toHaveBeenCalledWith('created_at', {
-      ascending: false,
-    });
-    expect(harness.mockOrder).toHaveBeenCalledWith('id', {
-      ascending: true,
-    });
-    expect(harness.mockRange).not.toHaveBeenCalled();
-  });
-
-  it('getCachedCategoryPageData applies deterministic ordering to collection ID lists', async () => {
-    const collectionCases = [
-      {
-        slug: 'new-arrivals',
-        primaryOrder: ['created_at', { ascending: false }],
-      },
-      {
-        slug: 'best-sellers',
-        primaryOrder: ['rating', { ascending: false }],
-      },
-      {
-        slug: 'featured',
-        primaryOrder: ['price', { ascending: false }],
-      },
-      {
-        slug: 'on-sale',
-        primaryOrder: ['updated_at', { ascending: false }],
-      },
-    ] as const;
-
-    for (const { slug, primaryOrder } of collectionCases) {
-      harness = buildCachedDataTestHarness();
-
-      await getCachedCategoryPageData('merchant-123', slug, 'test-store');
-
-      expect(harness.mockOrder).toHaveBeenCalledWith(...primaryOrder);
-      expect(harness.mockOrder).toHaveBeenCalledWith('id', {
-        ascending: true,
-      });
-      expect(harness.mockRange).not.toHaveBeenCalled();
-
-      if (slug === 'on-sale') {
-        expect(harness.mockNot).toHaveBeenCalledWith(
-          'compare_at_price',
-          'is',
-          null
-        );
-      }
-    }
-  });
-
-  it('getCachedCategoryPageData keeps legacy category fallback products and stable ranged ordering', async () => {
-    harness.mockSingle.mockResolvedValueOnce({
-      data: null,
-      error: { code: 'PGRST116', message: 'No rows found' },
-    });
-    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
-    const legacyProductIds = [{ id: 'legacy-product-1' }];
-    const legacyProducts = [{ id: 'legacy-product-1', name: 'Laptop Pro' }];
-    harness.mockQueryExecution
-      .mockResolvedValueOnce({
-        data: legacyProductIds,
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: legacyProducts,
-        error: null,
-      });
-
-    const result = await getCachedCategoryPageData(
-      'merchant-123',
-      'gaming-laptops',
-      'test-store'
-    );
-
-    expect(harness.mockFrom).toHaveBeenCalledWith('products');
-    expect(harness.mockOr).toHaveBeenCalledWith(
-      'category.ilike.%Gaming Laptops%,brand.ilike.%Gaming Laptops%,name.ilike.%Gaming Laptops%'
-    );
-    expect(harness.mockOrder).toHaveBeenCalledWith('created_at', {
-      ascending: false,
-    });
-    expect(harness.mockOrder).toHaveBeenCalledWith('id', {
-      ascending: true,
-    });
-    expect(harness.mockRange).not.toHaveBeenCalled();
-    expect(result.isCollection).toBe(false);
-    expect(result.products).toEqual(legacyProducts);
-    if (!result.isCollection) {
-      expect(result.productsQueryFailed).toBe(false);
-    }
   });
 
   it('getCachedCategoryPageData does not use loose fallback for active canonical categories with no products', async () => {

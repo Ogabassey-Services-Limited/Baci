@@ -71,45 +71,6 @@ describe('biller route helpers', () => {
     expect(mockGetBillersByCategory).toHaveBeenCalledWith('electricity');
   });
 
-  it('forwards the Kuda-supplied biller logo (billerIconUrl)', async () => {
-    mockGetBillersByCategory.mockResolvedValue([
-      {
-        billerIconUrl: 'https://cdn.kuda.com/billers/ikedc.png',
-        billerId: 'IKEDC',
-        billerName: 'Ikeja Electric',
-        billerType: 'electricity',
-        categoryId: 'electricity',
-        categoryName: 'Electricity',
-      },
-    ]);
-
-    const result = await loadKudaBillers('electricity');
-
-    expect(result.error).toBeNull();
-    expect(result.billers[0]?.billerIconUrl).toBe(
-      'https://cdn.kuda.com/billers/ikedc.png'
-    );
-  });
-
-  it('tolerates a null billerIconUrl without dropping the biller', async () => {
-    mockGetBillersByCategory.mockResolvedValue([
-      {
-        billerIconUrl: null,
-        billerId: 'IKEDC',
-        billerName: 'Ikeja Electric',
-        billerType: 'electricity',
-        categoryId: 'electricity',
-        categoryName: 'Electricity',
-      },
-    ]);
-
-    const result = await loadKudaBillers('electricity');
-
-    expect(result.error).toBeNull();
-    expect(result.billers).toHaveLength(1);
-    expect(result.billers[0]?.billerIconUrl).toBeUndefined();
-  });
-
   it('returns a Kuda validation error for invalid biller payloads', async () => {
     mockGetBillersByCategory.mockResolvedValue([
       {

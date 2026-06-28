@@ -5,8 +5,9 @@ import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
-import { OgabasseyHomeShellFallback } from '@/app/(storefront)/ogabassey/ogabassey-home-shell-fallback';
+import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
+import { OgabasseyShellMobileHero } from '@/components/storefront/ogabassey/components/ogabassey-shell-mobile-hero';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 import { OGABASSEY_STOREFRONT_IOS_APP_ID } from '@/config/platform';
 
@@ -54,7 +55,12 @@ export default function OgabasseyDomainLayout({
     <>
       <OgabasseyStaticResourceHints />
       <StorefrontLayout
-        loadingFallback={<OgabasseyHomeShellFallback />}
+        loadingFallback={
+          <ShellChromeLoading
+            mobileHero={<OgabasseyShellMobileHero />}
+            showChromeFrame
+          />
+        }
         params={OGABASSEY_DOMAIN_PARAMS}
       >
         {children}

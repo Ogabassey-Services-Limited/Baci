@@ -10,7 +10,3 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
-## 2025-02-18 — Use textOnPrimary token for contrast on primary backgrounds
-**Learning:** Hardcoded `#FFFFFF` was used for placeholder text sitting on a `colors.primary` background in LogoPicker instead of the `colors.textOnPrimary` token which adapts properly depending on theme values.
-**Action:** Always map white text laying over a primary colored background to the `colors.textOnPrimary` theme token to retain proper contrast in dynamic themes.
-**Source:** apps/mobile-admin/components/ui/LogoPicker.tsx

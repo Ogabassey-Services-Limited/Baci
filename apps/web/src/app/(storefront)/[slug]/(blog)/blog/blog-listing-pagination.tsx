@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { asRoute } from '@/lib/routes';
-import { BlogCrawlDiscoveryLinks } from './blog-crawl-discovery-links';
 import { buildBlogListingRouteHref } from './blog-listing-route';
 
 interface BlogListingPaginationProps {
@@ -51,71 +50,75 @@ export function BlogListingPagination({
 
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
   const items = getPageWindow(safeCurrentPage, totalPages);
-  const buildPageHref = (page: number) =>
-    buildBlogListingRouteHref({
-      storeBasePath,
-      page,
-      category,
-      search,
-    });
 
   return (
     <nav
       aria-label="Blog pagination"
-      className="mx-auto flex max-w-[1400px] flex-col items-center justify-center gap-4 px-4 py-10"
+      className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-center gap-2 px-4 py-10"
     >
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {safeCurrentPage > 1 ? (
-          <Link
-            href={asRoute(buildPageHref(safeCurrentPage - 1))}
-            rel="prev"
-            className={LINK_CLASS}
+      {safeCurrentPage > 1 ? (
+        <Link
+          href={asRoute(
+            buildBlogListingRouteHref({
+              storeBasePath,
+              page: safeCurrentPage - 1,
+              category,
+              search,
+            })
+          )}
+          rel="prev"
+          className={LINK_CLASS}
+        >
+          Previous
+        </Link>
+      ) : null}
+
+      {items.map((item) =>
+        item.page === null ? (
+          <span
+            key={item.key}
+            aria-hidden="true"
+            className="px-1 text-muted-foreground"
           >
-            Previous
-          </Link>
-        ) : null}
-
-        {items.map((item) =>
-          item.page === null ? (
-            <span
-              key={item.key}
-              aria-hidden="true"
-              className="px-1 text-muted-foreground"
-            >
-              ...
-            </span>
-          ) : (
-            <Link
-              key={item.key}
-              href={asRoute(buildPageHref(item.page))}
-              aria-current={item.page === safeCurrentPage ? 'page' : undefined}
-              className={
-                item.page === safeCurrentPage ? ACTIVE_CLASS : LINK_CLASS
-              }
-            >
-              {item.page}
-            </Link>
-          )
-        )}
-
-        {safeCurrentPage < totalPages ? (
+            …
+          </span>
+        ) : (
           <Link
-            href={asRoute(buildPageHref(safeCurrentPage + 1))}
-            rel="next"
-            className={LINK_CLASS}
+            key={item.key}
+            href={asRoute(
+              buildBlogListingRouteHref({
+                storeBasePath,
+                page: item.page,
+                category,
+                search,
+              })
+            )}
+            aria-current={item.page === safeCurrentPage ? 'page' : undefined}
+            className={
+              item.page === safeCurrentPage ? ACTIVE_CLASS : LINK_CLASS
+            }
           >
-            Next
+            {item.page}
           </Link>
-        ) : null}
-      </div>
+        )
+      )}
 
-      <BlogCrawlDiscoveryLinks
-        buildHref={buildPageHref}
-        currentPage={safeCurrentPage}
-        label="Browse blog archive pages"
-        pageLabel="Blog page"
-        totalPages={totalPages}
-      />
+      {safeCurrentPage < totalPages ? (
+        <Link
+          href={asRoute(
+            buildBlogListingRouteHref({
+              storeBasePath,
+              page: safeCurrentPage + 1,
+              category,
+              search,
+            })
+          )}
+          rel="next"
+          className={LINK_CLASS}
+        >
+          Next
+        </Link>
+      ) : null}
     </nav>
   );
 }

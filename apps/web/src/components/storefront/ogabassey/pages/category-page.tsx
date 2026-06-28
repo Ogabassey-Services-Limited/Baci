@@ -36,8 +36,6 @@ export interface CategorySEOProps {
   categoryImage?: string | null;
   currentPage?: number;
   itemsPerPage?: number;
-  productsArePrePaginated?: boolean;
-  totalProductCount?: number;
 }
 
 type CategoryPageColor =
@@ -63,20 +61,6 @@ const INITIAL_FILTER_STATE: FilterState = {
   maxPrice: 3000000,
 };
 
-const EMPTY_AVAILABLE_FILTER_OPTIONS: Record<
-  keyof Omit<FilterState, 'minPrice' | 'maxPrice'>,
-  string[]
-> = {
-  brand: [],
-  condition: [],
-  storage: [],
-  ram: [],
-  colors: [],
-  simType: [],
-  displayType: [],
-  displaySize: [],
-};
-
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
@@ -87,8 +71,6 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   categoryImage,
   currentPage = 1,
   itemsPerPage = STOREFRONT_PRODUCTS_PER_PAGE,
-  productsArePrePaginated = false,
-  totalProductCount,
 }) => {
   const [_showMobileIntro, _setShowMobileIntro] = useState(false);
   const params = useParams();
@@ -158,19 +140,9 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     // since server already filters by category_id or category TEXT field
     return products;
   })();
-  const hasPartialPrePaginatedProducts =
-    productsArePrePaginated &&
-    typeof totalProductCount === 'number' &&
-    Number.isInteger(totalProductCount) &&
-    totalProductCount > categoryProducts.length;
-  const canUseClientFilters = !hasPartialPrePaginatedProducts;
 
   // Derived Data: Available Options based on products in category
   const availableOptions = (() => {
-    if (!canUseClientFilters) {
-      return EMPTY_AVAILABLE_FILTER_OPTIONS;
-    }
-
     const options = {
       brand: new Set<string>(),
       condition: new Set<string>(),
@@ -222,10 +194,6 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   // Derived Data: Filtered Products based on user selection
   const filteredProducts = (() => {
-    if (!canUseClientFilters) {
-      return categoryProducts;
-    }
-
     return categoryProducts.filter((p) => {
       // Price
       if (
@@ -285,33 +253,20 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     });
   })();
   const hasActiveFilters =
-    canUseClientFilters &&
-    (filters.brand.length > 0 ||
-      filters.condition.length > 0 ||
-      filters.storage.length > 0 ||
-      filters.ram.length > 0 ||
-      filters.colors.length > 0 ||
-      filters.simType.length > 0 ||
-      filters.displayType.length > 0 ||
-      filters.displaySize.length > 0 ||
-      filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
-      filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice);
+    filters.brand.length > 0 ||
+    filters.condition.length > 0 ||
+    filters.storage.length > 0 ||
+    filters.ram.length > 0 ||
+    filters.colors.length > 0 ||
+    filters.simType.length > 0 ||
+    filters.displayType.length > 0 ||
+    filters.displaySize.length > 0 ||
+    filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
+    filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice;
 
-  const explicitTotalProductCount =
-    productsArePrePaginated &&
-    typeof totalProductCount === 'number' &&
-    Number.isInteger(totalProductCount) &&
-    totalProductCount > filteredProducts.length
-      ? totalProductCount
-      : null;
-  const usesPrePaginatedProducts =
-    !hasActiveFilters && explicitTotalProductCount !== null;
-  const paginationProductCount = usesPrePaginatedProducts
-    ? explicitTotalProductCount
-    : filteredProducts.length;
   const totalPages = Math.max(
     1,
-    Math.ceil(paginationProductCount / safeItemsPerPage)
+    Math.ceil(filteredProducts.length / safeItemsPerPage)
   );
   const currentPageNumber = hasActiveFilters
     ? 1
@@ -320,21 +275,12 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const pageEndIndex = pageStartIndex + safeItemsPerPage;
   const visibleProducts = hasActiveFilters
     ? filteredProducts
-    : usesPrePaginatedProducts
-      ? filteredProducts
-      : filteredProducts.slice(pageStartIndex, pageEndIndex);
-  const hasKnownProducts = paginationProductCount > 0;
-  const hasVisibleProducts = visibleProducts.length > 0;
-  const visibleProductEndIndex = usesPrePaginatedProducts
-    ? Math.min(pageStartIndex + visibleProducts.length, paginationProductCount)
-    : Math.min(pageEndIndex, paginationProductCount);
+    : filteredProducts.slice(pageStartIndex, pageEndIndex);
 
   const handleFilterChange = (
     section: keyof FilterState,
     value: string | number
   ) => {
-    if (!canUseClientFilters) return;
-
     if (section === 'minPrice' || section === 'maxPrice') {
       setFilters((prev) => ({ ...prev, [section]: value }));
     } else {
@@ -433,7 +379,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               {displayTitle}
             </h1>
             <p className="text-store-background-text/50 text-sm mt-1">
-              {paginationProductCount} results found
+              {filteredProducts.length} results found
             </p>
           </div>
 
@@ -456,15 +402,13 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               </button>
             </div>
 
-            {canUseClientFilters && (
-              <button
-                type="button"
-                onClick={() => setIsMobileFilterOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-store-primary px-4 py-2.5 text-sm font-bold text-store-primary-text shadow-md active:scale-95 md:hidden"
-              >
-                <Filter size={16} /> Filters
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsMobileFilterOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-store-primary px-4 py-2.5 text-sm font-bold text-store-primary-text shadow-md active:scale-95 md:hidden"
+            >
+              <Filter size={16} /> Filters
+            </button>
           </div>
         </div>
       </div>
@@ -472,29 +416,23 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar Filters (Desktop) */}
-          {canUseClientFilters && (
-            <div className="hidden lg:block lg:col-span-1">
-              <div className="sticky top-24">
-                <CategoryFiltersSidebar
-                  filters={filters}
-                  availableOptions={availableOptions}
-                  onFilterChange={handleFilterChange}
-                  onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
-                />
-                <div className="mt-6">
-                  <AdUnit placementKey="PRODUCT_SIDEBAR" />
-                </div>
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="sticky top-24">
+              <CategoryFiltersSidebar
+                filters={filters}
+                availableOptions={availableOptions}
+                onFilterChange={handleFilterChange}
+                onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
+              />
+              <div className="mt-6">
+                <AdUnit placementKey="PRODUCT_SIDEBAR" />
               </div>
             </div>
-          )}
+          </div>
 
           {/* Product Grid */}
-          <div
-            className={
-              canUseClientFilters ? 'lg:col-span-3' : 'lg:col-span-4'
-            }
-          >
-            {!hasKnownProducts ? (
+          <div className="lg:col-span-3">
+            {filteredProducts.length === 0 ? (
               <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
                 <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Filter
@@ -516,7 +454,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   Clear all filters
                 </button>
               </div>
-            ) : hasVisibleProducts ? (
+            ) : (
               <div
                 className={
                   viewMode === 'grid'
@@ -549,31 +487,15 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   );
                 })}
               </div>
-            ) : (
-              <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
-                <div className="size-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter
-                    className="text-store-background-text/40"
-                    size={32}
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-store-background-text mb-1">
-                  Products on this page are temporarily unavailable.
-                </h3>
-                <p className="text-store-background-text/50 text-sm">
-                  Use the pagination links below to keep browsing available
-                  pages.
-                </p>
-              </div>
             )}
 
-            {hasKnownProducts && (
+            {filteredProducts.length > 0 && (
               <div className="mt-8 space-y-3">
                 {!hasActiveFilters && (
                   <p className="text-center text-sm text-store-background-text/50">
-                    {hasVisibleProducts
-                      ? `Showing ${pageStartIndex + 1}-${visibleProductEndIndex} of ${paginationProductCount} products`
-                      : `Page ${currentPageNumber} of ${totalPages}`}
+                    Showing {pageStartIndex + 1}-
+                    {Math.min(pageEndIndex, filteredProducts.length)} of{' '}
+                    {filteredProducts.length} products
                   </p>
                 )}
 
@@ -604,7 +526,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       <CategoryHubSections hub={hubModel} />
 
       {/* Mobile Filter Drawer */}
-      {isMobileFilterOpen && canUseClientFilters && (
+      {isMobileFilterOpen && (
         <div className="fixed inset-0 z-60 flex justify-end">
           <button
             type="button"
@@ -652,7 +574,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 onClick={() => setIsMobileFilterOpen(false)}
                 className="w-full rounded-xl bg-store-primary py-3 font-bold text-store-primary-text shadow-lg active:scale-95"
               >
-                Show {paginationProductCount} Results
+                Show {filteredProducts.length} Results
               </button>
             </div>
           </div>

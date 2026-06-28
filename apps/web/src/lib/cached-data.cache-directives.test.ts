@@ -53,58 +53,6 @@ describe('cached-data cache directives', () => {
     }
   });
 
-  it('keeps the category aggregate wrapper off the remote cache handler', () => {
-    const source = getFunctionSource('getCachedCategoryPageData');
-
-    expect(source).not.toContain("'use cache';");
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).not.toContain("cacheLife('storefront-page');");
-
-    // The full category payload can include an unbounded product array, so the
-    // wrapper must not write that whole aggregate into one remote cache item.
-    expect(source).toContain('getCachedCategoryPageShellData');
-    expect(source).toContain('getCachedCategoryPageProducts');
-  });
-
-  it('keeps category shell and product IDs in the shared remote cache', () => {
-    for (const functionName of [
-      'getCachedCategoryPageShellData',
-      'getCachedCategoryPageProductIds',
-    ]) {
-      const source = getFunctionSource(functionName);
-      expect(source, functionName).toContain("'use cache: remote';");
-      expect(source, functionName).toContain("cacheLife('storefront-page');");
-      expect(source, functionName).toContain(
-        "cacheTag('category-page-data', 'products', 'categories');"
-      );
-    }
-  });
-
-  it('keeps rich category product detail chunks out of the remote cache handler', () => {
-    const source = getFunctionSource('getCategoryPageProductDetailsChunk');
-
-    expect(source).not.toContain("'use cache';");
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).not.toContain("cacheLife('storefront-page');");
-  });
-
-  it('keeps category detail chunk reads bounded and inventory-safe', () => {
-    const detailsSource = getFunctionSource(
-      'getCategoryPageProductDetailsChunk'
-    );
-    const aggregateSource = getFunctionSource(
-      'getCachedCategoryPageProductsUncached'
-    );
-
-    expect(CACHED_DATA_SOURCE).toContain('stock_quantity');
-    expect(CACHED_DATA_SOURCE).toContain('manage_stock');
-    expect(detailsSource).toContain('product_categories.category_id');
-    expect(aggregateSource).toContain('mapWithConcurrency');
-    expect(aggregateSource).toContain(
-      'CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY'
-    );
-  });
-
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
     for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
       const source = getFunctionSource(functionName);

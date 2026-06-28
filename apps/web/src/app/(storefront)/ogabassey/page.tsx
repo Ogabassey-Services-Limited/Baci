@@ -62,6 +62,5 @@ export const metadata: Metadata = {
 };
 
 export default function OgabasseyStaticHomePage() {
-  // Path-based access (/ogabassey): storefront links carry the /ogabassey prefix.
-  return <OgabasseyStaticHomePageContent pathPrefix="/ogabassey" />;
+  return <OgabasseyStaticHomePageContent />;
 }

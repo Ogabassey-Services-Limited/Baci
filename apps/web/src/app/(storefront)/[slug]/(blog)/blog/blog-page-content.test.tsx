@@ -184,32 +184,6 @@ describe('BlogPageContent', () => {
     );
   });
 
-  it('does not read request headers for custom-domain blog listings', async () => {
-    mockGetCachedBlogListing.mockResolvedValueOnce(
-      buildListingResult({
-        merchant: {
-          ...merchant,
-          slug: 'ogabassey',
-          custom_domain: 'example.com',
-        },
-      })
-    );
-
-    render(
-      await BlogPageContent({
-        params: Promise.resolve({ slug: 'example.com' }),
-        searchParams: Promise.resolve({}),
-      })
-    );
-
-    expect(mockHeaders).not.toHaveBeenCalled();
-    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
-      expect.objectContaining({
-        basePath: '',
-      })
-    );
-  });
-
   it('preserves path-prefixed storefront origins in prev/next head links', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce(
       buildListingResult({

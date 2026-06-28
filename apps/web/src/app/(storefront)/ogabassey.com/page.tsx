@@ -5,6 +5,5 @@ import { metadata as ogabasseyMetadata } from '@/app/(storefront)/ogabassey/page
 export const metadata: Metadata = ogabasseyMetadata;
 
 export default function OgabasseyDomainHomePage() {
-  // Apex-domain access (ogabassey.com): storefront links are root-relative.
-  return <OgabasseyStaticHomePageContent pathPrefix="" />;
+  return <OgabasseyStaticHomePageContent />;
 }

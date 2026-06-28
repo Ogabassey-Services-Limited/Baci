@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   getBlogAuthorBySlug,
-  getBlogAuthorPageLinks,
   getBlogAuthorSameAs,
   getBlogAuthorSlugs,
   hasBlogAuthorPage,
@@ -12,12 +11,12 @@ describe('getBlogAuthorSameAs', () => {
     expect(getBlogAuthorSameAs('Bassey John', 'ogabassey')).toEqual([
       'https://www.instagram.com/bassey__j',
       'https://www.linkedin.com/in/bassey-john-6a277885',
-      'https://twitter.com/digitalogaa',
+      'https://x.com/digitalogaa',
     ]);
     expect(getBlogAuthorSameAs('Bolakale', 'ogabassey')).toEqual([
       'https://www.instagram.com/earthmover007',
       'https://www.linkedin.com/in/michael-bolakale',
-      'https://twitter.com/earthmover007',
+      'https://x.com/earthmover007',
     ]);
   });
 
@@ -75,13 +74,5 @@ describe('OgaBassey blog author profile helpers', () => {
 
   it('lists the known author slugs for OgaBassey static author routes', () => {
     expect(getBlogAuthorSlugs()).toEqual(['bassey-john', 'bolakale']);
-  });
-
-  it('returns crawlable author-page link metadata only for OgaBassey tenants', () => {
-    expect(getBlogAuthorPageLinks('ogabassey.com')).toEqual([
-      { name: 'Bassey John', slug: 'bassey-john' },
-      { name: 'Bolakale', slug: 'bolakale' },
-    ]);
-    expect(getBlogAuthorPageLinks('another-store')).toEqual([]);
   });
 });

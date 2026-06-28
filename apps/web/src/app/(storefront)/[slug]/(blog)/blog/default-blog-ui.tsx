@@ -2,7 +2,6 @@ import { Rss } from 'lucide-react';
 import Link from 'next/link';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
-import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { BlogList } from './blog-list';
@@ -56,8 +55,6 @@ export function DefaultBlogUi({
   totalPosts,
   currentPage = 1,
 }: DefaultBlogUiProps) {
-  const authorLinks = getBlogAuthorPageLinks(slug);
-
   return (
     <>
       {organizationSchema && (
@@ -140,24 +137,6 @@ export function DefaultBlogUi({
                 </Link>
               ))}
             </div>
-          )}
-
-          {authorLinks.length > 0 && (
-            <nav
-              aria-label="Blog authors"
-              className="mb-8 flex flex-wrap gap-2"
-            >
-              {authorLinks.map((author) => (
-                <Link
-                  key={author.slug}
-                  href={asRoute(`${basePath}/blog/author/${author.slug}`)}
-                >
-                  <Badge variant="outline" className="cursor-pointer">
-                    {author.name}
-                  </Badge>
-                </Link>
-              ))}
-            </nav>
           )}
 
           <div className="mb-8 flex justify-center">

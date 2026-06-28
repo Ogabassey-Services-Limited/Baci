@@ -42,27 +42,18 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
   CategoryPage: ({
-    currentPage,
-    productsArePrePaginated,
-    totalProductCount,
     products,
   }: {
-    currentPage?: number;
-    productsArePrePaginated?: boolean;
-    totalProductCount?: number;
     products?: Array<{ id: string; name: string; price: string }>;
   }) => (
-    <section aria-label="Category page">
+    <div data-testid="category-page">
       Category page
-      {currentPage ? <div>Page: {currentPage}</div> : null}
-      {totalProductCount ? <div>Total: {totalProductCount}</div> : null}
-      {productsArePrePaginated ? <div>Prepaginated</div> : null}
       {products?.map((product) => (
         <div key={product.id}>
           {product.name}: {product.price}
         </div>
       ))}
-    </section>
+    </div>
   ),
 }));
 
@@ -126,11 +117,6 @@ vi.mock('./category-page-content-helpers', () => ({
   STOREFRONT_PRODUCTS_PER_PAGE: 24,
   buildCategoryPageHubModel: (...args: unknown[]) =>
     mockBuildCategoryPageHubModel(...args),
-  getCategoryPageProductSlots: (data: {
-    productSlots?: unknown[];
-    products: unknown[];
-  }) => data.productSlots ?? data.products,
-  isCategoryPageProductSlot: (product: unknown) => product !== null,
   normalizeCategoryPageProducts: (...args: unknown[]) =>
     mockNormalizeCategoryPageProducts(...args),
   resolveCategoryPageName: (...args: unknown[]) =>
@@ -374,105 +360,6 @@ describe('CategoryPageContent', () => {
     expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
   });
 
-  it('fails open for out-of-range content pages when product ID pagination is unknown', async () => {
-    mockGetMerchantByIdentifier.mockResolvedValue({
-      id: 'merchant-1',
-      business_name: 'Demo Store',
-      slug: 'demo-store',
-      country: 'NG',
-      payout_currency: 'NGN',
-    });
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      category: { id: 'cat-1', name: 'Phones', slug: 'phones' },
-      products: [],
-      fallbackName: 'Phones',
-      fallbackDescription: 'Phones',
-      isInactiveCategory: false,
-      productIdsQueryFailed: true,
-      productsQueryFailed: true,
-    });
-    mockNormalizeCategoryPageProducts.mockReturnValue([]);
-
-    const ui = await CategoryPageContent({
-      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
-      searchParams: Promise.resolve({ page: '3' }),
-    });
-
-    render(ui);
-
-    expect(
-      screen.getByRole('region', { name: 'Category page' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText((_, node) => node?.textContent === 'Page: 3')
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { name: 'Category page not found' })
-    ).not.toBeInTheDocument();
-  });
-
-  it('keeps the requested page when detail chunks fail but ID slots prove pagination', async () => {
-    mockGetMerchantByIdentifier.mockResolvedValue({
-      id: 'merchant-1',
-      business_name: 'Demo Store',
-      slug: 'demo-store',
-      country: 'NG',
-      payout_currency: 'NGN',
-    });
-    const pageTwoProduct = {
-      id: 'product-25',
-      name: 'Recovered Phone',
-      price: 250000,
-    };
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      category: { id: 'cat-1', name: 'Phones', slug: 'phones' },
-      products: [pageTwoProduct],
-      productSlots: [...Array.from({ length: 24 }, () => null), pageTwoProduct],
-      fallbackName: 'Phones',
-      fallbackDescription: 'Phones',
-      isInactiveCategory: false,
-      productIdsQueryFailed: false,
-      productsQueryFailed: true,
-    });
-    mockNormalizeCategoryPageProducts.mockImplementation((products) =>
-      (products as (typeof pageTwoProduct)[]).map((product) => ({
-        id: product.id,
-        name: product.name,
-        price: '₦250,000',
-        rawPrice: product.price,
-        stock: 1,
-        image: '',
-        category: 'Phones',
-        category_slug: 'phones',
-        slug: product.id,
-        condition: 'new',
-      }))
-    );
-
-    const ui = await CategoryPageContent({
-      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
-      searchParams: Promise.resolve({ page: '2' }),
-    });
-
-    render(ui);
-
-    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
-      'merchant-1',
-      'phones',
-      'demo-store',
-      20,
-      20
-    );
-    expect(
-      screen.getByText((_, node) => node?.textContent === 'Page: 2')
-    ).toBeInTheDocument();
-    expect(screen.getByText('Total: 25')).toBeInTheDocument();
-    expect(screen.getByText('Prepaginated')).toBeInTheDocument();
-    expect(screen.getByText('Recovered Phone: ₦250,000')).toBeInTheDocument();
-  });
-
   it('wraps category products in the comparison scope required by product cards', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
@@ -490,7 +377,7 @@ describe('CategoryPageContent', () => {
     render(ui);
 
     expect(screen.getByTestId('comparison-scope')).toContainElement(
-      screen.getByRole('region', { name: 'Category page' })
+      screen.getByTestId('category-page')
     );
     expect(screen.getByTestId('comparison-scope')).toHaveAttribute(
       'data-storage-namespace',

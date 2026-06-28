@@ -37,18 +37,6 @@ export function resolveCategoryPageName(
     : data.fallbackName || categorySlug;
 }
 
-export function getCategoryPageProductSlots(
-  data: CategoryPageData
-): Array<RawDbProduct | null> {
-  return (data.productSlots ?? data.products) as Array<RawDbProduct | null>;
-}
-
-export function isCategoryPageProductSlot(
-  product: RawDbProduct | null
-): product is RawDbProduct {
-  return product !== null;
-}
-
 export function normalizeCategoryPageProducts(
   products: RawDbProduct[],
   preferredCategorySlug?: string,

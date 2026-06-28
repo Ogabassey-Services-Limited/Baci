@@ -25,8 +25,6 @@ import { isDomainIdentifier } from '@/lib/validation';
 import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import {
   buildCategoryPageHubModel,
-  getCategoryPageProductSlots,
-  isCategoryPageProductSlot,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
   type StorefrontCategoryProduct,
@@ -115,15 +113,8 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     });
   }
 
-  const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
   const [data, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(
-      merchant.id,
-      category,
-      slug,
-      productOffset,
-      STOREFRONT_PRODUCTS_PER_PAGE
-    ),
+    getCachedCategoryPageData(merchant.id, category, slug),
     getPublishedClusterPosts(merchant.id),
   ]);
 
@@ -144,20 +135,14 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     return renderCategoryNotFoundContent({ slug });
   }
 
-  const productSlots = getCategoryPageProductSlots(data);
   const products = data.products as unknown as RawDbProduct[];
-  const computedTotalPages = Math.max(
+  const totalPages = Math.max(
     1,
-    Math.ceil(
-      (data.productCount ?? productSlots.length) / STOREFRONT_PRODUCTS_PER_PAGE
-    )
+    Math.ceil(products.length / STOREFRONT_PRODUCTS_PER_PAGE)
   );
-  const totalPages = data.productIdsQueryFailed
-    ? Math.max(computedTotalPages, currentPage)
-    : computedTotalPages;
-  const pageStartIndex = data.productsArePrePaginated ? 0 : productOffset;
+  const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
 
-  if (!data.productIdsQueryFailed && currentPage > totalPages) {
+  if (currentPage > totalPages) {
     return renderCategoryNotFoundContent({
       slug,
       title: 'Category page not found',
@@ -171,20 +156,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     category,
     merchant.country
   );
-  const paginatedNormalizedProducts = normalizeCategoryPageProducts(
-    productSlots
-      .slice(pageStartIndex, pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE)
-      .filter(isCategoryPageProductSlot),
-    category,
-    merchant.country
+  const paginatedNormalizedProducts = normalizedProducts.slice(
+    pageStartIndex,
+    pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE
   );
-  const categoryPageProducts = data.productsQueryFailed
-    ? paginatedNormalizedProducts
-    : normalizedProducts;
-  const categoryPageCurrentPage = currentPage;
-  const productsArePrePaginated =
-    data.productsArePrePaginated ||
-    (data.productsQueryFailed && !data.productIdsQueryFailed);
   const collectionSchemaProducts = paginatedNormalizedProducts.map(
     toCollectionSchemaProduct
   );
@@ -259,18 +234,12 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           seoFeatures={hubContent.trustFeatures}
           seoFaqs={hubContent.faqItems}
           hubContent={hubContent}
-          currentPage={categoryPageCurrentPage}
-          productsArePrePaginated={productsArePrePaginated}
+          currentPage={currentPage}
           categoryImage={
             !data.isCollection ? data.category?.image_url : undefined
           }
           itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
-          products={categoryPageProducts}
-          totalProductCount={
-            productsArePrePaginated
-              ? (data.productCount ?? productSlots.length)
-              : undefined
-          }
+          products={normalizedProducts}
         />
       </V2ComparisonScope>
     </>

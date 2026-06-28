@@ -64,10 +64,6 @@ export async function loadKudaBillers(type: string) {
         categoryId: biller.categoryId,
         categoryName: biller.categoryName,
         provider: 'kuda' as const,
-        // Forward the Kuda-supplied logo so the app can render it (the mobile
-        // BillerList reads billerIconUrl); previously dropped here. Coerce null
-        // to undefined to satisfy the NormalizedBiller string|undefined type.
-        billerIconUrl: biller.billerIconUrl ?? undefined,
         billItems: biller.billItems?.map(normalizeKudaBillItem),
       })),
       error: null,
@@ -165,21 +161,6 @@ async function getBillersWithProducts({
     )
   );
 
-  // TEMP DIAGNOSTIC: counts + category codes only (no PII) to see why a category
-  // like electricity yields no Monnify billers. Remove with the other temp logs.
-  console.log(
-    '[monnify-bills] discovery billers:',
-    JSON.stringify({
-      monnifyCategory,
-      aliases: [...categoryAliasSet],
-      rawCount: validatedBillers.data.length,
-      inCategoryCount: billersInCategory.length,
-      categoryCodesSample: validatedBillers.data
-        .slice(0, 10)
-        .map((biller) => biller.categoryCodes),
-    })
-  );
-
   const normalizedMonnifyBillers = await mapWithConcurrency(
     billersInCategory,
     MONNIFY_PRODUCT_LOOKUP_CONCURRENCY,
@@ -241,19 +222,6 @@ async function getBillersWithProducts({
         billItems,
       };
     }
-  );
-
-  // TEMP DIAGNOSTIC: per-biller product counts (no PII) — shows whether billers
-  // are dropped for having zero products. Remove with the other temp logs.
-  console.log(
-    '[monnify-bills] discovery products:',
-    JSON.stringify({
-      monnifyCategory,
-      perBiller: normalizedMonnifyBillers.slice(0, 10).map((biller) => ({
-        code: biller.billerCode,
-        items: biller.billItems?.length ?? 0,
-      })),
-    })
   );
 
   return normalizedMonnifyBillers.filter(

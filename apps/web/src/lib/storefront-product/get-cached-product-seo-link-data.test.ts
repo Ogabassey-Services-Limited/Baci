@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data';
 
-const mockGetCachedProductSemanticInventory = vi.fn();
+const mockGetCachedCategoryPageData = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
 const mockGetPublishedProductGuidePosts = vi.fn();
 const mockCacheLife = vi.fn();
@@ -13,13 +13,10 @@ vi.mock('next/cache', () => ({
   cacheTag: (...args: string[]) => mockCacheTag(...args),
 }));
 
-vi.mock(
-  '@/lib/storefront-product/get-cached-product-semantic-inventory',
-  () => ({
-    getCachedProductSemanticInventory: (...args: unknown[]) =>
-      mockGetCachedProductSemanticInventory(...args),
-  })
-);
+vi.mock('@/lib/cached-data', () => ({
+  getCachedCategoryPageData: (...args: unknown[]) =>
+    mockGetCachedCategoryPageData(...args),
+}));
 
 vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
@@ -43,12 +40,17 @@ const productGuidePosts = [
 describe('getCachedProductSeoLinkData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedProductSemanticInventory.mockResolvedValue(products);
     mockGetPublishedClusterPosts.mockResolvedValue(guidePosts);
     mockGetPublishedProductGuidePosts.mockResolvedValue(productGuidePosts);
   });
 
   it('returns inventory + guide posts on a successful fetch', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products,
+      productsQueryFailed: false,
+    });
+
     const result = await getCachedProductSeoLinkData(
       'merchant-1',
       'laptops',
@@ -56,9 +58,10 @@ describe('getCachedProductSeoLinkData', () => {
       'prod-1'
     );
 
-    expect(mockGetCachedProductSemanticInventory).toHaveBeenCalledWith(
+    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
       'merchant-1',
-      'laptops'
+      'laptops',
+      'ogabassey'
     );
     expect(mockGetPublishedProductGuidePosts).toHaveBeenCalledWith(
       'merchant-1',
@@ -84,6 +87,11 @@ describe('getCachedProductSeoLinkData', () => {
     mockCacheLife.mockImplementationOnce(() => {
       throw new Error('cache unavailable');
     });
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products,
+      productsQueryFailed: false,
+    });
 
     await expect(
       getCachedProductSeoLinkData(
@@ -95,18 +103,38 @@ describe('getCachedProductSeoLinkData', () => {
     ).resolves.toMatchObject({ inventory: products });
   });
 
-  it('throws on a transient inventory failure so the degraded result is never cached', async () => {
-    mockGetCachedProductSemanticInventory.mockRejectedValue(
-      new Error('Product SEO link inventory unavailable (transient)')
-    );
+  it('THROWS on a transient inventory failure so the degraded result is never cached', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products: [],
+      productsQueryFailed: true,
+    });
 
     await expect(
       getCachedProductSeoLinkData('merchant-1', 'laptops', 'ogabassey')
     ).rejects.toThrow(/transient/i);
   });
 
-  it('treats a genuinely empty category as a cacheable empty result', async () => {
-    mockGetCachedProductSemanticInventory.mockResolvedValue([]);
+  it('THROWS on a transient category lookup failure so fallback inventory is never cached', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products,
+      productsQueryFailed: false,
+      categoryQueryFailed: true,
+    });
+
+    await expect(
+      getCachedProductSeoLinkData('merchant-1', 'laptops', 'ogabassey')
+    ).rejects.toThrow(/transient/i);
+  });
+
+  it('returns empty inventory for a collection category (still cacheable)', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: true,
+      products,
+      productsQueryFailed: false,
+    });
+
     const result = await getCachedProductSeoLinkData(
       'merchant-1',
       'laptops',
@@ -122,5 +150,21 @@ describe('getCachedProductSeoLinkData', () => {
       'lenovo-legion-guide',
       'best-laptops',
     ]);
+  });
+
+  it('treats a genuinely empty category (no error) as a cacheable empty result', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      products: [],
+      productsQueryFailed: false,
+    });
+
+    const result = await getCachedProductSeoLinkData(
+      'merchant-1',
+      'laptops',
+      'ogabassey'
+    );
+
+    expect(result.inventory).toEqual([]);
   });
 });
