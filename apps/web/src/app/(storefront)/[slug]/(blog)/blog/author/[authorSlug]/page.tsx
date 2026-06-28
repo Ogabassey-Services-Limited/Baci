@@ -37,31 +37,12 @@ export function generateStaticParams(): Array<{
 
 async function assertAuthorRouteBeforeShell({
   params,
-  searchParams,
-}: AuthorPageProps) {
+}: Pick<AuthorPageProps, 'params'>) {
   const { slug, authorSlug } = await params;
-  const requestedPage = parseBlogListingPage((await searchParams)?.page);
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (profile) {
-    const data = await getCachedBlogAuthor(slug, profile.name, {
-      page: requestedPage,
-    });
-    if (!data) {
-      notFound();
-    }
-    if (data.currentPage > data.totalPages) {
-      const baseUrl = buildStoreUrl(data.merchant);
-      const authorBaseUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
-      redirect(
-        asRoute(
-          data.totalPages > 1
-            ? `${authorBaseUrl}?page=${data.totalPages}`
-            : authorBaseUrl
-        )
-      );
-    }
     return { slug, authorSlug: normalizedAuthorSlug };
   }
 
@@ -148,13 +129,10 @@ export default async function BlogAuthorPage({
   params,
   searchParams,
 }: AuthorPageProps) {
-  // Resolve only slug-shape/catch-all outcomes before the shell. Request-bound
-  // page data and query-string pagination stay behind Suspense so this route
-  // can produce a PPR static shell under Cache Components.
-  const resolvedParams = await assertAuthorRouteBeforeShell({
-    params,
-    searchParams,
-  });
+  // Resolve only static slug-shape and legacy catch-all outcomes before the
+  // shell. Request-query/data validation stays behind Suspense so Cache
+  // Components can keep a static shell for this route.
+  const resolvedParams = await assertAuthorRouteBeforeShell({ params });
 
   return (
     <Suspense fallback={<BlogListingFallback />}>

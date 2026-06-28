@@ -49,7 +49,13 @@ describe('blog page shell', () => {
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
   });
 
-  it('keeps a Suspense shell for non-static tenant blog listings', async () => {
+  it('shows the blog listing fallback while a non-static tenant listing is resolving', async () => {
+    mockBlogPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves so Suspense fallback remains visible.
+      });
+    });
+
     render(
       await BlogPage({
         params: Promise.resolve({ slug: 'test-store' }),
@@ -57,12 +63,9 @@ describe('blog page shell', () => {
       })
     );
 
-    expect(screen.getByText('Blog page content')).toBeInTheDocument();
-    expect(mockBlogPageContent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        params: expect.any(Promise),
-      })
-    );
+    expect(
+      screen.getByRole('status', { name: 'Loading blog posts' })
+    ).toBeInTheDocument();
   });
 });
 

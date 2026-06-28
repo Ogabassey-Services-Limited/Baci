@@ -1,12 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
-import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
-import { asRoute } from '@/lib/routes';
-import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import {
@@ -16,7 +13,6 @@ import {
 } from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
-import { buildBlogListingRouteHref } from '../../blog-listing-route';
 import { BlogPageContent } from '../../blog-page-content';
 import {
   type BlogSearchParamValue,
@@ -60,55 +56,6 @@ async function resolveCategoryBlogSearchParams(
     page: toSingleBlogSearchParam(resolvedSearchParams?.page),
     search: toSingleBlogSearchParam(resolvedSearchParams?.search),
   };
-}
-
-async function resolveCategoryRouteBeforeShell({
-  categoryLabel,
-  searchParams,
-  slug,
-}: {
-  categoryLabel: string;
-  searchParams: BlogCategoryPageProps['searchParams'];
-  slug: string;
-}): Promise<{
-  category: string;
-  page?: string;
-  search?: string;
-}> {
-  const resolvedSearchParams = await resolveCategoryBlogSearchParams(
-    searchParams,
-    categoryLabel
-  );
-  const currentPage = parseBlogListingPage(resolvedSearchParams.page);
-  const data = await getCachedBlogListing(slug, {
-    category: categoryLabel,
-    page: currentPage,
-    searchQuery: resolvedSearchParams.search,
-  });
-
-  if (!data) {
-    notFound();
-  }
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(data.totalPosts / BLOG_LISTING_PAGE_SIZE)
-  );
-
-  if (currentPage > totalPages) {
-    redirect(
-      asRoute(
-        buildBlogListingRouteHref({
-          storeBasePath: buildStoreUrl(data.merchant),
-          category: categoryLabel,
-          page: totalPages,
-          search: resolvedSearchParams.search,
-        })
-      )
-    );
-  }
-
-  return resolvedSearchParams;
 }
 
 function getStaticCategorySlugs(categories: string[]): string[] {
@@ -180,19 +127,18 @@ export default async function BlogCategoryPage({
   params,
   searchParams,
 }: BlogCategoryPageProps) {
-  // Resolve the route params and category hub before returning the async child.
-  // Keep searchParams as a promise so normal category hubs can still produce a
-  // Cache Components static shell without top-level request-query access.
+  // Resolve only the static category hub before the shell. Request-query/data
+  // validation stays behind Suspense so Cache Components can keep a static
+  // shell for category hubs.
   const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
     notFound();
   }
-  const resolvedSearchParams = await resolveCategoryRouteBeforeShell({
-    categoryLabel: hub.categoryLabel,
+  const resolvedSearchParams = resolveCategoryBlogSearchParams(
     searchParams,
-    slug,
-  });
+    hub.categoryLabel
+  );
 
   return (
     <Suspense fallback={<BlogListingFallback />}>
@@ -200,7 +146,7 @@ export default async function BlogCategoryPage({
         isCleanCategoryRoute
         itemListSchemaUrl={hub.canonicalUrl}
         params={Promise.resolve({ slug })}
-        searchParams={Promise.resolve(resolvedSearchParams)}
+        searchParams={resolvedSearchParams}
       />
     </Suspense>
   );

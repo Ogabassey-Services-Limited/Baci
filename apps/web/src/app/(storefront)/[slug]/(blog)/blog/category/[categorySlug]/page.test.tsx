@@ -88,36 +88,48 @@ describe('blog category page', () => {
     });
   });
 
-  it('redirects stale category pagination before rendering the shell', async () => {
-    mockGetCachedBlogListing.mockResolvedValueOnce(
-      buildListingResult({
-        merchant: {
-          ...merchant,
-          custom_domain: 'ogabassey.com',
-        },
-        totalPosts: 24,
-      })
-    );
+  it('shows the category fallback while clean category content is resolving', async () => {
+    mockBlogPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves so Suspense fallback remains visible.
+      });
+    });
 
-    await expect(
-      BlogCategoryPage({
+    render(
+      await BlogCategoryPage({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           categorySlug: 'smartphones',
         }),
         searchParams: Promise.resolve({ page: '99' }),
       })
-    ).rejects.toThrow(
-      'NEXT_REDIRECT:https://ogabassey.com/blog?category=Smartphones&page=2'
     );
 
-    expect(mockRedirect).toHaveBeenCalledWith(
-      'https://ogabassey.com/blog?category=Smartphones&page=2'
-    );
-    expect(mockBlogPageContent).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('status', { name: 'Loading blog posts' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it('generates static params for public OgaBassey category hubs', async () => {
+    const params = await generateStaticParams();
+
+    expect(params).toContainEqual({
+      slug: 'ogabassey.com',
+      categorySlug: 'laptops',
+    });
+    expect(params).toContainEqual({
+      slug: 'ogabassey.com',
+      categorySlug: 'smartphones',
+    });
+  });
+
+  it('falls back to default OgaBassey category hubs when category discovery fails', async () => {
+    mockGetCachedBlogListing.mockRejectedValueOnce(
+      new Error('category discovery failed')
+    );
+
     const params = await generateStaticParams();
 
     expect(params).toContainEqual({

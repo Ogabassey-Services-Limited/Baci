@@ -164,61 +164,44 @@ describe('blog author page metadata', () => {
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 
-  it('returns a hard notFound for known authors with no published posts before rendering the shell', async () => {
-    mockGetCachedBlogAuthor.mockResolvedValueOnce(null);
+  it('does not prefetch request-bound author data before returning the shell', async () => {
+    const ui = await BlogAuthorPage({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+      searchParams: Promise.resolve({ page: '99' }),
+    });
+    render(ui);
 
-    await expect(
-      BlogAuthorPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          authorSlug: 'bassey-john',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-
-    expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'Bassey John',
-      { page: 1 }
+    expect(screen.getByText('Author page')).toBeInTheDocument();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+    expect(mockBlogAuthorPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({ searchParams: expect.any(Promise) })
     );
-    expect(mockNotFound).toHaveBeenCalledTimes(1);
-    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
   });
 
-  it('redirects stale author pagination before rendering the shell', async () => {
-    mockGetCachedBlogAuthor.mockResolvedValueOnce({
-      merchant: {
-        business_name: 'Ogabassey',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      },
-      author: {
-        name: 'Bassey John',
-        title: 'Performance Marketing Specialist',
-        bio: 'Bassey John writes practical device buying guides.',
-        imageUrl: 'https://cdn.ogabassey.com/authors/bassey-john.jpg',
-      },
-      currentPage: 99,
-      totalPages: 3,
+  it('shows the author fallback while known author content is resolving', async () => {
+    mockBlogAuthorPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves so Suspense fallback remains visible.
+      });
     });
 
-    await expect(
-      BlogAuthorPage({
+    render(
+      await BlogAuthorPage({
         params: Promise.resolve({
           slug: 'ogabassey.com',
           authorSlug: 'bassey-john',
         }),
         searchParams: Promise.resolve({ page: '99' }),
       })
-    ).rejects.toThrow(
-      'NEXT_REDIRECT:https://ogabassey.com/blog/author/bassey-john?page=3'
     );
 
-    expect(mockRedirect).toHaveBeenCalledWith(
-      'https://ogabassey.com/blog/author/bassey-john?page=3'
-    );
-    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('status', { name: 'Loading blog posts' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
   it('redirects legacy author-prefixed post URLs before rendering the shell', async () => {
