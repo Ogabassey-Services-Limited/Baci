@@ -77,6 +77,8 @@
     );
     --ogabassey-shell-background: var(--storefront-shell-background, #0f0f0f);
     --ogabassey-shell-text: var(--store-primary-text, #ffffff);
+    --ogabassey-chrome-background: var(--ogabassey-shell-background);
+    --ogabassey-chrome-text: var(--ogabassey-shell-text);
     --ogabassey-surface: var(--store-surface, var(--store-background, #ffffff));
     --ogabassey-surface-muted: color-mix(
       in srgb,
@@ -108,8 +110,8 @@
   }
 
   .ogabassey-footer {
-    background: #1a1a1a;
-    color: #ffffff;
+    background: var(--ogabassey-chrome-background);
+    color: var(--ogabassey-chrome-text);
   }
 
   .ogabassey-category-hub-card {
@@ -283,8 +285,8 @@
   }
 
   .ogabassey-navbar__top {
-    background: var(--ogabassey-shell-background);
-    color: var(--ogabassey-shell-text);
+    background: var(--ogabassey-chrome-background);
+    color: var(--ogabassey-chrome-text);
     /* Keep autocomplete suggestions visible above the secondary nav. */
     overflow: visible;
     position: relative;

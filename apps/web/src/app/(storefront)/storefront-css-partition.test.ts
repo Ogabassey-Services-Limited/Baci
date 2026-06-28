@@ -76,6 +76,27 @@ describe('storefront CSS partitioning', () => {
     );
   });
 
+  it('keeps the OgaBassey header and footer on the same chrome background tokens', () => {
+    const coreCss = readStorefrontFile('storefront-core.css');
+    const normalizedCoreCss = coreCss.replace(/\s+/g, ' ');
+
+    expect(coreCss).toContain(
+      '--ogabassey-chrome-background: var(--ogabassey-shell-background);'
+    );
+    expect(coreCss).toContain(
+      '--ogabassey-chrome-text: var(--ogabassey-shell-text);'
+    );
+    expect(normalizedCoreCss).toMatch(
+      /\.ogabassey-footer \{ background: var\(--ogabassey-chrome-background\); color: var\(--ogabassey-chrome-text\); \}/
+    );
+    expect(normalizedCoreCss).toMatch(
+      /\.ogabassey-navbar__top \{ background: var\(--ogabassey-chrome-background\); color: var\(--ogabassey-chrome-text\);/
+    );
+    expect(normalizedCoreCss).not.toMatch(
+      /\.ogabassey-footer \{ background: #1a1a1a;/
+    );
+  });
+
   it('keeps the CSS dark token literals aligned with the TS token contract', () => {
     const darkModeCss = readStorefrontDarkModeCss().toLowerCase();
     const expectedTokens = [
@@ -321,9 +342,14 @@ describe('storefront CSS partitioning', () => {
 
     expect(coreCss).toMatch(/\.ogabassey-footer\b/);
     expect(coreCss).toMatch(
+      /\.ogabassey-footer\s*\{[^}]*background:\s*var\(--ogabassey-chrome-background\)/s
+    );
+    expect(coreCss).toMatch(
+      /\.ogabassey-footer\s*\{[^}]*color:\s*var\(--ogabassey-chrome-text\)/s
+    );
+    expect(coreCss).not.toMatch(
       /\.ogabassey-footer\s*\{[^}]*background:\s*#1a1a1a/s
     );
-    expect(coreCss).toMatch(/\.ogabassey-footer\s*\{[^}]*color:\s*#ffffff/);
     expect(coreCss).not.toMatch(/\.ogabassey-footer\s*\{[^}]*border-top:/s);
     expect(coreCss).not.toMatch(
       /\.ogabassey-footer\s*\{[^}]*var\(--store-background-text/s
