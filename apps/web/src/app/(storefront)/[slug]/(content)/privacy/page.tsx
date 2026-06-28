@@ -80,7 +80,7 @@ async function PrivacyPageContent({ params }: PageProps) {
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
-  const privacySchema = {
+  const privacySchema: JsonLdData<WebPage> = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `Privacy Policy | ${merchant.business_name}`,
@@ -99,7 +99,7 @@ async function PrivacyPageContent({ params }: PageProps) {
     },
     inLanguage: 'en',
     dateModified: merchant.updated_at || new Date().toISOString(),
-  } as unknown as JsonLdData<WebPage>;
+  };
 
   const jsonLdScript = <JsonLd data={privacySchema} />;
 

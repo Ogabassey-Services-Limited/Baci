@@ -43,7 +43,7 @@ export async function ContactPageContent({ params }: PageProps) {
     notFound();
   }
 
-  const contactSchema = {
+  const contactSchema: JsonLdData<ContactPage> = {
     '@context': 'https://schema.org',
     '@type': 'ContactPage',
     name: `Contact ${merchant.business_name}`,
@@ -60,8 +60,8 @@ export async function ContactPageContent({ params }: PageProps) {
           ? trustProfile.socialLinks
           : (merchant.social_media as Record<string, string> | undefined),
       trustProfile,
-    }),
-  } as unknown as JsonLdData<ContactPage>;
+    }) as ContactPage['mainEntity'],
+  };
 
   const jsonLdScript = <JsonLd data={contactSchema} />;
 

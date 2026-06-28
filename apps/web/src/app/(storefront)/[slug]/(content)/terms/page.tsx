@@ -80,7 +80,7 @@ async function TermsPageContent({ params }: PageProps) {
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
-  const termsSchema = {
+  const termsSchema: JsonLdData<WebPage> = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `Terms of Service | ${merchant.business_name}`,
@@ -99,7 +99,7 @@ async function TermsPageContent({ params }: PageProps) {
     },
     inLanguage: 'en',
     dateModified: merchant.updated_at || new Date().toISOString(),
-  } as unknown as JsonLdData<WebPage>;
+  };
 
   const jsonLdScript = <JsonLd data={termsSchema} />;
 
