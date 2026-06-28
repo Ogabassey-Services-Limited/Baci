@@ -14,11 +14,15 @@ type MerchantFeatureSource = {
 
 const ALL_FEATURES = 'all_features';
 const FEATURE_MESSAGES: Record<MerchantFeatureGate, string> = {
-  custom_domain: 'Custom domains require Baci Pro',
+  custom_domain: 'Custom domains require Baci Starter or higher',
   growth_integrations: 'Growth integrations require Baci Pro',
   marketplace_sync: 'Marketplace sync requires Baci Pro',
 };
-const PAID_PLAN_TIERS = new Set(['pro', 'business', 'enterprise']);
+const FEATURE_PLAN_TIERS: Record<MerchantFeatureGate, Set<string>> = {
+  custom_domain: new Set(['starter', 'pro', 'business', 'enterprise']),
+  growth_integrations: new Set(['pro', 'business', 'enterprise']),
+  marketplace_sync: new Set(['pro', 'business', 'enterprise']),
+};
 
 export const MERCHANT_FEATURE_GATE_SELECT =
   'id, plan_tier, plan_expires_at, premium_features';
@@ -47,7 +51,8 @@ export function merchantHasFeature(
     return true;
   }
 
-  if (!merchant?.plan_tier || !PAID_PLAN_TIERS.has(merchant.plan_tier)) {
+  const featurePlanTiers = FEATURE_PLAN_TIERS[feature];
+  if (!merchant?.plan_tier || !featurePlanTiers.has(merchant.plan_tier)) {
     return false;
   }
 

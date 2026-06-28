@@ -26,6 +26,21 @@ describe('baciFeatureGates', () => {
     ).toBe(true);
   });
 
+  it('allows starter merchants to use custom domains only', () => {
+    expect(
+      baciFeatureGates.hasFeature(
+        { plan_expires_at: null, plan_tier: 'starter', premium_features: [] },
+        'custom_domain'
+      )
+    ).toBe(true);
+    expect(
+      baciFeatureGates.hasFeature(
+        { plan_expires_at: null, plan_tier: 'starter', premium_features: [] },
+        'marketplace_sync'
+      )
+    ).toBe(false);
+  });
+
   it('blocks expired paid plans unless an explicit feature grant remains', () => {
     expect(
       baciFeatureGates.hasFeature(

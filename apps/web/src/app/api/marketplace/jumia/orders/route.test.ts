@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   forIntegration: vi.fn(),
   getAllOrders: vi.fn(),
-  getMerchantFeatureAccess: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
+  requireMerchantFeatureAccess: vi.fn(),
   supabase: {
     auth: {
       getUser: vi.fn(),
@@ -75,16 +75,8 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/lib/merchant-feature-gates', () => ({
-  getMerchantFeatureAccess: (...args: unknown[]) =>
-    mocks.getMerchantFeatureAccess(...args),
-  merchantFeatureUpgradeResponse: () =>
-    Response.json(
-      {
-        code: 'requires_upgrade',
-        error: 'Marketplace sync requires Baci Pro',
-      },
-      { status: 402 }
-    ),
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mocks.requireMerchantFeatureAccess(...args),
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -117,25 +109,44 @@ describe('Jumia orders POST', () => {
       merchantId: '00000000-0000-4000-8000-000000000001',
     });
     mocks.hasPermission.mockReturnValue(true);
-    mocks.getMerchantFeatureAccess.mockResolvedValue({
-      allowed: true,
-      error: null,
-    });
+    mocks.requireMerchantFeatureAccess.mockResolvedValue(null);
     mocks.forIntegration.mockResolvedValue({ shopId: 'shop-1' });
     mocks.getAllOrders.mockResolvedValue([]);
   });
 
   it('returns 402 before syncing orders when marketplace sync is locked', async () => {
-    mocks.getMerchantFeatureAccess.mockResolvedValueOnce({
-      allowed: false,
-      error: null,
-    });
+    mocks.requireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
 
     const response = await POST(makePostRequest());
 
     expect(response.status).toBe(402);
     const json = await response.json();
     expect(json.code).toBe('requires_upgrade');
+    expect(mocks.forIntegration).not.toHaveBeenCalled();
+    expect(mocks.getAllOrders).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 before syncing orders when marketplace entitlement lookup fails', async () => {
+    mocks.requireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        { error: 'Failed to verify merchant plan' },
+        { status: 500 }
+      )
+    );
+
+    const response = await POST(makePostRequest());
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.error).toBe('Failed to verify merchant plan');
     expect(mocks.forIntegration).not.toHaveBeenCalled();
     expect(mocks.getAllOrders).not.toHaveBeenCalled();
   });

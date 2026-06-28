@@ -34,6 +34,7 @@ describe('AnalyticsProvider', () => {
           facebook_pixel_id: 12345,
         },
         google_analytics_id: ' G-CONTEXT ',
+        plan_expires_at: null,
         plan_tier: 'pro',
         tiktok_pixel_id: false,
         snapchat_pixel_id: ' snap-1 ',
@@ -69,6 +70,7 @@ describe('AnalyticsProvider', () => {
         google_analytics_id: ' G-FEATURE ',
       },
       google_analytics_id: 'G-LEGACY',
+      plan_expires_at: null,
       plan_tier: 'pro',
     } as unknown as MerchantWithAnalytics;
 

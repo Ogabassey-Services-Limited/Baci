@@ -16,6 +16,21 @@ describe('merchantHasFeature', () => {
     ).toBe(true);
   });
 
+  it('allows starter merchants to use custom domains only', () => {
+    expect(
+      merchantHasFeature(
+        { plan_expires_at: null, plan_tier: 'starter', premium_features: [] },
+        'custom_domain'
+      )
+    ).toBe(true);
+    expect(
+      merchantHasFeature(
+        { plan_expires_at: null, plan_tier: 'starter', premium_features: [] },
+        'marketplace_sync'
+      )
+    ).toBe(false);
+  });
+
   it('allows explicit feature grants for free plans', () => {
     expect(
       merchantHasFeature(
@@ -85,7 +100,7 @@ describe('merchantFeatureUpgradeResponse', () => {
     expect(response.status).toBe(402);
     await expect(response.json()).resolves.toEqual({
       code: 'requires_upgrade',
-      error: 'Custom domains require Baci Pro',
+      error: 'Custom domains require Baci Starter or higher',
     });
   });
 

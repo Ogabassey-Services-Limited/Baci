@@ -47,8 +47,12 @@ function hasGrowthIntegrationAccess(merchant: Record<string, unknown>) {
     return false;
   }
 
-  if (typeof merchant.plan_expires_at !== 'string') {
+  if (merchant.plan_expires_at === null) {
     return true;
+  }
+
+  if (typeof merchant.plan_expires_at !== 'string') {
+    return false;
   }
 
   const expiryTime = Date.parse(merchant.plan_expires_at);

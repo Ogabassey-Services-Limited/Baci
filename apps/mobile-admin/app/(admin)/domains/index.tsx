@@ -21,6 +21,7 @@ import { StoreLinkCard } from '@/components/domains/StoreLinkCard';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDomainActions } from '@/hooks/useDomainActions';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import { baciFeatureGates } from '@/lib/feature-gates';
 import { supabase } from '@/lib/supabase';
@@ -73,11 +74,10 @@ async function fetchMerchantDomains(merchantId: string): Promise<Domain[]> {
 
 export default function DomainsDashboard() {
   const { merchant, primaryDomain: merchantPrimaryDomain } = useMerchant();
+  const { isPro } = useRevenueCat();
   const merchantId = merchant?.id;
-  const hasCustomDomain = baciFeatureGates.hasFeature(
-    merchant,
-    'custom_domain'
-  );
+  const hasCustomDomain =
+    isPro || baciFeatureGates.hasFeature(merchant, 'custom_domain');
 
   return (
     <>

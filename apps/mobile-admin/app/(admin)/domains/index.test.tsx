@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
     back: vi.fn(),
     push: vi.fn(),
   },
+  useRevenueCat: vi.fn(),
   useMerchant: vi.fn(),
   useQuery: vi.fn(),
 }));
@@ -150,6 +151,10 @@ vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: mocks.useMerchant,
 }));
 
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -177,6 +182,7 @@ describe('DomainsDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.useQuery.mockImplementation(() => mocks.queryState);
+    mocks.useRevenueCat.mockReturnValue({ isPro: false });
     mocks.useMerchant.mockReturnValue({
       merchant: {
         id: 'merchant-1',
@@ -244,5 +250,31 @@ describe('DomainsDashboard', () => {
 
     expect(screen.getByTestId('stack-screen')).toBeTruthy();
     expect(mocks.useQuery).not.toHaveBeenCalled();
+  });
+
+  it('renders domains for RevenueCat Pro users before DB entitlement syncs', () => {
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+        slug: 'baci-test',
+      },
+      primaryDomain: {
+        domain: 'store.baci.test',
+        domain_type: 'subdomain',
+        id: 'primary-domain',
+        is_primary: true,
+        status: 'active',
+      },
+    });
+
+    render(<DomainsDashboard />);
+
+    expect(screen.getByText('CUSTOM DOMAINS')).toBeTruthy();
+    expect(screen.getByText('shop.example.com')).toBeTruthy();
+    expect(mocks.useQuery).toHaveBeenCalled();
   });
 });

@@ -25,6 +25,13 @@ type ProductCreationGateInput = {
 
 const FREE_PRODUCT_LIMIT = 1000;
 const PAID_PLAN_TIERS = new Set<PlanTier>(['pro', 'business', 'enterprise']);
+const FEATURE_PLAN_TIERS: Record<MobileFeatureGate, Set<PlanTier>> = {
+  advanced_analytics: PAID_PLAN_TIERS,
+  custom_domain: new Set(['starter', 'pro', 'business', 'enterprise']),
+  growth_integrations: PAID_PLAN_TIERS,
+  marketplace_sync: PAID_PLAN_TIERS,
+  product_limit: PAID_PLAN_TIERS,
+};
 const ALL_FEATURES = 'all_features';
 
 const PRODUCT_LIMIT_FEATURE_ALIASES = new Set([
@@ -121,6 +128,21 @@ export const baciFeatureGates = {
       return true;
     }
 
-    return Boolean(merchant && hasActivePaidPlan(merchant, now));
+    if (!merchant) {
+      return false;
+    }
+
+    const tier = normalizePlanTier(merchant.plan_tier);
+    const allowedPlanTiers = FEATURE_PLAN_TIERS[feature];
+    if (!allowedPlanTiers.has(tier)) {
+      return false;
+    }
+
+    if (!merchant.plan_expires_at) {
+      return true;
+    }
+
+    const expiryTime = Date.parse(merchant.plan_expires_at);
+    return Number.isFinite(expiryTime) && expiryTime > now.getTime();
   },
 };
