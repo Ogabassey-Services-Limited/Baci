@@ -32,6 +32,22 @@ function hasRequestField(value: unknown, property: string): boolean {
   );
 }
 
+const PLACEHOLDER_MANUAL_BANK_NAMES = new Set([
+  'NA',
+  'NONE',
+  'UNKNOWN',
+  'UNKNOWNBANK',
+  'NOTAPPLICABLE',
+]);
+
+function isPlaceholderManualBankName(bankName: string): boolean {
+  const normalizedBankName = bankName
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
+  return PLACEHOLDER_MANUAL_BANK_NAMES.has(normalizedBankName);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -75,8 +91,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { account_number, bank_code, business_name, auto_payout_enabled } =
-      parseResult.data;
+    const {
+      account_name,
+      account_number,
+      bank_code,
+      bank_name,
+      business_name,
+      auto_payout_enabled,
+    } = parseResult.data;
     const shouldPersistAutoPayoutEnabled =
       hasRequestField(body, 'autoPayoutEnabled') ||
       hasRequestField(body, 'auto_payout_enabled');
@@ -146,14 +168,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isBaciPaystackSettlementCountry(merchantDetails.country)) {
-      return NextResponse.json(
-        {
-          error:
-            'Bank account setup is only available for Nigerian Paystack settlements',
-        },
-        { status: 400 }
-      );
+    const isPaystackSettlementCountry = isBaciPaystackSettlementCountry(
+      merchantDetails.country
+    );
+
+    if (!isPaystackSettlementCountry) {
+      if (shouldPersistAutoPayoutEnabled) {
+        return NextResponse.json(
+          {
+            error:
+              'Auto-payout settings are only available for Nigerian Paystack settlements',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!bank_name) {
+        return NextResponse.json(
+          {
+            error:
+              'Paystack settlement setup is only available for Nigerian merchants. Add a bank name to save manual invoice bank details.',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (isPlaceholderManualBankName(bank_name)) {
+        return NextResponse.json(
+          {
+            error:
+              'Enter the actual bank name to save manual invoice bank details.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const manualAccountName = account_name ?? effectiveBusinessName;
+      const { error: manualUpdateError } = await auth.supabase
+        .from('merchants')
+        .update({
+          paystack_subaccount_code: null,
+          bank_account_number: account_number,
+          bank_account_name: manualAccountName,
+          bank_code: null,
+          bank_name,
+        })
+        .eq('id', merchantId);
+
+      if (manualUpdateError) {
+        throw manualUpdateError;
+      }
+
+      return NextResponse.json({
+        success: true,
+        accountName: manualAccountName,
+        subaccountCode: null,
+      });
     }
 
     const paystackAccount = resolvePaystackAccountSchema.safeParse({

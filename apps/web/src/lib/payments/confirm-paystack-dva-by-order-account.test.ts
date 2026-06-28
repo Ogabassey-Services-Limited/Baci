@@ -161,6 +161,55 @@ describe('confirmPaystackDvaByOrderAccount — single match', () => {
     }
   });
 
+  it('matches against payable_amount when wallet or savings credits reduce the DVA charge', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          payable_amount: '350000',
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      verifiedAmount: { amount: 350_000, currency: 'NGN' },
+    });
+
+    expect(result.kind).toBe('match');
+    expect(state.insertCalls).toHaveLength(1);
+    expect(state.insertCalls[0]).toMatchObject({
+      amount: '350000',
+      order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
+    });
+  });
+
+  it('uses assigned_at to match a retried DVA after the original created_at window expires', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          created_at: '2026-05-09T08:00:00Z',
+          assigned_at: '2026-05-09T10:00:00Z',
+          expires_at: '2026-05-09T11:30:00Z',
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      paystackResponse: {
+        customer: { email: 'customer@example.com' },
+        paid_at: '2026-05-09T10:30:00Z',
+      },
+    });
+
+    expect(result.kind).toBe('match');
+    expect(state.insertCalls).toHaveLength(1);
+  });
+
   it('reuses the existing transaction on unique-violation retries (concurrent webhooks)', async () => {
     const existing = {
       id: 'txn-existing',

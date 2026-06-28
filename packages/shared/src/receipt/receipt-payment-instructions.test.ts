@@ -82,4 +82,27 @@ describe('renderBankDetailsHtml', () => {
     expect(html).not.toContain('href=');
     expect(html).not.toContain('javascript:');
   });
+
+  it('renders manual merchant bank details for invoice payments', () => {
+    const html = renderBankDetailsHtml({
+      order: createReceiptOrder({ currency: 'INR' }),
+      merchant: createReceiptMerchant({
+        business_name: 'Yodha Shopping',
+        bank_name: 'HDFC Bank',
+        bank_account_name: 'Yodha Collections Ltd',
+        bank_account_number: 'IN-123456789012',
+      }),
+      options: {},
+      brandPrimary: '#111827',
+      brandAccent: '#d10f1f',
+      contactEmail: 'support@yodha.example',
+      contactPhone: '+919876543210',
+      isPaid: false,
+    });
+
+    expect(html).toContain('Manual Confirmation');
+    expect(html).toContain('HDFC Bank');
+    expect(html).toContain('Yodha Collections Ltd');
+    expect(html).toContain('IN-123456789012');
+  });
 });
