@@ -15,6 +15,7 @@ interface NewOrderFooterBarProps {
 export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
   const {
     colors,
+    shadows,
     formatPrice,
     handleSubmit,
     isSubmitting,
@@ -57,7 +58,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                   isSelected && {
                     backgroundColor: colors.background,
                     elevation: 2,
-                    shadowColor: '#000',
+                    shadowColor: shadows.md.shadowColor,
                     shadowOffset: { width: 0, height: 1 },
                     shadowOpacity: 0.1,
                     shadowRadius: 1,
