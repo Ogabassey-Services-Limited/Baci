@@ -88,6 +88,7 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           SUBMIT_BUILD_NUMBER: ${{ inputs.build_number }}
           SUBMIT_APP_VERSION: ${{ inputs.app_version }}
+          IOS_ADMIN_IDFA_METADATA_CONFIRMED: ${{ vars.IOS_ADMIN_IDFA_METADATA_CONFIRMED }}
           APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS: '1200'
         run: bundle exec fastlane ios submit
 
