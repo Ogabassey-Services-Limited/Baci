@@ -11,11 +11,12 @@ import {
 } from '../../blog-page-content.test-utils';
 
 interface MockBlogPageContentProps {
+  categoryOverride?: string;
   isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
-    category: string;
+    category?: string;
     page?: string;
     search?: string;
   }>;
@@ -66,13 +67,14 @@ describe('blog category page', () => {
       })
     );
 
-    expect(screen.getByText('Ogabassey blog')).toBeInTheDocument();
+    expect(await screen.findByText('Ogabassey blog')).toBeInTheDocument();
     expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
       'ogabassey.com',
       'smartphones'
     );
     expect(mockBlogPageContent).toHaveBeenCalledWith(
       expect.objectContaining({
+        categoryOverride: 'Smartphones',
         isCleanCategoryRoute: true,
         itemListSchemaUrl: 'https://ogabassey.com/blog/category/smartphones',
         params: expect.any(Promise),
@@ -81,11 +83,27 @@ describe('blog category page', () => {
     );
     await expect(
       mockBlogPageContent.mock.calls[0]?.[0].searchParams
-    ).resolves.toEqual({
-      category: 'Smartphones',
-      page: undefined,
-      search: undefined,
+    ).resolves.toEqual({});
+  });
+
+  it('does not resolve category search params before the Suspense content boundary renders', async () => {
+    const searchParams = new Promise<{ page?: string; search?: string }>(() => {
+      // Intentionally unresolved; this route shell must pass it through
+      // without subscribing to it outside the Suspense boundary.
     });
+    const thenSpy = vi.spyOn(searchParams, 'then');
+
+    await BlogCategoryPage({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        categorySlug: 'smartphones',
+      }),
+      searchParams,
+    });
+    await Promise.resolve();
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
   it('shows the category fallback while clean category content is resolving', async () => {

@@ -41,23 +41,6 @@ const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
   'smartphones',
 ] as const;
 
-async function resolveCategoryBlogSearchParams(
-  searchParams: BlogCategoryPageProps['searchParams'],
-  categoryLabel: string
-): Promise<{
-  category: string;
-  page?: string;
-  search?: string;
-}> {
-  const resolvedSearchParams = await searchParams;
-
-  return {
-    category: categoryLabel,
-    page: toSingleBlogSearchParam(resolvedSearchParams?.page),
-    search: toSingleBlogSearchParam(resolvedSearchParams?.search),
-  };
-}
-
 function getStaticCategorySlugs(categories: string[]): string[] {
   const publicCategories = filterPublicBlogCategories(categories);
   const collidingSlugs = getCollidingBlogCategorySlugs(publicCategories);
@@ -135,18 +118,15 @@ export default async function BlogCategoryPage({
   if (!hub) {
     notFound();
   }
-  const resolvedSearchParams = resolveCategoryBlogSearchParams(
-    searchParams,
-    hub.categoryLabel
-  );
 
   return (
     <Suspense fallback={<BlogListingFallback />}>
       <BlogPageContent
+        categoryOverride={hub.categoryLabel}
         isCleanCategoryRoute
         itemListSchemaUrl={hub.canonicalUrl}
         params={Promise.resolve({ slug })}
-        searchParams={resolvedSearchParams}
+        searchParams={searchParams ?? Promise.resolve({})}
       />
     </Suspense>
   );

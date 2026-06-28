@@ -376,6 +376,26 @@ describe('BlogPageContent', () => {
     );
   });
 
+  it('uses a clean-route category override without needing category in search params', async () => {
+    render(
+      await BlogPageContent({
+        categoryOverride: 'Smartphones',
+        isCleanCategoryRoute: true,
+        itemListSchemaUrl:
+          'https://test-store.usebaci.com/blog/category/smartphones',
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      category: 'Smartphones',
+      page: 1,
+      searchQuery: undefined,
+    });
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
   it('permanently redirects slug-form category query values to the matching clean category hub', async () => {
     mockGetCachedBlogListing.mockResolvedValueOnce({
       ...buildListingResult({

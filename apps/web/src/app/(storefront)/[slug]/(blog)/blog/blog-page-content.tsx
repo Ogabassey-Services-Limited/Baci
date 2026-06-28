@@ -33,6 +33,7 @@ import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
+  categoryOverride?: string;
   isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
@@ -98,6 +99,7 @@ function appendPreservedBlogCategoryRedirectParams(
 }
 
 export async function BlogPageContent({
+  categoryOverride,
   isCleanCategoryRoute = false,
   itemListSchemaUrl,
   params,
@@ -105,7 +107,8 @@ export async function BlogPageContent({
 }: BlogPageProps) {
   const { slug } = await params;
   const searchParamValues = await searchParams;
-  const category = toSingleBlogSearchParam(searchParamValues.category);
+  const category =
+    categoryOverride ?? toSingleBlogSearchParam(searchParamValues.category);
   const page = toSingleBlogSearchParam(searchParamValues.page);
   const search = toSingleBlogSearchParam(searchParamValues.search);
   const currentPage = parseBlogListingPage(page);
