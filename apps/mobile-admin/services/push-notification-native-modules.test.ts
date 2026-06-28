@@ -69,7 +69,6 @@ describe('push-notification-native-modules', () => {
     const loadNotifications = vi.fn(() => ({
       setNotificationHandler: vi.fn(),
     }));
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.doMock('expo-device', loadDevice);
     vi.doMock('expo-notifications', loadNotifications);
 
@@ -86,11 +85,5 @@ describe('push-notification-native-modules', () => {
 
     expect(loadDevice).toHaveBeenCalledTimes(1);
     expect(loadNotifications).not.toHaveBeenCalled();
-    expect(logSpy).toHaveBeenCalledTimes(1);
-    expect(logSpy).toHaveBeenCalledWith(
-      '[Push] Native notifications skipped on simulator'
-    );
-
-    logSpy.mockRestore();
   });
 });

@@ -93,9 +93,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (errored > 0) {
+  if (errored > 0 && errored === apps.length) {
     return NextResponse.json(
-      { error: 'One or more Android live-build syncs failed', results },
+      { error: 'Every Android live-build sync failed', results },
       { status: 502 }
     );
   }

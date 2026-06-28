@@ -15,18 +15,29 @@ vi.mock('@/components/ui/AppDialogModal', () => ({
     dismissOnBackdropPress?: boolean;
     onClose?: () => void;
     visible?: boolean;
-  }) =>
-    visible ? (
+  }) => {
+    const canDismiss = dismissOnBackdropPress !== false;
+    return visible ? (
       <section
         aria-label="update-modal"
-        data-dismissible={dismissOnBackdropPress ? 'true' : 'false'}
+        data-dismissible={canDismiss ? 'true' : 'false'}
       >
-        <button aria-label="dialog close" onClick={onClose} type="button">
-          close
+        {canDismiss ? (
+          <button aria-label="dialog close" onClick={onClose} type="button">
+            close
+          </button>
+        ) : null}
+        <button
+          aria-label="dialog backdrop"
+          onClick={canDismiss ? onClose : undefined}
+          type="button"
+        >
+          backdrop
         </button>
         {children}
       </section>
-    ) : null,
+    ) : null;
+  },
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -140,6 +151,8 @@ describe('MobileUpdateModal', () => {
   });
 
   it('hides the dismiss action for required native updates', () => {
+    const onDismiss = vi.fn();
+
     render(
       <MobileUpdateModal
         visible
@@ -149,7 +162,7 @@ describe('MobileUpdateModal', () => {
           storeUrl: 'https://apps.apple.com/app/id6472735367',
         }}
         onAccept={vi.fn()}
-        onDismiss={vi.fn()}
+        onDismiss={onDismiss}
       />
     );
 
@@ -160,5 +173,10 @@ describe('MobileUpdateModal', () => {
       screen.getByRole('button', { name: 'Open store' })
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'dialog close' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'dialog backdrop' }));
+
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 });

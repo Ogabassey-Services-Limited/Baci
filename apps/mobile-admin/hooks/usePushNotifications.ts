@@ -51,7 +51,6 @@ import {
   savePushTokenToServer,
 } from '@/services/push-notifications';
 import { handleNotificationTap } from './push-notification-navigation';
-import { useAuth } from './useAuth';
 import { useMerchant } from './useMerchant';
 
 const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
@@ -107,7 +106,6 @@ export function usePushNotifications(): UsePushNotificationsResult {
   const [isLoading, setIsLoading] = useState(false);
 
   const { merchant } = useMerchant();
-  const { user } = useAuth();
   const router = useRouter();
 
   // Refs for notification listeners
@@ -117,15 +115,15 @@ export function usePushNotifications(): UsePushNotificationsResult {
   /**
    * Register for push notifications.
    * Accepts an explicit merchantId so layout code can pass the merchant that
-   * triggered registration; user ownership is still derived by the server RPC
-   * from the current authenticated Supabase session.
+   * triggered registration; user ownership is derived by the server RPC from
+   * the current authenticated Supabase session.
    */
   async function registerPush(merchantId?: string) {
     const resolvedMerchantId = merchantId ?? merchant?.id;
 
-    if (!user?.id || !resolvedMerchantId) {
+    if (!resolvedMerchantId) {
       if (__DEV__) {
-        console.log('[Push] Cannot register: missing user or merchant');
+        console.log('[Push] Cannot register: missing merchant');
       }
       return;
     }

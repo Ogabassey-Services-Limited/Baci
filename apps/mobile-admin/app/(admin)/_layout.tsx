@@ -8,7 +8,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function AdminLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const {
     registerPush,
     isRegistered,
@@ -28,6 +28,7 @@ export default function AdminLayout() {
       !isRegistered &&
       !isPushLoading &&
       merchant?.id &&
+      user?.id &&
       attemptedMerchantIdRef.current !== merchant.id
     ) {
       attemptedMerchantIdRef.current = merchant.id;
@@ -41,6 +42,7 @@ export default function AdminLayout() {
     isPushLoading,
     registerPush,
     merchant?.id,
+    user?.id,
   ]);
 
   if (isLoading) {

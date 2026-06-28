@@ -144,7 +144,7 @@ describe('GET /api/cron/android-live-build-sync', () => {
     ]);
   });
 
-  it('returns 502 when any requested app errors', async () => {
+  it('returns 200 with mixed results when at least one requested app syncs', async () => {
     mockReconcile.mockImplementation((app: 'storefront' | 'admin') => {
       if (app === 'admin') return Promise.reject(new Error('play down'));
       return Promise.resolve({
@@ -159,7 +159,7 @@ describe('GET /api/cron/android-live-build-sync', () => {
     const response = await GET(cronRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(200);
     expect(body.results).toContainEqual({
       app: 'storefront',
       synced: true,
@@ -167,5 +167,18 @@ describe('GET /api/cron/android-live-build-sync', () => {
       track: 'production',
     });
     expect(body.results).toContainEqual({ app: 'admin', error: 'sync_failed' });
+  });
+
+  it('returns 502 when every requested app errors', async () => {
+    mockReconcile.mockRejectedValue(new Error('play down'));
+
+    const response = await GET(
+      cronRequest('/api/cron/android-live-build-sync?app=admin')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body.error).toBe('Every Android live-build sync failed');
+    expect(body.results).toEqual([{ app: 'admin', error: 'sync_failed' }]);
   });
 });

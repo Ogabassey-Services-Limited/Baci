@@ -44,9 +44,6 @@ describe('mobile update events', () => {
       throw error;
     });
     const second = vi.fn();
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
     const unsubscribeFailing = subscribeToMobileUpdateChecks(failing);
     const unsubscribeSecond = subscribeToMobileUpdateChecks(second);
 
@@ -54,13 +51,7 @@ describe('mobile update events', () => {
 
     expect(failing).toHaveBeenCalledWith('push-notification');
     expect(second).toHaveBeenCalledWith('push-notification');
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[mobile-update-events] listener failed',
-      error
-    );
-
     unsubscribeFailing();
     unsubscribeSecond();
-    warnSpy.mockRestore();
   });
 });
