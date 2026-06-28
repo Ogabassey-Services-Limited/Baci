@@ -169,8 +169,45 @@ describe('storefront account document values', () => {
           quantity: 1,
           price: 930000,
         },
+        {
+          id: 'item-condition-word-in-title',
+          product_id: 'prod-condition-word-in-title',
+          variant_id: null,
+          condition: 'new',
+          variant_name: null,
+          name: 'New Age Charger',
+          quantity: 1,
+          price: 25000,
+        },
+        {
+          id: 'item-non-condition-bracket',
+          product_id: 'prod-non-condition-bracket',
+          variant_id: null,
+          condition: 'new',
+          variant_name: null,
+          name: 'Samsung Galaxy S23 [New Screen]',
+          quantity: 1,
+          price: 540000,
+        },
+        {
+          id: 'item-exact-bracketed-condition',
+          product_id: 'prod-exact-bracketed-condition',
+          variant_id: null,
+          condition: 'new',
+          variant_name: null,
+          name: 'Samsung Galaxy S23 [New]',
+          quantity: 1,
+          price: 540000,
+        },
       ]).map((item) => item.variant_name)
-    ).toEqual(['Black / 512GB, Used', 'Used', undefined]);
+    ).toEqual([
+      'Black / 512GB, Used',
+      'Used',
+      undefined,
+      'New',
+      'New',
+      undefined,
+    ]);
   });
 
   it('throws when an order item has invalid quantity or price data', () => {

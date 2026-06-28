@@ -62,6 +62,28 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     }
   };
 
+  const getFocusableDialogElements = () => {
+    const dialog = dialogRef.current;
+    if (!dialog) return [];
+
+    return Array.from(
+      dialog.querySelectorAll<HTMLElement>(FOCUSABLE_MODAL_SELECTOR)
+    ).filter(
+      (element) =>
+        !element.hasAttribute('disabled') &&
+        element.tabIndex !== -1 &&
+        element.dataset.focusGuard !== 'true'
+    );
+  };
+
+  const focusFirstDialogElement = () => {
+    getFocusableDialogElements()[0]?.focus();
+  };
+
+  const focusLastDialogElement = () => {
+    getFocusableDialogElements().at(-1)?.focus();
+  };
+
   const handleDialogKeyDown = (
     event: React.KeyboardEvent<HTMLDivElement>
   ) => {
@@ -73,15 +95,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
     if (event.key !== 'Tab') return;
 
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    const focusableElements = Array.from(
-      dialog.querySelectorAll<HTMLElement>(FOCUSABLE_MODAL_SELECTOR)
-    ).filter(
-      (element) => !element.hasAttribute('disabled') && element.tabIndex !== -1
-    );
-
+    const focusableElements = getFocusableDialogElements();
     const firstElement = focusableElements[0];
     const lastElement = focusableElements.at(-1);
     if (!firstElement || !lastElement) return;
@@ -92,13 +106,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       return;
     }
 
-    // When tabbing forward off the iframe (the last focusable element in the
-    // dialog), let the browser move focus into the iframe document. Unpaid
-    // invoices include interactive `mailto:`/`tel:` anchors that would
-    // otherwise be unreachable to keyboard users. Once focus exits the iframe
-    // document, the browser naturally returns it to the next focusable element
-    // outside, where a future Tab will re-enter this handler and wrap as
-    // needed.
+    // Let the browser move focus into the iframe document. The focus guard
+    // after the iframe wraps focus back once users tab out of that document.
     if (
       !event.shiftKey &&
       document.activeElement === lastElement &&
@@ -131,6 +140,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         onKeyDown={handleDialogKeyDown}
         role="dialog"
       >
+        <button
+          type="button"
+          aria-label={`Return to ${documentLabel} preview`}
+          className="sr-only"
+          data-focus-guard="true"
+          onFocus={focusLastDialogElement}
+        />
+
         {/* Header Actions */}
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--store-border,#f3f4f6)] bg-[var(--store-muted-surface,#f9fafb)] p-4 md:rounded-t-2xl">
           <h3
@@ -171,6 +188,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             title={`${documentTitle} #${orderData.order_number}`}
             className="block h-full min-h-0 w-[794px] max-w-full flex-1 border-0 bg-[var(--store-surface,#ffffff)] shadow-sm"
             sandbox="allow-same-origin"
+          />
+          <button
+            type="button"
+            aria-label={`Return to ${documentLabel} controls`}
+            className="sr-only"
+            data-focus-guard="true"
+            onFocus={focusFirstDialogElement}
           />
         </div>
       </div>

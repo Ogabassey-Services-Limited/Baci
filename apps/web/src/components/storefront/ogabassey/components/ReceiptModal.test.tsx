@@ -1,5 +1,5 @@
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared/receipt';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ReceiptModal } from './ReceiptModal';
@@ -338,10 +338,8 @@ describe('ReceiptModal', () => {
   );
 
   it.each(modalVariants)(
-    'allows tab to leave the $label iframe so its interactive content is reachable',
-    async ({ label, paymentStatus }) => {
-      const user = userEvent.setup();
-
+    'does not cancel native tabbing from the $label iframe document',
+    ({ label, paymentStatus }) => {
       render(
         <ReceiptModal
           isOpen
@@ -351,8 +349,8 @@ describe('ReceiptModal', () => {
         />
       );
 
-      const printButton = screen.getByRole('button', {
-        name: `Print ${label}`,
+      const dialog = screen.getByRole('dialog', {
+        name: `${label === 'receipt' ? 'Receipt' : 'Invoice'} Details`,
       });
       const iframe = screen.getByTitle(
         `${label === 'receipt' ? 'Receipt' : 'Invoice'} #ORD-001`
@@ -366,8 +364,39 @@ describe('ReceiptModal', () => {
       // and prevent them from reaching interactive content (e.g. mailto: /
       // tel: links inside an unpaid invoice) rendered inside the iframe
       // document.
+      expect(
+        fireEvent.keyDown(dialog, { cancelable: true, key: 'Tab' })
+      ).toBe(true);
+    }
+  );
+
+  it.each(modalVariants)(
+    'wraps focus back to the $label controls after tab leaves the iframe',
+    async ({ label, paymentStatus }) => {
+      const user = userEvent.setup();
+
+      render(
+        <ReceiptModal
+          isOpen
+          merchantData={merchant}
+          onClose={vi.fn()}
+          orderData={createOrder(paymentStatus)}
+        />
+      );
+
+      const iframe = screen.getByTitle(
+        `${label === 'receipt' ? 'Receipt' : 'Invoice'} #ORD-001`
+      );
+      const printButton = screen.getByRole('button', {
+        name: `Print ${label}`,
+      });
+
+      iframe.focus();
+      expect(iframe).toHaveFocus();
+
       await user.tab();
-      expect(printButton).not.toHaveFocus();
+
+      expect(printButton).toHaveFocus();
     }
   );
 
