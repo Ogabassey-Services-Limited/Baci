@@ -1,14 +1,13 @@
 import type { ReactElement } from 'react';
-import type { Graph, Thing, WithContext } from 'schema-dts';
+import type { JsonLdScriptData } from '@/lib/json-ld-types';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 
-export type JsonLdData<T extends Thing = Thing> = WithContext<T>;
-
-export interface JsonLdStructuredData {
-  [property: string]: unknown;
-}
-
-export type JsonLdScriptData = JsonLdData | Graph | JsonLdStructuredData;
+export type {
+  JsonLdData,
+  JsonLdGraphData,
+  JsonLdScriptData,
+  JsonLdStructuredData,
+} from '@/lib/json-ld-types';
 
 interface JsonLdProps {
   data: JsonLdScriptData | null | undefined;

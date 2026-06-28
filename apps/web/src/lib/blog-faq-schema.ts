@@ -1,3 +1,4 @@
+import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
 export interface BlogFaqItem {
@@ -98,7 +99,7 @@ export function extractBlogFaqItems(contentHtml: string): BlogFaqItem[] {
 
 export function generateFaqPageSchema(
   items: BlogFaqItem[]
-): Record<string, unknown> | null {
+): JsonLdStructuredData | null {
   if (items.length === 0) {
     return null;
   }

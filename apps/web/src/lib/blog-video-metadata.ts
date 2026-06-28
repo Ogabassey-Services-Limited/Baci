@@ -1,3 +1,4 @@
+import type { JsonLdStructuredData } from './json-ld-types';
 import { stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaUrl } from './sanitize-json-ld';
 
@@ -8,7 +9,7 @@ const MAX_VIDEO_URLS = 20;
 const MAX_TEXT_LENGTH = 500;
 
 type BlogVideoMetadata = {
-  schema: Record<string, unknown> | null;
+  schema: JsonLdStructuredData | null;
   video: {
     thumbnailUrl: string;
     title: string;
@@ -170,7 +171,7 @@ export function buildBlogVideoMetadata(input: {
   const uploadDate = normalizeIsoDate(input.videoUploadDate ?? null);
   const authorName = normalizeText(input.authorName, '');
   const publisherName = normalizeText(input.publisherName, '');
-  const schema = uploadDate
+  const schema: JsonLdStructuredData | null = uploadDate
     ? {
         '@context': 'https://schema.org',
         '@id': `${postUrl}#video-${videoId}`,

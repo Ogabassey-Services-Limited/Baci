@@ -3,6 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 describe('TemplateBlogRenderer', () => {
+  const BLOG_SCHEMA = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+  } as const;
+
+  const BREADCRUMB_SCHEMA = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+  } as const;
+
+  const ORGANIZATION_SCHEMA = {
+    '@context': 'https://schema.org',
+    '@type': 'OnlineStore',
+    name: 'Ogabassey',
+  } as const;
+
   const BlogComponent = ({
     storeSlug,
     posts,
@@ -37,8 +53,8 @@ describe('TemplateBlogRenderer', () => {
   it('renders the template blog component with structured data scripts', () => {
     const { container } = render(
       <TemplateBlogRenderer
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         BlogComponent={BlogComponent}
         basePath="/ogabassey"
         blogPosts={[
@@ -73,8 +89,8 @@ describe('TemplateBlogRenderer', () => {
   it('renders no post entries when blogPosts is empty', () => {
     const { container } = render(
       <TemplateBlogRenderer
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         BlogComponent={BlogComponent}
         basePath="/ogabassey"
         blogPosts={[]}
@@ -91,8 +107,8 @@ describe('TemplateBlogRenderer', () => {
   it('passes an undefined search query through to the template component', () => {
     render(
       <TemplateBlogRenderer
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         BlogComponent={BlogComponent}
         basePath="/ogabassey"
         blogPosts={[]}
@@ -109,8 +125,8 @@ describe('TemplateBlogRenderer', () => {
   it('renders multiple posts and categories', () => {
     const { container } = render(
       <TemplateBlogRenderer
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         BlogComponent={BlogComponent}
         basePath="/ogabassey"
         blogPosts={[
@@ -159,9 +175,9 @@ describe('TemplateBlogRenderer', () => {
   it('renders the Organization entity script when an organizationSchema is provided', () => {
     const { container } = render(
       <TemplateBlogRenderer
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
-        organizationSchema={{ '@type': 'OnlineStore', name: 'Ogabassey' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        organizationSchema={ORGANIZATION_SCHEMA}
         BlogComponent={BlogComponent}
         basePath="/ogabassey"
         blogPosts={[]}

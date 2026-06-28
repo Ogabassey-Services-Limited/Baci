@@ -24,6 +24,7 @@ import {
   isExternalPlaceholderImageUrl,
   PLACEHOLDER_IMAGE,
 } from './image-utils';
+import type { JsonLdStructuredData } from './json-ld-types';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import type {
   Product,
@@ -1472,7 +1473,7 @@ export interface FAQItem {
  * Generates FAQ schema for products or pages.
  * @see https://developers.google.com/search/docs/appearance/structured-data/faqpage
  */
-export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
+export function generateFAQSchema(faqs: FAQItem[]): JsonLdStructuredData {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -1528,8 +1529,8 @@ export interface LocalBusinessData {
  */
 export function generateLocalBusinessSchema(
   business: LocalBusinessData
-): Record<string, unknown> {
-  const schema: Record<string, unknown> = {
+): JsonLdStructuredData {
+  const schema: JsonLdStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'Store',
     name: escapeHtml(business.name),
@@ -2206,8 +2207,8 @@ export interface OrganizationData {
  */
 export function generateOrganizationSchema(
   data: OrganizationData & { trustProfile?: MerchantTrustProfile }
-): Record<string, unknown> {
-  const schema: Record<string, unknown> = {
+): JsonLdStructuredData {
+  const schema: JsonLdStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'OnlineStore',
     name: escapeHtml(data.name),
@@ -2272,8 +2273,8 @@ export function generateWebSiteSchema(
   name: string,
   url: string,
   searchUrlTemplate?: string
-): Record<string, unknown> {
-  const schema: Record<string, unknown> = {
+): JsonLdStructuredData {
+  const schema: JsonLdStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: escapeHtml(name),
@@ -2451,7 +2452,7 @@ function normalizeBlogAuthorSameAs(
  */
 export function generateBlogPostSchema(
   data: BlogPostSchemaData
-): Record<string, unknown> {
+): JsonLdStructuredData {
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
   const authorSameAs = normalizeBlogAuthorSameAs(data.author.sameAs);
   const publisherSameAs = normalizeBlogAuthorSameAs(data.publisher.sameAs);
@@ -2469,7 +2470,7 @@ export function generateBlogPostSchema(
   const authorImage = data.author.image
     ? sanitizeSchemaUrl(data.author.image.trim())
     : '';
-  const schema: Record<string, unknown> = {
+  const schema: JsonLdStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: escapeHtml(data.title),

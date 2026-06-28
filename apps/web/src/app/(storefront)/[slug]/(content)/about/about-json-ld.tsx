@@ -32,5 +32,5 @@ export async function AboutJsonLd({ params }: PageProps) {
     trustProfile
   );
 
-  return <JsonLd data={jsonLd as Record<string, unknown>} />;
+  return <JsonLd data={jsonLd} />;
 }

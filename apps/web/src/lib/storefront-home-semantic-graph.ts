@@ -1,4 +1,5 @@
 import type { CategoryNavItem } from '@/lib/cached-categories';
+import type { JsonLdGraphData } from '@/lib/json-ld-types';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 
@@ -273,7 +274,7 @@ function buildBlogNode(
 
 export function buildStorefrontHomeSemanticGraph(
   input: StorefrontHomeSemanticGraphInput
-): Record<string, unknown> {
+): JsonLdGraphData {
   const categories = normalizeCategoryLinks(input.categories);
   const categoryHubList = buildCategoryHubList(input, categories);
   const collectionNode = buildCollectionNode(

@@ -4,6 +4,7 @@ import type { Graph, Thing } from 'schema-dts';
 import { JsonLd } from '@/components/seo/json-ld';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import {
   generateLocalBusinessSchema,
   generateOrganizationSchema,
@@ -103,9 +104,7 @@ export async function StorefrontPageContent({
       ? {
           '@context': 'https://schema.org',
           '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
-            .filter((schema): schema is Record<string, unknown> =>
-              Boolean(schema)
-            )
+            .filter((schema): schema is JsonLdStructuredData => Boolean(schema))
             .map((schema) => {
               const { '@context': _, ...rest } = schema;
               return rest as Thing;

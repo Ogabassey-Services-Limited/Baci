@@ -4,6 +4,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
 import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
+import type { JsonLdScriptData } from '@/lib/json-ld-types';
 import { asRoute } from '@/lib/routes';
 import { buildBlogCategoryHref } from './blog-category-routing';
 import { BlogList } from './blog-list';
@@ -24,10 +25,10 @@ interface BlogListPost {
 }
 
 interface DefaultBlogUiProps {
-  blogSchema: Record<string, unknown>;
-  breadcrumbSchema: Record<string, unknown>;
-  organizationSchema?: Record<string, unknown>;
-  itemListSchema?: Record<string, unknown>;
+  blogSchema: JsonLdScriptData;
+  breadcrumbSchema: JsonLdScriptData;
+  organizationSchema?: JsonLdScriptData;
+  itemListSchema?: JsonLdScriptData;
   basePath: string;
   categories: string[];
   category?: string;
