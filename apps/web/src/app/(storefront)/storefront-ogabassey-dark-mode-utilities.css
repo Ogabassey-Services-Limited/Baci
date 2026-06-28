@@ -53,6 +53,12 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
+      .ogabassey-product-card-image-surface {
+      background-color: #f9fafb;
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
       :is(.text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600) {
       color: var(--storefront-dark-foreground);
     }

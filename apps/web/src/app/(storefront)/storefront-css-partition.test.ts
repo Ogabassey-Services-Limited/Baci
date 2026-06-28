@@ -176,6 +176,10 @@ describe('storefront CSS partitioning', () => {
     expect(normalizedDarkModeCss).toContain('.bg-orange-500');
     expect(normalizedDarkModeCss).toContain('.text-red-600');
     expect(normalizedDarkModeCss).toContain('.text-green-600');
+    expect(normalizedDarkModeCss).toContain(
+      '.ogabassey-product-card-image-surface'
+    );
+    expect(darkModeCss).toContain('background-color: #f9fafb;');
     expect(darkModeCss).not.toContain('#92400e');
     expect(darkModeCss).not.toContain('#f59e0b');
     expect(darkModeCss).not.toContain('#fdba74');

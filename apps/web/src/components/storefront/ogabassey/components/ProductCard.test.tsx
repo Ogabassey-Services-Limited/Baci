@@ -86,6 +86,20 @@ describe('ProductCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('marks grid product photo canvases so transparent assets stay on a neutral dark-mode surface', () => {
+    render(
+      <ProductCard
+        product={mockProduct}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: mockProduct.name }).parentElement
+    ).toHaveClass('ogabassey-product-card-image-surface');
+  });
+
   it('uses explicit product image alt text in list cards', () => {
     render(
       <ProductCard
@@ -104,6 +118,21 @@ describe('ProductCard', () => {
         name: 'Side view of the test product',
       })
     ).toBeInTheDocument();
+  });
+
+  it('marks list product photo canvases so transparent assets stay on a neutral dark-mode surface', () => {
+    render(
+      <ProductCard
+        product={mockProduct}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        viewMode="list"
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: mockProduct.name }).parentElement
+    ).toHaveClass('ogabassey-product-card-image-surface');
   });
 
   it('marks the placeholder image as decorative when no product image is rendered', () => {

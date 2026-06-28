@@ -157,7 +157,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
 
         {/* Image Container */}
-        <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
+        <div className="ogabassey-product-card-image-surface relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
           {/* Using Next.js Image for LCP/FCP optimization */}
           {/* NOTE: explicit width/height required for remote images without fill, but here we want fill + object-cover */}
           {/* We use fill={true} with sizes prop for best performance */}
@@ -291,7 +291,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </Link>
 
       {/* Image (Left Side) */}
-      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
+      <div className="ogabassey-product-card-image-surface w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         <Image
           src={productImageSrc}
           alt={productImageAlt}
