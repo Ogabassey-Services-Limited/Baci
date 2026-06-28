@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
   merchant,
@@ -7,7 +8,66 @@ import {
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
 
-const { generateMetadata } = await import('./page');
+const mockBlogPageContent = vi.hoisted(() =>
+  vi.fn((_props: unknown) => <div>Blog page content</div>)
+);
+
+vi.mock('./blog-page-content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./blog-page-content')>();
+
+  return {
+    ...actual,
+    BlogPageContent: (props: unknown) => mockBlogPageContent(props),
+  };
+});
+
+const {
+  default: BlogPage,
+  generateMetadata,
+  generateStaticParams,
+} = await import('./page');
+
+describe('blog page shell', () => {
+  beforeEach(() => {
+    resetBlogPageContentMocks();
+    mockBlogPageContent.mockReset();
+    mockBlogPageContent.mockReturnValue(<div>Blog page content</div>);
+  });
+
+  it('generates static params for the monitored OgaBassey blog listing', () => {
+    expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
+  });
+
+  it('renders monitored OgaBassey listing content directly so raw HTML keeps post anchors', async () => {
+    render(
+      await BlogPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(screen.getByText('Blog page content')).toBeInTheDocument();
+  });
+
+  it('shows the blog listing fallback while a non-static tenant listing is resolving', async () => {
+    mockBlogPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves so Suspense fallback remains visible.
+      });
+    });
+
+    render(
+      await BlogPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'Loading blog posts' })
+    ).toBeInTheDocument();
+  });
+});
 
 describe('blog page metadata', () => {
   beforeEach(() => {

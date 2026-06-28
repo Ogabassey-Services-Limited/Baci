@@ -1,10 +1,9 @@
-import { render } from '@testing-library/react';
+import { type RenderResult, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   buildListingResult,
   merchant,
-  mockDefaultBlogUi,
   mockGetCachedBlogListing,
   mockGetTemplate,
   mockTemplateBlogRenderer,
@@ -14,35 +13,44 @@ import {
 
 const { BlogPageContent } = await import('./blog-page-content');
 
+function getRenderedItemListSchema(container: RenderResult['container']) {
+  return Array.from(
+    container.querySelectorAll('script[type="application/ld+json"]')
+  )
+    .map(
+      (script) =>
+        JSON.parse(script.textContent || '{}') as Record<string, unknown>
+    )
+    .find((schema) => schema['@type'] === 'ItemList');
+}
+
 describe('BlogPageContent ItemList schema', () => {
   beforeEach(() => {
     resetBlogPageContentMocks();
   });
 
   it('passes an ItemList schema for crawlable blog listing entities', async () => {
-    render(
+    const { container } = render(
       await BlogPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({}),
       })
     );
 
-    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+    expect(getRenderedItemListSchema(container)).toEqual(
       expect.objectContaining({
-        itemListSchema: expect.objectContaining({
-          '@type': 'ItemList',
-          name: 'Ogabassey Blog articles',
-          numberOfItems: 1,
-          url: 'https://test-store.usebaci.com/blog',
-          itemListElement: [
-            expect.objectContaining({
-              '@type': 'ListItem',
-              position: 1,
-              url: 'https://test-store.usebaci.com/blog/first-post',
-              name: 'First Post',
-            }),
-          ],
-        }),
+        '@type': 'ItemList',
+        name: 'Ogabassey Blog articles',
+        numberOfItems: 1,
+        url: 'https://test-store.usebaci.com/blog',
+        itemListElement: [
+          expect.objectContaining({
+            '@type': 'ListItem',
+            position: 1,
+            url: 'https://test-store.usebaci.com/blog/first-post',
+            name: 'First Post',
+          }),
+        ],
       })
     );
   });
@@ -55,18 +63,14 @@ describe('BlogPageContent ItemList schema', () => {
       })
     );
 
-    render(
+    const { container } = render(
       await BlogPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({}),
       })
     );
 
-    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
-      expect.objectContaining({
-        itemListSchema: undefined,
-      })
-    );
+    expect(getRenderedItemListSchema(container)).toBeUndefined();
   });
 
   it('matches ItemList URL and positions to filtered paginated listing URLs', async () => {
@@ -80,7 +84,7 @@ describe('BlogPageContent ItemList schema', () => {
       })
     );
 
-    render(
+    const { container } = render(
       await BlogPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
         searchParams: Promise.resolve({
@@ -91,9 +95,7 @@ describe('BlogPageContent ItemList schema', () => {
       })
     );
 
-    const itemListSchema = mockDefaultBlogUi.mock.calls[0]?.[0].itemListSchema;
-
-    expect(itemListSchema).toEqual(
+    expect(getRenderedItemListSchema(container)).toEqual(
       expect.objectContaining({
         url: 'http://localhost:3000/ogabassey/blog?category=News&search=phone+launch&page=2',
         numberOfItems: 25,
@@ -103,6 +105,48 @@ describe('BlogPageContent ItemList schema', () => {
             url: 'http://localhost:3000/ogabassey/blog/first-post',
           }),
         ],
+      })
+    );
+  });
+
+  it('uses filtered URLs instead of clean category canonicals for searched category listings', async () => {
+    const { container } = render(
+      await BlogPageContent({
+        isCleanCategoryRoute: true,
+        itemListSchemaUrl:
+          'https://test-store.usebaci.com/blog/category/smartphones',
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({
+          category: 'Smartphones',
+          search: 'iphone',
+        }),
+      })
+    );
+
+    expect(getRenderedItemListSchema(container)).toEqual(
+      expect.objectContaining({
+        url: 'https://test-store.usebaci.com/blog?category=Smartphones&search=iphone',
+      })
+    );
+  });
+
+  it('keeps the clean category ItemList canonical for blank searches', async () => {
+    const { container } = render(
+      await BlogPageContent({
+        isCleanCategoryRoute: true,
+        itemListSchemaUrl:
+          'https://test-store.usebaci.com/blog/category/smartphones',
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({
+          category: 'Smartphones',
+          search: '   ',
+        }),
+      })
+    );
+
+    expect(getRenderedItemListSchema(container)).toEqual(
+      expect.objectContaining({
+        url: 'https://test-store.usebaci.com/blog/category/smartphones',
       })
     );
   });
@@ -122,14 +166,14 @@ describe('BlogPageContent ItemList schema', () => {
       })
     );
 
-    render(
+    const { container } = render(
       await BlogPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({}),
       })
     );
 
-    const itemListSchema = mockDefaultBlogUi.mock.calls[0]?.[0].itemListSchema;
+    const itemListSchema = getRenderedItemListSchema(container);
 
     expect(itemListSchema).toEqual(
       expect.objectContaining({

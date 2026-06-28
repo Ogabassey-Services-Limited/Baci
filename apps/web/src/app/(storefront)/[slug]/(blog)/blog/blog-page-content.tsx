@@ -33,6 +33,7 @@ import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
 export interface BlogPageProps {
+  categoryOverride?: string;
   isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
@@ -98,6 +99,7 @@ function appendPreservedBlogCategoryRedirectParams(
 }
 
 export async function BlogPageContent({
+  categoryOverride,
   isCleanCategoryRoute = false,
   itemListSchemaUrl,
   params,
@@ -105,7 +107,8 @@ export async function BlogPageContent({
 }: BlogPageProps) {
   const { slug } = await params;
   const searchParamValues = await searchParams;
-  const category = toSingleBlogSearchParam(searchParamValues.category);
+  const category =
+    categoryOverride ?? toSingleBlogSearchParam(searchParamValues.category);
   const page = toSingleBlogSearchParam(searchParamValues.page);
   const search = toSingleBlogSearchParam(searchParamValues.search);
   const currentPage = parseBlogListingPage(page);
@@ -247,6 +250,14 @@ export async function BlogPageContent({
   };
   const itemListPosts = posts.slice(0, 10);
   const itemListPositionOffset = (currentPage - 1) * BLOG_LISTING_PAGE_SIZE;
+  const itemListSchemaSearch = effectiveSearchQuery?.trim() || undefined;
+  const hasItemListSchemaSearch = Boolean(itemListSchemaSearch);
+  const effectiveItemListSchemaUrl =
+    isCleanCategoryRoute &&
+    (!category || hasItemListSchemaSearch || currentPage !== 1)
+      ? undefined
+      : itemListSchemaUrl;
+
   const itemListSchema =
     itemListPosts.length > 0
       ? {
@@ -254,12 +265,12 @@ export async function BlogPageContent({
           '@type': 'ItemList',
           name: `${merchant.business_name} Blog articles`,
           url:
-            itemListSchemaUrl ??
+            effectiveItemListSchemaUrl ??
             buildBlogListingSchemaUrl({
               baseUrl,
               category,
               page: currentPage,
-              search: effectiveSearchQuery,
+              search: itemListSchemaSearch,
             }),
           numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
@@ -327,7 +338,9 @@ export async function BlogPageContent({
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
               organizationSchema={organizationSchema}
-              itemListSchema={effectiveSearchQuery ? undefined : itemListSchema}
+              itemListSchema={
+                hasItemListSchemaSearch ? undefined : itemListSchema
+              }
               BlogComponent={templateBlogUi.BlogComponent}
               basePath={templateBasePath}
               blogPosts={templateBlogUi.posts}

@@ -4,16 +4,47 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockBlogAuthorPageContent,
   mockGetBlogAuthorBySlug,
+  mockGetBlogAuthorSlugs,
   mockGetCachedBlogAuthor,
+  mockNotFound,
+  mockPermanentRedirect,
+  mockRedirect,
+  mockResolveBlogCatchAllOutcome,
 } = vi.hoisted(() => ({
   mockBlogAuthorPageContent: vi.fn((_props: unknown) => <div>Author page</div>),
   mockGetBlogAuthorBySlug: vi.fn(),
+  mockGetBlogAuthorSlugs: vi.fn(() => ['bassey-john', 'bolakale']),
   mockGetCachedBlogAuthor: vi.fn(),
+  mockNotFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+  mockPermanentRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
+  }),
+  mockRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+  mockResolveBlogCatchAllOutcome: vi.fn(),
 }));
 
 vi.mock('@/lib/blog-authors', () => ({
   getBlogAuthorBySlug: (...args: unknown[]) => mockGetBlogAuthorBySlug(...args),
+  getBlogAuthorSlugs: () => mockGetBlogAuthorSlugs(),
 }));
+
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
+  permanentRedirect: (url: string) => mockPermanentRedirect(url),
+  redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock(
+  '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution',
+  () => ({
+    resolveBlogCatchAllOutcome: (...args: unknown[]) =>
+      mockResolveBlogCatchAllOutcome(...args),
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogAuthor: (...args: unknown[]) => mockGetCachedBlogAuthor(...args),
@@ -30,7 +61,11 @@ vi.mock('./blog-author-page-content', () => ({
   BlogAuthorPageContent: (props: unknown) => mockBlogAuthorPageContent(props),
 }));
 
-const { default: BlogAuthorPage, generateMetadata } = await import('./page');
+const {
+  default: BlogAuthorPage,
+  generateMetadata,
+  generateStaticParams,
+} = await import('./page');
 
 describe('blog author page metadata', () => {
   beforeEach(() => {
@@ -39,6 +74,7 @@ describe('blog author page metadata', () => {
       name: 'Bassey John',
       sameAs: ['https://www.linkedin.com/in/bassey-john-6a277885'],
     });
+    mockResolveBlogCatchAllOutcome.mockResolvedValue({ type: 'notFound' });
     mockGetCachedBlogAuthor.mockResolvedValue({
       merchant: {
         business_name: 'Ogabassey',
@@ -74,6 +110,7 @@ describe('blog author page metadata', () => {
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
       }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(metadata.title).toBe(
@@ -107,16 +144,86 @@ describe('blog author page metadata', () => {
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
+  it('generates static params for known OgaBassey author hubs', () => {
+    expect(generateStaticParams()).toContainEqual({
+      slug: 'ogabassey.com',
+      authorSlug: 'bassey-john',
+    });
+  });
+
   it('renders the author page content for a known author route', async () => {
     const ui = await BlogAuthorPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
       }),
+      searchParams: Promise.resolve({}),
     });
     render(ui);
 
     expect(screen.getByText('Author page')).toBeInTheDocument();
+  });
+
+  it('renders the author shell for request-bound author routes', async () => {
+    const ui = await BlogAuthorPage({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+      searchParams: Promise.resolve({ page: '99' }),
+    });
+    render(ui);
+
+    expect(screen.getByText('Author page')).toBeInTheDocument();
+  });
+
+  it('shows the author fallback while known author content is resolving', async () => {
+    mockBlogAuthorPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves so Suspense fallback remains visible.
+      });
+    });
+
+    render(
+      await BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({ page: '99' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'Loading blog posts' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+  });
+
+  it('redirects legacy author-prefixed post URLs before rendering the shell', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
+    mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({
+      type: 'redirect',
+      status: 308,
+      url: 'https://ogabassey.com/blog/canonical-post',
+    });
+
+    await expect(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'legacy-post-slug',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
+    );
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog/canonical-post'
+    );
+    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
   });
 
   it('builds a page-scoped canonical for paginated author routes', async () => {

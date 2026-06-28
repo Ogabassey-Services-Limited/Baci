@@ -273,6 +273,26 @@ describe('BlogAuthorPageContent', () => {
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
+  it('redirects stale paginated author URLs to the last available page', async () => {
+    mockGetCachedBlogAuthor.mockResolvedValueOnce({
+      ...authorData,
+      currentPage: 5,
+      totalPages: 2,
+    });
+
+    await expect(
+      BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({ page: '5' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:./bassey-john?page=2');
+
+    expect(mockRedirect).toHaveBeenCalledWith('./bassey-john?page=2');
+  });
+
   it('calls notFound when the author has no published posts', async () => {
     mockGetCachedBlogAuthor.mockResolvedValue(null);
 
