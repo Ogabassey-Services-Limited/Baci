@@ -5,6 +5,7 @@ import {
   merchant,
   mockGetCachedBlogListing,
   mockNotFound,
+  mockRedirect,
   mockResolveBlogCategoryHub,
   resetBlogPageContentMocks,
 } from '../../blog-page-content.test-utils';
@@ -87,40 +88,33 @@ describe('blog category page', () => {
     });
   });
 
-  it('does not await search params before resolving the category shell', async () => {
-    let resolveSearchParams: (value: {
-      page?: string;
-      search?: string;
-    }) => void = () => undefined;
-    const searchParams = new Promise<{ page?: string; search?: string }>(
-      (resolve) => {
-        resolveSearchParams = resolve;
-      }
+  it('redirects stale category pagination before rendering the shell', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          custom_domain: 'ogabassey.com',
+        },
+        totalPosts: 24,
+      })
     );
 
-    const ui = await BlogCategoryPage({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        categorySlug: 'smartphones',
-      }),
-      searchParams,
-    });
-    render(ui);
-
-    expect(screen.getByText('Ogabassey blog')).toBeInTheDocument();
-    expect(mockResolveBlogCategoryHub).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'smartphones'
-    );
-
-    resolveSearchParams({ page: '2', search: 'iphone' });
     await expect(
-      mockBlogPageContent.mock.calls[0]?.[0].searchParams
-    ).resolves.toEqual({
-      category: 'Smartphones',
-      page: '2',
-      search: 'iphone',
-    });
+      BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ page: '99' }),
+      })
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:https://ogabassey.com/blog?category=Smartphones&page=2'
+    );
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog?category=Smartphones&page=2'
+    );
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
   it('generates static params for public OgaBassey category hubs', async () => {

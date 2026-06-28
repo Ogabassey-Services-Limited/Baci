@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
+import { asRoute } from '@/lib/routes';
+import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { resolveBlogCategoryHub } from '../../blog-category-hub';
 import {
@@ -13,6 +16,7 @@ import {
 } from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
+import { buildBlogListingRouteHref } from '../../blog-listing-route';
 import { BlogPageContent } from '../../blog-page-content';
 import {
   type BlogSearchParamValue,
@@ -46,8 +50,8 @@ async function resolveCategoryBlogSearchParams(
   categoryLabel: string
 ): Promise<{
   category: string;
-  page?: BlogSearchParamValue;
-  search?: BlogSearchParamValue;
+  page?: string;
+  search?: string;
 }> {
   const resolvedSearchParams = await searchParams;
 
@@ -56,6 +60,55 @@ async function resolveCategoryBlogSearchParams(
     page: toSingleBlogSearchParam(resolvedSearchParams?.page),
     search: toSingleBlogSearchParam(resolvedSearchParams?.search),
   };
+}
+
+async function resolveCategoryRouteBeforeShell({
+  categoryLabel,
+  searchParams,
+  slug,
+}: {
+  categoryLabel: string;
+  searchParams: BlogCategoryPageProps['searchParams'];
+  slug: string;
+}): Promise<{
+  category: string;
+  page?: string;
+  search?: string;
+}> {
+  const resolvedSearchParams = await resolveCategoryBlogSearchParams(
+    searchParams,
+    categoryLabel
+  );
+  const currentPage = parseBlogListingPage(resolvedSearchParams.page);
+  const data = await getCachedBlogListing(slug, {
+    category: categoryLabel,
+    page: currentPage,
+    searchQuery: resolvedSearchParams.search,
+  });
+
+  if (!data) {
+    notFound();
+  }
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(data.totalPosts / BLOG_LISTING_PAGE_SIZE)
+  );
+
+  if (currentPage > totalPages) {
+    redirect(
+      asRoute(
+        buildBlogListingRouteHref({
+          storeBasePath: buildStoreUrl(data.merchant),
+          category: categoryLabel,
+          page: totalPages,
+          search: resolvedSearchParams.search,
+        })
+      )
+    );
+  }
+
+  return resolvedSearchParams;
 }
 
 function getStaticCategorySlugs(categories: string[]): string[] {
@@ -135,6 +188,11 @@ export default async function BlogCategoryPage({
   if (!hub) {
     notFound();
   }
+  const resolvedSearchParams = await resolveCategoryRouteBeforeShell({
+    categoryLabel: hub.categoryLabel,
+    searchParams,
+    slug,
+  });
 
   return (
     <Suspense fallback={<BlogListingFallback />}>
@@ -142,10 +200,7 @@ export default async function BlogCategoryPage({
         isCleanCategoryRoute
         itemListSchemaUrl={hub.canonicalUrl}
         params={Promise.resolve({ slug })}
-        searchParams={resolveCategoryBlogSearchParams(
-          searchParams,
-          hub.categoryLabel
-        )}
+        searchParams={Promise.resolve(resolvedSearchParams)}
       />
     </Suspense>
   );

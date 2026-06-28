@@ -35,12 +35,33 @@ export function generateStaticParams(): Array<{
   );
 }
 
-async function assertAuthorRouteBeforeShell({ params }: AuthorPageProps) {
+async function assertAuthorRouteBeforeShell({
+  params,
+  searchParams,
+}: AuthorPageProps) {
   const { slug, authorSlug } = await params;
+  const requestedPage = parseBlogListingPage((await searchParams)?.page);
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (profile) {
+    const data = await getCachedBlogAuthor(slug, profile.name, {
+      page: requestedPage,
+    });
+    if (!data) {
+      notFound();
+    }
+    if (data.currentPage > data.totalPages) {
+      const baseUrl = buildStoreUrl(data.merchant);
+      const authorBaseUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+      redirect(
+        asRoute(
+          data.totalPages > 1
+            ? `${authorBaseUrl}?page=${data.totalPages}`
+            : authorBaseUrl
+        )
+      );
+    }
     return { slug, authorSlug: normalizedAuthorSlug };
   }
 
@@ -132,6 +153,7 @@ export default async function BlogAuthorPage({
   // can produce a PPR static shell under Cache Components.
   const resolvedParams = await assertAuthorRouteBeforeShell({
     params,
+    searchParams,
   });
 
   return (

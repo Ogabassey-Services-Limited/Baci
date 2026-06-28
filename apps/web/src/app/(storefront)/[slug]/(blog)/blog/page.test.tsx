@@ -38,15 +38,31 @@ describe('blog page shell', () => {
     expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
   });
 
-  it('renders listing content directly so raw HTML keeps post anchors', () => {
+  it('renders monitored OgaBassey listing content directly so raw HTML keeps post anchors', async () => {
     render(
-      <BlogPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      await BlogPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({}),
+      })
     );
 
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
+  });
+
+  it('keeps a Suspense shell for non-static tenant blog listings', async () => {
+    render(
+      await BlogPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(screen.getByText('Blog page content')).toBeInTheDocument();
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.any(Promise),
+      })
+    );
   });
 });
 

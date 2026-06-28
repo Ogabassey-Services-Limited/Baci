@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
+import { BlogListingFallback } from './BlogListingFallback';
 import { buildBlogListingMetadata } from './blog-listing-metadata';
 import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 
@@ -24,9 +26,18 @@ export async function generateMetadata({
   });
 }
 
-export default function BlogPage(props: BlogPageProps) {
+export default async function BlogPage(props: BlogPageProps) {
+  const { slug } = await props.params;
+  const content = (
+    <BlogPageContent {...props} params={Promise.resolve({ slug })} />
+  );
+
   // Keep the canonical listing content in the root blog HTML. The deploy smoke
   // check and HTML-only crawlers extract post anchors directly from this page;
   // author/category routes own the PPR shell fallback instead.
-  return <BlogPageContent {...props} />;
+  if (OGABASSEY_BLOG_STATIC_TENANTS.some((staticSlug) => staticSlug === slug)) {
+    return content;
+  }
+
+  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }
