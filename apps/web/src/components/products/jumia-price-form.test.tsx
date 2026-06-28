@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { JumiaPriceForm } from './jumia-price-form';
 
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: vi.fn(() => ({ merchant: { country: 'NG' } })),
+}));
+
 vi.mock('@/components/themed/themed-input', async () => {
   const { forwardRef } = await import('react');
   return {
@@ -73,7 +77,7 @@ function createOverrides(
 }
 
 describe('JumiaPriceForm', () => {
-  it('renders price inputs with Naira symbol', () => {
+  it('renders price inputs with currency symbol', () => {
     render(
       <JumiaPriceForm
         overrides={createOverrides()}
