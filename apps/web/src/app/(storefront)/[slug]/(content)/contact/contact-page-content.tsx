@@ -1,9 +1,10 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { ComponentType } from 'react';
+import type { ContactPage } from 'schema-dts';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
@@ -60,13 +61,9 @@ export async function ContactPageContent({ params }: PageProps) {
           : (merchant.social_media as Record<string, string> | undefined),
       trustProfile,
     }),
-  };
+  } as unknown as JsonLdData<ContactPage>;
 
-  const jsonLdScript = (
-    <script type="application/ld+json">
-      {safeJsonLdStringify(contactSchema)}
-    </script>
-  );
+  const jsonLdScript = <JsonLd data={contactSchema} />;
 
   const templateId = merchant.template_id;
   let ContactComponent: ComponentType<TemplatePageProps> | null = null;

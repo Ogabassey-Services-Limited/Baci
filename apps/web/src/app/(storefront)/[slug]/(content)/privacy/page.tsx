@@ -2,10 +2,11 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import type { WebPage } from 'schema-dts';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
@@ -98,13 +99,9 @@ async function PrivacyPageContent({ params }: PageProps) {
     },
     inLanguage: 'en',
     dateModified: merchant.updated_at || new Date().toISOString(),
-  };
+  } as unknown as JsonLdData<WebPage>;
 
-  const jsonLdScript = (
-    <script type="application/ld+json">
-      {safeJsonLdStringify(privacySchema)}
-    </script>
-  );
+  const jsonLdScript = <JsonLd data={privacySchema} />;
 
   // Resolve template component server-side for SEO (H1 in SSR HTML)
   if (templateHasPrivacyPage) {
