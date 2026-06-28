@@ -967,15 +967,43 @@ describe('POST /api/payments/initialize', () => {
         bank_name: 'Wema Bank',
         account_name: 'Test Store / John Doe',
         provider: 'paystack',
+        payable_amount: 5000,
       });
-      // expires_at must be a defined ISO timestamp (created_at + 90min).
+      // assigned_at is refreshed on retries, and expires_at must be the
+      // current assignment timestamp + 90min.
+      expect(typeof payload.assigned_at).toBe('string');
       expect(typeof payload.expires_at).toBe('string');
-      expect(Number.isFinite(Date.parse(payload.expires_at as string))).toBe(
-        true
-      );
+      const assignedAtMs = Date.parse(payload.assigned_at as string);
+      const expiresAtMs = Date.parse(payload.expires_at as string);
+      expect(Number.isFinite(assignedAtMs)).toBe(true);
+      expect(Number.isFinite(expiresAtMs)).toBe(true);
+      expect(expiresAtMs - assignedAtMs).toBe(90 * 60 * 1000);
       // Conflict resolution must use the unique constraint
       // unique_order_account = (order_id, provider).
       expect(options).toEqual({ onConflict: 'order_id,provider' });
+    });
+
+    it('persists the residual DVA payable amount after wallet and savings credits', async () => {
+      enableDvaForTest();
+      orderPaymentResult = {
+        data: { wallet_amount_used: 1500 },
+        error: null,
+      };
+      savingsRedemptionsResult = {
+        data: [{ amount: 500 }],
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
+      );
+
+      expect(res.status).toBe(200);
+      expect(dvaUpsertCalls).toHaveLength(1);
+      expect(dvaUpsertCalls[0].payload).toMatchObject({
+        order_id: ORDER_ID,
+        payable_amount: 3000,
+      });
     });
 
     it('warns and still returns 200 when the DVA upsert fails (B1 warn-and-continue)', async () => {

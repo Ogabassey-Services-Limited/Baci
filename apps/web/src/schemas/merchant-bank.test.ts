@@ -84,6 +84,17 @@ describe('merchantBankSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects manual account numbers with excessive raw separators', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: `ABCDEF${'-'.repeat(1000)}`,
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects manual account numbers with unsupported characters', () => {
     const result = merchantBankSchema.safeParse({
       accountNumber: 'IN_123456789012',

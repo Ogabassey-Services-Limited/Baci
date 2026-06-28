@@ -1384,15 +1384,20 @@ export async function POST(request: NextRequest) {
             // B1 (Δ-10): persist the DVA assignment so the webhook can
             // look up the order by `account_number` when Paystack sends
             // `charge.success` for this DVA. Paystack DVAs don't carry
-            // an explicit expires_at — we default to created_at + 90min
+            // an explicit expires_at — we default to assigned_at + 90min
             // (1h customer-facing countdown + 30min inter-bank
             // settlement grace). The matcher in `paystack-dva-multi-
             // key-match.ts` further clamps at LEAST(expires_at,
-            // created_at + 90min) so this default is also the ceiling.
+            // assigned_at + 90min) so this default is also the ceiling.
             // Upsert keyed on (order_id, provider) via the existing
             // `unique_order_account` constraint (baseline.sql:11659).
+            // `assigned_at` is refreshed on retries so the webhook
+            // window follows the current account assignment rather
+            // than the row's first insert time.
+            const dvaAssignedAtMs = Date.now();
+            const dvaAssignedAt = new Date(dvaAssignedAtMs).toISOString();
             const dvaExpiresAt = new Date(
-              Date.now() + 90 * 60 * 1000
+              dvaAssignedAtMs + 90 * 60 * 1000
             ).toISOString();
             const { error: dvaPersistError } = await adminSupabase
               .from('order_payment_accounts')
@@ -1403,6 +1408,8 @@ export async function POST(request: NextRequest) {
                   bank_name: dvaResult.bank_name,
                   account_name: dvaResult.account_name,
                   provider: 'paystack',
+                  payable_amount: paymentData.amount,
+                  assigned_at: dvaAssignedAt,
                   expires_at: dvaExpiresAt,
                 },
                 { onConflict: 'order_id,provider' }

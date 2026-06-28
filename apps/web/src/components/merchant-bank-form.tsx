@@ -22,6 +22,7 @@ import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
 import {
   MANUAL_ACCOUNT_NUMBER_MAX_NORMALIZED_LENGTH,
+  MANUAL_ACCOUNT_NUMBER_MAX_RAW_LENGTH,
   normalizeManualAccountNumber,
 } from '@/schemas/manual-account-number';
 import {
@@ -452,8 +453,10 @@ export function MerchantBankForm({
                     if (isManualBankDetails) {
                       const value = e.target.value;
                       if (
+                        value.trim().length <=
+                          MANUAL_ACCOUNT_NUMBER_MAX_RAW_LENGTH &&
                         normalizeManualAccountNumber(value).length <=
-                        MANUAL_ACCOUNT_NUMBER_MAX_NORMALIZED_LENGTH
+                          MANUAL_ACCOUNT_NUMBER_MAX_NORMALIZED_LENGTH
                       ) {
                         field.onChange(value);
                       }

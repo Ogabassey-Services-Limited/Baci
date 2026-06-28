@@ -96,6 +96,16 @@ describe('paystackSubaccountSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects manual account numbers with excessive raw separators', () => {
+    const result = paystackSubaccountSchema.safeParse({
+      accountNumber: `ABCDEF${'-'.repeat(1000)}`,
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects manual account numbers with unsupported characters', () => {
     const result = paystackSubaccountSchema.safeParse({
       accountNumber: 'IN_123456789012',

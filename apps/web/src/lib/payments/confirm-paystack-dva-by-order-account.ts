@@ -92,7 +92,7 @@ export async function confirmPaystackDvaByOrderAccount({
   const { data: rows, error: lookupError } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, created_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency, shipping_status)'
+      'order_id, payable_amount, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency, shipping_status)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);
@@ -151,6 +151,7 @@ export async function confirmPaystackDvaByOrderAccount({
         merchant_id: c.merchant_id,
         customer_email: c.customer_email,
         total_kobo: c.total_kobo,
+        payable_amount_kobo: c.payable_amount_kobo ?? null,
       })),
       metadata: {
         account_number: accountNumber,
@@ -286,9 +287,13 @@ function normalizeCandidate(
   if (order.shipping_status === 'cancelled') return null;
   const total = Number(order.total);
   if (!Number.isFinite(total)) return null;
+  const payableAmount =
+    row.payable_amount == null ? null : Number(row.payable_amount);
   const createdAt =
     typeof row.created_at === 'string' ? new Date(row.created_at) : null;
   if (!createdAt || Number.isNaN(createdAt.getTime())) return null;
+  const assignedAt =
+    typeof row.assigned_at === 'string' ? new Date(row.assigned_at) : null;
   const expiresAt =
     typeof row.expires_at === 'string' ? new Date(row.expires_at) : null;
   return {
@@ -297,7 +302,13 @@ function normalizeCandidate(
     customer_email:
       typeof order.customer_email === 'string' ? order.customer_email : null,
     total_kobo: toKobo(total),
+    payable_amount_kobo:
+      payableAmount != null && Number.isFinite(payableAmount)
+        ? toKobo(payableAmount)
+        : null,
     account_created_at: createdAt,
+    account_assigned_at:
+      assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : null,
     account_expires_at:
       expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null,
   };
