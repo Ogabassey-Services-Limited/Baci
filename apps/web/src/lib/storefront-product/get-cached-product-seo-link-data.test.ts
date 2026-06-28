@@ -1,60 +1,54 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data';
 
-const mocks = vi.hoisted(() => ({
-  cacheLife: vi.fn(),
-  cacheTag: vi.fn(),
-  getUncachedProductSeoLinkData: vi.fn(),
-}));
+const mockGetCachedProductSemanticInventory = vi.fn();
+const mockGetPublishedClusterPosts = vi.fn();
+const mockGetPublishedProductGuidePosts = vi.fn();
+const mockCacheLife = vi.fn();
+const mockCacheTag = vi.fn();
 
+// cacheLife/cacheTag throw outside Next's cacheComponents runtime; no-op them.
 vi.mock('next/cache', () => ({
-  cacheLife: (...args: string[]) => mocks.cacheLife(...args),
-  cacheTag: (...args: string[]) => mocks.cacheTag(...args),
+  cacheLife: (...args: string[]) => mockCacheLife(...args),
+  cacheTag: (...args: string[]) => mockCacheTag(...args),
 }));
 
-vi.mock('./get-product-seo-link-direct-data', () => ({
-  getUncachedProductSeoLinkData: (
-    merchantId: string,
-    categorySlug: string,
-    productId: string
-  ) => mocks.getUncachedProductSeoLinkData(merchantId, categorySlug, productId),
+vi.mock(
+  '@/lib/storefront-product/get-cached-product-semantic-inventory',
+  () => ({
+    getCachedProductSemanticInventory: (...args: unknown[]) =>
+      mockGetCachedProductSemanticInventory(...args),
+  })
+);
+
+vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
+  getPublishedClusterPosts: (...args: unknown[]) =>
+    mockGetPublishedClusterPosts(...args),
 }));
 
-const moduleDir = dirname(fileURLToPath(import.meta.url));
-const source = [
-  'get-cached-product-seo-link-data.ts',
-  'get-product-seo-link-direct-data.ts',
-  'get-product-seo-link-guides.ts',
-  'get-product-seo-link-inventory.ts',
-]
-  .map((file) => readFileSync(join(moduleDir, file), 'utf8'))
-  .join('\n');
+vi.mock('@/lib/storefront-content/get-published-product-guide-posts', () => ({
+  getPublishedProductGuidePosts: (...args: unknown[]) =>
+    mockGetPublishedProductGuidePosts(...args),
+}));
 
-const seoLinkData = {
-  inventory: [],
-  guidePosts: [],
-  priorityGuidePostSlugs: [],
-};
+const products = [
+  { slug: 'macbook-pro', name: 'MacBook Pro', price: 4_500_000 },
+];
+const guidePosts = [{ slug: 'best-laptops', title: 'Best laptops' }];
+const productGuidePosts = [
+  { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+  { slug: 'best-laptops', title: 'Best laptops' },
+];
 
 describe('getCachedProductSeoLinkData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getUncachedProductSeoLinkData.mockResolvedValue(seoLinkData);
+    mockGetCachedProductSemanticInventory.mockResolvedValue(products);
+    mockGetPublishedClusterPosts.mockResolvedValue(guidePosts);
+    mockGetPublishedProductGuidePosts.mockResolvedValue(productGuidePosts);
   });
 
-  it('keeps SEO link enrichment off the remote cache handler and remote helpers', () => {
-    expect(source).toContain("'use cache';");
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).not.toContain('getCachedCategoryPageData');
-    expect(source).not.toContain('getPublishedClusterPosts');
-    expect(source).not.toContain('getPublishedProductGuidePosts');
-    expect(source).toContain('getCachedFeatureSettings');
-  });
-
-  it('tags the local cache and delegates to direct reads', async () => {
+  it('returns inventory + guide posts on a successful fetch', async () => {
     const result = await getCachedProductSeoLinkData(
       'merchant-1',
       'laptops',
@@ -62,23 +56,32 @@ describe('getCachedProductSeoLinkData', () => {
       'prod-1'
     );
 
-    expect(result).toBe(seoLinkData);
-    expect(mocks.cacheLife).toHaveBeenCalledWith('products');
-    expect(mocks.cacheTag).toHaveBeenCalledWith(
+    expect(mockGetCachedProductSemanticInventory).toHaveBeenCalledWith(
+      'merchant-1',
+      'laptops'
+    );
+    expect(mockGetPublishedProductGuidePosts).toHaveBeenCalledWith(
+      'merchant-1',
+      'prod-1'
+    );
+    expect(result).toEqual({
+      inventory: products,
+      guidePosts: [
+        { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+        { slug: 'best-laptops', title: 'Best laptops' },
+      ],
+      priorityGuidePostSlugs: ['lenovo-legion-guide', 'best-laptops'],
+    });
+    expect(mockCacheTag).toHaveBeenCalledWith(
       'products',
       'products-merchant-1',
       'blog-posts',
       'seo-links-merchant-1-laptops-prod-1'
     );
-    expect(mocks.getUncachedProductSeoLinkData).toHaveBeenCalledWith(
-      'merchant-1',
-      'laptops',
-      'prod-1'
-    );
   });
 
   it('continues when Next cache APIs are unavailable in a unit-test runtime', async () => {
-    mocks.cacheLife.mockImplementationOnce(() => {
+    mockCacheLife.mockImplementationOnce(() => {
       throw new Error('cache unavailable');
     });
 
@@ -89,6 +92,35 @@ describe('getCachedProductSeoLinkData', () => {
         'ogabassey',
         'prod-1'
       )
-    ).resolves.toBe(seoLinkData);
+    ).resolves.toMatchObject({ inventory: products });
+  });
+
+  it('throws on a transient inventory failure so the degraded result is never cached', async () => {
+    mockGetCachedProductSemanticInventory.mockRejectedValue(
+      new Error('Product SEO link inventory unavailable (transient)')
+    );
+
+    await expect(
+      getCachedProductSeoLinkData('merchant-1', 'laptops', 'ogabassey')
+    ).rejects.toThrow(/transient/i);
+  });
+
+  it('treats a genuinely empty category as a cacheable empty result', async () => {
+    mockGetCachedProductSemanticInventory.mockResolvedValue([]);
+    const result = await getCachedProductSeoLinkData(
+      'merchant-1',
+      'laptops',
+      'ogabassey'
+    );
+
+    expect(result.inventory).toEqual([]);
+    expect(result.guidePosts).toEqual([
+      { slug: 'lenovo-legion-guide', title: 'Lenovo Legion Guide' },
+      { slug: 'best-laptops', title: 'Best laptops' },
+    ]);
+    expect(result.priorityGuidePostSlugs).toEqual([
+      'lenovo-legion-guide',
+      'best-laptops',
+    ]);
   });
 });

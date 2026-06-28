@@ -56,7 +56,7 @@ export function ProductComparisonTable({
     } = useComparisonProductSearch({ mainProduct, comparisonProducts });
     const searchInputRef = useRef<HTMLInputElement>(null);
     const merchantContext = useMerchantSafe();
-    const basePath = merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
+    const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
     const priceLocale = getStorefrontLocale(merchantContext?.merchant?.country);
     const priceCurrency = getSafeCurrencyCode(merchantContext?.merchant?.payout_currency);
 

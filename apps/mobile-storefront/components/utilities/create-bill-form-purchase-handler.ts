@@ -16,7 +16,6 @@ import {
 import { IDENTIFIER_LABELS } from './bill-form.constants';
 import type { CreateBillFormPurchaseHandlerInput } from './bill-form-purchase.types';
 import { getBillPaymentAmountError } from './bill-payment-amount-validation';
-import { resolveBillCustomerOfRecord } from './resolve-bill-customer-of-record';
 import { resolveBillFulfillment } from './resolve-bill-fulfillment';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
@@ -55,7 +54,6 @@ export function createBillFormPurchaseHandler({
   type,
   validationReference,
   verifiedCustomerName,
-  verifiedCustomerAddress,
 }: CreateBillFormPurchaseHandlerInput) {
   return async () => {
     dismissKeyboard();
@@ -109,11 +107,18 @@ export function createBillFormPurchaseHandler({
         return;
       }
 
-      const { customerName, customerAddress } = resolveBillCustomerOfRecord({
-        customer,
-        verifiedCustomerName,
-        verifiedCustomerAddress,
-      });
+      const buyerFullName = [customer?.first_name, customer?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      // customerName is the bill customer-of-record persisted on the VTU
+      // transaction (receipts/history/repeat), so prefer the verified meter/
+      // account holder; fall back to the buyer's name, then email.
+      const customerName =
+        verifiedCustomerName?.trim() ||
+        buyerFullName ||
+        customer?.email ||
+        undefined;
       // Kuda-display + Monnify-fulfillment routing (folded items vend via Monnify).
       const {
         provider: selectedProvider,
@@ -133,7 +138,6 @@ export function createBillFormPurchaseHandler({
           : selectedBiller.billerName,
         customerIdentifier: customerId,
         customerName,
-        ...(customerAddress ? { customerAddress } : {}),
         customerPhone: customer?.phone || undefined,
         productCode: selectedProductCode,
         provider: selectedProvider,
@@ -153,7 +157,6 @@ export function createBillFormPurchaseHandler({
             billerName: payload.billerName,
             customerIdentifier: customerId,
             customerName,
-            ...(customerAddress ? { customerAddress } : {}),
             customerPhone: payload.customerPhone,
             productCode: payload.productCode,
             provider: payload.provider,

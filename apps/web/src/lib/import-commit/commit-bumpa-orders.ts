@@ -1,13 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nanoid } from 'nanoid';
 import type { NormalizedImportedOrder } from '@/lib/imports/bumpa/bumpa-types';
-import {
-  buildCachedOrderRecord,
-  buildOrderInsertPayload,
-  buildOrderItems,
-  type ExistingOrderRecord,
-  getPreviewExistingOrderUpdatedAt,
-} from './commit-bumpa-order-payload';
+import { mapBumpaOrderSource } from '@/lib/imports/bumpa/map-bumpa-order-source';
 import { createImportCustomerResolver } from './resolve-import-customer';
 
 interface CommitBumpaOrdersInput {
@@ -17,14 +11,16 @@ interface CommitBumpaOrdersInput {
   orders: NormalizedImportedOrder[];
 }
 
+interface ExistingOrderRecord {
+  id: string;
+  external_id: string | null;
+  tracking_token: string;
+}
+
 interface CommitBumpaOrdersResult {
   createdOrders: number;
   updatedOrders: number;
   createdCustomers: number;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 async function loadExistingImportedOrders(
@@ -33,9 +29,7 @@ async function loadExistingImportedOrders(
 ) {
   const { data, error } = await supabase
     .from('orders')
-    .select(
-      'id, external_id, tracking_token, updated_at, fulfillment_details, shipping_address'
-    )
+    .select('id, external_id, tracking_token')
     .eq('merchant_id', merchantId)
     .eq('external_source', 'bumpa');
 
@@ -45,64 +39,78 @@ async function loadExistingImportedOrders(
     );
   }
 
-  return (data || []).map(
-    (order) =>
-      ({
-        ...order,
-        loaded_from_database: true,
-      }) satisfies ExistingOrderRecord
-  );
+  return (data || []) as ExistingOrderRecord[];
 }
 
-async function replaceOrderItems(
-  supabase: SupabaseClient,
+function buildOrderInsertPayload(
   merchantId: string,
-  orderId: string,
-  order: NormalizedImportedOrder
-) {
-  const { error } = await supabase.rpc('replace_order_items', {
-    p_order_id: orderId,
-    p_items: buildOrderItems(orderId, order),
-    p_merchant_id: merchantId,
-    p_is_import: true,
-  });
-
-  if (error) {
-    throw new Error(`Failed to replace imported order items: ${error.message}`);
-  }
-}
-
-function firstReturnedOrderRecord(value: unknown) {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return isRecord(value) ? value : null;
-}
-
-async function replaceImportedOrderItems(
-  supabase: SupabaseClient,
-  merchantId: string,
-  orderId: string,
+  importJobId: string,
+  customerId: string,
   order: NormalizedImportedOrder,
-  orderPatch: ReturnType<typeof buildOrderInsertPayload>,
-  expectedUpdatedAt: string | null | undefined
+  trackingToken: string
 ) {
-  const { data, error } = await supabase.rpc('replace_imported_order_items', {
-    p_order_id: orderId,
-    p_items: buildOrderItems(orderId, order),
-    p_merchant_id: merchantId,
-    p_order_patch: orderPatch,
-    p_expected_updated_at: expectedUpdatedAt ?? null,
-  });
+  const orderSource = mapBumpaOrderSource(
+    order.sourceOrigin,
+    order.sourceChannel
+  );
 
-  if (error) {
-    throw new Error(`Failed to update imported order: ${error.message}`);
-  }
+  return {
+    merchant_id: merchantId,
+    customer_id: customerId,
+    order_number: order.orderNumber,
+    customer_name: order.customer.fullName,
+    customer_email: order.customer.email,
+    customer_phone: order.customer.phone,
+    shipping_status: order.shippingStatus,
+    payment_status: order.paymentStatus,
+    total: order.total,
+    subtotal: order.subtotal,
+    shipping_fee: order.shippingFee,
+    tax_amount: order.taxAmount,
+    discount_amount: order.discountAmount,
+    amount_paid: order.amountPaid,
+    currency: order.currency,
+    original_currency: order.currency,
+    original_total: order.total,
+    payment_method: 'imported',
+    source: orderSource,
+    notes: order.shippingOption
+      ? `Imported from Bumpa (${order.shippingOption})`
+      : 'Imported from Bumpa',
+    fulfillment_details: {
+      shipping_option: order.shippingOption,
+      source_channel: order.sourceChannel,
+      source_origin: order.sourceOrigin,
+    },
+    tracking_token: trackingToken,
+    created_at: order.createdAt,
+    updated_at: order.updatedAt ?? order.createdAt,
+    external_source: order.sourcePlatform,
+    external_id: order.externalSourceId,
+    import_job_id: importJobId,
+    imported_at: new Date().toISOString(),
+    import_metadata: order.importMetadata,
+  };
+}
 
-  const updatedOrder = firstReturnedOrderRecord(data);
-  if (!updatedOrder) {
-    throw new Error('Failed to update imported order: no updated row returned');
-  }
-
-  return updatedOrder as ExistingOrderRecord;
+function buildOrderItems(orderId: string, order: NormalizedImportedOrder) {
+  return order.items.map((item, index) => ({
+    order_id: orderId,
+    product_id: item.productId,
+    name: item.productName,
+    price: item.unitPrice,
+    quantity: item.quantity,
+    line_id: index + 1,
+    line_extension_amount: item.lineTotal,
+    item_description: item.productName,
+    sellers_item_id: item.sku,
+    fulfillment_data: {
+      source_platform: order.sourcePlatform,
+      match_source: item.matchSource,
+      matched: item.matched,
+    },
+    created_at: order.createdAt,
+  }));
 }
 
 export async function commitBumpaOrders({
@@ -135,54 +143,31 @@ export async function commitBumpaOrders({
     }
 
     const existingOrder = ordersByExternalId.get(order.externalSourceId);
-    const trackingToken = existingOrder?.tracking_token || nanoid(32);
     const payload = buildOrderInsertPayload(
       merchantId,
       importJobId,
       customerId,
       order,
-      trackingToken,
-      existingOrder
+      existingOrder?.tracking_token || nanoid(32)
     );
 
     let orderId = existingOrder?.id || null;
     if (existingOrder) {
-      const expectedUpdatedAt = existingOrder.loaded_from_database
-        ? getPreviewExistingOrderUpdatedAt(order)
-        : existingOrder.updated_at;
+      const { error } = await supabase
+        .from('orders')
+        .update(payload)
+        .eq('id', existingOrder.id);
 
-      if (!expectedUpdatedAt) {
-        throw new Error(
-          `Imported order ${order.externalSourceId} is missing its preview timestamp; regenerate the preview before committing updates`
-        );
+      if (error) {
+        throw new Error(`Failed to update imported order: ${error.message}`);
       }
 
-      const updatedOrder = await replaceImportedOrderItems(
-        supabase,
-        merchantId,
-        existingOrder.id,
-        order,
-        payload,
-        expectedUpdatedAt
-      );
       updatedOrders += 1;
-      ordersByExternalId.set(
-        order.externalSourceId,
-        buildCachedOrderRecord(
-          updatedOrder.id,
-          order,
-          trackingToken,
-          payload,
-          updatedOrder
-        )
-      );
     } else {
       const { data, error } = await supabase
         .from('orders')
         .insert(payload)
-        .select(
-          'id, external_id, tracking_token, updated_at, fulfillment_details, shipping_address'
-        )
+        .select('id, external_id, tracking_token')
         .single();
 
       if (error || !data) {
@@ -191,16 +176,7 @@ export async function commitBumpaOrders({
 
       const createdOrder = data as ExistingOrderRecord;
       orderId = createdOrder.id;
-      ordersByExternalId.set(
-        order.externalSourceId,
-        buildCachedOrderRecord(
-          createdOrder.id,
-          order,
-          trackingToken,
-          payload,
-          createdOrder
-        )
-      );
+      ordersByExternalId.set(order.externalSourceId, createdOrder);
       createdOrders += 1;
     }
 
@@ -208,28 +184,30 @@ export async function commitBumpaOrders({
       throw new Error('Imported order is missing an id after commit');
     }
 
-    if (!existingOrder) {
-      try {
-        await replaceOrderItems(supabase, merchantId, orderId, order);
-      } catch (error) {
-        const { data: deletedOrder, error: cleanupError } = await supabase
-          .from('orders')
-          .delete()
-          .eq('id', orderId)
-          .eq('merchant_id', merchantId)
-          .select('id')
-          .maybeSingle();
+    const { error: deleteItemsError } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId);
 
-        if (cleanupError || !deletedOrder) {
-          throw new Error(
-            `${error instanceof Error ? error.message : String(error)}; also failed to delete incomplete imported order ${orderId}: ${
-              cleanupError?.message ?? 'no matching row was deleted'
-            }`
-          );
-        }
+    if (deleteItemsError) {
+      throw new Error(
+        `Failed to reset imported order items: ${deleteItemsError.message}`
+      );
+    }
 
-        throw error;
-      }
+    const orderItems = buildOrderItems(orderId, order);
+    if (orderItems.length === 0) {
+      continue;
+    }
+
+    const { error: insertItemsError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
+
+    if (insertItemsError) {
+      throw new Error(
+        `Failed to insert imported order items: ${insertItemsError.message}`
+      );
     }
   }
 

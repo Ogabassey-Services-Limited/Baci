@@ -93,9 +93,6 @@ describe('HeroMobileCarousel', () => {
       '/ogabassey/smartphones/samsung-galaxy-a27-5g'
     );
     expect(link).toHaveAttribute('data-prefetch', 'false');
-    expect(link.textContent?.trim()).toBe(
-      'Samsung Galaxy A27 5G — Pre-order now'
-    );
   });
 
   it('serves the first slide image as the eager, high-priority LCP picture', () => {

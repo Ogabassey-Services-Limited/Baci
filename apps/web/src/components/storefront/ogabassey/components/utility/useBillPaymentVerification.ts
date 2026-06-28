@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 export interface BillPaymentVerification {
   verified: boolean;
   customerName?: string;
-  address?: string;
   inputKey?: string;
   message?: string;
   requireValidationRef?: boolean;
@@ -56,7 +55,6 @@ function toVerification(
   return {
     verified: data.verified === true,
     customerName: getString(data.customerName),
-    address: getString(data.address),
     inputKey,
     message: getString(data.message),
     requireValidationRef: getBoolean(data.requireValidationRef),

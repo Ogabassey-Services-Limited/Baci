@@ -300,16 +300,11 @@ export async function GET(request: NextRequest) {
             'dataPlanCode',
             isString
           );
-          // Delivered units (e.g. prepaid electricity kWh) and the meter/
-          // customer address, surfaced so the receipt can render them.
+          // Delivered units (e.g. prepaid electricity kWh), surfaced so the
+          // receipt can render them.
           const units = extractMetadataField(
             transactionMetadata,
             'units',
-            isString
-          );
-          const address = extractMetadataField(
-            transactionMetadata,
-            'address',
             isString
           );
           const paymentGateway = extractMetadataField(
@@ -344,7 +339,6 @@ export async function GET(request: NextRequest) {
             repeat_data_plan_code: dataPlanCode,
             voucher_pin: voucherPin,
             units,
-            address,
           };
         }
       ),

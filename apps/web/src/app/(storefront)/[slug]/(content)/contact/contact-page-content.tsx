@@ -8,7 +8,6 @@ import { generateOrganizationSchema } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate, type TemplatePageProps } from '@/templates/registry';
-import { ContentPageCrawlSummary } from '../content-page-crawl-summary';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
 
 interface PageProps {
@@ -98,11 +97,6 @@ export async function ContactPageContent({ params }: PageProps) {
           storeSlug={merchant.slug}
           isPreview={false}
         />
-        <ContentPageCrawlSummary
-          kind="contact"
-          merchantName={merchant.business_name}
-          businessType={merchant.business_type}
-        />
       </>
     );
   }
@@ -113,13 +107,7 @@ export async function ContactPageContent({ params }: PageProps) {
       <ContactPageClient
         merchant={merchant}
         legacyContent={merchant.pages?.contact}
-      >
-        <ContentPageCrawlSummary
-          kind="contact"
-          merchantName={merchant.business_name}
-          businessType={merchant.business_type}
-        />
-      </ContactPageClient>
+      />
     </>
   );
 }

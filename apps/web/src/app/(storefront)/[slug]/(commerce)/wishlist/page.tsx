@@ -4,7 +4,7 @@ import { WishListContent } from './wishlist-content';
 export const metadata: Metadata = {
   title: 'Your Wish List',
   description: 'View and manage your saved items.',
-  robots: { index: false, follow: false },
+  robots: { index: false },
 };
 
 export default function WishListPage({

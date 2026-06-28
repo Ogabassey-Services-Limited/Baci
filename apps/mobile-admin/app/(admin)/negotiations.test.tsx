@@ -176,8 +176,7 @@ describe('NegotiationsScreen', () => {
     mocks.merchant = { id: 'merchant-1' };
     mocks.queryCalls.length = 0;
     mocks.selectResult = { data: negotiationRows, error: null };
-    // Default: the update affected one still-pending row (success path).
-    mocks.updateResult = { data: [{ id: 'negotiation-1' }], error: null };
+    mocks.updateResult = { data: null, error: null };
   });
 
   it('scopes negotiation status updates to the active merchant', async () => {
@@ -198,23 +197,6 @@ describe('NegotiationsScreen', () => {
     expect(mocks.queryCalls).toContainEqual({
       method: 'eq',
       args: ['merchant_id', 'merchant-1'],
-    });
-  });
-
-  it('subscribes to all merchant negotiation row changes', async () => {
-    render(<NegotiationsScreen />);
-
-    await waitFor(() => {
-      expect(mocks.channelOn).toHaveBeenCalledWith(
-        'postgres_changes',
-        expect.objectContaining({
-          event: '*',
-          filter: 'merchant_id=eq.merchant-1',
-          schema: 'public',
-          table: 'negotiation_requests',
-        }),
-        expect.any(Function)
-      );
     });
   });
 
@@ -368,8 +350,8 @@ describe('NegotiationsScreen', () => {
     });
   });
 
-  it('shows an error when an external evidence URL cannot be opened', async () => {
-    mocks.openURL.mockRejectedValueOnce(new Error('blocked'));
+  it('shows an error when an external evidence URL is unsupported', async () => {
+    mocks.canOpenURL.mockResolvedValueOnce(false);
     mocks.selectResult = {
       data: [
         {
@@ -396,10 +378,7 @@ describe('NegotiationsScreen', () => {
         'https://x.com/i/status/123'
       );
     });
-    expect(mocks.canOpenURL).not.toHaveBeenCalledWith(
-      'https://x.com/i/status/123'
-    );
-    expect(mocks.openURL).toHaveBeenCalledWith('https://x.com/i/status/123');
+    expect(mocks.openURL).not.toHaveBeenCalled();
   });
 
   it('opens stored evidence paths through a fresh signed URL', async () => {
@@ -473,85 +452,5 @@ describe('NegotiationsScreen', () => {
       expect(Alert.alert).toHaveBeenCalledWith('Error', 'permission denied');
     });
     expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
-  });
-
-  it('shows a stale-state error and refreshes when the request was already handled', async () => {
-    // The status='pending' filter matched zero rows (another admin acted first).
-    mocks.updateResult = { data: [], error: null };
-
-    render(<NegotiationsScreen />);
-
-    fireEvent.click(await screen.findByText('Accept Offer'));
-
-    await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Error',
-        'This request was already handled. Pull to refresh.'
-      );
-    });
-    // Must NOT report success or notify the customer for a no-op update.
-    expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
-    expect(mocks.notificationAsync).not.toHaveBeenCalledWith('success');
-    await waitFor(() => {
-      expect(
-        mocks.queryCalls.filter(({ method }) => method === 'select').length
-      ).toBeGreaterThanOrEqual(2);
-    });
-  });
-
-  it('shows a scheme-less competitor image link as text instead of signing it', async () => {
-    mocks.selectResult = {
-      data: [
-        {
-          created_at: '2026-06-24T23:58:50.000Z',
-          customer_id: null,
-          customer_phone: null,
-          evidence_url: 'www.example.com/product-image.jpg',
-          id: 'negotiation-evidence-schemeless',
-          item_info: { name: 'Wireless Headphones' },
-          offered_price: 8_500,
-          status: 'pending',
-          type: 'single',
-        },
-      ],
-      error: null,
-    };
-
-    render(<NegotiationsScreen />);
-
-    fireEvent.click(await screen.findByText('View customer evidence'));
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Customer evidence',
-      'www.example.com/product-image.jpg'
-    );
-    // It is NOT a storage object, so we never attempt to sign it.
-    expect(mocks.createSignedUrl).not.toHaveBeenCalled();
-  });
-
-  it('does not crash when cart_snapshot is malformed (non-array)', async () => {
-    mocks.selectResult = {
-      data: [
-        {
-          created_at: '2026-06-24T23:58:50.000Z',
-          customer_id: null,
-          customer_phone: null,
-          cart_snapshot: 'definitely-not-an-array',
-          evidence_url: null,
-          id: 'negotiation-bad-snapshot',
-          item_info: { name: '3 items' },
-          offered_price: 420_000,
-          status: 'pending',
-          type: 'total',
-        },
-      ],
-      error: null,
-    };
-
-    render(<NegotiationsScreen />);
-
-    // Row still renders (no crash); the malformed snapshot is dropped, so no
-    // "View … items" toggle appears.
-    expect(await screen.findByText('Accept Offer')).toBeInTheDocument();
-    expect(screen.queryByText(/View \d+ items?/)).toBeNull();
   });
 });

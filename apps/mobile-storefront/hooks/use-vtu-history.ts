@@ -60,7 +60,6 @@ const VTUHistoryTransactionSchema = z.object({
   repeat_data_plan_code: z.string().nullable().optional(),
   voucher_pin: z.string().nullable().optional(),
   units: z.string().nullable().optional(),
-  address: z.string().nullable().optional(),
 });
 
 const VTUHistoryResponseSchema = z.object({

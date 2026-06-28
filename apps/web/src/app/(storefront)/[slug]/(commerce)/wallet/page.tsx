@@ -14,7 +14,6 @@ import { WalletContentSection } from './wallet-content-section';
 export const metadata: Metadata = {
   title: 'Wallet Balance',
   description: 'Check your wallet balance',
-  robots: { index: false, follow: false },
 };
 
 export default function WalletPage({

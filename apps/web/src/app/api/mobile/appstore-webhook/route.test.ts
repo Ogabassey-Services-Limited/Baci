@@ -1,9 +1,9 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 
-const SECRET = randomBytes(32).toString('hex');
+const SECRET = 'whsec_test_value';
 const mockSecret = vi.fn<() => string | undefined>(() => SECRET);
 vi.mock('@/env', () => ({
   getAppStoreConnectWebhookSecret: () => mockSecret(),
