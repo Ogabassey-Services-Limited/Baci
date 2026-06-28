@@ -6,6 +6,7 @@ import {
 } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import {
@@ -179,62 +180,83 @@ function buildFollowUpMessage(request: NegotiationRequest): string {
 export default function NegotiationsScreen() {
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
   const { colors } = useTheme();
-  const [requests, setRequests] = useState<NegotiationRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
-  // setState happens only inside promise callbacks (never synchronously), so
-  // calling this from the mount effect cannot trigger cascading renders.
-  const fetchRequests = () => {
-    const merchantId = merchant?.id;
-    if (!merchantId) {
-      if (isMerchantLoading) {
-        return Promise.resolve();
+  // Fetch negotiations using React Query
+  const {
+    data: requests = [],
+    isLoading: isRequestsLoading,
+    error: fetchError,
+    refetch,
+  } = useQuery({
+    queryKey: ['negotiation_requests', merchant?.id],
+    queryFn: () => {
+      if (!merchant?.id) throw new Error('Merchant not found');
+      return loadNegotiationRequests(merchant.id);
+    },
+    enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: 'accepted' | 'rejected';
+    }) => {
+      if (!merchant?.id) throw new Error('Merchant not found');
+      await updateNegotiationStatus(id, status, merchant.id);
+
+      // Notify customer if they're authenticated
+      const negotiation = requests.find((r) => r.id === id);
+      if (negotiation?.customer_id) {
+        try {
+          await apiClient('/api/negotiations/notify', {
+            method: 'POST',
+            body: JSON.stringify({ negotiationId: id, status }),
+          });
+        } catch (notifyErr) {
+          console.warn('Customer notification failed:', notifyErr);
+        }
       }
-      // Clear merchant-scoped state so a sign-out / merchant switch can't leave
-      // the previous merchant's negotiations on screen, then settle the flags.
-      return Promise.resolve().then(() => {
-        setRequests([]);
-        setFetchError(null);
-        setLoading(false);
-        setRefreshing(false);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({
+        queryKey: ['negotiation_requests', merchant?.id],
       });
-    }
-    if (!refreshing) {
-      setLoading(true);
-    }
-    return loadNegotiationRequests(merchantId)
-      .then((data) => {
-        setRequests(data);
-        setFetchError(null);
-      })
-      .catch((err: unknown) => {
-        console.error('Error fetching negotiations:', err);
-        setFetchError('Failed to load negotiations');
-      })
-      .finally(() => {
-        setLoading(false);
-        setRefreshing(false);
+    },
+    onError: (error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const message =
+        error instanceof Error ? error.message : 'Failed to update status';
+      Alert.alert('Error', message);
+      // Invalidate queries to ensure UI is in sync with server status
+      queryClient.invalidateQueries({
+        queryKey: ['negotiation_requests', merchant?.id],
       });
+    },
+  });
+
+  const handleAction = (id: string, status: 'accepted' | 'rejected') => {
+    if (updateStatusMutation.isPending) return; // Prevent double-submit
+    updateStatusMutation.mutate({ id, status });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect is intentionally keyed by merchant ID and loading state; fetchRequests is recreated each render and would resubscribe continuously.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  // Realtime updates subscription
   useEffect(() => {
     const merchantId = merchant?.id;
-
-    // fetchRequests resolves the loading/refreshing flags inside promise
-    // callbacks (never synchronously), so calling it here avoids the
-    // set-state-in-effect cascade. Its no-merchant branch defers the flag reset
-    // and skips the network call, matching the prior early-return behavior.
-    fetchRequests();
-
-    if (!merchantId) {
-      return;
-    }
+    if (!merchantId) return;
 
     // Supabase Realtime supports Postgres change filters; scope by merchant to
     // avoid refetching every connected merchant on unrelated inserts.
@@ -248,52 +270,23 @@ export default function NegotiationsScreen() {
           table: 'negotiation_requests',
           filter: `merchant_id=eq.${merchantId}`,
         },
-        () => fetchRequests()
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ['negotiation_requests', merchantId],
+          });
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-    // fetchRequests is recreated every render; subscribing on merchant ID is the
-    // intended boundary for this realtime channel.
-  }, [merchant?.id, isMerchantLoading]);
+  }, [merchant?.id, queryClient]);
 
-  const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
-    if (actionLoadingId) return; // Prevent double-submit
-    if (!merchant?.id) {
-      Alert.alert('Error', 'Merchant not found');
-      return;
-    }
-    setActionLoadingId(id);
-    // Capture before state update to avoid stale closure after fetchRequests()
-    const negotiation = requests.find((r) => r.id === id);
-    try {
-      await updateNegotiationStatus(id, status, merchant.id);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await fetchRequests();
-
-      // Notify customer if they're authenticated
-      if (negotiation?.customer_id) {
-        try {
-          await apiClient('/api/negotiations/notify', {
-            method: 'POST',
-            body: JSON.stringify({ negotiationId: id, status }),
-          });
-        } catch (notifyErr) {
-          // Non-fatal: status update succeeded, but notification failed
-          console.warn('Customer notification failed:', notifyErr);
-        }
-      }
-    } catch (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const message =
-        error instanceof Error ? error.message : `Failed to ${status} request`;
-      Alert.alert('Error', message);
-      await fetchRequests();
-    }
-    setActionLoadingId(null);
-  };
+  const loading = isMerchantLoading || (!!merchant?.id && isRequestsLoading);
+  const actionLoadingId = updateStatusMutation.isPending
+    ? updateStatusMutation.variables?.id ?? null
+    : null;
 
   const renderItem = ({ item }: { item: NegotiationRequest }) => (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
@@ -544,15 +537,15 @@ export default function NegotiationsScreen() {
   }
 
   if (fetchError) {
+    const errorMessage = fetchError instanceof Error ? fetchError.message : 'Failed to load negotiations';
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Ionicons name="alert-circle" size={48} color={colors.error} />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>{fetchError}</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>{errorMessage}</Text>
         <Pressable
           style={styles.retryButton}
           onPress={() => {
-            setLoading(true);
-            fetchRequests();
+            refetch();
           }}
         >
           <Ionicons name="refresh" size={18} color={colors.primary} />
@@ -573,10 +566,7 @@ export default function NegotiationsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              fetchRequests();
-            }}
+            onRefresh={onRefresh}
           />
         }
         ListEmptyComponent={
