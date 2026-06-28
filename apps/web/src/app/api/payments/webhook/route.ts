@@ -184,9 +184,18 @@ const POSTGRES_UNIQUE_VIOLATION = '23505';
 const SUPABASE_NO_ROWS_RETURNED = 'PGRST116';
 
 function isSupabaseNoRowsError(error: unknown) {
-  return (
-    (error as { code?: string } | null)?.code === SUPABASE_NO_ROWS_RETURNED
-  );
+  const supabaseError = error as {
+    code?: string;
+    details?: string | null;
+    message?: string | null;
+  } | null;
+  if (supabaseError?.code !== SUPABASE_NO_ROWS_RETURNED) {
+    return false;
+  }
+  const details = `${supabaseError.details ?? ''} ${
+    supabaseError.message ?? ''
+  }`;
+  return /\b0 rows?\b/i.test(details);
 }
 
 async function filePaystackZeroCandidateReview({
@@ -758,6 +767,11 @@ export async function POST(request: NextRequest) {
           paystackResponse: gatewayResponse,
         });
         if (orderAccountResult.kind === 'review') {
+          return NextResponse.json(orderAccountResult.body, {
+            status: orderAccountResult.status,
+          });
+        }
+        if (orderAccountResult.kind === 'error') {
           return NextResponse.json(orderAccountResult.body, {
             status: orderAccountResult.status,
           });

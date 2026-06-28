@@ -45,6 +45,7 @@ export type ConfirmPaystackDvaByOrderAccountTransaction = {
 //   - 'review' → ambiguous; caller returns the supplied status/body
 export type ConfirmPaystackDvaByOrderAccountResult =
   | { kind: 'none' }
+  | { kind: 'error'; status: number; body: Record<string, unknown> }
   | {
       kind: 'match';
       transaction: ConfirmPaystackDvaByOrderAccountTransaction;
@@ -97,12 +98,16 @@ export async function confirmPaystackDvaByOrderAccount({
     .eq('account_number', accountNumber);
 
   if (lookupError) {
-    logger.warn({
-      message: 'B1 order_payment_accounts lookup failed; falling through',
+    logger.error({
+      message: 'B1 order_payment_accounts lookup failed',
       accountNumber,
       error: lookupError.message,
     });
-    return { kind: 'none' };
+    return {
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    };
   }
   if (!rows || rows.length === 0) {
     return { kind: 'none' };
@@ -230,13 +235,16 @@ export async function confirmPaystackDvaByOrderAccount({
       .maybeSingle();
     if (reusedErr || !reused) {
       logger.error({
-        message:
-          'B1 single-match insert collided but re-read failed; falling through',
+        message: 'B1 single-match insert collided but re-read failed',
         accountNumber,
         paystackReference: gatewayReference,
         error: reusedErr,
       });
-      return { kind: 'none' };
+      return {
+        body: { error: 'Paystack DVA matching temporarily unavailable' },
+        kind: 'error',
+        status: 500,
+      };
     }
     return {
       kind: 'match',
@@ -245,12 +253,16 @@ export async function confirmPaystackDvaByOrderAccount({
   }
   if (insertError || !inserted) {
     logger.error({
-      message: 'B1 single-match transaction insert failed; falling through',
+      message: 'B1 single-match transaction insert failed',
       accountNumber,
       paystackReference: gatewayReference,
       error: insertError,
     });
-    return { kind: 'none' };
+    return {
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    };
   }
   // Silence unused-variable noise — candidateRow is for future logging
   // hooks and assertion clarity; keep the reference so the matcher's

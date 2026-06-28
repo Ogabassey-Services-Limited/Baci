@@ -962,7 +962,11 @@ describe('POST /api/payments/webhook', () => {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { message: 'Not found', code: 'PGRST116' },
+              error: {
+                message: 'Not found',
+                code: 'PGRST116',
+                details: 'The result contains 0 rows',
+              },
             }),
           } as any;
         }
@@ -984,10 +988,18 @@ describe('POST /api/payments/webhook', () => {
 
     async function preparePaystackZeroCandidateRequest({
       reviewError = null,
-      transactionError = { code: 'PGRST116', message: 'Not found' },
+      transactionError = {
+        code: 'PGRST116',
+        message: 'Not found',
+        details: 'The result contains 0 rows',
+      },
     }: {
       reviewError?: null | { code?: string; message: string };
-      transactionError?: { code?: string; message: string };
+      transactionError?: {
+        code?: string;
+        details?: string;
+        message: string;
+      };
     } = {}) {
       const reference = '09FG260626140359226K1RHXD';
       const body = {
@@ -1147,6 +1159,126 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
+    it('does not acknowledge Paystack payments when singular transaction lookup finds duplicate rows', async () => {
+      const { logger, request, reviewInsert } =
+        await preparePaystackZeroCandidateRequest({
+          transactionError: {
+            code: 'PGRST116',
+            details: 'The result contains 2 rows',
+            message: 'JSON object requested, multiple (or no) rows returned',
+          },
+        });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Transaction lookup failed' });
+      expect(reviewInsert).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Transaction lookup failed',
+          reference: '09FG260626140359226K1RHXD',
+        })
+      );
+    });
+
+    it('does not acknowledge Paystack payments when DVA order-account matching fails transiently', async () => {
+      const reference = '09FG260626140359226K1RHXD';
+      const body = {
+        event: 'charge.success',
+        data: {
+          amount: 100000,
+          reference,
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const reviewInsert = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+      const transactionLookup = vi.fn();
+
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference,
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-06-27T20:37:08.000Z',
+          created_at: '2026-06-27T20:36:00.000Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 150,
+          fees_split: null,
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'order_payment_accounts') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: null,
+                error: {
+                  code: '57014',
+                  message: 'canceling statement due to statement timeout',
+                },
+              }),
+            }),
+          } as any;
+        }
+        if (table === 'transactions') {
+          transactionLookup(table);
+        }
+        if (table === 'reconciliation_review') {
+          return { insert: reviewInsert } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        error: 'Paystack DVA matching temporarily unavailable',
+      });
+      expect(reviewInsert).not.toHaveBeenCalled();
+      expect(transactionLookup).not.toHaveBeenCalled();
+      expect(mockConfirmPaystackWalletDvaTopUp).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'B1 order_payment_accounts lookup failed',
+        })
+      );
+    });
+
     it('acknowledges verified Paystack payments with zero local candidates after filing review', async () => {
       const body = {
         event: 'charge.success',
@@ -1199,7 +1331,11 @@ describe('POST /api/payments/webhook', () => {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
           } as any;
         }
@@ -1651,7 +1787,11 @@ describe('POST /api/payments/webhook', () => {
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
           data: null,
-          error: { code: 'PGRST116', message: 'Not found' },
+          error: {
+            code: 'PGRST116',
+            message: 'Not found',
+            details: 'The result contains 0 rows',
+          },
         }),
       });
       const transactionUpdate = vi.fn().mockReturnValue({
@@ -1845,7 +1985,11 @@ describe('POST /api/payments/webhook', () => {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
           } as any;
         }
@@ -1970,7 +2114,11 @@ describe('POST /api/payments/webhook', () => {
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
             update: transactionUpdate,
           } as any;
@@ -2086,7 +2234,11 @@ describe('POST /api/payments/webhook', () => {
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
             update: transactionUpdate,
           } as any;
@@ -2195,7 +2347,11 @@ describe('POST /api/payments/webhook', () => {
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
               data: null,
-              error: { code: 'PGRST116', message: 'Not found' },
+              error: {
+                code: 'PGRST116',
+                message: 'Not found',
+                details: 'The result contains 0 rows',
+              },
             }),
             update: transactionUpdate,
           } as any;
