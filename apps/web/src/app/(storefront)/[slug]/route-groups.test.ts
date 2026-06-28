@@ -23,7 +23,6 @@ const runtimeRouteManifest = [
   '(catalog)/(pdp)/product/[productSlug]/loading.tsx',
   '(catalog)/(pdp)/[category]/[productSlug]/page.tsx',
   '(catalog)/(pdp)/[category]/[productSlug]/loading.tsx',
-  '(blog)/loading.tsx',
   '(blog)/blog/page.tsx',
   '(blog)/blog/[postSlug]/page.tsx',
   '(blog)/blog/[postSlug]/loading.tsx',
@@ -127,13 +126,6 @@ const legacyRouteManifest = [
 
 const firstPaintOwnershipManifest = [
   {
-    routePath: '/blog',
-    pagePath: '(blog)/blog/page.tsx',
-    loadingPath: '(blog)/loading.tsx',
-    label: 'Loading blog posts',
-    renderStrategy: 'lazy-module',
-  },
-  {
     routePath: '/blog/post-slug',
     pagePath: '(blog)/blog/[postSlug]/page.tsx',
     loadingPath: '(blog)/blog/[postSlug]/loading.tsx',
@@ -232,6 +224,15 @@ describe('storefront route groups', () => {
     expect(
       existsSync(resolve(slugDirectory, 'storefront-layout-fallback.test.tsx'))
     ).toBe(false);
+  });
+
+  it('keeps root blog listing outside a route-family loading boundary', () => {
+    // The root blog listing owns crawlable article anchors in raw HTML for
+    // monitored SEO checks. Non-static merchants use an inline page Suspense
+    // boundary instead of a broad route-group loading.tsx shell.
+    expect(existsSync(resolve(slugDirectory, '(blog)/loading.tsx'))).toBe(
+      false
+    );
   });
 
   it('keeps PDP routes out of the full catalog CSS group', () => {
