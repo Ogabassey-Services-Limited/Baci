@@ -81,7 +81,7 @@ describe('JumiaPriceForm', () => {
   beforeEach(() => {
     vi.mocked(useMerchantSafe).mockReturnValue({
       merchant: { country: 'NG' },
-    } as any);
+    } as unknown as ReturnType<typeof useMerchantSafe>);
   });
 
   it('renders price inputs with currency symbol', () => {
@@ -104,7 +104,7 @@ describe('JumiaPriceForm', () => {
   it('renders price inputs with default USD currency symbol when country is unknown', () => {
     vi.mocked(useMerchantSafe).mockReturnValue({
       merchant: { country: 'US' },
-    } as any);
+    } as unknown as ReturnType<typeof useMerchantSafe>);
 
     render(
       <JumiaPriceForm
