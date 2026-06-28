@@ -29,6 +29,13 @@ export const ADMIN_EFFECTIVE_LOW_STOCK_FILTER =
 export const ADMIN_EFFECTIVE_OUT_OF_STOCK_FILTER =
   'and(stock_quantity.is.null,stock.is.null),and(stock_quantity.is.null,stock.lte.0),and(stock_quantity.lte.0,stock.is.null),and(stock_quantity.lte.0,stock.lte.0)';
 
+const ADMIN_SEARCH_STOCK_FILTERS: Record<AdminProductStockFilter, string> = {
+  in_stock: 'admin_in_stock',
+  low_stock: 'admin_low_stock',
+  out_of_stock: 'admin_out_of_stock',
+};
+const ADMIN_SEARCH_VISIBLE_STATUS_FILTER = 'not_archived';
+
 type ProductFilterQuery<TQuery> = {
   eq: (column: string, value: unknown) => TQuery;
   or: (filters: string) => TQuery;
@@ -61,6 +68,18 @@ function normalizeAdminSearchInput(search: string | undefined) {
 function clampPositiveInteger(value: number, maximum: number) {
   const normalizedValue = Number.isFinite(value) ? Math.trunc(value) : 1;
   return Math.min(Math.max(normalizedValue, 1), maximum);
+}
+
+function getAdminSearchStatusFilter(filters: AdminProductSearchFilters) {
+  if (filters.status) return filters.status;
+  if (filters.stockFilter) return ADMIN_SEARCH_VISIBLE_STATUS_FILTER;
+  return null;
+}
+
+function getAdminSearchStockFilter(filters: AdminProductSearchFilters) {
+  return filters.stockFilter
+    ? ADMIN_SEARCH_STOCK_FILTERS[filters.stockFilter]
+    : null;
 }
 
 export async function fetchAdminProductSearchRows<
@@ -97,8 +116,8 @@ export async function fetchAdminProductSearchRows<
       result_offset: args.cursor,
       search_query: searchTerm,
       sort_by: 'relevance',
-      status_filter: args.filters.status ?? null,
-      stock_filter: null,
+      status_filter: getAdminSearchStatusFilter(args.filters),
+      stock_filter: getAdminSearchStockFilter(args.filters),
     }
   );
 
@@ -128,7 +147,7 @@ export async function fetchAdminProductSearchRows<
   if (args.filters.category) {
     rowsQuery = rowsQuery.eq('category_id', args.filters.category);
   }
-  if (!args.filters.status && args.filters.stockFilter === 'out_of_stock') {
+  if (!args.filters.status && args.filters.stockFilter) {
     rowsQuery = rowsQuery.neq('status', 'archived');
   }
   rowsQuery = applyAdminProductStockFilter(rowsQuery, args.filters.stockFilter);

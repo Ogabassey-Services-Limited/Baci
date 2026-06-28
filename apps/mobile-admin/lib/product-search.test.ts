@@ -91,7 +91,7 @@ describe('admin product search helpers', () => {
     });
   });
 
-  it('applies admin effective stock filters after ranked search results', async () => {
+  it('passes admin effective stock filters to ranked search results', async () => {
     const query = createQueryChain({
       data: [
         {
@@ -124,9 +124,11 @@ describe('admin product search helpers', () => {
       'search_products_v2',
       expect.objectContaining({
         search_query: 'legacy stock',
-        stock_filter: null,
+        status_filter: 'not_archived',
+        stock_filter: 'admin_in_stock',
       })
     );
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
     expect(query.or).toHaveBeenCalledWith(
       'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
@@ -141,7 +143,7 @@ describe('admin product search helpers', () => {
     ]);
   });
 
-  it('excludes archived products from out-of-stock search results by default', async () => {
+  it('excludes archived products from stock search results by default', async () => {
     const query = createQueryChain({ data: [] });
 
     mockRpc.mockResolvedValue({
@@ -161,6 +163,13 @@ describe('admin product search helpers', () => {
       selectColumns: 'id, name',
     });
 
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        status_filter: 'not_archived',
+        stock_filter: 'admin_out_of_stock',
+      })
+    );
     expect(query.neq).toHaveBeenCalledWith('status', 'archived');
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
     expect(query.or).toHaveBeenCalledWith(

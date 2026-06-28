@@ -44,7 +44,7 @@ export async function fetchProducts(
 
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.category) query = query.eq('category_id', filters.category);
-  if (!filters?.status && filters?.stockFilter === 'out_of_stock') {
+  if (!filters?.status && filters?.stockFilter) {
     query = query.neq('status', 'archived');
   }
   query = applyAdminProductStockFilter(query, filters?.stockFilter);

@@ -58,6 +58,19 @@ describe('fetchProducts stock filters', () => {
     mocks.normalizeProductInventory.mockClear();
   });
 
+  it('excludes archived products from stock results by default', async () => {
+    const query = createProductsQuery({ count: 0, data: [], error: null });
+    mocks.from.mockReturnValueOnce(query);
+
+    await fetchProducts('merchant-1', 0, { stockFilter: 'in_stock' });
+
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
+    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.or).toHaveBeenCalledWith(
+      'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
+    );
+  });
+
   it('restricts out-of-stock results to managed inventory', async () => {
     const query = createProductsQuery({ count: 0, data: [], error: null });
     mocks.from.mockReturnValueOnce(query);
@@ -90,6 +103,7 @@ describe('fetchProducts stock filters', () => {
 
     await fetchProducts('merchant-1', 0, { stockFilter: 'low_stock' });
 
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
     expect(query.or).toHaveBeenCalledWith(
       'and(stock_quantity.gt.0,stock_quantity.lte.5),and(stock_quantity.is.null,stock.gt.0,stock.lte.5),and(stock_quantity.lte.0,stock.gt.0,stock.lte.5)'
@@ -112,6 +126,7 @@ describe('fetchProducts stock filters', () => {
     });
 
     expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
     expect(query.or).toHaveBeenCalledWith(
       'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
     );
