@@ -17,6 +17,7 @@ import {
   useUpdateProduct,
   useUpdateProductStatus,
 } from '@/hooks/useProducts';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { baciFeatureGates } from '@/lib/feature-gates';
 import { normalizeComparableProductName } from '@/lib/product-matching';
 import { buildVariantFormValues } from '@/lib/product-variant-form';
@@ -66,6 +67,7 @@ export function useProductEditController() {
   const rawParams = useLocalSearchParams<{ id: string; sku?: string }>();
   const router = useRouter();
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
+  const { isPro } = useRevenueCat();
 
   const validatedParams = (() => {
     const result = routeParamsSchema.safeParse(rawParams);
@@ -202,6 +204,7 @@ export function useProductEditController() {
       productCreationGate: {
         ...baciFeatureGates.canCreateProduct({
           activeProductCount: inventoryStats?.totalProducts,
+          hasRevenueCatPro: isPro,
           merchant,
         }),
         onUpgrade: () => router.push('/(admin)/subscribe'),

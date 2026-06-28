@@ -9,6 +9,10 @@ const persistenceState = vi.hoisted(() => ({
   lastParams: null as Record<string, unknown> | null,
 }));
 
+const revenueCatState = vi.hoisted(() => ({
+  isPro: false,
+}));
+
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => routeParamsState.current,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
@@ -18,6 +22,12 @@ vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
     isLoading: false,
     merchant: { id: 'merch-1', plan_tier: 'free', premium_features: [] },
+  }),
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: () => ({
+    isPro: revenueCatState.isPro,
   }),
 }));
 
@@ -88,6 +98,7 @@ import { useProductEditController } from './useProductEditController';
 describe('useProductEditController', () => {
   beforeEach(() => {
     persistenceState.lastParams = null;
+    revenueCatState.isPro = false;
   });
 
   it('initialises in new-product mode when id is "new"', () => {
@@ -105,6 +116,17 @@ describe('useProductEditController', () => {
       allowed: false,
       limit: 1000,
       requiresUpgrade: true,
+    });
+  });
+
+  it('allows RevenueCat Pro merchants to create products beyond the free limit', () => {
+    revenueCatState.isPro = true;
+    routeParamsState.current = { id: 'new' };
+    renderHook(() => useProductEditController());
+
+    expect(persistenceState.lastParams?.productCreationGate).toMatchObject({
+      allowed: true,
+      requiresUpgrade: false,
     });
   });
 

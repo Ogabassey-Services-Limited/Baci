@@ -20,6 +20,10 @@ import {
   getJumiaRedirectUri,
   isJumiaAuthUrlVariant,
 } from '@/lib/jumia/helpers';
+import {
+  getMerchantFeatureAccess,
+  merchantFeatureUpgradeResponse,
+} from '@/lib/merchant-feature-gates';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
@@ -87,6 +91,24 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    const featureAccess = await getMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureAccess.error) {
+      console.error(
+        '[Jumia Connect] Feature access lookup failed:',
+        featureAccess.error
+      );
+      return NextResponse.json(
+        { error: 'Failed to verify merchant plan' },
+        { status: 500 }
+      );
+    }
+    if (!featureAccess.allowed) {
+      return merchantFeatureUpgradeResponse('marketplace_sync');
+    }
 
     const rawBody = await request.json();
     const parsed = _jumiaConnectSchema.safeParse(rawBody);
@@ -332,6 +354,25 @@ export async function GET(request: NextRequest) {
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
+      const featureAccess = await getMerchantFeatureAccess(
+        auth.supabase,
+        merchantId,
+        'marketplace_sync'
+      );
+      if (featureAccess.error) {
+        console.error(
+          '[Jumia Connect] Feature access lookup failed:',
+          featureAccess.error
+        );
+        return NextResponse.json(
+          { error: 'Failed to verify merchant plan' },
+          { status: 500 }
+        );
+      }
+      if (!featureAccess.allowed) {
+        return merchantFeatureUpgradeResponse('marketplace_sync');
+      }
+
       const jumiaClientId = getJumiaClientId();
       const appUrl = getConfiguredAppUrl();
       if (!jumiaClientId || !appUrl) {

@@ -15,6 +15,7 @@ type FeatureGateMerchant = {
 
 type ProductCreationGateInput = {
   activeProductCount: number | null | undefined;
+  hasRevenueCatPro?: boolean;
   merchant: FeatureGateMerchant | null | undefined;
   now?: Date;
 };
@@ -82,6 +83,7 @@ export const baciFeatureGates = {
 
   canCreateProduct({
     activeProductCount,
+    hasRevenueCatPro = false,
     merchant,
     now = new Date(),
   }: ProductCreationGateInput) {
@@ -90,6 +92,7 @@ export const baciFeatureGates = {
     const count = hasKnownCount ? Math.max(0, numericCount) : 0;
     const features = normalizePremiumFeatures(merchant?.premium_features);
     const hasUnlimitedProducts =
+      hasRevenueCatPro ||
       Boolean(merchant && hasActivePaidPlan(merchant, now)) ||
       hasProductLimitGrant(features);
     const allowed =

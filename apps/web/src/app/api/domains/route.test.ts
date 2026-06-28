@@ -62,9 +62,31 @@ function createInsertQuery() {
   };
 }
 
-function createSupabase() {
+function createMerchantQuery(planTier = 'pro') {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: 'merchant-1',
+            plan_expires_at: null,
+            plan_tier: planTier,
+            premium_features: [],
+          },
+          error: null,
+        }),
+      })),
+    })),
+  };
+}
+
+function createSupabase(planTier = 'pro') {
   return {
     from: vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return createMerchantQuery(planTier);
+      }
+
       if (table !== 'domains') {
         throw new Error(`Unexpected table: ${table}`);
       }
@@ -100,6 +122,23 @@ describe('POST /api/domains', () => {
       verified: true,
       verification: [],
     });
+  });
+
+  it('returns 402 before adding a Vercel domain when custom domains are not enabled', async () => {
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabase('free'),
+      user: { id: 'user-1' },
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(402);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'requires_upgrade',
+      error: 'Custom domains require Baci Pro',
+    });
+    expect(mocks.vercelAddDomain).not.toHaveBeenCalled();
   });
 
   it('revalidates the merchant feed when adding a domain succeeds', async () => {

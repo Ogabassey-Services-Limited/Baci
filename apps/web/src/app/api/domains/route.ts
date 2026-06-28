@@ -6,6 +6,10 @@ import {
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
+import {
+  getMerchantFeatureAccess,
+  merchantFeatureUpgradeResponse,
+} from '@/lib/merchant-feature-gates';
 import { vercel } from '@/lib/vercel';
 import { createDomainSchema } from '@/schemas/domains';
 
@@ -122,6 +126,25 @@ export async function POST(request: NextRequest) {
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+
+    const featureAccess = await getMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'custom_domain'
+    );
+    if (featureAccess.error) {
+      console.error(
+        'Error querying merchant feature access:',
+        featureAccess.error
+      );
+      return NextResponse.json(
+        { error: 'Failed to verify merchant plan' },
+        { status: 500 }
+      );
+    }
+    if (!featureAccess.allowed) {
+      return merchantFeatureUpgradeResponse('custom_domain');
     }
 
     // Extract TLD

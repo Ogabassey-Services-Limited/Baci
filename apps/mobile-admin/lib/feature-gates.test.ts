@@ -64,4 +64,14 @@ describe('baciFeatureGates', () => {
       })
     ).toMatchObject({ allowed: false, limit: 1000, requiresUpgrade: true });
   });
+
+  it('allows RevenueCat Pro merchants to create products beyond the free limit', () => {
+    expect(
+      baciFeatureGates.canCreateProduct({
+        activeProductCount: 1000,
+        hasRevenueCatPro: true,
+        merchant: { plan_tier: 'free', premium_features: [] },
+      })
+    ).toMatchObject({ allowed: true, limit: 1000, requiresUpgrade: false });
+  });
 });
