@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidManualAccountNumber } from '@/schemas/manual-account-number';
 
 const payoutModeSchema = z.enum(['manual', 'instant', 'weekly']);
 
@@ -39,7 +40,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
     const isOfflineBank = Boolean(data.bank_name);
 
     if (isOfflineBank) {
-      if (!/^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/.test(data.account_number)) {
+      if (!isValidManualAccountNumber(data.account_number)) {
         ctx.addIssue({
           code: 'custom',
           message:
@@ -65,7 +66,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
       }
     }
 
-    if (data.account_name !== undefined && data.account_name.length < 2) {
+    if (data.account_name && data.account_name.length < 2) {
       ctx.addIssue({
         code: 'custom',
         message: 'Account name must be at least 2 characters',

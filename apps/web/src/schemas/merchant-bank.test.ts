@@ -50,6 +50,62 @@ describe('merchantBankSchema', () => {
     });
   });
 
+  it('allows manual invoice bank details with a blank optional account name', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'IN-123456789012',
+      bankName: 'HDFC Bank',
+      accountName: '',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('validates manual account number length after removing separators', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'AB12 CD34 EF56 GH78 IJ90 KL12 MN34 OP56 QR',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects manual account numbers longer than 34 characters after removing separators', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'AB12 CD34 EF56 GH78 IJ90 KL12 MN34 OP56 QR7',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects manual account numbers with unsupported characters', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'IN_123456789012',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects manual account numbers shorter than 6 characters after removing separators', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'AB-12 3',
+      bankName: 'HDFC Bank',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('does not infer manual invoice mode from bank name alone', () => {
     const result = merchantBankSchema.safeParse({
       accountNumber: 'IN-123456789012',

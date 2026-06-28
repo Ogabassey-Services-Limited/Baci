@@ -698,7 +698,31 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
-    it('filters unsupported Paystack channels for Nigerian checkout details', async () => {
+    it('filters unsupported and DVA-disabled Paystack channels for Nigerian checkout details', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/filtered-channels',
+      });
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          channels: ['card', 'mobile_money', 'bank_transfer'],
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channels: ['card'],
+        })
+      );
+    });
+
+    it('allows hosted Paystack bank transfer when DVA is enabled', async () => {
+      enableDvaForTest();
       mockInitializePaystack.mockResolvedValue({
         authorization_url: 'https://paystack.com/pay/filtered-channels',
       });
@@ -739,9 +763,73 @@ describe('POST /api/payments/initialize', () => {
       expect(json.success).toBe(true);
       expect(mockInitializePaystack).toHaveBeenCalledWith(
         expect.objectContaining({
+          channels: ['card', 'bank', 'ussd'],
+        })
+      );
+    });
+
+    it('includes bank transfer in Nigerian Paystack defaults when DVA is enabled', async () => {
+      enableDvaForTest();
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/default-channels',
+      });
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          channels: [],
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
           channels: ['card', 'bank', 'ussd', 'bank_transfer'],
         })
       );
+    });
+
+    it('returns GATEWAY_DISABLED when Paystack is explicitly disabled', async () => {
+      featureSettingsResult = {
+        data: {
+          paystack_enabled: false,
+          wallet_paystack_dva_enabled: true,
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'paystack' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockInitializePaystack).not.toHaveBeenCalled();
+    });
+
+    it('returns GATEWAY_DISABLED when omitted-gateway DVA requires disabled Paystack', async () => {
+      featureSettingsResult = {
+        data: {
+          paystack_enabled: false,
+          korapay_enabled: true,
+          wallet_paystack_dva_enabled: true,
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, payment_type: 'dva' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockInitializePaystack).not.toHaveBeenCalled();
+      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
     });
 
     it('returns 400 when paystack subaccount not configured', async () => {
@@ -789,6 +877,25 @@ describe('POST /api/payments/initialize', () => {
     });
 
     it('rejects dedicated virtual accounts when bank transfer is disabled', async () => {
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
+    });
+
+    it('rejects dedicated virtual accounts when Paystack is disabled', async () => {
+      featureSettingsResult = {
+        data: {
+          paystack_enabled: false,
+          wallet_paystack_dva_enabled: true,
+        },
+        error: null,
+      };
+
       const res = await POST(
         makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
       );

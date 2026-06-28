@@ -191,8 +191,9 @@ describe('PaymentStep', () => {
       render(<PaymentStep {...defaultProps} />);
 
       // Assert
-      expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('bank-transfer-logo')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('radio', { name: /^bank transfer/i })
+      ).not.toBeInTheDocument();
     });
 
     it('shows Bank Transfer when Paystack DVA is explicitly enabled', () => {
@@ -206,8 +207,9 @@ describe('PaymentStep', () => {
 
       render(<PaymentStep {...defaultProps} merchant={merchant} />);
 
-      expect(screen.getByText('Bank Transfer')).toBeInTheDocument();
-      expect(screen.getByTestId('bank-transfer-logo')).toBeInTheDocument();
+      expect(
+        screen.getByRole('radio', { name: /^bank transfer/i })
+      ).toBeInTheDocument();
     });
 
     it('hides Korapay when not explicitly enabled in feature settings', () => {
@@ -342,8 +344,7 @@ describe('PaymentStep', () => {
       );
 
       // Act
-      const bankTransferLabel = screen.getByText('Bank Transfer').closest('label');
-      if (bankTransferLabel) fireEvent.click(bankTransferLabel);
+      fireEvent.click(screen.getByRole('radio', { name: /^bank transfer/i }));
 
       // Assert
       expect(setPaymentMethod).toHaveBeenCalledWith('bank_transfer');

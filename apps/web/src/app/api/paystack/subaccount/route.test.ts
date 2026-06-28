@@ -375,6 +375,36 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
+  it('rejects placeholder manual invoice bank names for India', async () => {
+    mockMerchantSingle.mockResolvedValueOnce({
+      data: {
+        paystack_subaccount_code: null,
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        email: 'yodhashopping@gmail.com',
+        phone: null,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: 'IN-123456789012',
+        bankName: 'Unknown Bank',
+        businessName: 'Yodha Shopping',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Enter the actual bank name to save manual invoice bank details.',
+    });
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+    expect(mockUpdateSubaccount).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when bank_code is missing from request payload', async () => {
     const response = await POST(
       makeRequest({

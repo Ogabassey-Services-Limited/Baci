@@ -361,21 +361,28 @@ function isNigerianPaystackCustomer(
 
 function getPaystackChannelsForCustomer(
   data: PaymentInitRequest,
-  formattedCustomerPhone: string
+  formattedCustomerPhone: string,
+  gatewaySettings: GatewaySettings
 ): PaymentChannel[] {
   if (!isNigerianPaystackCustomer(data, formattedCustomerPhone)) {
     return [...PAYSTACK_INTERNATIONAL_CHANNELS];
   }
 
+  const allowedNigerianChannels = gatewaySettings.wallet_paystack_dva_enabled
+    ? [...PAYSTACK_NIGERIAN_CHANNELS]
+    : PAYSTACK_NIGERIAN_CHANNELS.filter(
+        (channel) => channel !== 'bank_transfer'
+      );
+
   if (!data.channels?.length) {
-    return [...PAYSTACK_NIGERIAN_CHANNELS];
+    return allowedNigerianChannels;
   }
 
   const channels = data.channels.filter((channel): channel is PaymentChannel =>
-    PAYSTACK_NIGERIAN_CHANNELS.includes(channel as NigerianPaystackChannel)
+    allowedNigerianChannels.includes(channel as NigerianPaystackChannel)
   );
 
-  return channels.length ? channels : [...PAYSTACK_NIGERIAN_CHANNELS];
+  return channels.length ? channels : allowedNigerianChannels;
 }
 
 function getBillingAddressForGateway(
@@ -864,6 +871,7 @@ async function initializeJuicyway(
 async function initializePaystack(
   data: AuthorizedPaymentInitRequest,
   merchant: { paystack_subaccount_code: string | null },
+  gatewaySettings: GatewaySettings,
   redirectUrl: string,
   reference: string,
   merchantId: string
@@ -903,7 +911,11 @@ async function initializePaystack(
     subaccount: merchant.paystack_subaccount_code as string,
     transaction_charge: fees.platformFee,
     bearer: 'account',
-    channels: getPaystackChannelsForCustomer(data, customerPhone),
+    channels: getPaystackChannelsForCustomer(
+      data,
+      customerPhone,
+      gatewaySettings
+    ),
     metadata: {
       merchant_id: merchantId,
       order_id: data.order_id,
@@ -1197,9 +1209,15 @@ export async function POST(request: NextRequest) {
     // Select gateway
     const hasPaystackSubaccount = !!merchant.paystack_subaccount_code;
     const gateway: PaymentGateway =
-      data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
-        ? data.gateway
-        : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
+      data.payment_type === 'dva'
+        ? 'paystack'
+        : data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
+          ? data.gateway
+          : selectGateway(
+              validCurrency,
+              gatewaySettings,
+              hasPaystackSubaccount
+            );
 
     const payableAmount =
       gateway === 'klump'
@@ -1223,6 +1241,14 @@ export async function POST(request: NextRequest) {
     if (gateway === 'korapay' && !gatewaySettings.korapay_enabled) {
       return createErrorResponse(
         'Korapay is not enabled for this merchant',
+        'GATEWAY_DISABLED',
+        400
+      );
+    }
+
+    if (gateway === 'paystack' && !gatewaySettings.paystack_enabled) {
+      return createErrorResponse(
+        'Paystack is not enabled for this merchant',
         'GATEWAY_DISABLED',
         400
       );
@@ -1408,6 +1434,7 @@ export async function POST(request: NextRequest) {
             paymentResult = await initializePaystack(
               paymentData,
               merchant,
+              gatewaySettings,
               redirectUrl,
               reference,
               merchantId

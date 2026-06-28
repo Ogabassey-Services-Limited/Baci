@@ -242,6 +242,30 @@ describe('MerchantBankForm', () => {
     );
   });
 
+  it('limits manual account numbers by normalized length', () => {
+    render(
+      <MerchantBankForm
+        countryCode="IN"
+        initialData={{ businessName: 'Yodha Shopping' }}
+      />
+    );
+
+    const accountInput = screen.getByLabelText('Account Number');
+    const formattedAccountNumber = 'ABCD EFGH IJKL MNOP QRST UVWX YZ12 345678';
+
+    fireEvent.change(accountInput, {
+      target: { value: formattedAccountNumber },
+    });
+
+    expect(accountInput).toHaveValue(formattedAccountNumber);
+
+    fireEvent.change(accountInput, {
+      target: { value: `${formattedAccountNumber}9` },
+    });
+
+    expect(accountInput).toHaveValue(formattedAccountNumber);
+  });
+
   it('shows an error when manual invoice bank details fail to save', async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();

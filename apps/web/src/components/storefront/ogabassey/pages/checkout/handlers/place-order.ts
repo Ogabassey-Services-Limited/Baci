@@ -321,6 +321,10 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   }
   const shippingProvider = shippingProviderResolution.provider;
   const clientPayableAmount = payWithWallet ? total - walletAmountUsed : total;
+  const billingAddressLine1 =
+    deliveryMethod === 'door' && isNewAddressMode
+      ? newAddressStreet
+      : shippingAddressData.address;
 
   if (
     isKlumpUnavailableForGatewayAmount({
@@ -471,7 +475,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         customerName: `${firstName} ${lastName}`.trim(),
         customerPhone,
         billingAddress: {
-          line1: newAddressStreet || shippingAddressData.address,
+          line1: billingAddressLine1,
           city: shippingAddressData.city,
           state: shippingAddressData.state,
           country: 'NG',
@@ -502,7 +506,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         customerPhone,
         paymentMethod,
         {
-          line1: newAddressStreet || shippingAddressData.address,
+          line1: billingAddressLine1,
           city: shippingAddressData.city || 'Lagos',
           state: shippingAddressData.state || 'Lagos',
           country: 'NG',

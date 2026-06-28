@@ -32,6 +32,22 @@ function hasRequestField(value: unknown, property: string): boolean {
   );
 }
 
+const PLACEHOLDER_MANUAL_BANK_NAMES = new Set([
+  'NA',
+  'NONE',
+  'UNKNOWN',
+  'UNKNOWNBANK',
+  'NOTAPPLICABLE',
+]);
+
+function isPlaceholderManualBankName(bankName: string): boolean {
+  const normalizedBankName = bankName
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
+  return PLACEHOLDER_MANUAL_BANK_NAMES.has(normalizedBankName);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -172,6 +188,16 @@ export async function POST(request: NextRequest) {
           {
             error:
               'Paystack settlement setup is only available for Nigerian merchants. Add a bank name to save manual invoice bank details.',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (isPlaceholderManualBankName(bank_name)) {
+        return NextResponse.json(
+          {
+            error:
+              'Enter the actual bank name to save manual invoice bank details.',
           },
           { status: 400 }
         );

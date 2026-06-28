@@ -1,6 +1,5 @@
 import { z } from 'zod';
-
-const manualAccountNumberPattern = /^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/;
+import { isValidManualAccountNumber } from '@/schemas/manual-account-number';
 
 export const merchantBankSchema = z
   .object({
@@ -24,7 +23,7 @@ export const merchantBankSchema = z
         });
       }
 
-      if (!manualAccountNumberPattern.test(data.accountNumber)) {
+      if (!isValidManualAccountNumber(data.accountNumber)) {
         ctx.addIssue({
           code: 'custom',
           message:
@@ -33,7 +32,7 @@ export const merchantBankSchema = z
         });
       }
 
-      if (data.accountName !== undefined && data.accountName.length < 2) {
+      if (data.accountName && data.accountName.length < 2) {
         ctx.addIssue({
           code: 'custom',
           message: 'Account name must be at least 2 characters',

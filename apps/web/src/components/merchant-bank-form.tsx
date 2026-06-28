@@ -21,6 +21,10 @@ import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-
 import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
 import {
+  MANUAL_ACCOUNT_NUMBER_MAX_NORMALIZED_LENGTH,
+  normalizeManualAccountNumber,
+} from '@/schemas/manual-account-number';
+import {
   type MerchantBankFormInput,
   type MerchantBankFormValues,
   merchantBankSchema,
@@ -441,13 +445,22 @@ export function MerchantBankForm({
                       ? 'Enter account number or IBAN'
                       : 'Enter 10-digit account number'
                   }
-                  maxLength={isManualBankDetails ? 34 : 10}
+                  maxLength={isManualBankDetails ? undefined : 10}
                   inputMode={isManualBankDetails ? 'text' : 'numeric'}
                   {...field}
                   onChange={(e) => {
-                    const value = isManualBankDetails
-                      ? e.target.value
-                      : e.target.value.replace(/\D/g, '');
+                    if (isManualBankDetails) {
+                      const value = e.target.value;
+                      if (
+                        normalizeManualAccountNumber(value).length <=
+                        MANUAL_ACCOUNT_NUMBER_MAX_NORMALIZED_LENGTH
+                      ) {
+                        field.onChange(value);
+                      }
+                      return;
+                    }
+
+                    const value = e.target.value.replace(/\D/g, '');
                     field.onChange(value);
                   }}
                 />
