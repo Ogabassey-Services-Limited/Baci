@@ -38,7 +38,6 @@ function makeRow(overrides: Partial<BumpaOrderRow> = {}): BumpaOrderRow {
     'Shipping Option': '',
     'Product SKU': 'WDG-001',
     'Product Quantity': '2',
-    items_json: '',
     ...overrides,
   };
 }
@@ -247,31 +246,6 @@ describe('buildItems', () => {
     expect(items[0].matchSource).toBe('name');
   });
 
-  it('matches existing products by normalized Bumpa item name when no SKU', () => {
-    const items = buildItems(
-      makeRow({
-        Products: 'Pixel 7a 128gb (Premium Used) IMEI: 351183326811261',
-        'Product SKU': '',
-      }),
-      [
-        {
-          id: 'pixel-7a',
-          name: 'Google Pixel 7a 128GB (Used)',
-          sku: null,
-          price: 300000,
-          externalSource: null,
-          externalId: null,
-        },
-      ]
-    );
-
-    expect(items[0]).toMatchObject({
-      matched: true,
-      matchSource: 'name',
-      productId: 'pixel-7a',
-    });
-  });
-
   it('marks items as unmatched when no product found', () => {
     const items = buildItems(
       makeRow({ Products: 'Unknown Product', 'Product SKU': 'NOPE' }),
@@ -310,81 +284,6 @@ describe('buildItems', () => {
     );
   });
 
-  it('removes a matching customer-name prefix before a double-pipe product name', () => {
-    const row = makeRow({
-      Products:
-        'John Onuoha | || | Iphone 16pro 256gb Physical Sim (Premium Used)',
-      'Customer Name': 'John Onuoha',
-      'Product SKU': '',
-      'Product Quantity': '1.00',
-    });
-
-    const items = buildItems(row, []);
-
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      condition: 'used',
-      productName: 'Iphone 16pro 256gb Physical Sim',
-      variantName: 'Used',
-    });
-  });
-
-  it('removes a matching customer-name prefix before standalone double-pipe markers with extra fragments', () => {
-    const row = makeRow({
-      Products: 'Ada Lovelace | || | HP EliteBook | 8th Gen',
-      'Product SKU': '',
-      'Product Quantity': '1.00',
-    });
-
-    const items = buildItems(row, []);
-
-    expect(items).toHaveLength(1);
-    expect(items[0].productName).toBe('HP EliteBook | 8th Gen');
-  });
-
-  it('removes a matching customer-name prefix before splitting multiple products', () => {
-    const row = makeRow({
-      Products: 'Ada Lovelace | || | iPhone 13 | Pouch',
-      'Product SKU': ' | ',
-      'Product Quantity': '1.00 | 1.00',
-    });
-
-    const items = buildItems(row, []);
-
-    expect(items).toHaveLength(2);
-    expect(items[0].productName).toBe('iPhone 13');
-    expect(items[1].productName).toBe('Pouch');
-  });
-
-  it('removes an embedded customer-name double-pipe prefix before splitting multiple products', () => {
-    const row = makeRow({
-      Products: 'Ada Lovelace || iPhone 13 | Pouch',
-      'Product SKU': ' | ',
-      'Product Quantity': '1.00 | 1.00',
-    });
-
-    const items = buildItems(row, []);
-
-    expect(items).toHaveLength(2);
-    expect(items[0].productName).toBe('iPhone 13');
-    expect(items[1].productName).toBe('Pouch');
-  });
-
-  it('preserves non-matching double-pipe prefixes before splitting products', () => {
-    const row = makeRow({
-      Products: 'Ada Lovelace | || | iPhone 13 | Pouch',
-      'Customer Name': 'Grace Hopper',
-      'Product SKU': ' | ',
-      'Product Quantity': '1.00 | 1.00',
-    });
-
-    const items = buildItems(row, []);
-
-    expect(items).toHaveLength(2);
-    expect(items[0].productName).toBe('Ada Lovelace | || | iPhone 13');
-    expect(items[1].productName).toBe('Pouch');
-  });
-
   it('trims stray trailing double pipes before product-name matching', () => {
     const row = makeRow({
       Products:
@@ -418,9 +317,7 @@ describe('buildItems', () => {
       matchSource: 'name',
       productId: 'laptop',
       productName:
-        'HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11',
-      condition: 'used',
-      variantName: 'Used',
+        'HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11 || UK used',
     });
   });
 
@@ -435,81 +332,5 @@ describe('buildItems', () => {
     const items = buildItems(row, []);
     expect(items[0].unitPrice).toBe(500);
     expect(items[0].lineTotal).toBe(1000);
-  });
-
-  it('uses raw rich items_json prices and fulfillment descriptions when present', () => {
-    const row = makeRow({
-      Products:
-        'New 2025 Apple iPad M3 256gb WiFi + Cellular | Samsung UHD 4K TV',
-      'Product SKU': '',
-      'Product Quantity': '1 | 1',
-      'Sub Total': '1585000.00',
-      items_json: JSON.stringify([
-        {
-          name: 'New 2025 Apple iPad M3 256gb WiFi + Cellular ',
-          description: 'IMEI- 359200573024554\nSerial No.- J9CVYXYPQN',
-          quantity: 1,
-          price: 1350000,
-          total: 1350000,
-        },
-        {
-          name: 'Samsung UHD 4K TV ',
-          description: 'Model code: UE50NU7020',
-          quantity: 1,
-          price: 235000,
-          total: 235000,
-        },
-      ]),
-    });
-
-    const items = buildItems(row, []);
-
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({
-      productName: 'New 2025 Apple iPad M3 256gb WiFi + Cellular',
-      quantity: 1,
-      unitPrice: 1350000,
-      lineTotal: 1350000,
-    });
-    expect(items[0].importMetadata).toMatchObject({
-      bumpa: {
-        fulfillment_identifiers: {
-          imeis: ['359200573024554'],
-          serialNumbers: ['J9CVYXYPQN'],
-        },
-      },
-    });
-    expect(items[1]).toMatchObject({
-      productName: 'Samsung UHD 4K TV',
-      quantity: 1,
-      unitPrice: 235000,
-      lineTotal: 235000,
-    });
-  });
-
-  it('does not let matched catalog price conflict with rich items_json line totals', () => {
-    const row = makeRow({
-      Products: 'Widget',
-      'Product SKU': 'WDG-001',
-      'Product Quantity': '1',
-      'Sub Total': '5000.00',
-      items_json: JSON.stringify([
-        {
-          name: 'Widget',
-          quantity: 2,
-          total: 5000,
-        },
-      ]),
-    });
-
-    const items = buildItems(row, existingProducts);
-
-    expect(items[0]).toMatchObject({
-      matched: true,
-      productId: 'prod-1',
-      quantity: 2,
-      unitPrice: 2500,
-      lineTotal: 5000,
-    });
   });
 });

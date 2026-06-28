@@ -57,7 +57,6 @@ export function renderItemRows(
         : baseName;
 
       let fulfillmentHtml = '';
-      let fulfillmentSummary: string | null = null;
 
       const itemSummary = getReceiptFulfillmentSummary({
         imei: item.fulfillment_details?.imei || item.imei,
@@ -68,7 +67,6 @@ export function renderItemRows(
       });
 
       if (itemSummary) {
-        fulfillmentSummary = itemSummary;
         fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(itemSummary)}</div>`;
       } else if (order.fulfillment_details) {
         const shouldUseOrderFallback = shouldAttachFulfillmentToItem({
@@ -83,26 +81,16 @@ export function renderItemRows(
         // If an order has only order-level identifiers, attach them to the
         // first item so single-line non-device invoices still show the data.
         if (orderSummary && shouldUseOrderFallback && !orderFallbackEmitted) {
-          fulfillmentSummary = orderSummary;
           fulfillmentHtml = `<div style="font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 500;">${escapeHtml(orderSummary)}</div>`;
           orderFallbackEmitted = true;
         }
       }
-
-      const descriptionHtml = renderItemDescriptionHtml({
-        baseName,
-        description: item.description,
-        fulfillmentSummary,
-        itemLabel,
-        variantName: item.variant_name,
-      });
 
       return `
       <tr class="${index % 2 === 1 ? 'zebra' : ''}">
         <td class="cell-num">${index + 1}</td>
         <td class="cell-item">
           <div>${escapeHtml(itemLabel)}</div>
-          ${descriptionHtml}
           ${fulfillmentHtml}
         </td>
         <td class="cell-qty">${item.quantity}</td>
@@ -111,51 +99,6 @@ export function renderItemRows(
       </tr>`;
     })
     .join('');
-}
-
-function normalizeDescriptionComparison(value: string) {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function getItemDescriptionLines({
-  baseName,
-  description,
-  fulfillmentSummary,
-  itemLabel,
-  variantName,
-}: {
-  baseName: string;
-  description?: string | null;
-  fulfillmentSummary: string | null;
-  itemLabel: string;
-  variantName?: string;
-}): string[] {
-  if (!description) {
-    return [];
-  }
-
-  const duplicateValues = [baseName, itemLabel, variantName, fulfillmentSummary]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .map(normalizeDescriptionComparison);
-
-  return description
-    .split(/\r?\n/)
-    .map((line) => line.trim().replace(/\s+/g, ' '))
-    .filter(Boolean)
-    .filter(
-      (line) => !duplicateValues.includes(normalizeDescriptionComparison(line))
-    );
-}
-
-function renderItemDescriptionHtml(
-  params: Parameters<typeof getItemDescriptionLines>[0]
-) {
-  const lines = getItemDescriptionLines(params);
-  if (lines.length === 0) {
-    return '';
-  }
-
-  return `<div class="cell-item-description">${lines.map(escapeHtml).join('<br>')}</div>`;
 }
 
 export function renderFinancialSummaryLines(

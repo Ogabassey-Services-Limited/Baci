@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const routeParamsState = vi.hoisted(() => ({
   current: { id: '123e4567-e89b-42d3-a456-426614174000' } as { id: string },
@@ -7,14 +7,6 @@ const routeParamsState = vi.hoisted(() => ({
 
 const orderState = vi.hoisted(() => ({
   current: undefined as unknown,
-}));
-
-const auditEventsState = vi.hoisted(() => ({
-  current: {
-    data: [] as unknown[],
-    isError: false,
-    isLoading: false,
-  },
 }));
 
 vi.mock('expo-router', () => ({
@@ -43,10 +35,6 @@ vi.mock('@/hooks/useOrders', () => ({
   useShipOnCredit: () => ({ mutateAsync: vi.fn() }),
   useSendReminder: () => ({ mutateAsync: vi.fn() }),
   useRecordPayment: () => ({ mutateAsync: vi.fn() }),
-}));
-
-vi.mock('@/hooks/orders/useOrderAuditEvents', () => ({
-  useOrderAuditEvents: () => auditEventsState.current,
 }));
 
 vi.mock('@/lib/order-shipment', () => ({
@@ -164,12 +152,6 @@ vi.mock('@/hooks/useOrderDetailsUiState', () => ({
 import { useOrderDetailsController } from './useOrderDetailsController';
 
 describe('useOrderDetailsController', () => {
-  beforeEach(() => {
-    auditEventsState.current = { data: [], isError: false, isLoading: false };
-    orderState.current = undefined;
-    routeParamsState.current = { id: '123e4567-e89b-42d3-a456-426614174000' };
-  });
-
   it('returns null orderId when route params are invalid', () => {
     orderState.current = undefined;
     routeParamsState.current = { id: 'not-a-uuid' };
@@ -216,34 +198,5 @@ describe('useOrderDetailsController', () => {
     const { result } = renderHook(() => useOrderDetailsController());
 
     expect(result.current.shippingConfig.label).toBe('Delivered');
-  });
-
-  it('returns audit events and loading state from the audit query', () => {
-    auditEventsState.current = {
-      data: [{ id: 'audit-1', changed_fields: ['items'] }],
-      isError: false,
-      isLoading: true,
-    };
-
-    const { result } = renderHook(() => useOrderDetailsController());
-
-    expect(result.current.auditEvents).toEqual([
-      { id: 'audit-1', changed_fields: ['items'] },
-    ]);
-    expect(result.current.isAuditEventsLoading).toBe(true);
-    expect(result.current.isAuditEventsError).toBe(false);
-  });
-
-  it('returns audit event error state from the audit query', () => {
-    auditEventsState.current = {
-      data: [],
-      isError: true,
-      isLoading: false,
-    };
-
-    const { result } = renderHook(() => useOrderDetailsController());
-
-    expect(result.current.isAuditEventsError).toBe(true);
-    expect(result.current.auditEvents).toEqual([]);
   });
 });

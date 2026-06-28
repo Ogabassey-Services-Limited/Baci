@@ -37,7 +37,6 @@ function createOrderPayload(
     updatedAt: null,
     couponCode: null,
     shippingOption: null,
-    shippingAddress: null,
     receiptReady: false,
     items: [
       {

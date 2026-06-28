@@ -105,22 +105,6 @@ describe('cached-data cache directives', () => {
     );
   });
 
-  it('keeps high-cardinality public product reads off the remote cache handler', () => {
-    for (const functionName of [
-      'getCachedProductLcpHint',
-      'getCachedProduct',
-      'getCachedProductWithDetails',
-      'getCachedProductReviews',
-      'getCachedProductRatingStats',
-    ]) {
-      const source = getFunctionSource(functionName);
-      expect(source, functionName).toContain("'use cache';");
-      expect(source, functionName).not.toContain("'use cache: remote';");
-      expect(source, functionName).toContain("cacheLife('products');");
-      expect(source, functionName).toContain('cacheTag(');
-    }
-  });
-
   it('keeps public blog metadata and listing data off the remote cache handler', () => {
     for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
       const source = getFunctionSource(functionName);

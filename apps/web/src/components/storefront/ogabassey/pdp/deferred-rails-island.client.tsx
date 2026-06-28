@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { Product } from '@/components/storefront/ogabassey/types';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
-import type { Product } from '@/lib/products';
 
 /**
  * The related-product rails are loaded with a runtime `import()` inside the

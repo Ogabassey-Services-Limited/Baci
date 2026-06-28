@@ -231,11 +231,6 @@ export interface PurchaseResult {
   phoneNumber?: string;
   provider?: string;
   providerErrorDetail?: string;
-  // Monnify-only: the provider's own vend reference, used to requery status
-  // (Monnify resolves requery by this, not by transactionReference).
-  providerVendReference?: string;
-  // Units delivered for metered bills (e.g. prepaid electricity kWh).
-  units?: string;
 }
 
 // Kuda API Response
@@ -275,9 +270,6 @@ type KudaTransactionStatusResult = {
   message: string;
   pin?: string;
   status: string;
-  // Units delivered for metered bills; surfaced by Monnify requery, kept on the
-  // shared shape so the provider-agnostic status type stays consistent.
-  units?: string;
 };
 
 function normalizeKudaStatusKey(status: string) {
@@ -671,14 +663,7 @@ export function getDataProviders(): Promise<Biller[]> {
 export async function verifyBillCustomer(
   kudaBillItemIdentifier: string,
   customerIdentification: string
-): Promise<{
-  verified: boolean;
-  customerName?: string;
-  // Kuda's verify response does not include an address today; kept optional so
-  // the cross-provider verify result shape is uniform.
-  address?: string;
-  message: string;
-}> {
+): Promise<{ verified: boolean; customerName?: string; message: string }> {
   try {
     const response = await kudaRequest<{
       CustomerName?: string;
@@ -687,6 +672,17 @@ export async function verifyBillCustomer(
       KudaBillItemIdentifier: kudaBillItemIdentifier,
       CustomerIdentification: customerIdentification,
     });
+
+    // TEMP DIAGNOSTIC: log only the field-name keys (never values) of the Kuda
+    // verify response, to see whether it returns a customer address we could
+    // surface on the electricity receipt. No PII is logged. Remove once resolved.
+    console.log(
+      '[kuda] verify-customer response keys:',
+      JSON.stringify({
+        top: Object.keys(response ?? {}),
+        data: Object.keys((response?.data ?? {}) as Record<string, unknown>),
+      })
+    );
 
     const customerName =
       response.data?.CustomerName ?? response.data?.customerName;

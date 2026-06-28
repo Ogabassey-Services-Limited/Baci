@@ -2,14 +2,19 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetBlogAuthorBySlug, mockGetCachedBlogAuthor, mockRedirect } =
-  vi.hoisted(() => ({
-    mockGetBlogAuthorBySlug: vi.fn(),
-    mockGetCachedBlogAuthor: vi.fn(),
-    mockRedirect: vi.fn((url: string) => {
-      throw new Error(`NEXT_REDIRECT:${url}`);
-    }),
-  }));
+const {
+  mockGetBlogAuthorBySlug,
+  mockGetCachedBlogAuthor,
+  mockHeaders,
+  mockRedirect,
+} = vi.hoisted(() => ({
+  mockGetBlogAuthorBySlug: vi.fn(),
+  mockGetCachedBlogAuthor: vi.fn(),
+  mockHeaders: vi.fn(() => new Headers()),
+  mockRedirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+}));
 
 vi.mock('next/image', () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -23,6 +28,8 @@ vi.mock('next/link', () => ({
     <a href={href}>{children}</a>
   ),
 }));
+
+vi.mock('next/headers', () => ({ headers: () => mockHeaders() }));
 
 vi.mock('next/navigation', () => ({
   notFound: () => {
@@ -106,6 +113,7 @@ const authorData = {
 describe('BlogAuthorPageContent navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.mockReturnValue(new Headers());
     mockGetBlogAuthorBySlug.mockReturnValue({
       name: 'Bassey John',
       sameAs: [],
@@ -138,11 +146,11 @@ describe('BlogAuthorPageContent navigation', () => {
     );
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
-      './bassey-john'
+      '/blog/author/bassey-john'
     );
     expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
       'href',
-      './bassey-john?page=3'
+      '/blog/author/bassey-john?page=3'
     );
     expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
 
@@ -169,10 +177,14 @@ describe('BlogAuthorPageContent navigation', () => {
         }),
         searchParams: Promise.resolve({ page: '5' }),
       })
-    ).rejects.toThrow('NEXT_REDIRECT:./bassey-john?page=3');
+    ).rejects.toThrow('NEXT_REDIRECT:/blog/author/bassey-john?page=3');
   });
 
-  it('keeps author navigation origin-preserving without relying on merchant headers', async () => {
+  it('keeps links root-relative on a merchant subdomain (trusted header)', async () => {
+    mockHeaders.mockReturnValue(
+      new Headers({ 'x-merchant-slug': 'ogabassey' })
+    );
+
     render(
       await BlogAuthorPageContent({
         params: Promise.resolve({
@@ -182,32 +194,13 @@ describe('BlogAuthorPageContent navigation', () => {
       })
     );
 
+    // basePath collapses to '' so the proxy's /{slug} rewrite is not doubled
     expect(screen.getByRole('link', { name: /Back to Blog/ })).toHaveAttribute(
       'href',
-      '..'
+      '/blog'
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
-    ).toHaveAttribute('href', '../best-phones');
-
-    expect(
-      new URL('..', 'https://ogabassey.com/blog/author/bassey-john').href
-    ).toBe('https://ogabassey.com/blog/');
-    expect(
-      new URL(
-        '..',
-        'https://preview.usebaci.com/ogabassey/blog/author/bassey-john'
-      ).href
-    ).toBe('https://preview.usebaci.com/ogabassey/blog/');
-    expect(
-      new URL('../best-phones', 'https://ogabassey.com/blog/author/bassey-john')
-        .href
-    ).toBe('https://ogabassey.com/blog/best-phones');
-    expect(
-      new URL(
-        '../best-phones',
-        'https://preview.usebaci.com/ogabassey/blog/author/bassey-john'
-      ).href
-    ).toBe('https://preview.usebaci.com/ogabassey/blog/best-phones');
+    ).toHaveAttribute('href', '/blog/best-phones');
   });
 });

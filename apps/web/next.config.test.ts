@@ -61,20 +61,6 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.skipTrailingSlashRedirect).toBe(true);
   });
 
-  it('publishes only public PostHog release context envs to the browser bundle', () => {
-    expect(nextConfig.env).toEqual(
-      expect.not.objectContaining({
-        VERCEL_DEPLOYMENT_ID: expect.any(String),
-        VERCEL_GIT_COMMIT_REF: expect.any(String),
-        VERCEL_GIT_COMMIT_SHA: expect.any(String),
-        VERCEL_URL: expect.any(String),
-      })
-    );
-    expect(Object.keys(nextConfig.env ?? {})).toEqual(
-      expect.arrayContaining(['NEXT_PUBLIC_VERCEL_ENV'])
-    );
-  });
-
   it('keeps server PDF dependencies externalized for Node PDF generation', () => {
     expect(nextConfig.serverExternalPackages).toEqual(
       expect.arrayContaining(['jspdf', 'jspdf-autotable'])

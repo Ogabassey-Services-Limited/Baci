@@ -129,17 +129,6 @@ export function canLoadMigrationRows(
   );
 }
 
-export function shouldIncludeMigrationJobDetailsForRows(
-  job: Pick<ImportJobDetail, 'entity_type' | 'notified_at' | 'status'>
-) {
-  return (
-    job.entity_type === 'orders' &&
-    (job.status === 'committed' ||
-      job.status === 'completed' ||
-      Boolean(job.notified_at))
-  );
-}
-
 export function getMigrationRowsCacheKey(
   jobId: string,
   filter: MigrationPreviewFilter,

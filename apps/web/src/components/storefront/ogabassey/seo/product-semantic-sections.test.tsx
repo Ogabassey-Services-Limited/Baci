@@ -14,10 +14,6 @@ describe('ProductSemanticSections', () => {
     render(
       <ProductSemanticSections
         model={{
-          contextParagraphs: [
-            'Samsung Galaxy S25 is listed by Ogabassey in Smartphones.',
-            'Related links connect this product to similar alternatives.',
-          ],
           trustBullets: [
             'Free returns within 7 days',
             'Ships across Nigeria',
@@ -68,8 +64,8 @@ describe('ProductSemanticSections', () => {
       />,
     );
 
-    // The old "Buying context" trust-bullet section was removed from the PDP,
-    // so trust bullets in the model must NOT render.
+    // The "Buying context" trust-bullet section was removed from the PDP, so
+    // trust bullets in the model must NOT render.
     expect(
       screen.queryByRole('heading', { name: 'Buying context' })
     ).not.toBeInTheDocument();
@@ -77,14 +73,6 @@ describe('ProductSemanticSections', () => {
       screen.queryByText('Free returns within 7 days')
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Ships across Nigeria')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        name: 'Product details and buying checklist',
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Samsung Galaxy S25 is listed by Ogabassey in Smartphones.')
-    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Buyer guides' })
     ).toBeInTheDocument();
@@ -120,7 +108,6 @@ describe('ProductSemanticSections', () => {
       <ProductSemanticSections
         model={{
           trustBullets: [],
-          contextParagraphs: [],
           supportLinks: [],
           guideLinks: [],
           alternatives: null,
@@ -138,7 +125,6 @@ describe('ProductSemanticSections', () => {
       <ProductSemanticSections
         model={{
           trustBullets: [],
-          contextParagraphs: [],
           supportLinks: [
             { href: '/smartphones', label: 'Shop more Smartphones' },
           ],
@@ -156,32 +142,5 @@ describe('ProductSemanticSections', () => {
     expect(
       screen.getByRole('link', { name: 'Shop more Smartphones' })
     ).toHaveAttribute('href', '/smartphones');
-  });
-
-  it('renders product context paragraphs even when link sections are empty', () => {
-    render(
-      <ProductSemanticSections
-        model={{
-          trustBullets: [],
-          contextParagraphs: [
-            'Steam Deck is listed by Ogabassey in Portable Gaming.',
-          ],
-          supportLinks: [],
-          guideLinks: [],
-          alternatives: null,
-          sameBrand: null,
-          samePrice: null,
-        }}
-      />
-    );
-
-    expect(
-      screen.getByRole('heading', {
-        name: 'Product details and buying checklist',
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Steam Deck is listed by Ogabassey in Portable Gaming.')
-    ).toBeInTheDocument();
   });
 });

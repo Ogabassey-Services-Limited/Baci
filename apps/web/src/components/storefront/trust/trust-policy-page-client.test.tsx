@@ -51,12 +51,6 @@ describe('TrustPolicyPageClient', () => {
     expect(screen.getByText('Mail')).toBeInTheDocument();
     expect(screen.getByText('Return fees')).toBeInTheDocument();
     expect(screen.getByText('Free')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Before you request a return' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/confirm the current return window/i)
-    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /contact us/i })).toHaveAttribute(
       'href',
       '/contact'
@@ -97,12 +91,6 @@ describe('TrustPolicyPageClient', () => {
     expect(screen.getByText('1-5 business days')).toBeInTheDocument();
     expect(screen.getByText('Shipping fees')).toBeInTheDocument();
     expect(screen.getByText('Calculated')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'How delivery works' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/confirm the delivery regions/i)
-    ).toBeInTheDocument();
   });
 
   it('renders the warranty trust policy facts', () => {
@@ -151,33 +139,6 @@ describe('TrustPolicyPageClient', () => {
 
     expect(
       screen.queryByRole('link', { name: /contact us/i })
-    ).not.toBeInTheDocument();
-  });
-
-  it('uses support-first return guidance when no return policy is configured', () => {
-    render(
-      <TrustPolicyPageClient
-        kind="returns"
-        merchantName="General Store"
-        contactHref="/contact"
-        trustProfile={{
-          socialLinks: {},
-          derivedLinks: {},
-        }}
-      />
-    );
-
-    expect(screen.getAllByText('Not specified')).toHaveLength(3);
-    expect(
-      screen.getByRole('heading', {
-        name: 'Before you contact support about a return',
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/not fully specified on this page yet/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/confirm the current return window/i)
     ).not.toBeInTheDocument();
   });
 });

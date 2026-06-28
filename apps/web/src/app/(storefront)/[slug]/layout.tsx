@@ -18,7 +18,10 @@ import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { getStorefrontSeoDescription } from './seo-helpers';
+import {
+  getStorefrontSeoDescription,
+  getStorefrontSeoTitle,
+} from './seo-helpers';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -158,6 +161,7 @@ export async function generateMetadata({
 
   return {
     metadataBase,
+    title: getStorefrontSeoTitle(merchant),
     description,
     icons,
     // Always emit an explicit verification object so the platform-level

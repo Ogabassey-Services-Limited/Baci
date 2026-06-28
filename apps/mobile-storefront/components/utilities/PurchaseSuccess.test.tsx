@@ -47,32 +47,9 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: (text: string) => mockSetClipboardString(text),
 }));
 
-jest.mock('@/hooks/use-receipts', () => ({
-  useMerchantReceiptInfo: () => ({
-    data: { business_name: 'Ogabassey', logo_url: 'https://cdn.test/logo.png' },
-  }),
-}));
-
 jest.mock('@/lib/utility-receipt', () => ({
   shareUtilityReceipt: (input: unknown) => mockShareUtilityReceipt(input),
-  buildUtilityReceiptHtml: (input: unknown) =>
-    `RECEIPT:${JSON.stringify(input)}`,
-  buildReceiptMessage: (input: unknown) => `RECEIPT_TEXT:${JSON.stringify(input)}`,
 }));
-
-jest.mock('@/components/receipts/ReceiptPreviewModal', () => {
-  const { Text } =
-    jest.requireActual<typeof import('react-native')>('react-native');
-  return {
-    ReceiptPreviewModal: ({
-      visible,
-      html,
-    }: {
-      visible: boolean;
-      html: string;
-    }) => (visible ? <Text testID="receipt-preview">{html}</Text> : null),
-  };
-});
 
 jest.mock('@/services/analytics', () => ({
   trackError: jest.fn(),
@@ -158,7 +135,7 @@ describe('PurchaseSuccess', () => {
     });
   });
 
-  it('opens the receipt preview with the purchase details and token', () => {
+  it('shares a utility receipt with returned voucher details', async () => {
     render(
       <PurchaseSuccess
         type="power"
@@ -172,12 +149,19 @@ describe('PurchaseSuccess', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('View utility receipt'));
+    fireEvent.press(screen.getByLabelText('Share utility receipt'));
 
-    const html = String(screen.getByTestId('receipt-preview').props.children);
-    expect(html).toContain('43901766923');
-    expect(html).toContain('1234-5678-9012-3456');
-    expect(html).toContain('"type":"power"');
+    await waitFor(() => {
+      expect(mockShareUtilityReceipt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 1000,
+          customerIdentifier: '43901766923',
+          reference: 'ref-123',
+          type: 'power',
+          voucherPin: '1234-5678-9012-3456',
+        })
+      );
+    });
   });
 
   it('alerts when copying a returned electricity token fails', async () => {
@@ -232,6 +216,38 @@ describe('PurchaseSuccess', () => {
         'Could not copy this token.'
       );
     });
+  });
+
+  it('alerts when sharing the utility receipt fails', async () => {
+    mockShareUtilityReceipt.mockRejectedValueOnce(
+      new Error('PDF generation failed')
+    );
+
+    render(
+      <PurchaseSuccess
+        type="power"
+        amount={1000}
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        voucherPin="1234-5678-9012-3456"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Share utility receipt'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Share Failed',
+        'Could not generate the receipt PDF. Please try again.'
+      );
+    });
+    expect(console.error).toHaveBeenCalledWith(
+      'Failed to share utility receipt:',
+      expect.any(Error)
+    );
   });
 
   it('shows account creation CTA for unauthenticated users', () => {

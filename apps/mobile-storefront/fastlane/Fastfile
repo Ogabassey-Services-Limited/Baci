@@ -1,7 +1,5 @@
 default_platform(:ios)
 
-require "English"
-
 WORKSPACE = "ios/Ogabassey.xcworkspace"
 SCHEME = "Ogabassey"
 BUNDLE_ID = "com.ogabassey.app"
@@ -25,46 +23,6 @@ def asc_api_key
     duration: 1200,
     in_house: false
   )
-end
-
-def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
-  absolute_ipa_path = File.expand_path(ipa_path)
-  UI.user_error!("Expected IPA does not exist: #{absolute_ipa_path}") unless File.file?(absolute_ipa_path)
-
-  ensure_required_env!(%w[
-    ASC_API_KEY_ID
-    ASC_API_ISSUER_ID
-    ASC_API_KEY_PATH
-  ])
-
-  key_path = File.expand_path(ENV.fetch("ASC_API_KEY_PATH"))
-  UI.user_error!("ASC_API_KEY_PATH does not exist: #{key_path}") unless File.file?(key_path)
-
-  UI.message("Uploading #{absolute_ipa_path} to TestFlight with xcrun altool")
-
-  command = [
-    "xcrun",
-    "altool",
-    "--upload-app",
-    "--file",
-    absolute_ipa_path,
-    "--type",
-    "ios",
-    "--apiKey",
-    ENV.fetch("ASC_API_KEY_ID"),
-    "--apiIssuer",
-    ENV.fetch("ASC_API_ISSUER_ID"),
-    "--output-format",
-    "normal",
-    "--show-progress"
-  ]
-  command << "--wait" if wait_for_processing
-
-  system({ "API_PRIVATE_KEYS_DIR" => File.dirname(key_path) }, *command)
-  status = $CHILD_STATUS
-  return if status&.success?
-
-  UI.user_error!("altool upload failed with exit status #{status&.exitstatus || 'unknown'}")
 end
 
 platform :ios do
@@ -117,11 +75,18 @@ platform :ios do
       }
     )
 
-    # fastlane be56dd5 currently drops --file when wrapping Xcode 26 altool.
-    # Keep the Faraday 2 pin and own the upload arguments until that wrapper is fixed upstream.
-    upload_ipa_with_altool!(
-      File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      wait_for_processing: true
+    # Wait for App Store Connect to finish processing the build. The release
+    # workflow chains `fastlane ios submit` immediately afterwards, and a build
+    # still in "Processing" cannot be attached to a review submission — so we
+    # block here rather than skip the wait, trading a few CI minutes for a
+    # reliable hands-off submit.
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
+      skip_waiting_for_build_processing: false,
+      skip_submission: true,
+      distribute_external: false,
+      notify_external_testers: false
     )
   end
 

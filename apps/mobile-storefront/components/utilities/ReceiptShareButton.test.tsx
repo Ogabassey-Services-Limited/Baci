@@ -1,32 +1,40 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import Colors from '@/constants/Colors';
+import { shareUtilityReceipt } from '@/lib/utility-receipt';
 import ReceiptShareButton from './ReceiptShareButton';
 
-jest.mock('@/hooks/use-receipts', () => ({
-  useMerchantReceiptInfo: () => ({
-    data: { business_name: 'Ogabassey', logo_url: 'https://cdn.test/logo.png' },
-  }),
+jest.mock('@/lib/utility-receipt', () => ({
+  shareUtilityReceipt: jest.fn(),
 }));
 
-// Render the preview modal as a simple text node exposing its props so we can
-// assert it opens with the built receipt HTML (the real modal uses a WebView).
-jest.mock('@/components/receipts/ReceiptPreviewModal', () => {
-  const { Text } =
-    jest.requireActual<typeof import('react-native')>('react-native');
-  return {
-    ReceiptPreviewModal: ({
-      visible,
-      html,
-    }: {
-      visible: boolean;
-      html: string;
-    }) => (visible ? <Text testID="receipt-preview">{html}</Text> : null),
-  };
-});
+const mockShareUtilityReceipt = jest.mocked(shareUtilityReceipt);
 
 describe('ReceiptShareButton', () => {
-  it('opens the receipt preview with the built HTML when pressed', () => {
+  let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockShareUtilityReceipt.mockResolvedValue(undefined);
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    alertSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('shares receipts when a transaction reference is available', async () => {
     render(
       <ReceiptShareButton
         amount={1000}
@@ -38,19 +46,21 @@ describe('ReceiptShareButton', () => {
       />
     );
 
-    expect(screen.queryByTestId('receipt-preview')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Share utility receipt'));
 
-    fireEvent.press(screen.getByLabelText('View utility receipt'));
-
-    const preview = screen.getByTestId('receipt-preview');
-    const html = String(preview.props.children);
-    expect(html).toContain('Airtime Receipt');
-    expect(html).toContain('08012345678');
-    expect(html).toContain('VTU-123');
-    expect(html).toContain('₦1,000');
+    await waitFor(() => {
+      expect(mockShareUtilityReceipt).toHaveBeenCalledWith({
+        amount: 1000,
+        customerIdentifier: '08012345678',
+        reference: 'VTU-123',
+        status: 'successful',
+        type: 'airtime',
+        voucherPin: undefined,
+      });
+    });
   });
 
-  it('is disabled and does not open the preview without a transaction reference', () => {
+  it('does not share receipts without a transaction reference', () => {
     render(
       <ReceiptShareButton
         amount={1000}
@@ -62,10 +72,39 @@ describe('ReceiptShareButton', () => {
       />
     );
 
-    const button = screen.getByLabelText('View utility receipt');
-    expect(button).toBeDisabled();
+    const shareButton = screen.getByLabelText('Share utility receipt');
 
-    fireEvent.press(button);
-    expect(screen.queryByTestId('receipt-preview')).toBeNull();
+    expect(shareButton).toBeDisabled();
+    fireEvent.press(shareButton);
+    expect(mockShareUtilityReceipt).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('reports share failures', async () => {
+    mockShareUtilityReceipt.mockRejectedValueOnce(new Error('Share failed'));
+
+    render(
+      <ReceiptShareButton
+        amount={1000}
+        colors={Colors.light}
+        identifier="08012345678"
+        status="successful"
+        txReference="VTU-123"
+        type="airtime"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Share utility receipt'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Share Failed',
+        'Could not generate the receipt PDF. Please try again.'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to share utility receipt:',
+        expect.any(Error)
+      );
+    });
   });
 });

@@ -1,26 +1,5 @@
 import type { OrderItem } from '@/components/orders/new-order.types';
-import { formatCurrency, getCurrencySymbol } from './utils';
-
-const DEFAULT_ORDER_CURRENCY = 'NGN';
-const DEFAULT_NGN_LOCALE = 'en-NG';
-
-function normalizeMerchantCurrency(currency?: string | null): string {
-  const normalized = currency?.trim().toUpperCase() || DEFAULT_ORDER_CURRENCY;
-
-  try {
-    new Intl.NumberFormat(undefined, {
-      currency: normalized,
-      style: 'currency',
-    }).format(0);
-    return normalized;
-  } catch {
-    return DEFAULT_ORDER_CURRENCY;
-  }
-}
-
-function getOrderCurrencyLocale(currency: string): string | undefined {
-  return currency === DEFAULT_ORDER_CURRENCY ? DEFAULT_NGN_LOCALE : undefined;
-}
+import { formatCurrency, normalizeMerchantCurrency } from './utils';
 
 export interface NewOrderTotalsParams {
   discount: number;
@@ -41,18 +20,13 @@ export function createNewOrderTotals({
   shippingFee,
   taxes,
 }: NewOrderTotalsParams) {
-  const currency = normalizeMerchantCurrency(merchantCurrency);
-  const locale = getOrderCurrencyLocale(currency);
-
   const formatPrice = (amount: number) => {
     try {
-      return formatCurrency(amount, undefined, currency, locale);
+      const normalizedCurrency =
+        normalizeMerchantCurrency(merchantCurrency) || 'NGN';
+      return formatCurrency(amount, undefined, normalizedCurrency);
     } catch {
-      const symbol = getCurrencySymbol(
-        DEFAULT_ORDER_CURRENCY,
-        DEFAULT_NGN_LOCALE
-      );
-      return `${symbol}${amount.toFixed(2)}`;
+      return `₦${amount.toFixed(2)}`;
     }
   };
 

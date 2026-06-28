@@ -31,11 +31,6 @@ describe('PostHog server exceptions', () => {
   const originalProjectToken = process.env.POSTHOG_PROJECT_TOKEN;
   const originalPublicToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
   const originalHost = process.env.POSTHOG_HOST;
-  const originalReleaseVersion = process.env.POSTHOG_RELEASE_VERSION;
-  const originalVercelCommitSha = process.env.VERCEL_GIT_COMMIT_SHA;
-  const originalVercelCommitRef = process.env.VERCEL_GIT_COMMIT_REF;
-  const originalVercelEnv = process.env.VERCEL_ENV;
-  const originalVercelUrl = process.env.VERCEL_URL;
 
   beforeEach(() => {
     vi.resetModules();
@@ -44,22 +39,12 @@ describe('PostHog server exceptions', () => {
     delete process.env.POSTHOG_PROJECT_TOKEN;
     delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
     delete process.env.POSTHOG_HOST;
-    delete process.env.POSTHOG_RELEASE_VERSION;
-    delete process.env.VERCEL_GIT_COMMIT_SHA;
-    delete process.env.VERCEL_GIT_COMMIT_REF;
-    delete process.env.VERCEL_ENV;
-    delete process.env.VERCEL_URL;
   });
 
   afterEach(() => {
     restoreEnv('POSTHOG_PROJECT_TOKEN', originalProjectToken);
     restoreEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', originalPublicToken);
     restoreEnv('POSTHOG_HOST', originalHost);
-    restoreEnv('POSTHOG_RELEASE_VERSION', originalReleaseVersion);
-    restoreEnv('VERCEL_GIT_COMMIT_SHA', originalVercelCommitSha);
-    restoreEnv('VERCEL_GIT_COMMIT_REF', originalVercelCommitRef);
-    restoreEnv('VERCEL_ENV', originalVercelEnv);
-    restoreEnv('VERCEL_URL', originalVercelUrl);
   });
 
   it('detects missing and configured server tokens', async () => {
@@ -86,11 +71,6 @@ describe('PostHog server exceptions', () => {
   it('captures server exceptions immediately with sanitized properties', async () => {
     process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
     process.env.POSTHOG_HOST = 'https://eu.i.posthog.com/';
-    process.env.POSTHOG_RELEASE_VERSION = 'release-1';
-    process.env.VERCEL_GIT_COMMIT_SHA = 'vercel-sha';
-    process.env.VERCEL_GIT_COMMIT_REF = 'main';
-    process.env.VERCEL_ENV = 'production';
-    process.env.VERCEL_URL = 'https://baci-git-main.vercel.app/';
     const { captureServerException } = await import('./server');
     const error = new Error('boom');
 
@@ -114,12 +94,6 @@ describe('PostHog server exceptions', () => {
       expect.objectContaining({
         app_surface: 'web',
         runtime: 'nodejs',
-        deployment_environment: 'production',
-        release_version: 'release-1',
-        git_commit_sha: 'vercel-sha',
-        git_commit_ref: 'main',
-        vercel_environment: 'production',
-        vercel_url: 'baci-git-main.vercel.app',
         route_path: '/checkout',
         email: '[Filtered]',
       })

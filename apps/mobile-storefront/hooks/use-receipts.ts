@@ -64,8 +64,7 @@ export function useReceipts(userId: string | undefined) {
                 id,
                 name,
                 quantity,
-                price,
-                image_url
+                price
               ),
               customers!inner (
                 user_id
@@ -138,8 +137,7 @@ async function fetchReceiptDetail(
             id,
             name,
             quantity,
-            price,
-            image_url
+            price
           ),
           customers!inner (
             user_id

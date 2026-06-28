@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
-import { BlogVideoPanel } from './BlogVideoPanel';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 
 export interface BlogPostBodyProps {
@@ -28,12 +27,6 @@ export interface BlogPostBodyProps {
     title: string;
     featured_image_url?: string | null;
   };
-  video?: {
-    thumbnailUrl: string;
-    title: string;
-    videoId: string;
-    watchUrl: string;
-  } | null;
   relatedProducts?: Array<{
     category_slug?: string | null;
     id: string;
@@ -65,7 +58,6 @@ export async function BlogPostBody({
   postUrl,
   relatedProducts = EMPTY_RELATED_PRODUCTS,
   relatedPosts,
-  video,
 }: BlogPostBodyProps) {
   // The current post page template always renders an above-the-fold hero image
   // slot, falling back to /placeholder.png when a post has no stored featured
@@ -124,14 +116,12 @@ export async function BlogPostBody({
               post.featured_image_url
             )}
             trustedPriorityImageSources={legacyPriorityImageSources}
-            normalizeHeadingHierarchy={true}
+            headingLevelOffset={1}
             normalizeSeoAnchors={true}
-            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-store-primary!"
+            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600!"
           />
         )}
       </div>
-
-      {video && <BlogVideoPanel video={video} />}
 
       {post.tags && post.tags.length > 0 && (
         <div className="mb-8 flex flex-wrap items-center gap-2 border-t pt-8">

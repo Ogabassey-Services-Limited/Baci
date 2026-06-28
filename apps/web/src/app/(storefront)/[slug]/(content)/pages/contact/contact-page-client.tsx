@@ -9,7 +9,6 @@ import {
   Phone,
   Send,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
@@ -54,7 +53,6 @@ interface ContactPageClientProps {
     };
   };
   legacyContent?: string;
-  children?: ReactNode;
 }
 
 interface ContactFormData {
@@ -89,7 +87,6 @@ async function submitContactForm(
 export function ContactPageClient({
   merchant,
   legacyContent,
-  children,
 }: ContactPageClientProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -393,7 +390,6 @@ export function ContactPageClient({
                   </div>
                 </div>
               </div>
-              {children}
             </main>
 
             <StorefrontFooter />

@@ -193,10 +193,7 @@ describe('useUtilityHistoryActions', () => {
   });
 
   it('composes receipt share payload from transaction details', async () => {
-    const transaction = createTransaction({
-      customer_cashback: 100,
-      units: '4.5',
-    });
+    const transaction = createTransaction();
     const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
 
     await act(async () => {
@@ -205,17 +202,11 @@ describe('useUtilityHistoryActions', () => {
 
     expect(mockShareUtilityReceipt).toHaveBeenCalledWith({
       amount: 2500,
-      billerName: undefined,
-      cashback: 100,
       customerIdentifier: '43901766923',
       customerName: 'Jane Customer',
-      dateTime: '2026-04-08T12:00:00.000Z',
-      network: undefined,
-      phoneNumber: '08012345678',
       reference: 'VTU-123',
       status: 'successful',
       type: 'power',
-      units: '4.5',
       voucherPin: '1234-5678',
     });
   });

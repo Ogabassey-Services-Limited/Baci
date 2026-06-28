@@ -70,7 +70,6 @@ export default async function BlogCategoryPage({
 
   return (
     <BlogPageContent
-      isCleanCategoryRoute
       itemListSchemaUrl={
         !search && currentPage === 1 ? hub.canonicalUrl : undefined
       }

@@ -30,10 +30,7 @@ export function OrderDetailsItemsCard({
         Items ({items.length || 0})
       </Text>
       {items.map((item, index) => {
-        const conditionLabel = formatProductCondition(
-          item.display_condition ?? item.condition
-        );
-        const imageUrl = item.display_image_url ?? item.image_url;
+        const conditionLabel = formatProductCondition(item.condition);
         const isLastItem = index === items.length - 1;
 
         return (
@@ -54,9 +51,9 @@ export function OrderDetailsItemsCard({
                 { backgroundColor: colors.backgroundLight },
               ]}
             >
-              {imageUrl ? (
+              {item.image_url ? (
                 <SafeImage
-                  source={{ uri: imageUrl }}
+                  source={{ uri: item.image_url }}
                   style={styles.itemImage}
                 />
               ) : (

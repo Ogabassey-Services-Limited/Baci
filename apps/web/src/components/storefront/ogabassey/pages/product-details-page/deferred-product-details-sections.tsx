@@ -4,8 +4,8 @@
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import type { Product as RelatedProduct } from '@/lib/products';
-import type { OgabasseyPdpDeferredTabProduct } from '@/components/storefront/ogabassey/pdp/deferred-product-payload';
 import { ProductVideo } from '../../components/ProductVideo';
+import type { NormalizedProductDetails } from './product-details-helpers';
 import { ProductDetailsTabs } from './product-details-tabs';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
 
@@ -23,8 +23,8 @@ export interface DeferredProductDetailsSectionsProps {
   activeTab: ProductDetailsActiveTab;
   normalizedReviewRatingWidth: string;
   onSelectTab: (tab: ProductDetailsActiveTab) => void;
-  productData: OgabasseyPdpDeferredTabProduct;
-  relatedProductsProduct?: RelatedProduct;
+  productData: NormalizedProductDetails;
+  relatedProductsProduct: RelatedProduct;
   storeSlug: string;
   /**
    * Render the related-product rails inline. Ogabassey passes `false` and
@@ -67,7 +67,7 @@ export function DeferredProductDetailsSections({
         <ProductVideo videoId={productData.videoUrl} title={productData.name} />
       ) : null}
 
-      {showRails && relatedProductsProduct ? (
+      {showRails ? (
         <InlineProductRails relatedProductsProduct={relatedProductsProduct} />
       ) : null}
     </div>

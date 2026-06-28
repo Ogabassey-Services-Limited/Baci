@@ -156,10 +156,7 @@ describe('vtu-voucher-backfill', () => {
   it('marks metadata (with attempt counter) and defers voucher-pin backfill for eligible transactions', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase, update } = createSupabaseMock(updateQuery);
-    mocks.backfillVtuVoucherPin.mockResolvedValue({
-      voucherPin: '1234-5678',
-      units: undefined,
-    });
+    mocks.backfillVtuVoucherPin.mockResolvedValue('1234-5678');
 
     const scheduled = await scheduleVoucherPinBackfill({
       metadata: { alpha: 'first' },
@@ -219,10 +216,7 @@ describe('vtu-voucher-backfill', () => {
   it('clears the scheduled timestamp when backfill returns no pin so the next poll can retry', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase, update } = createSupabaseMock(updateQuery);
-    mocks.backfillVtuVoucherPin.mockResolvedValue({
-      voucherPin: undefined,
-      units: undefined,
-    });
+    mocks.backfillVtuVoucherPin.mockResolvedValue(undefined);
 
     await scheduleVoucherPinBackfill({
       metadata: { alpha: 'first' },

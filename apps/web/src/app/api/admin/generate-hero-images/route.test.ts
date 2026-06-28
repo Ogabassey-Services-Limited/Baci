@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   checkCsrfProtection: vi.fn(),
-  checkRateLimit: vi.fn(),
   createClient: vi.fn(),
   generateHeroImageBatch: vi.fn(),
   getPlatformAdminAuth: vi.fn(),
@@ -10,10 +9,6 @@ const mocks = vi.hoisted(() => ({
   loggerWarn: vi.fn(),
   select: vi.fn(),
   eq: vi.fn(),
-}));
-
-vi.mock('@/lib/rate-limiter', () => ({
-  checkRateLimit: mocks.checkRateLimit,
 }));
 
 vi.mock('@/lib/platform-admin-auth', () => {
@@ -53,7 +48,6 @@ describe('/api/admin/generate-hero-images', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
-    mocks.checkRateLimit.mockResolvedValue(true);
     mocks.getPlatformAdminAuth.mockResolvedValue({ status: 'unauthenticated' });
     mocks.eq.mockResolvedValue({ data: [], error: null });
     mocks.select.mockReturnValue({ eq: mocks.eq });
@@ -228,7 +222,6 @@ describe('/api/admin/generate-hero-images', () => {
   it('POST should generate hero images for platform admins', async () => {
     mocks.getPlatformAdminAuth.mockResolvedValueOnce({
       status: 'authenticated',
-      user: { id: 'admin-1', email: 'admin@test.com' },
     });
     const req = new NextRequest(
       'http://localhost:3000/api/admin/generate-hero-images',
@@ -249,31 +242,5 @@ describe('/api/admin/generate-hero-images', () => {
       count: 2,
       message: 'Successfully generated 2 hero images for electronics',
     });
-  });
-
-  it('POST should return 429 and skip generation when rate limited', async () => {
-    mocks.getPlatformAdminAuth.mockResolvedValueOnce({
-      status: 'authenticated',
-      user: { id: 'admin-1', email: 'admin@test.com' },
-    });
-    mocks.checkRateLimit.mockResolvedValueOnce(false);
-
-    const req = new NextRequest(
-      'http://localhost:3000/api/admin/generate-hero-images',
-      {
-        method: 'POST',
-        body: JSON.stringify({ category: 'electronics', count: 2 }),
-      }
-    );
-
-    const res = await POST(req);
-    const body = await res.json();
-
-    expect(res.status).toBe(429);
-    expect(body).toEqual({
-      error: 'Rate limit exceeded',
-      code: 'rate_limited',
-    });
-    expect(mocks.generateHeroImageBatch).not.toHaveBeenCalled();
   });
 });

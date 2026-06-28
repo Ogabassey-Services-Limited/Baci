@@ -1,14 +1,15 @@
 import { createElement, type HTMLAttributes } from 'react';
 import { sanitizeHtml } from '@/lib/sanitize';
-import type { SanitizeHtmlOptions } from '@/lib/sanitize-html-config';
 
 type SafeHtmlTag = 'code' | 'div' | 'span';
 
 type SafeHtmlProps = {
   as?: SafeHtmlTag;
   html: string;
-} & SanitizeHtmlOptions &
-  Omit<HTMLAttributes<HTMLElement>, 'dangerouslySetInnerHTML' | 'children'>;
+  headingLevelOffset?: number;
+  normalizeSeoAnchors?: boolean;
+  trustedPriorityImageSources?: readonly string[];
+} & Omit<HTMLAttributes<HTMLElement>, 'dangerouslySetInnerHTML' | 'children'>;
 
 /**
  * Renders sanitized HTML content safely.
@@ -28,7 +29,6 @@ export function SafeHtml({
   as = 'div',
   html,
   headingLevelOffset,
-  normalizeHeadingHierarchy,
   normalizeSeoAnchors,
   trustedPriorityImageSources,
   ...rest
@@ -37,17 +37,13 @@ export function SafeHtml({
     return createElement(as, rest);
   }
 
-  const headingOptions: SanitizeHtmlOptions = normalizeHeadingHierarchy
-    ? { normalizeHeadingHierarchy: true }
-    : { headingLevelOffset };
-
   return createElement(as, {
     ...rest,
     // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
     // react-doctor-disable-next-line react-doctor/no-danger -- Central allowlist sanitizer boundary; callers must use SafeHtml instead of raw dangerouslySetInnerHTML.
     dangerouslySetInnerHTML: {
       __html: sanitizeHtml(html, {
-        ...headingOptions,
+        headingLevelOffset,
         normalizeSeoAnchors,
         trustedPriorityImageSources,
       }),

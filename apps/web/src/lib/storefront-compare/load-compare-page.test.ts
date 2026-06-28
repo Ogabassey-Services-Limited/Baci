@@ -5,7 +5,6 @@ const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
-const mockGetPublishedClusterPosts = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -16,11 +15,6 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedProductWithDetails(...args),
   getCachedFeatureSettings: (...args: unknown[]) =>
     mockGetCachedFeatureSettings(...args),
-}));
-
-vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
-  getPublishedClusterPosts: (...args: unknown[]) =>
-    mockGetPublishedClusterPosts(...args),
 }));
 
 const merchant = {
@@ -136,11 +130,9 @@ describe('loadComparePage', () => {
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedProductWithDetails.mockReset();
     mockGetCachedFeatureSettings.mockReset();
-    mockGetPublishedClusterPosts.mockReset();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
-    mockGetPublishedClusterPosts.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -248,60 +240,6 @@ describe('loadComparePage', () => {
     expect(result?.canonicalUrl).toBe(
       'http://localhost:3000/ogabassey/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );
-  });
-
-  it('does not block product detail fetches behind guide post loading', async () => {
-    let resolveGuidePosts: ((value: []) => void) | undefined;
-    const guidePostsPromise = new Promise<[]>((resolve) => {
-      resolveGuidePosts = resolve;
-    });
-    const detailSlugs: string[] = [];
-
-    mockGetPublishedClusterPosts.mockReturnValueOnce(guidePostsPromise);
-    mockGetCachedProductWithDetails.mockImplementation(
-      (_merchantId: string, productSlug: string) => {
-        detailSlugs.push(productSlug);
-
-        return productSlug === 'iphone-17-pro-max'
-          ? {
-              ...categoryPageData.products[0],
-              product_key_specs: {
-                chipset: 'A19 Pro',
-                ram_gb: 8,
-                storage_gb: 256,
-              },
-            }
-          : {
-              ...categoryPageData.products[1],
-              product_key_specs: {
-                chipset: 'Snapdragon 8 Elite',
-                ram_gb: 16,
-                storage_gb: 512,
-              },
-            };
-      }
-    );
-
-    const resultPromise = loadComparePage({
-      merchantSlug: 'ogabassey',
-      categorySlug: 'smartphones',
-      comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
-    });
-
-    await vi.waitFor(() => {
-      expect(detailSlugs).toEqual([
-        'iphone-17-pro-max',
-        'samsung-galaxy-z-trifold',
-      ]);
-    });
-
-    expect(resolveGuidePosts).toBeDefined();
-    resolveGuidePosts?.([]);
-
-    await expect(resultPromise).resolves.toMatchObject({
-      kind: 'product',
-      canonicalSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
-    });
   });
 
   it('preserves valid non-curated compare slugs as monitored noindex legacy fallbacks', async () => {

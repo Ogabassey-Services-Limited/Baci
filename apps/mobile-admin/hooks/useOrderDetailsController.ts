@@ -17,13 +17,13 @@ import { createOrderDetailsPaymentActions } from '@/hooks/createOrderDetailsPaym
 import { createOrderDetailsReceiptActions } from '@/hooks/createOrderDetailsReceiptActions';
 import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShipmentActions';
 import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
-import { useOrderAuditEvents } from '@/hooks/orders/useOrderAuditEvents';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderDetailsBackHandler } from '@/hooks/useOrderDetailsBackHandler';
 import { useOrderDetailsStartupEffects } from '@/hooks/useOrderDetailsStartupEffects';
 import { useOrderDetailsUiState } from '@/hooks/useOrderDetailsUiState';
 import {
   type PaymentStatus,
+  type ShippingStatus,
   useOrder,
   useRecordPayment,
   useSendReminder,
@@ -58,10 +58,6 @@ export function useOrderDetailsController() {
   const queryClient = useQueryClient();
   const { data: order, error, isLoading } = useOrder(orderId ?? '');
   const { merchant } = useMerchant();
-  const auditEventsQuery = useOrderAuditEvents({
-    merchantId: order?.merchant_id ?? merchant?.id,
-    orderId: order?.id ?? orderId,
-  });
   const merchantCurrency = merchant?.payout_currency || 'NGN';
   const currencySymbol = getOrderCurrencySymbol(merchant?.payout_currency);
   const updateStatusMutation = useUpdateOrderStatus();
@@ -203,7 +199,6 @@ export function useOrderDetailsController() {
 
   return {
     actionParam,
-    auditEvents: auditEventsQuery.data ?? [],
     closeShipmentFlow: shipmentActions.closeShipmentFlow,
     colors,
     creditNotes: uiState.creditNotes,
@@ -230,8 +225,6 @@ export function useOrderDetailsController() {
     handleWhatsApp: contactActions.handleWhatsApp,
     hasCustomerPhone,
     isGeneratingReceipt: uiState.isGeneratingReceipt,
-    isAuditEventsLoading: auditEventsQuery.isLoading,
-    isAuditEventsError: auditEventsQuery.isError,
     isInvalidRoute,
     isLoading,
     isShipmentSubmitting: uiState.isShipmentSubmitting,

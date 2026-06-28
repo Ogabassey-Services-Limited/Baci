@@ -6,12 +6,27 @@ import { permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
-import { hasBlogAuthorPage } from '@/lib/blog-authors';
+import { getBlogAuthorSameAs, hasBlogAuthorPage } from '@/lib/blog-authors';
+import {
+  extractBlogFaqItems,
+  generateFaqPageSchema,
+} from '@/lib/blog-faq-schema';
+import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
+import { buildBlogOrganizationSchema } from '@/lib/blog-organization-schema';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
+import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
+import {
+  getBlogStructuredDataImages,
+  getBlogStructuredDataImageUrls,
+} from '@/lib/blog-structured-data-images';
 import { getRequestLocale } from '@/lib/request-locale';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { generateSlug } from '@/lib/seo-utils';
+import {
+  generateBlogPostSchema,
+  generateBreadcrumbSchema,
+  generateSlug,
+} from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import { isDomainIdentifier } from '@/lib/validation';
@@ -20,8 +35,10 @@ import { getBlogStorefrontPathPrefix } from '../blog-storefront-path-prefix';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
 import { BlogPostHeader } from './BlogPostHeader';
-import { buildCanonicalBlogPostUrl } from './blog-post-content';
-import { buildBlogPostStructuredData } from './blog-post-structured-data';
+import {
+  buildCanonicalBlogPostUrl,
+  getBlogPostTextPreview,
+} from './blog-post-content';
 import { getResolvedBlogPost } from './get-resolved-blog-post';
 import { ViewCounter } from './view-counter';
 
@@ -71,6 +88,11 @@ async function renderBlogPostContent({
   const { merchant, post, relatedPosts, relatedProducts } = data;
   const content = post.content || '';
   const baseUrl = buildStoreUrl(merchant);
+  const organizationSchema = buildBlogOrganizationSchema(merchant, baseUrl);
+  const organizationId =
+    typeof organizationSchema['@id'] === 'string'
+      ? organizationSchema['@id']
+      : buildBlogOrganizationId(baseUrl);
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   // On a merchant subdomain the proxy already mapped /blog/... into the internal
@@ -93,20 +115,60 @@ async function renderBlogPostContent({
     ? `${baseUrl}/blog/author/${authorSlug}`
     : baseUrl;
   const authorId = authorSlug ? `${baseUrl}#author-${authorSlug}` : undefined;
-  const structuredData = buildBlogPostStructuredData({
+  const blogImageUrls = getBlogStructuredDataImageUrls(post);
+  const blogImages = getBlogStructuredDataImages(post);
+  const faqSchema = generateFaqPageSchema(extractBlogFaqItems(content));
+
+  const blogSchema = generateBlogPostSchema({
+    title: post.seo_title || post.title,
+    description:
+      post.seo_description ||
+      post.excerpt ||
+      getBlogPostTextPreview(post.content),
+    url: postUrl,
+    ...(blogImages.length > 0 ? { imageObjects: blogImages } : {}),
+    ...(blogImageUrls.length > 0 ? { imageUrls: blogImageUrls } : {}),
+    datePublished: post.published_at,
+    dateModified: post.updated_at,
     author: {
-      id: authorId,
-      image: post.author_image_url ?? undefined,
       name: authorName,
+      id: authorId,
       url: authorUrl,
+      jobTitle: post.author_title,
+      description: post.author_bio,
+      sameAs: post.author_name
+        ? getBlogAuthorSameAs(post.author_name, merchant.slug)
+        : [],
+      image: post.author_image_url ?? undefined,
     },
-    baseUrl,
-    blogIndexUrl,
-    content,
-    merchant,
-    post,
-    postUrl,
+    publisher: {
+      id: organizationId,
+      name: merchant.business_name,
+      logo: merchant.logo_url || `${baseUrl}/logo.png`,
+      url: baseUrl,
+      sameAs: buildBlogPublisherSameAs(merchant.social_media),
+    },
+    wordCount: post.word_count,
+    keywords: post.keywords,
+    category: post.category,
+    readingTime: post.reading_time_minutes,
+    blogId: `${blogIndexUrl}#blog`,
   });
+
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    {
+      name: merchant.business_name,
+      url: baseUrl,
+    },
+    {
+      name: 'Blog',
+      url: blogIndexUrl,
+    },
+    {
+      name: post.title,
+      url: postUrl,
+    },
+  ]);
 
   const clusterModel = await buildInformationalClusterModel({
     merchantId: merchant.id,
@@ -145,22 +207,17 @@ async function renderBlogPostContent({
         </div>
       )}
       <script type="application/ld+json">
-        {safeJsonLdStringify(structuredData.organizationSchema)}
+        {safeJsonLdStringify(organizationSchema)}
       </script>
       <script type="application/ld+json">
-        {safeJsonLdStringify(structuredData.blogSchema)}
+        {safeJsonLdStringify(blogSchema)}
       </script>
       <script type="application/ld+json">
-        {safeJsonLdStringify(structuredData.breadcrumbSchema)}
+        {safeJsonLdStringify(breadcrumbSchema)}
       </script>
-      {structuredData.faqSchema && (
+      {faqSchema && (
         <script type="application/ld+json">
-          {safeJsonLdStringify(structuredData.faqSchema)}
-        </script>
-      )}
-      {structuredData.videoMetadata?.schema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(structuredData.videoMetadata.schema)}
+          {safeJsonLdStringify(faqSchema)}
         </script>
       )}
 
@@ -223,7 +280,6 @@ async function renderBlogPostContent({
                   title: post.title,
                   featured_image_url: post.featured_image_url,
                 }}
-                video={structuredData.videoMetadata?.video ?? null}
                 relatedProducts={relatedProducts}
                 relatedPosts={relatedPosts}
               />

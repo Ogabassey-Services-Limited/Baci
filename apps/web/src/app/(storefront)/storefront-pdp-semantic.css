@@ -17,14 +17,6 @@
     padding: 2rem 1rem 0;
   }
 
-  [data-ogabassey-pdp-server-details] {
-    display: grid;
-    gap: 1rem;
-    margin: 0 auto;
-    max-width: 1400px;
-    padding: 2rem 1rem 0;
-  }
-
   .ogabassey-pdp-semantic-card {
     background: var(--store-background, #ffffff);
     border: 1px solid
@@ -38,101 +30,12 @@
     padding: 1.25rem;
   }
 
-  [data-ogabassey-pdp-server-details-card] {
-    background: var(--store-background, #ffffff);
-    border: 1px solid
-      color-mix(in srgb, var(--store-background-text, #111827) 12%, transparent);
-    border-radius: 1.25rem;
-    box-shadow: 0 18px 45px
-      color-mix(in srgb, var(--store-background-text, #111827) 6%, transparent);
-    color: var(--store-background-text, #111827);
-    display: grid;
-    gap: 1rem;
-    padding: 1.25rem;
-  }
-
-  [data-ogabassey-pdp-server-details-eyebrow] {
-    color: var(--store-primary, #d62027);
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    margin: 0;
-    text-transform: uppercase;
-  }
-
   .ogabassey-pdp-semantic-card__title,
-  .ogabassey-pdp-support-links__title,
-  [data-ogabassey-pdp-server-details-title] {
+  .ogabassey-pdp-support-links__title {
     color: var(--store-background-text, #111827);
     font-size: 1.125rem;
     font-weight: 750;
     line-height: 1.25;
-    margin: 0;
-  }
-
-  .ogabassey-pdp-server-details__rich-text {
-    color: color-mix(
-      in srgb,
-      var(--store-background-text, #111827) 76%,
-      transparent
-    );
-    line-height: 1.75;
-    max-width: 74rem;
-  }
-
-  .ogabassey-pdp-server-details__rich-text :where(p, ul, ol) {
-    margin: 0;
-  }
-
-  [data-ogabassey-pdp-server-spec-grid] {
-    display: grid;
-    gap: 1rem;
-  }
-
-  [data-ogabassey-pdp-server-spec-section] {
-    border: 1px solid
-      color-mix(in srgb, var(--store-background-text, #111827) 10%, transparent);
-    border-radius: 1rem;
-    padding: 1rem;
-  }
-
-  [data-ogabassey-pdp-server-spec-heading] {
-    color: var(--store-background-text, #111827);
-    font-size: 1rem;
-    font-weight: 750;
-    line-height: 1.35;
-    margin: 0;
-  }
-
-  [data-ogabassey-pdp-server-spec-list] {
-    display: grid;
-    gap: 0;
-    margin: 1rem 0 0;
-  }
-
-  [data-ogabassey-pdp-server-spec-row] {
-    border-top: 1px solid
-      color-mix(in srgb, var(--store-background-text, #111827) 10%, transparent);
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.75rem 0;
-  }
-
-  [data-ogabassey-pdp-server-spec-row] dt {
-    color: color-mix(
-      in srgb,
-      var(--store-background-text, #111827) 58%,
-      transparent
-    );
-    font-size: 0.875rem;
-    font-weight: 700;
-  }
-
-  [data-ogabassey-pdp-server-spec-row] dd {
-    color: var(--store-background-text, #111827);
-    font-size: 0.9375rem;
-    font-weight: 750;
-    line-height: 1.5;
     margin: 0;
   }
 
@@ -240,19 +143,9 @@
       padding-right: 1.5rem;
     }
 
-    [data-ogabassey-pdp-server-details] {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-
-    .ogabassey-pdp-semantic-card,
-    [data-ogabassey-pdp-server-details-card] {
+    .ogabassey-pdp-semantic-card {
       border-radius: 1.5rem;
       padding: 1.5rem;
-    }
-
-    [data-ogabassey-pdp-server-spec-grid] {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 

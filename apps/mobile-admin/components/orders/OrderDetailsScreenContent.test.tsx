@@ -1,17 +1,11 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { router } from 'expo-router';
+import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { useOrderDetailsController } from '@/hooks/useOrderDetailsController';
 import { OrderDetailsScreenContent } from './OrderDetailsScreenContent';
 
-const auditTrailCardMock = vi.hoisted(() => vi.fn());
-
 vi.mock('expo-router', () => ({
-  router: {
-    push: vi.fn(),
-  },
   Stack: {
     Screen: ({
       options,
@@ -96,26 +90,14 @@ vi.mock('./OrderDetailsOverviewSection', () => ({
 vi.mock('./OrderDetailsShippingSection', () => ({
   OrderDetailsShippingSection: () => null,
 }));
-vi.mock('./OrderAuditTrailCard', () => ({
-  OrderAuditTrailCard: (props: unknown) => {
-    auditTrailCardMock(props);
-    return <div>audit-card</div>;
-  },
-}));
 
-function createController(
-  overrides: Partial<ReturnType<typeof useOrderDetailsController>> = {}
-) {
+function createController() {
   return {
     closeShipmentFlow: vi.fn(),
     colors: {
       background: '#ffffff',
-      border: '#e2e8f0',
-      card: '#ffffff',
       primary: '#2563eb',
       text: '#0f172a',
-      textMuted: '#94a3b8',
-      textSecondary: '#64748b',
     },
     creditNotes: '',
     currencySymbol: '₦',
@@ -139,8 +121,6 @@ function createController(
     handleSubmitSelfFulfillment: vi.fn(),
     handleWhatsApp: vi.fn(),
     isGeneratingReceipt: false,
-    isAuditEventsError: false,
-    isAuditEventsLoading: false,
     isShipmentSubmitting: false,
     order: {
       amount_paid: 0,
@@ -159,7 +139,6 @@ function createController(
       total: 10000,
       updated_at: '2024-01-01T00:00:00.000Z',
     },
-    auditEvents: [],
     paymentAmount: '',
     paymentColor: '#ca8a04',
     paymentConfig: { label: 'Awaiting Payment' },
@@ -213,45 +192,15 @@ function createController(
       title: '',
       visible: false,
     },
-    ...overrides,
   } as unknown as ReturnType<typeof useOrderDetailsController>;
 }
 
 describe('OrderDetailsScreenContent', () => {
-  it('navigates to order edit and renders header share plus audit actions', () => {
+  it('renders an accessible share-order action in the header', () => {
     render(<OrderDetailsScreenContent controller={createController()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit order' }));
-
-    expect(router.push).toHaveBeenCalledWith('/order/edit?id=order-1');
     expect(
       screen.getByRole('button', { name: 'Share order' })
     ).toBeInTheDocument();
-    expect(screen.getByText('audit-card')).toBeInTheDocument();
-  });
-
-  it('passes audit error state to the audit trail card', () => {
-    render(
-      <OrderDetailsScreenContent
-        controller={createController({ isAuditEventsError: true })}
-      />
-    );
-
-    expect(auditTrailCardMock).toHaveBeenCalledWith(
-      expect.objectContaining({ isError: true })
-    );
-  });
-
-  it('hides the edit action for terminal orders', () => {
-    const controller = createController();
-    if (controller.order) {
-      controller.order.shipping_status = 'cancelled';
-    }
-
-    render(<OrderDetailsScreenContent controller={controller} />);
-
-    expect(
-      screen.queryByRole('button', { name: 'Edit order' })
-    ).not.toBeInTheDocument();
   });
 });

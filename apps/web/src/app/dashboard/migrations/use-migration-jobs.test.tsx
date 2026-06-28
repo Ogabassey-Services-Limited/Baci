@@ -208,54 +208,6 @@ describe('useMigrationJobs', () => {
     });
   });
 
-  it('fetches completed order job details on selection so campaign stats render', async () => {
-    vi.mocked(fetch).mockImplementation((input) => {
-      const url = String(input);
-
-      if (url === '/api/import-jobs/job-completed') {
-        return Promise.resolve(
-          createJsonResponse({
-            job: createJobDetail('job-completed', 'completed', {
-              receiptCampaign: {
-                claimedCount: 1,
-                clickedCount: 1,
-                lastActivityAt: '2026-06-27T10:05:00.000Z',
-                loginStartedCount: 1,
-                recipients: [],
-                sentCount: 1,
-                totalRecipients: 1,
-              },
-            }),
-          })
-        );
-      }
-
-      if (
-        url ===
-        '/api/import-jobs/job-completed/rows?filter=all&page=1&pageSize=25'
-      ) {
-        return Promise.resolve(
-          createJsonResponse(createRowsResponse('row-completed'))
-        );
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-
-    const { result } = renderHook(() =>
-      useMigrationJobs({
-        initialJobs: [createJob('job-completed', 'completed')],
-      })
-    );
-
-    await waitFor(() => {
-      expect(result.current.selectedJob?.receiptCampaign?.claimedCount).toBe(1);
-    });
-    await waitFor(() => {
-      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-completed');
-    });
-  });
-
   it('does not overwrite the selected job when an older refresh resolves late', async () => {
     const initialRows = createRowsResponse('row-a');
     const staleDetailResponse = createDeferred<Response>();

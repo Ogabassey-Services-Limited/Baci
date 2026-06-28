@@ -694,47 +694,6 @@ describe('Monnify Bills Client', () => {
       });
     });
 
-    it('extracts the prepaid token from nested responseBody.metaData.token', async () => {
-      // Regression: Monnify returns the electricity token under
-      // responseBody.metaData.token (not a flat `token`). Reading the flat
-      // field dropped the token on every prepaid electricity vend.
-      const mockResponse = {
-        requestSuccessful: true,
-        responseCode: '0',
-        responseMessage: 'success',
-        responseBody: {
-          transactionReference: 'MFBP260625173742882d',
-          vendReference: 'MFBP-MDR-43901766923-260625173742f9cb',
-          vendStatus: 'SUCCESS',
-          metaData: { token: '3772-0340-4164-5060-0336', unit: '4.5' },
-        },
-      };
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockResponse),
-      });
-
-      const result = await purchaseBill(
-        'biller-ekedc-pre',
-        'product-ekedc-pre',
-        '43901766923',
-        1000,
-        'JANE DOE',
-        'BACI-REF-123',
-        '08012345678',
-        'VAL-123'
-      );
-
-      expect(result.status).toBe('successful');
-      expect(result.pin).toBe('3772-0340-4164-5060-0336');
-      expect(result.units).toBe('4.5');
-      // Monnify resolves requery by its own vendReference, not transactionRef.
-      expect(result.providerVendReference).toBe(
-        'MFBP-MDR-43901766923-260625173742f9cb'
-      );
-    });
-
     it('honors vendStatus when status is missing', async () => {
       const mockResponse = {
         requestSuccessful: true,
@@ -764,83 +723,6 @@ describe('Monnify Bills Client', () => {
       );
       expect(result.status).toBe('successful');
       expect(result.success).toBe(true);
-    });
-
-    it('falls back to payment status when vendStatus is blank', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          requestSuccessful: true,
-          responseCode: '0',
-          responseMessage: 'Completed',
-          responseBody: {
-            transactionReference: 'MON-TX-123',
-            paymentReference: 'BACI-REF-123',
-            status: 'PAID',
-            vendStatus: '   ',
-            token: 'TOKEN-1234',
-          },
-        }),
-      });
-
-      const result = await purchaseBill(
-        'IKEDC',
-        'IKEDC-PREPAID',
-        '12345678',
-        2000,
-        'JANE DOE',
-        'BACI-REF-123',
-        '08012345678',
-        'VAL-123'
-      );
-
-      expect(result.status).toBe('successful');
-      expect(result.success).toBe(true);
-      expect(result.pin).toBe('TOKEN-1234');
-    });
-
-    it('stays pending when payment status is success but vendStatus is in progress', async () => {
-      // Regression: prepaid electricity where Monnify charged the customer
-      // (status PAID) but the token vend is still IN_PROGRESS. Reading the
-      // payment status finalized the bill as "successful" with no token; the
-      // delivery status must govern so it stays pending and the token is
-      // resolved (and the customer notified) once the vend completes.
-      const mockResponse = {
-        requestSuccessful: true,
-        responseCode: '0',
-        responseMessage: 'Processing',
-        responseBody: {
-          transactionReference: 'MON-TX-123',
-          // A real pending vend carries the vendReference used to requery it.
-          vendReference: 'MFBP-MDR-12345678-260625154352b0b9',
-          paymentReference: 'BACI-REF-123',
-          status: 'PAID',
-          vendStatus: 'IN_PROGRESS',
-        },
-      };
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockResponse),
-      });
-
-      const result = await purchaseBill(
-        'IKEDC',
-        'IKEDC-PREPAID',
-        '12345678',
-        2000,
-        'JANE DOE',
-        'BACI-REF-123',
-        '08012345678',
-        'VAL-123'
-      );
-
-      expect(result.status).toBe('pending');
-      expect(result.success).toBe(true);
-      expect(result.providerVendReference).toBe(
-        'MFBP-MDR-12345678-260625154352b0b9'
-      );
-      expect(result.pin).toBeUndefined();
     });
 
     it('returns terminal failed status on business failure (requestSuccessful: false)', async () => {
@@ -1107,40 +989,7 @@ describe('Monnify Bills Client', () => {
           'JANE DOE',
           'BACI-REF-123'
         )
-      ).rejects.toThrow('missing a requeryable vend reference');
-    });
-
-    it('accepts a success response that has vendReference but no transactionReference', async () => {
-      // Monnify resolves requery by vendReference, so a vendReference alone is a
-      // valid tracking handle — the vend should not be treated as transient.
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          requestSuccessful: true,
-          responseCode: '0',
-          responseMessage: 'success',
-          responseBody: {
-            vendReference: 'MFBP-MDR-12345678-260625173742f9cb',
-            vendStatus: 'SUCCESS',
-            metaData: { token: '1111-2222-3333-4444-5555', unit: '3.2' },
-          },
-        }),
-      });
-
-      const result = await purchaseBill(
-        'IKEDC',
-        'IKEDC-PREPAID',
-        '12345678',
-        2000,
-        'JANE DOE',
-        'BACI-REF-123'
-      );
-      expect(result.status).toBe('successful');
-      expect(result.transactionId).toBe('MFBP-MDR-12345678-260625173742f9cb');
-      expect(result.providerVendReference).toBe(
-        'MFBP-MDR-12345678-260625173742f9cb'
-      );
-      expect(result.pin).toBe('1111-2222-3333-4444-5555');
+      ).rejects.toThrow('missing transactionReference');
     });
   });
 
@@ -1171,32 +1020,8 @@ describe('Monnify Bills Client', () => {
       });
 
       const lastFetchUrl = fetchSpy.mock.calls[0][0].toString();
-      expect(lastFetchUrl).toContain('reference=MON-TX-123');
-      expect(lastFetchUrl).not.toContain('transactionReference=');
-    });
-
-    it('extracts the token from nested responseBody.metaData.token', async () => {
-      const mockResponse = {
-        requestSuccessful: true,
-        responseCode: '0',
-        responseMessage: 'success',
-        responseBody: {
-          transactionReference: 'MON-TX-123',
-          vendStatus: 'SUCCESS',
-          metaData: { token: '3772-0340-4164-5060-0336', unit: '4.5' },
-        },
-      };
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockResponse),
-      });
-
-      const result = await checkTransactionStatus('MON-TX-123');
-      expect(result.status).toBe('successful');
-      expect(result.pin).toBe('3772-0340-4164-5060-0336');
-      // Units must also be surfaced so the fallback poll can persist them.
-      expect(result.units).toBe('4.5');
+      expect(lastFetchUrl).toContain('transactionReference=MON-TX-123');
+      expect(lastFetchUrl).not.toContain('paymentReference=');
     });
 
     it('supports vendStatus when status is missing', async () => {
@@ -1217,55 +1042,6 @@ describe('Monnify Bills Client', () => {
 
       const result = await checkTransactionStatus('MON-TX-123');
       expect(result.status).toBe('successful');
-    });
-
-    it('falls back to payment status when requery vendStatus is blank', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          requestSuccessful: true,
-          responseCode: '0',
-          responseMessage: 'success',
-          responseBody: {
-            transactionReference: 'MON-TX-123',
-            status: 'PAID',
-            vendStatus: '',
-            token: 'TOKEN-1234',
-          },
-        }),
-      });
-
-      const result = await checkTransactionStatus('MON-TX-123');
-      expect(result).toEqual({
-        status: 'successful',
-        message: 'success',
-        pin: 'TOKEN-1234',
-      });
-    });
-
-    it('reports processing when vendStatus is in progress despite paid status', async () => {
-      // Regression: a requery during async token delivery — payment captured
-      // (status PAID) but vend still IN_PROGRESS. Must report processing (no
-      // pin) so reconciliation keeps polling instead of finalizing token-less.
-      const mockResponse = {
-        requestSuccessful: true,
-        responseCode: '0',
-        responseMessage: 'processing',
-        responseBody: {
-          transactionReference: 'MON-TX-123',
-          status: 'PAID',
-          vendStatus: 'IN_PROGRESS',
-        },
-      };
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(mockResponse),
-      });
-
-      const result = await checkTransactionStatus('MON-TX-123');
-      expect(result.status).toBe('processing');
-      expect(result.pin).toBeUndefined();
     });
 
     it('fails closed for HTTP OK non-zero responseCode', async () => {

@@ -4,7 +4,7 @@ import type { BillFormProps } from './bill-form.types';
 
 export type PaymentState = ReturnType<typeof useUtilityPayment>;
 
-export interface BillCustomer {
+interface BillCustomer {
   first_name?: string | null;
   last_name?: string | null;
   email?: string | null;
@@ -37,10 +37,4 @@ export interface CreateBillFormPurchaseHandlerInput {
    * column reflects the bill recipient, not the buyer.
    */
   verifiedCustomerName: string | null;
-  /**
-   * Verified meter/customer address from the verify step (validate-customer).
-   * Sent as the API payload's `customerAddress` and persisted to metadata so the
-   * receipt can show it. Null when the provider doesn't return an address.
-   */
-  verifiedCustomerAddress: string | null;
 }

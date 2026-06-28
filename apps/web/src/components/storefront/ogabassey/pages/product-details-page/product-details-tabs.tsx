@@ -1,15 +1,15 @@
 import { ArrowRightLeft, Star, User } from 'lucide-react';
 import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import { SafeHtml } from '@/components/ui/safe-html';
-import type { OgabasseyPdpDeferredTabProduct } from '@/components/storefront/ogabassey/pdp/deferred-product-payload';
 import { ProductComparisonTable } from '../../components/ProductComparisonTable';
+import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
 
 interface ProductDetailsTabsProps {
   activeTab: ProductDetailsActiveTab;
   normalizedReviewRatingWidth: string;
   onSelectTab: (tab: ProductDetailsActiveTab) => void;
-  productData: OgabasseyPdpDeferredTabProduct;
+  productData: NormalizedProductDetails;
   storeSlug: string;
 }
 

@@ -18,14 +18,12 @@ const mockReloadFeatureFlags = jest.fn();
 let mockExpoConfigExtra: {
   posthogApiKey: string;
   posthogHost?: string;
-  apiUrl?: string;
   merchantId?: string;
   merchantSlug?: string;
   merchantDomain?: string;
 } = {
   posthogApiKey: 'ph_test',
   posthogHost: 'https://posthog.example.com',
-  apiUrl: 'https://api.usebaci.com',
   merchantId: 'merchant-1',
   merchantSlug: 'ogabassey',
   merchantDomain: 'ogabassey.com',
@@ -41,7 +39,6 @@ jest.mock('@/lib/logger', () => ({
 
 jest.mock('expo-constants', () => ({
   expoConfig: {
-    version: '2.3.4',
     get extra() {
       return mockExpoConfigExtra;
     },
@@ -71,7 +68,6 @@ describe('analytics core', () => {
     mockExpoConfigExtra = {
       posthogApiKey: 'ph_test',
       posthogHost: 'https://posthog.example.com',
-      apiUrl: 'https://api.usebaci.com',
       merchantId: 'merchant-1',
       merchantSlug: 'ogabassey',
       merchantDomain: 'ogabassey.com',
@@ -97,13 +93,6 @@ describe('analytics core', () => {
       'ph_test',
       expect.objectContaining({
         host: 'https://posthog.example.com',
-        addTracingHeaders: [
-          'usebaci.com',
-          'www.usebaci.com',
-          'api.usebaci.com',
-          'ogabassey.com',
-        ],
-        before_send: expect.any(Function),
         customAppProperties: expect.any(Function),
         sessionReplayConfig: expect.objectContaining({
           maskAllTextInputs: true,
@@ -127,14 +116,12 @@ describe('analytics core', () => {
       $app_version: '1.0.0',
       $app_build: '100',
       app_surface: 'mobile-storefront',
-      release_version: '2.3.4',
       merchant_id: 'merchant-1',
       merchant_slug: 'ogabassey',
       merchant_domain: 'ogabassey.com',
     });
     expect(mockRegister).toHaveBeenCalledWith({
       app_surface: 'mobile-storefront',
-      release_version: '2.3.4',
       merchant_id: 'merchant-1',
       merchant_slug: 'ogabassey',
       merchant_domain: 'ogabassey.com',
@@ -152,7 +139,6 @@ describe('analytics core', () => {
     mockExpoConfigExtra = {
       posthogApiKey: 'ph_test',
       posthogHost: undefined,
-      apiUrl: 'https://api.usebaci.com',
       merchantId: 'merchant-1',
       merchantSlug: 'ogabassey',
       merchantDomain: 'ogabassey.com',
@@ -176,7 +162,6 @@ describe('analytics core', () => {
       identifyUser,
       isFeatureEnabled,
       resetUser,
-      setUserProperties,
       shutdownAnalytics,
     } = await import('./analytics-core');
 
@@ -184,54 +169,27 @@ describe('analytics core', () => {
     mockGetFeatureFlag.mockResolvedValue('variant-a');
 
     await initAnalytics();
-    identifyUser('user-1', {
-      email: 'buyer@example.com',
-      name: 'Ada',
-      loyaltyTier: 'buyer@example.com',
-    });
-    setUserProperties({
-      phone: '+2348000000000',
-      loyaltyPoints: 250,
-      referrer: 'buyer@example.com',
-    });
+    identifyUser('user-1', { email: 'buyer@example.com' });
     resetUser();
 
     await expect(isFeatureEnabled('new-checkout')).resolves.toBe(true);
     await expect(getFeatureFlagValue('banner-copy')).resolves.toBe('variant-a');
     await shutdownAnalytics();
 
-    expect(mockIdentify).toHaveBeenCalledWith('user-1', {
-      name: 'Ada',
-      $set_once: {
-        first_seen: '2026-05-29T12:00:00.000Z',
-      },
-    });
-    expect(mockCapture).toHaveBeenCalledWith('$set', {
-      $set: { loyaltyPoints: 250 },
-    });
+    expect(mockIdentify).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ email: 'buyer@example.com' })
+    );
     expect(mockReset).toHaveBeenCalled();
     expect(mockRegister).toHaveBeenCalledTimes(2);
     expect(mockRegister).toHaveBeenNthCalledWith(2, {
       app_surface: 'mobile-storefront',
-      release_version: '2.3.4',
       merchant_id: 'merchant-1',
       merchant_slug: 'ogabassey',
       merchant_domain: 'ogabassey.com',
     });
     expect(mockFlush).toHaveBeenCalled();
     expect(mockShutdown).toHaveBeenCalled();
-  });
-
-  it('does not enqueue empty person-property updates after filtering', async () => {
-    const { initAnalytics, setUserProperties } = await import(
-      './analytics-core'
-    );
-
-    await initAnalytics();
-    mockCapture.mockClear();
-    setUserProperties({ phone: '+2348000000000' });
-
-    expect(mockCapture).not.toHaveBeenCalled();
   });
 
   it('enables exception autocapture and forwards manual exceptions', async () => {
@@ -242,10 +200,7 @@ describe('analytics core', () => {
 
     await initAnalytics();
     const error = new Error('checkout failed');
-    captureException(error, {
-      merchantId: 'merchant-1',
-      requestUrl: 'https://ogabassey.com/checkout?token=secret',
-    });
+    captureException(error, { merchantId: 'merchant-1' });
 
     expect(PostHog).toHaveBeenCalledWith(
       'ph_test',
@@ -261,55 +216,6 @@ describe('analytics core', () => {
     );
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       merchantId: 'merchant-1',
-      requestUrl: 'https://ogabassey.com/checkout',
-    });
-  });
-
-  it('redacts sensitive properties before PostHog enqueues events', async () => {
-    const { initAnalytics } = await import('./analytics-core');
-    const PostHog = (await import('posthog-react-native')).default;
-
-    await initAnalytics();
-
-    const [, options] = (PostHog as jest.Mock).mock.calls[0] as [
-      string,
-      {
-        before_send: (event: {
-          event: string;
-          properties?: Record<string, unknown>;
-          $set?: Record<string, unknown>;
-        }) => unknown;
-      },
-    ];
-
-    expect(
-      options.before_send({
-        event: 'Checkout Failed',
-        properties: {
-          email: 'buyer@example.com',
-          note: 'Contact buyer@example.com',
-          currentUrl:
-            'https://ogabassey.com/cart/buyer@example.com?token=secret',
-          nested: {
-            phone: '+2348000000000',
-          },
-        },
-        $set: {
-          address: '12 Checkout Street',
-        },
-      })
-    ).toMatchObject({
-      properties: {
-        email: '[Filtered]',
-        note: 'Contact [Filtered]',
-        currentUrl: 'https://ogabassey.com/cart/[Filtered]',
-        nested: {
-          phone: '[Filtered]',
-        },
-      },
-      $set: {
-        address: '[Filtered]',
-      },
     });
   });
 

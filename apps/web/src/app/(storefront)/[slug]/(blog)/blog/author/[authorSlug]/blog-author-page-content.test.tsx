@@ -13,9 +13,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetBlogAuthorBySlug: vi.fn(),
   mockGetCachedBlogAuthor: vi.fn(),
-  mockHeaders: vi.fn(() => {
-    throw new Error('author page must not read request headers');
-  }),
+  mockHeaders: vi.fn(() => new Headers()),
   mockResolveBlogCatchAllOutcome: vi.fn(),
   mockNotFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -127,9 +125,7 @@ const authorData = {
 describe('BlogAuthorPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHeaders.mockImplementation(() => {
-      throw new Error('author page must not read request headers');
-    });
+    mockHeaders.mockReturnValue(new Headers());
     mockGetBlogAuthorBySlug.mockReturnValue({
       name: 'Bassey John',
       sameAs: [
@@ -170,7 +166,7 @@ describe('BlogAuthorPageContent', () => {
     );
     expect(
       screen.getByRole('link', { name: /Best Phones in Nigeria/ })
-    ).toHaveAttribute('href', '../best-phones');
+    ).toHaveAttribute('href', '/blog/best-phones');
 
     const scripts = container.querySelectorAll(
       'script[type="application/ld+json"]'
@@ -211,20 +207,14 @@ describe('BlogAuthorPageContent', () => {
     );
   });
 
-  it('uses origin-preserving relative navigation without request headers', async () => {
-    render(
-      await BlogAuthorPageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          authorSlug: 'bassey-john',
-        }),
-      })
-    );
+  it('does not read request headers for custom-domain author listings', async () => {
+    await BlogAuthorPageContent({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        authorSlug: 'bassey-john',
+      }),
+    });
 
-    expect(screen.getByRole('link', { name: /Back to Blog/ })).toHaveAttribute(
-      'href',
-      '..'
-    );
     expect(mockHeaders).not.toHaveBeenCalled();
   });
 
