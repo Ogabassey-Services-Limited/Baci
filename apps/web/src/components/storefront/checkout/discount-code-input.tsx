@@ -11,7 +11,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
 import { buildCsrfHeaders } from '@/lib/csrf';
 
@@ -39,8 +38,6 @@ interface DiscountCodeInputProps extends DiscountTargeting {
   onApply: (discount: DiscountResult) => void;
   onRemove: () => void;
   appliedDiscount?: DiscountResult | null;
-  currencyCountryCode?: string | null;
-  payoutCurrency?: string | null;
 }
 
 async function validateDiscountCode(
@@ -115,14 +112,8 @@ export function DiscountCodeInput({
   appliedDiscount,
   productIds,
   categoryIds,
-  currencyCountryCode,
-  payoutCurrency,
 }: DiscountCodeInputProps) {
   const { toast } = useToast();
-  const { formatCurrencyCompact } = useCurrencyWithCountry(
-    currencyCountryCode ?? 'NG',
-    payoutCurrency ?? null
-  );
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +157,7 @@ export function DiscountCodeInput({
     setCode('');
     toast({
       title: 'Discount Applied',
-      description: `${result.discount_type === 'percentage' ? `${result.discount_value}% off` : `${formatCurrencyCompact(result.discount_value)} off`} applied to your order`,
+      description: `${result.discount_type === 'percentage' ? `${result.discount_value}% off` : `₦${result.discount_value.toLocaleString()} off`} applied to your order`,
     });
   };
 
@@ -184,7 +175,7 @@ export function DiscountCodeInput({
     if (discount.discount_type === 'percentage') {
       return `${discount.discount_value}% off`;
     }
-    return `${formatCurrencyCompact(discount.discount_value)} off`;
+    return `₦${discount.discount_value.toLocaleString()} off`;
   };
 
   // Show applied discount

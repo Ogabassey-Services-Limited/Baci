@@ -115,7 +115,7 @@ export function getMerchantTaxRate(
  * Convert settings to an array of enabled PaymentMethodType values.
  *
  * Default behavior (when settings are undefined/null — e.g. RPC fails):
- * - Show paystack card checkout only (safe fallback)
+ * - Show paystack + bank_transfer only (safe fallback)
  *
  * The RPC already applies COALESCE defaults matching the web's asymmetric logic:
  * - paystack/korapay: on unless explicitly false
@@ -125,7 +125,7 @@ export function getEnabledPaymentMethods(
   settings: PaymentSettings | undefined | null
 ): PaymentMethodType[] {
   if (!settings) {
-    return ['paystack'];
+    return ['paystack', 'bank_transfer'];
   }
 
   const methods: PaymentMethodType[] = [];
@@ -138,10 +138,8 @@ export function getEnabledPaymentMethods(
   if (settings.credit_direct_enabled) methods.push('credit_direct');
   if (settings.klump_enabled) methods.push('klump');
 
-  // Bank transfer provisions a Paystack DVA, so it must stay explicitly gated.
-  if (settings.paystack_enabled && settings.wallet_paystack_dva_enabled) {
-    methods.push('bank_transfer');
-  }
+  // Bank transfer is a Paystack sub-feature (DVA), include when paystack is enabled
+  if (settings.paystack_enabled) methods.push('bank_transfer');
 
   return methods;
 }

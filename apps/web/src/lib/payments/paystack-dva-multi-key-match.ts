@@ -10,8 +10,8 @@
 // account number. This function applies the remaining B0 predicates:
 // amount, customer_email, and the paid_at window:
 //
-//   paid_at IN [assignment timestamp,
-//               LEAST(account_expires_at, assignment timestamp + 90 min)]
+//   paid_at IN [account_created_at,
+//               LEAST(account_expires_at, account_created_at + 90 min)]
 //
 // Lower bound = DVA assignment time (we don't accept payments
 // predating the DVA — defensive against ref-replay).
@@ -28,10 +28,7 @@ export type DvaMatchCandidate = {
   customer_email: string | null;
   // Order total expressed in kobo to match Paystack precision.
   total_kobo: number;
-  // Residual amount after wallet/savings credits, when persisted.
-  payable_amount_kobo?: number | null;
   account_created_at: Date;
-  account_assigned_at?: Date | null;
   account_expires_at: Date | null;
 };
 
@@ -57,23 +54,20 @@ export function matchPaystackDvaCandidates(
   const paidAtMs = context.paidAt.getTime();
 
   const matched = candidates.filter((candidate) => {
-    const expectedAmountKobo =
-      candidate.payable_amount_kobo ?? candidate.total_kobo;
     if (
-      Math.abs(expectedAmountKobo - context.verifiedAmountKobo) > KOBO_TOLERANCE
+      Math.abs(candidate.total_kobo - context.verifiedAmountKobo) >
+      KOBO_TOLERANCE
     ) {
       return false;
     }
     if (normalizeEmail(candidate.customer_email) !== normalizedContextEmail) {
       return false;
     }
-    const assignedAt =
-      candidate.account_assigned_at ?? candidate.account_created_at;
-    const assignedAtMs = assignedAt.getTime();
-    if (paidAtMs < assignedAtMs) {
+    const createdAtMs = candidate.account_created_at.getTime();
+    if (paidAtMs < createdAtMs) {
       return false;
     }
-    const upperBoundFromGrace = assignedAtMs + NINETY_MINUTES_MS;
+    const upperBoundFromGrace = createdAtMs + NINETY_MINUTES_MS;
     const upperBound = candidate.account_expires_at
       ? Math.min(candidate.account_expires_at.getTime(), upperBoundFromGrace)
       : upperBoundFromGrace;

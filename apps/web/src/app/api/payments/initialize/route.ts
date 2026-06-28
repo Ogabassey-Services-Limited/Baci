@@ -40,7 +40,6 @@ import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
-  type PaymentChannel,
 } from '@/lib/paystack';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -59,22 +58,9 @@ type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 
 type PreferredGateway = 'paystack' | 'korapay';
 
-const PAYSTACK_NIGERIAN_CHANNELS = [
-  'card',
-  'bank',
-  'ussd',
-  'bank_transfer',
-] as const satisfies readonly PaymentChannel[];
-const PAYSTACK_INTERNATIONAL_CHANNELS = [
-  'card',
-] as const satisfies readonly PaymentChannel[];
-
-type NigerianPaystackChannel = (typeof PAYSTACK_NIGERIAN_CHANNELS)[number];
-
 interface GatewaySettings {
   paystack_enabled: boolean;
   korapay_enabled: boolean;
-  wallet_paystack_dva_enabled: boolean;
   klump_enabled: boolean;
   klump_min_amount: number;
   klump_max_amount: number;
@@ -86,8 +72,6 @@ const defaultFeatureSettings = merchantFeatureSettingsDefaults.buildFields();
 const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   paystack_enabled: defaultFeatureSettings.paystack_enabled,
   korapay_enabled: defaultFeatureSettings.korapay_enabled,
-  wallet_paystack_dva_enabled:
-    defaultFeatureSettings.wallet_paystack_dva_enabled,
   klump_enabled: defaultFeatureSettings.klump_enabled,
   klump_min_amount: defaultFeatureSettings.klump_min_amount,
   klump_max_amount: defaultFeatureSettings.klump_max_amount,
@@ -100,12 +84,12 @@ const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
 
 const BillingAddressSchema = z
   .object({
-    line1: z.string().min(1).optional(),
+    line1: z.string().min(1),
     line2: z.string().optional(),
-    city: z.string().min(1).optional(),
+    city: z.string().min(1),
     state: z.string().optional(),
     country: z.string().length(2),
-    zip_code: z.string().min(1).optional(),
+    zip_code: z.string().min(1),
   })
   .optional();
 
@@ -342,62 +326,6 @@ function parseCustomerName(fullName: string): {
   };
 }
 
-function isNigerianCheckoutCountry(
-  country: string | null | undefined
-): boolean {
-  const normalizedCountry = country?.trim().toUpperCase();
-  return normalizedCountry === 'NG' || normalizedCountry === 'NIGERIA';
-}
-
-function isNigerianPaystackCustomer(
-  data: PaymentInitRequest,
-  formattedCustomerPhone: string
-): boolean {
-  return (
-    isNigerianCheckoutCountry(data.billing_address?.country) &&
-    formattedCustomerPhone.startsWith('+234')
-  );
-}
-
-function getPaystackChannelsForCustomer(
-  data: PaymentInitRequest,
-  formattedCustomerPhone: string,
-  gatewaySettings: GatewaySettings
-): PaymentChannel[] {
-  if (!isNigerianPaystackCustomer(data, formattedCustomerPhone)) {
-    return [...PAYSTACK_INTERNATIONAL_CHANNELS];
-  }
-
-  const allowedNigerianChannels = gatewaySettings.wallet_paystack_dva_enabled
-    ? [...PAYSTACK_NIGERIAN_CHANNELS]
-    : PAYSTACK_NIGERIAN_CHANNELS.filter(
-        (channel) => channel !== 'bank_transfer'
-      );
-
-  if (!data.channels?.length) {
-    return allowedNigerianChannels;
-  }
-
-  const channels = data.channels.filter((channel): channel is PaymentChannel =>
-    allowedNigerianChannels.includes(channel as NigerianPaystackChannel)
-  );
-
-  return channels.length ? channels : allowedNigerianChannels;
-}
-
-function getBillingAddressForGateway(
-  billingAddress: PaymentInitRequest['billing_address']
-) {
-  return {
-    line1: billingAddress?.line1 || 'Lagos, Nigeria',
-    ...(billingAddress?.line2 ? { line2: billingAddress.line2 } : {}),
-    city: billingAddress?.city || 'Lagos',
-    ...(billingAddress?.state ? { state: billingAddress.state } : {}),
-    country: billingAddress?.country || 'NG',
-    zip_code: billingAddress?.zip_code || '100001',
-  };
-}
-
 // Gateway-Specific Payment Handlers
 
 interface PaymentResult {
@@ -501,7 +429,12 @@ async function initializeJuicyway(
       phone_number: data.customer_phone
         ? formatPhoneToE164(data.customer_phone)
         : '+2340000000000',
-      billing_address: getBillingAddressForGateway(data.billing_address),
+      billing_address: data.billing_address || {
+        line1: 'Lagos, Nigeria',
+        city: 'Lagos',
+        country: 'NG',
+        zip_code: '100001',
+      },
       ip_address: getClientIp(request),
     },
     description:
@@ -871,7 +804,6 @@ async function initializeJuicyway(
 async function initializePaystack(
   data: AuthorizedPaymentInitRequest,
   merchant: { paystack_subaccount_code: string | null },
-  gatewaySettings: GatewaySettings,
   redirectUrl: string,
   reference: string,
   merchantId: string
@@ -911,11 +843,12 @@ async function initializePaystack(
     subaccount: merchant.paystack_subaccount_code as string,
     transaction_charge: fees.platformFee,
     bearer: 'account',
-    channels: getPaystackChannelsForCustomer(
-      data,
-      customerPhone,
-      gatewaySettings
-    ),
+    channels: (data.channels || ['card', 'bank', 'ussd', 'bank_transfer']) as (
+      | 'card'
+      | 'bank'
+      | 'ussd'
+      | 'bank_transfer'
+    )[],
     metadata: {
       merchant_id: merchantId,
       order_id: data.order_id,
@@ -1173,7 +1106,7 @@ export async function POST(request: NextRequest) {
     const { data: featureSettings } = await adminSupabase
       .from('merchant_feature_settings')
       .select(
-        'paystack_enabled, korapay_enabled, wallet_paystack_dva_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
+        'paystack_enabled, korapay_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -1182,8 +1115,6 @@ export async function POST(request: NextRequest) {
       ? {
           paystack_enabled: featureSettings.paystack_enabled ?? true,
           korapay_enabled: featureSettings.korapay_enabled === true,
-          wallet_paystack_dva_enabled:
-            featureSettings.wallet_paystack_dva_enabled === true,
           klump_enabled: featureSettings.klump_enabled ?? false,
           klump_min_amount: numberOrDefault(
             featureSettings.klump_min_amount,
@@ -1209,15 +1140,9 @@ export async function POST(request: NextRequest) {
     // Select gateway
     const hasPaystackSubaccount = !!merchant.paystack_subaccount_code;
     const gateway: PaymentGateway =
-      data.payment_type === 'dva'
-        ? 'paystack'
-        : data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
-          ? data.gateway
-          : selectGateway(
-              validCurrency,
-              gatewaySettings,
-              hasPaystackSubaccount
-            );
+      data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
+        ? data.gateway
+        : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
 
     const payableAmount =
       gateway === 'klump'
@@ -1241,14 +1166,6 @@ export async function POST(request: NextRequest) {
     if (gateway === 'korapay' && !gatewaySettings.korapay_enabled) {
       return createErrorResponse(
         'Korapay is not enabled for this merchant',
-        'GATEWAY_DISABLED',
-        400
-      );
-    }
-
-    if (gateway === 'paystack' && !gatewaySettings.paystack_enabled) {
-      return createErrorResponse(
-        'Paystack is not enabled for this merchant',
         'GATEWAY_DISABLED',
         400
       );
@@ -1339,27 +1256,6 @@ export async function POST(request: NextRequest) {
 
           // DVA (Dedicated Virtual Account) for bank transfer payments
           if (data.payment_type === 'dva') {
-            if (!gatewaySettings.wallet_paystack_dva_enabled) {
-              return createErrorResponse(
-                'Bank transfer is not enabled for this merchant.',
-                'GATEWAY_DISABLED',
-                400
-              );
-            }
-
-            if (
-              !isNigerianPaystackCustomer(
-                data,
-                formatPhoneToE164(paymentData.customer_phone)
-              )
-            ) {
-              return createErrorResponse(
-                'Bank transfer is only available for Nigerian checkout details. Please choose card payment or another available method.',
-                'PAYMENT_METHOD_COUNTRY_UNSUPPORTED',
-                400
-              );
-            }
-
             const { createDedicatedVirtualAccount } = await import(
               '@/lib/agentic/paystack'
             );
@@ -1384,20 +1280,15 @@ export async function POST(request: NextRequest) {
             // B1 (Δ-10): persist the DVA assignment so the webhook can
             // look up the order by `account_number` when Paystack sends
             // `charge.success` for this DVA. Paystack DVAs don't carry
-            // an explicit expires_at — we default to assigned_at + 90min
+            // an explicit expires_at — we default to created_at + 90min
             // (1h customer-facing countdown + 30min inter-bank
             // settlement grace). The matcher in `paystack-dva-multi-
             // key-match.ts` further clamps at LEAST(expires_at,
-            // assigned_at + 90min) so this default is also the ceiling.
+            // created_at + 90min) so this default is also the ceiling.
             // Upsert keyed on (order_id, provider) via the existing
             // `unique_order_account` constraint (baseline.sql:11659).
-            // `assigned_at` is refreshed on retries so the webhook
-            // window follows the current account assignment rather
-            // than the row's first insert time.
-            const dvaAssignedAtMs = Date.now();
-            const dvaAssignedAt = new Date(dvaAssignedAtMs).toISOString();
             const dvaExpiresAt = new Date(
-              dvaAssignedAtMs + 90 * 60 * 1000
+              Date.now() + 90 * 60 * 1000
             ).toISOString();
             const { error: dvaPersistError } = await adminSupabase
               .from('order_payment_accounts')
@@ -1408,8 +1299,6 @@ export async function POST(request: NextRequest) {
                   bank_name: dvaResult.bank_name,
                   account_name: dvaResult.account_name,
                   provider: 'paystack',
-                  payable_amount: paymentData.amount,
-                  assigned_at: dvaAssignedAt,
                   expires_at: dvaExpiresAt,
                 },
                 { onConflict: 'order_id,provider' }
@@ -1441,7 +1330,6 @@ export async function POST(request: NextRequest) {
             paymentResult = await initializePaystack(
               paymentData,
               merchant,
-              gatewaySettings,
               redirectUrl,
               reference,
               merchantId

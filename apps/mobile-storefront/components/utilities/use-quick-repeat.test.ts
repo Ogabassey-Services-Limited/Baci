@@ -60,7 +60,7 @@ describe('useQuickRepeat', () => {
       isLoading: false,
     });
 
-    const { result, unmount } = renderHook(() =>
+    const { result } = renderHook(() =>
       useQuickRepeat({
         currentType: 'airtime',
         historyFilter: 'airtime',
@@ -77,11 +77,10 @@ describe('useQuickRepeat', () => {
         identifierLabel: 'Phone Number',
       })
     );
-    unmount();
   });
 
   it('uses route repeat defaults when a non-null route type matches the current type', () => {
-    const { result, unmount } = renderHook(() =>
+    const { result } = renderHook(() =>
       useQuickRepeat({
         currentType: 'data',
         historyFilter: 'data',
@@ -102,11 +101,10 @@ describe('useQuickRepeat', () => {
       phoneNumber: '08012345678',
     });
     expect(result.current.isRepeatPaymentReady).toBe(true);
-    unmount();
   });
 
   it('forwards a verified meter-owner name from the route into repeat defaults', () => {
-    const { result, unmount } = renderHook(() =>
+    const { result } = renderHook(() =>
       useQuickRepeat({
         currentType: 'power',
         historyFilter: 'power',
@@ -124,13 +122,12 @@ describe('useQuickRepeat', () => {
       customerIdentifier: '43901766923',
       customerName: 'JANE CUSTOMER',
     });
-    unmount();
   });
 
   it('returns no recent recipients when recent history is empty', () => {
     mockVTUHistoryReturn({ data: [] });
 
-    const { result, unmount } = renderHook(() =>
+    const { result } = renderHook(() =>
       useQuickRepeat({
         currentType: 'airtime',
         historyFilter: 'airtime',
@@ -139,7 +136,6 @@ describe('useQuickRepeat', () => {
     );
 
     expect(result.current.recentRecipients).toEqual([]);
-    unmount();
   });
 
   it('returns no recent recipients when every recent transaction failed', () => {
@@ -150,7 +146,7 @@ describe('useQuickRepeat', () => {
       ],
     });
 
-    const { result, unmount } = renderHook(() =>
+    const { result } = renderHook(() =>
       useQuickRepeat({
         currentType: 'airtime',
         historyFilter: 'airtime',
@@ -159,7 +155,6 @@ describe('useQuickRepeat', () => {
     );
 
     expect(result.current.recentRecipients).toEqual([]);
-    unmount();
   });
 
   it('populates repeat defaults and bumps repeat revision when a recipient is selected', () => {
@@ -179,7 +174,7 @@ describe('useQuickRepeat', () => {
       },
     };
 
-    const { result, rerender, unmount } = renderHook(() =>
+    const { result, rerender } = renderHook(() =>
       useQuickRepeat({
         currentType: 'power',
         historyFilter: 'power',
@@ -204,6 +199,5 @@ describe('useQuickRepeat', () => {
     rerender(undefined);
 
     expect(result.current.repeatDefaults.isVerified).toBe(true);
-    unmount();
   });
 });

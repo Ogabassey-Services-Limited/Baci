@@ -17,20 +17,6 @@ describe('payment-gateway-availability', () => {
     };
 
     expect(isPaystackCheckoutAvailable(merchant)).toBe(true);
-    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
-  });
-
-  it('returns true for bank transfer only when Paystack DVA is explicitly enabled', () => {
-    const merchant = {
-      country: 'NG',
-      paystack_subaccount_code: 'ACCT_123',
-      feature_settings: {
-        paystack_enabled: true,
-        wallet_paystack_dva_enabled: true,
-      },
-    };
-
-    expect(isPaystackCheckoutAvailable(merchant)).toBe(true);
     expect(isBankTransferCheckoutAvailable(merchant)).toBe(true);
   });
 
@@ -63,7 +49,6 @@ describe('payment-gateway-availability', () => {
           korapay_enabled: true,
           pay_on_delivery_enabled: true,
           paystack_enabled: false,
-          wallet_paystack_dva_enabled: true,
         },
       ],
     };

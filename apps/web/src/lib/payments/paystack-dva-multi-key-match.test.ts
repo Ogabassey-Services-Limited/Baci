@@ -45,20 +45,6 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     }
   });
 
-  it('uses payable_amount_kobo when wallet or savings credits reduce the DVA charge', () => {
-    const result = matchPaystackDvaCandidates(
-      [
-        candidate({
-          total_kobo: 83_500_000,
-          payable_amount_kobo: 35_000_000,
-        }),
-      ],
-      ctx({ verifiedAmountKobo: 35_000_000 })
-    );
-
-    expect(result.kind).toBe('single');
-  });
-
   it('matches the right candidate when two share an account number but only one fits the window', () => {
     // Stale DVA assignment from a month ago — paid_at falls way after
     // its +90min upper bound, so it's filtered out. Fresh assignment
@@ -92,12 +78,6 @@ describe('matchPaystackDvaCandidates — amount mismatch (kobo precision)', () =
       [candidate({ total_kobo: 83_499_999 })],
       ctx()
     );
-    expect(result.kind).toBe('single');
-  });
-
-  it('falls back to total_kobo when no residual payable amount was persisted', () => {
-    const result = matchPaystackDvaCandidates([candidate()], ctx());
-
     expect(result.kind).toBe('single');
   });
 });
@@ -159,32 +139,6 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
       ctx({ paidAt: new Date('2026-05-09T11:25:00Z') })
     );
     expect(result.kind).toBe('single');
-  });
-
-  it('uses account_assigned_at as the retry window anchor when present', () => {
-    const c = candidate({
-      account_created_at: new Date('2026-05-09T08:00:00Z'),
-      account_assigned_at: new Date('2026-05-09T10:00:00Z'),
-      account_expires_at: new Date('2026-05-09T11:30:00Z'),
-    });
-    const result = matchPaystackDvaCandidates(
-      [c],
-      ctx({ paidAt: new Date('2026-05-09T10:30:00Z') })
-    );
-
-    expect(result.kind).toBe('single');
-  });
-
-  it('rejects paid_at before account_assigned_at when present', () => {
-    const c = candidate({
-      account_assigned_at: new Date('2026-05-09T10:30:00Z'),
-    });
-    const result = matchPaystackDvaCandidates(
-      [c],
-      ctx({ paidAt: new Date('2026-05-09T10:29:00Z') })
-    );
-
-    expect(result.kind).toBe('none');
   });
 });
 

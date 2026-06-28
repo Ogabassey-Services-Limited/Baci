@@ -56,7 +56,6 @@ const PUBLIC_FEATURE_SETTING_KEYS = [
   'order_tracking_enabled',
   'pay_on_delivery_enabled',
   'paystack_enabled',
-  'wallet_paystack_dva_enabled',
   'preferred_international_gateway',
   'preferred_local_gateway',
   'privacy_page_enabled',

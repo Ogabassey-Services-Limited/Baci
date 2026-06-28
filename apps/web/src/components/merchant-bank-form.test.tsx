@@ -185,159 +185,24 @@ describe('MerchantBankForm', () => {
     });
   });
 
-  it('saves manual invoice bank details for non-Nigerian merchants', async () => {
-    const user = userEvent.setup();
-    const onSuccess = vi.fn();
-
+  it('does not collect bank details for non-Nigerian merchants', () => {
     render(
       <MerchantBankForm
         countryCode="IN"
         initialData={{
-          accountNumber: 'IN-123456789012',
+          accountNumber: '1234567890123456',
           bankName: 'HDFC Bank',
-          accountName: 'Yodha Shopping',
           businessName: 'Yodha Shopping',
         }}
-        onSuccess={onSuccess}
       />
     );
 
-    expect(screen.getByText(/manual invoice bank details/i)).toBeTruthy();
-    expect(screen.getByLabelText('Account Number')).toHaveValue(
-      'IN-123456789012'
-    );
-    expect(screen.getByLabelText('Bank Name')).toHaveValue('HDFC Bank');
-    expect(screen.getByLabelText('Account Name')).toHaveValue('Yodha Shopping');
-    expect(
-      screen.queryByPlaceholderText(
-        'Type to search your bank (e.g. GTB, Access)'
-      )
-    ).toBeNull();
+    expect(screen.getByText(/nigerian settlement only/i)).toBeTruthy();
     expect(screen.queryByText('Account Verified')).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
-
-    await user.click(
-      screen.getByRole('button', { name: /save bank details/i })
-    );
-
-    await waitFor(() => {
-      expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
-        accountNumber: 'IN-123456789012',
-        account_name: 'Yodha Shopping',
-        bank_name: 'HDFC Bank',
-        businessName: 'Yodha Shopping',
-      });
-    });
-
-    expect(apiPostMock).not.toHaveBeenCalledWith(
-      '/api/paystack/resolve',
-      expect.anything()
-    );
-    expect(onSuccess).toHaveBeenCalledTimes(1);
-    expect(toastSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Bank Details Saved',
-        description: 'Manual bank details will appear on unpaid invoices.',
-      })
-    );
-  });
-
-  it('limits manual account numbers by normalized length', () => {
-    render(
-      <MerchantBankForm
-        countryCode="IN"
-        initialData={{ businessName: 'Yodha Shopping' }}
-      />
-    );
-
-    const accountInput = screen.getByLabelText('Account Number');
-    const formattedAccountNumber = 'ABCD EFGH IJKL MNOP QRST UVWX YZ12 345678';
-
-    fireEvent.change(accountInput, {
-      target: { value: formattedAccountNumber },
-    });
-
-    expect(accountInput).toHaveValue(formattedAccountNumber);
-
-    fireEvent.change(accountInput, {
-      target: { value: `${formattedAccountNumber}9` },
-    });
-
-    expect(accountInput).toHaveValue(formattedAccountNumber);
-  });
-
-  it('shows an error when manual invoice bank details fail to save', async () => {
-    const user = userEvent.setup();
-    const onSuccess = vi.fn();
-    apiPostMock.mockImplementation((endpoint: string) => {
-      if (endpoint === '/api/paystack/subaccount') {
-        return Promise.reject(new Error('Manual details unavailable'));
-      }
-
-      throw new Error(`Unexpected endpoint: ${endpoint}`);
-    });
-
-    render(
-      <MerchantBankForm
-        countryCode="IN"
-        initialData={{
-          accountNumber: 'IN-123456789012',
-          bankName: 'HDFC Bank',
-          accountName: 'Yodha Shopping',
-          businessName: 'Yodha Shopping',
-        }}
-        onSuccess={onSuccess}
-      />
-    );
-
-    await user.click(
-      screen.getByRole('button', { name: /save bank details/i })
-    );
-
-    await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          variant: 'destructive',
-          title: 'Save Failed',
-          description: 'Manual details unavailable',
-        })
-      );
-    });
-    expect(onSuccess).not.toHaveBeenCalled();
-  });
-
-  it('syncs manual validation mode when country support changes', async () => {
-    const user = userEvent.setup();
-    const { rerender } = render(
-      <MerchantBankForm
-        countryCode="NG"
-        initialData={{ businessName: 'Yodha Shopping' }}
-      />
-    );
-
-    rerender(
-      <MerchantBankForm
-        countryCode="IN"
-        initialData={{ businessName: 'Yodha Shopping' }}
-      />
-    );
-
-    expect(screen.getByText(/manual invoice bank details/i)).toBeTruthy();
-
-    await user.type(screen.getByLabelText('Account Number'), 'IN-123456789012');
-    await user.type(screen.getByLabelText('Bank Name'), 'HDFC Bank');
-    await user.click(
-      screen.getByRole('button', { name: /save bank details/i })
-    );
-
-    await waitFor(() => {
-      expect(apiPostMock).toHaveBeenCalledWith('/api/paystack/subaccount', {
-        accountNumber: 'IN-123456789012',
-        account_name: 'Yodha Shopping',
-        bank_name: 'HDFC Bank',
-        businessName: 'Yodha Shopping',
-      });
-    });
+    expect(
+      screen.queryByRole('button', { name: /save bank details/i })
+    ).toBeNull();
+    expect(apiPostMock).not.toHaveBeenCalled();
   });
 
   it('clears the delayed bank suggestion hide timer on unmount', () => {

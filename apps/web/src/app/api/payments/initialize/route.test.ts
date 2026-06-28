@@ -44,13 +44,7 @@ vi.mock('@/lib/juicyway', () => ({
     rate: 1535,
     ngnAmount: ngnKobo / 100,
   }),
-  formatPhoneToE164: (phone: string) => {
-    const trimmed = phone.trim();
-    if (trimmed.startsWith('+')) {
-      return `+${trimmed.slice(1).replace(/\D/g, '')}`;
-    }
-    return `+234${trimmed.replace(/^0/, '').replace(/\D/g, '')}`;
-  },
+  formatPhoneToE164: (phone: string) => `+234${phone.replace(/^0/, '')}`,
   generatePaymentReference: () => 'baci_test_ref123',
   getChainConfirmationTime: () => '1-3 minutes',
   isSupportedCurrency: (c: string) =>
@@ -282,15 +276,6 @@ function enableKorapayForTest() {
   featureSettingsResult = {
     data: {
       korapay_enabled: true,
-    },
-    error: null,
-  };
-}
-
-function enableDvaForTest() {
-  featureSettingsResult = {
-    data: {
-      wallet_paystack_dva_enabled: true,
     },
     error: null,
   };
@@ -615,223 +600,6 @@ describe('POST /api/payments/initialize', () => {
       }
     });
 
-    it('restricts Paystack hosted checkout to cards for non-Nigerian checkout details', async () => {
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/international-card',
-      });
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          customer_phone: '+919876543210',
-          billing_address: {
-            ...validBody.billing_address,
-            city: 'Bengaluru',
-            country: 'IN',
-          },
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card'],
-          phone: '+919876543210',
-        })
-      );
-    });
-
-    it('uses card-only Paystack checkout when billing country is India even with a Nigerian phone', async () => {
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/india-card-only',
-      });
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          customer_phone: '08012345678',
-          billing_address: {
-            ...validBody.billing_address,
-            city: 'Bengaluru',
-            country: 'IN',
-          },
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card'],
-          phone: '+2348012345678',
-        })
-      );
-    });
-
-    it('uses card-only Paystack checkout when billing country is missing even with a Nigerian phone', async () => {
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/missing-country-card-only',
-      });
-      const { billing_address: _, ...bodyWithoutBillingAddress } = validBody;
-
-      const res = await POST(
-        makeRequest({
-          ...bodyWithoutBillingAddress,
-          customer_phone: '08012345678',
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card'],
-          phone: '+2348012345678',
-        })
-      );
-    });
-
-    it('filters unsupported and DVA-disabled Paystack channels for Nigerian checkout details', async () => {
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/filtered-channels',
-      });
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          channels: ['card', 'mobile_money', 'bank_transfer'],
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card'],
-        })
-      );
-    });
-
-    it('allows hosted Paystack bank transfer when DVA is enabled', async () => {
-      enableDvaForTest();
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/filtered-channels',
-      });
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          channels: ['card', 'mobile_money', 'bank_transfer'],
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card', 'bank_transfer'],
-        })
-      );
-    });
-
-    it('uses Nigerian Paystack channel defaults when supplied channels are empty', async () => {
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/default-channels',
-      });
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          channels: [],
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card', 'bank', 'ussd'],
-        })
-      );
-    });
-
-    it('includes bank transfer in Nigerian Paystack defaults when DVA is enabled', async () => {
-      enableDvaForTest();
-      mockInitializePaystack.mockResolvedValue({
-        authorization_url: 'https://paystack.com/pay/default-channels',
-      });
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          channels: [],
-          gateway: 'paystack',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockInitializePaystack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channels: ['card', 'bank', 'ussd', 'bank_transfer'],
-        })
-      );
-    });
-
-    it('returns GATEWAY_DISABLED when Paystack is explicitly disabled', async () => {
-      featureSettingsResult = {
-        data: {
-          paystack_enabled: false,
-          wallet_paystack_dva_enabled: true,
-        },
-        error: null,
-      };
-
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack' })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
-      expect(mockInitializePaystack).not.toHaveBeenCalled();
-    });
-
-    it('returns GATEWAY_DISABLED when omitted-gateway DVA requires disabled Paystack', async () => {
-      featureSettingsResult = {
-        data: {
-          paystack_enabled: false,
-          korapay_enabled: true,
-          wallet_paystack_dva_enabled: true,
-        },
-        error: null,
-      };
-
-      const res = await POST(
-        makeRequest({ ...validBody, payment_type: 'dva' })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
-      expect(mockInitializePaystack).not.toHaveBeenCalled();
-      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
-    });
-
     it('returns 400 when paystack subaccount not configured', async () => {
       merchantResult = {
         data: {
@@ -851,8 +619,6 @@ describe('POST /api/payments/initialize', () => {
     });
 
     it('creates dedicated virtual accounts with the merchant subaccount', async () => {
-      enableDvaForTest();
-
       const res = await POST(
         makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
       );
@@ -876,81 +642,7 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
-    it('rejects dedicated virtual accounts when bank transfer is disabled', async () => {
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
-      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
-    });
-
-    it('rejects dedicated virtual accounts when Paystack is disabled', async () => {
-      featureSettingsResult = {
-        data: {
-          paystack_enabled: false,
-          wallet_paystack_dva_enabled: true,
-        },
-        error: null,
-      };
-
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('GATEWAY_DISABLED');
-      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
-    });
-
-    it('rejects dedicated virtual accounts for non-Nigerian checkout details', async () => {
-      enableDvaForTest();
-
-      const res = await POST(
-        makeRequest({
-          ...validBody,
-          customer_phone: '+919876543210',
-          billing_address: {
-            ...validBody.billing_address,
-            city: 'Bengaluru',
-            country: 'IN',
-          },
-          gateway: 'paystack',
-          payment_type: 'dva',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('PAYMENT_METHOD_COUNTRY_UNSUPPORTED');
-      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
-    });
-
-    it('rejects dedicated virtual accounts when billing country is missing', async () => {
-      enableDvaForTest();
-      const { billing_address: _, ...bodyWithoutBillingAddress } = validBody;
-
-      const res = await POST(
-        makeRequest({
-          ...bodyWithoutBillingAddress,
-          customer_phone: '08012345678',
-          gateway: 'paystack',
-          payment_type: 'dva',
-        })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.code).toBe('PAYMENT_METHOD_COUNTRY_UNSUPPORTED');
-      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
-    });
-
     it('persists the DVA assignment with the expected upsert payload (B1 Δ-10)', async () => {
-      enableDvaForTest();
-
       const res = await POST(
         makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
       );
@@ -967,48 +659,18 @@ describe('POST /api/payments/initialize', () => {
         bank_name: 'Wema Bank',
         account_name: 'Test Store / John Doe',
         provider: 'paystack',
-        payable_amount: 5000,
       });
-      // assigned_at is refreshed on retries, and expires_at must be the
-      // current assignment timestamp + 90min.
-      expect(typeof payload.assigned_at).toBe('string');
+      // expires_at must be a defined ISO timestamp (created_at + 90min).
       expect(typeof payload.expires_at).toBe('string');
-      const assignedAtMs = Date.parse(payload.assigned_at as string);
-      const expiresAtMs = Date.parse(payload.expires_at as string);
-      expect(Number.isFinite(assignedAtMs)).toBe(true);
-      expect(Number.isFinite(expiresAtMs)).toBe(true);
-      expect(expiresAtMs - assignedAtMs).toBe(90 * 60 * 1000);
+      expect(Number.isFinite(Date.parse(payload.expires_at as string))).toBe(
+        true
+      );
       // Conflict resolution must use the unique constraint
       // unique_order_account = (order_id, provider).
       expect(options).toEqual({ onConflict: 'order_id,provider' });
     });
 
-    it('persists the residual DVA payable amount after wallet and savings credits', async () => {
-      enableDvaForTest();
-      orderPaymentResult = {
-        data: { wallet_amount_used: 1500 },
-        error: null,
-      };
-      savingsRedemptionsResult = {
-        data: [{ amount: 500 }],
-        error: null,
-      };
-
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
-      );
-
-      expect(res.status).toBe(200);
-      expect(dvaUpsertCalls).toHaveLength(1);
-      expect(dvaUpsertCalls[0].payload).toMatchObject({
-        order_id: ORDER_ID,
-        payable_amount: 3000,
-      });
-    });
-
     it('warns and still returns 200 when the DVA upsert fails (B1 warn-and-continue)', async () => {
-      enableDvaForTest();
-
       // Simulate a Postgres-side upsert failure (e.g., transient RLS
       // hiccup). The route must NOT throw — the customer can still pay
       // and B4 cron/reconciliation will surface the gap.

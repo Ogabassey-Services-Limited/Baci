@@ -215,7 +215,6 @@ async function initializeGatewayAndRoute({
           customer_name: customerName,
           customer_phone: customerPhone,
           gateway,
-          billing_address: { country: 'NG' },
           ...(isBankTransfer && { payment_type: 'dva' }),
         }),
       }

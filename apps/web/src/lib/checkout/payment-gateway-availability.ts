@@ -51,10 +51,6 @@ function readPayOnDeliveryEnabled(settings: unknown): boolean | undefined {
   return readBooleanSetting(settings, 'pay_on_delivery_enabled');
 }
 
-function readWalletPaystackDvaEnabled(settings: unknown): boolean | undefined {
-  return readBooleanSetting(settings, 'wallet_paystack_dva_enabled');
-}
-
 function normalizePaymentCountryCode(
   country: string | null | undefined
 ): string | null {
@@ -110,8 +106,7 @@ export function isPayOnDeliveryCheckoutAvailable(
 export function isBankTransferCheckoutAvailable(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {
-  if (!isPaystackCheckoutAvailable(merchant)) return false;
-  return readWalletPaystackDvaEnabled(merchant?.feature_settings) === true;
+  return isPaystackCheckoutAvailable(merchant);
 }
 
 function hasPaystackSettlementDetails(

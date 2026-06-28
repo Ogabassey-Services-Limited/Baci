@@ -20,7 +20,6 @@ export interface FeatureSettings {
   klump_enabled?: boolean;
   klump_min_amount?: number | string | null;
   klump_max_amount?: number | string | null;
-  wallet_paystack_dva_enabled?: boolean;
 }
 
 function toAmountLimit(

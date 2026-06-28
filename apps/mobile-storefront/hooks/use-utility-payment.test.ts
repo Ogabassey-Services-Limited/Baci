@@ -16,13 +16,11 @@ let mockWalletQuery: {
 jest.mock('@/hooks/useMerchantPaymentSettings', () => ({
   useMerchantPaymentSettings: () => mockUseMerchantPaymentSettings(),
   getEnabledPaymentMethods: jest.fn((settings) => {
-    if (!settings) return ['paystack'];
+    if (!settings) return ['paystack', 'bank_transfer'];
     const methods = [];
     if (settings.paystack_enabled) methods.push('paystack');
     if (settings.korapay_enabled) methods.push('korapay');
-    if (settings.paystack_enabled && settings.wallet_paystack_dva_enabled) {
-      methods.push('bank_transfer');
-    }
+    if (settings.paystack_enabled) methods.push('bank_transfer');
     return methods;
   }),
 }));
@@ -117,6 +115,7 @@ describe('useUtilityPayment', () => {
     expect(result.current.supportedGateways).toEqual([
       'paystack',
       'korapay',
+      'bank_transfer',
     ]);
   });
 

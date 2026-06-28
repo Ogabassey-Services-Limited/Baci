@@ -149,53 +149,8 @@ describe('useDvaPayment', () => {
           customer_phone: '+2348012345678',
           gateway: 'paystack',
           payment_type: 'dva',
-          billing_address: { country: 'NG' },
         }),
       });
-    });
-
-    it('forwards caller-provided billing address exactly', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          dva: {
-            account_number: '1234567890',
-            account_name: 'Virtual Account',
-            bank_name: 'Test Bank',
-            bank_code: '123',
-          },
-          reference: 'REF-123',
-        }),
-      });
-      const billingAddress = {
-        line1: '221B Baker Street',
-        city: 'London',
-        state: 'London',
-        country: 'GB',
-        zip_code: 'NW1',
-      };
-
-      const { result } = renderHook(() =>
-        useDvaPayment({ ...mockOptions, billingAddress }),
-      );
-      const isOrderInFlightRef = { current: true };
-      const setIsProcessing = vi.fn();
-
-      await act(async () => {
-        await result.current.handleBankTransfer(
-          mockOrder,
-          mockPaymentAmount,
-          isOrderInFlightRef,
-          setIsProcessing,
-        );
-      });
-
-      const initBody = JSON.parse(
-        (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]
-          ?.body as string,
-      );
-      expect(initBody.billing_address).toEqual(billingAddress);
     });
 
     it('handles non-ok response with error message', async () => {

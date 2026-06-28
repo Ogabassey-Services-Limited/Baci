@@ -308,26 +308,14 @@ export default function PaymentSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="size-5" />
-              Manual Invoice Bank Details
+              Bank Settlement Unavailable
             </CardTitle>
             <CardDescription>
-              Save bank details that appear on unpaid invoices and receipts.
-              Baci-managed Paystack settlement is currently available only for
-              Nigerian merchants.
+              Baci-managed bank settlement is currently available only for
+              Nigerian Paystack merchants. Enable Pay on Delivery below for this
+              country, or request an online payment provider integration.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <MerchantBankForm
-              countryCode={countryCode}
-              initialData={{
-                bankName: merchantData?.bank_name as string,
-                accountName: merchantData?.bank_account_name as string,
-                accountNumber: merchantData?.bank_account_number as string,
-                businessName: merchant?.business_name,
-              }}
-              onSuccess={reloadMerchant}
-            />
-          </CardContent>
         </Card>
       )}
 

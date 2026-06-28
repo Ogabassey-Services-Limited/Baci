@@ -352,52 +352,6 @@ describe('handlePlaceOrder', () => {
       );
     });
 
-    it('uses the selected saved address for payment billing after leaving new address mode', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            order: { id: 'order-paystack' },
-            wallet: null,
-            amountDueToGateway: 12000,
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            success: true,
-            authorization_url: 'https://paystack.test/checkout',
-          }),
-        });
-
-      const opts = buildOpts({
-        paymentMethod: 'paystack',
-        isNewAddressMode: false,
-        newAddressStreet: 'Stale Manual Street',
-        selectedAddressId: 1,
-        addresses: [
-          {
-            id: 1,
-            label: 'Home',
-            address: '5 Allen Ave, Ikeja, Lagos',
-            phone: '+2348012345678',
-            isDefault: true,
-          },
-        ],
-      });
-      await handlePlaceOrder(opts);
-
-      const initBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(initBody.billing_address).toEqual(
-        expect.objectContaining({
-          line1: '5 Allen Ave, Ikeja, Lagos',
-          city: 'Ikeja',
-          state: 'Lagos',
-          country: 'NG',
-        }),
-      );
-    });
-
     it('throws on failed order creation', async () => {
       const { toast } = await import('@/hooks/use-toast');
       mockFetch.mockResolvedValue({

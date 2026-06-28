@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { isValidManualAccountNumber } from '@/schemas/manual-account-number';
 
 const payoutModeSchema = z.enum(['manual', 'instant', 'weekly']);
 
@@ -10,8 +9,6 @@ const paystackSubaccountSourceSchema = z.object({
   bankCode: z.string().optional(),
   bank_name: z.string().optional(),
   bankName: z.string().optional(),
-  account_name: z.string().optional(),
-  accountName: z.string().optional(),
   business_name: z.string().optional(),
   businessName: z.string().optional(),
   payout_mode: payoutModeSchema.optional(),
@@ -23,13 +20,11 @@ const paystackSubaccountSourceSchema = z.object({
 export const paystackSubaccountSchema = paystackSubaccountSourceSchema
   .transform((data) => {
     const bankName = (data.bank_name ?? data.bankName ?? '').trim();
-    const accountName = (data.account_name ?? data.accountName ?? '').trim();
 
     return {
       account_number: (data.account_number ?? data.accountNumber ?? '').trim(),
       bank_code: (data.bank_code ?? data.bankCode ?? '').trim(),
       ...(bankName ? { bank_name: bankName } : {}),
-      ...(accountName ? { account_name: accountName } : {}),
       business_name: (data.business_name ?? data.businessName)?.trim(),
       payout_mode: data.payout_mode ?? data.payoutMode ?? 'manual',
       auto_payout_enabled:
@@ -40,7 +35,7 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
     const isOfflineBank = Boolean(data.bank_name);
 
     if (isOfflineBank) {
-      if (!isValidManualAccountNumber(data.account_number)) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9 -]{5,33}$/.test(data.account_number)) {
         ctx.addIssue({
           code: 'custom',
           message:
@@ -64,14 +59,6 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
           path: ['bank_code'],
         });
       }
-    }
-
-    if (data.account_name && data.account_name.length < 2) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Account name must be at least 2 characters',
-        path: ['account_name'],
-      });
     }
 
     if (
