@@ -149,6 +149,7 @@ describe('useDvaPayment', () => {
           customer_phone: '+2348012345678',
           gateway: 'paystack',
           payment_type: 'dva',
+          billing_address: { country: 'NG' },
         }),
       });
     });

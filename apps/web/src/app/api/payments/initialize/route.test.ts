@@ -673,6 +673,31 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
+    it('uses card-only Paystack checkout when billing country is missing even with a Nigerian phone', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/missing-country-card-only',
+      });
+      const { billing_address: _, ...bodyWithoutBillingAddress } = validBody;
+
+      const res = await POST(
+        makeRequest({
+          ...bodyWithoutBillingAddress,
+          customer_phone: '08012345678',
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channels: ['card'],
+          phone: '+2348012345678',
+        })
+      );
+    });
+
     it('filters unsupported Paystack channels for Nigerian checkout details', async () => {
       mockInitializePaystack.mockResolvedValue({
         authorization_url: 'https://paystack.com/pay/filtered-channels',
@@ -786,6 +811,25 @@ describe('POST /api/payments/initialize', () => {
             city: 'Bengaluru',
             country: 'IN',
           },
+          gateway: 'paystack',
+          payment_type: 'dva',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('PAYMENT_METHOD_COUNTRY_UNSUPPORTED');
+      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
+    });
+
+    it('rejects dedicated virtual accounts when billing country is missing', async () => {
+      enableDvaForTest();
+      const { billing_address: _, ...bodyWithoutBillingAddress } = validBody;
+
+      const res = await POST(
+        makeRequest({
+          ...bodyWithoutBillingAddress,
+          customer_phone: '08012345678',
           gateway: 'paystack',
           payment_type: 'dva',
         })

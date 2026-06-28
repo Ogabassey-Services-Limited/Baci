@@ -32,6 +32,7 @@ interface FeatureSettings {
   klump_enabled?: boolean;
   klump_min_amount?: number | string | null;
   klump_max_amount?: number | string | null;
+  wallet_paystack_dva_enabled?: boolean;
 }
 
 describe('PaymentStep', () => {
@@ -185,11 +186,26 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('paystack-logo')).toBeInTheDocument();
     });
 
-    it('shows Bank Transfer when the merchant has a Paystack subaccount', () => {
+    it('hides Bank Transfer when Paystack DVA is not explicitly enabled', () => {
       // Arrange & Act
       render(<PaymentStep {...defaultProps} />);
 
       // Assert
+      expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('bank-transfer-logo')).not.toBeInTheDocument();
+    });
+
+    it('shows Bank Transfer when Paystack DVA is explicitly enabled', () => {
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: {
+          paystack_enabled: true,
+          wallet_paystack_dva_enabled: true,
+        } as FeatureSettings,
+      };
+
+      render(<PaymentStep {...defaultProps} merchant={merchant} />);
+
       expect(screen.getByText('Bank Transfer')).toBeInTheDocument();
       expect(screen.getByTestId('bank-transfer-logo')).toBeInTheDocument();
     });
@@ -311,7 +327,19 @@ describe('PaymentStep', () => {
     it('calls setPaymentMethod when Bank Transfer is selected', () => {
       // Arrange
       const setPaymentMethod = vi.fn();
-      render(<PaymentStep {...defaultProps} setPaymentMethod={setPaymentMethod} />);
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={{
+            paystack_subaccount_code: 'ACCT_123',
+            feature_settings: {
+              paystack_enabled: true,
+              wallet_paystack_dva_enabled: true,
+            } as FeatureSettings,
+          }}
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
 
       // Act
       const bankTransferLabel = screen.getByText('Bank Transfer').closest('label');

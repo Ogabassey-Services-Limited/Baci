@@ -100,12 +100,12 @@ const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
 
 const BillingAddressSchema = z
   .object({
-    line1: z.string().min(1),
+    line1: z.string().min(1).optional(),
     line2: z.string().optional(),
-    city: z.string().min(1),
+    city: z.string().min(1).optional(),
     state: z.string().optional(),
     country: z.string().length(2),
-    zip_code: z.string().min(1),
+    zip_code: z.string().min(1).optional(),
   })
   .optional();
 
@@ -346,11 +346,7 @@ function isNigerianCheckoutCountry(
   country: string | null | undefined
 ): boolean {
   const normalizedCountry = country?.trim().toUpperCase();
-  return (
-    !normalizedCountry ||
-    normalizedCountry === 'NG' ||
-    normalizedCountry === 'NIGERIA'
-  );
+  return normalizedCountry === 'NG' || normalizedCountry === 'NIGERIA';
 }
 
 function isNigerianPaystackCustomer(
@@ -380,6 +376,19 @@ function getPaystackChannelsForCustomer(
   );
 
   return channels.length ? channels : [...PAYSTACK_NIGERIAN_CHANNELS];
+}
+
+function getBillingAddressForGateway(
+  billingAddress: PaymentInitRequest['billing_address']
+) {
+  return {
+    line1: billingAddress?.line1 || 'Lagos, Nigeria',
+    ...(billingAddress?.line2 ? { line2: billingAddress.line2 } : {}),
+    city: billingAddress?.city || 'Lagos',
+    ...(billingAddress?.state ? { state: billingAddress.state } : {}),
+    country: billingAddress?.country || 'NG',
+    zip_code: billingAddress?.zip_code || '100001',
+  };
 }
 
 // Gateway-Specific Payment Handlers
@@ -485,12 +494,7 @@ async function initializeJuicyway(
       phone_number: data.customer_phone
         ? formatPhoneToE164(data.customer_phone)
         : '+2340000000000',
-      billing_address: data.billing_address || {
-        line1: 'Lagos, Nigeria',
-        city: 'Lagos',
-        country: 'NG',
-        zip_code: '100001',
-      },
+      billing_address: getBillingAddressForGateway(data.billing_address),
       ip_address: getClientIp(request),
     },
     description:

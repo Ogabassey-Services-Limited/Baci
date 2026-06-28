@@ -10,6 +10,15 @@ interface UseDvaPaymentOptions {
   customerPhone: string;
   firstName: string;
   lastName: string;
+  billingAddress?: DvaBillingAddress;
+}
+
+interface DvaBillingAddress {
+  line1?: string;
+  city?: string;
+  state?: string;
+  country: string;
+  zip_code?: string;
 }
 
 interface BankTransferRequest {
@@ -19,6 +28,7 @@ interface BankTransferRequest {
   customerEmail: string;
   customerPhone: string;
   customerName: string;
+  billingAddress?: DvaBillingAddress;
 }
 
 interface BankTransferEffects {
@@ -57,6 +67,7 @@ async function runBankTransferInitialization(
         customer_phone: request.customerPhone,
         gateway: 'paystack',
         payment_type: 'dva',
+        billing_address: request.billingAddress ?? { country: 'NG' },
       }),
     });
 
@@ -102,6 +113,7 @@ export function useDvaPayment({
   customerPhone,
   firstName,
   lastName,
+  billingAddress,
 }: UseDvaPaymentOptions) {
   const [dvaData, setDvaData] = useState<DvaData | null>(null);
   const [isInitializingDva, setIsInitializingDva] = useState(false);
@@ -126,6 +138,7 @@ export function useDvaPayment({
         customerEmail,
         customerPhone,
         customerName: `${firstName} ${lastName}`.trim(),
+        billingAddress,
       },
       {
         isOrderInFlightRef,

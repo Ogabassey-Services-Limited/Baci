@@ -501,6 +501,13 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         `${firstName} ${lastName}`.trim(),
         customerPhone,
         paymentMethod,
+        {
+          line1: newAddressStreet || shippingAddressData.address,
+          city: shippingAddressData.city || 'Lagos',
+          state: shippingAddressData.state || 'Lagos',
+          country: 'NG',
+          zip_code: '100001',
+        },
       );
 
       if (result.crypto_payment) {
@@ -697,6 +704,13 @@ async function initializeCardPayment(
   name: string,
   phone: string,
   gateway: string,
+  billingAddress: {
+    line1: string;
+    city: string;
+    state?: string;
+    country: string;
+    zip_code: string;
+  },
 ) {
   const res = await fetch('/api/payments/initialize', {
     method: 'POST',
@@ -709,6 +723,7 @@ async function initializeCardPayment(
       customer_name: name,
       customer_phone: phone,
       gateway,
+      billing_address: billingAddress,
     }),
   });
 

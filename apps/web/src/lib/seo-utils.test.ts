@@ -63,6 +63,7 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
           credpal_enabled: true,
           klump_enabled: false,
           pay_on_delivery_enabled: true,
+          wallet_paystack_dva_enabled: true,
         },
       },
       {
@@ -119,7 +120,7 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
       }
     );
 
-    expect(methods).toEqual(['Debit and credit card', 'USSD', 'Bank transfer']);
+    expect(methods).toEqual(['Debit and credit card', 'USSD']);
   });
 
   it('omits Paystack-backed methods when Paystack is not configured', () => {
