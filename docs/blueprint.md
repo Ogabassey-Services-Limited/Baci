@@ -358,10 +358,10 @@ User Navigates to /dashboard/products/add
 
 ```bash
 # Type check
-npm run typecheck
+pnpm turbo typecheck
 
 # Dev server
-npm run dev  # http://localhost:9002
+pnpm dev  # http://localhost:9002
 
 ```
 
@@ -429,8 +429,8 @@ npm run dev  # http://localhost:9002
    ```
 
 3. **Test your changes:**
-      - Run `npm run typecheck` for type errors
-   - Test in browser: `npm run dev`
+   - Run `pnpm turbo typecheck` for type errors
+   - Test in browser: `pnpm dev`
 
 4. **Ask the user:**
    - If documentation is unclear

@@ -347,20 +347,14 @@ export async function flowName(input: Input): Promise<Output> {
   // Validate input if needed
   const validatedInput = InputSchema.parse(input);
 
-  // 3. Use Vercel AI SDK to generate content
-  const { text } = await generateText({
-    model: google('gemini-1.5-flash'),
-    prompt: `Generated prompt based on ${validatedInput}`,
+  // 3. Use Vercel AI SDK to generate structured content
+  const { object } = await generateObject({
+    model: google('gemini-2.5-flash'),
+    schema: OutputSchema,
+    prompt: `Generated prompt based on ${JSON.stringify(validatedInput)}`,
   });
 
-  // Or for structured output:
-  // const { object } = await generateObject({
-  //   model: google('gemini-1.5-flash'),
-  //   schema: OutputSchema,
-  //   prompt: ...,
-  // });
-
-  return text;
+  return object;
 }
 ```
 
@@ -394,7 +388,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 | Model | Use Case | Token Limit | Cost |
 |-------|----------|-------------|------|
-| `gemini-1.5-flash` | Text generation (descriptions) | 1M input, 8K output | Low |
+| `gemini-2.5-flash` | Text generation (descriptions) | 1M input, 8K output | Low |
 | `gemini-2.5-flash-image-preview` | Image generation & analysis | 1M input, 8K output | Medium |
 
 ### Prompt Engineering Tips
@@ -425,10 +419,10 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-npm run dev              # Start Next.js dev server on port 9002
-npm run build            # Production build
-npm run typecheck        # TypeScript type checking
-npm run lint             # ESLint
+pnpm dev                 # Start Next.js dev server on port 9002
+pnpm build               # Production build
+pnpm turbo typecheck     # TypeScript type checking
+pnpm turbo lint          # Biome linting
 ```
 
 ---
