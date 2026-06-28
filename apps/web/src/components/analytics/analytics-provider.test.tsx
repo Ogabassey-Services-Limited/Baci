@@ -34,6 +34,8 @@ describe('AnalyticsProvider', () => {
           facebook_pixel_id: 12345,
         },
         google_analytics_id: ' G-CONTEXT ',
+        plan_expires_at: null,
+        plan_tier: 'pro',
         tiktok_pixel_id: false,
         snapchat_pixel_id: ' snap-1 ',
         twitter_pixel_id: {},
@@ -68,6 +70,8 @@ describe('AnalyticsProvider', () => {
         google_analytics_id: ' G-FEATURE ',
       },
       google_analytics_id: 'G-LEGACY',
+      plan_expires_at: null,
+      plan_tier: 'pro',
     } as unknown as MerchantWithAnalytics;
 
     render(<AnalyticsProvider merchant={merchant} />);
@@ -76,6 +80,34 @@ describe('AnalyticsProvider', () => {
       {
         merchant: {
           google_analytics_id: 'G-FEATURE',
+          facebook_pixel_id: null,
+          tiktok_pixel_id: null,
+          snapchat_pixel_id: null,
+          twitter_pixel_id: null,
+        },
+      },
+      undefined
+    );
+  });
+
+  it('does not pass stale storefront pixel IDs for locked merchants', () => {
+    mockUseMerchantSafe.mockReturnValue({
+      merchant: {
+        feature_settings: {
+          google_analytics_id: 'G-FREE',
+        },
+        facebook_pixel_id: '12345',
+        plan_tier: 'free',
+        premium_features: [],
+      },
+    });
+
+    render(<AnalyticsProvider />);
+
+    expect(mockAnalyticsPixelProvider).toHaveBeenCalledWith(
+      {
+        merchant: {
+          google_analytics_id: null,
           facebook_pixel_id: null,
           tiktok_pixel_id: null,
           snapchat_pixel_id: null,

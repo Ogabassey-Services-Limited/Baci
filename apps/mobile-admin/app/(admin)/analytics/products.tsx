@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,43 +10,88 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useTopSellingProducts';
+import {
+  type AnalyticsDateRange,
+  resolveAnalyticsDateRangeParams,
+} from '@/lib/analytics-period';
+import { baciFeatureGates } from '@/lib/feature-gates';
+
+const ALL_TIME_END_ISO = '9999-12-31T23:59:59.999Z';
 
 function getSingleParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function createAllTimeAnalyticsDateRange(): AnalyticsDateRange {
+  return {
+    endDate: new Date(ALL_TIME_END_ISO),
+    startDate: new Date(0),
+  };
+}
+
 export default function AnalyticsProductsScreen() {
-  const { colors, isDark } = useTheme();
-  const { format: formatCurrency } = useCurrency();
-  const router = useRouter();
+  const { colors } = useTheme();
+  const { merchant } = useMerchant();
+  const { isPro } = useRevenueCat();
   const params = useLocalSearchParams<{
     endDate?: string | string[];
     filterLabel?: string | string[];
     startDate?: string | string[];
   }>();
+  const [fallbackRange] = useState(createAllTimeAnalyticsDateRange);
   const startDateParam = getSingleParam(params.startDate);
   const endDateParam = getSingleParam(params.endDate);
   const filterLabelParam = getSingleParam(params.filterLabel);
-  const parsedStartDate = startDateParam ? new Date(startDateParam) : null;
-  const parsedEndDate = endDateParam ? new Date(endDateParam) : null;
-  const range =
-    parsedStartDate &&
-    parsedEndDate &&
-    !Number.isNaN(parsedStartDate.getTime()) &&
-    !Number.isNaN(parsedEndDate.getTime()) &&
-    parsedStartDate.getTime() <= parsedEndDate.getTime()
-      ? {
-          endDate: parsedEndDate,
-          startDate: parsedStartDate,
-        }
-      : undefined;
+  const range = resolveAnalyticsDateRangeParams({
+    endDateParam,
+    fallbackRange,
+    startDateParam,
+  });
+  const hasAdvancedAnalytics =
+    isPro || baciFeatureGates.hasFeature(merchant, 'advanced_analytics');
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: filterLabelParam
+            ? `Top Products · ${filterLabelParam}`
+            : 'Top Products',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      {hasAdvancedAnalytics ? (
+        <AnalyticsProductsContent range={range} />
+      ) : (
+        <FeatureGateScreen
+          description="Product rankings and segmented analytics are available when Baci Pro is active."
+          feature="advanced_analytics"
+          title="Advanced analytics are a Baci Pro feature"
+        >
+          {null}
+        </FeatureGateScreen>
+      )}
+    </>
+  );
+}
+
+function AnalyticsProductsContent({ range }: { range: AnalyticsDateRange }) {
+  const { colors, isDark } = useTheme();
+  const { format: formatCurrency } = useCurrency();
+  const router = useRouter();
   const {
     data: topProducts,
     isError,
@@ -96,17 +142,6 @@ export default function AnalyticsProductsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: filterLabelParam
-            ? `Top Products · ${filterLabelParam}`
-            : 'Top Products',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <FlashList

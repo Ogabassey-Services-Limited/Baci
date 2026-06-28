@@ -20,6 +20,7 @@ import {
 } from '@/lib/jumia/client';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
@@ -65,6 +66,15 @@ export async function GET(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
+
     const { searchParams } = new URL(request.url);
 
     const GetQuerySchema = z.object({
@@ -207,6 +217,15 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const rawIntegrationId = searchParams.get('integrationId');
 

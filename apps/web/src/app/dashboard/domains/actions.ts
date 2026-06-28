@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 
@@ -32,6 +33,21 @@ export async function setPrimaryDomain(
     }
 
     const { merchant } = await ensurePermission('settings', 'edit');
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchant.id,
+      'custom_domain'
+    );
+    if (featureGateResponse) {
+      const body = (await featureGateResponse.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      return {
+        success: false,
+        error: body?.error ?? 'Failed to verify merchant plan',
+      };
+    }
 
     // Verify domain belongs to merchant and verify it is active
     const { data: domainRecord, error: domainError } = await supabase

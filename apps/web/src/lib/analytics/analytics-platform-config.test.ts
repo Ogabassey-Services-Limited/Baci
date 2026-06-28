@@ -67,6 +67,9 @@ describe('fetchAnalyticsPlatformConfig', () => {
                 offline_conversions_enabled: true,
                 facebook_pixel_id: 'fb-legacy-pixel',
                 facebook_capi_token: 'fb-legacy-token',
+                plan_expires_at: null,
+                plan_tier: 'pro',
+                premium_features: [],
               },
               error: null,
             };
@@ -102,5 +105,39 @@ describe('fetchAnalyticsPlatformConfig', () => {
       tiktok_pixel_id: 'tt-feature-pixel',
       tiktok_access_token: 'tt-feature-token',
     });
+  });
+
+  it('does not load tracking credentials when growth integrations are locked', async () => {
+    const from = vi.fn((table: string) => {
+      if (table === 'merchant_feature_settings') {
+        throw new Error('feature settings should not be queried');
+      }
+
+      const query = {
+        eq: vi.fn(() => query),
+        maybeSingle: vi.fn(() => ({
+          data: {
+            plan_expires_at: null,
+            plan_tier: 'free',
+            premium_features: [],
+          },
+          error: null,
+        })),
+        select: vi.fn(() => query),
+      };
+
+      return query;
+    });
+
+    const result = await fetchAnalyticsPlatformConfig(
+      { from } as never,
+      'merchant-1'
+    );
+
+    expect(result).toEqual({
+      ...emptyConfig,
+      offline_conversions_enabled: false,
+    });
+    expect(from).toHaveBeenCalledTimes(1);
   });
 });

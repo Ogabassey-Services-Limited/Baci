@@ -24,6 +24,8 @@ describe('buildMerchantAnalyticsSettings', () => {
           google_analytics_id: ' G-FEATURE ',
         },
         google_analytics_id: 'G-LEGACY',
+        plan_expires_at: null,
+        plan_tier: 'pro',
       })
     ).toEqual(
       expect.objectContaining({
@@ -39,6 +41,8 @@ describe('buildMerchantAnalyticsSettings', () => {
           google_analytics_id: '   ',
         },
         google_analytics_id: ' G-LEGACY ',
+        plan_expires_at: null,
+        plan_tier: 'pro',
       })
     ).toEqual(
       expect.objectContaining({
@@ -51,6 +55,8 @@ describe('buildMerchantAnalyticsSettings', () => {
     expect(
       buildMerchantAnalyticsSettings({
         facebook_pixel_id: 12345,
+        plan_expires_at: null,
+        plan_tier: 'pro',
         tiktok_pixel_id: false,
         twitter_pixel_id: {},
       })
@@ -61,5 +67,58 @@ describe('buildMerchantAnalyticsSettings', () => {
         twitter_pixel_id: null,
       })
     );
+  });
+
+  it('strips storefront pixel IDs for merchants without growth integrations', () => {
+    expect(
+      buildMerchantAnalyticsSettings({
+        feature_settings: {
+          google_analytics_id: 'G-FREE',
+        },
+        facebook_pixel_id: '12345',
+        plan_tier: 'free',
+        premium_features: [],
+      })
+    ).toEqual({
+      google_analytics_id: null,
+      facebook_pixel_id: null,
+      tiktok_pixel_id: null,
+      snapchat_pixel_id: null,
+      twitter_pixel_id: null,
+    });
+  });
+
+  it('honors explicit growth integration grants for storefront pixels', () => {
+    expect(
+      buildMerchantAnalyticsSettings({
+        feature_settings: {
+          google_analytics_id: ' G-GRANTED ',
+        },
+        plan_tier: 'free',
+        premium_features: ['growth_integrations'],
+      })
+    ).toEqual(
+      expect.objectContaining({
+        google_analytics_id: 'G-GRANTED',
+      })
+    );
+  });
+
+  it('fails closed for paid plan data missing expiry information', () => {
+    expect(
+      buildMerchantAnalyticsSettings({
+        feature_settings: {
+          google_analytics_id: 'G-OMITTED-EXPIRY',
+        },
+        plan_tier: 'pro',
+        premium_features: [],
+      })
+    ).toEqual({
+      google_analytics_id: null,
+      facebook_pixel_id: null,
+      tiktok_pixel_id: null,
+      snapchat_pixel_id: null,
+      twitter_pixel_id: null,
+    });
   });
 });

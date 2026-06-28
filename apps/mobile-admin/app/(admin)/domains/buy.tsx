@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { styles } from '@/components/domains/buy-domain.styles';
 import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultCard';
 import {
@@ -148,77 +149,86 @@ export default function BuyDomainScreen() {
   };
 
   return (
-    <AppFormScreen
-      scrollEnabled={false}
-      style={[styles.screen, { backgroundColor: colors.background }]}
+    <FeatureGateScreen
+      description="Search, register, and activate branded domains when Baci Pro is active."
+      feature="custom_domain"
+      serverEntitlementRequired
+      title="Custom domains are a Baci Pro feature"
     >
-      <View style={styles.container}>
-        <View
-          style={[styles.searchContainer, { backgroundColor: colors.card }]}
-        >
-          <Ionicons name="search" size={20} color={colors.textSecondary} />
-          <TextInput
-            accessibilityLabel="Search domain"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={handleQueryChange}
-            onSubmitEditing={handleSearch}
-            placeholder="Search domain (e.g. mybrand.com)"
-            placeholderTextColor={colors.textSecondary}
-            returnKeyType="search"
-            style={[styles.input, { color: colors.text }]}
-            value={query}
-          />
-          {query.length > 0 ? (
-            <Pressable
-              accessibilityLabel="Clear domain search"
-              onPress={() => handleQueryChange('')}
-            >
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-          ) : null}
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Checking availability…
-            </Text>
+      <AppFormScreen
+        scrollEnabled={false}
+        style={[styles.screen, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.container}>
+          <View
+            style={[styles.searchContainer, { backgroundColor: colors.card }]}
+          >
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
+            <TextInput
+              accessibilityLabel="Search domain"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={handleQueryChange}
+              onSubmitEditing={handleSearch}
+              placeholder="Search domain (e.g. mybrand.com)"
+              placeholderTextColor={colors.textSecondary}
+              returnKeyType="search"
+              style={[styles.input, { color: colors.text }]}
+              value={query}
+            />
+            {query.length > 0 ? (
+              <Pressable
+                accessibilityLabel="Clear domain search"
+                onPress={() => handleQueryChange('')}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            ) : null}
           </View>
-        ) : (
-          <FlashList
-            contentContainerStyle={styles.resultsContent}
-            data={results}
-            keyExtractor={(item) => item.domain}
-            ListEmptyComponent={
-              results.length === 0 &&
-              query.length > 0 &&
-              lastLookupSucceeded === true ? (
-                <Text
-                  style={[
-                    styles.emptyStateText,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  No results found.
-                </Text>
-              ) : null
-            }
-            renderItem={({ item }) => (
-              <DomainSearchResultCard
-                domain={item}
-                isPurchasing={purchasing === item.domain}
-                onBuy={() => handleBuy(item.domain, item.price)}
-              />
-            )}
-          />
-        )}
-      </View>
-    </AppFormScreen>
+
+          {loading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text
+                style={[styles.loadingText, { color: colors.textSecondary }]}
+              >
+                Checking availability…
+              </Text>
+            </View>
+          ) : (
+            <FlashList
+              contentContainerStyle={styles.resultsContent}
+              data={results}
+              keyExtractor={(item) => item.domain}
+              ListEmptyComponent={
+                results.length === 0 &&
+                query.length > 0 &&
+                lastLookupSucceeded === true ? (
+                  <Text
+                    style={[
+                      styles.emptyStateText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    No results found.
+                  </Text>
+                ) : null
+              }
+              renderItem={({ item }) => (
+                <DomainSearchResultCard
+                  domain={item}
+                  isPurchasing={purchasing === item.domain}
+                  onBuy={() => handleBuy(item.domain, item.price)}
+                />
+              )}
+            />
+          )}
+        </View>
+      </AppFormScreen>
+    </FeatureGateScreen>
   );
 }

@@ -11,6 +11,10 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  merchantFeatureUpgradeResponse,
+  merchantHasFeature,
+} from '@/lib/merchant-feature-gates';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
 
@@ -109,7 +113,9 @@ export async function POST(request: NextRequest) {
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, business_name, email, slug')
+      .select(
+        'id, business_name, email, slug, plan_tier, plan_expires_at, premium_features'
+      )
       .eq('id', access.merchantId)
       .single();
 
@@ -118,6 +124,10 @@ export async function POST(request: NextRequest) {
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+
+    if (!merchantHasFeature(merchant, 'custom_domain')) {
+      return merchantFeatureUpgradeResponse('custom_domain');
     }
 
     // Validate email is available before calling Paystack

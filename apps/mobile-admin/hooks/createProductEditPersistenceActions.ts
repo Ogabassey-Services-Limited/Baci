@@ -20,6 +20,12 @@ interface CreateProductEditPersistenceActionsParams {
   isEditing: boolean;
   newCategoryName: string;
   openProduct: (productId: string) => void;
+  productCreationGate?: {
+    allowed: boolean;
+    limit: number;
+    onUpgrade: () => void;
+    requiresUpgrade: boolean;
+  };
   resetCategoryForm: () => void;
   // Called with nextStatus for optimistic update, called with previousStatus on error revert
   revertStatus: (status: 'active' | 'draft' | 'archived') => void;
@@ -46,6 +52,7 @@ export function createProductEditPersistenceActions({
   isEditing,
   newCategoryName,
   openProduct,
+  productCreationGate,
   resetCategoryForm,
   revertStatus,
   routerBack,
@@ -124,6 +131,17 @@ export function createProductEditPersistenceActions({
             text: 'Open product',
             onPress: () => openProduct(exactProductSuggestion.id),
           },
+        ]
+      );
+      return;
+    }
+    if (!isEditing && productCreationGate?.requiresUpgrade) {
+      Alert.alert(
+        'Baci Pro',
+        `Free stores can create up to ${productCreationGate.limit.toLocaleString()} products. Upgrade to Baci Pro to add more.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: productCreationGate.onUpgrade },
         ]
       );
       return;

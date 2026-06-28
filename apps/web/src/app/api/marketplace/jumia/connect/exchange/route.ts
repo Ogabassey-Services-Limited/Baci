@@ -11,6 +11,10 @@ import {
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
 import { exchangeJumiaCode, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import {
+  getMerchantFeatureAccess,
+  merchantFeatureUpgradeResponse,
+} from '@/lib/merchant-feature-gates';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const bodySchema = z.object({
@@ -58,6 +62,25 @@ export async function POST(request: NextRequest) {
     }
 
     const { code, ticketId } = parsed.data;
+
+    const featureAccess = await getMerchantFeatureAccess(
+      auth.supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureAccess.error) {
+      console.error(
+        '[Jumia Exchange] Feature access lookup failed:',
+        featureAccess.error
+      );
+      return NextResponse.json(
+        { error: 'Failed to verify merchant plan' },
+        { status: 500 }
+      );
+    }
+    if (!featureAccess.allowed) {
+      return merchantFeatureUpgradeResponse('marketplace_sync');
+    }
 
     // Atomically consume the ticket — verifies ownership + status + expiry
     const adminClient = createAdminClient();

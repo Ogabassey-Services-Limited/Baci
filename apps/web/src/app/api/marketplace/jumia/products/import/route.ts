@@ -8,6 +8,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getAllProducts } from '@/lib/jumia/catalog';
 import { JumiaApiError, JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 
 const ImportSchema = z.object({
@@ -79,6 +80,15 @@ export async function POST(req: NextRequest) {
 
     if (requestedMerchantId && requestedMerchantId !== merchantId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      auth.supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
     }
 
     // 1. Initialize Clients

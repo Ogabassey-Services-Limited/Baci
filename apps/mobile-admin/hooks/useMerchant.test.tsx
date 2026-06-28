@@ -39,6 +39,9 @@ describe('fetchMerchantData', () => {
           favicon_png_192_url: null,
           is_published: false,
           phone: null,
+          plan_expires_at: '2026-12-31T23:59:59.000Z',
+          plan_tier: 'pro',
+          premium_features: ['custom_domain'],
           vat_registration_status: 'not_registered',
           vat_rate: null,
           payout_currency: null,
@@ -83,6 +86,9 @@ describe('fetchMerchantData', () => {
     const result = await fetchMerchantData('user-1');
 
     expect(result.merchant?.id).toBe('merchant-1');
+    expect(result.merchant?.plan_tier).toBe('pro');
+    expect(result.merchant?.premium_features).toEqual(['custom_domain']);
+    expect(result.merchant?.plan_expires_at).toBe('2026-12-31T23:59:59.000Z');
     expect(result.primaryDomain?.domain).toBe('baci.usebaci.com');
     expect(mockFrom).not.toHaveBeenCalled();
   });

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { G, Rect, Text as SvgText } from 'react-native-svg';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type Granularity,
@@ -22,7 +23,10 @@ import {
   useAnalyticsDetail,
 } from '@/hooks/useAnalyticsDetail';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates } from '@/lib/feature-gates';
 
 const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
   { value: 'hourly', label: 'HOURLY' },
@@ -31,6 +35,13 @@ const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
 ];
 
 const DEFAULT_FILTER_LABEL = 'Selected period';
+
+type AnalyticsDetailContentProps = {
+  endDate?: string;
+  filterLabel?: string;
+  metric: MetricType;
+  startDate?: string;
+};
 
 // Bar Chart Component
 function BarChart({
@@ -155,8 +166,9 @@ function BarChart({
 }
 
 export default function AnalyticsDetailScreen() {
-  const { colors, isDark } = useTheme();
-  const { format: formatCurrency, formatCompact } = useCurrency();
+  const { colors } = useTheme();
+  const { merchant } = useMerchant();
+  const { isPro } = useRevenueCat();
   const router = useRouter();
   const {
     endDate,
@@ -173,6 +185,60 @@ export default function AnalyticsDetailScreen() {
     typeof metricParam === 'string' && Object.hasOwn(METRIC_CONFIG, metricParam)
       ? (metricParam as MetricType)
       : 'revenue';
+  const config = METRIC_CONFIG[metric];
+  const hasAdvancedAnalytics =
+    isPro || baciFeatureGates.hasFeature(merchant, 'advanced_analytics');
+
+  if (!hasAdvancedAnalytics) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: config.title,
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+            headerLeft: () => (
+              <Pressable
+                onPress={() => router.back()}
+                style={{ marginRight: SPACING.md }}
+              >
+                <Ionicons name="arrow-back" size={24} color={colors.text} />
+              </Pressable>
+            ),
+          }}
+        />
+        <FeatureGateScreen
+          description="Metric drilldowns, comparisons, and sharing are available when Baci Pro is active."
+          feature="advanced_analytics"
+          title="Advanced analytics are a Baci Pro feature"
+        >
+          {null}
+        </FeatureGateScreen>
+      </>
+    );
+  }
+
+  return (
+    <AnalyticsDetailContent
+      endDate={endDate}
+      filterLabel={filterLabel}
+      metric={metric}
+      startDate={startDate}
+    />
+  );
+}
+
+function AnalyticsDetailContent({
+  endDate,
+  filterLabel,
+  metric,
+  startDate,
+}: AnalyticsDetailContentProps) {
+  const { colors, isDark } = useTheme();
+  const { format: formatCurrency, formatCompact } = useCurrency();
+  const router = useRouter();
 
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [showComparison, setShowComparison] = useState(false);
@@ -327,13 +393,18 @@ export default function AnalyticsDetailScreen() {
             </Pressable>
           ),
           headerRight: () => (
-            <Pressable onPress={handleShare} style={{ marginLeft: SPACING.md }}>
+            <Pressable
+              accessibilityLabel="Share analytics metric"
+              accessibilityRole="button"
+              accessible
+              onPress={handleShare}
+              style={{ marginLeft: SPACING.md }}
+            >
               <Ionicons name="share-outline" size={22} color={colors.text} />
             </Pressable>
           ),
         }}
       />
-
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}

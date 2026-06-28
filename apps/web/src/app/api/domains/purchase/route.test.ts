@@ -16,6 +16,13 @@ type TransactionRecord = {
   status: string;
 };
 
+type MerchantRecord = {
+  id: string;
+  plan_expires_at?: string | null;
+  plan_tier?: string | null;
+  premium_features?: string[];
+};
+
 const mocks = vi.hoisted(() => ({
   after: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
@@ -87,7 +94,15 @@ function createMutationQuery(payload: Record<string, unknown>) {
   return query;
 }
 
-function createSupabase(transaction: TransactionRecord) {
+function createSupabase(
+  transaction: TransactionRecord,
+  merchant: MerchantRecord = {
+    id: 'merchant-1',
+    plan_expires_at: null,
+    plan_tier: 'pro',
+    premium_features: [],
+  }
+) {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -100,7 +115,7 @@ function createSupabase(transaction: TransactionRecord) {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               single: vi.fn().mockResolvedValue({
-                data: { id: 'merchant-1' },
+                data: merchant,
                 error: null,
               }),
             })),
@@ -217,5 +232,32 @@ describe('POST /api/domains/purchase transaction scoping', () => {
       ['merchant_id', 'merchant-1'],
     ]);
     expect(mocks.revalidateMerchantFeed).toHaveBeenCalledWith('merchant-1');
+  });
+
+  it('returns 402 before registration when custom domains are locked', async () => {
+    supabase = createSupabase(
+      {
+        amount: 100,
+        gateway: 'paystack',
+        id: 'transaction-owned',
+        merchant_id: 'merchant-1',
+        metadata: null,
+        status: 'completed',
+      },
+      {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+      }
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(402);
+    const json = await response.json();
+    expect(json.code).toBe('requires_upgrade');
+    expect(mocks.verifyPaystackPayment).not.toHaveBeenCalled();
+    expect(mocks.transactionMutations).toHaveLength(0);
   });
 });

@@ -15,6 +15,7 @@ import {
   updateDomainLock,
   updateDomainNameservers,
 } from '@/lib/go54';
+import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { vercel } from '@/lib/vercel';
 
 const nameserverDataSchema = z.object({
@@ -65,6 +66,15 @@ export async function GET(
     }
 
     const merchantId = access.merchantId;
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'custom_domain'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
 
     const { data: domainRecord, error: domainError } = await supabase
       .from('domains')
@@ -137,6 +147,15 @@ export async function POST(
     }
 
     const merchantId = access.merchantId;
+
+    const featureGateResponse = await requireMerchantFeatureAccess(
+      supabase,
+      merchantId,
+      'custom_domain'
+    );
+    if (featureGateResponse) {
+      return featureGateResponse;
+    }
 
     const body = await request.json();
     const parsed = domainActionSchema.safeParse(body);

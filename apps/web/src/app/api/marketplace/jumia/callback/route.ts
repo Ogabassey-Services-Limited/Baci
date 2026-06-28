@@ -16,6 +16,7 @@ import {
   sanitizeJumiaErrorDetails,
 } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
+import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */
 const KNOWN_OAUTH_ERRORS = new Set([
@@ -155,6 +156,25 @@ export async function GET(request: NextRequest) {
 
     if (!code || code.length > 2048) {
       return createPlatformRedirect(request, { error: 'no_code' });
+    }
+
+    const featureAccess = await getMerchantFeatureAccess(
+      auth.supabase,
+      merchantId,
+      'marketplace_sync'
+    );
+    if (featureAccess.error) {
+      logger.error({
+        message: 'Jumia Callback Feature access lookup failed',
+        merchantId,
+        error: featureAccess.error,
+      });
+      return createPlatformRedirect(request, {
+        error: 'plan_verification_failed',
+      });
+    }
+    if (!featureAccess.allowed) {
+      return createPlatformRedirect(request, { error: 'requires_upgrade' });
     }
 
     const jumiaClientId = getJumiaClientId();

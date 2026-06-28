@@ -9,6 +9,7 @@ const mockGetUser = vi.fn();
 const mockGetMerchant = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockForIntegration = vi.fn();
+const mockRequireMerchantFeatureAccess = vi.fn();
 const mockUpdateStock = vi.fn();
 
 const mockMappingsSelect = vi.fn();
@@ -78,6 +79,10 @@ vi.mock('@/lib/jumia/client', () => ({
 vi.mock('@/lib/jumia/feeds', () => ({
   updateStock: (...args: unknown[]) => mockUpdateStock(...args),
 }));
+vi.mock('@/lib/merchant-feature-gates', () => ({
+  requireMerchantFeatureAccess: (...args: unknown[]) =>
+    mockRequireMerchantFeatureAccess(...args),
+}));
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -108,6 +113,7 @@ const { POST } = await import('./route');
 describe('POST /api/marketplace/jumia/products/stock', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireMerchantFeatureAccess.mockResolvedValue(null);
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -136,6 +142,32 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('Invalid integrationId');
+  });
+
+  it('returns 402 before creating a Jumia client when marketplace sync is locked', async () => {
+    setupAuth();
+    mockRequireMerchantFeatureAccess.mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'requires_upgrade',
+          error: 'Marketplace sync requires Baci Pro',
+        },
+        { status: 402 }
+      )
+    );
+
+    const res = await POST(makeRequest(INT_ID));
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.code).toBe('requires_upgrade');
+    expect(mockRequireMerchantFeatureAccess).toHaveBeenCalledWith(
+      mockSupabase,
+      MERCHANT_ID,
+      'marketplace_sync'
+    );
+    expect(mockForIntegration).not.toHaveBeenCalled();
+    expect(mockUpdateStock).not.toHaveBeenCalled();
   });
 
   it('returns success with updated: 0 when no mappings exist', async () => {

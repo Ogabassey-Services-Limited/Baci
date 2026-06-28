@@ -4,7 +4,8 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
 
-const { mockOrdersCount } = vi.hoisted(() => ({
+const { mockOpenUpgradeModal, mockOrdersCount } = vi.hoisted(() => ({
+  mockOpenUpgradeModal: vi.fn(),
   mockOrdersCount: { value: 0 },
 }));
 
@@ -50,6 +51,16 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: vi.fn(),
+}));
+
+vi.mock('@/components/dashboard/upgrade-modal', () => ({
+  useUpgradeModal: () => ({
+    close: vi.fn(),
+    feature: null,
+    isOpen: false,
+    open: mockOpenUpgradeModal,
+    targetPlan: 'pro',
+  }),
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -131,6 +142,7 @@ function setSmartNavUsage(usage: unknown) {
 describe('DashboardClientLayout', () => {
   beforeEach(() => {
     localStorage.clear();
+    mockOpenUpgradeModal.mockClear();
     mockOrdersCount.value = 0;
     mockUseMerchantForLayout(createMerchantHookValue());
   });
@@ -264,6 +276,32 @@ describe('DashboardClientLayout', () => {
 
     expect(
       screen.queryByRole('link', { name: 'Agentic' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the Pro upgrade flow from the sidebar upgrade card', async () => {
+    renderLayout();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
+
+    expect(mockOpenUpgradeModal).toHaveBeenCalledWith(
+      'ai_product_descriptions'
+    );
+  });
+
+  it('shows the active Pro badge instead of the upgrade CTA for Pro merchants', () => {
+    mockUseMerchantForLayout(
+      createMerchantHookValue({
+        merchant: { ...defaultMerchant, plan_tier: 'pro' },
+      })
+    );
+
+    renderLayout();
+
+    expect(screen.getByText('Pro')).toBeInTheDocument();
+    expect(screen.getByText('Active subscription')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Upgrade' })
     ).not.toBeInTheDocument();
   });
 });

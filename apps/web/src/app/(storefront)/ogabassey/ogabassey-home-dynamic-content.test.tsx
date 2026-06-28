@@ -37,8 +37,9 @@ const mockMerchant = {
   site_tagline: '',
   site_description: '',
   payout_currency: 'NGN',
-  plan_tier: 'free',
-  premium_features: undefined,
+  plan_expires_at: null,
+  plan_tier: 'pro',
+  premium_features: [],
 };
 
 vi.mock('@/lib/cached-data', async (importOriginal) => {

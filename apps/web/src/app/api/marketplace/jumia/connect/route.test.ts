@@ -11,6 +11,7 @@ const mockSelect = vi.fn().mockReturnValue({ single: vi.fn() });
 const mockGetMerchant = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
+const mockFeaturePlanTier = vi.fn(() => 'pro');
 const mockGetJumiaAuthUrl = vi
   .fn()
   .mockReturnValue('https://jumia.com/auth?state=xyz');
@@ -60,9 +61,31 @@ function createUpsertBuilder() {
   };
 }
 
+function createMerchantFeatureBuilder() {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: MERCHANT_CTX.merchantId,
+            plan_expires_at: null,
+            plan_tier: mockFeaturePlanTier(),
+            premium_features: [],
+          },
+          error: null,
+        }),
+      })),
+    })),
+  };
+}
+
 const mockSupabase = {
   auth: { getUser: mockGetUser },
-  from: vi.fn<(...args: unknown[]) => unknown>(() => createUpsertBuilder()),
+  from: vi.fn<(...args: unknown[]) => unknown>((table) =>
+    table === 'merchants'
+      ? createMerchantFeatureBuilder()
+      : createUpsertBuilder()
+  ),
 };
 
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
@@ -188,6 +211,7 @@ describe('Connect POST', () => {
     process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     mockSelect.mockReturnValue({ single: vi.fn() });
+    mockFeaturePlanTier.mockReturnValue('pro');
     mockGetJumiaAuthUrl.mockReturnValue('https://jumia.com/auth?state=xyz');
   });
 
@@ -255,6 +279,35 @@ describe('Connect POST', () => {
     );
 
     expect(res.status).toBe(403);
+  });
+
+  it('returns 402 before saving an integration when marketplace sync is not enabled', async () => {
+    setupAuth();
+    mockFeaturePlanTier.mockReturnValue('free');
+    mockSelect.mockReturnValue({
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: INTEGRATION_ID,
+          shop_id: 'default',
+          shop_name: 'My Jumia Shop',
+        },
+        error: null,
+      }),
+    });
+
+    const res = await POST(
+      makePostRequest({
+        connectionType: 'self_authorization',
+        refreshToken: 'tok',
+      })
+    );
+
+    expect(res.status).toBe(402);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'requires_upgrade',
+      error: 'Marketplace sync requires Baci Pro',
+    });
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid body', async () => {
@@ -384,6 +437,7 @@ describe('Connect GET', () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
+    mockFeaturePlanTier.mockReturnValue('pro');
     mockGetJumiaAuthUrl.mockReturnValue('https://jumia.com/auth?state=xyz');
     setupAuth();
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -426,6 +480,19 @@ describe('Connect GET', () => {
     const res = await GET(makeGetRequest('?connectionType=oauth'));
 
     expect(res.status).toBe(403);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 402 before redirecting to OAuth when marketplace sync is not enabled', async () => {
+    mockFeaturePlanTier.mockReturnValue('free');
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(402);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'requires_upgrade',
+      error: 'Marketplace sync requires Baci Pro',
+    });
     expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
   });
 

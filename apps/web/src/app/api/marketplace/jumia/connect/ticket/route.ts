@@ -5,6 +5,10 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import {
+  getMerchantFeatureAccess,
+  merchantFeatureUpgradeResponse,
+} from '@/lib/merchant-feature-gates';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
@@ -33,6 +37,25 @@ export async function POST(request: NextRequest) {
 
     if (!hasPermission(access, 'integrations', 'manage')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const featureAccess = await getMerchantFeatureAccess(
+      auth.supabase,
+      access.merchantId,
+      'marketplace_sync'
+    );
+    if (featureAccess.error) {
+      console.error(
+        '[Jumia Ticket] Feature access lookup failed:',
+        featureAccess.error
+      );
+      return NextResponse.json(
+        { error: 'Failed to verify merchant plan' },
+        { status: 500 }
+      );
+    }
+    if (!featureAccess.allowed) {
+      return merchantFeatureUpgradeResponse('marketplace_sync');
     }
 
     const appUrl = getConfiguredAppUrl();

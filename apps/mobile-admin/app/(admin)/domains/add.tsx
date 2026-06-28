@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -9,88 +10,98 @@ export default function AddDomainScreen() {
   const router = useRouter();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+    <FeatureGateScreen
+      description="Register or connect a branded domain when Baci Pro is active."
+      feature="custom_domain"
+      serverEntitlementRequired
+      title="Custom domains are a Baci Pro feature"
     >
-      <Text style={[styles.title, { color: colors.text }]}>
-        Choose how you want to proceed
-      </Text>
-
-      {/* Buy New Domain */}
-      <Pressable
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.primary },
-          shadows.sm,
-        ]}
-        onPress={() => router.push('/domains/buy')}
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
       >
-        <View
-          style={[styles.iconBadge, { backgroundColor: `${colors.primary}15` }]}
+        <Text style={[styles.title, { color: colors.text }]}>
+          Choose how you want to proceed
+        </Text>
+
+        {/* Buy New Domain */}
+        <Pressable
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.primary },
+            shadows.sm,
+          ]}
+          onPress={() => router.push('/domains/buy')}
         >
-          <Ionicons name="cart" size={24} color={colors.primary} />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Get a custom domain
-          </Text>
-          <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
-            Search and register a new domain name. We handle the technical setup
-            for you.
-          </Text>
           <View
             style={[
-              styles.noteContainer,
-              { backgroundColor: `${colors.warning}15` },
+              styles.iconBadge,
+              { backgroundColor: `${colors.primary}15` },
             ]}
           >
-            <Ionicons
-              name="information-circle"
-              size={14}
-              color={colors.warning}
-            />
-            <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-              Activation may take up to 72 hours
+            <Ionicons name="cart" size={24} color={colors.primary} />
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Get a custom domain
+            </Text>
+            <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+              Search and register a new domain name. We handle the technical
+              setup for you.
+            </Text>
+            <View
+              style={[
+                styles.noteContainer,
+                { backgroundColor: `${colors.warning}15` },
+              ]}
+            >
+              <Ionicons
+                name="information-circle"
+                size={14}
+                color={colors.warning}
+              />
+              <Text style={[styles.noteText, { color: colors.textSecondary }]}>
+                Activation may take up to 72 hours
+              </Text>
+            </View>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={24}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+
+        {/* Connect Existing */}
+        <Pressable
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+          onPress={() => router.push('/domains/connect')}
+        >
+          <View
+            style={[
+              styles.iconBadge,
+              { backgroundColor: `${colors.textSecondary}15` },
+            ]}
+          >
+            <Ionicons name="link" size={24} color={colors.text} />
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Connect to a domain
+            </Text>
+            <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+              Already own a domain? Connect it here. You'll need to update DNS
+              records.
             </Text>
           </View>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={24}
-          color={colors.textSecondary}
-        />
-      </Pressable>
-
-      {/* Connect Existing */}
-      <Pressable
-        style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
-        onPress={() => router.push('/domains/connect')}
-      >
-        <View
-          style={[
-            styles.iconBadge,
-            { backgroundColor: `${colors.textSecondary}15` },
-          ]}
-        >
-          <Ionicons name="link" size={24} color={colors.text} />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Connect to a domain
-          </Text>
-          <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
-            Already own a domain? Connect it here. You'll need to update DNS
-            records.
-          </Text>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={24}
-          color={colors.textSecondary}
-        />
-      </Pressable>
-    </ScrollView>
+          <Ionicons
+            name="chevron-forward"
+            size={24}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      </ScrollView>
+    </FeatureGateScreen>
   );
 }
 

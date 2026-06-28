@@ -1,45 +1,50 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DomainsDashboard from './index';
 
 const mocks = vi.hoisted(() => ({
-  back: vi.fn(),
-  push: vi.fn(),
-  refetch: vi.fn(),
+  handleOptionAction: vi.fn(),
+  queryState: {
+    data: [
+      {
+        created_at: '2026-06-01T00:00:00.000Z',
+        domain: 'shop.example.com',
+        domain_type: 'custom',
+        id: 'domain-1',
+        is_primary: true,
+        status: 'active',
+      },
+    ],
+    error: null,
+    isLoading: false,
+    isRefetching: false,
+    refetch: vi.fn(),
+  },
+  router: {
+    back: vi.fn(),
+    push: vi.fn(),
+  },
+  useRevenueCat: vi.fn(),
+  useMerchant: vi.fn(),
   useQuery: vi.fn(),
 }));
 
-vi.mock('react-native', async () => {
+vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
-    Pressable: ({
-      children,
-      onPress,
-    }: {
-      children?: React.ReactNode;
-      onPress?: () => void;
-    }) =>
-      React.createElement('button', { onClick: () => onPress?.() }, children),
-    RefreshControl: () => null,
-    ScrollView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    StatusBar: () => null,
-    StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    Stack: {
+      Screen: () =>
+        React.createElement('div', { 'data-testid': 'stack-screen' }),
+    },
+    useRouter: () => mocks.router,
   };
 });
 
-vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: React.ReactNode }) => children,
-}));
-
 vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
-  default: () => null,
+  default: ({ name }: { name?: string }) => (
+    <span aria-hidden="true" data-icon={name} />
+  ),
   __esModule: true,
 }));
 
@@ -47,57 +52,119 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: mocks.useQuery,
 }));
 
-vi.mock('expo-router', async () => {
-  const React = await import('react');
-  return {
-    Stack: { Screen: () => React.createElement('div') },
-    useRouter: () => ({ back: mocks.back, push: mocks.push }),
-  };
-});
+vi.mock('react-native', () => ({
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button
+      aria-label={accessibilityLabel}
+      onClick={() => onPress?.()}
+      type="button"
+    >
+      {children}
+    </button>
+  ),
+  RefreshControl: () => null,
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  StatusBar: () => null,
+  StyleSheet: {
+    create: (styles: Record<string, unknown>) => styles,
+  },
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
+}));
 
 vi.mock('@/components/domains/DomainEmptyState', () => ({
-  DomainEmptyState: () => <div>Domain empty state</div>,
+  DomainEmptyState: ({
+    onBuyDomain,
+    onConnectDomain,
+  }: {
+    onBuyDomain: () => void;
+    onConnectDomain: () => void;
+  }) => (
+    <div>
+      <button onClick={onBuyDomain} type="button">
+        Buy a domain
+      </button>
+      <button onClick={onConnectDomain} type="button">
+        Connect a domain
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/domains/DomainItemCard', () => ({
-  DomainItemCard: ({ domain }: { domain: { domain: string } }) => (
-    <div>{domain.domain}</div>
+  DomainItemCard: ({
+    domain,
+    onOpenOptions,
+  }: {
+    domain: { domain: string };
+    onOpenOptions: (domain: { domain: string }) => void;
+  }) => (
+    <button onClick={() => onOpenOptions(domain)} type="button">
+      {domain.domain}
+    </button>
   ),
 }));
 
 vi.mock('@/components/domains/DomainOptionsSheet', () => ({
-  default: () => null,
+  default: ({ visible }: { visible?: boolean }) =>
+    visible ? <div>Domain options</div> : null,
 }));
 
 vi.mock('@/components/domains/StoreLinkCard', () => ({
-  StoreLinkCard: () => <div>Store link</div>,
+  StoreLinkCard: ({
+    merchantSlug,
+    primaryDomain,
+  }: {
+    merchantSlug?: string;
+    primaryDomain?: string;
+  }) => (
+    <div>Store link {primaryDomain ?? merchantSlug ?? 'not configured'}</div>
+  ),
 }));
 
 vi.mock('@/hooks/useDomainActions', () => ({
   useDomainActions: () => ({
-    actionLoading: null,
-    handleOptionAction: vi.fn(),
+    actionLoading: false,
+    handleOptionAction: mocks.handleOptionAction,
   }),
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({
-    merchant: { id: 'merchant-1', slug: 'ogabassey' },
-    primaryDomain: null,
-  }),
+  useMerchant: mocks.useMerchant,
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: mocks.useRevenueCat,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
-      background: '#fff',
-      border: '#e5e7eb',
-      card: '#fff',
+      background: '#ffffff',
+      border: '#e2e8f0',
+      card: '#f8fafc',
       error: '#dc2626',
       errorLight: '#fee2e2',
+      gold: '#b45309',
+      goldLight: '#fef3c7',
       primary: '#2563eb',
-      text: '#111827',
-      textSecondary: '#4b5563',
+      text: '#0f172a',
+      textOnPrimary: '#ffffff',
+      textSecondary: '#475569',
     },
     isDark: false,
     shadows: { lg: {} },
@@ -105,66 +172,108 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: {},
+  supabase: {
+    from: vi.fn(),
+  },
 }));
 
 describe('DomainsDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.useQuery.mockReturnValue({
-      data: [],
-      error: null,
-      isLoading: true,
-      isRefetching: false,
-      refetch: mocks.refetch,
+    mocks.useQuery.mockImplementation(() => mocks.queryState);
+    mocks.useRevenueCat.mockReturnValue({ isPro: false });
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'pro',
+        premium_features: [],
+        slug: 'baci-test',
+      },
+      primaryDomain: {
+        domain: 'store.baci.test',
+        domain_type: 'subdomain',
+        id: 'primary-domain',
+        is_primary: true,
+        status: 'active',
+      },
     });
+    mocks.queryState.data = [
+      {
+        created_at: '2026-06-01T00:00:00.000Z',
+        domain: 'shop.example.com',
+        domain_type: 'custom',
+        id: 'domain-1',
+        is_primary: true,
+        status: 'active',
+      },
+    ];
+    mocks.queryState.error = null;
+    mocks.queryState.isLoading = false;
   });
 
-  it('renders the domains dashboard loading shell', () => {
+  it('renders merchant domain rows', () => {
     render(<DomainsDashboard />);
 
     expect(screen.getByText('Domains')).toBeTruthy();
     expect(screen.getByText('CUSTOM DOMAINS')).toBeTruthy();
-    expect(screen.getByText('Loading domains…')).toBeTruthy();
-  });
-
-  it('renders loaded custom domains', () => {
-    mocks.useQuery.mockReturnValue({
-      data: [
-        {
-          created_at: '2026-01-01T00:00:00.000Z',
-          domain: 'shop.example.com',
-          domain_type: 'custom',
-          id: 'domain-1',
-          is_primary: true,
-          status: 'active',
-        },
-      ],
-      error: null,
-      isLoading: false,
-      isRefetching: false,
-      refetch: mocks.refetch,
-    });
-
-    render(<DomainsDashboard />);
-
-    expect(screen.getByText('Store link')).toBeTruthy();
     expect(screen.getByText('shop.example.com')).toBeTruthy();
+    expect(screen.getByText(/Store link store\.baci\.test/i)).toBeTruthy();
   });
 
-  it('renders a retry action when domain loading fails', () => {
-    mocks.useQuery.mockReturnValue({
-      data: [],
-      error: new Error('Network unavailable'),
-      isLoading: false,
-      isRefetching: false,
-      refetch: mocks.refetch,
+  it('routes empty-state actions to domain setup flows', () => {
+    mocks.queryState.data = [];
+
+    render(<DomainsDashboard />);
+
+    fireEvent.click(screen.getByText('Buy a domain'));
+    fireEvent.click(screen.getByText('Connect a domain'));
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains/buy');
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains/connect');
+  });
+
+  it('keeps stack options mounted without loading domains when custom domains are locked', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+        slug: 'baci-test',
+      },
+      primaryDomain: null,
     });
 
     render(<DomainsDashboard />);
 
-    expect(screen.getByText('Failed to load domains')).toBeTruthy();
-    fireEvent.click(screen.getByText('Failed to load domains'));
-    expect(mocks.refetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('stack-screen')).toBeTruthy();
+    expect(mocks.useQuery).not.toHaveBeenCalled();
+  });
+
+  it('waits for server entitlement for RevenueCat Pro users before DB entitlement syncs', () => {
+    mocks.useRevenueCat.mockReturnValue({ isPro: true });
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        plan_expires_at: null,
+        plan_tier: 'free',
+        premium_features: [],
+        slug: 'baci-test',
+      },
+      primaryDomain: {
+        domain: 'store.baci.test',
+        domain_type: 'subdomain',
+        id: 'primary-domain',
+        is_primary: true,
+        status: 'active',
+      },
+    });
+
+    render(<DomainsDashboard />);
+
+    expect(screen.getByText('Pro access is syncing')).toBeTruthy();
+    expect(screen.queryByText('CUSTOM DOMAINS')).toBeNull();
+    expect(mocks.useQuery).not.toHaveBeenCalled();
   });
 });

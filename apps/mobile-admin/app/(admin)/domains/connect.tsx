@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { connectStyles as styles } from '@/components/domains/connect.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
@@ -187,151 +188,184 @@ export default function ConnectDomainScreen() {
   // Render Verification Step
   if (verificationInfo) {
     return (
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.content}
+      <FeatureGateScreen
+        description="Connect branded domains when Baci Pro is active."
+        feature="custom_domain"
+        serverEntitlementRequired
+        title="Custom domains are a Baci Pro feature"
       >
-        <View
-          style={[
-            styles.successHeader,
-            { backgroundColor: `${colors.success}15` },
-          ]}
+        <ScrollView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          contentContainerStyle={styles.content}
         >
-          <Ionicons name="checkmark-circle" size={48} color={colors.success} />
-          <Text style={[styles.title, { color: colors.text }]}>
-            Domain Added!
-          </Text>
-          <Text
+          <View
             style={[
-              styles.subtitle,
-              { color: colors.textSecondary, textAlign: 'center' },
+              styles.successHeader,
+              { backgroundColor: `${colors.success}15` },
             ]}
           >
-            To verify ownership of {verificationInfo.domain}, please add the
-            following TXT record to your DNS settings.
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.recordCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-            shadows.sm,
-          ]}
-        >
-          <View style={styles.recordRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Type
+            <Ionicons
+              name="checkmark-circle"
+              size={48}
+              color={colors.success}
+            />
+            <Text style={[styles.title, { color: colors.text }]}>
+              Domain Added!
             </Text>
-            <Text style={[styles.value, { color: colors.text }]}>TXT</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          <View style={styles.recordRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Host
-            </Text>
-            <Text style={[styles.value, { color: colors.text }]}>@</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          <View style={styles.recordRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Value
-            </Text>
-            <Pressable
-              style={[styles.copyValue, { backgroundColor: colors.background }]}
-              onPress={() => copyToClipboard(verificationInfo.token)}
+            <Text
+              style={[
+                styles.subtitle,
+                { color: colors.textSecondary, textAlign: 'center' },
+              ]}
             >
-              <Text
-                style={[styles.tokenText, { color: colors.text }]}
-                numberOfLines={1}
-                ellipsizeMode="middle"
-              >
-                {verificationInfo.token}
-              </Text>
-              <Ionicons name="copy-outline" size={16} color={colors.primary} />
-            </Pressable>
+              To verify ownership of {verificationInfo.domain}, please add the
+              following TXT record to your DNS settings.
+            </Text>
           </View>
-        </View>
 
-        <View
-          style={[
-            styles.noteContainer,
-            { backgroundColor: `${colors.primary}10` },
-          ]}
-        >
-          <Ionicons name="time-outline" size={20} color={colors.primary} />
-          <Text style={[styles.noteText, { color: colors.text }]}>
-            DNS changes can take up to 24 hours to propagate.
-          </Text>
-        </View>
+          <View
+            style={[
+              styles.recordCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              shadows.sm,
+            ]}
+          >
+            <View style={styles.recordRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Type
+              </Text>
+              <Text style={[styles.value, { color: colors.text }]}>TXT</Text>
+            </View>
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
 
-        <Pressable
-          style={[
-            styles.button,
-            { backgroundColor: colors.primary, marginTop: SPACING.xl },
-          ]}
-          onPress={handleDone}
-        >
-          <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>I've Added the Record</Text>
-        </Pressable>
-      </ScrollView>
+            <View style={styles.recordRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Host
+              </Text>
+              <Text style={[styles.value, { color: colors.text }]}>@</Text>
+            </View>
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
+
+            <View style={styles.recordRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Value
+              </Text>
+              <Pressable
+                style={[
+                  styles.copyValue,
+                  { backgroundColor: colors.background },
+                ]}
+                onPress={() => copyToClipboard(verificationInfo.token)}
+              >
+                <Text
+                  style={[styles.tokenText, { color: colors.text }]}
+                  numberOfLines={1}
+                  ellipsizeMode="middle"
+                >
+                  {verificationInfo.token}
+                </Text>
+                <Ionicons
+                  name="copy-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.noteContainer,
+              { backgroundColor: `${colors.primary}10` },
+            ]}
+          >
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={[styles.noteText, { color: colors.text }]}>
+              DNS changes can take up to 24 hours to propagate.
+            </Text>
+          </View>
+
+          <Pressable
+            style={[
+              styles.button,
+              { backgroundColor: colors.primary, marginTop: SPACING.xl },
+            ]}
+            onPress={handleDone}
+          >
+            <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
+              I've Added the Record
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </FeatureGateScreen>
     );
   }
 
   // Render Input Step
   return (
-    <AppFormScreen
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-      keyboardOffsetPreset="compactHeader"
+    <FeatureGateScreen
+      description="Connect branded domains when Baci Pro is active."
+      feature="custom_domain"
+      serverEntitlementRequired
+      title="Custom domains are a Baci Pro feature"
     >
-      <Text style={[styles.title, { color: colors.text }]}>
-        Connect Existing Domain
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Enter the domain name you own (e.g. example.com) to connect it to your
-        store.
-      </Text>
-
-      <View style={{ marginTop: SPACING.xl }}>
-        <Text style={[styles.inputLabel, { color: colors.text }]}>
-          Domain Name
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.card,
-              color: colors.text,
-              borderColor: colors.border,
-            },
-          ]}
-          placeholder="example.com"
-          placeholderTextColor={colors.textSecondary}
-          value={domain}
-          onChangeText={setDomain}
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!loading}
-        />
-      </View>
-
-      <Pressable
-        style={[
-          styles.button,
-          { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 },
-        ]}
-        onPress={handleConnect}
-        disabled={loading}
+      <AppFormScreen
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+        keyboardOffsetPreset="compactHeader"
       >
-        {loading ? (
-          <ActivityIndicator color={colors.textOnPrimary} />
-        ) : (
-          <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>Connect Domain</Text>
-        )}
-      </Pressable>
-    </AppFormScreen>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Connect Existing Domain
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Enter the domain name you own (e.g. example.com) to connect it to your
+          store.
+        </Text>
+
+        <View style={{ marginTop: SPACING.xl }}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>
+            Domain Name
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            placeholder="example.com"
+            placeholderTextColor={colors.textSecondary}
+            value={domain}
+            onChangeText={setDomain}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!loading}
+          />
+        </View>
+
+        <Pressable
+          style={[
+            styles.button,
+            { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 },
+          ]}
+          onPress={handleConnect}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={colors.textOnPrimary} />
+          ) : (
+            <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
+              Connect Domain
+            </Text>
+          )}
+        </Pressable>
+      </AppFormScreen>
+    </FeatureGateScreen>
   );
 }

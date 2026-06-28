@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { ThemeProvider } from 'next-themes';
 import AppBody from '@/components/app-body';
 import { CsrfInitializer } from '@/components/csrf-initializer';
+import { UpgradeModalProvider } from '@/components/dashboard/upgrade-modal';
 import { AuthProvider } from '@/contexts/auth-context';
 import { MotionNonceProvider } from '@/contexts/MotionNonceProvider';
 import { NonceProvider, useNonce } from '@/contexts/NonceProvider';
@@ -81,9 +82,11 @@ function DashboardProvidersContent({
             initialStaffAccess={initialStaffAccess}
           >
             <ProductProvider>
-              <DashboardClientLayout>
-                <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-              </DashboardClientLayout>
+              <UpgradeModalProvider>
+                <DashboardClientLayout>
+                  <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+                </DashboardClientLayout>
+              </UpgradeModalProvider>
             </ProductProvider>
           </MerchantProvider>
         </AuthProvider>

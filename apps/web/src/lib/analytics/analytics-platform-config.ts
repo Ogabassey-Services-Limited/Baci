@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { merchantHasFeature } from '@/lib/merchant-feature-gates';
 
 export interface AnalyticsPlatformConfig {
   offline_conversions_enabled: boolean | null;
@@ -29,8 +30,21 @@ const MERCHANT_SELECT = [
   'offline_conversions_enabled',
   ...PLATFORM_CREDENTIAL_FIELDS,
 ].join(', ');
+const MERCHANT_ENTITLEMENT_SELECT =
+  'plan_tier, plan_expires_at, premium_features';
 
 const FEATURE_SETTINGS_SELECT = PLATFORM_CREDENTIAL_FIELDS.join(', ');
+const LOCKED_ANALYTICS_PLATFORM_CONFIG: AnalyticsPlatformConfig = {
+  offline_conversions_enabled: false,
+  facebook_pixel_id: null,
+  facebook_capi_token: null,
+  tiktok_pixel_id: null,
+  tiktok_access_token: null,
+  google_analytics_id: null,
+  ga4_api_secret: null,
+  snapchat_pixel_id: null,
+  snapchat_capi_token: null,
+};
 
 function normalizedCredential(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -103,6 +117,21 @@ export async function fetchAnalyticsPlatformConfig(
   supabase: SupabaseClient,
   merchantId: string
 ): Promise<AnalyticsPlatformConfig | null> {
+  const { data: merchantEntitlement, error: merchantEntitlementError } =
+    await supabase
+      .from('merchants')
+      .select(MERCHANT_ENTITLEMENT_SELECT)
+      .eq('id', merchantId)
+      .maybeSingle();
+
+  if (merchantEntitlementError || !merchantEntitlement) {
+    return null;
+  }
+
+  if (!merchantHasFeature(merchantEntitlement, 'growth_integrations')) {
+    return { ...LOCKED_ANALYTICS_PLATFORM_CONFIG };
+  }
+
   const { data: merchantConfig, error: merchantError } = await supabase
     .from('merchants')
     .select(MERCHANT_SELECT)

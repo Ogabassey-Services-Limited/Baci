@@ -9,6 +9,10 @@ import {
   revalidateMerchant,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantFeatureAccess,
+  merchantFeatureUpgradeResponse,
+} from '@/lib/merchant-feature-gates';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import {
   preserveZohoCampaignSecretCustomSettings,
@@ -247,6 +251,33 @@ type _MerchantFeatureSelectFieldsExhaustive =
 const _merchantFeatureSelectCompletenessCheck: _MerchantFeatureSelectFieldsExhaustive = true;
 void _merchantFeatureSelectCompletenessCheck;
 
+const GROWTH_INTEGRATION_SETTINGS_FIELDS = new Set<
+  keyof MerchantFeatureSettings
+>([
+  'google_analytics_id',
+  'ga4_api_secret',
+  'facebook_pixel_id',
+  'facebook_capi_token',
+  'tiktok_pixel_id',
+  'tiktok_access_token',
+  'snapchat_pixel_id',
+  'snapchat_capi_token',
+  'twitter_pixel_id',
+]);
+
+function hasNonEmptyGrowthIntegrationSetting(updates: Record<string, unknown>) {
+  return [...GROWTH_INTEGRATION_SETTINGS_FIELDS].some((field) => {
+    if (!(field in updates)) {
+      return false;
+    }
+
+    const value = updates[field];
+    return typeof value === 'string'
+      ? value.trim().length > 0
+      : value !== null && value !== undefined;
+  });
+}
+
 type MerchantFeatureDefaultField = Exclude<
   keyof MerchantFeatureSettings,
   'id' | 'merchant_id' | 'created_at' | 'updated_at'
@@ -397,6 +428,29 @@ export async function PATCH(request: NextRequest) {
       sanitizedUpdates.rewards_page_enabled = sanitizedUpdates.loyalty_enabled;
     }
 
+    if (hasNonEmptyGrowthIntegrationSetting(sanitizedUpdates)) {
+      const featureAccess = await getMerchantFeatureAccess(
+        auth.supabase,
+        access.merchantId,
+        'growth_integrations'
+      );
+      if (featureAccess.error) {
+        console.error(
+          'Error checking growth integration access:',
+          featureAccess.error
+        );
+        return jsonNoStore(
+          { error: 'Failed to verify merchant plan' },
+          { status: 500 }
+        );
+      }
+      if (!featureAccess.allowed) {
+        return withNoStore(
+          merchantFeatureUpgradeResponse('growth_integrations')
+        );
+      }
+    }
+
     const { data: existingSettings, error: existingSettingsError } =
       await auth.supabase
         .from('merchant_feature_settings')
@@ -520,6 +574,29 @@ export async function PUT(request: NextRequest) {
       );
     }
     const sanitizedSettings = parsedSettings.data;
+
+    if (hasNonEmptyGrowthIntegrationSetting(sanitizedSettings)) {
+      const featureAccess = await getMerchantFeatureAccess(
+        auth.supabase,
+        access.merchantId,
+        'growth_integrations'
+      );
+      if (featureAccess.error) {
+        console.error(
+          'Error checking growth integration access:',
+          featureAccess.error
+        );
+        return jsonNoStore(
+          { error: 'Failed to verify merchant plan' },
+          { status: 500 }
+        );
+      }
+      if (!featureAccess.allowed) {
+        return withNoStore(
+          merchantFeatureUpgradeResponse('growth_integrations')
+        );
+      }
+    }
 
     const { data: existingSettings, error: existingSettingsError } =
       await auth.supabase

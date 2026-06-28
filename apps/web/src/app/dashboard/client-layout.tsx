@@ -43,6 +43,7 @@ import {
 } from 'react';
 import { BagIcon } from '@/components/bag-icon';
 
+import { useUpgradeModal } from '@/components/dashboard/upgrade-modal';
 import { Logo } from '@/components/logo';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { NotificationCenter } from '@/components/notifications/notification-center';
@@ -74,6 +75,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
+import { FEATURES, isPlanTier, type PlanTier } from '@/lib/feature-flags';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import {
@@ -120,6 +122,30 @@ async function fetchOrdersCount(merchantId: string): Promise<number> {
   }
 
   return count || 0;
+}
+
+function getDashboardPlanTier(planTier: string | null | undefined): PlanTier {
+  return isPlanTier(planTier) ? planTier : 'free';
+}
+
+function isDashboardPaidPlan(
+  planTier: PlanTier,
+  planExpiresAt: string | null | undefined
+): boolean {
+  if (planTier === 'free') {
+    return false;
+  }
+
+  if (!planExpiresAt) {
+    return true;
+  }
+
+  const expiryTime = Date.parse(planExpiresAt);
+  return Number.isFinite(expiryTime) && expiryTime > Date.now();
+}
+
+function formatPlanTierLabel(planTier: PlanTier): string {
+  return planTier.charAt(0).toUpperCase() + planTier.slice(1);
 }
 
 // Module-scope helper: syncs the persisted smart-nav usage from localStorage
@@ -265,6 +291,7 @@ export default function DashboardClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { open: openUpgradeModal } = useUpgradeModal();
   const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -359,6 +386,9 @@ export default function DashboardClientLayout({
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
     : null;
+  const planTier = getDashboardPlanTier(merchant?.plan_tier);
+  const isPaidPlan = isDashboardPaidPlan(planTier, merchant?.plan_expires_at);
+  const planTierLabel = formatPlanTierLabel(planTier);
 
   const getStoreUrl = () => {
     if (!merchant?.slug) return '#';
@@ -839,24 +869,44 @@ export default function DashboardClientLayout({
 
             {/* Sidebar Footer (Upgrade Card) */}
             <div className="p-4 mt-auto">
-              {!isCollapsed && (
-                <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
-                  <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
-                  <h4 className="font-semibold relative z-10">
-                    Upgrade to Pro
-                  </h4>
-                  <p className="text-xs text-primary-foreground/80 mt-1 mb-3 relative z-10">
-                    Unlock AI superpowers & unlimited support.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="w-full shadow-sm relative z-10 text-primary font-semibold"
-                  >
-                    Upgrade
-                  </Button>
-                </div>
-              )}
+              {!isCollapsed &&
+                (isPaidPlan ? (
+                  <div className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-foreground shadow-lg">
+                    <div className="absolute -right-4 -top-4 size-24 rounded-full bg-emerald-400/15 blur-2xl" />
+                    <div className="relative z-10 flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="font-semibold">Baci {planTierLabel}</h4>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Active subscription
+                        </p>
+                      </div>
+                      <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">
+                        {planTierLabel}
+                      </Badge>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
+                    <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
+                    <h4 className="font-semibold relative z-10">
+                      Upgrade to Pro
+                    </h4>
+                    <p className="text-xs text-primary-foreground/80 mt-1 mb-3 relative z-10">
+                      Unlock AI superpowers & unlimited support.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full shadow-sm relative z-10 text-primary font-semibold"
+                      type="button"
+                      onClick={() =>
+                        openUpgradeModal(FEATURES.AI_PRODUCT_DESCRIPTIONS)
+                      }
+                    >
+                      Upgrade
+                    </Button>
+                  </div>
+                ))}
             </div>
           </div>
         </div>

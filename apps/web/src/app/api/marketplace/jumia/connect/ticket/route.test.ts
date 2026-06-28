@@ -9,6 +9,7 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 const mockAdminFrom = vi.fn();
+const mockFeaturePlanTier = vi.fn(() => 'pro');
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -42,10 +43,36 @@ function makeRequest(): NextRequest {
   );
 }
 
+function createSupabase() {
+  return {
+    from: vi.fn((table: string) => {
+      if (table !== 'merchants') {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: MERCHANT_ID,
+                plan_expires_at: null,
+                plan_tier: mockFeaturePlanTier(),
+                premium_features: [],
+              },
+              error: null,
+            }),
+          })),
+        })),
+      };
+    }),
+  };
+}
+
 function setupAuth() {
   mockAuthenticateApiRequest.mockResolvedValue({
     user: { id: USER_ID },
-    supabase: {},
+    supabase: createSupabase(),
     error: null,
   });
   mockGetUserAccess.mockResolvedValue({
@@ -80,6 +107,7 @@ const { POST } = await import('./route');
 describe('POST /api/marketplace/jumia/connect/ticket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFeaturePlanTier.mockReturnValue('pro');
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -119,6 +147,21 @@ describe('POST /api/marketplace/jumia/connect/ticket', () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(403);
+  });
+
+  it('returns 402 before creating a ticket when marketplace sync is not enabled', async () => {
+    setupAuth();
+    mockFeaturePlanTier.mockReturnValue('free');
+    setupAdminInsert();
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(402);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'requires_upgrade',
+      error: 'Marketplace sync requires Baci Pro',
+    });
+    expect(mockAdminFrom).not.toHaveBeenCalled();
   });
 
   it('creates ticket and returns authUrl on success', async () => {

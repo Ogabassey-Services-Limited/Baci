@@ -141,6 +141,7 @@ const MERCHANT_PUBLIC_SELECT = `
         paystack_subaccount_code,
         is_published,
         template_id,
+        plan_expires_at,
         plan_tier,
         premium_features,
         country,
@@ -660,6 +661,7 @@ export interface CachedMerchant {
   paystack_subaccount_code?: string | null;
   is_published: boolean;
   template_id: string;
+  plan_expires_at?: string | null;
   plan_tier: string;
   premium_features: unknown;
   custom_domain?: string;
@@ -1333,6 +1335,7 @@ export async function getCachedMerchantById(
         paystack_subaccount_code,
         is_published,
         template_id,
+        plan_expires_at,
         plan_tier,
         premium_features,
         country,

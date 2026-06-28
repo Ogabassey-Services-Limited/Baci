@@ -2,9 +2,11 @@ process.env.TZ = 'UTC';
 
 import { describe, expect, it } from 'vitest';
 import {
+  createDefaultAnalyticsDateRange,
   getAnalyticsFilterLabel,
   getPreviousAnalyticsDateRange,
   resolveAnalyticsDateRange,
+  resolveAnalyticsDateRangeParams,
 } from '@/lib/analytics-period';
 
 describe('analytics-period', () => {
@@ -183,5 +185,53 @@ describe('analytics-period', () => {
     expect(getAnalyticsFilterLabel('this_year')).toBe('This year');
     expect(getAnalyticsFilterLabel('last_year')).toBe('Last year');
     expect(getAnalyticsFilterLabel('custom')).toBe('Custom range');
+  });
+
+  it('creates the default analytics range once from the supplied anchor', () => {
+    const range = createDefaultAnalyticsDateRange(
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    expect(range.startDate.toISOString()).toBe('2026-04-04T12:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2026-04-10T12:00:00.000Z');
+  });
+
+  it('returns the fallback range object when route date params are absent', () => {
+    const fallbackRange = createDefaultAnalyticsDateRange(
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    const range = resolveAnalyticsDateRangeParams({ fallbackRange });
+
+    expect(range).toBe(fallbackRange);
+  });
+
+  it('normalizes route date params and swaps inverted values', () => {
+    const fallbackRange = createDefaultAnalyticsDateRange(
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    const range = resolveAnalyticsDateRangeParams({
+      endDateParam: '2026-04-01T00:00:00.000Z',
+      fallbackRange,
+      startDateParam: '2026-04-10T00:00:00.000Z',
+    });
+
+    expect(range.startDate.toISOString()).toBe('2026-04-01T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2026-04-10T00:00:00.000Z');
+  });
+
+  it('falls back to stable dates for malformed route params', () => {
+    const fallbackRange = createDefaultAnalyticsDateRange(
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    const range = resolveAnalyticsDateRangeParams({
+      endDateParam: 'bad-end',
+      fallbackRange,
+      startDateParam: 'bad-start',
+    });
+
+    expect(range).toBe(fallbackRange);
   });
 });

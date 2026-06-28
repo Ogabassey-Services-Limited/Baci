@@ -1,16 +1,25 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ConnectDomainScreen from './connect';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   formScreenProps: {
     keyboardOffsetPreset: 'default' as 'default' | 'compactHeader',
   },
+  getSession: vi.fn(),
   router: {
     dismissAll: vi.fn(),
     push: vi.fn(),
+  },
+  subscription: {
+    isPro: true,
+    merchant: {
+      plan_tier: 'pro',
+      premium_features: [],
+    },
   },
 }));
 
@@ -42,10 +51,23 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({
+    isLoading: false,
+    merchant: mocks.subscription.merchant,
+  }),
+}));
+
+vi.mock('@/hooks/useRevenueCat', () => ({
+  useRevenueCat: () => ({
+    isPro: mocks.subscription.isPro,
+  }),
+}));
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getSession: vi.fn(),
+      getSession: mocks.getSession,
     },
   },
 }));
@@ -78,7 +100,7 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 vi.mock('react-native', () => ({
   StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
-  Alert: { alert: vi.fn() },
+  Alert: { alert: mocks.alert },
   Platform: { OS: 'web' },
   Pressable: ({
     accessibilityLabel,
@@ -120,7 +142,26 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <section>{children}</section>
+  ),
+}));
+
 describe('ConnectDomainScreen', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn());
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'session-token' } },
+    });
+    mocks.subscription.isPro = true;
+    mocks.subscription.merchant = {
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+  });
+
   it('uses compact keyboard offset preset for the form shell', () => {
     render(<ConnectDomainScreen />);
 
@@ -134,5 +175,37 @@ describe('ConnectDomainScreen', () => {
     expect(screen.getByText('Connect Existing Domain')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('example.com')).toBeInTheDocument();
     expect(screen.getByText('Connect Domain')).toBeInTheDocument();
+  });
+
+  it('renders an upgrade gate for free merchants', () => {
+    mocks.subscription.isPro = false;
+    mocks.subscription.merchant = {
+      plan_tier: 'free',
+      premium_features: [],
+    };
+
+    render(<ConnectDomainScreen />);
+
+    expect(
+      screen.getByText('Custom domains are a Baci Pro feature')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Connect Existing Domain')
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback error alert when the network request throws', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('Network unavailable'));
+
+    render(<ConnectDomainScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('example.com'), {
+      target: { value: 'shop.example.com' },
+    });
+    fireEvent.click(screen.getByText('Connect Domain'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network unavailable');
+    });
   });
 });

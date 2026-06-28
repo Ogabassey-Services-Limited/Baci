@@ -9,15 +9,19 @@ const {
   mockAdminFrom,
   mockAuthenticateApiRequest,
   mockExchangeJumiaCode,
+  mockFeaturePlanTier,
   mockGetMerchantIdForApiUser,
   mockGetShops,
+  mockMarketplaceUpsert,
 } = vi.hoisted(() => {
   return {
     mockAdminFrom: vi.fn(),
     mockAuthenticateApiRequest: vi.fn(),
     mockExchangeJumiaCode: vi.fn(),
+    mockFeaturePlanTier: vi.fn(() => 'pro'),
     mockGetMerchantIdForApiUser: vi.fn(),
     mockGetShops: vi.fn(),
+    mockMarketplaceUpsert: vi.fn(),
   };
 });
 
@@ -59,8 +63,26 @@ const TICKET_ID = '00000000-0000-4000-8000-000000000099';
 const MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
 const USER_ID = '00000000-0000-0000-0000-000000000002';
 
-const mockUserSupabase = {
-  from: vi.fn().mockReturnValue({
+function createMerchantFeatureBuilder() {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: MERCHANT_ID,
+            plan_expires_at: null,
+            plan_tier: mockFeaturePlanTier(),
+            premium_features: [],
+          },
+          error: null,
+        }),
+      })),
+    })),
+  };
+}
+
+function createMarketplaceIntegrationsBuilder() {
+  return {
     select: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({
@@ -69,8 +91,16 @@ const mockUserSupabase = {
         }),
       }),
     }),
-    upsert: vi.fn().mockResolvedValue({ error: null }),
-  }),
+    upsert: mockMarketplaceUpsert.mockResolvedValue({ error: null }),
+  };
+}
+
+const mockUserSupabase = {
+  from: vi.fn((table: string) =>
+    table === 'merchants'
+      ? createMerchantFeatureBuilder()
+      : createMarketplaceIntegrationsBuilder()
+  ),
 };
 
 function makeRequest(body: Record<string, unknown>): NextRequest {
@@ -150,6 +180,8 @@ const { POST } = await import('./route');
 describe('POST /api/marketplace/jumia/connect/exchange', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFeaturePlanTier.mockReturnValue('pro');
+    mockMarketplaceUpsert.mockResolvedValue({ error: null });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -216,6 +248,25 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(res.status).toBe(403);
   });
 
+  it('returns 402 before consuming the ticket when marketplace sync is not enabled', async () => {
+    setupAuth();
+    mockFeaturePlanTier.mockReturnValue('free');
+    setupTicketConsume(true);
+    setupTokenExchange();
+    setupShopDiscovery();
+
+    const res = await POST(
+      makeRequest({ code: 'valid-code', ticketId: TICKET_ID })
+    );
+
+    expect(res.status).toBe(402);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'requires_upgrade',
+      error: 'Marketplace sync requires Baci Pro',
+    });
+    expect(mockAdminFrom).not.toHaveBeenCalled();
+  });
+
   it('returns 200 with shops on successful exchange', async () => {
     setupAuth();
     setupTicketConsume(true);
@@ -252,8 +303,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(body.incomplete).toBeUndefined();
     expect(body.shops).toContain('shop-1');
 
-    const upsertTarget = mockUserSupabase.from.mock.results[1]?.value;
-    expect(upsertTarget.upsert).toHaveBeenCalledWith(
+    expect(mockMarketplaceUpsert).toHaveBeenCalledWith(
       [
         expect.objectContaining({
           access_token: 'only-access',

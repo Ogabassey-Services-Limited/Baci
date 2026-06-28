@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { DomainEmptyState } from '@/components/domains/DomainEmptyState';
 import { DomainItemCard } from '@/components/domains/DomainItemCard';
 import DomainOptionsSheet from '@/components/domains/DomainOptionsSheet';
@@ -20,10 +21,19 @@ import { StoreLinkCard } from '@/components/domains/StoreLinkCard';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDomainActions } from '@/hooks/useDomainActions';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates } from '@/lib/feature-gates';
 import { supabase } from '@/lib/supabase';
 
 type DomainStatus = Domain['status'];
+type PrimaryDomain = {
+  domain: string;
+  domain_type: Domain['domain_type'];
+  id: string;
+  is_primary: boolean;
+  status: string;
+} | null;
 
 const VALID_DOMAIN_STATUSES: ReadonlySet<DomainStatus> = new Set([
   'active',
@@ -63,10 +73,44 @@ async function fetchMerchantDomains(merchantId: string): Promise<Domain[]> {
 }
 
 export default function DomainsDashboard() {
-  const { colors, shadows, isDark } = useTheme();
   const { merchant, primaryDomain: merchantPrimaryDomain } = useMerchant();
-  const router = useRouter();
+  const { isPro } = useRevenueCat();
   const merchantId = merchant?.id;
+  const hasCustomDomain =
+    isPro || baciFeatureGates.hasFeature(merchant, 'custom_domain');
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <FeatureGateScreen
+        description="Connect and manage branded domains when Baci Pro is active."
+        feature="custom_domain"
+        serverEntitlementRequired
+        title="Custom domains are a Baci Pro feature"
+      >
+        {hasCustomDomain ? (
+          <DomainsDashboardContent
+            merchantId={merchantId}
+            merchantPrimaryDomain={merchantPrimaryDomain}
+            merchantSlug={merchant?.slug}
+          />
+        ) : null}
+      </FeatureGateScreen>
+    </>
+  );
+}
+
+function DomainsDashboardContent({
+  merchantId,
+  merchantPrimaryDomain,
+  merchantSlug,
+}: {
+  merchantId?: string;
+  merchantPrimaryDomain: PrimaryDomain;
+  merchantSlug?: string | null;
+}) {
+  const { colors, shadows, isDark } = useTheme();
+  const router = useRouter();
   const fallbackDomains = merchantPrimaryDomain
     ? [
         normalizeDomain({
@@ -119,7 +163,6 @@ export default function DomainsDashboard() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
@@ -151,7 +194,7 @@ export default function DomainsDashboard() {
         >
           <StoreLinkCard
             primaryDomain={merchantPrimaryDomain?.domain}
-            merchantSlug={merchant?.slug || undefined}
+            merchantSlug={merchantSlug || undefined}
           />
 
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
