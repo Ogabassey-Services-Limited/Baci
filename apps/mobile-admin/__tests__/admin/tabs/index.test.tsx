@@ -200,7 +200,7 @@ vi.mock('@/types/upload', () => ({
   createUploadFile: vi.fn(),
 }));
 
-import HomeScreen from './index';
+import HomeScreen from '../../../app/(admin)/(tabs)/index';
 
 describe('HomeScreen', () => {
   beforeEach(() => {

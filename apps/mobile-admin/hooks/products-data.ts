@@ -9,6 +9,12 @@ import { supabase } from '@/lib/supabase';
 import type { Product, ProductStatus, ProductsPage } from './products.types';
 
 const PAGE_SIZE = 20;
+const EFFECTIVE_IN_STOCK_FILTER =
+  'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)';
+const EFFECTIVE_LOW_STOCK_FILTER =
+  'and(stock_quantity.gt.0,stock_quantity.lte.5),and(stock_quantity.is.null,stock.gt.0,stock.lte.5),and(stock_quantity.lte.0,stock.gt.0,stock.lte.5)';
+const EFFECTIVE_OUT_OF_STOCK_FILTER =
+  'and(stock_quantity.is.null,stock.is.null),and(stock_quantity.is.null,stock.lte.0),and(stock_quantity.lte.0,stock.is.null),and(stock_quantity.lte.0,stock.lte.0)';
 
 export async function fetchProducts(
   merchantId: string,
@@ -43,14 +49,11 @@ export async function fetchProducts(
   if (filters?.category) query = query.eq('category_id', filters.category);
 
   if (filters?.stockFilter === 'out_of_stock') {
-    query = query.eq('manage_stock', true).lte('stock_quantity', 0);
+    query = query.eq('manage_stock', true).or(EFFECTIVE_OUT_OF_STOCK_FILTER);
   } else if (filters?.stockFilter === 'low_stock') {
-    query = query
-      .eq('manage_stock', true)
-      .gt('stock_quantity', 0)
-      .lte('stock_quantity', 5);
+    query = query.eq('manage_stock', true).or(EFFECTIVE_LOW_STOCK_FILTER);
   } else if (filters?.stockFilter === 'in_stock') {
-    query = query.eq('manage_stock', true).gt('stock_quantity', 0);
+    query = query.eq('manage_stock', true).or(EFFECTIVE_IN_STOCK_FILTER);
   }
 
   const { data, error, count } = await query;

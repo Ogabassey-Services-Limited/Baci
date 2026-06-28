@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import MenuScreen from './menu';
+import MenuScreen from '../../../app/(admin)/(tabs)/menu';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
