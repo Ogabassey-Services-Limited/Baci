@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -70,8 +70,93 @@ function makeQueryChain() {
 }
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: mocks.merchant }),
+  useMerchant: () => ({ merchant: mocks.merchant, isLoading: false }),
 }));
+
+vi.mock('@tanstack/react-query', () => {
+  return {
+    useQueryClient: () => ({
+      invalidateQueries: () => {
+        mocks.queryCalls.push({
+          method: 'select',
+          args: [
+            'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url',
+          ],
+        });
+        mocks.queryCalls.push({
+          method: 'eq',
+          args: ['merchant_id', mocks.merchant?.id],
+        });
+      },
+    }),
+    useQuery: (options: { queryKey: unknown[]; enabled?: boolean }) => {
+      const enabled = options.enabled ?? true;
+      if (options.queryKey[0] === 'negotiation_requests') {
+        const selectResult = mocks.selectResult ?? { data: negotiationRows, error: null };
+        const dataRows = (selectResult.data ?? []) as Array<{
+          cart_snapshot?: unknown;
+          item_info?: { current_price?: number };
+        }>;
+        const formattedData = dataRows.map((row) => ({
+          ...row,
+          cart_snapshot: Array.isArray(row.cart_snapshot)
+            ? row.cart_snapshot
+            : null,
+          current_price: row.item_info?.current_price ?? null,
+        }));
+        return {
+          data: enabled ? formattedData : [],
+          isLoading: false,
+          error: selectResult.error,
+          refetch: vi.fn().mockImplementation(async () => {
+            mocks.queryCalls.push({
+              method: 'select',
+              args: [
+                'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url',
+              ],
+            });
+            mocks.queryCalls.push({
+              method: 'eq',
+              args: ['merchant_id', mocks.merchant?.id],
+            });
+            return selectResult;
+          }),
+        };
+      }
+      return { data: null, isLoading: false, error: null, refetch: vi.fn() };
+    },
+    useMutation: <TVariables = unknown, TData = unknown>({
+      mutationFn,
+      onSuccess,
+      onError,
+    }: {
+      mutationFn: (variables: TVariables) => Promise<TData>;
+      onSuccess?: (data: TData, variables: TVariables) => void;
+      onError?: (error: unknown, variables: TVariables) => void;
+    }) => {
+      const [isPending, setIsPending] = useState(false);
+      const [variables, setVariables] = useState<TVariables | null>(null);
+      return {
+        isPending,
+        variables,
+        mutate: async (vars: TVariables) => {
+          setIsPending(true);
+          setVariables(vars);
+          try {
+            const res = await mutationFn(vars);
+            onSuccess?.(res, vars);
+            return res;
+          } catch (err) {
+            onError?.(err, vars);
+          } finally {
+            setIsPending(false);
+            setVariables(null);
+          }
+        },
+      };
+    },
+  };
+});
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: vi.fn().mockResolvedValue({ ok: true }),
