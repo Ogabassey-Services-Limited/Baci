@@ -136,7 +136,7 @@ describe('POST /api/domains', () => {
     expect(response.status).toBe(402);
     await expect(response.json()).resolves.toMatchObject({
       code: 'requires_upgrade',
-      error: 'Custom domains require Baci Pro',
+      error: 'Custom domains require Baci Starter or higher',
     });
     expect(mocks.vercelAddDomain).not.toHaveBeenCalled();
   });

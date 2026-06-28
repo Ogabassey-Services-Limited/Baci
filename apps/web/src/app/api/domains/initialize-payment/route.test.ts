@@ -93,7 +93,7 @@ describe('POST /api/domains/initialize-payment', () => {
     expect(response.status).toBe(402);
     await expect(response.json()).resolves.toMatchObject({
       code: 'requires_upgrade',
-      error: 'Custom domains require Baci Pro',
+      error: 'Custom domains require Baci Starter or higher',
     });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
