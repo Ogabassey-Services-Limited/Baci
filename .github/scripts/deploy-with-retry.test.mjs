@@ -9,9 +9,10 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const scriptPath = new URL('deploy-with-retry.sh', import.meta.url);
+const scriptPath = fileURLToPath(new URL('deploy-with-retry.sh', import.meta.url));
 
 function makeFakeCommand(mode) {
   const tempDir = mkdtempSync(join(tmpdir(), 'baci-deploy-retry-'));
@@ -59,7 +60,7 @@ esac
 }
 
 function runScript(fakeCommand) {
-  return spawnSync('bash', [scriptPath.pathname, 'fake-vercel', 'deploy'], {
+  return spawnSync('bash', [scriptPath, 'fake-vercel', 'deploy'], {
     cwd: fakeCommand.tempDir,
     env: {
       ...process.env,
