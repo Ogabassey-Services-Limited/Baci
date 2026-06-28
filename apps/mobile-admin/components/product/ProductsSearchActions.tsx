@@ -26,11 +26,11 @@ export function ProductsSearchActions({
     <Animated.View
       accessibilityElementsHidden={!isVisible}
       importantForAccessibility={isVisible ? 'auto' : 'no-hide-descendants'}
+      pointerEvents={isVisible ? 'auto' : 'none'}
       style={[
         styles.searchContainer,
         {
           opacity: searchBarAnim,
-          pointerEvents: isVisible ? 'auto' : 'none',
           transform: [
             {
               translateY: searchBarAnim.interpolate({

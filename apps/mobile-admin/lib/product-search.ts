@@ -22,6 +22,38 @@ export interface AdminProductSearchPage<T extends { id: string }> {
   totalCount: number;
 }
 
+export const ADMIN_EFFECTIVE_IN_STOCK_FILTER =
+  'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)';
+export const ADMIN_EFFECTIVE_LOW_STOCK_FILTER =
+  'and(stock_quantity.gt.0,stock_quantity.lte.5),and(stock_quantity.is.null,stock.gt.0,stock.lte.5),and(stock_quantity.lte.0,stock.gt.0,stock.lte.5)';
+export const ADMIN_EFFECTIVE_OUT_OF_STOCK_FILTER =
+  'and(stock_quantity.is.null,stock.is.null),and(stock_quantity.is.null,stock.lte.0),and(stock_quantity.lte.0,stock.is.null),and(stock_quantity.lte.0,stock.lte.0)';
+
+type ProductFilterQuery<TQuery> = {
+  eq: (column: string, value: unknown) => TQuery;
+  or: (filters: string) => TQuery;
+};
+
+export function applyAdminProductStockFilter<
+  TQuery extends ProductFilterQuery<TQuery>,
+>(query: TQuery, stockFilter: AdminProductStockFilter | undefined): TQuery {
+  if (stockFilter === 'out_of_stock') {
+    return query
+      .eq('manage_stock', true)
+      .or(ADMIN_EFFECTIVE_OUT_OF_STOCK_FILTER);
+  }
+
+  if (stockFilter === 'low_stock') {
+    return query.eq('manage_stock', true).or(ADMIN_EFFECTIVE_LOW_STOCK_FILTER);
+  }
+
+  if (stockFilter === 'in_stock') {
+    return query.eq('manage_stock', true).or(ADMIN_EFFECTIVE_IN_STOCK_FILTER);
+  }
+
+  return query;
+}
+
 function normalizeAdminSearchInput(search: string | undefined) {
   return sanitizeSearchQuery(search ?? '').trim();
 }
@@ -66,7 +98,7 @@ export async function fetchAdminProductSearchRows<
       search_query: searchTerm,
       sort_by: 'relevance',
       status_filter: args.filters.status ?? null,
-      stock_filter: args.filters.stockFilter ?? null,
+      stock_filter: null,
     }
   );
 
@@ -84,12 +116,24 @@ export async function fetchAdminProductSearchRows<
     };
   }
 
-  const { data, error } = await supabase
+  let rowsQuery = supabase
     .from('products')
     .select(args.selectColumns)
     .eq('merchant_id', args.merchantId)
     .is('parent_product_id', null)
     .in('id', productIds);
+
+  if (args.filters.status)
+    rowsQuery = rowsQuery.eq('status', args.filters.status);
+  if (args.filters.category) {
+    rowsQuery = rowsQuery.eq('category_id', args.filters.category);
+  }
+  if (!args.filters.status && args.filters.stockFilter === 'out_of_stock') {
+    rowsQuery = rowsQuery.neq('status', 'archived');
+  }
+  rowsQuery = applyAdminProductStockFilter(rowsQuery, args.filters.stockFilter);
+
+  const { data, error } = await rowsQuery;
 
   if (error) {
     throw new Error(error.message);

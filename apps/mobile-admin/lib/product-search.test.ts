@@ -29,6 +29,8 @@ function createQueryChain(result: {
     eq: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
+    or: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
   };
 }
@@ -87,6 +89,83 @@ describe('admin product search helpers', () => {
       ],
       totalCount: 2,
     });
+  });
+
+  it('applies admin effective stock filters after ranked search results', async () => {
+    const query = createQueryChain({
+      data: [
+        {
+          id: 'prod-legacy',
+          name: 'Legacy Stock Phone',
+          stock: 12,
+          stock_quantity: 0,
+        },
+      ],
+    });
+
+    mockRpc.mockResolvedValue({
+      data: [{ product_id: 'prod-legacy', relevance: 9.5, total_count: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+
+    const result = await fetchAdminProductSearchRows({
+      cursor: 0,
+      filters: {
+        search: 'legacy stock',
+        stockFilter: 'in_stock',
+      },
+      merchantId: 'merchant-1',
+      pageSize: 20,
+      selectColumns: 'id, name, stock, stock_quantity',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        search_query: 'legacy stock',
+        stock_filter: null,
+      })
+    );
+    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.or).toHaveBeenCalledWith(
+      'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
+    );
+    expect(result.rows).toEqual([
+      {
+        id: 'prod-legacy',
+        name: 'Legacy Stock Phone',
+        stock: 12,
+        stock_quantity: 0,
+      },
+    ]);
+  });
+
+  it('excludes archived products from out-of-stock search results by default', async () => {
+    const query = createQueryChain({ data: [] });
+
+    mockRpc.mockResolvedValue({
+      data: [{ product_id: 'prod-archived', relevance: 9.5, total_count: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+
+    await fetchAdminProductSearchRows({
+      cursor: 0,
+      filters: {
+        search: 'old phone',
+        stockFilter: 'out_of_stock',
+      },
+      merchantId: 'merchant-1',
+      pageSize: 20,
+      selectColumns: 'id, name',
+    });
+
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
+    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.or).toHaveBeenCalledWith(
+      'and(stock_quantity.is.null,stock.is.null),and(stock_quantity.is.null,stock.lte.0),and(stock_quantity.lte.0,stock.is.null),and(stock_quantity.lte.0,stock.lte.0)'
+    );
   });
 
   it('fetches suggestion candidates in rpc rank order and excludes the current product', async () => {
