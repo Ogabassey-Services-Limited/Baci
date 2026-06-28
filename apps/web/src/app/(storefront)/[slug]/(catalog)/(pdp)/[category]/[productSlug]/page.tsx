@@ -11,6 +11,7 @@ import { StorefrontRouteNotFoundContent } from '@/app/(storefront)/[slug]/storef
 import { getStorefrontShellSnapshotBase } from '@/app/(storefront)/[slug]/storefront-shell-snapshot';
 import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import { preloadOgabasseyPdpProductResources } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { JsonLd } from '@/components/seo/json-ld';
 import { OgabasseyPdpBelowFoldIsland } from '@/components/storefront/ogabassey/pdp/client-islands';
 import { createCriticalCartProduct } from '@/components/storefront/ogabassey/pdp/critical-cart-product';
 import { OgabasseyPdpCriticalCommerce } from '@/components/storefront/ogabassey/pdp/critical-commerce';
@@ -54,7 +55,6 @@ import { isPaystackConfigured } from '@/lib/paystack';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductCondition } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
@@ -1400,14 +1400,8 @@ async function CategoryProductPageContent({
 
   return (
     <>
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
-      <script type="application/ld+json">
-        {safeJsonLdStringify(productSchema)}
-      </script>
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
+      <JsonLd data={productSchema} />
+      <JsonLd data={breadcrumbSchema} />
       {/* Hidden crawlable summary without a second page-level heading */}
       <article
         className="sr-only"

@@ -1,10 +1,10 @@
 import { Rss } from 'lucide-react';
 import Link from 'next/link';
+import { JsonLd } from '@/components/seo/json-ld';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
 import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildBlogCategoryHref } from './blog-category-routing';
 import { BlogList } from './blog-list';
 
@@ -71,22 +71,10 @@ export function DefaultBlogUi({
 
   return (
     <>
-      {organizationSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(organizationSchema)}
-        </script>
-      )}
-      <script type="application/ld+json">
-        {safeJsonLdStringify(blogSchema)}
-      </script>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(breadcrumbSchema)}
-      </script>
-      {itemListSchema && (
-        <script type="application/ld+json">
-          {safeJsonLdStringify(itemListSchema)}
-        </script>
-      )}
+      {organizationSchema && <JsonLd data={organizationSchema} />}
+      <JsonLd data={blogSchema} />
+      <JsonLd data={breadcrumbSchema} />
+      {itemListSchema && <JsonLd data={itemListSchema} />}
       <div className="min-h-screen bg-background">
         <div className="bg-card border-b">
           <div className="container mx-auto px-4 py-8">

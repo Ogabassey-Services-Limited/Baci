@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
 import { buildMerchantAnalyticsSettings } from '@/components/analytics/analytics-merchant-settings';
 import { AnalyticsPixelProvider } from '@/components/analytics/analytics-pixel-provider';
+import { JsonLd } from '@/components/seo/json-ld';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
@@ -12,7 +13,6 @@ import {
   type getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateCollectionPageSchema,
   generateLocalBusinessSchema,
@@ -218,9 +218,7 @@ export async function OgabasseyHomeDynamicContent({
 
   return (
     <>
-      <script type="application/ld+json">
-        {safeJsonLdStringify(homeSemanticGraphSchema)}
-      </script>
+      <JsonLd data={homeSemanticGraphSchema} />
       <AnalyticsPixelProvider
         merchant={buildMerchantAnalyticsSettings(merchant)}
       />

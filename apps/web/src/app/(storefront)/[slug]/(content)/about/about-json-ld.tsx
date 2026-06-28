@@ -1,5 +1,5 @@
+import { JsonLd } from '@/components/seo/json-ld';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
@@ -32,9 +32,5 @@ export async function AboutJsonLd({ params }: PageProps) {
     trustProfile
   );
 
-  return (
-    <script type="application/ld+json">
-      {safeJsonLdStringify(jsonLd as Record<string, unknown>)}
-    </script>
-  );
+  return <JsonLd data={jsonLd as Record<string, unknown>} />;
 }

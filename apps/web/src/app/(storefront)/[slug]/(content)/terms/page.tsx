@@ -2,10 +2,11 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import type { WebPage } from 'schema-dts';
 import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
@@ -79,7 +80,7 @@ async function TermsPageContent({ params }: PageProps) {
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
-  const termsSchema = {
+  const termsSchema: JsonLdData<WebPage> = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `Terms of Service | ${merchant.business_name}`,
@@ -100,11 +101,7 @@ async function TermsPageContent({ params }: PageProps) {
     dateModified: merchant.updated_at || new Date().toISOString(),
   };
 
-  const jsonLdScript = (
-    <script type="application/ld+json">
-      {safeJsonLdStringify(termsSchema)}
-    </script>
-  );
+  const jsonLdScript = <JsonLd data={termsSchema} />;
 
   // Resolve template component server-side for SEO (H1 in SSR HTML).
   // The try/catch only guards loading the component module — JSX is
