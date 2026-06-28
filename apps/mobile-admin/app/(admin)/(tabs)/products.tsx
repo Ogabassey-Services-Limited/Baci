@@ -65,7 +65,6 @@ type ProductsTab =
   | 'all'
   | 'in_stock'
   | 'low_stock'
-  | 'out_of_stock'
   | 'categories'
   | 'top_selling';
 
@@ -144,9 +143,7 @@ export default function ProductsScreen() {
 
   // Map activeTab to server-side stock filter
   const stockFilter: StockFilter | undefined =
-    activeTab === 'in_stock' ||
-    activeTab === 'low_stock' ||
-    activeTab === 'out_of_stock'
+    activeTab === 'in_stock' || activeTab === 'low_stock'
       ? activeTab
       : undefined;
 
@@ -430,12 +427,6 @@ export default function ProductsScreen() {
               <TabButton
                 id="low_stock"
                 label={`Low Stock (${inventoryStats?.lowStockCount ?? 0})`}
-                activeTab={activeTab}
-                onSelect={setActiveTab}
-              />
-              <TabButton
-                id="out_of_stock"
-                label={`Out of Stock (${inventoryStats?.outOfStockCount ?? 0})`}
                 activeTab={activeTab}
                 onSelect={setActiveTab}
               />

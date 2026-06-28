@@ -1,4 +1,11 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  type StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import {
   formatLargePrice,
   getCurrencySymbol,
@@ -21,21 +28,26 @@ export function ProductsStatCards({ activeTab }: ProductsStatCardsProps) {
   );
 }
 
-function ProductStatCard({
-  colors,
-  subtitle,
-  title,
-  value,
-}: {
+type ProductStatCardProps = {
   colors: ThemeColors;
+  style?: StyleProp<ViewStyle>;
   subtitle?: string;
   title: string;
   value: string;
-}) {
+};
+
+function ProductStatCard({
+  colors,
+  style,
+  subtitle,
+  title,
+  value,
+}: ProductStatCardProps) {
   return (
     <View
       style={[
         styles.card,
+        style,
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
     >
@@ -162,9 +174,10 @@ function InventoryStatCards() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, styles.inventoryContainer]}>
       <ProductStatCard
         colors={colors}
+        style={styles.inventoryCard}
         title="Total Value"
         value={formatLargePrice(
           inventoryStats?.inventoryValue || 0,
@@ -173,6 +186,7 @@ function InventoryStatCards() {
       />
       <ProductStatCard
         colors={colors}
+        style={styles.inventoryCard}
         title="Stock Cost"
         value={formatLargePrice(
           inventoryStats?.inventoryCost || 0,
@@ -181,12 +195,14 @@ function InventoryStatCards() {
       />
       <ProductStatCard
         colors={colors}
+        style={styles.inventoryCard}
         title="Low Stock"
         value={`${inventoryStats?.lowStockCount || 0}`}
         subtitle="needs attention"
       />
       <ProductStatCard
         colors={colors}
+        style={styles.inventoryCard}
         title="Out of Stock"
         value={`${inventoryStats?.outOfStockCount || 0}`}
         subtitle="restock first"
@@ -198,14 +214,12 @@ function InventoryStatCards() {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
   },
   card: {
     flex: 1,
-    minWidth: '45%',
     borderRadius: 12,
     borderWidth: 1,
     padding: 12,
@@ -228,6 +242,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  inventoryCard: {
+    minWidth: '45%',
+  },
+  inventoryContainer: {
+    flexWrap: 'wrap',
   },
   loadingContainer: {
     alignItems: 'center',

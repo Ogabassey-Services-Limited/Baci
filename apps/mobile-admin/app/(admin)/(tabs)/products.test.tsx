@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { router } from 'expo-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductsScreen from './products';
 
@@ -122,6 +123,7 @@ vi.mock('@/components/ui/SafeImage', async () => {
 
 describe('ProductsScreen', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     productHookMocks.useProducts.mockImplementation(
       (filters?: { search?: string }) => ({
         data: {
@@ -166,20 +168,29 @@ describe('ProductsScreen', () => {
     expect(getByRole('button', { name: 'Add new product' })).toBeTruthy();
     expect(getAllByText('In Stock (0)')[0]).toBeTruthy();
     expect(getAllByText('Items (0)')[0]).toBeTruthy();
-    expect(getAllByText('Out of Stock (0)')[0]).toBeTruthy();
+    expect(getAllByText('Out of Stock')[0]).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Out of Stock (0)' })).toBeNull();
     expect(getByRole('button', { name: 'Scan barcode' })).toBeTruthy();
     expect(getAllByText('Start managing stock')[0]).toBeTruthy();
     expect(getAllByText('Add Stocked Item')[0]).toBeTruthy();
   });
 
-  it('requests out-of-stock products from the products tab', () => {
+  it('opens the barcode scanner from the products search row', () => {
     render(<ProductsScreen />);
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Out of Stock (0)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scan barcode' }));
+
+    expect(router.push).toHaveBeenCalledWith('/scan');
+  });
+
+  it('requests low-stock products from the products tab', () => {
+    render(<ProductsScreen />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Low Stock (0)' }));
 
     expect(productHookMocks.useProducts).toHaveBeenLastCalledWith({
       search: undefined,
-      stockFilter: 'out_of_stock',
+      stockFilter: 'low_stock',
     });
   });
 
