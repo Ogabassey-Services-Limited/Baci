@@ -448,7 +448,6 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
           type={negotiationState.type}
           itemId={negotiationState.item?.cartItemId}
           merchantId={merchantContext.merchant.id}
-          cart={cart}
         />
       )}
     </div>

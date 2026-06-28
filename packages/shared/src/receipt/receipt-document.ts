@@ -58,10 +58,6 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
     contactEmail,
     socialItems,
   });
-  const paymentMethodLabel = formatReceiptPaymentMethod(
-    order.payment_method,
-    isPaid
-  );
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -110,7 +106,7 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
       </div>
       <div class="info-col info-col-right">
         <div class="info-label">${isPaid ? 'Payment' : 'Invoice Info'}</div>
-        <div class="info-name">${escapeHtml(paymentMethodLabel)}</div>
+        <div class="info-name">${isPaid ? escapeHtml(order.payment_method || 'Verified') : 'Pending'}</div>
         <div class="info-detail">
           <div>${docTitle} #${escapeHtml(order.order_number)}</div>
           <div>${dateStr}</div>
@@ -157,26 +153,6 @@ export function renderReceiptDocument(params: ReceiptDocumentParams): string {
 </div>
 </body>
 </html>`;
-}
-
-function formatReceiptPaymentMethod(
-  paymentMethod: string | null,
-  isPaid: boolean
-) {
-  if (!isPaid) {
-    return 'Pending';
-  }
-
-  const normalizedMethod = paymentMethod?.trim().toLowerCase();
-  if (!normalizedMethod) {
-    return 'Verified';
-  }
-
-  if (normalizedMethod === 'imported' || normalizedMethod === 'bank_transfer') {
-    return 'Bank transfer';
-  }
-
-  return paymentMethod?.trim() || 'Verified';
 }
 
 function renderFooterHtml({

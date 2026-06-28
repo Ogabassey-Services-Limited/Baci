@@ -18,7 +18,6 @@ import {
   decorateImportJob,
   getInitialMigrationSelection,
   isMigrationStatusActive,
-  shouldIncludeMigrationJobDetailsForRows,
 } from '@/app/dashboard/migrations/migration-utils';
 import { useMigrationJobPolling } from '@/app/dashboard/migrations/use-migration-job-polling';
 import { useMigrationJobRefresh } from '@/app/dashboard/migrations/use-migration-job-refresh';
@@ -145,7 +144,7 @@ export function useMigrationJobs({
       } else if (canLoadRows) {
         void refreshJob(nextSelectedJobId, {
           filter: 'all',
-          includeJob: shouldIncludeMigrationJobDetailsForRows(decoratedJob),
+          includeJob: false,
           includeRows: true,
         });
       }

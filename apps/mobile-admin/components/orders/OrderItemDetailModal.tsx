@@ -10,8 +10,6 @@ import { formatProductCondition } from '@/lib/product-condition';
 export interface OrderItemSnapshot {
   id: string;
   condition?: string;
-  display_condition?: string;
-  display_image_url?: string;
   image_url?: string;
   name: string;
   price: number;
@@ -42,10 +40,7 @@ export function OrderItemDetailModal({
     return null;
   }
 
-  const conditionLabel = formatProductCondition(
-    item.display_condition ?? item.condition
-  );
-  const imageUrl = item.display_image_url ?? item.image_url;
+  const conditionLabel = formatProductCondition(item.condition);
 
   return (
     <AppSheetModal
@@ -80,6 +75,10 @@ export function OrderItemDetailModal({
           </Pressable>
         </View>
 
+        <Text style={[styles.note, { color: colors.textSecondary }]}>
+          This is the order snapshot the customer actually bought.
+        </Text>
+
         <View style={styles.heroRow}>
           <View
             style={[
@@ -87,8 +86,11 @@ export function OrderItemDetailModal({
               { backgroundColor: colors.backgroundLight },
             ]}
           >
-            {imageUrl ? (
-              <SafeImage source={{ uri: imageUrl }} style={styles.image} />
+            {item.image_url ? (
+              <SafeImage
+                source={{ uri: item.image_url }}
+                style={styles.image}
+              />
             ) : (
               <Ionicons
                 name="image-outline"
@@ -231,6 +233,10 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: 'center',
     width: 36,
+  },
+  note: {
+    fontSize: TYPOGRAPHY.size.sm,
+    lineHeight: 20,
   },
   heroRow: {
     alignItems: 'center',

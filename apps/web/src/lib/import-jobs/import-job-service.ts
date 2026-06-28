@@ -9,9 +9,7 @@ import type {
   NormalizedImportedOrder,
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
-import { normalizeBumpaOrderRow } from '@/lib/imports/bumpa/normalize-bumpa-order-row';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
-import { logger } from '@/lib/logger';
 import type {
   ImportJobEntityType,
   ImportJobStatus,
@@ -21,8 +19,6 @@ const IMPORT_FILE_MIME_TYPES = new Set([
   'text/csv',
   'application/vnd.ms-excel',
 ]);
-const LOOKUP_CHUNK_SIZE = 150;
-const LOOKUP_PAGE_SIZE = 1000;
 
 export const IMPORT_FILE_SIZE_LIMIT_BYTES = 25 * 1024 * 1024;
 
@@ -97,48 +93,6 @@ interface ImportJobRowInsert {
     | null;
   validation_errors: string[];
   meta: Record<string, unknown>;
-}
-
-interface ExistingOrderRow {
-  id: string;
-  order_number: string;
-  external_source: string | null;
-  external_id: string | null;
-  updated_at: string | null;
-}
-
-interface ExistingProductRow {
-  id: string;
-  name: string;
-  sku: string | null;
-  price: number | string | null;
-  images: unknown;
-  condition: string | null;
-  external_source: string | null;
-  external_id: string | null;
-  status: string | null;
-}
-
-interface ExistingOrderPageQuery {
-  order(column: string): ExistingOrderPageQuery;
-  range(
-    from: number,
-    to: number
-  ): PromiseLike<{
-    data: ExistingOrderRow[] | null;
-    error: { message: string } | null;
-  }>;
-}
-
-interface ExistingProductPageQuery {
-  order(column: string): ExistingProductPageQuery;
-  range(
-    from: number,
-    to: number
-  ): PromiseLike<{
-    data: ExistingProductRow[] | null;
-    error: { message: string } | null;
-  }>;
 }
 
 function getSourceRowIndex(rowNumber: number) {
@@ -222,150 +176,26 @@ export async function readImportFileText(
   return await data.text();
 }
 
-function uniqueNonEmpty(values: string[]) {
-  return Array.from(
-    new Set(values.map((value) => value.trim()).filter(Boolean))
-  );
-}
-
-function chunkValues<T>(values: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
-function extractProductImageUrls(images: unknown) {
-  if (!Array.isArray(images)) {
-    return [];
-  }
-
-  return images.flatMap((image) => {
-    if (typeof image === 'string') {
-      const url = image.trim();
-      return url ? [url] : [];
-    }
-
-    if (
-      image &&
-      typeof image === 'object' &&
-      'url' in image &&
-      typeof image.url === 'string'
-    ) {
-      const url = image.url.trim();
-      return url ? [url] : [];
-    }
-
-    return [];
-  });
-}
-
-function extractOrderLookupValues(rawRows: Record<string, string>[]) {
-  const externalIds: string[] = [];
-  const orderNumbers: string[] = [];
-
-  for (const rawRow of rawRows) {
-    const row = normalizeBumpaOrderRow(rawRow);
-    externalIds.push(row.id || '');
-    orderNumbers.push(row['Order Number'] || '');
-  }
-
-  return {
-    externalIds: uniqueNonEmpty(externalIds),
-    orderNumbers: uniqueNonEmpty(orderNumbers),
-  };
-}
-
-async function fetchExistingOrderPages(query: ExistingOrderPageQuery) {
-  const rows: ExistingOrderRow[] = [];
-
-  for (let from = 0; ; from += LOOKUP_PAGE_SIZE) {
-    const { data, error } = await query.range(
-      from,
-      from + LOOKUP_PAGE_SIZE - 1
-    );
-    if (error) {
-      throw new Error(`Failed to load existing orders: ${error.message}`);
-    }
-
-    const page = data || [];
-    rows.push(...page);
-
-    if (page.length < LOOKUP_PAGE_SIZE) {
-      return rows;
-    }
-  }
-}
-
-async function fetchExistingProductPages(query: ExistingProductPageQuery) {
-  const rows: ExistingProductRow[] = [];
-
-  for (let from = 0; ; from += LOOKUP_PAGE_SIZE) {
-    const { data, error } = await query.range(
-      from,
-      from + LOOKUP_PAGE_SIZE - 1
-    );
-    if (error) {
-      throw new Error(`Failed to load existing products: ${error.message}`);
-    }
-
-    const page = data || [];
-    rows.push(...page);
-
-    if (page.length < LOOKUP_PAGE_SIZE) {
-      return rows;
-    }
-  }
-}
-
 async function loadExistingOrders(
   supabase: SupabaseClient,
-  merchantId: string,
-  rawRows: Record<string, string>[]
+  merchantId: string
 ) {
-  const { externalIds, orderNumbers } = extractOrderLookupValues(rawRows);
-  const existingOrdersById = new Map<string, ExistingOrderRow>();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, order_number, external_source, external_id')
+    .eq('merchant_id', merchantId);
 
-  for (const externalIdChunk of chunkValues(externalIds, LOOKUP_CHUNK_SIZE)) {
-    const rows = await fetchExistingOrderPages(
-      supabase
-        .from('orders')
-        .select('id, order_number, external_source, external_id, updated_at')
-        .eq('merchant_id', merchantId)
-        .eq('external_source', 'bumpa')
-        .in('external_id', externalIdChunk)
-        .order('id') as unknown as ExistingOrderPageQuery
-    );
-
-    rows.forEach((order) => {
-      existingOrdersById.set(order.id, order);
-    });
+  if (error) {
+    throw new Error(`Failed to load existing orders: ${error.message}`);
   }
 
-  for (const orderNumberChunk of chunkValues(orderNumbers, LOOKUP_CHUNK_SIZE)) {
-    const rows = await fetchExistingOrderPages(
-      supabase
-        .from('orders')
-        .select('id, order_number, external_source, external_id, updated_at')
-        .eq('merchant_id', merchantId)
-        .in('order_number', orderNumberChunk)
-        .order('id') as unknown as ExistingOrderPageQuery
-    );
-
-    rows.forEach((order) => {
-      existingOrdersById.set(order.id, order);
-    });
-  }
-
-  return Array.from(existingOrdersById.values()).map(
+  return (data || []).map(
     (order) =>
       ({
         id: order.id,
         orderNumber: order.order_number,
         externalSource: order.external_source,
         externalId: order.external_id,
-        updatedAt: order.updated_at,
       }) satisfies ExistingImportedOrder
   );
 }
@@ -374,17 +204,16 @@ async function loadExistingProducts(
   supabase: SupabaseClient,
   merchantId: string
 ) {
-  const rows = await fetchExistingProductPages(
-    supabase
-      .from('products')
-      .select(
-        'id, name, sku, price, images, condition, external_source, external_id, status'
-      )
-      .eq('merchant_id', merchantId)
-      .order('id') as unknown as ExistingProductPageQuery
-  );
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, sku, price, external_source, external_id')
+    .eq('merchant_id', merchantId);
 
-  return rows.map(
+  if (error) {
+    throw new Error(`Failed to load existing products: ${error.message}`);
+  }
+
+  return (data || []).map(
     (product) =>
       ({
         id: product.id,
@@ -396,10 +225,6 @@ async function loadExistingProducts(
             : Number(product.price),
         externalSource: product.external_source,
         externalId: product.external_id,
-        images: extractProductImageUrls(product.images),
-        condition:
-          typeof product.condition === 'string' ? product.condition : null,
-        status: product.status,
       }) satisfies ExistingImportedProduct
   );
 }
@@ -409,19 +234,13 @@ async function prepareImportPreviewBuild(
   job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
   onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
 ) {
-  // Product lookup can run while the CSV is downloaded. Order lookup is scoped
-  // to IDs from the parsed CSV so large merchants do not hit API page limits.
-  const productsPromise = loadExistingProducts(supabase, job.merchant_id).catch(
-    (error: unknown) => {
-      logger.error({
-        message: 'Existing product preload failed during import preview build',
-        merchantId: job.merchant_id,
-        error,
-      });
-      throw error;
-    }
-  );
-  void productsPromise.catch(() => undefined);
+  // Start all I/O in parallel
+  const existingDataPromise = Promise.all([
+    job.entity_type === 'orders'
+      ? loadExistingOrders(supabase, job.merchant_id)
+      : Promise.resolve([] as ExistingImportedOrder[]),
+    loadExistingProducts(supabase, job.merchant_id),
+  ]);
   const filePromise = readImportFileText(supabase, job.storage_path);
 
   // Await the file first — row count is known as soon as it's parsed
@@ -431,14 +250,8 @@ async function prepareImportPreviewBuild(
   // Report total rows immediately (existing data queries may still be in flight)
   await onProgress?.({ processedRows: 0, totalRows: rawRows.length });
 
-  const ordersPromise =
-    job.entity_type === 'orders'
-      ? loadExistingOrders(supabase, job.merchant_id, rawRows)
-      : Promise.resolve([] as ExistingImportedOrder[]);
-  const [orders, products] = await Promise.all([
-    ordersPromise,
-    productsPromise,
-  ]);
+  // Now wait for the remaining parallel work
+  const [orders, products] = await existingDataPromise;
 
   return {
     orders,

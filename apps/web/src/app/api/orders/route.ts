@@ -1,6 +1,5 @@
 import {
   appendReceiptFulfillmentDescription,
-  formatCanonicalProductConditionLabel,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,
   type ReceiptFulfillmentDetails,
@@ -147,7 +146,6 @@ type ImmediateInvoiceOrderItem = Omit<OrderCreateItem, 'assurance_fee'> & {
 };
 type PersistedInvoiceOrderItemRow = {
   assurance_fee?: unknown;
-  condition?: unknown;
   has_assurance?: unknown;
   id?: unknown;
   item_description?: unknown;
@@ -215,10 +213,7 @@ function getOrderItemBaseName(item: OrderCreateItem): string {
   return item.name || item.productName || 'Product';
 }
 
-function getOrderItemVariantLabel(
-  item: OrderCreateItem,
-  options: { includeConditionFallback?: boolean } = {}
-): string | null {
+function getOrderItemVariantLabel(item: OrderCreateItem): string | null {
   const label = formatVariantAttributesLabel(
     item.variantAttributes || item.variant_attributes
   );
@@ -228,13 +223,9 @@ function getOrderItemVariantLabel(
   }
 
   const variantName = (item as { variant_name?: unknown }).variant_name;
-  if (typeof variantName === 'string' && variantName.trim().length > 0) {
-    return variantName.trim();
-  }
-
-  return options.includeConditionFallback === false
-    ? null
-    : (formatCanonicalProductConditionLabel(item.condition) ?? null);
+  return typeof variantName === 'string' && variantName.trim().length > 0
+    ? variantName.trim()
+    : null;
 }
 
 function getOrderFulfillmentDetails(
@@ -419,7 +410,7 @@ function normalizePersistedInvoiceOrderItems(
       }
 
       return {
-        condition: getOptionalString(typedRow.condition) ?? undefined,
+        condition: undefined,
         id: fallbackIdentifier,
         product_id: getOptionalString(typedRow.product_id),
         productName: undefined,
@@ -469,7 +460,7 @@ async function loadPersistedInvoiceOrderItems({
     const { data, error } = await supabase
       .from('order_items')
       .select(
-        'id, product_id, variant_id, variant_attributes, variant_name, condition, name, quantity, price, has_assurance, assurance_fee, item_description, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, unit_code'
+        'id, product_id, variant_id, variant_attributes, variant_name, name, quantity, price, has_assurance, assurance_fee, item_description, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, unit_code'
       )
       .eq('order_id', orderId)
       .order('line_id', { ascending: true });
@@ -621,9 +612,7 @@ function buildImmediatePeppolInvoiceData(input: {
         : undefined;
     const itemDescription = appendReceiptFulfillmentDescription({
       description:
-        persistedDescription ??
-        getOrderItemVariantLabel(item, { includeConditionFallback: false }) ??
-        undefined,
+        persistedDescription ?? getOrderItemVariantLabel(item) ?? undefined,
       fulfillment: input.fulfillment,
       hasDeviceItem,
       index,
@@ -1088,7 +1077,6 @@ export async function POST(request: NextRequest) {
     const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
-      const variantName = getOrderItemVariantLabel(item);
       // SECURITY: Recompute assurance_fee server-side — never trust client values (quantity-aware)
       const assuranceFee = hasAssurance
         ? roundCurrency(itemPrice * item.quantity * SERVER_ASSURANCE_RATE)
@@ -1100,7 +1088,6 @@ export async function POST(request: NextRequest) {
         condition: item.condition,
         image_url: item.imageUrl ?? item.image_url ?? null,
         variant_id: item.variantId || item.variant_id,
-        variant_name: variantName,
         variant_attributes:
           item.variantAttributes || item.variant_attributes || {},
         quantity: item.quantity,

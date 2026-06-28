@@ -299,7 +299,6 @@ describe('GET /api/storefront/orders/[id]', () => {
           ...mockOrderData,
           items: [
             {
-              condition: 'used',
               id: 'item-1',
               product_id: 'product-1',
               name: 'Test Product',
@@ -317,10 +316,6 @@ describe('GET /api/storefront/orders/[id]', () => {
 
     expect(response.status).toBe(200);
     expect(data.id).toBe(mockOrderData.id);
-    expect(data.items[0]).toMatchObject({
-      condition: 'used',
-      variant_name: 'Used',
-    });
     expect(mockAnonClient.rpc).toHaveBeenCalledWith('get_order_tracking', {
       p_merchant_slug: 'test-store',
       p_order_id: null,

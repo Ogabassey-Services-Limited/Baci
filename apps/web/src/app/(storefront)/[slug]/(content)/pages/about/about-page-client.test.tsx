@@ -108,22 +108,6 @@ describe('AboutPageClient', () => {
       ).toBeInTheDocument();
     });
 
-    it('renders crawl summary children before the storefront footer', () => {
-      render(
-        <AboutPageClient merchant={baseMerchant} aboutPage={emptyAboutPage}>
-          <section data-testid="crawl-summary">SEO crawl summary</section>
-        </AboutPageClient>
-      );
-
-      const summary = screen.getByTestId('crawl-summary');
-      const footer = screen.getByTestId('storefront-footer');
-
-      expect(
-        summary.compareDocumentPosition(footer) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      ).toBeTruthy();
-    });
-
     it('renders mission statement in the hero section when provided', () => {
       const aboutPage: MerchantAboutPage = {
         mission: 'Empowering African merchants worldwide.',

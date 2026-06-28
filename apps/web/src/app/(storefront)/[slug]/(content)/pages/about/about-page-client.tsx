@@ -12,7 +12,6 @@ import {
   Users,
 } from 'lucide-react';
 import Image from 'next/image';
-import type { ReactNode } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -45,7 +44,6 @@ interface AboutPageClientProps {
   };
   aboutPage: MerchantAboutPage;
   legacyContent?: string;
-  children?: ReactNode;
 }
 
 const ABOUT_VIDEO_IFRAME_SANDBOX =
@@ -55,7 +53,6 @@ export function AboutPageClient({
   merchant,
   aboutPage,
   legacyContent,
-  children,
 }: AboutPageClientProps) {
   const hasStructuredContent = hasAnyRenderedAboutField(aboutPage);
 
@@ -416,7 +413,6 @@ export function AboutPageClient({
                   )
                 )}
               </div>
-              {children}
             </main>
 
             <StorefrontFooter />

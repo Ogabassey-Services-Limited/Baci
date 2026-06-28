@@ -34,10 +34,8 @@ export function NegotiationModalView({
   onSuccessAction,
   onTryAgain,
   onUploadLinkChange,
-  onPhoneChange,
   onUploadSubmit,
   offer,
-  phone,
   productName,
   status,
   submittedActionLabel = 'Got it',
@@ -154,9 +152,7 @@ export function NegotiationModalView({
                 onSuccessAction={onSuccessAction}
                 onTryAgain={onTryAgain}
                 onUploadLinkChange={onUploadLinkChange}
-                onPhoneChange={onPhoneChange}
                 onUploadSubmit={onUploadSubmit}
-                phone={phone}
                 status={status}
                 submittedActionLabel={submittedActionLabel}
                 successActionLabel={successActionLabel}

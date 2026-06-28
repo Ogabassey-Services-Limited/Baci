@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
-import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import {
   AlertCircle,
   CheckCircle2,
@@ -91,21 +90,6 @@ function getReceiptItemName(item: Record<string, unknown> | undefined) {
   );
 }
 
-function getReceiptItemVariantName(item: Record<string, unknown> | undefined) {
-  return (
-    getStringValue(item?.variant_name) ||
-    formatCanonicalProductConditionLabel(getStringValue(item?.condition))
-  );
-}
-
-function getReceiptItemDisplayName(item: Record<string, unknown> | undefined) {
-  const baseName = getReceiptItemName(item);
-  const variantName = getReceiptItemVariantName(item);
-  return variantName && !baseName.includes(`(${variantName})`)
-    ? `${baseName} (${variantName})`
-    : baseName;
-}
-
 function getReceiptItemQuantity(item: Record<string, unknown>) {
   const quantity = Number(item.quantity);
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
@@ -186,7 +170,7 @@ async function fetchReceiptListItems(
     const total = Number(order.total) || 0;
     const amountPaid = Number(order.amount_paid ?? total);
     const paymentStatus = (order.payment_status as string) || 'unpaid';
-    const firstProductName = getReceiptItemDisplayName(items[0]);
+    const firstProductName = getReceiptItemName(items[0]);
     const additionalDeviceCount = getAdditionalDeviceCount(items);
 
     const formatCurrency = (val: number) =>
@@ -220,7 +204,6 @@ async function fetchReceiptListItems(
         null,
       items: items.map((item) => ({
         product_name: getReceiptItemName(item),
-        variant_name: getReceiptItemVariantName(item) || undefined,
         quantity: getReceiptItemQuantity(item),
         price: Number(item.price) || 0,
       })),

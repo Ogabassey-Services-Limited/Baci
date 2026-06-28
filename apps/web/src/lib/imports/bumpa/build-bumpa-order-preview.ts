@@ -1,9 +1,5 @@
 import { buildBumpaOrderPreviewSummary } from '@/lib/imports/bumpa/build-bumpa-order-preview-summary';
 import {
-  buildBumpaShippingAddress,
-  enrichBumpaOrderItems,
-} from '@/lib/imports/bumpa/bumpa-order-enrichment';
-import {
   buildCustomer,
   buildItems,
   mapPaymentStatus,
@@ -17,7 +13,6 @@ import type {
   ImportPreviewRow,
   NormalizedImportedOrder,
 } from '@/lib/imports/bumpa/bumpa-types';
-import { normalizeBumpaOrderRow } from '@/lib/imports/bumpa/normalize-bumpa-order-row';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { bumpaOrderRowSchema } from '@/schemas/bumpa-orders';
 
@@ -69,22 +64,6 @@ async function maybeReportProgress(
 
 function createEmptyOrderPreviewSummary() {
   return buildBumpaOrderPreviewSummary([]);
-}
-
-function getImportRecommendation(rawRow: Record<string, string>) {
-  return sanitizeText(rawRow.import_recommendation || '').toLowerCase();
-}
-
-function getExcludedImportError(rawRow: Record<string, string>) {
-  const recommendation = getImportRecommendation(rawRow);
-  if (!recommendation.startsWith('exclude_')) {
-    return null;
-  }
-
-  const reason = sanitizeText(rawRow.import_reason || '');
-  return reason
-    ? `Skipped by migration review (${recommendation}): ${reason}`
-    : `Skipped by migration review (${recommendation})`;
 }
 
 function updateOrderPreviewSummary(
@@ -187,8 +166,7 @@ export async function* buildBumpaOrderPreviewChunks({
 
   for (const [index, rawRow] of rows.entries()) {
     const rowNumber = index + 2;
-    const normalizedRawRow = normalizeBumpaOrderRow(rawRow);
-    const validationResult = bumpaOrderRowSchema.safeParse(normalizedRawRow);
+    const validationResult = bumpaOrderRowSchema.safeParse(rawRow);
     if (!validationResult.success) {
       const previewRow = {
         rowNumber,
@@ -235,30 +213,6 @@ export async function* buildBumpaOrderPreviewChunks({
 
     seenExternalIds.add(externalSourceId);
 
-    const excludedImportError = getExcludedImportError(normalizedRawRow);
-
-    if (excludedImportError) {
-      const previewRow = {
-        rowNumber,
-        sourceExternalId: externalSourceId,
-        rowStatus: 'invalid',
-        errors: [excludedImportError],
-        payload: null,
-        meta: {
-          importRecommendation: getImportRecommendation(normalizedRawRow),
-        },
-      } satisfies ImportPreviewRow<NormalizedImportedOrder>;
-      previewRows.push(previewRow);
-      updateOrderPreviewSummary(runningSummary, previewRow);
-      queuePendingRow(previewRow);
-      await maybeReportProgress(onProgress, index + 1, rows.length);
-      const chunk = buildChunk(index + 1, index + 1 === rows.length);
-      if (chunk) {
-        yield chunk;
-      }
-      continue;
-    }
-
     const orderNumber = sanitizeText(row['Order Number']);
     const existingImportedOrder =
       existingOrdersByExternalId.get(externalSourceId);
@@ -293,7 +247,7 @@ export async function* buildBumpaOrderPreviewChunks({
     }
 
     const customer = buildCustomer(row);
-    const items = enrichBumpaOrderItems(buildItems(row, existingProducts));
+    const items = buildItems(row, existingProducts);
 
     if (items.some((item) => !item.productName)) {
       errors.push('One or more imported items are missing a product name');
@@ -330,40 +284,13 @@ export async function* buildBumpaOrderPreviewChunks({
             updatedAt: parseIsoDate(row['Updated At']),
             couponCode: sanitizeText(row['Coupon Code']) || null,
             shippingOption: sanitizeText(row['Shipping Option']) || null,
-            shippingAddress: buildBumpaShippingAddress(normalizedRawRow),
             receiptReady: paymentStatus === 'paid',
             items,
             importMetadata: {
-              ...(existingImportedOrder?.updatedAt
-                ? {
-                    previewExistingOrderUpdatedAt:
-                      existingImportedOrder.updatedAt,
-                  }
-                : {}),
               rawStatus: row.Status,
               rawShippingStatus: row['Shipping Status'],
               rawChannel: row.Channel,
               rawOrigin: row.Origin,
-              importRecommendation: getImportRecommendation(normalizedRawRow),
-              importReason: sanitizeText(normalizedRawRow.import_reason || ''),
-              customerProfile: {
-                canonicalCustomerKey: sanitizeText(
-                  normalizedRawRow.canonical_customer_key || ''
-                ),
-                isCompanyOrProxy:
-                  sanitizeText(
-                    normalizedRawRow.is_company_or_proxy || ''
-                  ).toLowerCase() === 'yes',
-                companyOrProxyReason: sanitizeText(
-                  normalizedRawRow.company_or_proxy_reason || ''
-                ),
-                contactQuality: sanitizeText(
-                  normalizedRawRow.contact_quality || ''
-                ),
-                addressQuality: sanitizeText(
-                  normalizedRawRow.address_quality || ''
-                ),
-              },
             },
           } satisfies NormalizedImportedOrder)
         : null;

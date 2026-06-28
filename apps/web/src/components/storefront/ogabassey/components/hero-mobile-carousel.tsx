@@ -38,7 +38,6 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
           const isCurrent = index === currentSlide;
           const isMobileLcpImage = index === 0;
           const shouldRenderImage = isCurrent || isMobileLcpImage;
-          const linkLabel = `${slide.name} — ${slide.ctaLabel}`;
 
           return (
             <div
@@ -84,10 +83,9 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
               <Link
                 href={asRoute(slide.href)}
                 prefetch={false}
+                aria-label={`${slide.name} — ${slide.ctaLabel}`}
                 className="absolute inset-0"
-              >
-                <span className="sr-only">{linkLabel}</span>
-              </Link>
+              />
             </div>
           );
         })}

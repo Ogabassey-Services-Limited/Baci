@@ -52,25 +52,14 @@ export function usePaymentMethodAvailability(
     orderTotal >= BNPL_MIN_AMOUNT &&
     orderTotal <= BNPL_MAX_AMOUNT;
 
-  const enabledCandidates = PAYMENT_METHODS.filter(
+  const candidateMethods = PAYMENT_METHODS.filter(
     (method) => !enabledMethods || enabledMethods.includes(method.id)
   ).filter((method) => !hiddenMethods.includes(method.id));
 
-  // Paystack and Korapay are both "Pay with Card" gateways — never render two
-  // identical card rows. Prefer Paystack (bank transfer rides on its DVA); fall
-  // back to the Korapay card row when Paystack is disabled.
-  const candidateMethods = enabledCandidates.some(
-    (method) => method.id === 'paystack'
-  )
-    ? enabledCandidates.filter((method) => method.id !== 'korapay')
-    : enabledCandidates;
-
-  const hasBNPLMethods = candidateMethods.some(
-    (method) => method.tab === 'installments'
-  );
-  const hasPayLaterMethods = candidateMethods.some(
-    (method) => method.tab === 'pay_later'
-  );
+  const hasBNPLMethods =
+    candidateMethods.some((method) => method.tab === 'installments');
+  const hasPayLaterMethods =
+    candidateMethods.some((method) => method.tab === 'pay_later');
 
   const filteredMethods = candidateMethods
     .filter((method) => method.tab === selectedTab)

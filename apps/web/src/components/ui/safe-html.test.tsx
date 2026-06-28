@@ -144,7 +144,7 @@ describe('SafeHtml', () => {
     ).toBeInTheDocument();
   });
 
-  it('normalizes SEO-hostile anchors when requested without stripping legitimate resource links', () => {
+  it('normalizes SEO-hostile anchors when requested', () => {
     render(
       <SafeHtml
         html='<a href="https://example.com/data.json">Raw JSON</a><a href="https://example.com/phone"></a>'
@@ -152,10 +152,7 @@ describe('SafeHtml', () => {
       />
     );
 
-    expect(screen.getByRole('link', { name: 'Raw JSON' })).toHaveAttribute(
-      'rel',
-      'noopener noreferrer'
-    );
-    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText('Raw JSON')).toBeInTheDocument();
   });
 });

@@ -6,12 +6,11 @@ import {
   type StorefrontUpdateNudgeResult,
 } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
-import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
 import {
+  parseBuildNumber,
   readMobilePlatformEnv,
   readMobileUpdatesEnabled,
 } from '@/lib/mobile-update-gate';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // Manual fallback only - DO NOT enable Vercel Cron for this route.
 // Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
@@ -56,10 +55,11 @@ export async function GET(request: NextRequest) {
 
   const results: PlatformOutcome[] = [];
   let errored = 0;
-  const supabase = createAdminClient();
 
   for (const platform of PLATFORMS) {
-    const latestBuild = await readLatestLiveBuild(platform, supabase);
+    const latestBuild = parseBuildNumber(
+      readMobilePlatformEnv(platform, 'LATEST_BUILD')
+    );
     if (latestBuild === null) {
       results.push({ platform, skipped: 'no_latest_build' });
       continue;

@@ -38,14 +38,9 @@ export const ordersScreenStyles = StyleSheet.create({
   headerSpacer: {
     width: 88,
   },
-  list: {
-    flex: 1,
-  },
   listContent: {
     padding: 16,
-  },
-  separator: {
-    height: 14,
+    gap: 14,
   },
   emptyListContent: {
     flex: 1,

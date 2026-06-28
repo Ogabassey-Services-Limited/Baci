@@ -3,14 +3,12 @@ import type { Branch, BranchScope } from '@/schemas/branch';
 
 interface UseOrderBranchSelectionArgs {
   branches: Branch[];
-  enabled?: boolean;
   scope: BranchScope;
   setSelectedBranchId: Dispatch<SetStateAction<string | null>>;
 }
 
 export function useOrderBranchSelection({
   branches,
-  enabled = true,
   scope,
   setSelectedBranchId,
 }: UseOrderBranchSelectionArgs) {
@@ -22,10 +20,6 @@ export function useOrderBranchSelection({
         null);
 
   useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
     setSelectedBranchId((currentBranchId) => {
       if (scope.type === 'branch') {
         return currentBranchId === scope.branchId
@@ -41,7 +35,7 @@ export function useOrderBranchSelection({
         ? currentBranchId
         : defaultBranchId;
     });
-  }, [branches, defaultBranchId, enabled, scope, setSelectedBranchId]);
+  }, [branches, defaultBranchId, scope, setSelectedBranchId]);
 
   return { defaultBranchId };
 }

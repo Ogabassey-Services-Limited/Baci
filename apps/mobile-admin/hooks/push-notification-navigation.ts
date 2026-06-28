@@ -56,12 +56,11 @@ export function navigateToNotificationTarget(
       router.push('/(admin)/negotiations');
       return;
     case 'negotiation':
-      // No negotiation detail route exists — only the list screen
-      // (`/(admin)/negotiations`), which shows the newest request first with
-      // inline Accept/Reject. Routing to a `negotiations/[id]` path that has no
-      // matching file throws Expo Router's "Unmatched Route" error, so always
-      // land on the list. entityId is intentionally unused here.
-      router.push('/(admin)/negotiations');
+      router.push(
+        entityId
+          ? (`/(admin)/negotiations/${entityId}` as Href)
+          : '/(admin)/negotiations'
+      );
       return;
     default:
       router.push('/(admin)/(tabs)');

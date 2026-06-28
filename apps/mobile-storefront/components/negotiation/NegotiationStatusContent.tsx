@@ -11,7 +11,6 @@ import type {
 } from './NegotiationModalView.types';
 import { NegotiationUploadForm } from './NegotiationUploadForm';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
-import { buildSuccessButtonStyles } from './negotiation-offer-helpers';
 
 type NegotiationStatusContentProps = Pick<
   NegotiationModalViewProps,
@@ -27,9 +26,7 @@ type NegotiationStatusContentProps = Pick<
   | 'onSuccessAction'
   | 'onTryAgain'
   | 'onUploadLinkChange'
-  | 'onPhoneChange'
   | 'onUploadSubmit'
-  | 'phone'
   | 'submittedActionLabel'
   | 'successActionLabel'
   | 'successActionStyle'
@@ -52,9 +49,7 @@ export function NegotiationStatusContent({
   onSuccessAction,
   onTryAgain,
   onUploadLinkChange,
-  onPhoneChange,
   onUploadSubmit,
-  phone,
   status,
   submittedActionLabel = 'Got it',
   successActionLabel,
@@ -79,8 +74,14 @@ export function NegotiationStatusContent({
   }
 
   if (status === 'success') {
-    const { button: successButtonStyle, text: successButtonTextStyle } =
-      buildSuccessButtonStyles(successActionStyle, colors);
+    const successButtonStyle =
+      successActionStyle === 'primary'
+        ? [styles.applyButton, { backgroundColor: colors.primary }]
+        : [styles.doneButton, { backgroundColor: colors.muted }];
+    const successButtonTextStyle =
+      successActionStyle === 'primary'
+        ? [styles.applyButtonText, { color: colors.primaryForeground }]
+        : [styles.doneButtonText, { color: colors.text }];
 
     return (
       <Animated.View
@@ -216,10 +217,8 @@ export function NegotiationStatusContent({
         message={message}
         uploadFile={uploadFile}
         uploadLink={uploadLink}
-        phone={phone}
         onPickImage={onPickImage}
         onUploadLinkChange={onUploadLinkChange}
-        onPhoneChange={onPhoneChange}
         onBackFromUpload={onBackFromUpload}
         onUploadSubmit={onUploadSubmit}
       />

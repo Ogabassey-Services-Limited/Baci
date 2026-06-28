@@ -266,15 +266,6 @@ function logNonCuratedCompareFallback(details: {
   });
 }
 
-function loadSupportedGuidePosts(
-  merchantId: string,
-  supportedClusterCategory: SupportedClusterCategory | null
-) {
-  return supportedClusterCategory
-    ? getPublishedClusterPosts(merchantId)
-    : Promise.resolve([]);
-}
-
 export async function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
@@ -334,6 +325,7 @@ export async function loadComparePage(args: {
   const storeUrl = buildStoreUrl(merchant);
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/compare/${parsed.canonicalSlug}`;
+  const guidePosts = await getPublishedClusterPosts(merchant.id);
   const supportedClusterCategory = getSupportedClusterCategory(
     args.categorySlug
   );
@@ -363,11 +355,14 @@ export async function loadComparePage(args: {
   );
 
   if (leftProduct && rightProduct) {
-    const [leftDetails, rightDetails, guidePosts] = await Promise.all([
-      getCachedProductWithDetails(merchant.id, parsed.leftKey),
-      getCachedProductWithDetails(merchant.id, parsed.rightKey),
-      loadSupportedGuidePosts(merchant.id, supportedClusterCategory),
-    ]);
+    const leftDetails = await getCachedProductWithDetails(
+      merchant.id,
+      parsed.leftKey
+    );
+    const rightDetails = await getCachedProductWithDetails(
+      merchant.id,
+      parsed.rightKey
+    );
 
     if (!leftDetails || !rightDetails) {
       return null;
@@ -509,10 +504,6 @@ export async function loadComparePage(args: {
     return null;
   }
 
-  const guidePosts = await loadSupportedGuidePosts(
-    merchant.id,
-    supportedClusterCategory
-  );
   const leftBrandKey = generateSlug(brandCandidate.leftBrand);
   const rightBrandKey = generateSlug(brandCandidate.rightBrand);
   const leftBrandProducts = normalizedProducts.filter(

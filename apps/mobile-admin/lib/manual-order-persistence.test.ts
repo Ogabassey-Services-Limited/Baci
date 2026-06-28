@@ -32,7 +32,6 @@ function buildItems(orderId: string) {
       condition: 'premium_used',
       item_description: 'Battery health 89%',
       product_match_status: 'linked' as const,
-      variant_attributes: { color: 'Black', storage: '128GB' },
     },
   ];
 }
@@ -120,7 +119,6 @@ describe('createManualOrderWithItems', () => {
         price: 280000,
         item_description: 'Battery health 89%',
         product_match_status: 'linked',
-        variant_attributes: { color: 'Black', storage: '128GB' },
       },
     ]);
     expect(dependencies.deleteOrder).not.toHaveBeenCalled();
@@ -162,7 +160,6 @@ describe('createManualOrderWithItems', () => {
         price: 280000,
         product_id: 'product_1',
         quantity: 1,
-        variant_attributes: { color: 'Black', storage: '128GB' },
         variant_id: 'variant_1',
         variant_name: 'iPhone 12 128GB · Used',
       },

@@ -160,14 +160,7 @@ export async function submitNewOrder({
               (item.is_custom ? 'custom' : 'linked'),
             quantity: item.quantity,
             variant_id: item.is_custom ? null : (item.variant_id ?? null),
-            variant_attributes:
-              item.is_custom || !item.variant_id
-                ? null
-                : (item.variant_attributes ?? null),
-            variant_name:
-              item.is_custom || !item.variant_id
-                ? null
-                : (item.variant_name ?? null),
+            variant_name: item.is_custom ? null : (item.variant_name ?? null),
           })),
         order: {
           amount_paid:

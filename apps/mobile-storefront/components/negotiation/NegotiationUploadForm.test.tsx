@@ -23,10 +23,8 @@ function createProps(
     message: 'Upload evidence of a lower price.',
     uploadFile: null,
     uploadLink: '',
-    phone: '',
     onPickImage: jest.fn(),
     onUploadLinkChange: jest.fn(),
-    onPhoneChange: jest.fn(),
     onBackFromUpload: jest.fn(),
     onUploadSubmit: jest.fn(),
     ...overrides,
@@ -43,20 +41,6 @@ describe('NegotiationUploadForm', () => {
     expect(
       screen.getByPlaceholderText('Paste competitor product URL')
     ).toBeTruthy();
-  });
-
-  it('renders the optional phone field and reports changes', () => {
-    const onPhoneChange = jest.fn();
-    render(
-      <NegotiationUploadForm {...createProps({ phone: '', onPhoneChange })} />
-    );
-
-    const phoneInput = screen.getByLabelText(
-      'Phone or WhatsApp number (optional)'
-    );
-    expect(phoneInput).toBeTruthy();
-    fireEvent.changeText(phoneInput, '0803 123 4567');
-    expect(onPhoneChange).toHaveBeenCalledWith('0803 123 4567');
   });
 
   it('shows the Change Photo label when a file is already attached', () => {

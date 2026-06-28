@@ -1,29 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  createClient: vi.fn(async () => ({ from: vi.fn() })),
-}));
-
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mocks.createClient,
-}));
-
-// The route resolves the latest live build via the DB-backed gate store. Here we
-// delegate to the LATEST_BUILD env var (the store's own fallback) so these tests
-// stay env-driven and never touch Supabase.
-vi.mock('@/lib/mobile-release-gate-store', async () => {
-  const { parseBuildNumber, readMobilePlatformEnv } = await vi.importActual<
-    typeof import('@/lib/mobile-update-gate')
-  >('@/lib/mobile-update-gate');
-  return {
-    readLatestLiveBuild: async (
-      platform: 'android' | 'ios',
-      _client: unknown
-    ) => parseBuildNumber(readMobilePlatformEnv(platform, 'LATEST_BUILD')),
-  };
-});
-
 function makeRequest(query: Record<string, string | undefined>) {
   const url = new URL('http://localhost/api/mobile/release-policy');
   for (const [key, value] of Object.entries(query)) {
@@ -42,7 +19,6 @@ async function callGet(query: Record<string, string | undefined>) {
 
 describe('GET /api/mobile/release-policy', () => {
   afterEach(() => {
-    vi.clearAllMocks();
     vi.unstubAllEnvs();
   });
 
@@ -61,7 +37,6 @@ describe('GET /api/mobile/release-policy', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
-    expect(mocks.createClient).not.toHaveBeenCalled();
     expect(body).toEqual({
       enabled: false,
       latestNativeVersion: null,
@@ -88,7 +63,6 @@ describe('GET /api/mobile/release-policy', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid release policy query');
-    expect(mocks.createClient).not.toHaveBeenCalled();
   });
 
   it('requires a native update when installed version is below the platform minimum', async () => {
@@ -115,7 +89,6 @@ describe('GET /api/mobile/release-policy', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mocks.createClient).toHaveBeenCalledTimes(1);
     expect(body).toMatchObject({
       enabled: true,
       latestNativeVersion: '2.2.0',
@@ -127,23 +100,21 @@ describe('GET /api/mobile/release-policy', () => {
     });
   });
 
-  it('does NOT recommend on marketing version alone — only the live build drives recommended', async () => {
-    // LATEST_VERSION can be set ahead of the App Store live version; if it drove
-    // the recommended path it would prompt for an unreleased build. With no
-    // LATEST_BUILD/live-build signal, the gate must stay quiet.
+  it('recommends but does not require native update when installed version is below latest only', async () => {
     vi.stubEnv('MOBILE_STOREFRONT_UPDATES_ENABLED', 'true');
-    vi.stubEnv('MOBILE_STOREFRONT_IOS_LATEST_VERSION', '2.1.390');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_MIN_VERSION', '2.0.0');
+    vi.stubEnv('MOBILE_STOREFRONT_ANDROID_LATEST_VERSION', '2.1.0');
     vi.stubEnv(
-      'MOBILE_STOREFRONT_IOS_STORE_URL',
-      'https://apps.apple.com/app/id6472735367'
+      'MOBILE_STOREFRONT_ANDROID_STORE_URL',
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store'
     );
 
     const response = await callGet({
       app: 'storefront',
-      platform: 'ios',
-      runtimeVersion: '2.1.360',
-      nativeVersion: '2.1.360',
-      buildNumber: '360',
+      platform: 'android',
+      runtimeVersion: '2.0.0',
+      nativeVersion: '2.0.1',
+      buildNumber: '42',
       channel: 'production',
     });
     const body = await response.json();
@@ -151,8 +122,9 @@ describe('GET /api/mobile/release-policy', () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       enabled: true,
-      latestNativeVersion: '2.1.390',
-      nativeUpdateRecommended: false,
+      latestNativeVersion: '2.1.0',
+      minNativeVersion: '2.0.0',
+      nativeUpdateRecommended: true,
       nativeUpdateRequired: false,
     });
   });

@@ -1,5 +1,4 @@
 import posthog from 'posthog-js';
-import { markPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
 import { isPublicBlogPathname } from '@/lib/posthog/public-blog-path';
@@ -176,7 +175,6 @@ export function initializePostHogBrowser(
       },
     });
     hasInitializedPostHogBrowser = true;
-    markPostHogBrowserInitialized();
     postHogLoadedStateCheckAttempts = 0;
     flushPendingPostHogPageviewsIfClientLoaded();
     schedulePostHogLoadedStateCheck();

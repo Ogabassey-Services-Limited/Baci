@@ -96,10 +96,7 @@ export function OrderDetailsScreen() {
     );
   }
 
-  const statusMeta = getCustomerOrderStatusMeta(
-    order.shipping_status,
-    merchantInfo?.business_name
-  );
+  const statusMeta = getCustomerOrderStatusMeta(order.shipping_status);
   const statusPalette = getCustomerOrderStatusPalette(order.shipping_status);
   const isClosedOrder = isCustomerOrderClosed(order.shipping_status);
   const summaryBreakdown: OrderDetailsSummaryBreakdown =

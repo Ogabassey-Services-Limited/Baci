@@ -1,7 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
-import { useRef } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -9,9 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
-import { OrdersFilterBar } from '@/components/orders/OrdersFilterBar';
 import { OrdersListEmptyState } from '@/components/orders/OrdersListEmptyState';
 import { OrdersListHeader } from '@/components/orders/OrdersListHeader';
 import { OrdersListItem } from '@/components/orders/OrdersListItem';
@@ -23,11 +20,6 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useAuthStore } from '@/stores/auth-store';
-
-// Vertical gap between order cards (FlashList ignores contentContainer gap).
-function OrderSeparator() {
-  return <View style={styles.separator} />;
-}
 
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
@@ -50,7 +42,6 @@ const handleGoBack = (): void => {
 export default function OrdersScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const customer = useAuthStore((state) => state.customer);
 
@@ -77,14 +68,6 @@ export default function OrdersScreen() {
     customerId: customer?.id,
     onReconnect,
   });
-  const listRef = useRef<FlashListRef<(typeof orders)[number]>>(null);
-
-  // Reset scroll to the top when switching filters, so a shorter filtered set
-  // doesn't leave the list parked mid-scroll on blank space.
-  const handleSelectFilter = (filter: typeof selectedFilter) => {
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-    setSelectedFilter(filter);
-  };
 
   // Declarative auth-gate: redirect to login if not authenticated
   if (redirectTo) {
@@ -225,8 +208,6 @@ export default function OrdersScreen() {
         )}
 
         <FlashList
-          ref={listRef}
-          style={styles.list}
           data={filteredOrders}
           renderItem={({ item }) => (
             <OrdersListItem
@@ -237,7 +218,6 @@ export default function OrdersScreen() {
             />
           )}
           keyExtractor={(item) => item.id}
-          ItemSeparatorComponent={OrderSeparator}
           contentContainerStyle={[
             styles.listContent,
             orders.length === 0 && styles.emptyListContent,
@@ -254,6 +234,9 @@ export default function OrdersScreen() {
             orders.length > 0 ? (
               <OrdersListHeader
                 colors={colors}
+                orderFilters={orderFilters}
+                selectedFilter={selectedFilter}
+                onSelectFilter={setSelectedFilter}
                 searchQuery={searchQuery}
                 onSearchQueryChange={setSearchQuery}
                 filteredOrdersCount={filteredOrders.length}
@@ -272,16 +255,6 @@ export default function OrdersScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         />
-
-        {orders.length > 0 && (
-          <OrdersFilterBar
-            colors={colors}
-            orderFilters={orderFilters}
-            selectedFilter={selectedFilter}
-            onSelectFilter={handleSelectFilter}
-            bottomInset={insets.bottom}
-          />
-        )}
       </StorefrontScreenShell>
     </>
   );

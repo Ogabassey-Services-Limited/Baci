@@ -58,38 +58,6 @@ describe('useBillPaymentVerification', () => {
     expect(result.current.verifying).toBe(false);
   });
 
-  it('captures the meter address from the verification response', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          verified: true,
-          customerName: 'Jane Meter',
-          address: '12 Marina Road, Lagos',
-        }),
-    });
-
-    const { result } = renderHook(() => useBillPaymentVerification());
-
-    await act(async () => {
-      await result.current.verify(
-        {
-          provider: 'monnify',
-          billerCode: 'IKEDC',
-          productCode: 'IKEDC-PREPAID',
-          customerIdentifier: '0102030405',
-        },
-        'monnify|IKEDC|IKEDC-PREPAID|0102030405'
-      );
-    });
-
-    expect(result.current.verification).toMatchObject({
-      verified: true,
-      customerName: 'Jane Meter',
-      address: '12 Marina Road, Lagos',
-    });
-  });
-
   it('uses non-OK response bodies as verification failures', async () => {
     mockFetch.mockResolvedValue({
       ok: false,

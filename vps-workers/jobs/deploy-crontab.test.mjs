@@ -58,23 +58,6 @@ describe('deploy crontab', () => {
     );
   });
 
-  it('schedules the iOS live-build sync daily backstop through run-web-cron', () => {
-    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
-
-    assert.match(
-      deployScript,
-      /30 9\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/ios-live-build-sync\.lock/
-    );
-    assert.match(
-      deployScript,
-      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/ios-live-build-sync/
-    );
-    assert.match(
-      deployScript,
-      />> \$REMOTE_DIR\/logs\/ios-live-build-sync\.log 2>&1/
-    );
-  });
-
   it('serializes the AI storefront worker behind the shared workload lock', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

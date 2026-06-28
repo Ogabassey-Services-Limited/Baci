@@ -23,26 +23,11 @@ import { analyticsInsightsSchema } from '@/schemas/analytics-insights';
 export const maxDuration = 30;
 
 const AI_INSIGHTS_TIMEOUT_MS = 25_000;
-const AI_INSIGHTS_CACHE_TTL_SECONDS = 86_400;
-const AI_INSIGHTS_FALLBACK_CACHE_TTL_SECONDS = 300;
 const AI_INSIGHTS_RETRY_CONFIG = {
   maxRetries: 0,
   initialDelayMs: 0,
   maxDelayMs: 0,
   backoffMultiplier: 1,
-};
-
-const FALLBACK_INSIGHTS = {
-  insights: [
-    {
-      title: 'AI Insights Temporarily Unavailable',
-      description:
-        'AI-powered analytics are currently unavailable. Please try again shortly.',
-      type: 'neutral' as const,
-      priority: 'low' as const,
-      action: 'Refresh this panel in a few minutes.',
-    },
-  ],
 };
 
 async function generateInsights(
@@ -131,24 +116,19 @@ async function generateInsights(
 
   // Generate insights with retry logic
   // Wrap in try-catch to prevent server freezing if AI API is unavailable
-  const insightsProvider = isAnalyticsInsightsOllamaConfigured()
-    ? 'ollama'
-    : 'gemini';
-
   try {
-    const object =
-      insightsProvider === 'ollama'
-        ? await generateAnalyticsInsightsWithOllama(safeContext, {
-            timeoutMs: AI_INSIGHTS_TIMEOUT_MS,
-          })
-        : (
-            await withRetry(async () => {
-              return await generateObject({
-                model: geminiFlash,
-                schema: analyticsInsightsSchema,
-                maxRetries: 0,
-                timeout: AI_INSIGHTS_TIMEOUT_MS,
-                prompt: `
+    const object = isAnalyticsInsightsOllamaConfigured()
+      ? await generateAnalyticsInsightsWithOllama(safeContext, {
+          timeoutMs: AI_INSIGHTS_TIMEOUT_MS,
+        })
+      : (
+          await withRetry(async () => {
+            return await generateObject({
+              model: geminiFlash,
+              schema: analyticsInsightsSchema,
+              maxRetries: 0,
+              timeout: AI_INSIGHTS_TIMEOUT_MS,
+              prompt: `
 Analyze the following e-commerce data for a merchant and provide 3-5 actionable insights.
 Focus on trends, opportunities for growth, and potential issues.
 
@@ -162,28 +142,30 @@ Provide insights in the following categories:
 
 Be specific and constructive.
       `,
-              });
-            }, AI_INSIGHTS_RETRY_CONFIG)
-          ).object;
+            });
+          }, AI_INSIGHTS_RETRY_CONFIG)
+        ).object;
 
-    // Cache the insights for 24 hours.
-    cache.set(cacheKey, object, AI_INSIGHTS_CACHE_TTL_SECONDS);
+    // Cache the insights for 24 hours (86400 seconds)
+    cache.set(cacheKey, object, 86400);
 
     return { data: object };
   } catch (error) {
-    console.warn('AI insights generation unavailable; using fallback', {
-      merchantId,
-      provider: insightsProvider,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    // Short-cache fallback insights to avoid repeated upstream timeouts while
-    // keeping recovery quick when the VPS/provider becomes responsive again.
-    cache.set(
-      cacheKey,
-      FALLBACK_INSIGHTS,
-      AI_INSIGHTS_FALLBACK_CACHE_TTL_SECONDS
-    );
-    return { data: FALLBACK_INSIGHTS };
+    console.error('Error generating AI insights (using fallback):', error);
+    // Return fallback insights when AI is unavailable
+    const fallbackInsights = {
+      insights: [
+        {
+          title: 'AI Insights Temporarily Unavailable',
+          description:
+            'AI-powered analytics are currently unavailable. Please check your API configuration or try again later.',
+          type: 'neutral' as const,
+          priority: 'low' as const,
+          action: 'Check your Google AI API key in environment variables.',
+        },
+      ],
+    };
+    return { data: fallbackInsights };
   }
 }
 

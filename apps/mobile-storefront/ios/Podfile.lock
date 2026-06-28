@@ -476,10 +476,10 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - PostHog (3.61.1)
-  - posthog-react-native-plugin (2.1.1):
+  - PostHog (3.58.3)
+  - posthog-react-native-plugin (2.0.1):
     - hermes-engine
-    - PostHog (~> 3.61.1)
+    - PostHog (~> 3.58.1)
     - RCTRequired
     - RCTTypeSafety
     - React-Core
@@ -3383,8 +3383,8 @@ SPEC CHECKSUMS:
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   NitroMmkv: b39c8aac31ceb11a6e48d2189fc8f6a3bf4c2f50
   NitroModules: fa3f01c46ec724812c2a1a7074eeb528980f6a47
-  PostHog: 6d64ad682f47610444d35c5f94e1029229283da4
-  posthog-react-native-plugin: a8e567409377844a970e17904f7b40fc3f98bfdc
+  PostHog: f6da05611d29a8facb652f7e2ee8389bc3f96b67
+  posthog-react-native-plugin: 57b23c9de1158386c2dea21cc67a3e5efd10ddf2
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
   RCTSwiftUI: 239ed2eb9e73de5a6f518810630f0c95e01c8702

@@ -10,12 +10,10 @@ import { styles } from './new-order.styles';
 
 interface NewOrderDetailsSectionProps {
   controller: ReturnType<typeof useNewOrderController>;
-  showDateField?: boolean;
 }
 
 export function NewOrderDetailsSection({
   controller,
-  showDateField = true,
 }: NewOrderDetailsSectionProps) {
   const {
     colors,
@@ -61,64 +59,56 @@ export function NewOrderDetailsSection({
   return (
     <>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        {showDateField ? (
-          <>
-            <Pressable
-              accessibilityHint={
-                showDatePicker
-                  ? 'Closes the calendar'
-                  : 'Opens a calendar to change the order date'
-              }
-              accessibilityLabel="Select order date"
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showDatePicker }}
-              onPress={() => setShowDatePicker((previous) => !previous)}
-              style={({ pressed }) => [
-                styles.listRow,
-                { borderBottomColor: colors.border, borderBottomWidth: 1 },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <View
-                style={[
-                  styles.iconBox,
-                  { backgroundColor: colors.backgroundLight },
-                ]}
-              >
-                <Ionicons
-                  color={colors.primary}
-                  name="calendar-outline"
-                  size={20}
-                />
-              </View>
-              <Text style={[styles.listLabel, { color: colors.text }]}>
-                Date
-              </Text>
-              <View
-                style={{ alignItems: 'center', flexDirection: 'row', gap: 6 }}
-              >
-                <Text style={[styles.listValue, { color: colors.textSecondary }]}>
-                  {format(date, 'MMM dd, yyyy')}
-                </Text>
-                <Ionicons
-                  color={colors.textMuted}
-                  name={showDatePicker ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                />
-              </View>
-            </Pressable>
+        <Pressable
+          accessibilityHint={
+            showDatePicker
+              ? 'Closes the calendar'
+              : 'Opens a calendar to change the order date'
+          }
+          accessibilityLabel="Select order date"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showDatePicker }}
+          onPress={() => setShowDatePicker((previous) => !previous)}
+          style={({ pressed }) => [
+            styles.listRow,
+            { borderBottomColor: colors.border, borderBottomWidth: 1 },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <View
+            style={[
+              styles.iconBox,
+              { backgroundColor: colors.backgroundLight },
+            ]}
+          >
+            <Ionicons
+              color={colors.primary}
+              name="calendar-outline"
+              size={20}
+            />
+          </View>
+          <Text style={[styles.listLabel, { color: colors.text }]}>Date</Text>
+          <View style={{ alignItems: 'center', flexDirection: 'row', gap: 6 }}>
+            <Text style={[styles.listValue, { color: colors.textSecondary }]}>
+              {format(date, 'MMM dd, yyyy')}
+            </Text>
+            <Ionicons
+              color={colors.textMuted}
+              name={showDatePicker ? 'chevron-up' : 'chevron-down'}
+              size={14}
+            />
+          </View>
+        </Pressable>
 
-            {showDatePicker ? (
-              <AppDatePickerField
-                cancelTextColor={colors.textMuted}
-                confirmTextColor={colors.primary}
-                maximumDate={new Date()}
-                onClose={() => setShowDatePicker(false)}
-                onConfirm={setDate}
-                value={date}
-              />
-            ) : null}
-          </>
+        {showDatePicker ? (
+          <AppDatePickerField
+            cancelTextColor={colors.textMuted}
+            confirmTextColor={colors.primary}
+            maximumDate={new Date()}
+            onClose={() => setShowDatePicker(false)}
+            onConfirm={setDate}
+            value={date}
+          />
         ) : null}
 
         <Pressable

@@ -241,15 +241,6 @@ const serverSchema = z
     MYCOVER_WEBHOOK_SECRET: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     INTERNAL_API_SECRET: z.string().optional(),
-    // App Store Connect API (read-only) — used by the ios-live-build-sync cron
-    // to learn which build is actually live on the App Store.
-    ASC_API_KEY_ID: z.string().optional(),
-    ASC_API_ISSUER_ID: z.string().optional(),
-    ASC_API_PRIVATE_KEY: z.string().optional(),
-    APP_STORE_CONNECT_BUNDLE_ID: z.string().default('com.ogabassey.app'),
-    // Secret configured when registering the App Store Connect webhook; used to
-    // verify the X-Apple-Signature HMAC on inbound webhook deliveries.
-    APP_STORE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
     IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
     IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
     IMPORT_JOB_TRIGGER_URL: httpsOrLocalhostUrl(
@@ -585,12 +576,6 @@ const getEnv = () => {
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
         MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
         CRON_SECRET: process.env.CRON_SECRET,
-        ASC_API_KEY_ID: process.env.ASC_API_KEY_ID,
-        ASC_API_ISSUER_ID: process.env.ASC_API_ISSUER_ID,
-        ASC_API_PRIVATE_KEY: process.env.ASC_API_PRIVATE_KEY,
-        APP_STORE_CONNECT_BUNDLE_ID: process.env.APP_STORE_CONNECT_BUNDLE_ID,
-        APP_STORE_CONNECT_WEBHOOK_SECRET:
-          process.env.APP_STORE_CONNECT_WEBHOOK_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
         IMPORT_JOB_TRIGGER_URL: process.env.IMPORT_JOB_TRIGGER_URL,
         IMPORT_JOB_TRIGGER_SECRET: process.env.IMPORT_JOB_TRIGGER_SECRET,
@@ -1190,24 +1175,6 @@ export const getMyCoverWebhookSecret = (): string => {
 };
 
 export const getCronSecret = () => env?.CRON_SECRET;
-
-/**
- * App Store Connect API credentials for the ios-live-build-sync cron. Returns
- * null when any piece is missing so the cron can skip cleanly rather than throw.
- */
-export const getAppStoreConnectCredentials = () => {
-  const keyId = env?.ASC_API_KEY_ID;
-  const issuerId = env?.ASC_API_ISSUER_ID;
-  const privateKey = env?.ASC_API_PRIVATE_KEY;
-  if (!keyId || !issuerId || !privateKey) return null;
-  return { keyId, issuerId, privateKey };
-};
-
-export const getAppStoreConnectBundleId = () =>
-  env?.APP_STORE_CONNECT_BUNDLE_ID ?? 'com.ogabassey.app';
-
-export const getAppStoreConnectWebhookSecret = () =>
-  env?.APP_STORE_CONNECT_WEBHOOK_SECRET;
 
 export const getInternalApiSecret = () => {
   if (typeof window !== 'undefined')

@@ -1,8 +1,5 @@
 import { getProductPickerRowTitle } from '@/lib/order-product-picker';
-import type {
-  SelectableProductPickerItem,
-  VariantAttributes,
-} from '@/lib/product-picker-variant-rows';
+import type { SelectableProductPickerItem } from '@/lib/product-picker-variant-rows';
 
 export interface ManualOrderLineItem {
   condition?: string;
@@ -13,7 +10,6 @@ export interface ManualOrderLineItem {
   product_id: string | null;
   quantity: number;
   variant_id: string | null;
-  variant_attributes: VariantAttributes | null;
   variant_name: string | null;
 }
 
@@ -55,7 +51,6 @@ export function buildManualOrderLineItem(args: {
     condition: args.product.condition ?? undefined,
     image_url: args.product.images?.[0] ?? args.fallbackImageUrl ?? undefined,
     variant_id: variantId,
-    variant_attributes: args.product.variant_attributes ?? null,
     variant_name:
       normalizedVariantLabel && normalizedVariantLabel !== displayName
         ? normalizedVariantLabel

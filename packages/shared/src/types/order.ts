@@ -37,16 +37,9 @@ export type OrderSource =
   | 'physical'
   | string;
 
-export type VariantAttributePrimitive = string | number | boolean | null;
-export type VariantAttributeValue =
-  | VariantAttributePrimitive
-  | VariantAttributeValue[]
-  | { [key: string]: VariantAttributeValue };
-export type VariantAttributes = VariantAttributeValue;
-
 export interface OrderItem {
   id: string;
-  product_id: string | null;
+  product_id: string;
   name: string;
   product_name: string;
   /** Catalog category label used for order display and fulfillment rules. */
@@ -54,11 +47,7 @@ export interface OrderItem {
   /** Canonical catalog category slug when the ordered product is linked. */
   category_slug?: string | null;
   condition?: string;
-  details?: string;
   has_assurance?: boolean;
-  product_match_status?: 'custom' | 'linked' | 'unreviewed';
-  variant_attributes?: VariantAttributes | null;
-  variant_id?: string | null;
   variant_name?: string;
   quantity: number;
   price: number;

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Product } from '@/lib/products';
+import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredRailsIsland } from './deferred-rails-island.client';
 
 const mockUseViewportActivation = vi.hoisted(() => vi.fn());
@@ -11,7 +11,7 @@ vi.mock('@/components/storefront/use-viewport-activation', () => ({
 }));
 
 vi.mock(
-    '@/components/storefront/ogabassey/pages/product-details-page/deferred-product-rails',
+  '@/components/storefront/ogabassey/pages/product-details-page/deferred-product-rails',
   () => ({
     DeferredProductRails: (props: { product: Product }) => {
       mockDeferredProductRails(props);
@@ -21,22 +21,13 @@ vi.mock(
 );
 
 const product = {
-  brand: 'Lenovo',
-  description: 'Lenovo Legion gaming laptop',
-  gtin: '',
   id: 'product-1',
   image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
-  imageHint: 'Lenovo Legion Pro 9',
-  imageLarge: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
-  manage_stock: true,
-  merchant_id: 'merchant-1',
-  mpn: '',
   name: 'Lenovo Legion Pro 9',
-  price: 5_985_000,
+  price: 'NGN 5,985,000',
+  rawPrice: 5_985_000,
   slug: 'lenovo-legion-pro-9',
-  status: 'active',
-  stock: 3,
-} satisfies Product;
+} as unknown as Product;
 
 describe('OgabasseyPdpDeferredRailsIsland', () => {
   beforeEach(() => {

@@ -1,68 +1,49 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Product } from '@/components/storefront/ogabassey/types';
 import { OgabasseyPdpDeferredDetailClient } from './deferred-detail-island.client';
-import type { OgabasseyPdpDeferredTabProduct } from './deferred-product-payload';
 
 const mockUseViewportActivation = vi.hoisted(() => vi.fn());
-const mockDeferredTabsClient = vi.hoisted(() => vi.fn());
+const mockProductDetailsPage = vi.hoisted(() => vi.fn());
 
 vi.mock('@/components/storefront/use-viewport-activation', () => ({
   useViewportActivation: mockUseViewportActivation,
 }));
 
-// The component lazy-loads this smaller module via runtime import() once active.
-vi.mock('./deferred-tabs.client', () => ({
-  OgabasseyPdpDeferredTabsClient: (props: {
-    productData: OgabasseyPdpDeferredTabProduct;
-    storeSlug: string;
-  }) => {
-    mockDeferredTabsClient(props);
-    return <section aria-label="Deferred product details">tabs</section>;
+// The component lazy-loads this module via runtime import() once active.
+vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
+  ProductDetailsPage: (props: { mode?: string; product: Product }) => {
+    mockProductDetailsPage(props);
+    return (
+      <section aria-label="Deferred product details">{props.mode}</section>
+    );
   },
 }));
 
-const productData = {
-  brand: 'Lenovo',
-  category: 'Laptops',
-  colorImages: {},
-  colors: [],
-  condition: 'new',
-  description: 'Creator laptop with RTX graphics.',
-  detailedSpecs: [],
+const product = {
   id: 'product-1',
   image: 'https://cdn.ogabassey.com/core-assets/products/legion.avif',
-  images: ['https://cdn.ogabassey.com/core-assets/products/legion.avif'],
   name: 'Lenovo Legion Pro 9',
-  platforms: [],
   price: 'NGN 5,985,000',
   rawPrice: 5_985_000,
-  rating: 0,
-  reviewCount: 0,
   slug: 'lenovo-legion-pro-9',
-  specs: [],
-  storage: [],
-} as OgabasseyPdpDeferredTabProduct;
+} as unknown as Product;
 
 describe('OgabasseyPdpDeferredDetailClient', () => {
   beforeEach(() => {
-    mockDeferredTabsClient.mockReset();
+    mockProductDetailsPage.mockReset();
     mockUseViewportActivation.mockReset();
   });
 
-  it('does not import or render deferred tabs before viewport activation', () => {
+  it('does not import or render ProductDetailsPage before viewport activation', () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
       isActive: false,
     });
 
-    render(
-      <OgabasseyPdpDeferredDetailClient
-        productData={productData}
-        storeSlug="ogabassey"
-      />
-    );
+    render(<OgabasseyPdpDeferredDetailClient product={product} />);
 
-    expect(mockDeferredTabsClient).not.toHaveBeenCalled();
+    expect(mockProductDetailsPage).not.toHaveBeenCalled();
     expect(
       screen.getByRole('status', { name: /loading product details/i })
     ).toBeInTheDocument();
@@ -77,34 +58,30 @@ describe('OgabasseyPdpDeferredDetailClient', () => {
     render(
       <OgabasseyPdpDeferredDetailClient
         loadDetailsComponent={() => Promise.reject(new Error('chunk failed'))}
-        productData={productData}
-        storeSlug="ogabassey"
+        product={product}
       />
     );
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/product details could not be loaded/i);
-    expect(mockDeferredTabsClient).not.toHaveBeenCalled();
+    expect(mockProductDetailsPage).not.toHaveBeenCalled();
   });
 
-  it('lazy-loads + renders compact tabs after viewport activation', async () => {
+  it('lazy-loads + renders below-fold ProductDetailsPage after viewport activation', async () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
       isActive: true,
     });
 
-    render(
-      <OgabasseyPdpDeferredDetailClient
-        productData={productData}
-        storeSlug="ogabassey"
-      />
-    );
+    render(<OgabasseyPdpDeferredDetailClient product={product} />);
 
+    // The runtime import() resolves asynchronously, then the island re-renders
+    // with the real (mocked) details component.
     expect(
       await screen.findByRole('region', { name: /deferred product details/i })
     ).toBeInTheDocument();
-    expect(mockDeferredTabsClient).toHaveBeenCalledWith(
-      expect.objectContaining({ productData, storeSlug: 'ogabassey' })
+    expect(mockProductDetailsPage).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'belowFold', product })
     );
   });
 });

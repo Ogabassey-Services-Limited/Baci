@@ -1,8 +1,6 @@
 import {
-  buildCartSnapshot,
+  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
-  normalizePhoneToE164,
-  summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import type { ImpactFeedbackStyle } from 'expo-haptics';
 import { useState } from 'react';
@@ -20,14 +18,26 @@ import {
   getNegotiationHapticsModule,
   getNegotiationImagePickerModule,
 } from './negotiation-native-modules';
-import {
-  computeCounterOffer,
-  toNegotiationCartLine,
-} from './negotiation-offer-helpers';
-import type { UseNegotiationModalControllerParams } from './useNegotiationModalController.types';
 
 const log = createLogger('NegotiationModal');
 void ensureNegotiationNativeModules();
+
+interface NegotiationItemInfo {
+  currentPrice: number;
+  id?: string;
+  name: string;
+}
+
+interface UseNegotiationModalControllerParams {
+  currentPrice: number;
+  isNegotiable?: boolean;
+  itemInfo: NegotiationItemInfo | null;
+  merchantId: string | null;
+  onAcceptedPrice?: (price: number) => void;
+  successMessageFormatter: (price: number) => string;
+  type: 'single' | 'total';
+  visible: boolean;
+}
 
 export function useNegotiationModalController({
   currentPrice,
@@ -38,8 +48,6 @@ export function useNegotiationModalController({
   successMessageFormatter,
   type,
   visible,
-  cartItems,
-  prefillPhone,
 }: UseNegotiationModalControllerParams) {
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
@@ -48,7 +56,6 @@ export function useNegotiationModalController({
   const [counterOffer, setCounterOffer] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<string | null>(null);
   const [uploadLink, setUploadLink] = useState('');
-  const [phone, setPhone] = useState(prefillPhone ?? '');
 
   const [prevVisible, setPrevVisible] = useState(visible);
   if (visible !== prevVisible) {
@@ -60,7 +67,6 @@ export function useNegotiationModalController({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
-      setPhone(prefillPhone ?? '');
       if (isNegotiable === false) {
         setStatus('final');
         setMessage('This is already the best price.');
@@ -78,9 +84,7 @@ export function useNegotiationModalController({
 
     hapticsModule
       .impactAsync(style ?? hapticsModule.ImpactFeedbackStyle.Light)
-      .catch(() => {
-        // Haptics are best-effort; ignore failures (e.g. unsupported device).
-      });
+      .catch(() => {});
   };
 
   const handleSubmitOffer = (offerAmount: number) => {
@@ -107,10 +111,19 @@ export function useNegotiationModalController({
         return;
       }
 
-      const { proposedCounter, replyMessage } = computeCounterOffer(
+      const counterStepIndex = Math.min(
         attemptCount,
-        currentPrice
+        COUNTER_NEGOTIATION_DISCOUNT_STEPS.length - 1
       );
+      const counterDiscount =
+        COUNTER_NEGOTIATION_DISCOUNT_STEPS[counterStepIndex];
+      const replyMessage =
+        counterStepIndex === 0
+          ? "That's a bit low. But I can do:"
+          : counterStepIndex === 1
+            ? "We're getting closer. The best I can do is:"
+            : 'This is my absolute final offer:';
+      const proposedCounter = Math.floor(currentPrice * (1 - counterDiscount));
 
       if (attemptCount >= NEGOTIATION_CHEAPER_BUTTON_THRESHOLD) {
         setStatus('upload');
@@ -150,12 +163,9 @@ export function useNegotiationModalController({
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
-    const handleSubmitFailure = (
-      error: unknown,
-      message = 'Failed to submit request. Please try again.'
-    ) => {
+    const handleSubmitFailure = (error: unknown) => {
       log.error('Failed to submit request:', error);
-      Alert.alert('Error', message);
+      Alert.alert('Error', 'Failed to submit request. Please try again.');
       setStatus('upload');
     };
 
@@ -163,32 +173,6 @@ export function useNegotiationModalController({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
-      // Whole-cart offers snapshot the cart so the merchant can see what's being
-      // negotiated; single offers keep their existing per-product item_info.
-      const cartSnapshot =
-        type === 'total' && cartItems
-          ? buildCartSnapshot(cartItems.map(toNegotiationCartLine))
-          : [];
-      if (type === 'total' && cartSnapshot.length === 0) {
-        handleSubmitFailure(
-          new Error('Missing cart snapshot'),
-          'Whole-cart negotiations require at least one cart item.'
-        );
-        return;
-      }
-      const totalItemInfo =
-        type === 'total'
-          ? summarizeCartForItemInfo(cartSnapshot, currentPrice)
-          : null;
-      const normalizedPhone = normalizePhoneToE164(phone);
-      if (phone.trim() && !normalizedPhone) {
-        handleSubmitFailure(
-          new Error('Invalid customer phone'),
-          'Enter a valid Phone / WhatsApp number.'
-        );
-        return;
-      }
 
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: merchantId,
@@ -202,13 +186,9 @@ export function useNegotiationModalController({
                 name: itemInfo.name,
                 current_price: itemInfo.currentPrice,
               }
-            : totalItemInfo,
-        cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
+            : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,
-        // Optional follow-up number (null when blank/invalid) so the merchant
-        // can reach guests who'd otherwise get no decision notification.
-        customer_phone: normalizedPhone,
         status: 'pending',
       });
 
@@ -283,11 +263,9 @@ export function useNegotiationModalController({
     message,
     offer,
     openUpload: () => setStatus('upload'),
-    phone,
     pickImage,
     resetToInput: () => setStatus('input'),
     setOffer,
-    setPhone,
     setUploadLink,
     status,
     uploadFile,

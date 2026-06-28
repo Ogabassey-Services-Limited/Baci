@@ -14,7 +14,6 @@ import {
   isMigrationStatusActive,
   statusBadgeClass,
 } from '@/app/dashboard/migrations/migration-utils';
-import ReceiptCampaignSummary from '@/app/dashboard/migrations/receipt-campaign-summary';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,8 +48,6 @@ export default function MigrationJobSummary({
   const validRows = Number(summary.validRows || 0);
   const invalidRows = Number(summary.invalidRows || 0);
   const receiptReadyOrders = Number(summary.receiptReadyOrders || 0);
-  const receiptCampaign = decoratedJob?.receiptCampaign ?? null;
-  const sentCountFallback = Number(summary.sentCount || 0);
   const progressLabel = selectedJob
     ? getMigrationProgressLabel(selectedJob.status)
     : null;
@@ -256,13 +253,6 @@ export default function MigrationJobSummary({
                     'Job status updates automatically while this stage is running.'}
                 </p>
               </div>
-            ) : null}
-
-            {receiptCampaign ? (
-              <ReceiptCampaignSummary
-                receiptCampaign={receiptCampaign}
-                sentCountFallback={sentCountFallback}
-              />
             ) : null}
 
             <div className="flex flex-wrap gap-3">

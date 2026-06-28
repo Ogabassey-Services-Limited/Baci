@@ -561,7 +561,6 @@ export const CartSidebar: React.FC = () => {
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
           merchantId={merchant.id}
-          cart={cart}
         />
       )}
     </>

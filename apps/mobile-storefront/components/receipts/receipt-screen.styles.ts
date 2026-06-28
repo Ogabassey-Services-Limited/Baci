@@ -10,9 +10,7 @@ export const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-  },
-  separator: {
-    height: 12,
+    gap: 12,
   },
   emptyListContent: {
     flex: 1,

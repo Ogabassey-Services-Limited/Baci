@@ -51,28 +51,9 @@ const baseClaim = {
   ],
 };
 
-function createSupabaseRpcMock(
-  response: { data: unknown; error: unknown },
-  trackingResponse: { data: unknown; error: unknown } = {
-    data: null,
-    error: null,
-  }
-) {
+function createSupabaseRpcMock(response: { data: unknown; error: unknown }) {
   return {
-    rpc: vi.fn((name: string) => {
-      if (name === 'preview_receipt_claim') {
-        return Promise.resolve(response);
-      }
-
-      if (name === 'record_receipt_claim_click') {
-        return Promise.resolve(trackingResponse);
-      }
-
-      return Promise.resolve({
-        data: null,
-        error: { message: `Unexpected RPC: ${name}` },
-      });
-    }),
+    rpc: vi.fn().mockResolvedValue(response),
   };
 }
 
@@ -111,9 +92,6 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
-    expect(supabase.rpc).toHaveBeenCalledWith('record_receipt_claim_click', {
-      p_token_hash: hashReceiptClaimToken('claim-token'),
-    });
     expect(body).toMatchObject({
       claim: {
         claimed: false,
@@ -123,21 +101,6 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
       },
     });
     expect(body.claim).not.toHaveProperty('customerEmail');
-  });
-
-  it('still returns claim preview details when click tracking fails', async () => {
-    const supabase = createSupabaseRpcMock(
-      { data: baseClaim, error: null },
-      { data: null, error: { message: 'tracking write failed' } }
-    );
-    mockCreateClient.mockResolvedValue(supabase);
-
-    const response = await GET(getRequest(), params);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.claim.customerName).toBe('Bassey John');
-    expect(mockConsoleError).toHaveBeenCalled();
   });
 
   it('uses a generic merchant fallback when the claim merchant has no name', async () => {

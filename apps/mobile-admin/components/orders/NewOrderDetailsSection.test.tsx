@@ -222,18 +222,6 @@ describe('NewOrderDetailsSection', () => {
     expect(screen.getByText('Recipient Phone')).toBeInTheDocument();
   });
 
-  it('hides the date picker controls when the date field is disabled', () => {
-    const controller = makeController({ showDatePicker: true });
-
-    render(
-      <NewOrderDetailsSection controller={controller} showDateField={false} />
-    );
-
-    expect(screen.queryByRole('button', { name: /Date/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Pick order date' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Customer/i })).toBeInTheDocument();
-  });
-
   it('renders a branch selector when multiple active branches exist', () => {
     const controller = makeController();
 

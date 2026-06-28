@@ -18,11 +18,6 @@ import { styles } from './receipt-screen.styles';
 
 type ReceiptColors = (typeof Colors)['light'];
 
-// Vertical gap between receipt cards (FlashList ignores contentContainer gap).
-function ReceiptSeparator() {
-  return <View style={styles.separator} />;
-}
-
 interface ReceiptsViewProps {
   colors: ReceiptColors;
   filteredReceipts: ReceiptListItem[];
@@ -208,7 +203,6 @@ export function ReceiptsView({
           />
         )}
         keyExtractor={(item) => item.id}
-        ItemSeparatorComponent={ReceiptSeparator}
         contentContainerStyle={[
           styles.listContent,
           !hasReceipts && styles.emptyListContent,

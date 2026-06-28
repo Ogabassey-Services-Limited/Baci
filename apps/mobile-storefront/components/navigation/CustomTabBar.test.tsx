@@ -208,28 +208,6 @@ describe('CustomTabBar', () => {
     expect(mockProps.navigation.dispatch).not.toHaveBeenCalled();
   });
 
-  it('emits a single tabPress when pressOut fires before press', () => {
-    // Regression: RN fires onPressOut before onPress. If pressOut cleared the
-    // press-in guard, onPress would re-commit → tabPress twice (e.g. the auth
-    // listener pushing /auth/login twice). The guard must survive pressOut.
-    render(<CustomTabBar {...mockProps} />);
-
-    const saved = screen.getByRole('tab', { name: 'Saved' });
-    fireEvent(saved, 'pressIn');
-    fireEvent(saved, 'pressOut');
-    fireEvent.press(saved);
-
-    const tabPressCalls = jest
-      .mocked(mockProps.navigation.emit)
-      .mock.calls.filter(
-        ([event]) =>
-          (event as { type?: string }).type === 'tabPress' &&
-          (event as { target?: string }).target === 'saved-key'
-      );
-    expect(tabPressCalls).toHaveLength(1);
-    expect(mockProps.navigation.dispatch).toHaveBeenCalledTimes(1);
-  });
-
   it('triggers haptics on tab press-in when platform is not web', () => {
     const originalOS = Platform.OS;
     Platform.OS = 'ios';

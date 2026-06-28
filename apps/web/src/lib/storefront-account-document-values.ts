@@ -1,7 +1,4 @@
-import {
-  formatCanonicalProductConditionLabel,
-  normalizeReceiptFulfillmentDetails,
-} from '@baci/shared';
+import { normalizeReceiptFulfillmentDetails } from '@baci/shared';
 import type { CustomerInfo } from '@/lib/invoice-generator';
 import type { StorefrontAccountDocumentItemRow } from '@/lib/storefront-account-document-bundle.types';
 import type { StorefrontOrderItem } from '@/types/storefront-order';
@@ -89,11 +86,7 @@ export function buildOrderItems(
       id: item.id,
       product_id: item.product_id || '',
       variant_id: item.variant_id || undefined,
-      condition: item.condition || undefined,
-      variant_name:
-        item.variant_name ||
-        formatCanonicalProductConditionLabel(item.condition) ||
-        undefined,
+      variant_name: item.variant_name || undefined,
       name: item.name,
       product_name: item.name,
       quantity: item.quantity,

@@ -8,7 +8,6 @@ import {
   getMigrationProgressValue,
   getMigrationRowsCacheKey,
   getMigrationRowsCacheKeyPrefix,
-  shouldIncludeMigrationJobDetailsForRows,
   statusBadgeClass,
 } from '@/app/dashboard/migrations/migration-utils';
 
@@ -216,39 +215,5 @@ describe('migration row loading helpers', () => {
         { id: 'job-second', status: 'validating', processed_rows: 24 },
       ])
     ).toBe('job-first');
-  });
-
-  it('loads full job details for committed or notified order migrations', () => {
-    expect(
-      shouldIncludeMigrationJobDetailsForRows({
-        entity_type: 'orders',
-        notified_at: null,
-        status: 'committed',
-      })
-    ).toBe(true);
-
-    expect(
-      shouldIncludeMigrationJobDetailsForRows({
-        entity_type: 'orders',
-        notified_at: '2026-06-27T10:00:00.000Z',
-        status: 'preview_ready',
-      })
-    ).toBe(true);
-
-    expect(
-      shouldIncludeMigrationJobDetailsForRows({
-        entity_type: 'products',
-        notified_at: '2026-06-27T10:00:00.000Z',
-        status: 'committed',
-      })
-    ).toBe(false);
-
-    expect(
-      shouldIncludeMigrationJobDetailsForRows({
-        entity_type: 'orders',
-        notified_at: null,
-        status: 'preview_ready',
-      })
-    ).toBe(false);
   });
 });

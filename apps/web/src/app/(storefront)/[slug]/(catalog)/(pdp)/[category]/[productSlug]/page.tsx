@@ -1,5 +1,4 @@
 import '@/app/(storefront)/storefront-pdp-critical.css';
-import '@/app/(storefront)/storefront-pdp-semantic.css';
 import {
   resolveDefaultVariantSelection,
   resolveLowestPricedVariantSelection,
@@ -20,7 +19,6 @@ import {
 } from '@/components/storefront/ogabassey/pdp/critical-commerce.client';
 import { buildOgabasseyPdpCriticalProduct } from '@/components/storefront/ogabassey/pdp/critical-product';
 import { OgabasseyPdpCriticalShell } from '@/components/storefront/ogabassey/pdp/critical-shell';
-import { OgabasseyPdpServerPrimaryDetails } from '@/components/storefront/ogabassey/pdp/server-primary-details';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import { SemanticSectionsErrorBoundary } from '@/components/storefront/ogabassey/seo/semantic-sections-error-boundary';
 import {
@@ -310,31 +308,23 @@ type TemplateProductRenderMode = 'full' | 'belowFold';
  * Renders the correct template's product page based on merchant's template_id
  */
 async function renderTemplateProductPage({
-  currency = 'NGN',
   product,
-  serverPrimaryDetails,
-  semanticSections,
-  storeSlug,
   templateId,
+  semanticSections,
 }: {
-  currency?: string;
   product: Product;
   renderMode?: TemplateProductRenderMode;
-  serverPrimaryDetails: ReactNode;
-  semanticSections: ReactNode;
-  storeSlug: string;
   templateId?: string;
+  semanticSections: ReactNode;
 }) {
   // Ogabassey template
   if (templateId === OGABASSEY_TEMPLATE_ID) {
-    const ogabasseyProduct = toOgabasseyProduct(product, currency);
+    const ogabasseyProduct = toOgabasseyProduct(product);
 
     return (
       <OgabasseyPdpBelowFoldIsland
         product={ogabasseyProduct}
         semanticSections={semanticSections}
-        serverPrimaryDetails={serverPrimaryDetails}
-        storeSlug={storeSlug}
       />
     );
   }
@@ -1383,18 +1373,9 @@ async function CategoryProductPageContent({
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
   const productPage = await renderTemplateProductPage({
-    currency,
     product: renderableProduct,
     renderMode,
-    serverPrimaryDetails: (
-      <OgabasseyPdpServerPrimaryDetails
-        description={renderableProduct.description}
-        detailedSpecs={derivedSpecData.detailedSpecs}
-        productName={renderableProduct.name}
-      />
-    ),
     semanticSections,
-    storeSlug: slug,
     templateId: merchant?.template_id,
   });
 

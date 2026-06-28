@@ -93,7 +93,6 @@ function createValidHandler(overrides: PurchaseHandlerOverrides = {}) {
     setIsSubmitting: jest.fn(),
     type: 'power',
     verifiedCustomerName: null,
-    verifiedCustomerAddress: null,
   };
 
   return createBillFormPurchaseHandler({
@@ -205,42 +204,6 @@ describe('createBillFormPurchaseHandler', () => {
     expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
       customerName: 'JANE METER-OWNER',
     });
-  });
-
-  it('forwards the verified meter address as customerAddress when present', async () => {
-    mockInitializeVtuCheckout.mockResolvedValueOnce({
-      authorization_url: 'https://gateway/auth',
-      gateway: 'paystack',
-      reference: 'PAY-ADDR',
-    });
-    const handlePurchase = createValidHandler({
-      verifiedCustomerName: 'JANE METER-OWNER',
-      verifiedCustomerAddress: '12 Marina Road, Lagos',
-    });
-
-    await handlePurchase();
-
-    expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
-      customerAddress: '12 Marina Road, Lagos',
-    });
-  });
-
-  it('omits customerAddress when no verified address is available', async () => {
-    mockInitializeVtuCheckout.mockResolvedValueOnce({
-      authorization_url: 'https://gateway/auth',
-      gateway: 'paystack',
-      reference: 'PAY-NOADDR',
-    });
-    const handlePurchase = createValidHandler({
-      verifiedCustomerName: 'JANE METER-OWNER',
-      verifiedCustomerAddress: null,
-    });
-
-    await handlePurchase();
-
-    expect(mockInitializeVtuCheckout.mock.calls[0][0]).not.toHaveProperty(
-      'customerAddress'
-    );
   });
 
   it('passes Monnify provider metadata through checkout initialization', async () => {
@@ -381,41 +344,6 @@ describe('createBillFormPurchaseHandler', () => {
       expect(call.amount).toBe(1000);
       // 200 OK ⇒ key rotates on the success path.
       expect(resetWalletIdempotencyKey).toHaveBeenCalledTimes(1);
-    });
-
-    it('forwards the verified meter address on the wallet-only path', async () => {
-      mockChargeWalletForVtu.mockResolvedValueOnce({
-        status: 'successful',
-        amount: 1000,
-        reference: 'WAL-ADDR',
-      });
-      const handlePurchase = createValidHandler({
-        amount: '1000',
-        numericAmount: 1000,
-        verifiedCustomerName: 'JANE METER-OWNER',
-        verifiedCustomerAddress: '12 Marina Road, Lagos',
-        payment: {
-          cards: [],
-          isLoadingCards: false,
-          refetchCards: jest.fn<PaymentState['refetchCards']>(),
-          selectGateway: jest.fn(),
-          selectSavedCard: jest.fn(),
-          selectedGateway: 'paystack',
-          selectedSavedCardId: null,
-          supportedGateways: ['paystack'],
-          walletBalance: 1000,
-          walletSelection: { use: true, amount: 1000 },
-          setWalletSelection: jest.fn(),
-          getWalletIdempotencyKey: jest.fn(() => 'idem-key-addr'),
-          resetWalletIdempotencyKey: jest.fn(),
-        },
-      });
-
-      await handlePurchase();
-
-      expect(mockChargeWalletForVtu.mock.calls[0]?.[0]).toMatchObject({
-        customerAddress: '12 Marina Road, Lagos',
-      });
     });
 
     it('keeps the idempotency key on a 5xx server error (server may have persisted state)', async () => {

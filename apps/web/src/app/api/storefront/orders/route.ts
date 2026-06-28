@@ -129,8 +129,6 @@ export async function GET(request: NextRequest) {
           name,
           product_id,
           image_url,
-          condition,
-          variant_name,
           quantity,
           price,
           has_assurance,
@@ -219,8 +217,6 @@ export async function GET(request: NextRequest) {
             product_images:
               productImages.length > 0 ? productImages : undefined,
             name: item.name,
-            condition: item.condition,
-            variant_name: item.variant_name,
             quantity: item.quantity,
             price: item.price,
             has_assurance: item.has_assurance,

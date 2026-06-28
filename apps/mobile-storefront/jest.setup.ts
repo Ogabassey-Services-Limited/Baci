@@ -439,14 +439,3 @@ jest.mock('react-native-mmkv', () => {
     }),
   };
 });
-
-// react-native-webview pulls in a native TurboModule (NativeRNCWebViewModule)
-// that isn't available under jest. The receipt preview renders an HTML receipt
-// in a WebView, so mock it as a plain View for the test environment.
-jest.mock('react-native-webview', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const WebView = (props: Record<string, unknown>) =>
-    React.createElement(View, props);
-  return { __esModule: true, default: WebView, WebView };
-});

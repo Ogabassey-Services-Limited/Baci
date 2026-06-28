@@ -1174,35 +1174,6 @@ describe('getIndexableRobotsMetadata', () => {
       },
     });
   });
-
-  it('noindexes storefront search query URLs while preserving follow directives', () => {
-    expect(getIndexableRobotsMetadata({ q: 'acc6.top' })).toMatchObject({
-      index: false,
-      follow: true,
-      googleBot: {
-        index: false,
-        follow: true,
-      },
-    });
-
-    expect(getIndexableRobotsMetadata({ query: 'iphone 16' })).toMatchObject({
-      index: false,
-      follow: true,
-      googleBot: {
-        index: false,
-        follow: true,
-      },
-    });
-
-    expect(getIndexableRobotsMetadata({ search: 'pixel 10' })).toMatchObject({
-      index: false,
-      follow: true,
-      googleBot: {
-        index: false,
-        follow: true,
-      },
-    });
-  });
 });
 
 describe('getCanonicalStorefrontFilterSearchParams', () => {
@@ -1225,29 +1196,6 @@ describe('getCanonicalStorefrontFilterSearchParams', () => {
         { filtersAffectResults: true }
       ).toString()
     ).toBe('minPrice=100000&maxPrice=500000');
-  });
-
-  it('normalizes search aliases to the canonical search query param', () => {
-    expect(
-      getCanonicalStorefrontFilterSearchParams(
-        { q: 'iphone 16' },
-        { filtersAffectResults: true }
-      ).toString()
-    ).toBe('search=iphone+16');
-
-    expect(
-      getCanonicalStorefrontFilterSearchParams(
-        { query: 'pixel 10' },
-        { filtersAffectResults: true }
-      ).toString()
-    ).toBe('search=pixel+10');
-
-    expect(
-      getCanonicalStorefrontFilterSearchParams(
-        { search: 'redmi pad' },
-        { filtersAffectResults: true }
-      ).toString()
-    ).toBe('search=redmi+pad');
   });
 
   it('drops canonical filter params until filters affect listing results', () => {

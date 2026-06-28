@@ -197,44 +197,7 @@ function assertMonnifyBusinessSuccess(
 }
 
 function normalizeMonnifyStatus(status: string | null | undefined) {
-  const normalized = status?.trim().toUpperCase();
-  return normalized || undefined;
-}
-
-/**
- * Classifies a Monnify bill outcome from a response body.
- *
- * Monnify bill responses carry TWO statuses: a payment-level `status` (was the
- * customer charged) and a delivery-level `vendStatus` (did the bill/token
- * actually get delivered). For token-bearing bills — prepaid electricity above
- * all — the token is produced by the vend completing, so `vendStatus` is the
- * authoritative outcome. The payment `status` can read SUCCESS while the token
- * is still being generated (`vendStatus` = IN_PROGRESS); reading `status` first
- * finalized such a bill as "successful" with no token and no later retry/notify.
- *
- * So: treat the bill as still processing whenever EITHER status is in progress,
- * and prefer `vendStatus` for the terminal outcome (falling back to `status`
- * when the response omits `vendStatus`, e.g. some airtime/data vends).
- */
-function classifyMonnifyBillStatus(body: {
-  status?: string | null;
-  vendStatus?: string | null;
-}) {
-  const paymentStatus = normalizeMonnifyStatus(body.status);
-  const vendStatus = normalizeMonnifyStatus(body.vendStatus);
-  const isProcessing =
-    (!!vendStatus && MONNIFY_PROCESSING_STATUSES.has(vendStatus)) ||
-    (!!paymentStatus && MONNIFY_PROCESSING_STATUSES.has(paymentStatus));
-  const terminalStatus = vendStatus ?? paymentStatus;
-  const isSuccess =
-    !isProcessing &&
-    !!terminalStatus &&
-    MONNIFY_SUCCESS_STATUSES.has(terminalStatus);
-  const isFailed =
-    !isProcessing &&
-    !!terminalStatus &&
-    MONNIFY_FAILED_STATUSES.has(terminalStatus);
-  return { isSuccess, isProcessing, isFailed };
+  return status?.trim().toUpperCase();
 }
 
 interface MonnifyRequestOptions extends RequestInit {
@@ -343,6 +306,10 @@ export async function getBillerProducts(
   billerCode: string,
   options: MonnifyDiscoveryOptions = {}
 ): Promise<BillerProduct[]> {
+  // Monnify's live biller-products endpoint silently ignores `billerCode`
+  // here and returns the unfiltered generic catalog; this endpoint requires
+  // snake_case `biller_code` even though sibling discovery endpoints remain
+  // camelCase.
   const envelope = await monnifyRequest(
     `/api/v1/vas/bills-payment/biller-products?biller_code=${encodeURIComponent(billerCode)}`,
     {
@@ -380,6 +347,33 @@ export async function getCachedBillerProducts(billerCode: string) {
   return await getBillerProducts(billerCode);
 }
 
+// TEMP DIAGNOSTIC HELPER: returns the nested field-name paths of a Monnify
+// envelope (values are intentionally omitted) so we can see whether the biller
+// returns an address/units field that our Zod schema strips — without ever
+// logging customer PII or prepaid meter tokens. Remove with the call sites once
+// the address question is resolved.
+function collectEnvelopeKeyPaths(
+  value: unknown,
+  prefix = '',
+  out: string[] = [],
+  depth = 0
+): string[] {
+  if (depth > 5 || value === null || typeof value !== 'object') {
+    return out;
+  }
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    out.push(path);
+    collectEnvelopeKeyPaths(
+      (value as Record<string, unknown>)[key],
+      path,
+      out,
+      depth + 1
+    );
+  }
+  return out;
+}
+
 export async function verifyBillCustomer(
   _billerCode: string,
   productCode: string,
@@ -387,7 +381,6 @@ export async function verifyBillCustomer(
 ): Promise<{
   verified: boolean;
   customerName?: string;
-  address?: string;
   message: string;
   validationReference?: string;
   requireValidationRef?: boolean;
@@ -405,6 +398,15 @@ export async function verifyBillCustomer(
         timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS,
         body: JSON.stringify(payload),
       }
+    );
+
+    // TEMP DIAGNOSTIC: log only the STRUCTURE (field-name paths) of the Monnify
+    // validate-customer envelope — never the values — to reveal whether it carries
+    // a customer-address field that our Zod schema strips. No PII/PINs are logged.
+    // Remove once the address question is resolved.
+    console.log(
+      '[monnify-bills] validate-customer envelope keys:',
+      JSON.stringify({ productCode, keys: collectEnvelopeKeyPaths(envelope) })
     );
 
     const parsed = monnifyEnvelopeSchema(
@@ -425,7 +427,6 @@ export async function verifyBillCustomer(
       return {
         verified: true,
         customerName: body.customerName || undefined,
-        address: body.address || undefined,
         validationReference,
         requireValidationRef,
         message: parsed.responseMessage || 'Validation successful',
@@ -481,6 +482,15 @@ export async function purchaseBill(
       body: JSON.stringify(payload),
     });
 
+    // TEMP DIAGNOSTIC: log only the STRUCTURE (field-name paths) of the Monnify
+    // vend envelope — never the values — to reveal whether the biller returns an
+    // address/units field our schema strips. No tokens/PINs/PII are logged.
+    // Remove once the address question is resolved.
+    console.log(
+      '[monnify-bills] vend envelope keys:',
+      JSON.stringify({ productCode, keys: collectEnvelopeKeyPaths(envelope) })
+    );
+
     const parsedEnvelope = monnifyEnvelopeSchema(vendResponseBodySchema).parse(
       envelope
     );
@@ -506,26 +516,17 @@ export async function purchaseBill(
       );
     }
 
+    const statusVal = normalizeMonnifyStatus(body.status || body.vendStatus);
     const transactionReference = body.transactionReference || undefined;
-    const vendReference = body.vendReference || undefined;
 
-    const { isSuccess, isProcessing, isFailed } =
-      classifyMonnifyBillStatus(body);
+    const isSuccess = !!statusVal && MONNIFY_SUCCESS_STATUSES.has(statusVal);
+    const isProcessing =
+      !!statusVal && MONNIFY_PROCESSING_STATUSES.has(statusVal);
+    const isFailed = !!statusVal && MONNIFY_FAILED_STATUSES.has(statusVal);
 
-    // A successful vend delivers the token inline (metaData.token), so any
-    // reference is enough to track it. A PENDING vend, however, must be
-    // reconciled later via requery — and Monnify requery only resolves by
-    // `vendReference` (not `transactionReference`). So a pending vend without a
-    // vendReference is unreconcilable: treat it as transient so it retries
-    // rather than persisting a `processing` row whose token can never be fetched.
-    if (isSuccess && !transactionReference && !vendReference) {
+    if ((isSuccess || isProcessing) && !transactionReference) {
       throw new MonnifyTransientVendError(
-        'Monnify success vend response missing both transaction and vend references'
-      );
-    }
-    if (isProcessing && !vendReference) {
-      throw new MonnifyTransientVendError(
-        'Monnify pending vend response missing a requeryable vend reference'
+        'Monnify vend response missing transactionReference'
       );
     }
 
@@ -538,13 +539,8 @@ export async function purchaseBill(
     return {
       success: isSuccess || isProcessing,
       reference: requestReference,
-      transactionId: transactionReference ?? vendReference,
-      // Monnify resolves requery by its own vendReference, not transactionRef.
-      providerVendReference: vendReference,
-      // Token lives at responseBody.metaData.token for prepaid electricity;
-      // fall back to a flat token for billers that return it top-level.
-      pin: body?.metaData?.token || body?.token || undefined,
-      units: body?.metaData?.unit || undefined,
+      transactionId: transactionReference,
+      pin: body?.token || undefined,
       message:
         parsedEnvelope.responseMessage ||
         (isFailed ? 'Vend request failed' : 'Vend request completed'),
@@ -581,14 +577,9 @@ export async function purchaseBill(
 
 export async function checkTransactionStatus(
   transactionReference: string
-): Promise<{ status: string; message: string; pin?: string; units?: string }> {
-  // Monnify's bills requery expects `reference`, not `transactionReference`
-  // (the latter 400s with "Required request parameter 'reference' is not
-  // present"). Note: the token is delivered inline in the vend response
-  // (responseBody.metaData.token), so requery is only a fallback for
-  // genuinely IN_PROGRESS vends.
+): Promise<{ status: string; message: string; pin?: string }> {
   const envelope = await monnifyRequest(
-    `/api/v1/vas/bills-payment/requery?reference=${encodeURIComponent(transactionReference)}`,
+    `/api/v1/vas/bills-payment/requery?transactionReference=${encodeURIComponent(transactionReference)}`,
     { method: 'GET', timeoutMs: MONNIFY_FINANCIAL_TIMEOUT_MS }
   );
 
@@ -598,17 +589,16 @@ export async function checkTransactionStatus(
 
   if (isMonnifyBusinessSuccess(parsed) && parsed.responseBody) {
     const body = parsed.responseBody;
-    const { isSuccess, isProcessing } = classifyMonnifyBillStatus(body);
+    const statusVal = normalizeMonnifyStatus(body.status || body.vendStatus);
 
-    if (isSuccess) {
+    if (statusVal && MONNIFY_SUCCESS_STATUSES.has(statusVal)) {
       return {
         status: 'successful',
         message: parsed.responseMessage || 'success',
-        pin: body.metaData?.token || body.token || undefined,
-        units: body.metaData?.unit || undefined,
+        pin: body.token || undefined,
       };
     }
-    if (isProcessing) {
+    if (statusVal && MONNIFY_PROCESSING_STATUSES.has(statusVal)) {
       return {
         status: 'processing',
         message: parsed.responseMessage || 'processing',

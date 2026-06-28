@@ -164,51 +164,6 @@ describe('ReceiptModal', () => {
     expect(print).toHaveBeenCalledTimes(1);
   });
 
-  it('embeds the generated receipt document in a focusable modal iframe', () => {
-    render(
-      <ReceiptModal
-        isOpen
-        merchantData={merchant}
-        onClose={vi.fn()}
-        orderData={createOrder('paid')}
-      />
-    );
-
-    const dialog = screen.getByRole('dialog', { name: 'Receipt Details' });
-    const iframe = screen.getByTitle('Receipt #ORD-001');
-
-    expect(dialog).toContainElement(iframe);
-    expect(iframe).toHaveAttribute('sandbox', 'allow-same-origin');
-    expect(iframe).toHaveAttribute(
-      'srcdoc',
-      '<html><body>Document</body></html>'
-    );
-    expect(iframe).toHaveAttribute('tabindex', '0');
-    expect(iframe).toHaveClass('h-full');
-    expect(iframe).toHaveClass('min-h-0');
-    expect(iframe).toHaveClass('flex-1');
-    expect(iframe).not.toHaveClass('min-h-[420px]');
-  });
-
-  it('keeps the receipt document as the keyboard-reachable scroll target', () => {
-    render(
-      <ReceiptModal
-        isOpen
-        merchantData={merchant}
-        onClose={vi.fn()}
-        orderData={createOrder('paid')}
-      />
-    );
-
-    const iframe = screen.getByTitle('Receipt #ORD-001');
-    const dialog = screen.getByRole('dialog', { name: 'Receipt Details' });
-
-    expect(dialog).toContainElement(iframe);
-    expect(iframe).toHaveAttribute('tabindex', '0');
-    iframe.focus();
-    expect(iframe).toHaveFocus();
-  });
-
   it.each(modalVariants)(
     'closes the $label modal when Escape is pressed',
     async ({ label, paymentStatus }) => {

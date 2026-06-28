@@ -12,10 +12,12 @@ describe('getBlogAuthorSameAs', () => {
     expect(getBlogAuthorSameAs('Bassey John', 'ogabassey')).toEqual([
       'https://www.instagram.com/bassey__j',
       'https://www.linkedin.com/in/bassey-john-6a277885',
+      'https://twitter.com/digitalogaa',
     ]);
     expect(getBlogAuthorSameAs('Bolakale', 'ogabassey')).toEqual([
       'https://www.instagram.com/earthmover007',
       'https://www.linkedin.com/in/michael-bolakale',
+      'https://twitter.com/earthmover007',
     ]);
   });
 
@@ -25,19 +27,12 @@ describe('getBlogAuthorSameAs', () => {
   });
 
   it('does not mix the company social media into an author (distinct entities)', () => {
-    expect(getBlogAuthorSameAs('Bassey John', 'ogabassey.com')).toEqual([
-      'https://www.instagram.com/bassey__j',
-      'https://www.linkedin.com/in/bassey-john-6a277885',
-    ]);
-  });
-
-  it('omits broken X/Twitter profile links from author schemas', () => {
-    expect(getBlogAuthorSameAs('Bassey John', 'ogabassey.com')).not.toContain(
-      'https://twitter.com/digitalogaa'
-    );
-    expect(getBlogAuthorSameAs('Bolakale', 'ogabassey.com')).not.toContain(
-      'https://twitter.com/earthmover007'
-    );
+    const sameAs = getBlogAuthorSameAs('Bassey John', 'ogabassey.com');
+    expect(
+      sameAs.every(
+        (url) => url.includes('bassey') || url.includes('digitalogaa')
+      )
+    ).toBe(true);
   });
 
   it('returns an empty array for unknown or unnamed authors', () => {

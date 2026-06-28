@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { bumpaOrderRowSchema } from '@/schemas/bumpa-orders';
 
 describe('bumpaOrderRowSchema', () => {
-  function validRow(overrides: Record<string, string> = {}) {
-    return {
+  it('accepts a valid Bumpa order row', () => {
+    const result = bumpaOrderRowSchema.safeParse({
       id: '4196546',
       'Order Number': '06397',
       Products: 'Iphone 17 Pro',
@@ -29,56 +29,9 @@ describe('bumpaOrderRowSchema', () => {
       'Shipping Option': '',
       'Product SKU': '',
       'Product Quantity': '1.00',
-      ...overrides,
-    };
-  }
-
-  it('accepts a valid Bumpa order row', () => {
-    const result = bumpaOrderRowSchema.safeParse(validRow());
+    });
 
     expect(result.success).toBe(true);
-  });
-
-  it('accepts valid rich items_json arrays', () => {
-    const result = bumpaOrderRowSchema.safeParse(
-      validRow({
-        items_json: JSON.stringify([{ name: 'Iphone 17 Pro', quantity: 1 }]),
-      })
-    );
-
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects malformed items_json before preview parsing', () => {
-    const result = bumpaOrderRowSchema.safeParse(
-      validRow({ items_json: '{not-valid-json' })
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error?.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: ['items_json'],
-          message: 'items_json must be a JSON array of objects',
-        }),
-      ])
-    );
-  });
-
-  it('rejects items_json arrays without item objects', () => {
-    const result = bumpaOrderRowSchema.safeParse(
-      validRow({ items_json: JSON.stringify(['Iphone 17 Pro', 1]) })
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error?.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: ['items_json'],
-          message: 'items_json must be a JSON array of objects',
-        }),
-      ])
-    );
   });
 
   it('accepts rows with blank customer name when email exists', () => {
