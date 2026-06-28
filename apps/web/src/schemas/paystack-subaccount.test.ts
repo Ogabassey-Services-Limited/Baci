@@ -45,6 +45,35 @@ describe('paystackSubaccountSchema', () => {
     expect(result.business_name).toBeUndefined();
   });
 
+  it('parses manual invoice bank details without a Paystack bank code', () => {
+    const result = paystackSubaccountSchema.parse({
+      accountNumber: 'IN-123456789012',
+      bankName: 'HDFC Bank',
+      accountName: 'Yodha Shopping',
+      businessName: 'Yodha Shopping',
+    });
+
+    expect(result).toEqual({
+      account_number: 'IN-123456789012',
+      bank_code: '',
+      bank_name: 'HDFC Bank',
+      account_name: 'Yodha Shopping',
+      business_name: 'Yodha Shopping',
+      payout_mode: 'manual',
+      auto_payout_enabled: false,
+    });
+  });
+
+  it('rejects account names shorter than 2 characters', () => {
+    const result = paystackSubaccountSchema.safeParse({
+      accountNumber: 'IN-123456789012',
+      bankName: 'HDFC Bank',
+      accountName: 'Y',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects invalid account numbers', () => {
     const result = paystackSubaccountSchema.safeParse({
       accountNumber: '123',

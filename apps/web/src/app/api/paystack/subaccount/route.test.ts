@@ -334,7 +334,7 @@ describe('POST /api/paystack/subaccount', () => {
     });
   });
 
-  it('rejects bank account setup for India without calling Paystack account resolution', async () => {
+  it('saves manual invoice bank details for India without calling Paystack', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
         paystack_subaccount_code: null,
@@ -348,21 +348,31 @@ describe('POST /api/paystack/subaccount', () => {
 
     const response = await POST(
       makeRequest({
-        accountNumber: '1234567890123456',
+        accountNumber: 'IN-123456789012',
         bankName: 'HDFC Bank',
+        accountName: 'Yodha Shopping',
         businessName: 'Yodha Shopping',
       })
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      error:
-        'Bank account setup is only available for Nigerian Paystack settlements',
+      success: true,
+      accountName: 'Yodha Shopping',
+      subaccountCode: null,
     });
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
     expect(mockCreateSubaccount).not.toHaveBeenCalled();
     expect(mockUpdateSubaccount).not.toHaveBeenCalled();
-    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockMerchantUpdate).toHaveBeenCalledWith({
+      paystack_subaccount_code: null,
+      bank_account_number: 'IN-123456789012',
+      bank_account_name: 'Yodha Shopping',
+      bank_code: null,
+      bank_name: 'HDFC Bank',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
   it('returns 400 when bank_code is missing from request payload', async () => {
@@ -409,7 +419,7 @@ describe('POST /api/paystack/subaccount', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error:
-        'Bank account setup is only available for Nigerian Paystack settlements',
+        'Auto-payout settings are only available for Nigerian Paystack settlements',
     });
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
     expect(mockCreateSubaccount).not.toHaveBeenCalled();

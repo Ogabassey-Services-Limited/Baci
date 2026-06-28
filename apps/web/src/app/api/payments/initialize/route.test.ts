@@ -44,7 +44,13 @@ vi.mock('@/lib/juicyway', () => ({
     rate: 1535,
     ngnAmount: ngnKobo / 100,
   }),
-  formatPhoneToE164: (phone: string) => `+234${phone.replace(/^0/, '')}`,
+  formatPhoneToE164: (phone: string) => {
+    const trimmed = phone.trim();
+    if (trimmed.startsWith('+')) {
+      return `+${trimmed.slice(1).replace(/\D/g, '')}`;
+    }
+    return `+234${trimmed.replace(/^0/, '').replace(/\D/g, '')}`;
+  },
   generatePaymentReference: () => 'baci_test_ref123',
   getChainConfirmationTime: () => '1-3 minutes',
   isSupportedCurrency: (c: string) =>
@@ -276,6 +282,15 @@ function enableKorapayForTest() {
   featureSettingsResult = {
     data: {
       korapay_enabled: true,
+    },
+    error: null,
+  };
+}
+
+function enableDvaForTest() {
+  featureSettingsResult = {
+    data: {
+      wallet_paystack_dva_enabled: true,
     },
     error: null,
   };
@@ -600,6 +615,110 @@ describe('POST /api/payments/initialize', () => {
       }
     });
 
+    it('restricts Paystack hosted checkout to cards for non-Nigerian checkout details', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/international-card',
+      });
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          customer_phone: '+919876543210',
+          billing_address: {
+            ...validBody.billing_address,
+            city: 'Bengaluru',
+            country: 'IN',
+          },
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channels: ['card'],
+          phone: '+919876543210',
+        })
+      );
+    });
+
+    it('uses card-only Paystack checkout when billing country is India even with a Nigerian phone', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/india-card-only',
+      });
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          customer_phone: '08012345678',
+          billing_address: {
+            ...validBody.billing_address,
+            city: 'Bengaluru',
+            country: 'IN',
+          },
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channels: ['card'],
+          phone: '+2348012345678',
+        })
+      );
+    });
+
+    it('filters unsupported Paystack channels for Nigerian checkout details', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/filtered-channels',
+      });
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          channels: ['card', 'mobile_money', 'bank_transfer'],
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channels: ['card', 'bank_transfer'],
+        })
+      );
+    });
+
+    it('uses Nigerian Paystack channel defaults when supplied channels are empty', async () => {
+      mockInitializePaystack.mockResolvedValue({
+        authorization_url: 'https://paystack.com/pay/default-channels',
+      });
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          channels: [],
+          gateway: 'paystack',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInitializePaystack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channels: ['card', 'bank', 'ussd', 'bank_transfer'],
+        })
+      );
+    });
+
     it('returns 400 when paystack subaccount not configured', async () => {
       merchantResult = {
         data: {
@@ -619,6 +738,8 @@ describe('POST /api/payments/initialize', () => {
     });
 
     it('creates dedicated virtual accounts with the merchant subaccount', async () => {
+      enableDvaForTest();
+
       const res = await POST(
         makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
       );
@@ -642,7 +763,43 @@ describe('POST /api/payments/initialize', () => {
       );
     });
 
+    it('rejects dedicated virtual accounts when bank transfer is disabled', async () => {
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
+    });
+
+    it('rejects dedicated virtual accounts for non-Nigerian checkout details', async () => {
+      enableDvaForTest();
+
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          customer_phone: '+919876543210',
+          billing_address: {
+            ...validBody.billing_address,
+            city: 'Bengaluru',
+            country: 'IN',
+          },
+          gateway: 'paystack',
+          payment_type: 'dva',
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('PAYMENT_METHOD_COUNTRY_UNSUPPORTED');
+      expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
+    });
+
     it('persists the DVA assignment with the expected upsert payload (B1 Δ-10)', async () => {
+      enableDvaForTest();
+
       const res = await POST(
         makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
       );
@@ -671,6 +828,8 @@ describe('POST /api/payments/initialize', () => {
     });
 
     it('warns and still returns 200 when the DVA upsert fails (B1 warn-and-continue)', async () => {
+      enableDvaForTest();
+
       // Simulate a Postgres-side upsert failure (e.g., transient RLS
       // hiccup). The route must NOT throw — the customer can still pay
       // and B4 cron/reconciliation will surface the gap.

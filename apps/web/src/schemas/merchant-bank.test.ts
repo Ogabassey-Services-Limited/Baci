@@ -32,6 +32,56 @@ describe('merchantBankSchema', () => {
     });
   });
 
+  it('parses manual invoice bank details without a Paystack bank code', () => {
+    const result = merchantBankSchema.parse({
+      accountNumber: 'IN-123456789012',
+      bankName: 'HDFC Bank',
+      accountName: 'Yodha Shopping',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result).toEqual({
+      accountNumber: 'IN-123456789012',
+      bankName: 'HDFC Bank',
+      accountName: 'Yodha Shopping',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+  });
+
+  it('does not infer manual invoice mode from bank name alone', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'IN-123456789012',
+      bankName: 'HDFC Bank',
+      accountName: 'Yodha Shopping',
+      businessName: 'Yodha Shopping',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.bankCode).toContain(
+        'Please select your bank'
+      );
+    }
+  });
+
+  it('rejects manual invoice bank details without a bank name', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: 'IN-123456789012',
+      accountName: 'Yodha Shopping',
+      businessName: 'Yodha Shopping',
+      manualBankDetails: true,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.bankName).toContain(
+        'Bank name is required'
+      );
+    }
+  });
+
   it('rejects invalid account numbers', () => {
     const result = merchantBankSchema.safeParse({
       accountNumber: '123',

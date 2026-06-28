@@ -9,6 +9,8 @@ const paystackSubaccountSourceSchema = z.object({
   bankCode: z.string().optional(),
   bank_name: z.string().optional(),
   bankName: z.string().optional(),
+  account_name: z.string().optional(),
+  accountName: z.string().optional(),
   business_name: z.string().optional(),
   businessName: z.string().optional(),
   payout_mode: payoutModeSchema.optional(),
@@ -20,11 +22,13 @@ const paystackSubaccountSourceSchema = z.object({
 export const paystackSubaccountSchema = paystackSubaccountSourceSchema
   .transform((data) => {
     const bankName = (data.bank_name ?? data.bankName ?? '').trim();
+    const accountName = (data.account_name ?? data.accountName ?? '').trim();
 
     return {
       account_number: (data.account_number ?? data.accountNumber ?? '').trim(),
       bank_code: (data.bank_code ?? data.bankCode ?? '').trim(),
       ...(bankName ? { bank_name: bankName } : {}),
+      ...(accountName ? { account_name: accountName } : {}),
       business_name: (data.business_name ?? data.businessName)?.trim(),
       payout_mode: data.payout_mode ?? data.payoutMode ?? 'manual',
       auto_payout_enabled:
@@ -59,6 +63,14 @@ export const paystackSubaccountSchema = paystackSubaccountSourceSchema
           path: ['bank_code'],
         });
       }
+    }
+
+    if (data.account_name !== undefined && data.account_name.length < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Account name must be at least 2 characters',
+        path: ['account_name'],
+      });
     }
 
     if (

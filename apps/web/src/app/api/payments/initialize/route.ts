@@ -40,6 +40,7 @@ import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
+  type PaymentChannel,
 } from '@/lib/paystack';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -58,9 +59,22 @@ type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 
 type PreferredGateway = 'paystack' | 'korapay';
 
+const PAYSTACK_NIGERIAN_CHANNELS = [
+  'card',
+  'bank',
+  'ussd',
+  'bank_transfer',
+] as const satisfies readonly PaymentChannel[];
+const PAYSTACK_INTERNATIONAL_CHANNELS = [
+  'card',
+] as const satisfies readonly PaymentChannel[];
+
+type NigerianPaystackChannel = (typeof PAYSTACK_NIGERIAN_CHANNELS)[number];
+
 interface GatewaySettings {
   paystack_enabled: boolean;
   korapay_enabled: boolean;
+  wallet_paystack_dva_enabled: boolean;
   klump_enabled: boolean;
   klump_min_amount: number;
   klump_max_amount: number;
@@ -72,6 +86,8 @@ const defaultFeatureSettings = merchantFeatureSettingsDefaults.buildFields();
 const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   paystack_enabled: defaultFeatureSettings.paystack_enabled,
   korapay_enabled: defaultFeatureSettings.korapay_enabled,
+  wallet_paystack_dva_enabled:
+    defaultFeatureSettings.wallet_paystack_dva_enabled,
   klump_enabled: defaultFeatureSettings.klump_enabled,
   klump_min_amount: defaultFeatureSettings.klump_min_amount,
   klump_max_amount: defaultFeatureSettings.klump_max_amount,
@@ -324,6 +340,46 @@ function parseCustomerName(fullName: string): {
     firstName: parts[0] || 'Customer',
     lastName: parts.slice(1).join(' ') || 'User',
   };
+}
+
+function isNigerianCheckoutCountry(
+  country: string | null | undefined
+): boolean {
+  const normalizedCountry = country?.trim().toUpperCase();
+  return (
+    !normalizedCountry ||
+    normalizedCountry === 'NG' ||
+    normalizedCountry === 'NIGERIA'
+  );
+}
+
+function isNigerianPaystackCustomer(
+  data: PaymentInitRequest,
+  formattedCustomerPhone: string
+): boolean {
+  return (
+    isNigerianCheckoutCountry(data.billing_address?.country) &&
+    formattedCustomerPhone.startsWith('+234')
+  );
+}
+
+function getPaystackChannelsForCustomer(
+  data: PaymentInitRequest,
+  formattedCustomerPhone: string
+): PaymentChannel[] {
+  if (!isNigerianPaystackCustomer(data, formattedCustomerPhone)) {
+    return [...PAYSTACK_INTERNATIONAL_CHANNELS];
+  }
+
+  if (!data.channels?.length) {
+    return [...PAYSTACK_NIGERIAN_CHANNELS];
+  }
+
+  const channels = data.channels.filter((channel): channel is PaymentChannel =>
+    PAYSTACK_NIGERIAN_CHANNELS.includes(channel as NigerianPaystackChannel)
+  );
+
+  return channels.length ? channels : [...PAYSTACK_NIGERIAN_CHANNELS];
 }
 
 // Gateway-Specific Payment Handlers
@@ -843,12 +899,7 @@ async function initializePaystack(
     subaccount: merchant.paystack_subaccount_code as string,
     transaction_charge: fees.platformFee,
     bearer: 'account',
-    channels: (data.channels || ['card', 'bank', 'ussd', 'bank_transfer']) as (
-      | 'card'
-      | 'bank'
-      | 'ussd'
-      | 'bank_transfer'
-    )[],
+    channels: getPaystackChannelsForCustomer(data, customerPhone),
     metadata: {
       merchant_id: merchantId,
       order_id: data.order_id,
@@ -1106,7 +1157,7 @@ export async function POST(request: NextRequest) {
     const { data: featureSettings } = await adminSupabase
       .from('merchant_feature_settings')
       .select(
-        'paystack_enabled, korapay_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
+        'paystack_enabled, korapay_enabled, wallet_paystack_dva_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -1115,6 +1166,8 @@ export async function POST(request: NextRequest) {
       ? {
           paystack_enabled: featureSettings.paystack_enabled ?? true,
           korapay_enabled: featureSettings.korapay_enabled === true,
+          wallet_paystack_dva_enabled:
+            featureSettings.wallet_paystack_dva_enabled === true,
           klump_enabled: featureSettings.klump_enabled ?? false,
           klump_min_amount: numberOrDefault(
             featureSettings.klump_min_amount,
@@ -1256,6 +1309,27 @@ export async function POST(request: NextRequest) {
 
           // DVA (Dedicated Virtual Account) for bank transfer payments
           if (data.payment_type === 'dva') {
+            if (!gatewaySettings.wallet_paystack_dva_enabled) {
+              return createErrorResponse(
+                'Bank transfer is not enabled for this merchant.',
+                'GATEWAY_DISABLED',
+                400
+              );
+            }
+
+            if (
+              !isNigerianPaystackCustomer(
+                data,
+                formatPhoneToE164(paymentData.customer_phone)
+              )
+            ) {
+              return createErrorResponse(
+                'Bank transfer is only available for Nigerian checkout details. Please choose card payment or another available method.',
+                'PAYMENT_METHOD_COUNTRY_UNSUPPORTED',
+                400
+              );
+            }
+
             const { createDedicatedVirtualAccount } = await import(
               '@/lib/agentic/paystack'
             );
