@@ -99,6 +99,20 @@ export default function MenuScreen() {
           onPress: () => router.push('/payment-methods'),
         },
         {
+          id: 'payout-settings',
+          icon: 'cash-outline',
+          label: 'Payout Settings',
+          description: 'Configure your bank account for payouts',
+          onPress: () => router.push('/payout-settings'),
+        },
+        {
+          id: 'kyc',
+          icon: 'shield-checkmark-outline',
+          label: 'Identity Verification (KYC)',
+          description: 'Upload BVN, NIN, or CAC documents',
+          onPress: () => router.push('/kyc'),
+        },
+        {
           id: 'staff-accounts',
           icon: 'wallet-outline',
           label: 'Staff Accounts',

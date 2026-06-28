@@ -1,10 +1,13 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { ReviewStats } from '@/hooks/use-reviews';
+import { useComparisonStore } from '@/stores/comparison-store';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
+import { CompareButton } from './CompareButton';
 import { productDetailsBodyStyles as styles } from './ProductDetailsBody.styles';
 
 type ColorsScheme = (typeof Colors)['light'];
@@ -24,6 +27,10 @@ export function ProductDetailsSummary({
   product,
   reviewStats,
 }: ProductDetailsSummaryProps) {
+  const isInComparison = useComparisonStore((state) =>
+    state.isInComparison(product.id)
+  );
+
   const hasRating =
     typeof reviewStats?.average_rating === 'number' &&
     Number.isFinite(reviewStats.average_rating)
@@ -96,6 +103,39 @@ export function ProductDetailsSummary({
           <Text style={[styles.comparePrice, { color: colors.textSecondary }]}>
             {formatPrice(effectiveComparePrice)}
           </Text>
+        )}
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 }}>
+        <CompareButton product={product} />
+        {isInComparison && (
+          <Pressable
+            onPress={() => router.push('/compare')}
+            accessibilityRole="button"
+            accessibilityLabel="View Comparison Screen"
+            accessibilityHint="Navigates to the side-by-side product comparison screen"
+            style={({ pressed }) => [
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                backgroundColor: colors.primary,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                color: colors.primaryForeground,
+                fontSize: 13,
+                fontWeight: '600',
+              }}
+            >
+              View Comparison
+            </Text>
+          </Pressable>
         )}
       </View>
     </>

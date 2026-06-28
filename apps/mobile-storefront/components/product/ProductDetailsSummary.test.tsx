@@ -15,6 +15,21 @@ jest.mock('@react-native-vector-icons/ionicons', () => {
   };
 });
 
+jest.mock('@/stores/comparison-store', () => ({
+  useComparisonStore: (
+    selector: (state: {
+      isInComparison: (id: string) => boolean;
+      toggleComparison: () => void;
+      canAdd: () => boolean;
+    }) => unknown
+  ) =>
+    selector({
+      isInComparison: () => false,
+      toggleComparison: jest.fn(),
+      canAdd: () => true,
+    }),
+}));
+
 describe('ProductDetailsSummary', () => {
   it('renders product identity, review stats, and discounted price context', () => {
     render(
@@ -77,5 +92,19 @@ describe('ProductDetailsSummary', () => {
     );
 
     expect(screen.getByText('No reviews yet')).toBeTruthy();
+  });
+
+  it('renders the compare button', () => {
+    render(
+      <ProductDetailsSummary
+        colors={Colors.light}
+        effectiveComparePrice={undefined}
+        effectivePrice={552000}
+        product={{ ...baseProduct }}
+        reviewStats={null}
+      />
+    );
+
+    expect(screen.getByLabelText('Add to comparison')).toBeTruthy();
   });
 });
