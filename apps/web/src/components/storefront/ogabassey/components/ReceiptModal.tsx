@@ -127,13 +127,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         ref={dialogRef}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="relative z-10 flex h-dvh max-h-dvh w-full max-w-[1440px] animate-in flex-col overflow-hidden rounded-none bg-white shadow-2xl duration-200 zoom-in-95 md:h-[calc(100dvh-2rem)] md:max-h-[calc(100dvh-2rem)] md:rounded-2xl"
+        className="relative z-10 flex h-dvh max-h-dvh w-full max-w-[1440px] animate-in flex-col overflow-hidden rounded-none bg-[var(--store-surface,#ffffff)] shadow-2xl duration-200 zoom-in-95 md:h-[calc(100dvh_-_2rem)] md:max-h-[calc(100dvh_-_2rem)] md:rounded-2xl"
         onKeyDown={handleDialogKeyDown}
         role="dialog"
       >
         {/* Header Actions */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50 shrink-0 md:rounded-t-2xl">
-          <h3 className="font-bold text-gray-900" id={titleId}>
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--store-border,#f3f4f6)] bg-[var(--store-muted-surface,#f9fafb)] p-4 md:rounded-t-2xl">
+          <h3
+            className="font-bold text-[var(--store-text,#111827)]"
+            id={titleId}
+          >
             {documentTitle} Details
           </h3>
           <div className="flex items-center gap-2">
@@ -141,7 +144,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               ref={printButtonRef}
               type="button"
               onClick={handlePrint}
-              className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+              className="rounded-full p-2 text-[var(--store-muted-text,#6b7280)] transition-colors hover:bg-[var(--store-surface,#ffffff)]"
               title="Print or save as PDF"
               aria-label={`Print ${documentLabel}`}
             >
@@ -150,7 +153,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+              className="rounded-full p-2 text-[var(--store-muted-text,#6b7280)] transition-colors hover:bg-[var(--store-surface,#ffffff)]"
               aria-label={`Close ${documentLabel}`}
             >
               <X size={20} />
@@ -159,14 +162,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Shared HTML Receipt via iframe */}
-        <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto bg-gray-50 p-3 md:p-5">
+        <div className="flex min-h-0 flex-1 flex-col items-center overflow-auto bg-[var(--store-muted-surface,#f9fafb)] p-3 md:p-5">
           {/* react-doctor-disable-next-line react-doctor/no-noninteractive-tabindex -- iframe holds scrollable receipt content; tabIndex={0} is a real focus target so keyboard users can reach and scroll it within the modal focus trap. */}
           <iframe
             ref={iframeRef}
             srcDoc={html}
             tabIndex={0}
             title={`${documentTitle} #${orderData.order_number}`}
-            className="block h-full min-h-0 w-[794px] max-w-full flex-1 border-0 bg-white shadow-sm"
+            className="block h-full min-h-0 w-[794px] max-w-full flex-1 border-0 bg-[var(--store-surface,#ffffff)] shadow-sm"
             sandbox="allow-same-origin"
           />
         </div>

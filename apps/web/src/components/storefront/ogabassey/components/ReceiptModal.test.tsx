@@ -226,14 +226,22 @@ describe('ReceiptModal', () => {
     expect(dialog).toHaveClass('h-dvh');
     expect(dialog).toHaveClass('max-h-dvh');
     expect(dialog).toHaveClass('max-w-[1440px]');
-    expect(dialog.className).toContain('md:h-[calc(100dvh-2rem)]');
+    expect(dialog.className).toContain('md:h-[calc(100dvh_-_2rem)]');
+    expect(dialog.className).toContain(
+      'md:max-h-[calc(100dvh_-_2rem)]'
+    );
+    expect(dialog).toHaveClass('bg-[var(--store-surface,#ffffff)]');
     expect(dialog).not.toHaveClass('max-h-[90vh]');
     expect(dialog).not.toHaveClass('max-w-[1024px]');
     expect(previewArea).toHaveClass('min-h-0');
     expect(previewArea).toHaveClass('items-center');
     expect(previewArea).toHaveClass('overflow-auto');
+    expect(previewArea).toHaveClass(
+      'bg-[var(--store-muted-surface,#f9fafb)]'
+    );
     expect(iframe).toHaveClass('h-full');
     expect(iframe).toHaveClass('flex-1');
+    expect(iframe).toHaveClass('bg-[var(--store-surface,#ffffff)]');
   });
 
   it.each(modalVariants)(
