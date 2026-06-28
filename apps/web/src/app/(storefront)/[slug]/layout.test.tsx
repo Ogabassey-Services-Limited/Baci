@@ -327,7 +327,51 @@ describe('storefront layout', () => {
     expect(screen.getByText('Generic storefront content')).toBeInTheDocument();
   });
 
-  it('themes the static OgaBassey PPR shell before tenant data resolves', async () => {
+  it('renders the static PPR shell by default without awaiting params', () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+    const deferredParams = createDeferred<{ slug: string }>();
+
+    let unmount: () => void = () => undefined;
+    let container: HTMLElement | undefined;
+
+    const ui = StorefrontLayout({
+      params: deferredParams.promise,
+      children: <main>Storefront content</main>,
+    });
+
+    act(() => {
+      ({ container, unmount } = render(ui));
+    });
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
+    expect(themeProviderDocumentScopes).toEqual([false]);
+    expect(getStorefrontShellSnapshotBase).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('status', { name: /loading storefront chrome/i })
+    ).toBeInTheDocument();
+    const staticShell = container?.querySelector(
+      '.storefront-ppr-static-shell'
+    );
+    expect(staticShell).toBeTruthy();
+    expect(staticShell).toHaveClass('storefront-theme-scope');
+    expect(staticShell).toHaveClass('storefront-variant-default');
+    expect(staticShell).toHaveClass('storefront-light');
+    expect(
+      container?.querySelector('.storefront-ppr-static-shell__fallback')
+    ).toBeTruthy();
+    expect(
+      container?.querySelector('.storefront-ppr-static-shell__content')
+    ).toBeFalsy();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
+  });
+
+  it('themes explicit OgaBassey static fallbacks before tenant data resolves', () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
@@ -335,7 +379,8 @@ describe('storefront layout', () => {
     let unmount: () => void = () => undefined;
     let container: HTMLElement | undefined;
 
-    const ui = await StorefrontLayout({
+    const ui = StorefrontLayout({
+      fallbackAppearance: { mode: 'system', variant: 'ogabassey' },
       params: Promise.resolve({ slug: 'ogabassey.com' }),
       children: <main>Storefront content</main>,
     });
@@ -348,28 +393,20 @@ describe('storefront layout', () => {
       { mode: 'system', variant: 'ogabassey' },
     ]);
     expect(themeProviderDocumentScopes).toEqual([false]);
-    expect(
-      screen.getByRole('status', { name: /loading storefront chrome/i })
-    ).toBeInTheDocument();
     const staticShell = container?.querySelector(
       '.storefront-ppr-static-shell'
     );
-    expect(staticShell).toBeTruthy();
     expect(staticShell).toHaveClass('storefront-theme-scope');
     expect(staticShell).toHaveClass('storefront-variant-ogabassey');
     expect(staticShell).toHaveClass('storefront-mode-system');
     expect(
-      container?.querySelector('.storefront-ppr-static-shell__fallback')
-    ).toBeTruthy();
-    expect(
-      container?.querySelector('.storefront-ppr-static-shell__content')
-    ).toBeFalsy();
-    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+      screen.getByRole('status', { name: /loading storefront chrome/i })
+    ).toBeInTheDocument();
 
     unmount();
   });
 
-  it('keeps explicit layout loading fallbacks overridable', async () => {
+  it('keeps explicit layout loading fallbacks overridable', () => {
     const fallback = <div>Loading route shell</div>;
 
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
@@ -378,7 +415,8 @@ describe('storefront layout', () => {
 
     let unmount: () => void = () => undefined;
 
-    const ui = await StorefrontLayout({
+    const ui = StorefrontLayout({
+      fallbackAppearance: { mode: 'system', variant: 'ogabassey' },
       params: Promise.resolve({ slug: 'ogabassey' }),
       loadingFallback: fallback,
       children: <main>Storefront content</main>,

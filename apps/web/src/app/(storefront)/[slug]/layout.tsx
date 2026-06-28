@@ -373,8 +373,9 @@ export async function StorefrontLayoutContent(props: {
   );
 }
 
-export default async function StorefrontLayout(props: {
+export default function StorefrontLayout(props: {
   children: React.ReactNode;
+  fallbackAppearance?: StorefrontAppearance;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
@@ -384,15 +385,10 @@ export default async function StorefrontLayout(props: {
   // human PPR shell as a static sibling instead: browsers get immediate chrome
   // and LCP imagery, while the resume slot itself stays null for bot/blocking
   // metadata requests.
-  const { loadingFallback, params, children } = props;
-  const { slug } = await params;
-  const fallbackAppearance = isValidMerchantIdentifier(slug)
-    ? resolveStorefrontAppearance(slug)
-    : DEFAULT_STOREFRONT_APPEARANCE;
-  const contentProps = {
-    children,
-    params: Promise.resolve({ slug }),
-  };
+  const {
+    fallbackAppearance = DEFAULT_STOREFRONT_APPEARANCE,
+    loadingFallback,
+  } = props;
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
   // routes that intentionally need no static visual shell.
   const fallbackContent =
@@ -408,7 +404,9 @@ export default async function StorefrontLayout(props: {
       appearance={fallbackAppearance}
       loadingFallback={staticLoadingFallback}
     >
-      <StorefrontLayoutContent {...contentProps} />
+      <StorefrontLayoutContent params={props.params}>
+        {props.children}
+      </StorefrontLayoutContent>
     </StorefrontPprStaticShell>
   );
 }

@@ -114,14 +114,36 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
-      :is(.text-amber-600, .text-amber-700, .text-amber-800) {
-      color: var(--storefront-dark-warning);
+      :is(
+        .text-amber-400,
+        .text-amber-500,
+        .text-amber-600,
+        .text-amber-700,
+        .text-amber-800,
+        .text-orange-400,
+        .text-orange-500,
+        .text-orange-600,
+        .text-orange-700,
+        .text-orange-800
+      ) {
+      color: var(--storefront-dark-accent);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
-      :is(.text-orange-600, .text-orange-700, .text-orange-800) {
-      color: #fdba74;
+      :is(
+        .fill-amber-400,
+        .fill-amber-500,
+        .fill-orange-400,
+        .fill-orange-500
+      ) {
+      fill: var(--storefront-dark-accent);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
+      :is(.bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600) {
+      background-color: var(--storefront-dark-primary);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
@@ -248,8 +270,36 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-checkout-page
-      :is(.text-amber-600, .text-amber-700, .text-amber-800) {
-      color: var(--storefront-dark-warning);
+      :is(
+        .text-amber-400,
+        .text-amber-500,
+        .text-amber-600,
+        .text-amber-700,
+        .text-amber-800,
+        .text-orange-400,
+        .text-orange-500,
+        .text-orange-600,
+        .text-orange-700,
+        .text-orange-800
+      ) {
+      color: var(--storefront-dark-accent);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(
+        .fill-amber-400,
+        .fill-amber-500,
+        .fill-orange-400,
+        .fill-orange-500
+      ) {
+      fill: var(--storefront-dark-accent);
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(.bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600) {
+      background-color: var(--storefront-dark-primary);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system

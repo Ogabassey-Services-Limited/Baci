@@ -12,10 +12,12 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
     mockStorefrontLayout: vi.fn(
       ({
         children,
+        fallbackAppearance: _fallbackAppearance,
         loadingFallback: _loadingFallback,
         params: _params,
       }: {
         children: ReactNode;
+        fallbackAppearance?: unknown;
         loadingFallback?: ReactNode;
         params: Promise<{ slug: string }>;
       }) => <section aria-label="storefront layout">{children}</section>
@@ -112,6 +114,10 @@ describe('OgabasseyDomainLayout', () => {
     expect(mockStorefrontLayout).toHaveBeenCalledOnce();
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
+    expect(props?.fallbackAppearance).toEqual({
+      mode: 'system',
+      variant: 'ogabassey',
+    });
     expect(props?.loadingFallback).toBeDefined();
     const fallbackRender = render(<div>{props?.loadingFallback}</div>);
     expect(

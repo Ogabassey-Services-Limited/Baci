@@ -131,6 +131,8 @@ describe('storefront CSS partitioning', () => {
       '.storefront-variant-ogabassey.storefront-mode-system, .storefront-variant-ogabassey.storefront-mode-system .ogabassey-storefront-shell'
     );
     expect(darkModeCss).toContain('--background: 0 0% 4% !important;');
+    expect(darkModeCss).toContain('--primary: 357 72% 48% !important;');
+    expect(darkModeCss).toContain('--accent: 0 91% 71% !important;');
     expect(darkModeCss).toContain(
       '--store-primary: var(--storefront-dark-primary) !important;'
     );
@@ -168,8 +170,15 @@ describe('storefront CSS partitioning', () => {
     expect(normalizedDarkModeCss).toContain('.border-blue-200');
     expect(normalizedDarkModeCss).toContain(':is(.text-blue-600');
     expect(normalizedDarkModeCss).toContain('.text-store-primary');
+    expect(normalizedDarkModeCss).toContain('.text-amber-500');
+    expect(normalizedDarkModeCss).toContain('.text-orange-500');
+    expect(normalizedDarkModeCss).toContain('.fill-amber-500');
+    expect(normalizedDarkModeCss).toContain('.bg-orange-500');
     expect(normalizedDarkModeCss).toContain('.text-red-600');
     expect(normalizedDarkModeCss).toContain('.text-green-600');
+    expect(darkModeCss).not.toContain('#92400e');
+    expect(darkModeCss).not.toContain('#f59e0b');
+    expect(darkModeCss).not.toContain('#fdba74');
     expect(darkModeCss).toContain('color: var(--storefront-dark-foreground);');
     expect(darkModeCss).not.toMatch(/cursor\s*:\s*url\(/);
     expect(darkModeCss).not.toMatch(/cursor\s*:\s*none/);
