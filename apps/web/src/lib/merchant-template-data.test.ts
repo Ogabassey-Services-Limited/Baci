@@ -57,6 +57,7 @@ const BASE_MERCHANT: CachedMerchant = {
     blog_enabled: true,
     shipping_insurance_enabled: false,
     google_store_widget_enabled: true,
+    wallet_paystack_dva_enabled: true,
     custom_settings: {
       google_merchant_id: '112524323',
       google_store_widget_enabled: false,
@@ -131,6 +132,7 @@ describe('toTemplateMerchantData', () => {
       blog_enabled: true,
       shipping_insurance_enabled: false,
       google_store_widget_enabled: true,
+      wallet_paystack_dva_enabled: true,
       custom_settings: {
         google_merchant_id: '112524323',
         google_store_widget_enabled: false,

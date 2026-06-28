@@ -453,6 +453,15 @@ interface RequestDvaInitializationParams {
   customerEmail: string;
   customerName: string;
   customerPhone: string;
+  billingAddress: DvaBillingAddress;
+}
+
+interface DvaBillingAddress {
+  line1: string;
+  city: string;
+  state?: string;
+  country: string;
+  zip_code: string;
 }
 
 async function requestDvaInitialization({
@@ -461,6 +470,7 @@ async function requestDvaInitialization({
   customerEmail,
   customerName,
   customerPhone,
+  billingAddress,
 }: RequestDvaInitializationParams): Promise<{
   dva: Omit<DvaData, 'amount' | 'reference'>;
   reference: string;
@@ -477,6 +487,7 @@ async function requestDvaInitialization({
       customer_phone: customerPhone,
       gateway: 'paystack',
       payment_type: 'dva', // Dedicated Virtual Account
+      billing_address: billingAddress,
     }),
   });
 
@@ -1934,6 +1945,14 @@ export const CheckoutPage: React.FC = () => {
         setWalletBalance(walletResult.newBalance);
       }
 
+      const billingAddress = {
+        line1: finalAddress,
+        city: finalCity || 'Lagos',
+        state: finalState || 'Lagos',
+        country: 'NG',
+        zip_code: '100001',
+      };
+
       // 2. Handle payment based on method
       // Special case: If wallet fully covers the order, no payment gateway needed
       // Order API already marks it as paid, just redirect to success
@@ -1955,7 +1974,7 @@ export const CheckoutPage: React.FC = () => {
       }
 
       if (paymentMethod === 'bank_transfer') {
-        await handleBankTransfer(order, paymentAmount);
+        await handleBankTransfer(order, paymentAmount, billingAddress);
         return;
       }
 
@@ -1969,13 +1988,7 @@ export const CheckoutPage: React.FC = () => {
             customerEmail,
             customerName: `${firstName} ${lastName}`.trim(),
             customerPhone,
-            billingAddress: {
-              line1: newAddressStreet || finalAddress,
-              city: finalCity,
-              state: finalState,
-              country: 'NG',
-              zip_code: '100001',
-            },
+            billingAddress,
             items: checkoutCart.map(item => ({
               name: item.name,
               type: 'physical' as const,
@@ -2000,6 +2013,7 @@ export const CheckoutPage: React.FC = () => {
             customer_name: `${firstName} ${lastName}`.trim(),
             customer_phone: customerPhone,
             gateway: paymentMethod,
+            billing_address: billingAddress,
           }),
         });
 
@@ -2229,7 +2243,8 @@ export const CheckoutPage: React.FC = () => {
   // try/catch/finally, which would bail React Compiler.
   const handleBankTransfer = async (
     order: { id: string },
-    paymentAmount: number
+    paymentAmount: number,
+    billingAddress: DvaBillingAddress
   ) => {
     if (!merchant) {
       isOrderInFlightRef.current = false;
@@ -2243,6 +2258,7 @@ export const CheckoutPage: React.FC = () => {
       customerEmail,
       customerName: `${firstName} ${lastName}`.trim(),
       customerPhone,
+      billingAddress,
     })
       .then((result) => {
         setDvaData({
@@ -2889,6 +2905,8 @@ export const CheckoutPage: React.FC = () => {
             <DiscountCodeInput
               merchantId={merchant?.id || ''}
               cartTotal={effectiveCheckoutCartTotal}
+              currencyCountryCode={merchant?.country ?? 'NG'}
+              payoutCurrency={merchant?.payout_currency ?? null}
               productIds={checkoutCart.map((item) => item.id)}
               appliedDiscount={appliedDiscount}
               onApply={setAppliedDiscount}

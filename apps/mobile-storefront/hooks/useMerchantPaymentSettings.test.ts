@@ -28,10 +28,7 @@ jest.mock('@/lib/supabase', () => ({
 
 describe('getEnabledPaymentMethods', () => {
   it('keeps the safe fallback when payment settings are unavailable', () => {
-    expect(getEnabledPaymentMethods(undefined)).toEqual([
-      'paystack',
-      'bank_transfer',
-    ]);
+    expect(getEnabledPaymentMethods(undefined)).toEqual(['paystack']);
   });
 
   it('includes Klump only when the merchant has explicitly enabled it', () => {
@@ -43,9 +40,10 @@ describe('getEnabledPaymentMethods', () => {
       credpal_enabled: false,
       credit_direct_enabled: false,
       klump_enabled: true,
+      wallet_paystack_dva_enabled: false,
     } as never);
 
-    expect(methods).toEqual(['paystack', 'klump', 'bank_transfer']);
+    expect(methods).toEqual(['paystack', 'klump']);
   });
 });
 
@@ -143,7 +141,19 @@ describe('normalizePaymentSettings', () => {
     ).toBe(0.05);
   });
 
-  it('keeps bank transfer enabled by Paystack while exposing wallet auto-debit flags separately', () => {
+  it('keeps bank transfer behind the explicit Paystack DVA flag', () => {
+    const settings = normalizePaymentSettings({
+      paystack_enabled: true,
+      wallet_order_auto_debit_enabled: true,
+      wallet_paystack_dva_enabled: false,
+    });
+
+    expect(getEnabledPaymentMethods(settings)).not.toContain('bank_transfer');
+    expect(settings.wallet_order_auto_debit_enabled).toBe(true);
+    expect(settings.wallet_paystack_dva_enabled).toBe(false);
+  });
+
+  it('enables bank transfer when Paystack DVA is explicitly enabled', () => {
     const settings = normalizePaymentSettings({
       paystack_enabled: true,
       wallet_order_auto_debit_enabled: true,
