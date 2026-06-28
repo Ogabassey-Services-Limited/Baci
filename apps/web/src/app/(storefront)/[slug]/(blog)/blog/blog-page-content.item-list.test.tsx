@@ -130,6 +130,27 @@ describe('BlogPageContent ItemList schema', () => {
     );
   });
 
+  it('keeps the clean category ItemList canonical for blank searches', async () => {
+    const { container } = render(
+      await BlogPageContent({
+        isCleanCategoryRoute: true,
+        itemListSchemaUrl:
+          'https://test-store.usebaci.com/blog/category/smartphones',
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({
+          category: 'Smartphones',
+          search: '   ',
+        }),
+      })
+    );
+
+    expect(getRenderedItemListSchema(container)).toEqual(
+      expect.objectContaining({
+        url: 'https://test-store.usebaci.com/blog/category/smartphones',
+      })
+    );
+  });
+
   it('uses the filtered total count when positions are global across pagination', async () => {
     const posts = Array.from({ length: 15 }, (_, index) => ({
       ...postsPayload[0],

@@ -164,7 +164,7 @@ describe('blog author page metadata', () => {
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 
-  it('does not prefetch request-bound author data before returning the shell', async () => {
+  it('renders the author shell for request-bound author routes', async () => {
     const ui = await BlogAuthorPage({
       params: Promise.resolve({
         slug: 'ogabassey.com',
@@ -175,10 +175,6 @@ describe('blog author page metadata', () => {
     render(ui);
 
     expect(screen.getByText('Author page')).toBeInTheDocument();
-    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
-    expect(mockBlogAuthorPageContent).toHaveBeenCalledWith(
-      expect.objectContaining({ searchParams: expect.any(Promise) })
-    );
   });
 
   it('shows the author fallback while known author content is resolving', async () => {

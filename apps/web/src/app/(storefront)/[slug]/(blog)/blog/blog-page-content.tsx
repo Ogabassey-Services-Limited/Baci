@@ -247,8 +247,11 @@ export async function BlogPageContent({
   };
   const itemListPosts = posts.slice(0, 10);
   const itemListPositionOffset = (currentPage - 1) * BLOG_LISTING_PAGE_SIZE;
+  const itemListSchemaSearch = effectiveSearchQuery?.trim() || undefined;
+  const hasItemListSchemaSearch = Boolean(itemListSchemaSearch);
   const effectiveItemListSchemaUrl =
-    isCleanCategoryRoute && (!category || search || currentPage !== 1)
+    isCleanCategoryRoute &&
+    (!category || hasItemListSchemaSearch || currentPage !== 1)
       ? undefined
       : itemListSchemaUrl;
 
@@ -264,7 +267,7 @@ export async function BlogPageContent({
               baseUrl,
               category,
               page: currentPage,
-              search: effectiveSearchQuery,
+              search: itemListSchemaSearch,
             }),
           numberOfItems: totalPosts,
           itemListElement: itemListPosts.map((post, index) => ({
@@ -332,7 +335,9 @@ export async function BlogPageContent({
               blogSchema={blogSchema}
               breadcrumbSchema={breadcrumbSchema}
               organizationSchema={organizationSchema}
-              itemListSchema={effectiveSearchQuery ? undefined : itemListSchema}
+              itemListSchema={
+                hasItemListSchemaSearch ? undefined : itemListSchema
+              }
               BlogComponent={templateBlogUi.BlogComponent}
               basePath={templateBasePath}
               blogPosts={templateBlogUi.posts}
