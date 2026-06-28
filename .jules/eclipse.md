@@ -15,3 +15,8 @@
 **Learning:** Primary-surface text and switch thumbs should use design-system tokens (`textOnPrimary`, `textMuted`, `BRAND.onPrimary`) so light/dark themes can maintain contrast without raw `#fff` literals.
 **Action:** Replace hardcoded native color literals in mobile admin/storefront surfaces with theme tokens and add tests that assert the token flows to the component prop.
 **Source:** React Native Switch docs plus Baci mobile theme token files, verified 2026-06-28.
+
+## 2026-06-28 — Dynamic shadow tokens in admin order controls
+**Learning:** React Native exposes `shadowColor` as a style prop, but hardcoded `#000` shadows do not adapt to the Baci theme system. `useNewOrderController` already exposes theme shadows from `useTheme()`.
+**Action:** Use `controller.shadows` for selected-state shadows in NewOrderFooterBar instead of raw color literals, and keep the selected background on existing color tokens.
+**Source:** React Native shadow props docs and `apps/mobile-admin/constants/theme.ts`, verified 2026-06-28.
