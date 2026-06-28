@@ -36,3 +36,8 @@ Source: Zod 4 documentation, Warden persona rules
 Learning: Unscoped Supabase `.update()` calls can allow cross-tenant data leaks if not explicitly constrained with `.eq('merchant_id', merchantId)`.
 Action: Always append `.eq('merchant_id', merchantId)` to all Supabase `.update()` or `.delete()` mutations for defense-in-depth, even when the row is queried by a unique ID.
 Source: Baci Monorepo Context Guidelines
+
+## 2026-06-28 — Tenant filters on update mutations
+**Learning:** Supabase/PostgREST update filters compose, so adding `.eq('merchant_id', merchantId)` to an `.update(...).eq('id', ...).eq('updated_at', ...)` chain is a low-cost defense-in-depth guard against guessed row ids.
+**Action:** User-facing tenant writes should include the tenant predicate even when the row id was fetched through a tenant-scoped read.
+**Source:** Supabase JavaScript update/filter docs, verified 2026-06-28.

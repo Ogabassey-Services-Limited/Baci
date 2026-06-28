@@ -60,7 +60,7 @@ export function AuthInput({
   wrapperColor,
 }: AuthInputProps) {
   return (
-    <View style={styles.inputGroup}>
+    <View style={[styles.inputGroup, editable === false && { opacity: 0.5 }]}>
       <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
       <View
         style={[
@@ -77,6 +77,7 @@ export function AuthInput({
         <NativeTextInput
           ref={inputRef}
           accessibilityLabel={label}
+          accessibilityState={{ disabled: editable === false }}
           style={[styles.input, { color: textColor }]}
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor}

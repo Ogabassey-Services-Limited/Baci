@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { OrderItem } from '@/components/orders/new-order.types';
 import { createNewOrderTotals } from './new-order-totals';
+import { formatCurrency } from './utils';
 
 function createOrderItem(overrides: Partial<OrderItem>): OrderItem {
   return {
@@ -34,7 +35,9 @@ describe('createNewOrderTotals', () => {
     expect(totals.calculatedVat).toBe(2450);
     expect(totals.taxesToUse).toBe(2450);
     expect(totals.total).toBe(28450);
-    expect(totals.formatPrice(1000)).toContain('₦');
+    expect(totals.formatPrice(1000)).toBe(
+      formatCurrency(1000, undefined, 'NGN')
+    );
   });
 
   it('clamps VAT to zero when discount exceeds subtotal', () => {
@@ -95,8 +98,8 @@ describe('createNewOrderTotals', () => {
       taxes: 0,
     });
 
-    // formatPrice should fall back to the ₦ symbol fallback, not throw
+    // formatPrice should sanitize invalid to NGN, not throw
     const formatted = totals.formatPrice(1500);
-    expect(formatted).toBe('₦1500.00');
+    expect(formatted).toBe(formatCurrency(1500, undefined, 'NGN'));
   });
 });

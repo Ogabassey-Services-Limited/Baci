@@ -116,3 +116,8 @@
 **Learning:** By default, setting the `disabled` prop on a `Pressable` in React Native prevents interaction but does not automatically inform assistive technologies (like VoiceOver or TalkBack) of the disabled state.
 **Action:** When conditionally disabling an interactive element, always pair the functional `disabled` prop with the semantic `accessibilityState={{ disabled: boolean }}` prop.
 **Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API docs
+
+## 2026-06-28 — Mobile admin small UX/a11y rollup
+**Learning:** React Native exposes `accessibilityState.disabled` and `accessibilityState.busy` for controls and `TextInput.returnKeyType` for keyboard-return affordances. Use these props rather than web-only ARIA props inside native components.
+**Action:** For disabled text inputs, async submit buttons, and final IMEI/serial fields, keep functional state and semantic state in sync with `accessibilityState` and `returnKeyType="done"`.
+**Source:** React Native Accessibility and TextInput docs, verified 2026-06-28.

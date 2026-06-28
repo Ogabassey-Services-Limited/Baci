@@ -8,3 +8,8 @@
 ## 2026-06-12 - Removed redundant eslint-disable comment in mobile-admin negotiations
 **Learning:** Biome is the exclusive linter in the Baci monorepo. The `// eslint-disable` comments are dead code/deprecated anti-patterns that add noise and have no effect. In `negotiations.tsx`, the exhaustive-deps rule was already properly disabled using the correct `// biome-ignore` syntax, making the legacy eslint-disable comment completely redundant and confusing.
 **Action:** Removed useless `// eslint-disable-next-line react-hooks/exhaustive-deps` comment in `@baci/mobile-admin`'s `negotiations.tsx`. When migrating to Biome, always ensure legacy eslint directives are completely stripped, especially when their equivalent Biome suppressions have already been added.
+
+## 2026-06-28 — Remove dead auth helpers only after current-main grep
+**Learning:** Stale branches can remove too much around middleware/proxy. For dead-code janitor work, re-run `git grep` on current main and cherry-pick only the unused symbol removal.
+**Action:** Remove unused helpers only when no current-main imports, dynamic references, or route hooks remain.
+**Source:** Current-main grep plus existing Next proxy ownership, verified 2026-06-28.

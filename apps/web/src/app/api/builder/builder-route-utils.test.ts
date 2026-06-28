@@ -349,13 +349,15 @@ describe('builder-route-utils', () => {
           update: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({
-                    data: {
-                      id: 'config-1',
-                      updated_at: '2026-03-20T18:05:00.000Z',
-                    },
-                    error: null,
+                eq: vi.fn().mockReturnValue({
+                  select: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: {
+                        id: 'config-1',
+                        updated_at: '2026-03-20T18:05:00.000Z',
+                      },
+                      error: null,
+                    }),
                   }),
                 }),
               }),
@@ -412,13 +414,15 @@ describe('builder-route-utils', () => {
             update: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
-                  select: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: {
-                        id: 'config-1',
-                        updated_at: '2026-03-20T18:12:00.000Z',
-                      },
-                      error: null,
+                  eq: vi.fn().mockReturnValue({
+                    select: vi.fn().mockReturnValue({
+                      maybeSingle: vi.fn().mockResolvedValue({
+                        data: {
+                          id: 'config-1',
+                          updated_at: '2026-03-20T18:12:00.000Z',
+                        },
+                        error: null,
+                      }),
                     }),
                   }),
                 }),
@@ -490,10 +494,12 @@ describe('builder-route-utils', () => {
             update: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
-                  select: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: null,
-                      error: null,
+                  eq: vi.fn().mockReturnValue({
+                    select: vi.fn().mockReturnValue({
+                      maybeSingle: vi.fn().mockResolvedValue({
+                        data: null,
+                        error: null,
+                      }),
                     }),
                   }),
                 }),

@@ -150,8 +150,10 @@ export const validatePassword = (
   const matchValid =
     confirmPassword !== undefined ? password === confirmPassword : true;
 
-  // Rule: Strength must be at least 2 (Medium) to be valid
-  // This effectively enforces >10 chars OR >8 chars without patterns
+  // Rule: strength must be at least 2 (Medium) to be valid.
+  // With the length-first scorer above, that means 10+ characters without
+  // common/repeating/sequential/keyboard patterns, or 12+ characters when a
+  // mild pattern penalty still leaves the password at medium strength.
   const strengthValid = strength >= 2;
 
   const isValid = lengthValid && strengthValid && !isCommon && matchValid;

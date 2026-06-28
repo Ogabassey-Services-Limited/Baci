@@ -113,6 +113,35 @@ export function stripHtmlTags(text: string | null | undefined): string {
 const currencySymbolCache = new Map<string, string>();
 const currencyFallbackCache = new Map<string, string>();
 
+// Memoization cache for validated merchant currencies.
+// Avoids repeated Intl.NumberFormat instantiation overhead when formatting prices.
+const validCurrencyCache = new Set<string>();
+
+/**
+ * Validates a currency code safely without throwing.
+ * Uses a Set to cache validated codes for O(1) performance.
+ */
+export function normalizeMerchantCurrency(
+  currency?: string | null
+): string | undefined {
+  if (!currency) return undefined;
+  if (currency === 'NGN') return currency; // Fast path for default
+
+  if (validCurrencyCache.has(currency)) {
+    return currency;
+  }
+
+  try {
+    // Attempt instantiation to validate currency code
+    new Intl.NumberFormat(undefined, { style: 'currency', currency });
+    if (validCurrencyCache.size > 50) validCurrencyCache.clear();
+    validCurrencyCache.add(currency);
+    return currency;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Resolve the symbol for a given ISO-4217 currency code using Intl. Falls back
  * to the code itself when the runtime cannot produce a currency part (e.g.

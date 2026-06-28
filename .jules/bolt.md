@@ -49,3 +49,8 @@
 ## 2024-06-14 - Optimize Location Picker FlatLists
 **Learning:** In the mobile-storefront app, dynamically heighted list items inside modals can cause UI thread asynchronous measurement cycles when rendered by FlatList, leading to slow rendering of pickers like City and State.
 **Action:** Always fix the height of simple picker row items (e.g., changing `minHeight` to `height` in stylesheets) and implement explicit `getItemLayout` on the corresponding `FlatList` to bypass runtime measurements and dramatically speed up rendering.
+
+## 2026-06-28 — Parallelize independent Supabase reads safely
+**Learning:** `Promise.all` is appropriate for independent reads when later validation still checks every result before side effects. Do not parallelize queries that depend on an earlier row's contents.
+**Action:** For hot API paths, fetch merchant/order/related read-only rows concurrently only when each query is scoped independently by the authenticated tenant id and all errors are handled before writes.
+**Source:** MDN Promise.all docs and Supabase JavaScript filter/update docs, verified 2026-06-28.

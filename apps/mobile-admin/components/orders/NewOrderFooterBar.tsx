@@ -2,7 +2,13 @@ import type { PaymentStatus } from '@baci/shared';
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { TYPOGRAPHY } from '@/constants/theme';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { PAYMENT_METHODS } from './new-order.shared';
@@ -207,30 +213,39 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           </Text>
         </View>
         <Pressable
-          accessibilityLabel="Save Order"
+          accessibilityLabel={isSubmitting ? 'Saving order' : 'Save Order'}
           accessibilityRole="button"
           accessibilityState={{
             disabled: isSubmitting || orderItems.length === 0,
+            busy: isSubmitting,
           }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
           style={({ pressed }) => [
-            pressed && { opacity: 0.7 },
             styles.payBtn,
             {
               backgroundColor: colors.primary,
-              opacity: orderItems.length === 0 ? 0.6 : 1,
+              opacity: isSubmitting || orderItems.length === 0 ? 0.6 : 1,
             },
+            pressed && { opacity: 0.7 },
           ]}
         >
+          {isSubmitting ? (
+            <ActivityIndicator
+              color={colors.textOnPrimary}
+              style={{ marginRight: 8 }}
+            />
+          ) : null}
           <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
-            Save Order
+            {isSubmitting ? 'Saving...' : 'Save Order'}
           </Text>
-          <Ionicons
-            color={colors.textOnPrimary}
-            name="arrow-forward"
-            size={20}
-          />
+          {!isSubmitting && (
+            <Ionicons
+              color={colors.textOnPrimary}
+              name="arrow-forward"
+              size={20}
+            />
+          )}
         </Pressable>
       </View>
     </View>

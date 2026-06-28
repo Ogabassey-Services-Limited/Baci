@@ -22,13 +22,16 @@ vi.mock('react-native', async () => {
     TextInput: ({
       onChangeText,
       placeholder,
+      returnKeyType,
       value,
     }: {
       onChangeText?: (value: string) => void;
       placeholder?: string;
+      returnKeyType?: string;
       value?: string;
     }) =>
       React.createElement('input', {
+        'data-return-key-type': returnKeyType,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.currentTarget.value),
         placeholder,
@@ -71,6 +74,10 @@ describe('ShipmentFlowDetailsStep', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('IMEI Number')).toBeInTheDocument();
     expect(screen.queryByText('IMEI Number *')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('e.g. 353456789012345')).toHaveAttribute(
+      'data-return-key-type',
+      'done'
+    );
     expect(screen.getByText('Serial Number')).toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText('Optional serial number')
@@ -78,6 +85,10 @@ describe('ShipmentFlowDetailsStep', () => {
     expect(
       screen.getByPlaceholderText('e.g. C02ZK0ABC123')
     ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('e.g. C02ZK0ABC123')).toHaveAttribute(
+      'data-return-key-type',
+      'done'
+    );
   });
 
   it('normalizes IMEI digits and preserves serial number typing', () => {

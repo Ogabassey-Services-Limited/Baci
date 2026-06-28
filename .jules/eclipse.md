@@ -10,3 +10,8 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+
+## 2026-06-28 — Theme tokens instead of hardcoded primary-surface colors
+**Learning:** Primary-surface text and switch thumbs should use design-system tokens (`textOnPrimary`, `textMuted`, `BRAND.onPrimary`) so light/dark themes can maintain contrast without raw `#fff` literals.
+**Action:** Replace hardcoded native color literals in mobile admin/storefront surfaces with theme tokens and add tests that assert the token flows to the component prop.
+**Source:** React Native Switch docs plus Baci mobile theme token files, verified 2026-06-28.

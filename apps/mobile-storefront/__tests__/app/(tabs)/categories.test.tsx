@@ -77,6 +77,8 @@ jest.mock('@/components/OfflineNotice', () => ({
   },
 }));
 
+import { BRAND } from '@/constants/Colors';
+
 describe('CategoriesScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -142,5 +144,23 @@ describe('CategoriesScreen', () => {
 
     expect(screen.getByText("Can't load categories")).toBeOnTheScreen();
     expectTabShell();
+  });
+
+  it('applies correct theme colors to error states', () => {
+    mockUseNetworkState.mockReturnValue({ isOnline: true });
+    mockUseCategories.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: true,
+      refetch: mockRefetch,
+      isRefetching: false,
+    });
+
+    render(<CategoriesScreen />);
+
+    const retryButtonText = screen.getByText('Try Again');
+    expect(retryButtonText.props.style).toEqual(
+      expect.objectContaining({ color: BRAND.onPrimary })
+    );
   });
 });

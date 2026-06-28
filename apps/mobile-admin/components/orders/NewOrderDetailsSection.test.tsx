@@ -65,15 +65,22 @@ vi.mock('react-native', async () => {
     Switch: ({
       accessibilityLabel,
       onValueChange,
+      thumbColor,
+      trackColor,
       value,
     }: {
       accessibilityLabel?: string;
       onValueChange?: (value: boolean) => void;
+      thumbColor?: string;
+      trackColor?: { false?: string; true?: string };
       value?: boolean;
     }) =>
       React.createElement('input', {
         'aria-label': accessibilityLabel ?? 'Toggle delivery recipient',
         checked: value ?? false,
+        'data-thumb-color': thumbColor,
+        'data-track-false-color': trackColor?.false,
+        'data-track-true-color': trackColor?.true,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onValueChange?.(event.target.checked),
         type: 'checkbox',
@@ -213,8 +220,16 @@ describe('NewOrderDetailsSection', () => {
 
     render(<NewOrderDetailsSection controller={controller} />);
 
+    const recipientSwitch = screen.getByLabelText('Deliver to same person');
+    expect(recipientSwitch).toHaveAttribute('data-thumb-color', '#94a3b8');
+    expect(recipientSwitch).toHaveAttribute(
+      'data-track-false-color',
+      '#e2e8f0'
+    );
+    expect(recipientSwitch).toHaveAttribute('data-track-true-color', '#2563eb');
+
     fireEvent.click(screen.getByRole('button', { name: /Date/i }));
-    fireEvent.click(screen.getByLabelText('Deliver to same person'));
+    fireEvent.click(recipientSwitch);
 
     expect(controller.setShowDatePicker).toHaveBeenCalled();
     expect(controller.setSameAsCustomer).toHaveBeenCalledWith(true);
@@ -229,9 +244,26 @@ describe('NewOrderDetailsSection', () => {
       <NewOrderDetailsSection controller={controller} showDateField={false} />
     );
 
-    expect(screen.queryByRole('button', { name: /Date/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Pick order date' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Customer/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Date/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Pick order date' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Customer/i })
+    ).toBeInTheDocument();
+  });
+
+  it('uses the on-primary token for the enabled delivery switch thumb', () => {
+    const controller = makeController({ sameAsCustomer: true });
+
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    expect(screen.getByLabelText('Deliver to same person')).toHaveAttribute(
+      'data-thumb-color',
+      '#ffffff'
+    );
   });
 
   it('renders a branch selector when multiple active branches exist', () => {
