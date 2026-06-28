@@ -34,9 +34,12 @@ describe('LoginPasswordEntry', () => {
       'redirectTo'
     );
 
+    const toggleBtn = screen.getByRole('button', { name: 'Show password' });
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('false');
+
     fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
     fireEvent.click(screen.getByRole('button', { name: /email me a code/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    fireEvent.click(toggleBtn);
 
     expect(onForgotPassword).toHaveBeenCalledTimes(1);
     expect(onPasswordlessRequest).toHaveBeenCalledTimes(1);
