@@ -143,40 +143,4 @@ describe('MenuScreen', () => {
 
     expect(mocks.push).toHaveBeenCalledWith('/(admin)/negotiations');
   });
-
-  it('navigates to inventory from the menu', () => {
-    render(<MenuScreen />);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Inventory. Track and manage stock levels',
-      })
-    );
-
-    expect(mocks.push).toHaveBeenCalledWith('/(admin)/(tabs)/inventory');
-  });
-
-  it('navigates to payout settings from the menu', () => {
-    render(<MenuScreen />);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Payout Settings. Configure your bank account for payouts',
-      })
-    );
-
-    expect(mocks.push).toHaveBeenCalledWith('/payout-settings');
-  });
-
-  it('navigates to identity verification from the menu', () => {
-    render(<MenuScreen />);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Identity Verification (KYC). Upload BVN, NIN, or CAC documents',
-      })
-    );
-
-    expect(mocks.push).toHaveBeenCalledWith('/kyc');
-  });
 });

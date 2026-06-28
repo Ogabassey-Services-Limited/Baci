@@ -99,20 +99,6 @@ export default function MenuScreen() {
           onPress: () => router.push('/payment-methods'),
         },
         {
-          id: 'payout-settings',
-          icon: 'cash-outline',
-          label: 'Payout Settings',
-          description: 'Configure your bank account for payouts',
-          onPress: () => router.push('/payout-settings'),
-        },
-        {
-          id: 'kyc',
-          icon: 'shield-checkmark-outline',
-          label: 'Identity Verification (KYC)',
-          description: 'Upload BVN, NIN, or CAC documents',
-          onPress: () => router.push('/kyc'),
-        },
-        {
           id: 'staff-accounts',
           icon: 'wallet-outline',
           label: 'Staff Accounts',
@@ -186,13 +172,6 @@ export default function MenuScreen() {
           label: 'Negotiation Requests',
           description: 'Manage price negotiation requests',
           onPress: () => router.push('/(admin)/negotiations'),
-        },
-        {
-          id: 'inventory',
-          icon: 'cube-outline',
-          label: 'Inventory',
-          description: 'Track and manage stock levels',
-          onPress: () => router.push('/(admin)/(tabs)/inventory'),
         },
         {
           id: 'staff',

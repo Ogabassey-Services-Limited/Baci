@@ -79,7 +79,6 @@ interface TabButtonProps {
 function TabButton({ id, label, activeTab, onSelect }: TabButtonProps) {
   const { colors } = useTheme();
   const isActive = activeTab === id;
-  if (id === 'out_of_stock') return null;
 
   return (
     <Pressable
@@ -386,6 +385,23 @@ export default function ProductsScreen() {
             </Pressable>
           ) : null}
         </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.scanButton,
+            { backgroundColor: colors.primary },
+            pressed && { opacity: 0.75 },
+          ]}
+          onPress={() => router.push('/scan')}
+          accessibilityLabel="Scan barcode"
+          accessibilityRole="button"
+          accessibilityHint="Opens barcode scanner to find products"
+        >
+          <Ionicons
+            name="barcode-outline"
+            size={22}
+            color={colors.textOnPrimary}
+          />
+        </Pressable>
       </Animated.View>
 
       <ProductsStatCards activeTab={topTab} />
@@ -414,6 +430,12 @@ export default function ProductsScreen() {
               <TabButton
                 id="low_stock"
                 label={`Low Stock (${inventoryStats?.lowStockCount ?? 0})`}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+              <TabButton
+                id="out_of_stock"
+                label={`Out of Stock (${inventoryStats?.outOfStockCount ?? 0})`}
                 activeTab={activeTab}
                 onSelect={setActiveTab}
               />
@@ -810,11 +832,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     marginBottom: SPACING.md,
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
@@ -827,6 +853,13 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     paddingVertical: SPACING.xs,
+  },
+  scanButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   statsContainer: {
     flexDirection: 'row',

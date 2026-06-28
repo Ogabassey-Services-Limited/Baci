@@ -117,7 +117,9 @@ function WebsiteStatCards() {
         title="Top Converting"
         value={topConverting ? topConverting.name : '-'}
         subtitle={
-          topConverting ? `${topConverting.conversionRate.toFixed(1)}% rate` : ''
+          topConverting
+            ? `${topConverting.conversionRate.toFixed(1)}% rate`
+            : ''
         }
       />
     </View>
@@ -177,6 +179,18 @@ function InventoryStatCards() {
           currencySymbol
         )}
       />
+      <ProductStatCard
+        colors={colors}
+        title="Low Stock"
+        value={`${inventoryStats?.lowStockCount || 0}`}
+        subtitle="needs attention"
+      />
+      <ProductStatCard
+        colors={colors}
+        title="Out of Stock"
+        value={`${inventoryStats?.outOfStockCount || 0}`}
+        subtitle="restock first"
+      />
     </View>
   );
 }
@@ -184,12 +198,14 @@ function InventoryStatCards() {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
   },
   card: {
     flex: 1,
+    minWidth: '45%',
     borderRadius: 12,
     borderWidth: 1,
     padding: 12,
