@@ -114,7 +114,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-stretch justify-center p-0 md:p-4">
       <button
         type="button"
         aria-label="Dismiss receipt modal backdrop"
@@ -127,12 +127,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         ref={dialogRef}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-[1024px] animate-in flex-col overflow-hidden rounded-2xl bg-white shadow-2xl duration-200 zoom-in-95"
+        className="relative z-10 flex h-dvh max-h-dvh w-full max-w-[1440px] animate-in flex-col overflow-hidden rounded-none bg-white shadow-2xl duration-200 zoom-in-95 md:h-[calc(100dvh-2rem)] md:max-h-[calc(100dvh-2rem)] md:rounded-2xl"
         onKeyDown={handleDialogKeyDown}
         role="dialog"
       >
         {/* Header Actions */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl shrink-0">
+        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50 shrink-0 md:rounded-t-2xl">
           <h3 className="font-bold text-gray-900" id={titleId}>
             {documentTitle} Details
           </h3>

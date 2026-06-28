@@ -209,6 +209,33 @@ describe('ReceiptModal', () => {
     expect(iframe).toHaveFocus();
   });
 
+  it('sizes the receipt preview to the viewport with a scrollable document area', () => {
+    render(
+      <ReceiptModal
+        isOpen
+        merchantData={merchant}
+        onClose={vi.fn()}
+        orderData={createOrder('paid')}
+      />
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Receipt Details' });
+    const iframe = screen.getByTitle('Receipt #ORD-001');
+    const previewArea = iframe.parentElement;
+
+    expect(dialog).toHaveClass('h-dvh');
+    expect(dialog).toHaveClass('max-h-dvh');
+    expect(dialog).toHaveClass('max-w-[1440px]');
+    expect(dialog.className).toContain('md:h-[calc(100dvh-2rem)]');
+    expect(dialog).not.toHaveClass('max-h-[90vh]');
+    expect(dialog).not.toHaveClass('max-w-[1024px]');
+    expect(previewArea).toHaveClass('min-h-0');
+    expect(previewArea).toHaveClass('items-center');
+    expect(previewArea).toHaveClass('overflow-auto');
+    expect(iframe).toHaveClass('h-full');
+    expect(iframe).toHaveClass('flex-1');
+  });
+
   it.each(modalVariants)(
     'closes the $label modal when Escape is pressed',
     async ({ label, paymentStatus }) => {
