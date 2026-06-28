@@ -62,6 +62,54 @@ export function buildCustomerAddress(
   };
 }
 
+function normalizeReceiptVariantDescriptor(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function includesReceiptVariantDescriptor(
+  value: string | null | undefined,
+  descriptor: string
+) {
+  const normalizedValue = normalizeReceiptVariantDescriptor(value || '');
+  const normalizedDescriptor = normalizeReceiptVariantDescriptor(descriptor);
+
+  if (!normalizedValue || !normalizedDescriptor) {
+    return false;
+  }
+
+  return new RegExp(`(^|\\s)${escapeRegExp(normalizedDescriptor)}(\\s|$)`).test(
+    normalizedValue
+  );
+}
+
+function buildReceiptVariantName(item: StorefrontAccountDocumentItemRow) {
+  const variantName = item.variant_name?.trim();
+  const conditionLabel = formatCanonicalProductConditionLabel(item.condition);
+
+  if (!conditionLabel) {
+    return variantName || undefined;
+  }
+
+  if (
+    includesReceiptVariantDescriptor(item.name, conditionLabel) ||
+    includesReceiptVariantDescriptor(variantName, conditionLabel)
+  ) {
+    return variantName || undefined;
+  }
+
+  return variantName ? `${variantName}, ${conditionLabel}` : conditionLabel;
+}
+
 export function buildOrderItems(
   itemRows: StorefrontAccountDocumentItemRow[]
 ): StorefrontOrderItem[] {
@@ -90,10 +138,7 @@ export function buildOrderItems(
       product_id: item.product_id || '',
       variant_id: item.variant_id || undefined,
       condition: item.condition || undefined,
-      variant_name:
-        item.variant_name ||
-        formatCanonicalProductConditionLabel(item.condition) ||
-        undefined,
+      variant_name: buildReceiptVariantName(item),
       name: item.name,
       product_name: item.name,
       quantity: item.quantity,

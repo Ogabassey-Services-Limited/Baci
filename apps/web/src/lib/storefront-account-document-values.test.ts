@@ -136,6 +136,43 @@ describe('storefront account document values', () => {
     ).toEqual(['Used', 'Open Box']);
   });
 
+  it('combines explicit item variants with canonical condition labels', () => {
+    expect(
+      buildOrderItems([
+        {
+          id: 'item-storage',
+          product_id: 'prod-storage',
+          variant_id: 'variant-storage',
+          condition: 'used',
+          variant_name: 'Black / 512GB',
+          name: 'Samsung Galaxy Z Fold 5',
+          quantity: 1,
+          price: 930000,
+        },
+        {
+          id: 'item-condition-in-name',
+          product_id: 'prod-condition-in-name',
+          variant_id: 'variant-condition-in-name',
+          condition: 'used',
+          variant_name: 'Used',
+          name: 'Samsung Galaxy Fold 5',
+          quantity: 1,
+          price: 930000,
+        },
+        {
+          id: 'item-imported-condition-name',
+          product_id: 'prod-imported-condition-name',
+          variant_id: null,
+          condition: 'used',
+          variant_name: null,
+          name: 'Samsung Galaxy Fold 5 (Premium Used)',
+          quantity: 1,
+          price: 930000,
+        },
+      ]).map((item) => item.variant_name)
+    ).toEqual(['Black / 512GB, Used', 'Used', undefined]);
+  });
+
   it('throws when an order item has invalid quantity or price data', () => {
     expect(() =>
       buildOrderItems([
