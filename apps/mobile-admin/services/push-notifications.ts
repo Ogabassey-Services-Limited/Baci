@@ -132,12 +132,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
  * upsert. Expo push tokens are device-unique, so when a different account signs
  * in on the same device the upsert's UPDATE branch (on conflict: token) hits a
  * row still owned by the previous user_id and is blocked by RLS (42501). The RPC
- * re-claims the token for the authenticated caller atomically and records the
- * native build number used by the release-policy update gate.
+ * derives ownership from the authenticated Supabase session, re-claims the token
+ * atomically, and records the native build number used by the release-policy
+ * update gate.
  */
 export async function savePushTokenToServer(
   token: string,
-  _userId: string,
   merchantId: string
 ): Promise<boolean> {
   try {

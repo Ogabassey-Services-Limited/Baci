@@ -16,6 +16,7 @@ const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const ANDROID_PUBLISHER_BASE_URL =
   'https://androidpublisher.googleapis.com/androidpublisher/v3';
 const TOKEN_TTL_SECONDS = 3600;
+const GOOGLE_PLAY_FETCH_TIMEOUT_MS = 10_000;
 
 export interface GooglePlayServiceAccountCredentials {
   clientEmail: string;
@@ -55,6 +56,24 @@ const LIVE_EDIT_RELEASE_STATUSES = new Set(['completed']);
 
 function normalizePrivateKey(raw: string): string {
   return raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw;
+}
+
+async function fetchGooglePlayWithTimeout(
+  fetchFn: FetchFn,
+  input: Parameters<FetchFn>[0],
+  init: Parameters<FetchFn>[1] = {}
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    GOOGLE_PLAY_FETCH_TIMEOUT_MS
+  );
+
+  try {
+    return await fetchFn(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export function parseGooglePlayServiceAccountJson(
@@ -108,7 +127,7 @@ async function fetchGooglePlayAccessToken(
 ): Promise<string> {
   const assertion = await createGooglePlayJwtAssertion(credentials);
   const tokenUri = credentials.tokenUri ?? GOOGLE_OAUTH_TOKEN_URL;
-  const response = await fetchFn(tokenUri, {
+  const response = await fetchGooglePlayWithTimeout(fetchFn, tokenUri, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -180,7 +199,7 @@ export async function fetchLiveGooglePlayBuild(
     packageName
   )}/tracks/${encodeURIComponent(track)}/releases`;
 
-  const response = await fetchFn(url, {
+  const response = await fetchGooglePlayWithTimeout(fetchFn, url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',

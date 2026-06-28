@@ -21,6 +21,38 @@ function makeReadClient(result: {
   return { client: { from } as unknown as SupabaseClient, from, maybeSingle };
 }
 
+function makeAppScopedReadClient(
+  results: Record<string, { latest_live_build: number }>
+) {
+  const queries: Record<string, string>[] = [];
+  const currentQuery: Record<string, string> = {};
+  const maybeSingle = vi.fn().mockImplementation(() => {
+    queries.push({ ...currentQuery });
+    const key = `${currentQuery.app}:${currentQuery.platform}`;
+    return Promise.resolve({
+      data: results[key] ?? null,
+      error: null,
+    });
+  });
+  const eq = vi.fn((column: string, value: string) => {
+    currentQuery[column] = value;
+    return chain;
+  });
+  const select = vi.fn(() => {
+    for (const key of Object.keys(currentQuery)) {
+      delete currentQuery[key];
+    }
+    return chain;
+  });
+  const chain = { eq, maybeSingle, select };
+  const from = vi.fn(() => chain);
+  return {
+    client: { from } as unknown as SupabaseClient,
+    maybeSingle,
+    queries,
+  };
+}
+
 describe('readLatestLiveBuild', () => {
   beforeEach(() => {
     __resetLiveBuildCache();
@@ -110,6 +142,24 @@ describe('readLatestLiveBuild', () => {
     await readLatestLiveBuild('storefront', 'ios', client);
 
     expect(maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps app-scoped reads and cache entries isolated for the same platform', async () => {
+    const { client, maybeSingle, queries } = makeAppScopedReadClient({
+      'storefront:ios': { latest_live_build: 360 },
+      'admin:ios': { latest_live_build: 42 },
+    });
+
+    await expect(
+      readLatestLiveBuild('storefront', 'ios', client)
+    ).resolves.toBe(360);
+    await expect(readLatestLiveBuild('admin', 'ios', client)).resolves.toBe(42);
+
+    expect(maybeSingle).toHaveBeenCalledTimes(2);
+    expect(queries).toEqual([
+      { app: 'storefront', platform: 'ios' },
+      { app: 'admin', platform: 'ios' },
+    ]);
   });
 });
 

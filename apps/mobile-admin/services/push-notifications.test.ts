@@ -209,7 +209,7 @@ describe('push notification native loading', () => {
     const { savePushTokenToServer } = await import('./push-notifications');
 
     await expect(
-      savePushTokenToServer('ExponentPushToken[test]', 'user-1', 'merchant-1')
+      savePushTokenToServer('ExponentPushToken[test]', 'merchant-1')
     ).resolves.toBe(true);
     expect(supabaseRpcMock).toHaveBeenCalledWith(
       'register_push_token',
@@ -233,14 +233,11 @@ describe('push notification native loading', () => {
     ['0', 0],
     ['646', 646],
     [' 646 ', 646],
-  ])(
-    'parses native build number %j as %j',
-    async (value, expectedBuildNumber) => {
-      const { resolveNativeBuildNumber } = await import('./push-notifications');
+  ])('parses native build number %j as %j', async (value, expectedBuildNumber) => {
+    const { resolveNativeBuildNumber } = await import('./push-notifications');
 
-      expect(resolveNativeBuildNumber(value)).toBe(expectedBuildNumber);
-    }
-  );
+    expect(resolveNativeBuildNumber(value)).toBe(expectedBuildNumber);
+  });
 
   it('returns false when saving the push token fails', async () => {
     supabaseRpcMock.mockResolvedValue({
@@ -256,7 +253,7 @@ describe('push notification native loading', () => {
     const { savePushTokenToServer } = await import('./push-notifications');
 
     await expect(
-      savePushTokenToServer('ExponentPushToken[test]', 'user-1', 'merchant-1')
+      savePushTokenToServer('ExponentPushToken[test]', 'merchant-1')
     ).resolves.toBe(false);
     expect(supabaseRpcMock).toHaveBeenCalledWith(
       'register_push_token',

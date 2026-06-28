@@ -8,7 +8,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function AdminLayout() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const {
     registerPush,
     isRegistered,
@@ -31,7 +31,7 @@ export default function AdminLayout() {
       attemptedMerchantIdRef.current !== merchant.id
     ) {
       attemptedMerchantIdRef.current = merchant.id;
-      void registerPush(user?.id, merchant.id).catch((error) => {
+      void registerPush(merchant.id).catch((error) => {
         console.error('[Push] Failed to trigger registration:', error);
       });
     }
@@ -41,7 +41,6 @@ export default function AdminLayout() {
     isPushLoading,
     registerPush,
     merchant?.id,
-    user?.id,
   ]);
 
   if (isLoading) {

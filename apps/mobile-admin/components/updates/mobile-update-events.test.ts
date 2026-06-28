@@ -37,4 +37,30 @@ describe('mobile update events', () => {
 
     unsubscribeSecond();
   });
+
+  it('keeps notifying later subscribers when one listener throws', () => {
+    const error = new Error('listener failed');
+    const failing = vi.fn(() => {
+      throw error;
+    });
+    const second = vi.fn();
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const unsubscribeFailing = subscribeToMobileUpdateChecks(failing);
+    const unsubscribeSecond = subscribeToMobileUpdateChecks(second);
+
+    requestMobileUpdateCheck('push-notification');
+
+    expect(failing).toHaveBeenCalledWith('push-notification');
+    expect(second).toHaveBeenCalledWith('push-notification');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[mobile-update-events] listener failed',
+      error
+    );
+
+    unsubscribeFailing();
+    unsubscribeSecond();
+    warnSpy.mockRestore();
+  });
 });

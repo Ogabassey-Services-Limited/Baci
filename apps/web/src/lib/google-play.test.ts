@@ -102,6 +102,15 @@ describe('fetchLiveGooglePlayBuild', () => {
       'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.ogabassey.baci/tracks/production/releases',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+        signal: expect.any(AbortSignal),
+      })
+    );
+    expect(fetchFn).toHaveBeenNthCalledWith(
+      1,
+      'https://oauth2.googleapis.com/token',
+      expect.objectContaining({
+        method: 'POST',
+        signal: expect.any(AbortSignal),
       })
     );
   });
@@ -146,5 +155,24 @@ describe('fetchLiveGooglePlayBuild', () => {
         fetchFn: fetchFn as unknown as typeof fetch,
       })
     ).rejects.toThrow('Google Play track releases 403');
+  });
+
+  it('throws when the Google OAuth token exchange fails', async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => 'invalid_grant',
+    });
+
+    await expect(
+      fetchLiveGooglePlayBuild('com.example.app', credentials(), {
+        fetchFn: fetchFn as unknown as typeof fetch,
+      })
+    ).rejects.toThrow('Google OAuth token exchange failed with 401');
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://oauth2.googleapis.com/token',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 });

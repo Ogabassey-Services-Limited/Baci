@@ -109,14 +109,19 @@ export function MobileUpdateController() {
   }, []);
 
   useEffect(() => {
-    if (
-      hasDeferredCheckRef.current &&
-      !shouldDeferMobileUpdatePrompt(pathname)
-    ) {
+    if (shouldDeferMobileUpdatePrompt(pathname)) {
+      hasDeferredCheckRef.current = true;
+      if (prompt !== null) {
+        setPrompt(null);
+      }
+      return;
+    }
+
+    if (hasDeferredCheckRef.current) {
       hasDeferredCheckRef.current = false;
       void runCheck();
     }
-  }, [pathname]);
+  }, [pathname, prompt]);
 
   const handleAccept = async () => {
     if (!prompt) return;
