@@ -159,6 +159,7 @@ vi.mock('react-native', () => {
     StyleSheet: { create: <T,>(styles: T) => styles },
     Text: MockText,
     View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    useColorScheme: () => 'light',
   };
 });
 

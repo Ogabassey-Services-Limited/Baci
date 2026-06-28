@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
@@ -176,7 +177,8 @@ function buildFollowUpMessage(request: NegotiationRequest): string {
 }
 
 export default function NegotiationsScreen() {
-  const { merchant } = useMerchant();
+  const { merchant, isLoading: isMerchantLoading } = useMerchant();
+  const { colors } = useTheme();
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -190,6 +192,9 @@ export default function NegotiationsScreen() {
   const fetchRequests = () => {
     const merchantId = merchant?.id;
     if (!merchantId) {
+      if (isMerchantLoading) {
+        return Promise.resolve();
+      }
       // Clear merchant-scoped state so a sign-out / merchant switch can't leave
       // the previous merchant's negotiations on screen, then settle the flags.
       return Promise.resolve().then(() => {
@@ -198,6 +203,9 @@ export default function NegotiationsScreen() {
         setLoading(false);
         setRefreshing(false);
       });
+    }
+    if (!refreshing) {
+      setLoading(true);
     }
     return loadNegotiationRequests(merchantId)
       .then((data) => {
@@ -214,7 +222,7 @@ export default function NegotiationsScreen() {
       });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect is intentionally keyed by merchant ID; fetchRequests is recreated each render and would resubscribe continuously.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: this effect is intentionally keyed by merchant ID and loading state; fetchRequests is recreated each render and would resubscribe continuously.
   useEffect(() => {
     const merchantId = merchant?.id;
 
@@ -249,7 +257,7 @@ export default function NegotiationsScreen() {
     };
     // fetchRequests is recreated every render; subscribing on merchant ID is the
     // intended boundary for this realtime channel.
-  }, [merchant?.id]);
+  }, [merchant?.id, isMerchantLoading]);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
@@ -288,7 +296,7 @@ export default function NegotiationsScreen() {
   };
 
   const renderItem = ({ item }: { item: NegotiationRequest }) => (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
       <View style={styles.cardHeader}>
         <View
           style={[
@@ -311,30 +319,30 @@ export default function NegotiationsScreen() {
             {item.type === 'total' ? 'Bulk Cart' : 'Single Item'}
           </Text>
         </View>
-        <Text style={styles.dateText}>
+        <Text style={[styles.dateText, { color: colors.textSecondary }]}>
           {new Date(item.created_at).toLocaleDateString()}
         </Text>
       </View>
 
-      <Text style={styles.itemName} numberOfLines={1}>
+      <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
         {item.item_info?.name ?? 'Cart Negotiation'}
       </Text>
 
-      <View style={styles.priceRow}>
+      <View style={[styles.priceRow, { backgroundColor: colors.backgroundLight }]}>
         {item.current_price != null && (
           <View>
-            <Text style={styles.label}>Current</Text>
-            <Text style={styles.oldPrice}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Current</Text>
+            <Text style={[styles.oldPrice, { color: colors.textSecondary }]}>
               {formatPrice(item.current_price)}
             </Text>
           </View>
         )}
         {item.current_price != null && (
-          <Ionicons name="arrow-forward" size={16} color={palette.gray[400]} />
+          <Ionicons name="arrow-forward" size={16} color={colors.textSecondary} />
         )}
         <View>
-          <Text style={styles.label}>Offered</Text>
-          <Text style={styles.newPrice}>{formatPrice(item.offered_price)}</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>Offered</Text>
+          <Text style={[styles.newPrice, { color: colors.primary }]}>{formatPrice(item.offered_price)}</Text>
         </View>
         {item.current_price != null &&
           item.current_price > 0 &&
@@ -365,8 +373,8 @@ export default function NegotiationsScreen() {
                 : `View ${item.cart_snapshot.length} cart items`
             }
           >
-            <Ionicons name="cart-outline" size={16} color={palette.gray[600]} />
-            <Text style={styles.cartToggleText}>
+            <Ionicons name="cart-outline" size={16} color={colors.textSecondary} />
+            <Text style={[styles.cartToggleText, { color: colors.textSecondary }]}>
               {expandedId === item.id
                 ? 'Hide items'
                 : `View ${item.cart_snapshot.length} ${
@@ -376,31 +384,31 @@ export default function NegotiationsScreen() {
             <Ionicons
               name={expandedId === item.id ? 'chevron-up' : 'chevron-down'}
               size={16}
-              color={palette.gray[600]}
+              color={colors.textSecondary}
             />
           </Pressable>
 
           {expandedId === item.id ? (
-            <View style={styles.cartItems}>
+            <View style={[styles.cartItems, { borderTopColor: colors.border }]}>
               {item.cart_snapshot.map((line, index) => (
                 <View
                   key={`${line.product_id}-${line.variant_id ?? index}`}
                   style={styles.cartLine}
                 >
-                  <Text style={styles.cartLineQty}>{line.quantity}×</Text>
+                  <Text style={[styles.cartLineQty, { color: colors.textSecondary }]}>{line.quantity}×</Text>
                   <View style={styles.cartLineBody}>
-                    <Text style={styles.cartLineName} numberOfLines={2}>
+                    <Text style={[styles.cartLineName, { color: colors.text }]} numberOfLines={2}>
                       {line.name}
                     </Text>
                     {line.variant_name || line.condition ? (
-                      <Text style={styles.cartLineMeta} numberOfLines={1}>
+                      <Text style={[styles.cartLineMeta, { color: colors.textSecondary }]} numberOfLines={1}>
                         {[line.variant_name, line.condition]
                           .filter(Boolean)
                           .join(' · ')}
                       </Text>
                     ) : null}
                   </View>
-                  <Text style={styles.cartLinePrice}>
+                  <Text style={[styles.cartLinePrice, { color: colors.text }]}>
                     {formatPrice(line.price * line.quantity)}
                   </Text>
                 </View>
@@ -420,9 +428,9 @@ export default function NegotiationsScreen() {
           <Ionicons
             name="image-outline"
             size={16}
-            color={palette.blue?.[500] || '#3B82F6'}
+            color={colors.primary}
           />
-          <Text style={styles.evidenceText}>View customer evidence</Text>
+          <Text style={[styles.evidenceText, { color: colors.primary }]}>View customer evidence</Text>
         </Pressable>
       ) : null}
 
@@ -430,15 +438,15 @@ export default function NegotiationsScreen() {
         <View style={styles.contactRow}>
           {buildTelLink(item.customer_phone) ? (
             <Pressable
-              style={[styles.contactButton, styles.callButton]}
+              style={[styles.contactButton, styles.callButton, { borderColor: colors.border }]}
               onPress={() =>
                 openExternalUrl(buildTelLink(item.customer_phone) as string)
               }
               accessibilityRole="button"
               accessibilityLabel="Call customer"
             >
-              <Ionicons name="call" size={16} color={palette.gray[700]} />
-              <Text style={styles.callButtonText}>Call</Text>
+              <Ionicons name="call" size={16} color={colors.text} />
+              <Text style={[styles.callButtonText, { color: colors.text }]}>Call</Text>
             </Pressable>
           ) : null}
           {buildWhatsAppLink(
@@ -471,50 +479,52 @@ export default function NegotiationsScreen() {
             style={[
               styles.actionButton,
               styles.rejectButton,
+              { borderColor: colors.border },
               actionLoadingId === item.id && styles.disabledButton,
             ]}
             onPress={() => handleAction(item.id, 'rejected')}
             disabled={actionLoadingId !== null}
           >
             {actionLoadingId === item.id ? (
-              <ActivityIndicator size="small" color={palette.gray[600]} />
+              <ActivityIndicator size="small" color={colors.textSecondary} />
             ) : (
-              <Text style={styles.rejectButtonText}>Reject</Text>
+              <Text style={[styles.rejectButtonText, { color: colors.textSecondary }]}>Reject</Text>
             )}
           </Pressable>
           <Pressable
             style={[
               styles.actionButton,
               styles.acceptButton,
+              { backgroundColor: colors.primary },
               actionLoadingId === item.id && styles.disabledButton,
             ]}
             onPress={() => handleAction(item.id, 'accepted')}
             disabled={actionLoadingId !== null}
           >
             {actionLoadingId === item.id ? (
-              <ActivityIndicator size="small" color={palette.white} />
+              <ActivityIndicator size="small" color={colors.textOnPrimary} />
             ) : (
-              <Text style={styles.acceptButtonText}>Accept Offer</Text>
+              <Text style={[styles.acceptButtonText, { color: colors.textOnPrimary }]}>Accept Offer</Text>
             )}
           </Pressable>
         </View>
       ) : (
         <View style={styles.statusOutcomeRow}>
-          <Text style={styles.statusOutcomeLabel}>Status</Text>
+          <Text style={[styles.statusOutcomeLabel, { color: colors.textSecondary }]}>Status</Text>
           <View
             style={[
               styles.statusOutcomeBadge,
-              item.status === 'accepted' && styles.statusAcceptedBadge,
-              item.status === 'rejected' && styles.statusRejectedBadge,
-              item.status === 'countered' && styles.statusCounteredBadge,
+              item.status === 'accepted' && { backgroundColor: colors.successLight },
+              item.status === 'rejected' && { backgroundColor: colors.errorLight },
+              item.status === 'countered' && { backgroundColor: colors.warningLight },
             ]}
           >
             <Text
               style={[
                 styles.statusOutcomeText,
-                item.status === 'accepted' && styles.statusAcceptedText,
-                item.status === 'rejected' && styles.statusRejectedText,
-                item.status === 'countered' && styles.statusCounteredText,
+                item.status === 'accepted' && { color: colors.success },
+                item.status === 'rejected' && { color: colors.error },
+                item.status === 'countered' && { color: colors.warning },
               ]}
             >
               {formatNegotiationStatus(item.status)}
@@ -527,17 +537,17 @@ export default function NegotiationsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={BRAND.primary} />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (fetchError) {
     return (
-      <View style={styles.centered}>
-        <Ionicons name="alert-circle" size={48} color={palette.red[400]} />
-        <Text style={styles.emptyTitle}>{fetchError}</Text>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Ionicons name="alert-circle" size={48} color={colors.error} />
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>{fetchError}</Text>
         <Pressable
           style={styles.retryButton}
           onPress={() => {
@@ -545,15 +555,15 @@ export default function NegotiationsScreen() {
             fetchRequests();
           }}
         >
-          <Ionicons name="refresh" size={18} color={BRAND.primary} />
-          <Text style={styles.retryText}>Tap to retry</Text>
+          <Ionicons name="refresh" size={18} color={colors.primary} />
+          <Text style={[styles.retryText, { color: colors.primary }]}>Tap to retry</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlashList
         data={requests}
         renderItem={renderItem}
@@ -574,10 +584,10 @@ export default function NegotiationsScreen() {
             <Ionicons
               name="chatbubbles-outline"
               size={64}
-              color={palette.gray[200]}
+              color={colors.border}
             />
-            <Text style={styles.emptyTitle}>No Pending Negotiations</Text>
-            <Text style={styles.emptySubtitle}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Pending Negotiations</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               All quiet for now. New requests will appear here instantly.
             </Text>
           </View>
