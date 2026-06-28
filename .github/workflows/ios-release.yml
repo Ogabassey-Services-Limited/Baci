@@ -278,15 +278,15 @@ jobs:
               allow_submit=true
               reason="current main HEAD"
             else
-              COMPARE_JSON="$({
-                curl --fail-with-body --silent --show-error \
-                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                  -H "Accept: application/vnd.github+json" \
-                  -H "X-GitHub-Api-Version: 2022-11-28" \
-                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${CURRENT_MAIN_SHA}"
-              })"
-              HAS_RELEVANT_SUCCESSOR="$(python3 -c 'import json, sys; files = (json.load(sys.stdin).get("files") or []); print("true" if any((item.get("filename") or "") == "pnpm-lock.yaml" or (item.get("filename") or "").startswith("apps/mobile-admin/") or (item.get("filename") or "").startswith("packages/shared/") for item in files) else "false")' <<< "$COMPARE_JSON")"
-              if [ "$HAS_RELEVANT_SUCCESSOR" = "true" ]; then
+              # GitHub's Compare REST response caps the file list, which can hide
+              # relevant mobile-admin/shared changes on large successor commits.
+              # Fetch the current main commit and use git diff pathspecs instead;
+              # this inspects the local object graph without the API file cap.
+              git fetch --no-tags --prune --depth=1 origin "+refs/heads/main:refs/remotes/origin/main"
+              RELEVANT_SUCCESSOR_FILES="$(git diff --name-only "${GITHUB_SHA}" "${CURRENT_MAIN_SHA}" -- pnpm-lock.yaml apps/mobile-admin packages/shared)"
+              if [ -n "$RELEVANT_SUCCESSOR_FILES" ]; then
+                echo "Relevant successor release files:"
+                printf '%s\n' "$RELEVANT_SUCCESSOR_FILES"
                 reason="stale mobile-admin release build"
               else
                 allow_submit=true
