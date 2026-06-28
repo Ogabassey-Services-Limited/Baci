@@ -57,7 +57,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    await recordReceiptClaimClickBestEffort({ supabase, token });
+    await recordReceiptClaimClickBestEffort({ source: 'web', supabase, token });
 
     return NextResponse.json({ claim: preview.claim });
   } catch (error) {
@@ -95,7 +95,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const { data, error } = await auth.supabase.rpc('redeem_receipt_claim', {
+    const { data, error } = await auth.supabase.rpc('redeem_receipt_claim_v2', {
+      p_source: hasBearerAuthorization(request) ? 'app' : 'web',
       p_token_hash: hashReceiptClaimToken(token),
     });
 

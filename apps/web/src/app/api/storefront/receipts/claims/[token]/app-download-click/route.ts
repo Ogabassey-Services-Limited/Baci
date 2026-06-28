@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
-  loadReceiptClaimLoginEmailHint,
   parseReceiptClaimToken,
-  recordReceiptClaimLoginStarted,
+  recordReceiptClaimAppDownloadClicked,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 
@@ -11,35 +11,20 @@ interface RouteContext {
   params: Promise<{ token: string }>;
 }
 
+const appDownloadClickBodySchema = z.object({
+  target: z.enum(['app_store', 'play_store']),
+});
+
 async function parseToken(context: RouteContext) {
   const params = await context.params;
   return parseReceiptClaimToken(params.token);
 }
 
-export async function GET(_request: NextRequest, context: RouteContext) {
-  const token = await parseToken(context);
-  if (!token) {
-    return NextResponse.json(
-      { error: 'Invalid receipt claim link' },
-      { status: 400 }
-    );
-  }
-
+async function parseBody(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const hint = await loadReceiptClaimLoginEmailHint({ supabase, token });
-
-    if (!hint.ok) {
-      return NextResponse.json({ error: hint.error }, { status: hint.status });
-    }
-
-    return NextResponse.json({ emailHint: hint.emailHint });
-  } catch (error) {
-    console.error('Failed to load receipt claim login email', error);
-    return NextResponse.json(
-      { error: 'Failed to load receipt claim login email' },
-      { status: 500 }
-    );
+    return appDownloadClickBodySchema.safeParse(await request.json());
+  } catch {
+    return appDownloadClickBodySchema.safeParse({});
   }
 }
 
@@ -48,6 +33,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!token) {
     return NextResponse.json(
       { error: 'Invalid receipt claim link' },
+      { status: 400 }
+    );
+  }
+
+  const parsedBody = await parseBody(request);
+  if (!parsedBody.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid app download tracking target',
+        code: 'invalid_download_target',
+      },
       { status: 400 }
     );
   }
@@ -62,15 +58,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const supabase = await createClient();
-    await recordReceiptClaimLoginStarted({ source: 'web', supabase, token });
+    await recordReceiptClaimAppDownloadClicked({
+      supabase,
+      target: parsedBody.data.target,
+      token,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Failed to record receipt claim login start', error);
+    console.error('Failed to record app download click', error);
     return NextResponse.json(
       {
-        error: 'Failed to record receipt claim login start',
-        code: 'login_start_tracking_failed',
+        error: 'Failed to record app download click',
+        code: 'app_download_tracking_failed',
       },
       { status: 500 }
     );

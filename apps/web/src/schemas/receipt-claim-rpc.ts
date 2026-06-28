@@ -26,20 +26,64 @@ const receiptClaimMerchantSchema = z.object({
 
 const nonNegativeIntegerSchema = z.number().int().nonnegative();
 const nullableIsoDateTimeSchema = z.iso.datetime({ offset: true }).nullable();
+const receiptClaimChannelSourceSchema = z
+  .enum(['web', 'app', 'unknown'])
+  .nullable();
+const receiptClaimAppDownloadSourceSchema = z
+  .enum(['app_store', 'play_store', 'unknown'])
+  .nullable();
 
-const receiptClaimCampaignRecipientSchema = z.object({
+const receiptClaimCampaignRecipientBaseSchema = z.object({
+  appDownloadClickCount: nonNegativeIntegerSchema,
   claimedAt: nullableIsoDateTimeSchema,
+  claimedSource: receiptClaimChannelSourceSchema,
   clickCount: nonNegativeIntegerSchema,
   customerEmail: z.string(),
   customerName: z.string().nullable(),
+  firstAppDownloadClickedAt: nullableIsoDateTimeSchema,
+  firstAppDownloadSource: receiptClaimAppDownloadSourceSchema,
   firstClickedAt: nullableIsoDateTimeSchema,
+  firstClickSource: receiptClaimChannelSourceSchema,
   firstLoginStartedAt: nullableIsoDateTimeSchema,
+  firstLoginStartedSource: receiptClaimChannelSourceSchema,
   id: z.string(),
+  lastAppDownloadClickedAt: nullableIsoDateTimeSchema,
+  lastAppDownloadSource: receiptClaimAppDownloadSourceSchema,
   lastClickedAt: nullableIsoDateTimeSchema,
+  lastClickSource: receiptClaimChannelSourceSchema,
   lastLoginStartedAt: nullableIsoDateTimeSchema,
+  lastLoginStartedSource: receiptClaimChannelSourceSchema,
   loginStartedCount: nonNegativeIntegerSchema,
   notificationSentAt: nullableIsoDateTimeSchema,
 });
+
+const receiptClaimCampaignRecipientSchema =
+  receiptClaimCampaignRecipientBaseSchema.superRefine((recipient, context) => {
+    const pairedFields = [
+      ['claimedAt', 'claimedSource'],
+      ['firstClickedAt', 'firstClickSource'],
+      ['lastClickedAt', 'lastClickSource'],
+      ['firstLoginStartedAt', 'firstLoginStartedSource'],
+      ['lastLoginStartedAt', 'lastLoginStartedSource'],
+      ['firstAppDownloadClickedAt', 'firstAppDownloadSource'],
+      ['lastAppDownloadClickedAt', 'lastAppDownloadSource'],
+    ] as const;
+
+    for (const [timestampField, sourceField] of pairedFields) {
+      const hasTimestamp = recipient[timestampField] !== null;
+      const hasSource = recipient[sourceField] !== null;
+
+      if (hasTimestamp === hasSource) {
+        continue;
+      }
+
+      context.addIssue({
+        code: 'custom',
+        message: `${timestampField} and ${sourceField} must be returned together`,
+        path: [hasTimestamp ? sourceField : timestampField],
+      });
+    }
+  });
 
 export const receiptClaimRecordSchema = z.object({
   claimed_at: z.string().nullable(),
@@ -73,10 +117,18 @@ export const createReceiptClaimResultSchema = z.object({
 });
 
 export const receiptClaimCampaignStatsSchema = z.object({
+  appDownloadClickCount: nonNegativeIntegerSchema,
+  appDownloadClickedCount: nonNegativeIntegerSchema,
+  claimedAppCount: nonNegativeIntegerSchema,
   claimedCount: nonNegativeIntegerSchema,
+  claimedWebCount: nonNegativeIntegerSchema,
+  clickedAppCount: nonNegativeIntegerSchema,
   clickedCount: nonNegativeIntegerSchema,
+  clickedWebCount: nonNegativeIntegerSchema,
   lastActivityAt: nullableIsoDateTimeSchema,
+  loginStartedAppCount: nonNegativeIntegerSchema,
   loginStartedCount: nonNegativeIntegerSchema,
+  loginStartedWebCount: nonNegativeIntegerSchema,
   recipients: z.array(receiptClaimCampaignRecipientSchema),
   sentCount: nonNegativeIntegerSchema,
   totalRecipients: nonNegativeIntegerSchema,

@@ -217,10 +217,18 @@ describe('useMigrationJobs', () => {
           createJsonResponse({
             job: createJobDetail('job-completed', 'completed', {
               receiptCampaign: {
+                appDownloadClickCount: 0,
+                appDownloadClickedCount: 0,
+                claimedAppCount: 0,
                 claimedCount: 1,
+                claimedWebCount: 1,
+                clickedAppCount: 0,
                 clickedCount: 1,
+                clickedWebCount: 1,
                 lastActivityAt: '2026-06-27T10:05:00.000Z',
+                loginStartedAppCount: 0,
                 loginStartedCount: 1,
+                loginStartedWebCount: 1,
                 recipients: [],
                 sentCount: 1,
                 totalRecipients: 1,

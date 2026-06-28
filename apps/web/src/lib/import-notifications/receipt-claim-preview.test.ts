@@ -6,6 +6,9 @@ import {
   loadReceiptClaimPreview,
   loadReceiptClaimPreviewWithLoginEmailHint,
   parseReceiptClaimToken,
+  recordReceiptClaimAppDownloadClicked,
+  recordReceiptClaimClick,
+  recordReceiptClaimLoginStarted,
 } from '@/lib/import-notifications/receipt-claim-preview';
 
 const baseClaim = {
@@ -214,5 +217,56 @@ describe('receipt claim preview', () => {
     await expect(
       loadReceiptClaimPreview({ supabase, token: 'claim-token' })
     ).rejects.toThrow('invalid response structure');
+  });
+
+  it('records web click activity through the source-aware tracking RPC', async () => {
+    const supabase = createSupabaseRpcMock({ data: null, error: null });
+
+    await recordReceiptClaimClick({
+      source: 'web',
+      supabase,
+      token: 'claim-token',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('record_receipt_claim_click_v2', {
+      p_source: 'web',
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
+  });
+
+  it('records web login-start activity through the source-aware tracking RPC', async () => {
+    const supabase = createSupabaseRpcMock({ data: null, error: null });
+
+    await recordReceiptClaimLoginStarted({
+      source: 'web',
+      supabase,
+      token: 'claim-token',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'record_receipt_claim_login_started_v2',
+      {
+        p_source: 'web',
+        p_token_hash: hashReceiptClaimToken('claim-token'),
+      }
+    );
+  });
+
+  it('records app download CTA taps with the selected store target', async () => {
+    const supabase = createSupabaseRpcMock({ data: null, error: null });
+
+    await recordReceiptClaimAppDownloadClicked({
+      supabase,
+      target: 'app_store',
+      token: 'claim-token',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'record_receipt_claim_app_download_clicked_v2',
+      {
+        p_source: 'app_store',
+        p_token_hash: hashReceiptClaimToken('claim-token'),
+      }
+    );
   });
 });

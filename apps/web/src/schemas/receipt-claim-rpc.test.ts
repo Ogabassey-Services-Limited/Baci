@@ -115,21 +115,39 @@ describe('receipt claim RPC schemas', () => {
 
   it('accepts receipt claim campaign stats returned for migration dashboards', () => {
     const parsed = receiptClaimCampaignStatsSchema.safeParse({
+      appDownloadClickCount: 3,
+      appDownloadClickedCount: 1,
+      claimedAppCount: 1,
       claimedCount: 1,
+      claimedWebCount: 0,
+      clickedAppCount: 0,
       clickedCount: 2,
+      clickedWebCount: 2,
       lastActivityAt: '2026-06-27T10:05:00+00:00',
+      loginStartedAppCount: 0,
       loginStartedCount: 1,
+      loginStartedWebCount: 1,
       recipients: [
         {
+          appDownloadClickCount: 3,
           claimedAt: '2026-06-27T10:05:00+00:00',
+          claimedSource: 'app',
           clickCount: 3,
           customerEmail: 'ada@example.com',
           customerName: 'Ada Lovelace',
+          firstAppDownloadClickedAt: '2026-06-27T10:03:00+00:00',
+          firstAppDownloadSource: 'app_store',
           firstClickedAt: '2026-06-27T10:00:00+00:00',
+          firstClickSource: 'web',
           firstLoginStartedAt: '2026-06-27T10:01:00+00:00',
+          firstLoginStartedSource: 'web',
           id: 'claim-1',
+          lastAppDownloadClickedAt: '2026-06-27T10:04:00+00:00',
+          lastAppDownloadSource: 'play_store',
           lastClickedAt: '2026-06-27T10:02:00+00:00',
+          lastClickSource: 'web',
           lastLoginStartedAt: '2026-06-27T10:01:00+00:00',
+          lastLoginStartedSource: 'web',
           loginStartedCount: 1,
           notificationSentAt: '2026-06-27T09:59:00+00:00',
         },
@@ -139,6 +157,85 @@ describe('receipt claim RPC schemas', () => {
     });
 
     expect(parsed.success).toBe(true);
+    expect(parsed.data).toMatchObject({
+      appDownloadClickCount: 3,
+      appDownloadClickedCount: 1,
+      claimedAppCount: 1,
+      claimedWebCount: 0,
+      clickedWebCount: 2,
+      loginStartedWebCount: 1,
+      recipients: [
+        expect.objectContaining({
+          appDownloadClickCount: 3,
+          claimedSource: 'app',
+          firstAppDownloadSource: 'app_store',
+          firstClickSource: 'web',
+          firstLoginStartedSource: 'web',
+          lastAppDownloadSource: 'play_store',
+        }),
+      ],
+    });
+  });
+
+  it('rejects campaign recipients with timestamp and source mismatches', () => {
+    const recipient = {
+      appDownloadClickCount: 1,
+      claimedAt: null,
+      claimedSource: null,
+      clickCount: 1,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      firstAppDownloadClickedAt: '2026-06-27T10:03:00+00:00',
+      firstAppDownloadSource: 'app_store' as const,
+      firstClickedAt: '2026-06-27T10:00:00+00:00',
+      firstClickSource: 'web' as const,
+      firstLoginStartedAt: null,
+      firstLoginStartedSource: null,
+      id: 'claim-1',
+      lastAppDownloadClickedAt: '2026-06-27T10:04:00+00:00',
+      lastAppDownloadSource: 'play_store' as const,
+      lastClickedAt: null,
+      lastClickSource: null,
+      lastLoginStartedAt: null,
+      lastLoginStartedSource: null,
+      loginStartedCount: 0,
+      notificationSentAt: '2026-06-27T09:59:00+00:00',
+    };
+    const stats = {
+      appDownloadClickCount: 1,
+      appDownloadClickedCount: 1,
+      claimedAppCount: 0,
+      claimedCount: 0,
+      claimedWebCount: 0,
+      clickedAppCount: 0,
+      clickedCount: 1,
+      clickedWebCount: 1,
+      lastActivityAt: '2026-06-27T10:05:00+00:00',
+      loginStartedAppCount: 0,
+      loginStartedCount: 0,
+      loginStartedWebCount: 0,
+      recipients: [recipient],
+      sentCount: 1,
+      totalRecipients: 1,
+    };
+
+    expect(
+      receiptClaimCampaignStatsSchema.safeParse({
+        ...stats,
+        recipients: [{ ...recipient, firstClickSource: null }],
+      }).success
+    ).toBe(false);
+    expect(
+      receiptClaimCampaignStatsSchema.safeParse({
+        ...stats,
+        recipients: [
+          {
+            ...recipient,
+            firstAppDownloadClickedAt: null,
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('rejects campaign stats with negative counters', () => {

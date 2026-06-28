@@ -1,5 +1,11 @@
 'use client';
-import { AlertTriangle, Loader2, ReceiptText, Smartphone } from 'lucide-react';
+import {
+  AlertTriangle,
+  Download,
+  Loader2,
+  ReceiptText,
+  Smartphone,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
@@ -11,11 +17,18 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  OGABASSEY_STOREFRONT_APP_STORE_URL,
+  OGABASSEY_STOREFRONT_PLAY_STORE_URL,
+} from '@/config/platform';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { sanitizeCustomerLoginEmailPrefill } from '@/lib/customer-login-prefill';
-import type { ReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
+import type {
+  ReceiptClaimAppDownloadTarget,
+  ReceiptClaimPreview,
+} from '@/lib/import-notifications/receipt-claim-preview';
 import { asRoute } from '@/lib/routes';
 import {
   createDeviceListItems,
@@ -39,7 +52,7 @@ export default function ReceiptClaimPageClient({
 }: ReceiptClaimPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { basePath, loading: merchantLoading } = useMerchant();
+  const { basePath, loading: merchantLoading, merchant } = useMerchant();
   const { isAuthenticated, isLoading: authLoading } = useCustomerAuth();
   const [error, setError] = useState<string | null>(initialError);
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -132,6 +145,9 @@ export default function ReceiptClaimPageClient({
     `/account/login?${loginSearchParams.toString()}`
   );
   const loginStartedPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/login-email`;
+  const appDownloadTrackingPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/app-download-click`;
+  const shouldShowOgabasseyAppLinks =
+    merchant?.slug === 'ogabassey' || basePath === '/ogabassey';
 
   async function trackLoginStarted() {
     if (!token) {
@@ -147,6 +163,22 @@ export default function ReceiptClaimPageClient({
     } catch {
       return;
     }
+  }
+
+  function trackAppDownloadClick(target: ReceiptClaimAppDownloadTarget) {
+    if (!token) {
+      return;
+    }
+
+    void fetchWithCsrf(appDownloadTrackingPath, {
+      body: JSON.stringify({ target }),
+      headers: {
+        'Content-Type': 'application/json',
+        accept: 'application/json',
+      },
+      keepalive: true,
+      method: 'POST',
+    }).catch(() => undefined);
   }
 
   async function waitForLoginStartedTrackingWindow() {
@@ -279,6 +311,46 @@ export default function ReceiptClaimPageClient({
                     </Link>
                   </Button>
                 )}
+
+                {shouldShowOgabasseyAppLinks ? (
+                  <div className="space-y-3 rounded-md border border-store-border bg-store-secondary/40 p-4">
+                    <p className="text-sm font-medium text-store-background-text">
+                      Open in the Ogabassey app
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        asChild
+                        className="border-store-border"
+                        variant="outline"
+                      >
+                        <a
+                          href={OGABASSEY_STOREFRONT_APP_STORE_URL}
+                          onClick={() => trackAppDownloadClick('app_store')}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          <Download aria-hidden="true" className="size-4" />
+                          App Store
+                        </a>
+                      </Button>
+                      <Button
+                        asChild
+                        className="border-store-border"
+                        variant="outline"
+                      >
+                        <a
+                          href={OGABASSEY_STOREFRONT_PLAY_STORE_URL}
+                          onClick={() => trackAppDownloadClick('play_store')}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          <Download aria-hidden="true" className="size-4" />
+                          Google Play
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : (
               <div

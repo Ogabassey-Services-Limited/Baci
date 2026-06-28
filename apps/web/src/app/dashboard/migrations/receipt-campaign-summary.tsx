@@ -37,6 +37,26 @@ function formatCountLabel(count: number, singular: string, plural: string) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function formatChannelBreakdown(webCount: number, appCount: number) {
+  return `Web ${webCount} · App ${appCount}`;
+}
+
+function formatClaimSource(source: ReceiptCampaignRecipient['claimedSource']) {
+  if (source === 'app') {
+    return 'Claimed via app';
+  }
+
+  if (source === 'web') {
+    return 'Claimed via web';
+  }
+
+  if (source === 'unknown') {
+    return 'Claimed via unknown source';
+  }
+
+  return null;
+}
+
 function getRecipientStatus(recipient: ReceiptCampaignRecipient) {
   if (recipient.claimedAt) {
     return 'Claimed';
@@ -85,7 +105,7 @@ export default function ReceiptCampaignSummary({
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         {[
           {
             label: 'Emails sent',
@@ -93,15 +113,36 @@ export default function ReceiptCampaignSummary({
           },
           {
             label: 'Link clicked',
+            secondary: formatChannelBreakdown(
+              receiptCampaign.clickedWebCount,
+              receiptCampaign.clickedAppCount
+            ),
             value: receiptCampaign.clickedCount,
           },
           {
             label: 'Login started',
+            secondary: formatChannelBreakdown(
+              receiptCampaign.loginStartedWebCount,
+              receiptCampaign.loginStartedAppCount
+            ),
             value: receiptCampaign.loginStartedCount,
           },
           {
             label: 'Receipt claimed',
+            secondary: formatChannelBreakdown(
+              receiptCampaign.claimedWebCount,
+              receiptCampaign.claimedAppCount
+            ),
             value: receiptCampaign.claimedCount,
+          },
+          {
+            label: 'Store-link taps',
+            secondary: formatCountLabel(
+              receiptCampaign.appDownloadClickedCount,
+              'recipient',
+              'recipients'
+            ),
+            value: receiptCampaign.appDownloadClickCount,
           },
         ].map((metric) => (
           <div
@@ -112,6 +153,11 @@ export default function ReceiptCampaignSummary({
               {metric.label}
             </p>
             <p className="mt-2 text-xl font-semibold">{metric.value}</p>
+            {metric.secondary ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {metric.secondary}
+              </p>
+            ) : null}
           </div>
         ))}
       </div>
@@ -143,7 +189,19 @@ export default function ReceiptCampaignSummary({
                       {recipient.customerEmail}
                     </div>
                   </td>
-                  <td className="px-3 py-3">{getRecipientStatus(recipient)}</td>
+                  <td className="px-3 py-3">
+                    <div>{getRecipientStatus(recipient)}</div>
+                    {formatClaimSource(recipient.claimedSource) ? (
+                      <div className="text-xs text-muted-foreground">
+                        {formatClaimSource(recipient.claimedSource)}
+                      </div>
+                    ) : null}
+                    {recipient.appDownloadClickCount > 0 ? (
+                      <div className="text-xs text-muted-foreground">
+                        Store taps: {recipient.appDownloadClickCount}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-3 text-muted-foreground">
                     {formatCampaignTimestamp(recipient.notificationSentAt)}
                   </td>

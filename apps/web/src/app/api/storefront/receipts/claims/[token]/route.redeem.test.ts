@@ -118,7 +118,8 @@ describe('POST /api/storefront/receipts/claims/[token]', () => {
     expect(body).toEqual({
       error: 'Sign in with the email address that received this receipt link',
     });
-    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim_v2', {
+      p_source: 'web',
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
   });
@@ -154,7 +155,8 @@ describe('POST /api/storefront/receipts/claims/[token]', () => {
       redirectPath: '/receipts',
       success: true,
     });
-    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim_v2', {
+      p_source: 'web',
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
   });
@@ -178,7 +180,8 @@ describe('POST /api/storefront/receipts/claims/[token]', () => {
       success: true,
     });
     expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
-    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim', {
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim_v2', {
+      p_source: 'app',
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
   });

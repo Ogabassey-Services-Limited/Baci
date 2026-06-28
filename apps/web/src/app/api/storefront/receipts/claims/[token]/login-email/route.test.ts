@@ -47,7 +47,7 @@ function createSupabaseRpcMock(
         return Promise.resolve(response);
       }
 
-      if (name === 'record_receipt_claim_login_started') {
+      if (name === 'record_receipt_claim_login_started_v2') {
         return Promise.resolve(trackingResponse);
       }
 
@@ -113,8 +113,9 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ success: true });
     expect(supabase.rpc).toHaveBeenCalledWith(
-      'record_receipt_claim_login_started',
+      'record_receipt_claim_login_started_v2',
       {
+        p_source: 'web',
         p_token_hash: hashReceiptClaimToken('claim-token'),
       }
     );

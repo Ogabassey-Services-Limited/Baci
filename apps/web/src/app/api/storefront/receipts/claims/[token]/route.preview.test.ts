@@ -64,7 +64,7 @@ function createSupabaseRpcMock(
         return Promise.resolve(response);
       }
 
-      if (name === 'record_receipt_claim_click') {
+      if (name === 'record_receipt_claim_click_v2') {
         return Promise.resolve(trackingResponse);
       }
 
@@ -111,7 +111,8 @@ describe('GET /api/storefront/receipts/claims/[token]', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('preview_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
-    expect(supabase.rpc).toHaveBeenCalledWith('record_receipt_claim_click', {
+    expect(supabase.rpc).toHaveBeenCalledWith('record_receipt_claim_click_v2', {
+      p_source: 'web',
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
     expect(body).toMatchObject({
