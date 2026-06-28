@@ -12,3 +12,10 @@
 INSERT INTO public.mobile_release_gate (app, platform, latest_live_build, source)
 VALUES ('admin', 'ios', 273, 'seed')
 ON CONFLICT (app, platform) DO NOTHING;
+
+-- Matching partial index for the admin update-nudge scan. The storefront
+-- nudge index remains separate because most scans target one app_type at a
+-- time, and keeping the predicate narrow avoids bloating the hot query path.
+CREATE INDEX IF NOT EXISTS idx_push_tokens_admin_update_nudge
+  ON public.push_tokens (platform, build_number, last_update_push_at)
+  WHERE is_active AND app_type = 'admin';

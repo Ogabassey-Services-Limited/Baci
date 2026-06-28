@@ -18,9 +18,11 @@ import type {
  * request time means the gate updates the instant the store goes live (written
  * by the live-build reconciler), with no redeploy.
  *
- * The env var (`MOBILE_<APP>_<PLATFORM>_LATEST_BUILD`) is kept as a fallback: it
- * covers Android (whose release workflow still writes it directly on production
- * publish) and acts as a safety net if the DB read fails.
+ * The env var (`MOBILE_<APP>_<PLATFORM>_LATEST_BUILD`) is kept as a fallback
+ * and recovery source: if the DB row is missing/unreadable it is used directly,
+ * and if the env value is newer than a stale DB row it wins. That keeps the
+ * Android release workflow's Vercel-env fallback effective after a transient DB
+ * sync failure while preserving the DB row as the normal runtime-visible source.
  */
 
 // Short in-process cache so the per-app-open release-policy reads don't hit the
@@ -103,10 +105,14 @@ export async function readLatestLiveBuild(
     value = null;
   }
 
+  const envValue = parseBuildNumber(
+    readMobilePlatformEnv(app, platform, 'LATEST_BUILD')
+  );
+
   if (value === null) {
-    value = parseBuildNumber(
-      readMobilePlatformEnv(app, platform, 'LATEST_BUILD')
-    );
+    value = envValue;
+  } else if (envValue !== null && envValue > value) {
+    value = envValue;
   }
 
   liveBuildCache.set(key, { value, expiresAt: now + CACHE_TTL_MS });

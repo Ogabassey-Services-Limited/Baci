@@ -267,7 +267,7 @@ jobs:
       # immediately; the Vercel env write remains as a deploy-time fallback.
       # Non-fatal: a sync hiccup must never fail an otherwise-successful release.
       - name: Sync Android build number to in-app update gate
-        if: steps.play_upload.outcome == 'success'
+        if: steps.play_upload.outcome == 'success' && !(github.event_name == 'workflow_dispatch' && inputs.changes_not_sent_for_review)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
