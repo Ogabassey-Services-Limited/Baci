@@ -153,6 +153,14 @@ describe('CartPage', () => {
     expect(screen.getByText('Test Gadget')).toBeInTheDocument();
   });
 
+  it('does not render a stray continue-shopping link in the page header', () => {
+    render(<CartPage />);
+
+    expect(
+      screen.queryByRole('link', { name: 'Continue Shopping' })
+    ).not.toBeInTheDocument();
+  });
+
   it('renders the cart-specific empty state when no items are in the cart', () => {
     mockCartItems = [];
 

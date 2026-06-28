@@ -213,7 +213,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 shrink-0">
+        <div className="flex items-center mb-6 shrink-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingCart className="text-store-primary fill-red-600" />
             Cart{' '}
@@ -221,12 +221,6 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
               ({displayCart.length})
             </span>
           </h1>
-          <Link
-            href={`${basePath}` as any}
-            className="text-sm font-medium text-store-primary hover:text-store-primary hidden md:block"
-          >
-            Continue Shopping
-          </Link>
         </div>
 
         {displayCart.length === 0 ? (

@@ -128,6 +128,14 @@ describe('OgabasseyV2CartPage', () => {
     expect(screen.getByText('Test Product')).toBeInTheDocument();
   });
 
+  it('does not render a stray continue-shopping link in the page header', () => {
+    render(<OgabasseyV2CartPage storeSlug="test-store" />);
+
+    expect(
+      screen.queryByRole('link', { name: 'Continue Shopping' })
+    ).not.toBeInTheDocument();
+  });
+
   it('renders the cart-specific empty state when no items are in the cart', () => {
     mockCartItems = [];
 

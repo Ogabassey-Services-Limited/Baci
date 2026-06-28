@@ -135,7 +135,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 shrink-0">
+        <div className="flex items-center mb-6 shrink-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingCart className="text-red-600 fill-red-600" />
             Cart{' '}
@@ -143,12 +143,6 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
               ({cart.length})
             </span>
           </h1>
-          <Link
-            href={asRoute(basePath || '/')}
-            className="text-sm font-medium text-red-600 hover:text-red-700 hidden md:block"
-          >
-            Continue Shopping
-          </Link>
         </div>
 
         {cart.length === 0 ? (
