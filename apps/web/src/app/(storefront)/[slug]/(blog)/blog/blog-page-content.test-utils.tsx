@@ -47,7 +47,14 @@ interface MockTemplateBlogRendererProps {
 const hoistedMocks = vi.hoisted(() => ({
   mockBuildBlogClusterCollections: vi.fn(),
   mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
-    <div>{props.merchant.business_name} blog</div>
+    <>
+      {props.itemListSchema ? (
+        <script type="application/ld+json">
+          {JSON.stringify(props.itemListSchema)}
+        </script>
+      ) : null}
+      <div>{props.merchant.business_name} blog</div>
+    </>
   )),
   mockGetTemplate: vi.fn<(...args: unknown[]) => unknown>(() => null),
   mockHeaders: vi.fn(() => new Headers()),
@@ -317,7 +324,14 @@ export function resetBlogPageContentMocks() {
   mockBuildBlogClusterCollections.mockReturnValue([]);
   mockDefaultBlogUi.mockReset();
   mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
-    <div>{props.merchant.business_name} blog</div>
+    <>
+      {props.itemListSchema ? (
+        <script type="application/ld+json">
+          {JSON.stringify(props.itemListSchema)}
+        </script>
+      ) : null}
+      <div>{props.merchant.business_name} blog</div>
+    </>
   ));
   mockGetTemplate.mockReset();
   mockGetTemplate.mockReturnValue(null);
