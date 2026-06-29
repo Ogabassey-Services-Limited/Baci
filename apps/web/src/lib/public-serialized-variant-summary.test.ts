@@ -49,7 +49,7 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
     expect(result).toEqual([]);
   });
 
-  it('correctly fetches and resolves simple product summaries', async () => {
+  it('correctly fetches and resolves simple product summaries, including nullable has_variants rows', async () => {
     const productIds = ['prod-1'];
 
     // Mock products query
@@ -57,7 +57,7 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
       {
         id: 'prod-1',
         inventory_tracking_policy: 'serialized_strict',
-        has_variants: false,
+        has_variants: null,
         status: 'active',
       },
     ];
@@ -380,6 +380,167 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
         p_branch_id: null,
       }
     );
+  });
+
+  it('forwards branchId to the availability counts RPC', async () => {
+    const productIds = ['branch-product'];
+    const branchId = 'branch-123';
+    const productsData = [
+      {
+        id: 'branch-product',
+        inventory_tracking_policy: 'serialized_strict',
+        has_variants: false,
+        status: 'active',
+      },
+    ];
+    const variantsData = [
+      {
+        id: 'branch-product-anchor',
+        product_id: 'branch-product',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: true,
+      },
+    ];
+    const mockRpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          product_id: 'branch-product',
+          variant_id: null,
+          public_available_units: 2,
+        },
+      ],
+      error: null,
+    });
+    const mockSupabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        return {
+          select: vi.fn().mockImplementation(() => {
+            return {
+              eq: vi.fn().mockImplementation(() => {
+                return {
+                  in: vi.fn().mockResolvedValue({
+                    data: table === 'products' ? productsData : variantsData,
+                    error: null,
+                  }),
+                };
+              }),
+            };
+          }),
+        };
+      }),
+      rpc: mockRpc,
+    } as unknown as SupabaseClient;
+
+    const result = await getPublicSerializedVariantSummariesByProductId(
+      mockSupabase,
+      merchantId,
+      productIds,
+      branchId
+    );
+
+    expect(result).toEqual([
+      {
+        productId: 'branch-product',
+        variantId: null,
+        publicAvailableUnits: 2,
+        inventoryTrackingPolicy: 'serialized_strict',
+      },
+    ]);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_public_serialized_variant_availability_counts',
+      {
+        p_merchant_id: merchantId,
+        p_product_ids: ['branch-product'],
+        p_branch_id: branchId,
+      }
+    );
+  });
+
+  it('filters inactive products within a mixed chunk before variant and count lookups', async () => {
+    const productIds = ['active-serialized', 'inactive-serialized'];
+    const productsData = [
+      {
+        id: 'active-serialized',
+        inventory_tracking_policy: 'serialized_strict',
+        has_variants: false,
+        status: 'active',
+      },
+      {
+        id: 'inactive-serialized',
+        inventory_tracking_policy: 'serialized_strict',
+        has_variants: false,
+        status: 'inactive',
+      },
+    ];
+    const variantsData = [
+      {
+        id: 'active-anchor',
+        product_id: 'active-serialized',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: true,
+      },
+    ];
+    const mockProductsIn = vi.fn().mockResolvedValue({
+      data: productsData,
+      error: null,
+    });
+    const mockVariantsIn = vi.fn().mockResolvedValue({
+      data: variantsData,
+      error: null,
+    });
+    const mockRpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          product_id: 'active-serialized',
+          variant_id: null,
+          public_available_units: 6,
+        },
+      ],
+      error: null,
+    });
+    const mockSupabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        return {
+          select: vi.fn().mockImplementation(() => {
+            return {
+              eq: vi.fn().mockImplementation(() => {
+                return {
+                  in: table === 'products' ? mockProductsIn : mockVariantsIn,
+                };
+              }),
+            };
+          }),
+        };
+      }),
+      rpc: mockRpc,
+    } as unknown as SupabaseClient;
+
+    const result = await getPublicSerializedVariantSummariesByProductId(
+      mockSupabase,
+      merchantId,
+      productIds
+    );
+
+    expect(mockProductsIn).toHaveBeenCalledWith('id', productIds);
+    expect(mockVariantsIn).toHaveBeenCalledWith('product_id', [
+      'active-serialized',
+    ]);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_public_serialized_variant_availability_counts',
+      {
+        p_merchant_id: merchantId,
+        p_product_ids: ['active-serialized'],
+        p_branch_id: null,
+      }
+    );
+    expect(result).toEqual([
+      {
+        productId: 'active-serialized',
+        variantId: null,
+        publicAvailableUnits: 6,
+        inventoryTrackingPolicy: 'serialized_strict',
+      },
+    ]);
   });
 
   it('chunks queries in batches of 200 items', async () => {

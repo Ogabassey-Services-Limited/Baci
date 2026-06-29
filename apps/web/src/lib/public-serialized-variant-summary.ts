@@ -148,7 +148,9 @@ export async function getPublicSerializedVariantSummariesByProductId(
         const productVariants = variantsByProductMap.get(productId) || [];
         const productPolicy = product.inventory_tracking_policy ?? 'off';
 
-        if (product.has_variants) {
+        // Legacy/imported rows can have has_variants = null. Treat only an
+        // explicit true as variant-based; null follows the simple-product path.
+        if (product.has_variants === true) {
           // Variant-based product: resolve for each non-anchor variant
           for (const variant of productVariants) {
             if (variant.is_inventory_anchor) {
