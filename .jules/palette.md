@@ -121,7 +121,8 @@
 **Learning:** React Native exposes `accessibilityState.disabled` and `accessibilityState.busy` for controls and `TextInput.returnKeyType` for keyboard-return affordances. Use these props rather than web-only ARIA props inside native components.
 **Action:** For disabled text inputs, async submit buttons, and final IMEI/serial fields, keep functional state and semantic state in sync with `accessibilityState` and `returnKeyType="done"`.
 **Source:** React Native Accessibility and TextInput docs, verified 2026-06-28.
+
 ## 2026-06-28 — Stable names for aria-pressed password toggles
-**Learning:** ARIA toggle buttons expose state through `aria-pressed`; changing the accessible name at the same time can make assistive technology announcements harder to understand.
-**Action:** Keep password-visibility toggle names stable and bind `aria-pressed` to the visibility state instead of swapping between show/hide labels.
-**Source:** MDN/WAI-ARIA toggle button guidance, verified 2026-06-28.
+**Learning:** ARIA toggle buttons expose state through `aria-pressed`; changing the accessible name at the same time can make assistive technology announcements harder to understand, and visible-text toggles must still satisfy WCAG label-in-name expectations.
+**Action:** Keep password-visibility toggle names stable, bind `aria-pressed` to the visibility state, make any visible toggle text static when an `aria-label` overrides it, and use field-specific labels when multiple password toggles share one form.
+**Source:** WAI-ARIA APG toggle button guidance / WCAG 2.5.3 and 4.1.2, verified 2026-06-29.

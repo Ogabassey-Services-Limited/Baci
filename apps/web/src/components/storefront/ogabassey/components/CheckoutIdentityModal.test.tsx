@@ -86,6 +86,31 @@ describe('CheckoutIdentityModal', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the password visibility toggle label stable while pressed', () => {
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    fireEvent.click(screen.getByText('Sign In'));
+
+    const passwordInput = screen.getByLabelText('Password');
+    const toggleButton = screen.getByRole('button', {
+      name: 'Show password',
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(toggleButton).toHaveTextContent('Show');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(toggleButton);
+
+    const pressedToggleButton = screen.getByRole('button', {
+      name: 'Show password',
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(pressedToggleButton).toHaveTextContent('Show');
+    expect(pressedToggleButton).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('shows error message when sign-in fails', async () => {
     const loginError = Object.assign(new Error('Invalid login credentials'), {
       name: 'AuthApiError',

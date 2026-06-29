@@ -20,3 +20,8 @@
 **Learning:** React Native exposes `shadowColor` as a style prop, but hardcoded `#000` shadows do not adapt to the Baci theme system. `useNewOrderController` already exposes theme shadows from `useTheme()`.
 **Action:** Use `controller.shadows` for selected-state shadows in NewOrderFooterBar instead of raw color literals, and keep the selected background on existing color tokens.
 **Source:** React Native shadow props docs and `apps/mobile-admin/constants/theme.ts`, verified 2026-06-28.
+
+## 2025-02-28 — Theming FAB icons with textOnPrimary
+**Learning:** Hardcoded white (#FFF) icons inside FABs with primary backgrounds fail to use the design system properly. `textOnPrimary` is the correct semantic token for content placed on a primary background in the mobile admin app.
+**Action:** Always replace hardcoded #FFF or #FFFFFF with `colors.textOnPrimary` when the element is sitting on a `colors.primary` background.
+**Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
