@@ -490,8 +490,12 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
     );
   });
 
-  it('ignores malformed serialized availability count rows from the RPC', async () => {
-    const productIds = ['prod-valid', 'prod-malformed'];
+  it('ignores malformed serialized availability count rows from the RPC while accepting omitted null variant IDs', async () => {
+    const productIds = [
+      'prod-valid',
+      'prod-malformed',
+      'prod-missing-variant-key',
+    ];
     const productsData = [
       {
         id: 'prod-valid',
@@ -501,6 +505,12 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
       },
       {
         id: 'prod-malformed',
+        inventory_tracking_policy: 'serialized_strict',
+        has_variants: false,
+        status: 'active',
+      },
+      {
+        id: 'prod-missing-variant-key',
         inventory_tracking_policy: 'serialized_strict',
         has_variants: false,
         status: 'active',
@@ -516,6 +526,12 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
       {
         id: 'anchor-malformed',
         product_id: 'prod-malformed',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: true,
+      },
+      {
+        id: 'anchor-missing-variant-key',
+        product_id: 'prod-missing-variant-key',
         inventory_tracking_policy: 'inherit',
         is_inventory_anchor: true,
       },
@@ -537,6 +553,10 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
         product_id: 'prod-malformed',
         variant_id: null,
         public_available_units: '4',
+      },
+      {
+        product_id: 'prod-missing-variant-key',
+        public_available_units: 2,
       },
       {
         product_id: 'prod-valid',
@@ -588,6 +608,12 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
         productId: 'prod-malformed',
         variantId: null,
         publicAvailableUnits: 0,
+        inventoryTrackingPolicy: 'serialized_strict',
+      },
+      {
+        productId: 'prod-missing-variant-key',
+        variantId: null,
+        publicAvailableUnits: 2,
         inventoryTrackingPolicy: 'serialized_strict',
       },
     ]);

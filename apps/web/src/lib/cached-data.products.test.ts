@@ -457,6 +457,42 @@ describe('cached-data product query projections', () => {
     ]);
   });
 
+  it('getCachedProducts leaves untracked products unchanged when serialized summaries are absent', async () => {
+    harness.mockListResult.data = [
+      {
+        id: 'product-untracked',
+        inventory_tracking_policy: 'off',
+        manage_stock: false,
+        quantity: 12,
+        slug: 'untracked-product',
+        stock: 12,
+        stock_quantity: 12,
+        track_quantity: false,
+      },
+    ];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    vi.mocked(
+      getPublicSerializedVariantSummariesByProductId
+    ).mockResolvedValueOnce([]);
+
+    await expect(getCachedProducts('merchant-123')).resolves.toEqual([
+      {
+        base_price: 0,
+        id: 'product-untracked',
+        inventory_tracking_policy: 'off',
+        manage_stock: false,
+        product_variants: [],
+        quantity: 12,
+        sale_price: null,
+        slug: 'untracked-product',
+        stock: 12,
+        stock_quantity: 12,
+        track_quantity: false,
+      },
+    ]);
+  });
+
   it('getCachedProducts applies serialized-then-unlimited fallback to simple products', async () => {
     harness.mockListResult.data = [
       {

@@ -28,8 +28,8 @@ interface ProductVariantInventoryPolicyRow {
 
 interface PublicSerializedAvailabilityCountRow {
   product_id: string;
-  variant_id: string | null;
-  public_available_units: number | null;
+  variant_id?: string | null;
+  public_available_units: number;
 }
 
 function isPublicSerializedAvailabilityCountRow(
@@ -42,9 +42,10 @@ function isPublicSerializedAvailabilityCountRow(
   const row = value as Record<string, unknown>;
   return (
     typeof row.product_id === 'string' &&
-    (typeof row.variant_id === 'string' || row.variant_id === null) &&
-    (typeof row.public_available_units === 'number' ||
-      row.public_available_units === null)
+    (typeof row.variant_id === 'string' ||
+      row.variant_id === null ||
+      typeof row.variant_id === 'undefined') &&
+    typeof row.public_available_units === 'number'
   );
 }
 
@@ -229,6 +230,8 @@ export async function getPublicSerializedVariantSummariesByProductId(
       // Fetch available counts only for products with an effective serialized
       // policy. Most storefront lists are non-serialized; avoiding the count RPC
       // for those products keeps public HTML rendering out of Supabase timeouts.
+      // Supabase PostgREST v2 exposes overrideTypes() on RPC builders and marks
+      // returns() as deprecated; replace the stale generated RPC result type here.
       const { data: rawCounts, error: countsError } = await supabase
         .rpc('get_public_serialized_variant_availability_counts', {
           p_merchant_id: merchantId,
