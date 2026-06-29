@@ -1,5 +1,9 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import {
+  authenticateApiRequest,
+  getBearerTokenFromRequest,
+} from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { hashReceiptClaimToken } from '@/lib/import-notifications/receipt-claim-links';
 import {
@@ -26,9 +30,7 @@ async function parseToken(context: RouteContext) {
 }
 
 function hasBearerAuthorization(request: NextRequest) {
-  const authorization = request.headers.get('Authorization') ?? '';
-  const scheme = authorization.trim().split(/\s+/, 1)[0] ?? '';
-  return scheme.toLowerCase() === 'bearer';
+  return Boolean(getBearerTokenFromRequest(request));
 }
 
 async function validateReceiptClaimCsrf(request: NextRequest) {
@@ -37,6 +39,52 @@ async function validateReceiptClaimCsrf(request: NextRequest) {
   }
 
   return await checkCsrfProtection(request);
+}
+
+function isMissingRedeemReceiptClaimV2Function(
+  error: {
+    code?: string | null;
+    message?: string | null;
+  } | null
+) {
+  if (!error) {
+    return false;
+  }
+
+  if (error.code === 'PGRST202' || error.code === '42883') {
+    return true;
+  }
+
+  const message = (error.message ?? '').toLowerCase();
+  return (
+    message.includes('redeem_receipt_claim_v2') &&
+    (message.includes('could not find') ||
+      message.includes('does not exist') ||
+      message.includes('function'))
+  );
+}
+
+async function redeemReceiptClaim({
+  source,
+  supabase,
+  tokenHash,
+}: {
+  source: 'app' | 'web';
+  supabase: Pick<SupabaseClient, 'rpc'>;
+  tokenHash: string;
+}) {
+  const response = await supabase.rpc('redeem_receipt_claim_v2', {
+    p_source: source,
+    p_token_hash: tokenHash,
+  });
+
+  if (!isMissingRedeemReceiptClaimV2Function(response.error)) {
+    return response;
+  }
+
+  return await supabase.rpc('redeem_receipt_claim', {
+    p_token_hash: tokenHash,
+  });
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
@@ -97,9 +145,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const { data, error } = await auth.supabase.rpc('redeem_receipt_claim_v2', {
-      p_source: hasBearerAuthorization(request) ? 'app' : 'web',
-      p_token_hash: hashReceiptClaimToken(token),
+    const { data, error } = await redeemReceiptClaim({
+      source: hasBearerAuthorization(request) ? 'app' : 'web',
+      supabase: auth.supabase,
+      tokenHash: hashReceiptClaimToken(token),
     });
 
     if (error) {

@@ -24,6 +24,15 @@ export interface AuthResult {
   supabase: SupabaseClient | null;
 }
 
+export function getBearerTokenFromRequest(
+  request: Request | NextRequest
+): string | null {
+  const authHeader = request.headers.get('Authorization') ?? '';
+  const match = authHeader.match(/^\s*bearer\s+(.+?)\s*$/i);
+  const token = match?.[1]?.trim();
+  return token || null;
+}
+
 /**
  * Authenticate an API request from either mobile (Bearer token) or web (cookies).
  * Returns the authenticated user on success, or an error message on failure.
@@ -35,9 +44,8 @@ export async function authenticateApiRequest(
   request: Request | NextRequest
 ): Promise<AuthResult> {
   // Check for Bearer token first (mobile app)
-  const authHeader = request.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
+  const token = getBearerTokenFromRequest(request);
+  if (token) {
     const anonClient = createAnonClient();
 
     // Verify the token using an anon-scoped client (no service role)

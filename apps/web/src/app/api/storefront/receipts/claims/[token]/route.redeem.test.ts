@@ -12,6 +12,12 @@ const mockConsoleError = vi
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
+  getBearerTokenFromRequest: (request: Request) => {
+    const authHeader = request.headers.get('Authorization') ?? '';
+    const match = authHeader.match(/^\s*bearer\s+(.+?)\s*$/i);
+    const token = match?.[1]?.trim();
+    return token || null;
+  },
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -202,6 +208,41 @@ describe('POST /api/storefront/receipts/claims/[token]', () => {
     expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
     expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim_v2', {
       p_source: 'app',
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
+  });
+
+  it('falls back to the legacy redemption RPC when the v2 RPC is absent during rollout', async () => {
+    const supabase = {
+      rpc: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: null,
+          error: {
+            code: 'PGRST202',
+            message: 'Could not find function public.redeem_receipt_claim_v2',
+          },
+        })
+        .mockResolvedValueOnce({
+          data: { redirectPath: '/receipts', status: 'ok' },
+          error: null,
+        }),
+    };
+    mockAuthenticatedSupabase(supabase);
+
+    const response = await POST(postRequest(), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      redirectPath: '/receipts',
+      success: true,
+    });
+    expect(supabase.rpc).toHaveBeenNthCalledWith(1, 'redeem_receipt_claim_v2', {
+      p_source: 'web',
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
+    expect(supabase.rpc).toHaveBeenNthCalledWith(2, 'redeem_receipt_claim', {
       p_token_hash: hashReceiptClaimToken('claim-token'),
     });
   });

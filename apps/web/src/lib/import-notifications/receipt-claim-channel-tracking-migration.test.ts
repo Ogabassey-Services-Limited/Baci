@@ -78,6 +78,22 @@ describe('receipt claim channel tracking migration', () => {
     );
   });
 
+  it('marks direct app redemptions as click activity for channel funnel stats', () => {
+    const redeemReceiptClaimV2Sql =
+      migrationSql.match(
+        /CREATE OR REPLACE FUNCTION private\.redeem_receipt_claim_v2\([\s\S]*?END;\s*\$\$/i
+      )?.[0] ?? '';
+
+    expect(redeemReceiptClaimV2Sql).toMatch(
+      /first_clicked_at = COALESCE\(first_clicked_at, now\(\)\)/i
+    );
+    expect(redeemReceiptClaimV2Sql).toMatch(/last_clicked_at = now\(\)/i);
+    expect(redeemReceiptClaimV2Sql).toMatch(
+      /first_click_source = CASE\s+WHEN first_clicked_at IS NULL THEN v_source/i
+    );
+    expect(redeemReceiptClaimV2Sql).toMatch(/last_click_source = v_source/i);
+  });
+
   it('uses versioned source-aware RPCs to avoid overloaded PostgREST functions', () => {
     expect(migrationSql).toMatch(
       /CREATE OR REPLACE FUNCTION private\.record_receipt_claim_click_v2\(\s*p_token_hash text,\s*p_source text\s*\)[\s\S]*SECURITY DEFINER[\s\S]*SET search_path = ''/i

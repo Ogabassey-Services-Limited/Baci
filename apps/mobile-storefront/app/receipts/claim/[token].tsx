@@ -37,7 +37,7 @@ function buildClaimApiUrl(token: string) {
 }
 
 function buildClaimLoginEmailApiUrl(token: string) {
-  return `${buildClaimApiUrl(token)}/login-email`;
+  return `${buildClaimApiUrl(token)}/login-email?source=app`;
 }
 
 async function readErrorMessage(response: Response) {

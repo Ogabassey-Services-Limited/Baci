@@ -37,15 +37,21 @@ export type ReceiptClaimAppDownloadTarget =
   | 'app_store'
   | 'play_store'
   | 'unknown';
+type ReceiptClaimActivityRpcName =
+  | 'record_receipt_claim_click_v2'
+  | 'record_receipt_claim_login_started_v2';
+type ReceiptClaimSourceInput = {
+  source?: ReceiptClaimActivitySource;
+  supabase: SupabaseClient;
+  token: string;
+};
 
 type RecordReceiptClaimActivityInput = {
   supabase: SupabaseClient;
   token: string;
 } & (
   | {
-      rpcName:
-        | 'record_receipt_claim_click_v2'
-        | 'record_receipt_claim_login_started_v2';
+      rpcName: ReceiptClaimActivityRpcName;
       source: ReceiptClaimActivitySource;
     }
   | {
@@ -53,6 +59,12 @@ type RecordReceiptClaimActivityInput = {
       source: ReceiptClaimAppDownloadTarget;
     }
 );
+
+type RecordReceiptClaimActivityBestEffortInput = ReceiptClaimSourceInput & {
+  logMessage: string;
+  rpcName: ReceiptClaimActivityRpcName;
+  source: ReceiptClaimActivitySource;
+};
 
 export function parseReceiptClaimToken(token: string | undefined) {
   const parsed = receiptClaimRouteParamsSchema.safeParse({ token });
@@ -189,11 +201,7 @@ export async function recordReceiptClaimClick({
   source = 'web',
   supabase,
   token,
-}: {
-  source?: ReceiptClaimActivitySource;
-  supabase: SupabaseClient;
-  token: string;
-}) {
+}: ReceiptClaimSourceInput) {
   await recordReceiptClaimActivity({
     rpcName: 'record_receipt_claim_click_v2',
     source,
@@ -206,11 +214,7 @@ export async function recordReceiptClaimLoginStarted({
   source = 'web',
   supabase,
   token,
-}: {
-  source?: ReceiptClaimActivitySource;
-  supabase: SupabaseClient;
-  token: string;
-}) {
+}: ReceiptClaimSourceInput) {
   await recordReceiptClaimActivity({
     rpcName: 'record_receipt_claim_login_started_v2',
     source,
@@ -242,15 +246,7 @@ async function recordReceiptClaimActivityBestEffort({
   source,
   supabase,
   token,
-}: {
-  logMessage: string;
-  rpcName:
-    | 'record_receipt_claim_click_v2'
-    | 'record_receipt_claim_login_started_v2';
-  source: ReceiptClaimActivitySource;
-  supabase: SupabaseClient;
-  token: string;
-}) {
+}: RecordReceiptClaimActivityBestEffortInput) {
   const tracking = recordReceiptClaimActivity({
     rpcName,
     source,
@@ -279,14 +275,24 @@ export async function recordReceiptClaimClickBestEffort({
   source = 'web',
   supabase,
   token,
-}: {
-  source?: ReceiptClaimActivitySource;
-  supabase: SupabaseClient;
-  token: string;
-}) {
+}: ReceiptClaimSourceInput) {
   await recordReceiptClaimActivityBestEffort({
     logMessage: 'Failed to record receipt claim click',
     rpcName: 'record_receipt_claim_click_v2',
+    source,
+    supabase,
+    token,
+  });
+}
+
+export async function recordReceiptClaimLoginStartedBestEffort({
+  source = 'web',
+  supabase,
+  token,
+}: ReceiptClaimSourceInput) {
+  await recordReceiptClaimActivityBestEffort({
+    logMessage: 'Failed to record receipt claim login start',
+    rpcName: 'record_receipt_claim_login_started_v2',
     source,
     supabase,
     token,

@@ -352,6 +352,13 @@ BEGIN
   UPDATE public.receipt_claims
   SET claimed_at = COALESCE(claimed_at, now()),
       claimed_by_user_id = v_user_id,
+      first_clicked_at = COALESCE(first_clicked_at, now()),
+      last_clicked_at = now(),
+      first_click_source = CASE
+        WHEN first_clicked_at IS NULL THEN v_source
+        ELSE first_click_source
+      END,
+      last_click_source = v_source,
       claimed_source = CASE
         WHEN claimed_source IS NULL THEN v_source
         ELSE claimed_source

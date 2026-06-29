@@ -143,7 +143,7 @@ describe('ReceiptClaimScreen', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://ogabassey.com/api/storefront/receipts/claims/claim-token/login-email',
+        'https://ogabassey.com/api/storefront/receipts/claims/claim-token/login-email?source=app',
         expect.objectContaining({ method: 'GET' })
       );
       expect(mockRedirect).toHaveBeenCalledWith({

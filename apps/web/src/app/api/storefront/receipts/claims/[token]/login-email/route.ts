@@ -4,6 +4,7 @@ import {
   loadReceiptClaimLoginEmailHint,
   parseReceiptClaimToken,
   recordReceiptClaimLoginStarted,
+  recordReceiptClaimLoginStartedBestEffort,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
 
@@ -16,7 +17,11 @@ async function parseToken(context: RouteContext) {
   return parseReceiptClaimToken(params.token);
 }
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+function isAppLoginEmailHintRequest(request: NextRequest) {
+  return request.nextUrl.searchParams.get('source') === 'app';
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const token = await parseToken(context);
   if (!token) {
     return NextResponse.json(
@@ -31,6 +36,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     if (!hint.ok) {
       return NextResponse.json({ error: hint.error }, { status: hint.status });
+    }
+
+    if (isAppLoginEmailHintRequest(request)) {
+      await recordReceiptClaimLoginStartedBestEffort({
+        source: 'app',
+        supabase,
+        token,
+      });
     }
 
     return NextResponse.json({ emailHint: hint.emailHint });
