@@ -27,15 +27,12 @@ export async function handleInspectionCompleted(
     return;
   }
 
-  // MyCover's documented `inspection.completed` payload reports
-  // `essential.status: 'completed'`; the `is_approved` flag is a separate
-  // outcome signal. Treat either as a genuine completion so a delivered customer
-  // isn't left stuck behind the activation gate when an event lands unapproved.
-  const isDocumentedCompletion =
-    data.essential?.status?.trim().toLowerCase() === 'completed';
-  if (!(isPreLossInspectionApproved(data) || isDocumentedCompletion)) {
+  // A pre-loss inspection that completes UNAPPROVED means the device failed
+  // inspection, so coverage must NOT activate — do not persist completion or the
+  // claim link (see route.test.ts "does not activate coverage for unapproved").
+  if (!isPreLossInspectionApproved(data)) {
     console.warn(
-      '[MyCover Webhook] Ignored incomplete pre-loss inspection:',
+      '[MyCover Webhook] Ignored unapproved pre-loss inspection:',
       policyId.replace(/[\r\n]/g, '')
     );
     return;

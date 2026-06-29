@@ -41,38 +41,15 @@ describe('MyCover claim and inspection webhook handlers', () => {
     });
   });
 
-  it('persists a documented completion even when is_approved is false', async () => {
-    const calls: { update?: Record<string, unknown> } = {};
-    const chain = {
-      update: (payload: Record<string, unknown>) => {
-        calls.update = payload;
-        return chain;
-      },
-      eq: () => chain,
-      select: () => chain,
-      maybeSingle: () =>
-        Promise.resolve({ data: { id: 'pol-1' }, error: null }),
-    };
-    const supabase = { from: () => chain } as unknown as SupabaseClient;
+  it('ignores an unapproved pre-loss inspection (device failed inspection)', async () => {
+    // Coverage must NOT activate when a pre-loss inspection completes unapproved,
+    // even if the payload reports status 'completed' and carries a claim link.
+    const supabase = { from: vi.fn() } as unknown as SupabaseClient;
 
     await handleInspectionCompleted(supabase, {
       meta: { category: 'preloss', policy_id: 'pol-1' },
       essential: { status: 'completed' },
       sdk: { claim_link: 'https://mycover.ai/purchase?q=claim' },
-    });
-
-    expect(calls.update).toMatchObject({
-      inspection_status: 'completed',
-      claim_link: 'https://mycover.ai/purchase?q=claim',
-    });
-  });
-
-  it('ignores an incomplete (unapproved, non-completed) pre-loss inspection', async () => {
-    const supabase = { from: vi.fn() } as unknown as SupabaseClient;
-
-    await handleInspectionCompleted(supabase, {
-      meta: { category: 'preloss', policy_id: 'pol-1' },
-      essential: { status: 'under_review' },
     });
 
     expect(supabase.from).not.toHaveBeenCalled();
