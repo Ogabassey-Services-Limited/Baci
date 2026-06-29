@@ -101,18 +101,21 @@ describe('createNewOrderTotals', () => {
     expect(totals.formatPrice(5000)).toBe('₦5,000.00');
   });
 
-  it('falls back to ₦X.XX format when merchantCurrency is invalid', () => {
-    const totals = createNewOrderTotals({
-      discount: 0,
-      isVatApplied: false,
-      merchantCurrency: 'INVALID',
-      orderItems: [],
-      shippingFee: 0,
-      taxes: 0,
-    });
+  it('falls back to NGN when merchantCurrency is invalid or unsupported', () => {
+    for (const merchantCurrency of ['INVALID', 'ABC', 'ZZZ']) {
+      const totals = createNewOrderTotals({
+        discount: 0,
+        isVatApplied: false,
+        merchantCurrency,
+        orderItems: [],
+        shippingFee: 0,
+        taxes: 0,
+      });
 
-    // formatPrice should sanitize invalid to NGN, not throw
-    const formatted = totals.formatPrice(1500);
-    expect(formatted).toBe(formatCurrency(1500, undefined, 'NGN', 'en-NG'));
+      // formatPrice should sanitize invalid/unsupported codes to NGN, not throw.
+      expect(totals.formatPrice(1500)).toBe(
+        formatCurrency(1500, undefined, 'NGN', 'en-NG')
+      );
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeMerchantCurrency } from './utils';
+import { normalizeMerchantCurrency } from './merchant-currency';
 
 describe('normalizeMerchantCurrency', () => {
   it('normalizes merchant currency codes before returning them', () => {
