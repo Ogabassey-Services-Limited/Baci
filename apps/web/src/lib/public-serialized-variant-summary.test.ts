@@ -213,6 +213,175 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
     });
   });
 
+  it('skips availability counts when active products have no serialized effective policy', async () => {
+    const productIds = ['simple-off', 'variant-off'];
+    const productsData = [
+      {
+        id: 'simple-off',
+        inventory_tracking_policy: 'off',
+        has_variants: false,
+        status: 'active',
+      },
+      {
+        id: 'variant-off',
+        inventory_tracking_policy: 'off',
+        has_variants: true,
+        status: 'active',
+      },
+    ];
+    const variantsData = [
+      {
+        id: 'anchor-simple-off',
+        product_id: 'simple-off',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: true,
+      },
+      {
+        id: 'variant-visible-off',
+        product_id: 'variant-off',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: false,
+      },
+    ];
+    const mockRpc = vi.fn();
+    const mockSupabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        return {
+          select: vi.fn().mockImplementation(() => {
+            return {
+              eq: vi.fn().mockImplementation(() => {
+                return {
+                  in: vi.fn().mockResolvedValue({
+                    data: table === 'products' ? productsData : variantsData,
+                    error: null,
+                  }),
+                };
+              }),
+            };
+          }),
+        };
+      }),
+      rpc: mockRpc,
+    } as unknown as SupabaseClient;
+
+    const result = await getPublicSerializedVariantSummariesByProductId(
+      mockSupabase,
+      merchantId,
+      productIds
+    );
+
+    expect(result).toEqual([]);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('passes only products with serialized effective policies to the counts RPC', async () => {
+    const productIds = ['simple-off', 'simple-serialized', 'variant-override'];
+    const productsData = [
+      {
+        id: 'simple-off',
+        inventory_tracking_policy: 'off',
+        has_variants: false,
+        status: 'active',
+      },
+      {
+        id: 'simple-serialized',
+        inventory_tracking_policy: 'serialized_strict',
+        has_variants: false,
+        status: 'active',
+      },
+      {
+        id: 'variant-override',
+        inventory_tracking_policy: 'off',
+        has_variants: true,
+        status: 'active',
+      },
+    ];
+    const variantsData = [
+      {
+        id: 'anchor-simple-off',
+        product_id: 'simple-off',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: true,
+      },
+      {
+        id: 'anchor-simple-serialized',
+        product_id: 'simple-serialized',
+        inventory_tracking_policy: 'inherit',
+        is_inventory_anchor: true,
+      },
+      {
+        id: 'variant-visible-override',
+        product_id: 'variant-override',
+        inventory_tracking_policy: 'serialized_then_unlimited',
+        is_inventory_anchor: false,
+      },
+    ];
+    const countsData = [
+      {
+        product_id: 'simple-serialized',
+        variant_id: null,
+        public_available_units: 7,
+      },
+      {
+        product_id: 'variant-override',
+        variant_id: 'variant-visible-override',
+        public_available_units: 4,
+      },
+    ];
+    const mockRpc = vi.fn().mockResolvedValue({
+      data: countsData,
+      error: null,
+    });
+    const mockSupabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        return {
+          select: vi.fn().mockImplementation(() => {
+            return {
+              eq: vi.fn().mockImplementation(() => {
+                return {
+                  in: vi.fn().mockResolvedValue({
+                    data: table === 'products' ? productsData : variantsData,
+                    error: null,
+                  }),
+                };
+              }),
+            };
+          }),
+        };
+      }),
+      rpc: mockRpc,
+    } as unknown as SupabaseClient;
+
+    const result = await getPublicSerializedVariantSummariesByProductId(
+      mockSupabase,
+      merchantId,
+      productIds
+    );
+
+    expect(result).toEqual([
+      {
+        productId: 'simple-serialized',
+        variantId: null,
+        publicAvailableUnits: 7,
+        inventoryTrackingPolicy: 'serialized_strict',
+      },
+      {
+        productId: 'variant-override',
+        variantId: 'variant-visible-override',
+        publicAvailableUnits: 4,
+        inventoryTrackingPolicy: 'serialized_then_unlimited',
+      },
+    ]);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_public_serialized_variant_availability_counts',
+      {
+        p_merchant_id: merchantId,
+        p_product_ids: ['simple-serialized', 'variant-override'],
+        p_branch_id: null,
+      }
+    );
+  });
+
   it('chunks queries in batches of 200 items', async () => {
     // Generate 250 product IDs
     const productIds = Array.from({ length: 250 }, (_, i) => `prod-${i}`);

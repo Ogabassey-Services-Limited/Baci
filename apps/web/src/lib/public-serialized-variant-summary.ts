@@ -10,6 +10,34 @@ export interface PublicSerializedVariantSummary {
     | 'serialized_then_unlimited';
 }
 
+interface ProductInventoryPolicyRow {
+  id: string;
+  inventory_tracking_policy: string | null;
+  has_variants: boolean | null;
+  status: string | null;
+}
+
+interface ProductVariantInventoryPolicyRow {
+  id: string;
+  product_id: string;
+  inventory_tracking_policy: string | null;
+  is_inventory_anchor: boolean | null;
+}
+
+interface PublicSerializedAvailabilityCountRow {
+  product_id: string;
+  variant_id: string | null;
+  public_available_units: number | null;
+}
+
+function isSerializedInventoryPolicy(
+  policy: PublicSerializedVariantSummary['inventoryTrackingPolicy']
+): policy is 'serialized_strict' | 'serialized_then_unlimited' {
+  return (
+    policy === 'serialized_strict' || policy === 'serialized_then_unlimited'
+  );
+}
+
 /**
  * Resolves the effective tracking policy for a variant based on the product policy and the variant policy.
  */
@@ -67,6 +95,15 @@ export async function getPublicSerializedVariantSummariesByProductId(
         throw productsError;
       }
 
+      const activeProducts = (
+        (products || []) as ProductInventoryPolicyRow[]
+      ).filter((product) => product.status === 'active');
+      if (activeProducts.length === 0) {
+        return [];
+      }
+
+      const activeProductIds = activeProducts.map((product) => product.id);
+
       // Fetch variants' tracking policies (including the anchor variant)
       const { data: variants, error: variantsError } = await supabase
         .from('product_variants')
@@ -74,56 +111,42 @@ export async function getPublicSerializedVariantSummariesByProductId(
           'id, product_id, inventory_tracking_policy, is_inventory_anchor'
         )
         .eq('merchant_id', merchantId)
-        .in('product_id', chunk);
+        .in('product_id', activeProductIds);
 
       if (variantsError) {
         throw variantsError;
-      }
-
-      // Fetch available counts from RPC
-      const { data: counts, error: countsError } = await supabase.rpc(
-        'get_public_serialized_variant_availability_counts',
-        {
-          p_merchant_id: merchantId,
-          p_product_ids: chunk,
-          p_branch_id: branchId || null,
-        }
-      );
-
-      if (countsError) {
-        throw countsError;
       }
 
       // 3. Reconcile and resolve
       const summaries: PublicSerializedVariantSummary[] = [];
 
       // Create maps for fast lookup
-      const productsMap = new Map(products?.map((p) => [p.id, p]));
-      const variantsByProductMap = new Map<string, typeof variants>();
-      if (variants) {
-        for (const v of variants) {
+      const productsMap = new Map(
+        activeProducts.map((product) => [product.id, product])
+      );
+      const variantRows = (variants ||
+        []) as ProductVariantInventoryPolicyRow[];
+      const variantsByProductMap = new Map<
+        string,
+        ProductVariantInventoryPolicyRow[]
+      >();
+      if (variantRows.length > 0) {
+        for (const v of variantRows) {
           const list = variantsByProductMap.get(v.product_id) || [];
           list.push(v);
           variantsByProductMap.set(v.product_id, list);
         }
       }
 
-      const countsMap = new Map<string, number>(); // key: productId:variantId
-      if (counts) {
-        for (const c of counts) {
-          const key = `${c.product_id}:${c.variant_id || 'null'}`;
-          countsMap.set(key, c.public_available_units);
-        }
-      }
-
       // Resolve for each product in the chunk
       for (const productId of chunk) {
         const product = productsMap.get(productId);
-        if (product?.status !== 'active') {
-          continue; // Only active products are returned
+        if (!product) {
+          continue;
         }
 
         const productVariants = variantsByProductMap.get(productId) || [];
+        const productPolicy = product.inventory_tracking_policy ?? 'off';
 
         if (product.has_variants) {
           // Variant-based product: resolve for each non-anchor variant
@@ -133,17 +156,18 @@ export async function getPublicSerializedVariantSummariesByProductId(
             }
 
             const effectivePolicy = getEffectiveInventoryTrackingPolicy(
-              product.inventory_tracking_policy,
+              productPolicy,
               variant.inventory_tracking_policy
             );
 
-            const countKey = `${productId}:${variant.id}`;
-            const availableUnits = countsMap.get(countKey) || 0;
+            if (!isSerializedInventoryPolicy(effectivePolicy)) {
+              continue;
+            }
 
             summaries.push({
               productId,
               variantId: variant.id,
-              publicAvailableUnits: availableUnits,
+              publicAvailableUnits: 0,
               inventoryTrackingPolicy: effectivePolicy,
             });
           }
@@ -153,23 +177,61 @@ export async function getPublicSerializedVariantSummariesByProductId(
             (v) => v.is_inventory_anchor
           );
           const effectivePolicy = getEffectiveInventoryTrackingPolicy(
-            product.inventory_tracking_policy,
+            productPolicy,
             anchorVariant?.inventory_tracking_policy
           );
 
-          const countKey = `${productId}:null`;
-          const availableUnits = countsMap.get(countKey) || 0;
+          if (!isSerializedInventoryPolicy(effectivePolicy)) {
+            continue;
+          }
 
           summaries.push({
             productId,
             variantId: null, // Simple products expose null variantId in summaries
-            publicAvailableUnits: availableUnits,
+            publicAvailableUnits: 0,
             inventoryTrackingPolicy: effectivePolicy,
           });
         }
       }
 
-      return summaries;
+      if (summaries.length === 0) {
+        return summaries;
+      }
+
+      const serializedProductIds = Array.from(
+        new Set(summaries.map((summary) => summary.productId))
+      );
+
+      // Fetch available counts only for products with an effective serialized
+      // policy. Most storefront lists are non-serialized; avoiding the count RPC
+      // for those products keeps public HTML rendering out of Supabase timeouts.
+      const { data: counts, error: countsError } = await supabase.rpc(
+        'get_public_serialized_variant_availability_counts',
+        {
+          p_merchant_id: merchantId,
+          p_product_ids: serializedProductIds,
+          p_branch_id: branchId || null,
+        }
+      );
+
+      if (countsError) {
+        throw countsError;
+      }
+
+      const countsMap = new Map<string, number>(); // key: productId:variantId
+      for (const c of (counts ||
+        []) as PublicSerializedAvailabilityCountRow[]) {
+        const key = `${c.product_id}:${c.variant_id ?? 'null'}`;
+        countsMap.set(key, c.public_available_units ?? 0);
+      }
+
+      return summaries.map((summary) => ({
+        ...summary,
+        publicAvailableUnits:
+          countsMap.get(
+            `${summary.productId}:${summary.variantId ?? 'null'}`
+          ) ?? 0,
+      }));
     })
   );
 
