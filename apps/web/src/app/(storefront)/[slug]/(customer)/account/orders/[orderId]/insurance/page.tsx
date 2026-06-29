@@ -1,14 +1,12 @@
-import { z } from 'zod';
 import { getMerchantSafe } from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
+import { insuranceOrderIdParamSchema } from '@/schemas/insurance-route-params';
 import { InsurancePolicyClient } from './insurance-policy-client';
 import type { Policy, PolicyFetchResult } from './insurance-policy-types';
 
 interface InsurancePolicyPageProps {
   params: Promise<{ orderId: string; slug: string }>;
 }
-
-const orderIdParamSchema = z.uuid();
 
 interface PolicyRow {
   id: string;
@@ -57,7 +55,7 @@ async function fetchPolicyForOrder(
   orderId: string,
   storefrontIdentifier: string
 ): Promise<PolicyFetchResult> {
-  const orderIdResult = orderIdParamSchema.safeParse(orderId);
+  const orderIdResult = insuranceOrderIdParamSchema.safeParse(orderId);
   if (!orderIdResult.success) {
     return {
       policy: null,

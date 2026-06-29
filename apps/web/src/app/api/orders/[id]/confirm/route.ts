@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -11,66 +10,13 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import {
+  confirmOrderRouteParamsSchema,
+  deviceInsuranceDetailsSchema,
+} from '@/schemas/order-confirm';
+import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
 } from '@/services/insurance';
-
-function isStrictPastDateOnly(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-
-  const [, yearText, monthText, dayText] = match;
-  if (!yearText || !monthText || !dayText) return false;
-
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const dobTime = Date.UTC(year, month - 1, day);
-  const dob = new Date(dobTime);
-
-  if (
-    dob.getUTCFullYear() !== year ||
-    dob.getUTCMonth() !== month - 1 ||
-    dob.getUTCDate() !== day
-  ) {
-    return false;
-  }
-
-  const now = new Date();
-  const todayTime = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  );
-  return dobTime < todayTime;
-}
-
-const strictPastDateOnlySchema = z.string().refine(isStrictPastDateOnly, {
-  message: 'dateOfBirth must be a valid past date',
-});
-
-const confirmOrderRouteParamsSchema = z.object({
-  id: z.uuid(),
-});
-
-const deviceInsuranceDetailsSchema = z.object({
-  imei: z.string().trim().min(1).max(64),
-  serialNumber: z.string().trim().min(1).max(128),
-  deviceColor: z.string().trim().min(1).max(64),
-  deviceModel: z.string().trim().min(1).max(128),
-  deviceMake: z.string().trim().min(1).max(128),
-  deviceType: z.enum(['Phone', 'Laptop', 'Others']),
-  deviceValue: z.coerce.number().positive().finite(),
-  purchaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  devicePhotos: z.object({
-    about: z.url(),
-  }),
-  customerPhoto: z.url().optional(),
-  // Real policyholder KYC is required for insurance — no placeholder data may
-  // reach the insurer.
-  gender: z.enum(['Male', 'Female']),
-  dateOfBirth: strictPastDateOnlySchema,
-});
 
 export async function POST(
   request: NextRequest,

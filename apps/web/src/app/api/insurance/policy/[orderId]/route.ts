@@ -1,10 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-
-const orderPolicyRouteParamsSchema = z.object({
-  orderId: z.uuid(),
-});
+import { orderPolicyRouteParamsSchema } from '@/schemas/insurance-route-params';
 
 export async function GET(
   _request: NextRequest,
