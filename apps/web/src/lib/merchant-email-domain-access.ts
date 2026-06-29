@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { hasCustomEmailDomainEntitlement } from '@/lib/feature-flags';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 
@@ -89,4 +90,35 @@ export function emailDomainGate(
     );
   }
   return null;
+}
+
+/**
+ * Auth → merchant resolution → plan gate for the email-domain route handlers.
+ * Returns `{ error }` (a 401/403/5xx response) to short-circuit, or the
+ * resolved merchant plus the authenticated supabase client and user id.
+ * Shared by both the register/enable route and the verify route.
+ */
+export async function resolveEmailDomainRequest(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (!(auth.user && auth.supabase)) {
+    return {
+      error: NextResponse.json(
+        { error: auth.error ?? 'Unauthorized' },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const resolved = await resolveMerchantForEmailDomain(
+    auth.supabase,
+    auth.user.id
+  );
+  if ('error' in resolved) {
+    return resolved;
+  }
+  const denied = emailDomainGate(resolved);
+  if (denied) {
+    return { error: denied };
+  }
+  return { ...resolved, supabase: auth.supabase, userId: auth.user.id };
 }

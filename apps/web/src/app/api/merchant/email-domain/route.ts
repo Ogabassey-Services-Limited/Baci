@@ -1,46 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantEmailDomain,
   registerMerchantEmailDomain,
   setMerchantEmailDomainEnabled,
 } from '@/lib/merchant-email-domain';
-import {
-  emailDomainGate,
-  resolveMerchantForEmailDomain,
-} from '@/lib/merchant-email-domain-access';
+import { resolveEmailDomainRequest } from '@/lib/merchant-email-domain-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isZeptomailDomainsConfigured } from '@/lib/zeptomail-domains';
 import {
   registerEmailDomainSchema,
   setEmailDomainEnabledSchema,
 } from '@/schemas/merchant-email-domain';
-
-async function resolveEmailDomainRequest(request: NextRequest) {
-  const auth = await authenticateApiRequest(request);
-  if (!(auth.user && auth.supabase)) {
-    return {
-      error: NextResponse.json(
-        { error: auth.error ?? 'Unauthorized' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  const resolved = await resolveMerchantForEmailDomain(
-    auth.supabase,
-    auth.user.id
-  );
-  if ('error' in resolved) {
-    return resolved;
-  }
-  const denied = emailDomainGate(resolved);
-  if (denied) {
-    return { error: denied };
-  }
-  return { ...resolved, supabase: auth.supabase, userId: auth.user.id };
-}
 
 function isBusinessRuleError(error: unknown): boolean {
   if (!(error instanceof Error)) {
