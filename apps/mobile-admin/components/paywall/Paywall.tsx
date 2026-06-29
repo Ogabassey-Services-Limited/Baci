@@ -3,8 +3,11 @@ import { ActivityIndicator, Alert, ScrollView, View } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates } from '@/lib/feature-gates';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 import PaywallFeatureList from './PaywallFeatureList';
 import PaywallFooter from './PaywallFooter';
 import PaywallHeader from './PaywallHeader';
@@ -34,6 +37,9 @@ export default function Paywall({ onClose }: PaywallProps) {
     isLoading,
     error,
   } = useRevenueCat();
+  const { merchant } = useMerchant();
+  const hasProSubscription =
+    isPro || baciFeatureGates.hasFeature(merchant, 'product_limit');
   const [selectedPackage, setSelectedPackage] =
     useState<PurchasesPackage | null>(() =>
       getDefaultPackage(currentOffering?.availablePackages)
@@ -96,6 +102,14 @@ export default function Paywall({ onClose }: PaywallProps) {
     }
   };
 
+  const onManageSubscription = async () => {
+    try {
+      await SubscriptionManagement.openNativeManagement();
+    } catch (_err) {
+      Alert.alert('Error', 'Unable to open subscription management');
+    }
+  };
+
   const onRestore = async () => {
     try {
       const success = await restorePurchases();
@@ -150,7 +164,8 @@ export default function Paywall({ onClose }: PaywallProps) {
       <PaywallFooter
         colors={colors}
         isLoading={isLoading}
-        isPro={isPro}
+        isPro={hasProSubscription}
+        onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={onRestore}
         selectedPackage={selectedPackage}

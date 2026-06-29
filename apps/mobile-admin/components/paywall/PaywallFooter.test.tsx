@@ -89,12 +89,14 @@ describe('PaywallFooter', () => {
   it('renders platform-specific disclosure text and hooks footer actions', () => {
     const onPurchase = vi.fn();
     const onRestore = vi.fn();
+    const onManageSubscription = vi.fn();
 
     render(
       <PaywallFooter
         colors={colors}
         isLoading={false}
         isPro={false}
+        onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={onRestore}
         selectedPackage={selectedPackage}
@@ -128,6 +130,32 @@ describe('PaywallFooter', () => {
       screen.getByRole('button', { name: /subscribe to monthly/i })
     );
     expect(onPurchase).toHaveBeenCalledTimes(1);
+    expect(onManageSubscription).not.toHaveBeenCalled();
+  });
+
+  it('uses the management action for Pro users instead of purchase', () => {
+    const onPurchase = vi.fn();
+    const onManageSubscription = vi.fn();
+
+    render(
+      <PaywallFooter
+        colors={colors}
+        isLoading={false}
+        isPro={true}
+        onManageSubscription={onManageSubscription}
+        onPurchase={onPurchase}
+        onRestore={() => undefined}
+        selectedPackage={null}
+        stickyFooterPaddingBottom={24}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(onManageSubscription).toHaveBeenCalledTimes(1);
+    expect(onPurchase).not.toHaveBeenCalled();
   });
 
   it('switches disclosure settings label for Android', () => {
@@ -138,6 +166,7 @@ describe('PaywallFooter', () => {
         colors={colors}
         isLoading={false}
         isPro={false}
+        onManageSubscription={() => undefined}
         onPurchase={() => undefined}
         onRestore={() => undefined}
         selectedPackage={selectedPackage}

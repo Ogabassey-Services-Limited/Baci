@@ -11,8 +11,17 @@ const mocks = vi.hoisted(() => ({
   capturedHeaderPaddingTop: 0,
   capturedStickyPaddingBottom: 0,
   insets: { bottom: 34, left: 0, right: 0, top: 44 },
+  isPro: false,
+  merchant: {
+    id: 'merchant-1',
+    plan_expires_at: null as string | null,
+    plan_tier: 'free' as string | null,
+    premium_features: [] as string[],
+  },
+  openNativeManagement: vi.fn(),
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
+  hasFeature: vi.fn(),
   offering: {
     availablePackages: [
       {
@@ -48,10 +57,28 @@ vi.mock('@/hooks/useRevenueCat', () => ({
     currentOffering: mocks.offering,
     error: null,
     isLoading: false,
-    isPro: false,
+    isPro: mocks.isPro,
     purchasePackage: mocks.purchasePackage,
     restorePurchases: mocks.restorePurchases,
   }),
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({
+    merchant: mocks.merchant,
+  }),
+}));
+
+vi.mock('@/lib/feature-gates', () => ({
+  baciFeatureGates: {
+    hasFeature: (...args: unknown[]) => mocks.hasFeature(...args),
+  },
+}));
+
+vi.mock('@/utils/SubscriptionManagement', () => ({
+  SubscriptionManagement: {
+    openNativeManagement: () => mocks.openNativeManagement(),
+  },
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -167,6 +194,16 @@ describe('Paywall', () => {
     mocks.capturedCloseTop = 0;
     mocks.capturedHeaderPaddingTop = 0;
     mocks.capturedStickyPaddingBottom = 0;
+    mocks.hasFeature.mockReset();
+    mocks.hasFeature.mockReturnValue(false);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: [],
+    };
+    mocks.openNativeManagement.mockReset();
     mocks.purchasePackage.mockReset();
     mocks.restorePurchases.mockReset();
   });
@@ -279,5 +316,34 @@ describe('Paywall', () => {
       'You are now a Pro member!',
       [{ text: 'OK', onPress: onClose }]
     );
+  });
+
+  it('uses the manage state for server-backed Pro entitlements', () => {
+    mocks.hasFeature.mockImplementation(
+      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
+    );
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+
+    render(<Paywall />);
+
+    expect(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /subscribe to monthly/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
+    expect(mocks.purchasePackage).not.toHaveBeenCalled();
   });
 });

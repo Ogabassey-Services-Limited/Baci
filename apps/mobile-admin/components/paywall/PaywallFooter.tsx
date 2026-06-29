@@ -14,6 +14,7 @@ interface PaywallFooterProps {
   colors: ThemeColors;
   isLoading: boolean;
   isPro: boolean;
+  onManageSubscription: () => void;
   onPurchase: () => void;
   onRestore: () => void;
   selectedPackage: PurchasesPackage | null;
@@ -24,6 +25,7 @@ export default function PaywallFooter({
   colors,
   isLoading,
   isPro,
+  onManageSubscription,
   onPurchase,
   onRestore,
   selectedPackage,
@@ -47,13 +49,14 @@ export default function PaywallFooter({
       ]}
     >
       <Pressable
-        onPress={onPurchase}
-        disabled={!selectedPackage || isLoading}
+        onPress={isPro ? onManageSubscription : onPurchase}
+        disabled={isLoading || (!isPro && !selectedPackage)}
         style={({ pressed }) => [
           paywallStyles.mainButton,
           {
             backgroundColor: colors.primary,
-            opacity: pressed || !selectedPackage || isLoading ? 0.8 : 1,
+            opacity:
+              pressed || isLoading || (!isPro && !selectedPackage) ? 0.8 : 1,
           },
         ]}
         accessibilityRole="button"
@@ -64,7 +67,9 @@ export default function PaywallFooter({
               ? 'Manage your subscription'
               : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
         }
-        accessibilityState={{ disabled: !selectedPackage || isLoading }}
+        accessibilityState={{
+          disabled: isLoading || (!isPro && !selectedPackage),
+        }}
       >
         {isLoading ? (
           <ActivityIndicator color="#FFF" />
