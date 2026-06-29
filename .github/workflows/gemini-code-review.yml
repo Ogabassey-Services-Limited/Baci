@@ -96,6 +96,7 @@ jobs:
         if: steps.command.outputs.should_run == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           # Check out the PR head so changed files are read from the filesystem
           # instead of one contents-API call per file (avoids GITHUB_TOKEN rate
           # limits). issue_comment payloads carry no head SHA, so use the
