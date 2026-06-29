@@ -41,11 +41,11 @@ jobs:
   build-and-submit:
     name: Build IPA & Submit to App Store Connect
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 150
 
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
@@ -63,11 +63,18 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@89f90524b88a01fe6e0b732220432cc6142926af # v1.313.0
+        uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
-          bundler-cache: true
+          # This release job later materializes signing, match, and ASC secrets.
+          # Keep Bundler cache restores disabled here to avoid executing restored
+          # cache contents in a secret-bearing job; install gems explicitly below.
+          bundler-cache: false
           working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Install Ruby dependencies
+        working-directory: ${{ env.WORKING_DIR }}
+        run: bundle install --jobs 4 --retry 3
 
       - name: Disable Node type stripping
         run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
@@ -193,15 +200,10 @@ jobs:
             sed -i '' 's/"Apple Distribution"/"Apple Development"/g' "$PBXPROJ" || true
           fi
 
-      - name: Cache CocoaPods
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: apps/mobile-admin/ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('apps/mobile-admin/ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
-
       - name: Install CocoaPods
+        # Intentionally do not restore an actions/cache CocoaPods directory in this
+        # secret-bearing signing job. The storefront release can keep its cache
+        # because this admin workflow prioritizes cache-poisoning resistance over speed.
         working-directory: ${{ env.WORKING_DIR }}/ios
         env:
           LANG: en_US.UTF-8
@@ -209,6 +211,7 @@ jobs:
           bundle exec pod install --repo-update
 
       - name: Fastlane release
+        id: fastlane_release
         working-directory: ${{ env.WORKING_DIR }}
         env:
           CI: '1'
@@ -241,6 +244,115 @@ jobs:
             ${{ env.WORKING_DIR }}/build/*.app.dSYM.zip
           retention-days: 30
           if-no-files-found: warn
+
+      - name: Resolve App Store submission eligibility
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' }}
+        id: submit_guard
+        shell: bash
+        env:
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF: ${{ github.ref }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          allow_submit=false
+          reason="not a protected App Store submission trigger"
+
+          if [ "$GH_EVENT_NAME" = "push" ] && [ "$GH_REF" = "refs/heads/main" ]; then
+            # Checkout disables persisted credentials. Fetch exactly the main ref
+            # we will compare against with a one-command token header, then diff
+            # against the fetched remote-tracking object. This avoids GitHub
+            # Compare API file-list caps and avoids a race where an API SHA and a
+            # later branch fetch point at different main commits.
+            # Use Git's credential helper instead of precomputing a Basic
+            # auth header. GitHub masks GITHUB_TOKEN itself in logs, but it does
+            # not automatically mask transformed values such as base64 output.
+            # shellcheck disable=SC2016 # Git invokes the helper later; keep env expansion out of this shell.
+            git -c credential.helper='!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f' \
+              fetch --no-tags --prune --depth=1 origin "+refs/heads/main:refs/remotes/origin/main"
+            FETCHED_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
+            if [ -z "$FETCHED_MAIN_SHA" ]; then
+              echo "::error::Unable to determine fetched main HEAD"
+              exit 1
+            fi
+
+            if [ "$GITHUB_SHA" = "$FETCHED_MAIN_SHA" ]; then
+              allow_submit=true
+              reason="current main HEAD"
+            else
+              RELEVANT_SUCCESSOR_FILES="$(git diff --name-only "${GITHUB_SHA}" "${FETCHED_MAIN_SHA}" -- pnpm-lock.yaml apps/mobile-admin packages/shared)"
+              if [ -n "$RELEVANT_SUCCESSOR_FILES" ]; then
+                echo "Relevant successor release files:"
+                printf '%s\n' "$RELEVANT_SUCCESSOR_FILES"
+                reason="stale mobile-admin release build"
+              else
+                allow_submit=true
+                reason="current mobile-admin release content; main only advanced by unrelated paths"
+              fi
+            fi
+          elif [ "$GH_EVENT_NAME" = "push" ] && [ "$GH_REF_TYPE" = "tag" ] && [[ "$GH_REF_NAME" == v*-admin-ios ]]; then
+            allow_submit=true
+            reason="admin iOS release tag"
+          else
+            reason="${GH_EVENT_NAME} on ${GH_REF}"
+          fi
+
+          if [ "$allow_submit" = "true" ]; then
+            echo "allow_submit=true" >> "$GITHUB_OUTPUT"
+            echo "App Store review submission enabled for ${reason}."
+          else
+            echo "allow_submit=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping App Store review submission for ${reason}."
+          fi
+
+      - name: Resolve release notes
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && steps.submit_guard.outputs.allow_submit == 'true' }}
+        shell: bash
+        env:
+          WORKFLOW_NOTES: ${{ vars.IOS_ADMIN_RELEASE_NOTES }}
+        run: |
+          NOTES="${WORKFLOW_NOTES:-Bug fixes and performance improvements.}"
+          NOTES="${NOTES:0:4000}"
+          DELIM="EOF_$(uuidgen | tr -d '-')"
+          {
+            echo "IOS_RELEASE_NOTES<<$DELIM"
+            echo "$NOTES"
+            echo "$DELIM"
+          } >> "$GITHUB_ENV"
+
+      # Auto-submit the freshly-uploaded build for App Store review, mirroring
+      # the storefront pipeline. `fastlane ios submit` runs deliver with
+      # submit_for_review + automatic_release, so once Apple approves it releases
+      # automatically. The submit lane waits for App Store Connect processing,
+      # so deliver can attach the build without relying on altool wait flags.
+      - name: Submit to App Store for review
+        # !cancelled() drops the implicit success() so a transient failure of the
+        # preceding artifact-upload step can't skip submission once the build is
+        # already on TestFlight; gate purely on the fastlane release outcome and
+        # the release-trigger eligibility guard.
+        if: ${{ !cancelled() && steps.fastlane_release.outcome == 'success' && steps.submit_guard.outputs.allow_submit == 'true' }}
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: '1'
+          FASTLANE_DISABLE_COLORS: '1'
+          FASTLANE_HIDE_CHANGELOG: '1'
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
+          SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+          SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
+          IOS_ADMIN_IDFA_METADATA_CONFIRMED: ${{ vars.IOS_ADMIN_IDFA_METADATA_CONFIRMED }}
+          APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS: '2400'
+        run: |
+          if [ -z "${IOS_RELEASE_NOTES:-}" ]; then
+            echo "::error::IOS_RELEASE_NOTES was not resolved before App Store submission"
+            exit 1
+          fi
+          bundle exec fastlane ios submit
 
       - name: Clean up secrets
         if: always()

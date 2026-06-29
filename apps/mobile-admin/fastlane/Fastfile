@@ -6,6 +6,8 @@ WORKSPACE = "ios/BaciTheEcommerceBuilder.xcworkspace"
 SCHEME = "BaciTheEcommerceBuilder"
 BUNDLE_ID = "com.ogabassey.baci"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
+APP_STORE_RELEASE_NOTES_MAX_LENGTH = 4000
+APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS = 5400
 
 def ensure_required_env!(keys)
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
@@ -27,7 +29,7 @@ def asc_api_key
   )
 end
 
-def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
+def upload_ipa_with_altool!(ipa_path)
   absolute_ipa_path = File.expand_path(ipa_path)
   UI.user_error!("Expected IPA does not exist: #{absolute_ipa_path}") unless File.file?(absolute_ipa_path)
 
@@ -58,8 +60,6 @@ def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
     "normal",
     "--show-progress"
   ]
-  command << "--wait" if wait_for_processing
-
   system({ "API_PRIVATE_KEYS_DIR" => File.dirname(key_path) }, *command)
   status = $CHILD_STATUS
   return if status&.success?
@@ -67,12 +67,63 @@ def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
   UI.user_error!("altool upload failed with exit status #{status&.exitstatus || 'unknown'}")
 end
 
+def app_store_release_notes(text)
+  notes = text.to_s.gsub(/\r\n?/, "\n").strip
+  notes = "Bug fixes and performance improvements." if notes.empty?
+  notes[0, APP_STORE_RELEASE_NOTES_MAX_LENGTH]
+end
+
+
+def app_store_processing_wait_timeout_seconds
+  raw_value = ENV["APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS"].to_s.strip
+  return APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS if raw_value.empty?
+
+  timeout_seconds = Integer(raw_value, 10)
+  UI.user_error!("APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS must be positive") unless timeout_seconds.positive?
+  timeout_seconds
+rescue ArgumentError
+  UI.user_error!("APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS must be an integer number of seconds")
+end
+
+def ensure_idfa_metadata_confirmed!
+  confirmed = ENV["IOS_ADMIN_IDFA_METADATA_CONFIRMED"].to_s.strip.downcase
+  return if %w[1 true yes].include?(confirmed)
+
+  UI.user_error!(
+    "Set IOS_ADMIN_IDFA_METADATA_CONFIRMED=true only after App Store Connect's " \
+    "Privacy > IDFA declaration for #{BUNDLE_ID} has been manually verified. " \
+    "The pinned fastlane Connect API submit path does not update add_id_info_* " \
+    "fields from submission_information, so auto-submit must fail closed instead " \
+    "of submitting stale or false IDFA metadata."
+  )
+end
+
+def wait_for_app_store_build_processing!(api_key:, app_version:, build_number:)
+  wait_opts = {
+    api_key: api_key,
+    app_identifier: BUNDLE_ID,
+    app_platform: "ios",
+    distribute_only: true,
+    skip_submission: true,
+    distribute_external: false,
+    notify_external_testers: false,
+    skip_waiting_for_build_processing: false,
+    wait_processing_interval: 30,
+    wait_processing_timeout_duration: app_store_processing_wait_timeout_seconds
+  }
+
+  wait_opts[:app_version] = app_version unless app_version.empty?
+  wait_opts[:build_number] = build_number unless build_number.empty?
+
+  upload_to_testflight(wait_opts)
+end
+
 platform :ios do
   before_all do
     setup_ci if ENV["CI"]
   end
 
-  desc "Build signed IPA and upload to TestFlight (no review submission)"
+  desc "Build signed IPA and upload to TestFlight"
   lane :release do
     api_key = asc_api_key
     ensure_required_env!(%w[
@@ -118,18 +169,15 @@ platform :ios do
 
     # fastlane be56dd5 currently drops --file when wrapping Xcode 26 altool.
     # Keep the Faraday 2 pin and own the upload arguments until that wrapper is fixed upstream.
-    upload_ipa_with_altool!(
-      File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      wait_for_processing: false
-    )
+    # The submit lane performs a separate App Store Connect processing wait before deliver.
+    upload_ipa_with_altool!(File.join(OUTPUT_DIR, "#{SCHEME}.ipa"))
   end
 
   desc "Submit the latest (or specified) TestFlight build for App Store review"
   lane :submit do
     api_key = asc_api_key
 
-    release_notes_text = ENV["IOS_RELEASE_NOTES"].to_s.strip
-    release_notes_text = "Bug fixes and performance improvements." if release_notes_text.empty?
+    release_notes_text = app_store_release_notes(ENV["IOS_RELEASE_NOTES"])
 
     deliver_opts = {
       api_key: api_key,
@@ -141,8 +189,11 @@ platform :ios do
       force: true,
       reject_if_possible: true,
       precheck_include_in_app_purchases: false,
+      # Keep this to fields the pinned fastlane Connect API submit path actually
+      # updates. IDFA answers are not applied from submission_information in that
+      # path, so the submit lane fails closed via ensure_idfa_metadata_confirmed!
+      # unless App Store Connect metadata has already been verified manually.
       submission_information: {
-        add_id_info_uses_idfa: false,
         export_compliance_uses_encryption: false,
         export_compliance_encryption_updated: false
       }
@@ -158,8 +209,16 @@ platform :ios do
       )
     end
 
+    ensure_idfa_metadata_confirmed!
+
     deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
+
+    wait_for_app_store_build_processing!(
+      api_key: api_key,
+      app_version: app_version,
+      build_number: build_number
+    )
 
     changelog_opts = { api_key: api_key, changelog: release_notes_text }
     changelog_opts[:version] = app_version unless app_version.empty?

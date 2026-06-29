@@ -49,6 +49,10 @@ publicHoistPattern:
   - "*react-native*"
 networkTimeout: 1000000
 strictDepBuilds: true
+# Codex/local hooks run pnpm without a TTY. If pnpm decides the hoisted
+# node_modules layout must be rebuilt, it cannot prompt for confirmation and
+# aborts before Biome/Jest/Vitest run. Keep the prompt non-interactive.
+confirmModulesPurge: false
 
 packages:
   - "apps/*"
