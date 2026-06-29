@@ -39,6 +39,24 @@ remember_deployment_target() {
   fi
 }
 
+run_promote_command() {
+  local first_command
+  local second_command
+  local third_command
+
+  first_command="$(basename "${deploy_command[0]}")"
+  second_command="${deploy_command[1]:-}"
+  third_command="${deploy_command[2]:-}"
+
+  if [ "$first_command" = "pnpm" ] && [ "$second_command" = "exec" ] && [ "$third_command" = "vercel" ]; then
+    "${deploy_command[0]}" "${deploy_command[1]}" "${deploy_command[2]}" promote "$last_deployment_target" --yes
+  elif [ "$first_command" = "npx" ] && [ "$second_command" = "vercel" ]; then
+    "${deploy_command[0]}" "${deploy_command[1]}" promote "$last_deployment_target" --yes
+  else
+    "${deploy_command[0]}" promote "$last_deployment_target" --yes
+  fi
+}
+
 promote_existing_deployment() {
   if [ -z "$last_deployment_target" ]; then
     echo "Duplicate deployment ID reported, but no deployment URL or ID was observed; refusing to treat retry as success." >&2
@@ -46,7 +64,7 @@ promote_existing_deployment() {
   fi
 
   echo "Deploy already exists for this custom deployment ID; promoting existing deployment ${last_deployment_target}."
-  if ! "${deploy_command[0]}" promote "$last_deployment_target" --yes; then
+  if ! run_promote_command; then
     echo "Failed to promote existing deployment ${last_deployment_target}; refusing to treat retry as success." >&2
     return 1
   fi

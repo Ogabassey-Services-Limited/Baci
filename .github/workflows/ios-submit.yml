@@ -43,6 +43,8 @@ jobs:
         uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
+          # This manual submit job later materializes ASC API credentials. Keep
+          # Bundler cache restores disabled and install gems explicitly below.
           bundler-cache: false
           working-directory: ${{ env.WORKING_DIR }}
 

@@ -66,6 +66,9 @@ jobs:
         uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
+          # This release job later materializes signing, match, and ASC secrets.
+          # Keep Bundler cache restores disabled here to avoid executing restored
+          # cache contents in a secret-bearing job; install gems explicitly below.
           bundler-cache: false
           working-directory: ${{ env.WORKING_DIR }}
 
@@ -198,6 +201,9 @@ jobs:
           fi
 
       - name: Install CocoaPods
+        # Intentionally do not restore an actions/cache CocoaPods directory in this
+        # secret-bearing signing job. The storefront release can keep its cache
+        # because this admin workflow prioritizes cache-poisoning resistance over speed.
         working-directory: ${{ env.WORKING_DIR }}/ios
         env:
           LANG: en_US.UTF-8

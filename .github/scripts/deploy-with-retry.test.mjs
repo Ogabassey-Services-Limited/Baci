@@ -21,8 +21,11 @@ function makeFakeCommand(mode) {
   const promotedFile = join(tempDir, 'promoted');
   mkdirSync(binDir, { recursive: true });
 
+  const fakeVercelPath = join(binDir, 'fake-vercel');
+  const vercelPath = join(binDir, 'vercel');
+
   writeFileSync(
-    join(binDir, 'fake-vercel'),
+    fakeVercelPath,
     `#!/usr/bin/env bash
 set -euo pipefail
 command="\${1:-}"
@@ -72,11 +75,40 @@ esac
     { mode: 0o755 }
   );
 
+  writeFileSync(
+    vercelPath,
+    `#!/usr/bin/env bash
+exec "${fakeVercelPath}" "$@"
+`,
+    { mode: 0o755 }
+  );
+
+  writeFileSync(
+    join(binDir, 'pnpm'),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [ "\${1:-}" = "exec" ]; then
+  shift
+fi
+exec "$@"
+`,
+    { mode: 0o755 }
+  );
+
+  writeFileSync(
+    join(binDir, 'npx'),
+    `#!/usr/bin/env bash
+set -euo pipefail
+exec "$@"
+`,
+    { mode: 0o755 }
+  );
+
   return { attemptsFile, binDir, promotedFile, tempDir };
 }
 
-function runScript(fakeCommand) {
-  return spawnSync('bash', [scriptPath, 'fake-vercel', 'deploy'], {
+function runScript(fakeCommand, commandArgs = ['fake-vercel', 'deploy']) {
+  return spawnSync('bash', [scriptPath, ...commandArgs], {
     cwd: fakeCommand.tempDir,
     env: {
       ...process.env,
@@ -128,6 +160,40 @@ test('promotes the observed deployment before recovering duplicate custom ids', 
     assert.match(result.stdout, /promoting existing deployment/);
     assert.match(result.stdout, /recovered success/);
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-recovered.vercel.app'
+    );
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('promotes through pnpm exec vercel command prefixes', () => {
+  const fakeCommand = makeFakeCommand('duplicate-id-after-created');
+
+  try {
+    const result = runScript(fakeCommand, ['pnpm', 'exec', 'vercel', 'deploy']);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /promoting existing deployment/);
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-recovered.vercel.app'
+    );
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('promotes through npx vercel command prefixes', () => {
+  const fakeCommand = makeFakeCommand('duplicate-id-after-created');
+
+  try {
+    const result = runScript(fakeCommand, ['npx', 'vercel', 'deploy']);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /promoting existing deployment/);
     assert.equal(
       readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
       'https://baci-recovered.vercel.app'
