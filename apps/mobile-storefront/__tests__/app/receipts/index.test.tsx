@@ -212,6 +212,42 @@ describe('ReceiptsScreen', () => {
     expect(mockReplace).toHaveBeenCalledWith('/receipts');
   });
 
+  it('shows the receipt-ready prompt once when auth state bounces', () => {
+    mockSearchParams = { receiptClaimed: '1' };
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: true,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+
+    const { rerender } = render(<ReceiptsScreen />);
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+    rerender(<ReceiptsScreen />);
+
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: true,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+    rerender(<ReceiptsScreen />);
+
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+    rerender(<ReceiptsScreen />);
+
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+  });
+
   it('passes loading, error, and network state through to the view', () => {
     mockUseRequireAuth.mockReturnValue({
       isLoading: true,

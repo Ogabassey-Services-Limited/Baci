@@ -5,7 +5,7 @@
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { getPaymentConfig } from '@/components/receipts/ReceiptCard';
 import { ReceiptsTabs } from '@/components/receipts/ReceiptsTabs';
@@ -34,6 +34,7 @@ export default function ReceiptsScreen() {
   }>();
   const { isOnline } = useNetworkState();
   const shouldShowClaimPrompt = readSingleParam(receiptClaimed) === '1';
+  const claimPromptShown = useRef(false);
 
   // Data
   const { data: receipts, isLoading, error, refetch } = useReceipts(user?.id);
@@ -51,10 +52,16 @@ export default function ReceiptsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (isAuthLoading || redirectTo || !shouldShowClaimPrompt) {
+    if (
+      isAuthLoading ||
+      redirectTo ||
+      !shouldShowClaimPrompt ||
+      claimPromptShown.current
+    ) {
       return;
     }
 
+    claimPromptShown.current = true;
     Alert.alert(
       'Receipts ready',
       'Your imported receipts are now available in Ogabassey.',

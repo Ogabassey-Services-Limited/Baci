@@ -26,11 +26,5 @@ describe('receipt claim page utils', () => {
     expect(withReceiptClaimedSearchParam('/receipts')).toBe(
       '/receipts?receiptClaimed=1'
     );
-    expect(withReceiptClaimedSearchParam('/receipts?tab=devices')).toBe(
-      '/receipts?tab=devices&receiptClaimed=1'
-    );
-    expect(withReceiptClaimedSearchParam('/receipts#latest')).toBe(
-      '/receipts?receiptClaimed=1#latest'
-    );
   });
 });

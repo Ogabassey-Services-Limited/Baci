@@ -419,7 +419,14 @@ export const OgabasseyV2Receipts: React.FC = () => {
           </div>
         </div>
 
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div
+              aria-hidden="true"
+              className="mb-6 min-h-[13.5rem] rounded-2xl border border-store-primary/10 bg-store-primary/5 sm:min-h-[10.5rem] md:min-h-[7rem]"
+            />
+          }
+        >
           <ReceiptClaimAppDownloadBanner />
         </Suspense>
 
