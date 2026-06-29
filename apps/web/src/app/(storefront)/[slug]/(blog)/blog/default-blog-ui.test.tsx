@@ -21,12 +21,28 @@ vi.mock('./blog-list', () => ({
   ),
 }));
 
+const BLOG_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+} as const;
+
+const BREADCRUMB_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+} as const;
+
+const ORGANIZATION_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'OnlineStore',
+  name: 'Ogabassey',
+} as const;
+
 describe('DefaultBlogUi', () => {
   it('renders the default blog chrome, filters, and content list', () => {
     render(
       <DefaultBlogUi
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         basePath="/ogabassey"
         categories={['News', 'Reviews']}
         category="News"
@@ -90,8 +106,8 @@ describe('DefaultBlogUi', () => {
   it('renders category hub copy when a category filter is active', () => {
     render(
       <DefaultBlogUi
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         basePath="/ogabassey"
         categories={['Smartphones']}
         category="Smartphones"
@@ -124,9 +140,9 @@ describe('DefaultBlogUi', () => {
   it('renders the Organization entity when an organizationSchema is provided', () => {
     const { container } = render(
       <DefaultBlogUi
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
-        organizationSchema={{ '@type': 'OnlineStore', name: 'Ogabassey' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        organizationSchema={ORGANIZATION_SCHEMA}
         basePath="/ogabassey"
         categories={['News']}
         merchant={{ id: 'merchant-1', business_name: 'Ogabassey' }}
@@ -148,8 +164,8 @@ describe('DefaultBlogUi', () => {
   it('keeps ambiguous category slugs on query links', () => {
     render(
       <DefaultBlogUi
-        blogSchema={{ '@type': 'Blog' }}
-        breadcrumbSchema={{ '@type': 'BreadcrumbList' }}
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
         basePath="/ogabassey"
         categories={['Cases & Covers', 'Cases Covers']}
         merchant={{ id: 'merchant-1', business_name: 'Ogabassey' }}

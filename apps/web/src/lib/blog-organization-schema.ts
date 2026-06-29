@@ -1,5 +1,6 @@
 import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
 import { buildBlogPublisherSameAs } from '@/lib/blog-publisher-same-as';
+import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 
 interface BlogOrganizationMerchant {
@@ -13,8 +14,8 @@ interface BlogOrganizationMerchant {
 export function buildBlogOrganizationSchema(
   merchant: BlogOrganizationMerchant,
   baseUrl: string
-): Record<string, unknown> {
-  const schema: Record<string, unknown> = {
+): JsonLdStructuredData {
+  const schema: JsonLdStructuredData = {
     ...generateOrganizationSchema({
       name: merchant.business_name,
       url: baseUrl,

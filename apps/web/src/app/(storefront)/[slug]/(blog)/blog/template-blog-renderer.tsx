@@ -1,12 +1,13 @@
 import type { ComponentType } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
+import type { JsonLdScriptData } from '@/lib/json-ld-types';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 
 interface TemplateBlogRendererProps {
-  blogSchema: Record<string, unknown>;
-  breadcrumbSchema: Record<string, unknown>;
-  organizationSchema?: Record<string, unknown>;
-  itemListSchema?: Record<string, unknown>;
+  blogSchema: JsonLdScriptData;
+  breadcrumbSchema: JsonLdScriptData;
+  organizationSchema?: JsonLdScriptData;
+  itemListSchema?: JsonLdScriptData;
   BlogComponent: ComponentType<TemplateBlogPageProps>;
   basePath: string;
   blogPosts: BlogPostData[];

@@ -165,6 +165,9 @@ describe('RepairsPage', () => {
     ).resolves.toEqual({
       title: 'Book a Repair - Ogabassey',
       description: 'Schedule a device repair with Ogabassey',
+      alternates: {
+        canonical: 'https://ogabassey.com/repairs',
+      },
     });
   });
 });

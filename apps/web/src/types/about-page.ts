@@ -3,6 +3,7 @@
  * These types support rich SEO with schema.org AboutPage markup
  */
 
+import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
 import { getVideoEmbedUrl } from '@/lib/video-embed';
@@ -158,7 +159,7 @@ export function generateAboutPageJsonLd(
   aboutPage: MerchantAboutPage,
   baseUrl: string,
   trustProfile?: MerchantTrustProfile
-): object {
+): JsonLdStructuredData {
   const organizationData = generateOrganizationSchema({
     name: merchant.business_name,
     url: baseUrl,

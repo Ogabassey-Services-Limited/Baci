@@ -68,6 +68,7 @@ describe('RepairPage', () => {
   it('returns repair metadata with a useful service description', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       business_name: 'Ogabassey',
+      slug: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
     const metadata = await generateMetadata({
@@ -75,6 +76,9 @@ describe('RepairPage', () => {
     });
 
     expect(metadata.description).toContain('phone, laptop, console');
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.usebaci.com/repair'
+    );
   });
 
   it('throws notFound when the merchant is missing', async () => {
