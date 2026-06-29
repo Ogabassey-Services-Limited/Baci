@@ -326,10 +326,35 @@ export async function verifyMerchantEmailDomain(
     const recovered = await findSendingDomainByName(existingRow.domain);
     domainKey = recovered?.domainKey ?? null;
     if (!domainKey) {
-      if (existingRow.status === 'verified') {
-        return rowToDomain(existingRow);
+      // The provider domain is gone (no stored zeptomail_domain_id and ZeptoMail
+      // can't find it). Fail CLOSED: a stale 'verified' row would keep the UI
+      // green and keep sending from a domain ZeptoMail can no longer validate.
+      // Persist a non-verified state (which also stops the sender, since it
+      // gates on status='verified') instead of returning the stale row.
+      const data = await writeDomainViaRpc(
+        writeSupabase,
+        'save_merchant_email_domain_verification',
+        {
+          p_actor_user_id: writeContext?.actorUserId ?? null,
+          p_merchant_id: merchantId,
+          p_checked_domain: existingRow.domain,
+          p_checked_zeptomail_domain_id: existingRow.zeptomail_domain_id,
+          p_zeptomail_domain_id: null,
+          p_status: 'pending',
+          p_verified_at: null,
+          p_dkim_host: existingRow.dkim_host,
+          p_dkim_value: existingRow.dkim_value,
+          p_bounce_host: existingRow.bounce_host,
+          p_bounce_value: existingRow.bounce_value,
+        },
+        'Failed to update email domain'
+      );
+      if (!data) {
+        throw new Error(
+          'Sending domain changed while verification was in progress'
+        );
       }
-      throw new Error('No sending domain to verify');
+      return rowToDomain(data);
     }
   }
 

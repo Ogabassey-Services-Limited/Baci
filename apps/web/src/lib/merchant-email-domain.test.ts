@@ -233,7 +233,7 @@ describe('merchant-email-domain service', () => {
     );
   });
 
-  it('verifyMerchantEmailDomain returns a seeded verified row without a ZeptoMail id when recovery is unavailable', async () => {
+  it('verifyMerchantEmailDomain fails closed when a verified row has no findable ZeptoMail domain', async () => {
     mockScopedFrom.mockReturnValueOnce(
       builderFor({
         data: { ...ROW, zeptomail_domain_id: null },
@@ -241,15 +241,28 @@ describe('merchant-email-domain service', () => {
       })
     );
     mockFind.mockResolvedValue(null);
+    mockScopedRpc.mockReturnValueOnce(
+      builderFor({
+        data: { ...ROW, status: 'pending', verified_at: null },
+        error: null,
+      })
+    );
 
     const result = await verifyMerchantEmailDomain('m1', scopedSupabase);
 
     expect(mockFind).toHaveBeenCalledWith('ogabassey.com');
     expect(mockVerify).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      domain: 'ogabassey.com',
-      status: 'verified',
-    });
+    // The missing provider domain is persisted as a non-verified state instead
+    // of returning the stale 'verified' row.
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_verification',
+      expect.objectContaining({
+        p_status: 'pending',
+        p_zeptomail_domain_id: null,
+        p_verified_at: null,
+      })
+    );
+    expect(result.status).toBe('pending');
   });
 
   it('verifyMerchantEmailDomain persists failed verification status', async () => {

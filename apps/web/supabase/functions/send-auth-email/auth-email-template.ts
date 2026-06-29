@@ -282,19 +282,19 @@ function getCustomDomainConfirmationOrigin(
   if (!customDomain) return null;
 
   const nextLookup = extractMerchantLookup(nextUrl.toString());
+  // Only prefer the custom-domain origin when the customer is ALREADY on it —
+  // that proves it's live and routable. We must NOT move a token-bearing
+  // /auth/confirm link onto branding.customDomain for a slug/subdomain request:
+  // that custom-domain row is the local `domains` table only, which can be
+  // stale (status='active' after the domain was transferred/removed), so the
+  // link could point at a dead host even though the subdomain the customer used
+  // is live. Subdomain requests therefore keep the confirmation on the platform
+  // host (see buildAuthEmailConfirmationUrl), which is always routable.
   if (
     nextLookup?.customDomain &&
     getCustomDomainCandidates(customDomain).includes(nextLookup.customDomain)
   ) {
     return nextUrl.origin;
-  }
-
-  if (
-    nextLookup?.slug &&
-    branding.slug &&
-    nextLookup.slug === branding.slug.toLowerCase()
-  ) {
-    return `https://${customDomain}`;
   }
 
   return null;

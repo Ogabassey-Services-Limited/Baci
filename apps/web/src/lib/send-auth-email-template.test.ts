@@ -70,13 +70,17 @@ describe('send-auth-email template helpers', () => {
     expect(url.searchParams.get('next')).toBe('/account?from=email');
   });
 
-  it('moves same-merchant subdomain confirmation to the active custom-domain origin when available', () => {
+  it('keeps a subdomain confirmation on the platform host even when a custom domain exists', () => {
+    // The custom domain comes from the local `domains` row, which can be stale
+    // (active after transfer/removal). A subdomain request must NOT have its
+    // token-bearing link moved onto that possibly-dead origin — it stays on the
+    // platform host (live/routable) with the slug-routed next.
     for (const build of [
       buildAuthEmailConfirmationUrl,
       buildAppLocalAuthEmailConfirmationUrl,
     ]) {
       const url = build({
-        branding: ogabasseyBranding,
+        branding: ogabasseyBranding, // has customDomain: ogabassey.com
         emailType: 'magiclink',
         redirectTo: 'https://ogabassey.usebaci.com/account?from=email',
         siteUrl: 'https://usebaci.com',
@@ -84,12 +88,28 @@ describe('send-auth-email template helpers', () => {
       });
 
       const parsed = new URL(url ?? '');
-      expect(parsed.origin).toBe('https://ogabassey.com');
+      expect(parsed.origin).toBe('https://usebaci.com');
       expect(parsed.pathname).toBe('/auth/confirm');
       expect(parsed.searchParams.get('token_hash')).toBe('hash-123');
       expect(parsed.searchParams.get('type')).toBe('magiclink');
-      expect(parsed.searchParams.get('next')).toBe('/account?from=email');
+      expect(parsed.searchParams.get('next')).toBe(
+        '/ogabassey/account?from=email'
+      );
     }
+  });
+
+  it('still uses the custom-domain origin when the customer is already on it', () => {
+    // Proven live because the request itself came from the custom domain.
+    const url = buildAuthEmailConfirmationUrl({
+      branding: ogabasseyBranding,
+      emailType: 'magiclink',
+      redirectTo: 'https://ogabassey.com/account?from=email',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+    const parsed = new URL(url ?? '');
+    expect(parsed.origin).toBe('https://ogabassey.com');
+    expect(parsed.searchParams.get('next')).toBe('/account?from=email');
   });
 
   it('keeps subdomain-only merchants on the platform host and routes next through the slug', () => {
