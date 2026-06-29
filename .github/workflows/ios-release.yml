@@ -340,6 +340,7 @@ jobs:
           SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           IOS_ADMIN_IDFA_METADATA_CONFIRMED: ${{ vars.IOS_ADMIN_IDFA_METADATA_CONFIRMED }}
+          APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS: '2400'
         run: |
           if [ -z "${IOS_RELEASE_NOTES:-}" ]; then
             echo "::error::IOS_RELEASE_NOTES was not resolved before App Store submission"

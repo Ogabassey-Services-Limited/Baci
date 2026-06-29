@@ -124,7 +124,7 @@ test('promotes the observed deployment before recovering duplicate custom ids', 
     const result = runScript(fakeCommand);
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stderr, /custom deployment id already exists/);
+    assert.match(result.stdout, /custom deployment id already exists/);
     assert.match(result.stdout, /promoting existing deployment/);
     assert.match(result.stdout, /recovered success/);
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
@@ -159,7 +159,7 @@ test('fails after max attempts for unrelated deploy errors', () => {
     const result = runScript(fakeCommand);
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /fatal deploy failure/);
+    assert.match(result.stdout, /fatal deploy failure/);
     assert.match(result.stdout, /Deploy failed after 2 attempts/);
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
   } finally {

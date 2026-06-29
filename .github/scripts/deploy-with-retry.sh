@@ -58,8 +58,8 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   attempt_log="$(mktemp)"
 
   set +e
-  "${deploy_command[@]}" > >(tee "$attempt_log") 2> >(tee -a "$attempt_log" >&2)
-  status=$?
+  "${deploy_command[@]}" 2>&1 | tee "$attempt_log"
+  status=${PIPESTATUS[0]}
   set -e
 
   if [ "$status" -eq 0 ]; then
