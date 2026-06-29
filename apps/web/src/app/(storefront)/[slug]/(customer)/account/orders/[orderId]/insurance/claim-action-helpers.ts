@@ -6,6 +6,11 @@
  * and fall back to the public-key SDK only when no link was captured.
  */
 
+import {
+  isTerminalClaimStatusToken,
+  normalizeInsuranceFlowUrl,
+} from '@baci/shared/insurance';
+
 export interface InsuranceActionPolicy {
   claimComment?: string | null;
   claimLink?: string | null;
@@ -40,21 +45,12 @@ export type InsuranceCta =
   | { kind: 'inspect'; url: string }
   | { kind: 'claim'; url: string | null };
 
-const TERMINAL_CLAIM_STATUSES = new Set([
-  'declined',
-  'disapproved',
-  'offer_rejected',
-  'paid',
-  'rejected',
-]);
-
 function getClaimStatusToken(policy: InsuranceActionPolicy): string | null {
   return policy.claimStatus?.trim().toLowerCase() || null;
 }
 
 export function isTerminalClaimStatus(policy: InsuranceActionPolicy): boolean {
-  const claimStatus = getClaimStatusToken(policy);
-  return claimStatus ? TERMINAL_CLAIM_STATUSES.has(claimStatus) : false;
+  return isTerminalClaimStatusToken(policy.claimStatus);
 }
 
 function hasExistingClaim(policy: InsuranceActionPolicy): boolean {
@@ -100,32 +96,14 @@ export function resolveInsuranceCta(
   return { kind: 'claim', url: claimUrl };
 }
 
-function normalizeLink(link: string | null | undefined): string | null {
-  if (typeof link !== 'string') return null;
-  const trimmed = link.trim();
-  if (trimmed.length === 0) return null;
-  // MyCover hosted flows carry claim/inspection tokens. Reject non-HTTPS and
-  // non-MyCover hosts before opening them in the browser.
-  try {
-    const url = new URL(trimmed);
-    const hostname = url.hostname.toLowerCase();
-    const isMyCoverHost =
-      hostname === 'mycover.ai' || hostname.endsWith('.mycover.ai');
-    if (url.protocol !== 'https:' || !isMyCoverHost) return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
 /** Hosted URL to file a claim, or null when only the SDK fallback is available. */
 export function resolveClaimUrl(policy: InsuranceActionPolicy): string | null {
-  return normalizeLink(policy.claimLink);
+  return normalizeInsuranceFlowUrl(policy.claimLink);
 }
 
 /** Hosted URL to complete a device inspection, or null when unavailable. */
 export function resolveInspectionUrl(
   policy: InsuranceActionPolicy
 ): string | null {
-  return normalizeLink(policy.inspectionLink);
+  return normalizeInsuranceFlowUrl(policy.inspectionLink);
 }

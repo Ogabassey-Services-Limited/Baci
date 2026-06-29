@@ -1,10 +1,4 @@
-const TERMINAL_CLAIM_STATUSES = new Set([
-  'declined',
-  'disapproved',
-  'offer_rejected',
-  'paid',
-  'rejected',
-]);
+import { isTerminalClaimStatusToken } from '@baci/shared/insurance';
 
 interface ResolveInsuranceCardActionsInput {
   claimComment?: string | null;
@@ -35,9 +29,7 @@ export function resolveInsuranceCardActions({
     !!claimStage?.trim() || !!claimComment?.trim();
   const isPlaceholderPendingClaim =
     normalizedClaimStatus === 'pending' && !hasExplicitClaimProgress;
-  const terminalClaim = normalizedClaimStatus
-    ? TERMINAL_CLAIM_STATUSES.has(normalizedClaimStatus)
-    : false;
+  const terminalClaim = isTerminalClaimStatusToken(normalizedClaimStatus);
   const claimAlreadyStarted =
     hasExplicitClaimProgress ||
     (!!normalizedClaimStatus &&
