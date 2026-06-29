@@ -91,11 +91,15 @@ async function merchantStillOwnsSendingDomain(
   merchantId: string,
   domain: string
 ): Promise<boolean> {
+  // Require ownership of the EXACT sender domain (no www↔apex counterpart),
+  // matching the exact-match proof now enforced at registration/enabling. A
+  // counterpart match would let the hook send OTP mail from a stale sender
+  // domain after a transfer/removal.
   const { data, error } = await supabase
     .from('domains')
     .select('id')
     .eq('merchant_id', merchantId)
-    .in('domain', getCustomDomainCandidates(domain))
+    .eq('domain', domain.toLowerCase())
     .eq('status', 'active')
     .limit(1);
 
