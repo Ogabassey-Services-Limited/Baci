@@ -1,13 +1,13 @@
-export const BACI_CWV_FETCH_USER_AGENT = 'Baci-CWV-measurement/1.0';
-export const DEBUGBEAR_API_USER_AGENT = 'Baci-CWV-debugbear-api/1.0';
+const BACI_CWV_FETCH_USER_AGENT = 'Baci-CWV-measurement/1.0';
+const DEBUGBEAR_API_USER_AGENT = 'Baci-CWV-debugbear-api/1.0';
 
-export const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
+const DEFAULT_OGABASSEY_CWV_TARGETS = Object.freeze({
   home: 'https://ogabassey.com/',
   pdp: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
   blog: 'https://ogabassey.com/blog',
 });
 
-export function buildDebugBearHeaders(apiKey) {
+function buildDebugBearHeaders(apiKey) {
   return {
     'content-type': 'application/json',
     'user-agent': DEBUGBEAR_API_USER_AGENT,
@@ -15,7 +15,7 @@ export function buildDebugBearHeaders(apiKey) {
   };
 }
 
-export function normalizeDebugBearProjects(body) {
+function normalizeDebugBearProjects(body) {
   if (Array.isArray(body)) return body;
   if (Array.isArray(body?.projects)) return body.projects;
   if (Array.isArray(body?.items)) return body.items;
@@ -62,7 +62,7 @@ function pageMatchesDevice(page, requestedDevice) {
   return text.includes(requested);
 }
 
-export function normalizeUrlForMatch(value) {
+function normalizeUrlForMatch(value) {
   try {
     const url = new URL(value);
     url.hash = '';
@@ -84,7 +84,7 @@ function getOrigin(value) {
   }
 }
 
-export function findDebugBearProjectIdForUrl(
+function findDebugBearProjectIdForUrl(
   projects,
   targetUrl,
   { deviceName = 'Mobile' } = {}
@@ -125,7 +125,7 @@ function targetUrl(value, fallback) {
   return trimmed || fallback;
 }
 
-export function buildOgaBasseyCwvTargets({
+function buildOgaBasseyCwvTargets({
   blogPostUrl,
   blogUrl = DEFAULT_OGABASSEY_CWV_TARGETS.blog,
   homeUrl = DEFAULT_OGABASSEY_CWV_TARGETS.home,
@@ -161,7 +161,7 @@ function normalizeTargetLabel(value) {
   return normalized;
 }
 
-export function filterOgaBasseyCwvTargets(targets, requestedLabels) {
+function filterOgaBasseyCwvTargets(targets, requestedLabels) {
   const labels = `${requestedLabels ?? ''}`
     .split(',')
     .map(normalizeTargetLabel)
@@ -172,7 +172,7 @@ export function filterOgaBasseyCwvTargets(targets, requestedLabels) {
   return targets.filter((target) => labelSet.has(target.label));
 }
 
-export function applyPdpCanonicalResolution({
+function applyPdpCanonicalResolution({
   pdpResolution,
   pdpTarget,
   targetResolutionFailures,
@@ -189,7 +189,7 @@ export function applyPdpCanonicalResolution({
   return targets;
 }
 
-export function logOgaBasseyCwvCompletion(
+function logOgaBasseyCwvCompletion(
   auditId,
   outputDir,
   shouldPrintLegacyPdpJson
@@ -199,7 +199,7 @@ export function logOgaBasseyCwvCompletion(
   finalLog(`Audit id: ${auditId}`);
 }
 
-export function buildLegacyPdpLcpJson(summary) {
+function buildLegacyPdpLcpJson(summary) {
   return {
     cls: summary.cls ?? null,
     device: summary.device ?? summary.strategy ?? null,
@@ -213,7 +213,7 @@ export function buildLegacyPdpLcpJson(summary) {
   };
 }
 
-export function buildOgaBasseyCwvConfigurationFailures({
+function buildOgaBasseyCwvConfigurationFailures({
   debugBearApiKey,
   debugBearRequiresConfiguredDeviceUserAgent = false,
   hasConfiguredDebugBearDeviceUserAgent = false,
@@ -280,3 +280,19 @@ export function buildOgaBasseyCwvConfigurationFailures({
 
   return failures;
 }
+
+export const ogabasseyCwvUtils = Object.freeze({
+  BACI_CWV_FETCH_USER_AGENT,
+  DEBUGBEAR_API_USER_AGENT,
+  DEFAULT_OGABASSEY_CWV_TARGETS,
+  buildDebugBearHeaders,
+  normalizeDebugBearProjects,
+  normalizeUrlForMatch,
+  findDebugBearProjectIdForUrl,
+  buildOgaBasseyCwvTargets,
+  filterOgaBasseyCwvTargets,
+  applyPdpCanonicalResolution,
+  logOgaBasseyCwvCompletion,
+  buildLegacyPdpLcpJson,
+  buildOgaBasseyCwvConfigurationFailures,
+});

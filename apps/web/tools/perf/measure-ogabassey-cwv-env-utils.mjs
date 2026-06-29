@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 
-export const WRAPPER_DEFAULT_ENV_KEYS = 'OGABASSEY_CWV_WRAPPER_DEFAULT_KEYS';
+const WRAPPER_DEFAULT_ENV_KEYS = 'OGABASSEY_CWV_WRAPPER_DEFAULT_KEYS';
 
-export function getWrapperDefaultEnvKeys(env = process.env) {
+function getWrapperDefaultEnvKeys(env = process.env) {
   return new Set(
     `${env[WRAPPER_DEFAULT_ENV_KEYS] ?? ''}`
       .split(',')
@@ -47,7 +47,7 @@ function parseEnvValue(rawValue) {
     .replace(/^(["'])(.*)\1$/, '$2');
 }
 
-export async function loadEnvFile(
+async function loadEnvFile(
   path,
   { env = process.env, override = false, readText } = {}
 ) {
@@ -81,7 +81,7 @@ export async function loadEnvFile(
   return true;
 }
 
-export async function loadOgaBasseyCwvEnvFiles({
+async function loadOgaBasseyCwvEnvFiles({
   appRoot,
   env = process.env,
   loadEnvFileImpl = loadEnvFile,
@@ -111,22 +111,33 @@ export async function loadOgaBasseyCwvEnvFiles({
   return { appEnvFile, rootEnvFile };
 }
 
-export function normalizeEnvFlag(value) {
+function normalizeEnvFlag(value) {
   return `${value ?? ''}`.trim().toLowerCase();
 }
 
-export function isTruthyEnvValue(value) {
+function isTruthyEnvValue(value) {
   return ['1', 'true', 'yes', 'on'].includes(normalizeEnvFlag(value));
 }
 
-export function isFalseyEnvValue(value) {
+function isFalseyEnvValue(value) {
   return ['0', 'false', 'no', 'off'].includes(normalizeEnvFlag(value));
 }
 
-export function setDefaultEnv(env, key, value, { track = false } = {}) {
+function setDefaultEnv(env, key, value, { track = false } = {}) {
   if (`${env[key] ?? ''}`.trim()) return;
   env[key] = value;
   if (track) {
     rememberWrapperDefaultEnvKey(env, key);
   }
 }
+
+export const ogabasseyCwvEnv = Object.freeze({
+  WRAPPER_DEFAULT_ENV_KEYS,
+  getWrapperDefaultEnvKeys,
+  loadEnvFile,
+  loadOgaBasseyCwvEnvFiles,
+  normalizeEnvFlag,
+  isTruthyEnvValue,
+  isFalseyEnvValue,
+  setDefaultEnv,
+});

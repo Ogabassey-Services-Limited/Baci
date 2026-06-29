@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import {
+import { ogabasseyCwvEnv } from './measure-ogabassey-cwv-env-utils.mjs';
+
+const {
   getWrapperDefaultEnvKeys,
   isFalseyEnvValue,
   isTruthyEnvValue,
   loadEnvFile,
   loadOgaBasseyCwvEnvFiles,
   setDefaultEnv,
-} from './measure-ogabassey-cwv-env-utils.mjs';
+} = ogabasseyCwvEnv;
 
 describe('env flag helpers', () => {
   it('normalizes common truthy and falsey env values', () => {

@@ -1,4 +1,6 @@
-import { BACI_CWV_FETCH_USER_AGENT } from './measure-ogabassey-cwv-utils.mjs';
+import { ogabasseyCwvUtils } from './measure-ogabassey-cwv-utils.mjs';
+
+const { BACI_CWV_FETCH_USER_AGENT } = ogabasseyCwvUtils;
 
 function redactUrlForError(value) {
   try {
@@ -18,7 +20,7 @@ function redactUrlForError(value) {
   }
 }
 
-export async function fetchJson(url, init = {}) {
+async function fetchJson(url, init = {}) {
   const response = await fetch(url, init);
   const text = await response.text();
   if (!response.ok) {
@@ -66,7 +68,7 @@ function isBlogArticlePathForIndex(pathname, blogIndexPathname) {
   return !nonArticleSegments.has(slug.toLowerCase());
 }
 
-export async function resolveLatestBlogPostUrl(blogUrl) {
+async function resolveLatestBlogPostUrl(blogUrl) {
   const explicitBlogPostUrl = process.env.OGABASSEY_BLOG_POST_URL?.trim() || '';
   if (explicitBlogPostUrl) {
     return explicitBlogPostUrl;
@@ -155,7 +157,7 @@ function getCanonicalHref(html) {
   return null;
 }
 
-export async function resolveCanonicalUrl(url) {
+async function resolveCanonicalUrl(url) {
   const requested = normalizeUrlForPdpAudit(url).toString();
 
   const response = await fetch(requested, {
@@ -181,7 +183,7 @@ export async function resolveCanonicalUrl(url) {
   );
 }
 
-export async function resolveCanonicalUrlOrFailure(
+async function resolveCanonicalUrlOrFailure(
   url,
   { label = 'pdp-dell', resolveCanonicalUrlImpl = resolveCanonicalUrl } = {}
 ) {
@@ -198,3 +200,10 @@ export async function resolveCanonicalUrlOrFailure(
     };
   }
 }
+
+export const ogabasseyCwvNetwork = Object.freeze({
+  fetchJson,
+  resolveLatestBlogPostUrl,
+  resolveCanonicalUrl,
+  resolveCanonicalUrlOrFailure,
+});

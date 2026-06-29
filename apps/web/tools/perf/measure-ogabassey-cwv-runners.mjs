@@ -2,24 +2,25 @@ import {
   getDebugBearQuickTestId,
   getDebugBearQuickTestPollPath,
 } from './debugbear-quick-test-utils.mjs';
-import { fetchJson } from './measure-ogabassey-cwv-network-utils.mjs';
-import {
+import { ogabasseyCwvNetwork } from './measure-ogabassey-cwv-network-utils.mjs';
+import { ogabasseyCwvSummary } from './measure-ogabassey-cwv-summary-utils.mjs';
+import { ogabasseyCwvUtils } from './measure-ogabassey-cwv-utils.mjs';
+
+const { fetchJson } = ogabasseyCwvNetwork;
+const {
   buildPsiUrl,
   getDebugBearFailureMessage,
   isDebugBearComplete,
   summarizeDebugBearResult,
   summarizePsiResult,
-} from './measure-ogabassey-cwv-summary-utils.mjs';
-import {
+} = ogabasseyCwvSummary;
+const {
   buildDebugBearHeaders,
   findDebugBearProjectIdForUrl,
   normalizeDebugBearProjects,
-} from './measure-ogabassey-cwv-utils.mjs';
+} = ogabasseyCwvUtils;
 
-export function createPsiRunner({
-  apiKey = '',
-  fetchJsonImpl = fetchJson,
-} = {}) {
+function createPsiRunner({ apiKey = '', fetchJsonImpl = fetchJson } = {}) {
   return async function runPsi(target, strategy) {
     const url = buildPsiUrl({ apiKey, strategy, url: target.url });
     const payload = await fetchJsonImpl(url);
@@ -35,7 +36,7 @@ export function createPsiRunner({
   };
 }
 
-export function createDebugBearRunner({
+function createDebugBearRunner({
   apiKey,
   adminApiKey = '',
   device = 'Mobile',
@@ -128,3 +129,8 @@ export function createDebugBearRunner({
 
   return { getProjects, run };
 }
+
+export const ogabasseyCwvRunners = Object.freeze({
+  createPsiRunner,
+  createDebugBearRunner,
+});

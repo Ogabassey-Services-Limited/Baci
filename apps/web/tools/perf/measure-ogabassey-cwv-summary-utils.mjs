@@ -3,12 +3,12 @@ import {
   getDebugBearMetric,
 } from './debugbear-quick-test-utils.mjs';
 
-const PSI_CATEGORIES = Object.freeze([
+const PSI_CATEGORIES = [
   'performance',
   'accessibility',
   'best-practices',
   'seo',
-]);
+];
 
 function score(category) {
   return typeof category?.score === 'number'
@@ -43,7 +43,7 @@ function normalizeFieldPercentile(metricName, percentile) {
   return percentile;
 }
 
-export function getFieldMetric(payload, requestedUrl, metricName) {
+function getFieldMetric(payload, requestedUrl, metricName) {
   const candidates = [
     { experience: payload?.loadingExperience, scope: null },
     { experience: payload?.originLoadingExperience, scope: 'origin' },
@@ -71,7 +71,7 @@ export function getFieldMetric(payload, requestedUrl, metricName) {
   return null;
 }
 
-export function buildPsiUrl({ apiKey, strategy, url }) {
+function buildPsiUrl({ apiKey, strategy, url }) {
   const endpoint = new URL(
     'https://www.googleapis.com/pagespeedonline/v5/runPagespeed'
   );
@@ -84,7 +84,7 @@ export function buildPsiUrl({ apiKey, strategy, url }) {
   return endpoint;
 }
 
-export function printCwvSummaryTable(rows) {
+function printCwvSummaryTable(rows) {
   console.table(
     rows.map((row) => ({
       route: row.label,
@@ -104,7 +104,7 @@ export function printCwvSummaryTable(rows) {
   );
 }
 
-export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
+function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
   const lighthouse = payload?.lighthouseResult ?? {};
   const audits = lighthouse.audits ?? {};
   const categories = lighthouse.categories ?? {};
@@ -154,11 +154,11 @@ export function summarizePsiResult({ label, payload, requestedUrl, strategy }) {
   };
 }
 
-export function getDebugBearStatus(body) {
+function getDebugBearStatus(body) {
   return `${body?.status ?? body?.state ?? ''}`.trim().toLowerCase();
 }
 
-export function isDebugBearComplete(body) {
+function isDebugBearComplete(body) {
   const status = getDebugBearStatus(body);
   return (
     body?.hasFinished === true ||
@@ -173,32 +173,27 @@ export function isDebugBearComplete(body) {
   );
 }
 
-export function getDebugBearFailureMessage(body) {
+function getDebugBearFailureMessage(body) {
   const status = getDebugBearStatus(body);
   if (status === 'failure' || status === 'failed') {
     if (typeof body?.error?.message === 'string' && body.error.message.trim()) {
       return body.error.message;
     }
-
     if (typeof body?.error === 'string' && body.error.trim()) {
       return body.error;
     }
-
     return 'DebugBear test status was failure';
   }
-
   if (typeof body?.error === 'string' && body.error.trim()) {
     return body.error;
   }
-
   if (typeof body?.error?.message === 'string' && body.error.message.trim()) {
     return body.error.message;
   }
-
   return null;
 }
 
-export function summarizeDebugBearResult({
+function summarizeDebugBearResult({
   body,
   label,
   device,
@@ -288,6 +283,18 @@ function toKilobytes(bytes) {
   return Math.round((bytes / 1024) * 10) / 10;
 }
 
-export function formatMetricMs(value) {
+function formatMetricMs(value) {
   return typeof value === 'number' ? Math.round(value) : null;
 }
+
+export const ogabasseyCwvSummary = Object.freeze({
+  getFieldMetric,
+  buildPsiUrl,
+  printCwvSummaryTable,
+  summarizePsiResult,
+  getDebugBearStatus,
+  isDebugBearComplete,
+  getDebugBearFailureMessage,
+  summarizeDebugBearResult,
+  formatMetricMs,
+});

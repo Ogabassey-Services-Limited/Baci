@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createDebugBearRunner,
-  createPsiRunner,
-} from './measure-ogabassey-cwv-runners.mjs';
+import { ogabasseyCwvRunners } from './measure-ogabassey-cwv-runners.mjs';
+
+const { createDebugBearRunner, createPsiRunner } = ogabasseyCwvRunners;
 
 describe('createPsiRunner', () => {
   it('requests PageSpeed Insights with the selected strategy and target URL', async () => {

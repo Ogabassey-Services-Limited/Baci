@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
+import { ogabasseyCwvSummary } from './measure-ogabassey-cwv-summary-utils.mjs';
+
+const {
   getDebugBearFailureMessage,
   getFieldMetric,
   isDebugBearComplete,
   printCwvSummaryTable,
   summarizeDebugBearResult,
   summarizePsiResult,
-} from './measure-ogabassey-cwv-summary-utils.mjs';
+} = ogabasseyCwvSummary;
 
 describe('getFieldMetric', () => {
   it('uses URL-level field data when PageSpeed returns the requested URL', () => {
