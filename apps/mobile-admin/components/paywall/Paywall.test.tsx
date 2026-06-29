@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SPACING } from '@/constants/theme';
 import Paywall from './Paywall';
 
@@ -199,13 +199,14 @@ vi.mock('react-native', () => ({
 }));
 
 describe('Paywall', () => {
-  afterEach(() => {
+  beforeEach(() => {
     mocks.alert.mockReset();
     mocks.capturedCloseTop = 0;
     mocks.capturedHeaderPaddingTop = 0;
     mocks.capturedStickyPaddingBottom = 0;
     mocks.hasFullProAccess.mockReset();
     mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.insets = { bottom: 34, left: 0, right: 0, top: 44 };
     mocks.isMerchantLoading = false;
     mocks.isPro = false;
     mocks.merchant = {
@@ -375,6 +376,49 @@ describe('Paywall', () => {
       'Baci Pro is active',
       expect.any(String)
     );
+  });
+
+  it('uses native subscription management when RevenueCat and server Pro are both active', () => {
+    mocks.hasFullProAccess.mockReturnValue(true);
+    mocks.isPro = true;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+
+    render(<Paywall />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Baci Pro is active',
+      expect.any(String)
+    );
+  });
+
+  it('shows an error alert when native subscription management fails', async () => {
+    mocks.isPro = true;
+    mocks.openNativeManagement.mockRejectedValue(
+      new Error('Subscription settings unavailable')
+    );
+
+    render(<Paywall />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Unable to open subscription management'
+      );
+    });
   });
 
   it('disables purchase while merchant entitlements are loading', () => {
