@@ -63,3 +63,44 @@ export const deviceInsuranceDetailsSchema = z.object({
   gender: z.enum(['Male', 'Female']),
   dateOfBirth: strictPastDateOnlySchema,
 });
+
+export type DeviceInsuranceDetailsInput = z.infer<
+  typeof deviceInsuranceDetailsSchema
+>;
+
+/**
+ * Root payload for `POST /api/orders/[id]/confirm`. The body is validated in
+ * full before any property is read: a confirm carrying device fields (`imei`
+ * or `devicePhotos`) must supply the complete insurance KYC, while a plain
+ * confirm needs no device data. Output is normalized so the route never has to
+ * touch the raw, unvalidated JSON.
+ */
+export const confirmOrderBodySchema = z
+  .looseObject({
+    imei: z.unknown().optional(),
+    devicePhotos: z.unknown().optional(),
+  })
+  .transform((body, ctx) => {
+    const wantsInsurance =
+      body.imei !== undefined || body.devicePhotos !== undefined;
+    if (!wantsInsurance) {
+      return {
+        shouldPurchaseInsurance: false as const,
+        deviceDetails: null,
+      };
+    }
+
+    const details = deviceInsuranceDetailsSchema.safeParse(body);
+    if (!details.success) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Invalid insurance details',
+      });
+      return z.NEVER;
+    }
+
+    return {
+      shouldPurchaseInsurance: true as const,
+      deviceDetails: details.data,
+    };
+  });

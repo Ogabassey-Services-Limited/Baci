@@ -24,10 +24,21 @@ export async function GET(
     }
     const { orderId } = routeParams.data;
 
-    const { data: customers, error: customerError } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('user_id', user.id);
+    // The policies read depends only on `orderId`, so fetch it concurrently
+    // with the customer lookup. We still gate the response on the order
+    // ownership check below, so nothing is disclosed before authorization.
+    const [
+      { data: customers, error: customerError },
+      { data: policies, error: policiesError },
+    ] = await Promise.all([
+      supabase.from('customers').select('id').eq('user_id', user.id),
+      supabase
+        .from('order_insurance_policies')
+        .select(
+          'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, policy_type, claim_link, inspection_link, inspection_status'
+        )
+        .eq('order_id', orderId),
+    ]);
 
     if (customerError) {
       return NextResponse.json(
@@ -71,15 +82,7 @@ export async function GET(
       });
     }
 
-    // Fetch all policies for this order (supports gadget + future shipping).
-    const { data: policies, error } = await supabase
-      .from('order_insurance_policies')
-      .select(
-        'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, policy_type, claim_link, inspection_link, inspection_status'
-      )
-      .eq('order_id', orderId);
-
-    if (error) {
+    if (policiesError) {
       return NextResponse.json(
         { error: 'Failed to fetch policies' },
         { status: 500 }

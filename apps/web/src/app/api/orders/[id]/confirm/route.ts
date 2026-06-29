@@ -10,8 +10,8 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import {
+  confirmOrderBodySchema,
   confirmOrderRouteParamsSchema,
-  deviceInsuranceDetailsSchema,
 } from '@/schemas/order-confirm';
 import {
   type DeviceInsuranceDetails,
@@ -49,19 +49,17 @@ export async function POST(
     }
     const { id } = routeParams.data;
 
-    // Parse body for device details
+    // Validate the entire request body before reading any property: a confirm
+    // carrying device fields must supply complete insurance KYC.
     const body = await request.json();
-    const shouldPurchaseInsurance =
-      body.imei !== undefined || body.devicePhotos !== undefined;
-    const deviceDetailsResult = shouldPurchaseInsurance
-      ? deviceInsuranceDetailsSchema.safeParse(body)
-      : null;
-    if (deviceDetailsResult && !deviceDetailsResult.success) {
+    const bodyResult = confirmOrderBodySchema.safeParse(body);
+    if (!bodyResult.success) {
       return NextResponse.json(
         { error: 'Invalid insurance details' },
         { status: 400 }
       );
     }
+    const { deviceDetails } = bodyResult.data;
 
     // 1. Update Order Status
     const { data: updatedOrder, error: updateError } = await supabase
@@ -114,11 +112,11 @@ export async function POST(
     let insuranceResult = null;
     let insuranceError: string | null = null;
 
-    if (deviceDetailsResult?.success) {
-      const deviceDetails: DeviceInsuranceDetails = deviceDetailsResult.data;
+    if (deviceDetails) {
+      const details: DeviceInsuranceDetails = deviceDetails;
 
       try {
-        insuranceResult = await purchaseOrderInsurance(id, deviceDetails);
+        insuranceResult = await purchaseOrderInsurance(id, details);
       } catch (err: unknown) {
         logger.error({
           message: 'Insurance purchase error during confirm',

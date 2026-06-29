@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  confirmOrderBodySchema,
   confirmOrderRouteParamsSchema,
   deviceInsuranceDetailsSchema,
   isStrictPastDateOnly,
@@ -81,5 +82,66 @@ describe('deviceInsuranceDetailsSchema', () => {
         devicePhotos: { about: 'not-a-url' },
       }).success
     ).toBe(false);
+  });
+});
+
+describe('confirmOrderBodySchema', () => {
+  const validDevice = {
+    imei: '123456789012345',
+    serialNumber: 'SN-123',
+    deviceColor: 'Black',
+    deviceModel: 'iPhone 16 Pro',
+    deviceMake: 'Apple',
+    deviceType: 'Phone',
+    deviceValue: 1_200_000,
+    purchaseDate: '2026-06-15',
+    devicePhotos: { about: 'https://cdn.usebaci.com/orders/device.jpg' },
+    gender: 'Male',
+    dateOfBirth: '1995-04-12',
+  };
+
+  it('treats a plain confirm (no device fields) as a no-op for insurance', () => {
+    const result = confirmOrderBodySchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shouldPurchaseInsurance).toBe(false);
+      expect(result.data.deviceDetails).toBeNull();
+    }
+  });
+
+  it('ignores unrelated extra keys on a plain confirm', () => {
+    const result = confirmOrderBodySchema.safeParse({ note: 'confirm please' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shouldPurchaseInsurance).toBe(false);
+    }
+  });
+
+  it('parses a complete insurance purchase and normalizes the details', () => {
+    const result = confirmOrderBodySchema.safeParse(validDevice);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shouldPurchaseInsurance).toBe(true);
+      expect(result.data.deviceDetails?.imei).toBe('123456789012345');
+    }
+  });
+
+  it('rejects an incomplete insurance purchase (imei present, KYC missing)', () => {
+    const result = confirmOrderBodySchema.safeParse({
+      imei: '123456789012345',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects when only device photos are supplied without the rest', () => {
+    const result = confirmOrderBodySchema.safeParse({
+      devicePhotos: { about: 'https://cdn.usebaci.com/orders/device.jpg' },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-object body', () => {
+    expect(confirmOrderBodySchema.safeParse(null).success).toBe(false);
+    expect(confirmOrderBodySchema.safeParse('confirm').success).toBe(false);
   });
 });

@@ -84,12 +84,26 @@ async function fetchPolicyForOrder(
       };
     }
 
-    const { data: customer, error: customerError } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('merchant_id', merchant.id)
-      .eq('user_id', user.id)
-      .maybeSingle<{ id: string }>();
+    // The policies read depends only on `scopedOrderId`, so fetch it
+    // concurrently with the customer lookup. The order ownership check below
+    // still gates what we return, so nothing is disclosed before authorization.
+    const [
+      { data: customer, error: customerError },
+      { data: policies, error: policyError },
+    ] = await Promise.all([
+      supabase
+        .from('customers')
+        .select('id')
+        .eq('merchant_id', merchant.id)
+        .eq('user_id', user.id)
+        .maybeSingle<{ id: string }>(),
+      supabase
+        .from('order_insurance_policies')
+        .select(
+          'id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, claim_link, inspection_link, inspection_status'
+        )
+        .eq('order_id', scopedOrderId),
+    ]);
 
     if (customerError) {
       return { policy: null, error: 'Failed to fetch customer account' };
@@ -118,13 +132,6 @@ async function fetchPolicyForOrder(
         error: 'No active insurance policy found for this order.',
       };
     }
-
-    const { data: policies, error: policyError } = await supabase
-      .from('order_insurance_policies')
-      .select(
-        'id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, claim_link, inspection_link, inspection_status'
-      )
-      .eq('order_id', scopedOrderId);
 
     if (policyError) {
       return { policy: null, error: 'Failed to fetch policies' };
