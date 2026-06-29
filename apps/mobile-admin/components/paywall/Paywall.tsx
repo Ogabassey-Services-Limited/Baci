@@ -37,9 +37,11 @@ export default function Paywall({ onClose }: PaywallProps) {
     isLoading,
     error,
   } = useRevenueCat();
-  const { merchant } = useMerchant();
-  const hasProSubscription =
-    isPro || baciFeatureGates.hasFullProAccess(merchant);
+  const { merchant, isLoading: isMerchantLoading } = useMerchant();
+  const hasServerProSubscription = baciFeatureGates.hasFullProAccess(merchant);
+  const hasProSubscription = isPro || hasServerProSubscription;
+  const isMerchantEntitlementLoading = !isPro && isMerchantLoading;
+  const isServerManagedProSubscription = hasServerProSubscription && !isPro;
   const [selectedPackage, setSelectedPackage] =
     useState<PurchasesPackage | null>(() =>
       getDefaultPackage(currentOffering?.availablePackages)
@@ -103,6 +105,14 @@ export default function Paywall({ onClose }: PaywallProps) {
   };
 
   const onManageSubscription = async () => {
+    if (isServerManagedProSubscription) {
+      Alert.alert(
+        'Baci Pro is active',
+        'This subscription is managed through your Baci account, not the App Store or Google Play. Contact support if you need to make changes.'
+      );
+      return;
+    }
+
     try {
       await SubscriptionManagement.openNativeManagement();
     } catch (_err) {
@@ -163,7 +173,7 @@ export default function Paywall({ onClose }: PaywallProps) {
 
       <PaywallFooter
         colors={colors}
-        isLoading={isLoading}
+        isLoading={isLoading || isMerchantEntitlementLoading}
         isPro={hasProSubscription}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}

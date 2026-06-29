@@ -11,13 +11,19 @@ const mocks = vi.hoisted(() => ({
   capturedHeaderPaddingTop: 0,
   capturedStickyPaddingBottom: 0,
   insets: { bottom: 34, left: 0, right: 0, top: 44 },
+  isMerchantLoading: false,
   isPro: false,
   merchant: {
     id: 'merchant-1',
     plan_expires_at: null as string | null,
     plan_tier: 'free' as string | null,
     premium_features: [] as string[],
-  },
+  } as {
+    id: string;
+    plan_expires_at: string | null;
+    plan_tier: string | null;
+    premium_features: string[];
+  } | null,
   openNativeManagement: vi.fn(),
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
@@ -65,6 +71,7 @@ vi.mock('@/hooks/useRevenueCat', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
+    isLoading: mocks.isMerchantLoading,
     merchant: mocks.merchant,
   }),
 }));
@@ -129,11 +136,13 @@ vi.mock('react-native', () => ({
   Pressable: ({
     accessibilityLabel,
     children,
+    disabled,
     onPress,
     style,
   }: {
     accessibilityLabel?: string;
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
     style?: unknown;
   }) => {
@@ -157,9 +166,10 @@ vi.mock('react-native', () => ({
     }
     return (
       <button
-        type="button"
         aria-label={accessibilityLabel}
+        disabled={disabled}
         onClick={() => onPress?.()}
+        type="button"
       >
         {children}
       </button>
@@ -196,6 +206,7 @@ describe('Paywall', () => {
     mocks.capturedStickyPaddingBottom = 0;
     mocks.hasFullProAccess.mockReset();
     mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isMerchantLoading = false;
     mocks.isPro = false;
     mocks.merchant = {
       id: 'merchant-1',
@@ -341,8 +352,47 @@ describe('Paywall', () => {
       screen.getByRole('button', { name: /manage your subscription/i })
     );
 
-    expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Baci Pro is active',
+      expect.stringContaining('managed through your Baci account')
+    );
+    expect(mocks.openNativeManagement).not.toHaveBeenCalled();
     expect(mocks.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it('opens native subscription management for RevenueCat Pro entitlements', () => {
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = true;
+
+    render(<Paywall />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Baci Pro is active',
+      expect.any(String)
+    );
+  });
+
+  it('disables purchase while merchant entitlements are loading', () => {
+    mocks.isMerchantLoading = true;
+    mocks.isPro = false;
+    mocks.merchant = null;
+
+    render(<Paywall />);
+
+    const purchaseButton = screen.getByRole('button', {
+      name: /processing purchase/i,
+    });
+
+    expect(purchaseButton).toBeDisabled();
+    fireEvent.click(purchaseButton);
+
+    expect(mocks.purchasePackage).not.toHaveBeenCalled();
+    expect(mocks.openNativeManagement).not.toHaveBeenCalled();
   });
 
   it('keeps the purchase CTA for product-limit-only grants', () => {
