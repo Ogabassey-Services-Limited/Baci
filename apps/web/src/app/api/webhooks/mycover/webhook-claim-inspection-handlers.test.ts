@@ -16,6 +16,48 @@ describe('MyCover claim and inspection webhook handlers', () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
+  it('marks an approved pre-loss inspection completed and stores the claim link', async () => {
+    const calls: { update?: Record<string, unknown> } = {};
+    const chain = {
+      update: (payload: Record<string, unknown>) => {
+        calls.update = payload;
+        return chain;
+      },
+      eq: () => chain,
+      select: () => chain,
+      maybeSingle: () =>
+        Promise.resolve({ data: { id: 'pol-1' }, error: null }),
+    };
+    const supabase = { from: () => chain } as unknown as SupabaseClient;
+
+    await handleInspectionCompleted(supabase, {
+      meta: { category: 'preloss', policy_id: 'pol-1', is_approved: true },
+      sdk: { claim_link: 'https://mycover.ai/purchase?q=claim' },
+    });
+
+    expect(calls.update).toMatchObject({
+      inspection_status: 'completed',
+      claim_link: 'https://mycover.ai/purchase?q=claim',
+    });
+  });
+
+  it('rethrows a Supabase error from the inspection update', async () => {
+    const chain = {
+      update: () => chain,
+      eq: () => chain,
+      select: () => chain,
+      maybeSingle: () =>
+        Promise.resolve({ data: null, error: { message: 'db down' } }),
+    };
+    const supabase = { from: () => chain } as unknown as SupabaseClient;
+
+    await expect(
+      handleInspectionCompleted(supabase, {
+        meta: { category: 'preloss', policy_id: 'pol-1', is_approved: true },
+      })
+    ).rejects.toMatchObject({ message: 'db down' });
+  });
+
   it('ignores claim updates without an explicit policy identifier', async () => {
     const supabase = { from: vi.fn() } as unknown as SupabaseClient;
 

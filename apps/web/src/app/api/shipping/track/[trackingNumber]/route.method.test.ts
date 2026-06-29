@@ -371,9 +371,14 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       receiver_address: { city: 'Ikeja', state: 'Lagos' },
     });
+    // Shipment snapshot persists fine; the ORDER update is what RLS denies, so
+    // we exercise the order-update-denied branch (not the shipment one).
     mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'shipment write denied by RLS' },
+      data: { id: 'shipment-1' },
+      error: null,
+    });
+    mockOrderStatusEq.mockResolvedValueOnce({
+      error: { message: 'order write denied by RLS' },
     });
     mockTrackShipment.mockResolvedValue({
       actualDelivery: new Date('2026-05-12T15:00:00Z'),
@@ -391,6 +396,11 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       const response = await makePostRequest();
 
       expect(response.status).toBe(200);
+      // The order update was attempted, but its denial must fail closed: no
+      // delivered RPC fallback and no activation push.
+      expect(mockOrderStatusUpdate).toHaveBeenCalledWith({
+        shipping_status: 'delivered',
+      });
       expect(mockRpc).not.toHaveBeenCalled();
       expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {

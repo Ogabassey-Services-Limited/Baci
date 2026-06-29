@@ -332,6 +332,20 @@ describe('env validation', () => {
     expect(getMyCoverSecretKey()).toBe('mycover-api-secret');
   });
 
+  it('blocks MYCOVER_SECRET_KEY access on the client', async () => {
+    vi.stubEnv('MYCOVER_SECRET_KEY', 'mycover-api-secret');
+    const { getMyCoverSecretKey } = await loadEnvModule();
+
+    vi.stubGlobal('window', {});
+    try {
+      expect(() => getMyCoverSecretKey()).toThrow(
+        /cannot be accessed on the client/
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('allows overriding the terminal idempotency record window', async () => {
     vi.stubEnv('TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS', '3600000');
     const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();

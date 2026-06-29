@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryLog: [string, string, unknown][] = [];
@@ -14,6 +15,12 @@ vi.mock('@/lib/cached-data', () => ({
 vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mocks.createClient(...args),
 }));
+
+// The page renders the client policy component, which needs these.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ back: vi.fn(), refresh: vi.fn() }),
+}));
+vi.mock('@mycoverai/mca-javascript-sdk', () => ({ default: vi.fn() }));
 
 import InsurancePolicyPage from './page';
 
@@ -46,19 +53,16 @@ describe('InsurancePolicyPage', () => {
       params: Promise.resolve({ orderId: 'not-a-uuid', slug: 'ogabassey' }),
     });
 
+    // Short-circuits before touching tenant data...
     expect(mocks.createClient).not.toHaveBeenCalled();
     expect(mocks.getMerchantSafe).not.toHaveBeenCalled();
     expect(queryLog).toEqual([]);
-    expect(element).toEqual(
-      expect.objectContaining({
-        props: expect.objectContaining({
-          initialResult: {
-            error: 'No active insurance policy found for this order.',
-            policy: null,
-          },
-        }),
-      })
-    );
+    // ...and the customer sees the not-found state.
+    render(element);
+    expect(screen.getByText('Policy Not Found')).toBeInTheDocument();
+    expect(
+      screen.getByText('No active insurance policy found for this order.')
+    ).toBeInTheDocument();
   });
 
   it('scopes policy loading to the authenticated storefront customer order', async () => {
@@ -132,15 +136,11 @@ describe('InsurancePolicyPage', () => {
       'order_id',
       orderId,
     ]);
-    expect(element).toEqual(
-      expect.objectContaining({
-        props: expect.objectContaining({
-          initialResult: expect.objectContaining({
-            error: '',
-            policy: expect.objectContaining({ orderDelivered: true }),
-          }),
-        }),
-      })
-    );
+    // The scoped policy renders for the customer.
+    render(element);
+    expect(
+      screen.getByRole('heading', { name: 'Standard Insurance Policy' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('MC-2048')).toBeInTheDocument();
   });
 });

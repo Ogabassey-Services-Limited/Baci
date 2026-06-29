@@ -1,3 +1,4 @@
+import mycoverai from '@mycoverai/mca-javascript-sdk';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InsurancePolicyClient } from './insurance-policy-client';
@@ -47,6 +48,75 @@ describe('InsurancePolicyClient', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  // Legacy policies (or missed webhooks) carry no hosted claim_link, so the
+  // page falls back to the public-key SDK modal.
+  const sdkPolicy: Policy = {
+    ...basePolicy,
+    claimLink: null,
+    claimStatus: 'None',
+    inspectionLink: null,
+    inspectionStatus: 'completed',
+  };
+
+  it('falls back to the public-key SDK when no hosted claim link exists', () => {
+    vi.stubEnv('NEXT_PUBLIC_MYCOVER_PUBLIC_KEY', 'pk_test');
+
+    render(
+      <InsurancePolicyClient initialResult={{ policy: sdkPolicy, error: '' }} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /file a claim/i }));
+
+    expect(window.open).not.toHaveBeenCalled();
+    expect(vi.mocked(mycoverai)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'claim',
+        pk: 'pk_test',
+        pid: ['product-1'],
+      })
+    );
+  });
+
+  it('surfaces a configuration error when the SDK public key is missing', () => {
+    vi.stubEnv('NEXT_PUBLIC_MYCOVER_PUBLIC_KEY', '');
+
+    render(
+      <InsurancePolicyClient initialResult={{ policy: sdkPolicy, error: '' }} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /file a claim/i }));
+
+    expect(vi.mocked(mycoverai)).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Missing Configuration/i
+    );
+  });
+
+  it('surfaces a product configuration error when no product id is available', () => {
+    vi.stubEnv('NEXT_PUBLIC_MYCOVER_PUBLIC_KEY', 'pk_test');
+    vi.stubEnv('NEXT_PUBLIC_MYCOVER_GADGET_PRODUCT_ID', '');
+
+    render(
+      <InsurancePolicyClient
+        initialResult={{
+          error: '',
+          policy: {
+            ...sdkPolicy,
+            itemsInsured: { imei: '123456789012345', product_name: 'iPhone' },
+          },
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /file a claim/i }));
+
+    expect(vi.mocked(mycoverai)).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Missing Product Configuration/i
+    );
   });
 
   it('renders server-fetched policy data and opens the hosted claim flow', () => {

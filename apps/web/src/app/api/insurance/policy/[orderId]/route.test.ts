@@ -60,23 +60,41 @@ function mockDb({
       };
     }
     if (table === 'orders') {
+      // Enforce the ownership scope: the order row is only returned when the
+      // route filters by the requested orderId AND the caller's customer ids.
+      // A regression that drops either filter makes maybeSingle resolve null.
+      const expectedCustomerIds = customerRows.map((row) => row.id);
+      let scopedById = false;
+      let scopedByCustomer = false;
       return {
         select: () => ({
-          eq: () => ({
-            in: () => ({
-              maybeSingle: () =>
-                Promise.resolve({
-                  data:
-                    shippingStatus === null
-                      ? null
-                      : {
-                          customer_id: orderCustomerId,
-                          shipping_status: shippingStatus,
-                        },
-                  error: ordersError,
-                }),
-            }),
-          }),
+          eq: (column: string, value: unknown) => {
+            scopedById = column === 'id' && value === ORDER_ID;
+            return {
+              in: (column2: string, values: unknown) => {
+                scopedByCustomer =
+                  column2 === 'customer_id' &&
+                  Array.isArray(values) &&
+                  values.length === expectedCustomerIds.length &&
+                  expectedCustomerIds.every((id) => values.includes(id));
+                return {
+                  maybeSingle: () =>
+                    Promise.resolve({
+                      data:
+                        scopedById &&
+                        scopedByCustomer &&
+                        shippingStatus !== null
+                          ? {
+                              customer_id: orderCustomerId,
+                              shipping_status: shippingStatus,
+                            }
+                          : null,
+                      error: ordersError,
+                    }),
+                };
+              },
+            };
+          },
         }),
       };
     }
