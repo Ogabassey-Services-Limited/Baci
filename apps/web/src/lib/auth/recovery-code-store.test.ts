@@ -6,6 +6,7 @@ const { mockFrom, mockRpc } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({ from: mockFrom, rpc: mockRpc }),
   createClient: () => ({ from: mockFrom, rpc: mockRpc }),
 }));
 
@@ -41,7 +42,52 @@ describe('recovery-code-store (Supabase-backed)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+  it('createCodeSet creates a pending code set with the atomic RPC', async () => {
+    mockRpc.mockResolvedValueOnce({ data: 'new-code-set-uuid', error: null });
 
+    const codeSetId = await createRecoveryCodeStore().createCodeSet('user-1', [
+      'hash-a',
+      'hash-b',
+    ]);
+
+    expect(mockRpc).toHaveBeenCalledWith('create_recovery_code_set', {
+      p_user_id: 'user-1',
+      p_code_hashes: ['hash-a', 'hash-b'],
+    });
+    expect(codeSetId).toBe('new-code-set-uuid');
+  });
+  it('createCodeSet throws on RPC error (fail closed)', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
+    await expect(
+      createRecoveryCodeStore().createCodeSet('u', ['h'])
+    ).rejects.toThrow('Failed to create recovery code set');
+  });
+  it('acknowledgeCodeSet validates and activates a saved code set with the atomic RPC', async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+
+    await expect(
+      createRecoveryCodeStore().acknowledgeCodeSet('user-1', 'set-1')
+    ).resolves.toBe(true);
+
+    expect(mockRpc).toHaveBeenCalledWith('acknowledge_recovery_code_set', {
+      p_user_id: 'user-1',
+      p_code_set_id: 'set-1',
+    });
+  });
+  it('acknowledgeCodeSet returns false for stale or random code sets', async () => {
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+
+    await expect(
+      createRecoveryCodeStore().acknowledgeCodeSet('user-1', 'stale-set')
+    ).resolves.toBe(false);
+  });
+  it('acknowledgeCodeSet throws on RPC error (fail closed)', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
+
+    await expect(
+      createRecoveryCodeStore().acknowledgeCodeSet('user-1', 'set-1')
+    ).rejects.toThrow('Failed to acknowledge recovery codes');
+  });
   it('getActiveCodeSetId returns the acknowledged code set', async () => {
     const readinessBuilder = queryReturning({
       data: { acknowledged_code_set_id: 'set-1' },
@@ -56,7 +102,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
     expect(mockFrom).toHaveBeenCalledWith('merchant_auth_readiness');
     expect(readinessBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
   });
-
   it('getActiveCodeSetId returns null when no set is acknowledged', async () => {
     mockFrom.mockReturnValueOnce(
       queryReturning({ data: { acknowledged_code_set_id: null }, error: null })
@@ -66,7 +111,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       createRecoveryCodeStore().getActiveCodeSetId('u')
     ).resolves.toBeNull();
   });
-
   it('getActiveCodeSetId throws on a readiness query error (fail closed)', async () => {
     mockFrom.mockReturnValueOnce(
       queryReturning({ data: null, error: { message: 'boom' } })
@@ -75,7 +119,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       createRecoveryCodeStore().getActiveCodeSetId('u')
     ).rejects.toThrow('Failed to load recovery readiness');
   });
-
   it('listActiveCodes returns unused, non-revoked codes mapped to records', async () => {
     const codesBuilder = queryReturning({
       data: [
@@ -101,7 +144,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       { id: 'c2', codeHash: 'h2' },
     ]);
   });
-
   it('listActiveCodes throws on a codes query error (fail closed)', async () => {
     mockFrom.mockReturnValueOnce(
       queryReturning({ data: null, error: { message: 'boom' } })
@@ -110,60 +152,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       createRecoveryCodeStore().listActiveCodes('u', 'set-1')
     ).rejects.toThrow('Failed to load recovery codes');
   });
-
-  it('claimCode returns true after atomically claiming and logging an unused code', async () => {
-    mockRpc.mockResolvedValueOnce({ data: true, error: null });
-
-    const claimed = await createRecoveryCodeStore().claimCode({
-      userId: 'user-1',
-      codeSetId: 'set-1',
-      codeId: 'c1',
-      ipHash: 'ip',
-      attemptId: 'attempt-1',
-      replacementCodeHash: 'replacement-hash',
-    });
-
-    expect(claimed).toBe(true);
-    expect(mockRpc).toHaveBeenCalledWith('claim_merchant_auth_recovery_code', {
-      p_attempt_id: 'attempt-1',
-      p_code_id: 'c1',
-      p_code_set_id: 'set-1',
-      p_ip_hash: 'ip',
-      p_replacement_code_hash: 'replacement-hash',
-      p_user_id: 'user-1',
-    });
-  });
-
-  it('claimCode throws on query error (fail closed)', async () => {
-    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
-
-    await expect(
-      createRecoveryCodeStore().claimCode({
-        userId: 'user-1',
-        codeSetId: 'set-1',
-        codeId: 'c1',
-        ipHash: 'ip',
-        attemptId: 'attempt-1',
-        replacementCodeHash: 'replacement-hash',
-      })
-    ).rejects.toThrow('Failed to consume recovery code');
-  });
-
-  it('claimCode returns false when no unused row was claimed', async () => {
-    mockRpc.mockResolvedValueOnce({ data: false, error: null });
-
-    await expect(
-      createRecoveryCodeStore().claimCode({
-        userId: 'user-1',
-        codeSetId: 'set-1',
-        codeId: 'c1',
-        ipHash: 'ip',
-        attemptId: 'attempt-1',
-        replacementCodeHash: 'replacement-hash',
-      })
-    ).resolves.toBe(false);
-  });
-
   it('beginAttempt returns the reserved attempt id when below lockout threshold', async () => {
     mockRpc.mockResolvedValueOnce({ data: 'attempt-1', error: null });
 
@@ -187,7 +175,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       }
     );
   });
-
   it('beginAttempt returns null when the tuple is already locked', async () => {
     mockRpc.mockResolvedValueOnce({ data: null, error: null });
 
@@ -200,7 +187,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       })
     ).resolves.toBeNull();
   });
-
   it('beginAttempt throws on RPC error (fail closed)', async () => {
     mockRpc.mockResolvedValueOnce({
       data: null,
@@ -216,7 +202,56 @@ describe('recovery-code-store (Supabase-backed)', () => {
       })
     ).rejects.toThrow('Failed to begin recovery attempt');
   });
+  it('claimCode returns true after atomically claiming and logging an unused code', async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
 
+    const claimed = await createRecoveryCodeStore().claimCode({
+      userId: 'user-1',
+      codeSetId: 'set-1',
+      codeId: 'c1',
+      ipHash: 'ip',
+      attemptId: 'attempt-1',
+      replacementCodeHash: 'replacement-hash',
+    });
+
+    expect(claimed).toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith('claim_merchant_auth_recovery_code', {
+      p_attempt_id: 'attempt-1',
+      p_code_id: 'c1',
+      p_code_set_id: 'set-1',
+      p_ip_hash: 'ip',
+      p_replacement_code_hash: 'replacement-hash',
+      p_user_id: 'user-1',
+    });
+  });
+  it('claimCode throws on query error (fail closed)', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
+
+    await expect(
+      createRecoveryCodeStore().claimCode({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        codeId: 'c1',
+        ipHash: 'ip',
+        attemptId: 'attempt-1',
+        replacementCodeHash: 'replacement-hash',
+      })
+    ).rejects.toThrow('Failed to consume recovery code');
+  });
+  it('claimCode returns false when no unused row was claimed', async () => {
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+
+    await expect(
+      createRecoveryCodeStore().claimCode({
+        userId: 'user-1',
+        codeSetId: 'set-1',
+        codeId: 'c1',
+        ipHash: 'ip',
+        attemptId: 'attempt-1',
+        replacementCodeHash: 'replacement-hash',
+      })
+    ).resolves.toBe(false);
+  });
   it('recordAttempt inserts an attempt row', async () => {
     const builder = queryReturning({ data: null, error: null });
     mockFrom.mockReturnValueOnce(builder);
@@ -238,7 +273,6 @@ describe('recovery-code-store (Supabase-backed)', () => {
       })
     );
   });
-
   it('recordAttempt throws on error', async () => {
     mockFrom.mockReturnValueOnce(
       queryReturning({ data: null, error: { message: 'x' } })

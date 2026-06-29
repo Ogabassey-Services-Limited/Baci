@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
+import type { RecoveryCodeIssuerStore } from './recovery-code-issuance';
 import type {
   RecoveryAttempt,
   RecoveryAttemptReservation,
@@ -8,12 +9,15 @@ import type {
   RecoveryCodeRecord,
   RecoveryCodeStore,
 } from './recovery-code-redemption';
+import type { RecoveryReadinessStore } from './recovery-readiness';
 
 const RECOVERY_CODES_TABLE = 'merchant_auth_recovery_codes';
 const RECOVERY_ATTEMPTS_TABLE = 'merchant_auth_recovery_attempts';
 const RECOVERY_READINESS_TABLE = 'merchant_auth_readiness';
 const BEGIN_RECOVERY_ATTEMPT_RPC = 'begin_merchant_auth_recovery_attempt';
 const CLAIM_RECOVERY_CODE_RPC = 'claim_merchant_auth_recovery_code';
+const CREATE_RECOVERY_CODE_SET_RPC = 'create_recovery_code_set';
+const ACKNOWLEDGE_RECOVERY_CODE_SET_RPC = 'acknowledge_recovery_code_set';
 
 /** Failed recovery attempts within this window count toward lockout. */
 export const RECOVERY_FAILURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -24,10 +28,49 @@ export const RECOVERY_FAILURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
  * method fails closed (throws) on a query error so the caller can deny recovery
  * rather than silently proceeding.
  */
-export function createRecoveryCodeStore(): RecoveryCodeStore {
+export function createRecoveryCodeStore(): RecoveryCodeStore &
+  RecoveryCodeIssuerStore &
+  RecoveryReadinessStore {
   const supabase = createAdminClient();
 
   return {
+    async createCodeSet(userId: string, codeHashes: string[]): Promise<string> {
+      // Creates a pending set only. The acknowledged set remains active until
+      // the merchant confirms the new codes were saved.
+      const { data, error } = await supabase.rpc(CREATE_RECOVERY_CODE_SET_RPC, {
+        p_code_hashes: codeHashes,
+        p_user_id: userId,
+      });
+      if (error) {
+        throw new Error(`Failed to create recovery code set: ${error.message}`);
+      }
+      // Fail closed: a null/non-string RPC response must not be reported as a
+      // successful generation (the action only treats throws as failure).
+      if (typeof data !== 'string' || data.length === 0) {
+        throw new Error('Failed to create recovery code set: invalid response');
+      }
+      return data;
+    },
+
+    async acknowledgeCodeSet(
+      userId: string,
+      codeSetId: string
+    ): Promise<boolean> {
+      const { data, error } = await supabase.rpc(
+        ACKNOWLEDGE_RECOVERY_CODE_SET_RPC,
+        {
+          p_code_set_id: codeSetId,
+          p_user_id: userId,
+        }
+      );
+      if (error) {
+        throw new Error(
+          `Failed to acknowledge recovery codes: ${error.message}`
+        );
+      }
+      return data === true;
+    },
+
     async getActiveCodeSetId(userId: string): Promise<string | null> {
       const { data: readiness, error: readinessError } = await supabase
         .from(RECOVERY_READINESS_TABLE)
