@@ -209,6 +209,58 @@ describe('blog author page metadata', () => {
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
+  it('permanently redirects legacy author-prefixed URLs before streaming dynamic tenant shells', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
+    mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({
+      type: 'redirect',
+      status: 308,
+      url: 'https://dynamic-store.usebaci.com/blog/legacy-post',
+    });
+
+    await expect(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'dynamic-store',
+          authorSlug: 'legacy-post',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://dynamic-store.usebaci.com/blog/legacy-post'
+    );
+
+    expect(mockResolveBlogCatchAllOutcome).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://dynamic-store.usebaci.com/blog/legacy-post'
+    );
+    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+  });
+
+  it('returns notFound for unknown dynamic author routes before streaming the shell', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
+    mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({ type: 'notFound' });
+
+    await expect(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'dynamic-store',
+          authorSlug: 'nobody',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockResolveBlogCatchAllOutcome).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
+    expect(mockNotFound).toHaveBeenCalled();
+    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+  });
+
   it('does not resolve author search params before rendering the route shell', async () => {
     const thenSpy = vi.fn(() => {
       throw new Error('author search params resolved before content render');

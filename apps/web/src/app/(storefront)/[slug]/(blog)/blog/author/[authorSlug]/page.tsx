@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -106,6 +109,36 @@ function isStaticAuthorTenant(slug: string): boolean {
   );
 }
 
+async function assertNonStaticAuthorRouteBeforeShell({
+  slug,
+  authorSlug,
+}: {
+  slug: string;
+  authorSlug: string;
+}): Promise<void> {
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
+  if (profile) {
+    return;
+  }
+
+  const fallbackOutcome = await resolveBlogCatchAllOutcome({
+    params: Promise.resolve({
+      slug,
+      catchAll: ['author', normalizedAuthorSlug],
+    }),
+  });
+
+  if (fallbackOutcome.type === 'redirect') {
+    if (fallbackOutcome.status === 308) {
+      permanentRedirect(asRoute(fallbackOutcome.url));
+    }
+    redirect(asRoute(fallbackOutcome.url));
+  }
+
+  notFound();
+}
+
 export default async function BlogAuthorPage({
   params,
   searchParams,
@@ -121,6 +154,8 @@ export default async function BlogAuthorPage({
   if (isStaticAuthorTenant(resolvedParams.slug)) {
     return content;
   }
+
+  await assertNonStaticAuthorRouteBeforeShell(resolvedParams);
 
   return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }
