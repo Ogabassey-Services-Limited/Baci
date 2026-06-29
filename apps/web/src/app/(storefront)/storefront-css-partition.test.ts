@@ -151,6 +151,10 @@ describe('storefront CSS partitioning', () => {
     expect(normalizedDarkModeCss).toContain(
       '.storefront-variant-ogabassey.storefront-mode-system, .storefront-variant-ogabassey.storefront-mode-system .ogabassey-storefront-shell'
     );
+    expect(darkModeCss).toContain('--background: 0 0% 100% !important;');
+    expect(darkModeCss).toContain('--foreground: 240 10% 3.9% !important;');
+    expect(darkModeCss).toContain('--card: 0 0% 100% !important;');
+    expect(darkModeCss).toContain('--primary: 239 45% 30% !important;');
     expect(darkModeCss).toContain('--background: 0 0% 4% !important;');
     expect(darkModeCss).toContain('--primary: 357 72% 48% !important;');
     expect(darkModeCss).toContain('--accent: 0 91% 71% !important;');
@@ -191,6 +195,9 @@ describe('storefront CSS partitioning', () => {
     expect(normalizedDarkModeCss).toContain('.border-blue-200');
     expect(normalizedDarkModeCss).toContain(':is(.text-blue-600');
     expect(normalizedDarkModeCss).toContain('.text-store-primary');
+    expect(normalizedDarkModeCss).toContain('.text-primary');
+    expect(normalizedDarkModeCss).toContain('.text-primary\\/60');
+    expect(normalizedDarkModeCss).toContain('.fill-primary');
     expect(normalizedDarkModeCss).toContain('.text-amber-500');
     expect(normalizedDarkModeCss).toContain('.text-orange-500');
     expect(normalizedDarkModeCss).toContain('.fill-amber-500');
@@ -228,6 +235,22 @@ describe('storefront CSS partitioning', () => {
       '.text-indigo-700',
       '.text-yellow-700',
     ];
+    const darkPrimaryForegroundUtilities = [
+      '.text-primary',
+      '.text-primary\\/60',
+      '.text-primary\\/80',
+      '.text-primary\\/90',
+      '.hover\\:text-primary:hover',
+      '.hover\\:text-primary\\/80:hover',
+      '.focus\\:text-primary:focus',
+      '.group:hover .group-hover\\:text-primary',
+    ];
+    const darkPrimaryFillUtilities = [
+      '.fill-primary',
+      '.hover\\:fill-primary:hover',
+      '.focus\\:fill-primary:focus',
+      '.group:hover .group-hover\\:fill-primary',
+    ];
     const scopedPanelClasses = [
       'ogabassey-storefront-shell',
       'ogabassey-checkout-page',
@@ -240,6 +263,8 @@ describe('storefront CSS partitioning', () => {
       /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-category-hub-card__link[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
     const categoryHubDarkEyebrow =
       /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-category-hub-card-grid__eyebrow[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
+    const emptyCartDarkAccent =
+      /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-cart-empty-state__eyebrow[\s\S]*\.ogabassey-cart-empty-state__secondary-action:hover[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
     const scopedUtilityRule = (
       scopeClass: string,
       utility: string,
@@ -271,12 +296,33 @@ describe('storefront CSS partitioning', () => {
           scopedUtilityRule(scopeClass, utility, `color:\\s*${color};`)
         );
       }
+
+      for (const utility of darkPrimaryForegroundUtilities) {
+        expect(utilityCss).toMatch(
+          scopedUtilityRule(
+            scopeClass,
+            utility,
+            'color:\\s*var\\(--storefront-dark-accent\\);'
+          )
+        );
+      }
+
+      for (const utility of darkPrimaryFillUtilities) {
+        expect(utilityCss).toMatch(
+          scopedUtilityRule(
+            scopeClass,
+            utility,
+            'fill:\\s*var\\(--storefront-dark-accent\\);'
+          )
+        );
+      }
     }
 
     expect(coreCss).toMatch(categoryHubLightLink);
     expect(coreCss).toMatch(categoryHubLightEyebrow);
     expect(coreCss).toMatch(categoryHubDarkAccent);
     expect(coreCss).toMatch(categoryHubDarkEyebrow);
+    expect(coreCss).toMatch(emptyCartDarkAccent);
   });
 
   it('loads OgaBassey below-fold PDP styles through the deferred PDP stylesheet', () => {

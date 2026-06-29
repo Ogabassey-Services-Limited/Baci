@@ -78,7 +78,15 @@
         .text-store-primary,
         .hover\:text-store-primary:hover,
         .focus\:text-store-primary:focus,
-        .group:hover .group-hover\:text-store-primary
+        .group:hover .group-hover\:text-store-primary,
+        .text-primary,
+        .text-primary\/60,
+        .text-primary\/80,
+        .text-primary\/90,
+        .hover\:text-primary:hover,
+        .hover\:text-primary\/80:hover,
+        .focus\:text-primary:focus,
+        .group:hover .group-hover\:text-primary
       ) {
       color: var(--storefront-dark-accent);
     }
@@ -166,7 +174,11 @@
         .fill-amber-400,
         .fill-amber-500,
         .fill-orange-400,
-        .fill-orange-500
+        .fill-orange-500,
+        .fill-primary,
+        .hover\:fill-primary:hover,
+        .focus\:fill-primary:focus,
+        .group:hover .group-hover\:fill-primary
       ) {
       fill: var(--storefront-dark-accent);
     }
@@ -348,7 +360,11 @@
         .fill-amber-400,
         .fill-amber-500,
         .fill-orange-400,
-        .fill-orange-500
+        .fill-orange-500,
+        .fill-primary,
+        .hover\:fill-primary:hover,
+        .focus\:fill-primary:focus,
+        .group:hover .group-hover\:fill-primary
       ) {
       fill: var(--storefront-dark-accent);
     }
@@ -365,7 +381,15 @@
         .text-store-primary,
         .hover\:text-store-primary:hover,
         .focus\:text-store-primary:focus,
-        .group:hover .group-hover\:text-store-primary
+        .group:hover .group-hover\:text-store-primary,
+        .text-primary,
+        .text-primary\/60,
+        .text-primary\/80,
+        .text-primary\/90,
+        .hover\:text-primary:hover,
+        .hover\:text-primary\/80:hover,
+        .focus\:text-primary:focus,
+        .group:hover .group-hover\:text-primary
       ) {
       color: var(--storefront-dark-accent);
     }

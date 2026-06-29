@@ -341,7 +341,9 @@
     .storefront-variant-ogabassey.storefront-mode-system
       :is(
         .ogabassey-category-hub-card__link,
-        .ogabassey-category-hub-card-grid__eyebrow
+        .ogabassey-category-hub-card-grid__eyebrow,
+        .ogabassey-cart-empty-state__eyebrow,
+        .ogabassey-cart-empty-state__secondary-action:hover
       ) {
       color: var(--storefront-dark-accent, var(--store-primary, #d62027));
     }

@@ -24,6 +24,25 @@
 
   .storefront-variant-ogabassey.storefront-mode-system {
     color-scheme: light dark;
+    --background: 0 0% 100% !important;
+    --foreground: 240 10% 3.9% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 240 10% 3.9% !important;
+    --popover: 0 0% 100% !important;
+    --popover-foreground: 240 10% 3.9% !important;
+    --primary: 239 45% 30% !important;
+    --primary-foreground: 0 0% 98% !important;
+    --secondary: 38 92% 55% !important;
+    --secondary-foreground: 0 0% 0% !important;
+    --muted: 240 4.8% 95.9% !important;
+    --muted-foreground: 240 3.8% 40% !important;
+    --accent: 38 92% 55% !important;
+    --accent-foreground: 0 0% 0% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 0 0% 98% !important;
+    --border: 240 5.9% 90% !important;
+    --input: 240 5.9% 90% !important;
+    --ring: 239 45% 30% !important;
   }
 
   @media (prefers-color-scheme: dark) {
