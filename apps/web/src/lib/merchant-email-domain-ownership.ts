@@ -47,7 +47,7 @@ export async function assertMerchantOwnsVerifiedStorefrontDomain(
   // reserve a sender domain they haven't actually verified.
   const { data, error } = await supabase
     .from('domains')
-    .select('id, domain')
+    .select('id, domain, domain_type')
     .eq('merchant_id', merchantId)
     .eq('domain', domain.toLowerCase())
     .eq('status', 'active')
@@ -55,15 +55,22 @@ export async function assertMerchantOwnsVerifiedStorefrontDomain(
   if (error) {
     throw new Error(`Failed to load storefront domain: ${error.message}`);
   }
-  if (!Array.isArray(data) || data.length === 0) {
+  const rows = (data ?? []) as StorefrontDomainOwnershipRow[];
+  if (rows.length === 0) {
     throw new Error(
       'Domain must be an active verified storefront domain before email sending can be configured'
     );
   }
 
-  const verifiedDomain = await firstVerifiedVercelDomain(
-    data as StorefrontDomainOwnershipRow[]
-  );
+  // Baci-purchased domains are registrar-backed by us: an active 'purchased'
+  // row is itself proof of ownership, and they are NOT added to the Vercel
+  // project, so Vercel verification would always fail for them. Only BYOD
+  // ('custom') domains need live Vercel verification.
+  if (rows.some((row) => row.domain_type === 'purchased')) {
+    return;
+  }
+
+  const verifiedDomain = await firstVerifiedVercelDomain(rows);
   if (!verifiedDomain) {
     throw new Error(
       'Domain must be an active verified storefront domain before email sending can be configured'

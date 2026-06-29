@@ -69,4 +69,29 @@ describe('EmailDomainRegistrationForm', () => {
 
     expect(screen.getByRole('button', { name: 'Add domain' })).toBeDisabled();
   });
+
+  it('renders a Cancel action only when onCancel is provided', () => {
+    const { rerender } = render(
+      <EmailDomainRegistrationForm
+        colors={colors}
+        onSubmit={vi.fn()}
+        pending={false}
+      />
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Cancel' })
+    ).not.toBeInTheDocument();
+
+    const onCancel = vi.fn();
+    rerender(
+      <EmailDomainRegistrationForm
+        colors={colors}
+        onSubmit={vi.fn()}
+        pending={false}
+        onCancel={onCancel}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
 });

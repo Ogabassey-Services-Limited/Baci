@@ -39,6 +39,7 @@ describe('EmailDomainConfiguredView', () => {
         verifying={false}
         onToggle={vi.fn()}
         toggling={false}
+        onReplace={vi.fn()}
       />
     );
 
@@ -62,6 +63,7 @@ describe('EmailDomainConfiguredView', () => {
         verifying={true}
         onToggle={vi.fn()}
         toggling={false}
+        onReplace={vi.fn()}
       />
     );
 
@@ -87,6 +89,7 @@ describe('EmailDomainConfiguredView', () => {
         verifying={false}
         onToggle={vi.fn()}
         toggling={false}
+        onReplace={vi.fn()}
       />
     );
 
@@ -95,5 +98,57 @@ describe('EmailDomainConfiguredView', () => {
 
     expect(onCopy).toHaveBeenNthCalledWith(1, 'h');
     expect(onCopy).toHaveBeenNthCalledWith(2, 'v');
+  });
+
+  it('lets the merchant replace a pending or failed domain', () => {
+    const onReplace = vi.fn();
+    render(
+      <EmailDomainConfiguredView
+        colors={colors}
+        config={{
+          domain: 'mystore.com',
+          senderLocalPart: 'noreply',
+          status: 'failed',
+          enabled: false,
+          records: [],
+        }}
+        onCopy={vi.fn()}
+        onVerify={vi.fn()}
+        verifying={false}
+        onToggle={vi.fn()}
+        toggling={false}
+        onReplace={onReplace}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use a different domain' })
+    );
+    expect(onReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the replace action once the domain is verified', () => {
+    render(
+      <EmailDomainConfiguredView
+        colors={colors}
+        config={{
+          domain: 'mystore.com',
+          senderLocalPart: 'noreply',
+          status: 'verified',
+          enabled: true,
+          records: [],
+        }}
+        onCopy={vi.fn()}
+        onVerify={vi.fn()}
+        verifying={false}
+        onToggle={vi.fn()}
+        toggling={false}
+        onReplace={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Use a different domain' })
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { z } from 'zod';
 import type { EmailDomainColors } from './email-domain-settings.styles';
 import { makeEmailDomainSettingsStyles } from './email-domain-settings.styles';
 
@@ -45,12 +45,15 @@ interface EmailDomainRegistrationFormProps {
   colors: EmailDomainColors;
   onSubmit: (domain: string) => void;
   pending: boolean;
+  /** When set, renders a Cancel action (used when replacing an existing domain). */
+  onCancel?: () => void;
 }
 
 export function EmailDomainRegistrationForm({
   colors,
   onSubmit,
   pending,
+  onCancel,
 }: EmailDomainRegistrationFormProps) {
   const styles = makeEmailDomainSettingsStyles(colors);
   const form = useForm<RegistrationValues>({
@@ -103,6 +106,17 @@ export function EmailDomainRegistrationForm({
           <Text style={styles.primaryButtonText}>Add domain</Text>
         )}
       </Pressable>
+      {onCancel ? (
+        <Pressable
+          style={styles.secondaryButton}
+          disabled={pending}
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+        >
+          <Text style={styles.secondaryButtonText}>Cancel</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

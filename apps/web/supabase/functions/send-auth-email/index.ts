@@ -59,7 +59,7 @@ interface EmailPayload {
 // ⚠️ Keep MERCHANT_BRANDING_COLUMNS and MerchantBrandingRow in sync — a Deno
 // edge fn gets no typed Supabase inference, so a mismatch surfaces only at runtime.
 const MERCHANT_BRANDING_COLUMNS =
-  'id, business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email, plan_tier';
+  'id, business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email, plan_tier, plan_expires_at, premium_features';
 
 interface MerchantBrandingRow {
   id: string;
@@ -70,20 +70,62 @@ interface MerchantBrandingRow {
   email_sender_name: string | null;
   logo_url: string | null;
   plan_tier: string | null;
+  plan_expires_at: string | null;
+  premium_features: unknown;
   slug: string | null;
   support_email: string | null;
+}
+
+const CUSTOM_EMAIL_DOMAIN_PLAN_TIERS = new Set([
+  'pro',
+  'business',
+  'enterprise',
+]);
+
+function normalizePremiumFeatures(value: unknown): Set<string> {
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+  return new Set(
+    value
+      .filter((feature): feature is string => typeof feature === 'string')
+      .map((feature) => feature.trim().toLowerCase())
+      .filter(Boolean)
+  );
 }
 
 /**
  * The merchant's verified + enabled custom sending address (e.g.
  * "noreply@ogabassey.com"), or null to fall back to the platform sender.
  * Aligning the From-domain with the brand/links materially improves inbox
- * placement; see merchant_email_domains migration.
+ * placement; see merchant_email_domains migration. Mirrors the web
+ * hasCustomEmailDomainEntitlement: premium_features grant wins, else plan tier
+ * must include the feature AND the paid plan must not be expired.
  */
-function hasCustomEmailDomainEntitlement(planTier: string | null): boolean {
-  return (
-    planTier === 'pro' || planTier === 'business' || planTier === 'enterprise'
-  );
+function hasCustomEmailDomainEntitlement(
+  merchant: Pick<
+    MerchantBrandingRow,
+    'plan_tier' | 'plan_expires_at' | 'premium_features'
+  >,
+  now = new Date()
+): boolean {
+  const features = normalizePremiumFeatures(merchant.premium_features);
+  if (features.has('all_features') || features.has('custom_email_domain')) {
+    return true;
+  }
+  if (
+    !(
+      merchant.plan_tier &&
+      CUSTOM_EMAIL_DOMAIN_PLAN_TIERS.has(merchant.plan_tier)
+    )
+  ) {
+    return false;
+  }
+  if (!merchant.plan_expires_at) {
+    return true;
+  }
+  const expiryTime = Date.parse(merchant.plan_expires_at);
+  return Number.isFinite(expiryTime) && expiryTime > now.getTime();
 }
 
 async function merchantStillOwnsSendingDomain(
@@ -160,10 +202,13 @@ async function recipientIsMerchantCustomer(
 
 async function fetchMerchantSendingAddress(
   supabase: ReturnType<typeof createClient>,
-  merchant: Pick<MerchantBrandingRow, 'id' | 'plan_tier'>,
+  merchant: Pick<
+    MerchantBrandingRow,
+    'id' | 'plan_tier' | 'plan_expires_at' | 'premium_features'
+  >,
   recipientUserId: string | null
 ): Promise<string | null> {
-  if (!hasCustomEmailDomainEntitlement(merchant.plan_tier)) {
+  if (!hasCustomEmailDomainEntitlement(merchant)) {
     return null;
   }
 

@@ -85,26 +85,36 @@ describe('resolveMerchantForEmailDomain', () => {
       staffAccess: { isOwner: true },
     });
     const result = await resolveMerchantForEmailDomain(
-      supabaseStub({ id: 'u1' }, { plan_tier: 'pro', slug: 'mystore' })
+      supabaseStub(
+        { id: 'u1' },
+        {
+          plan_tier: 'pro',
+          slug: 'mystore',
+          plan_expires_at: null,
+          premium_features: null,
+        }
+      )
     );
     expect(result).toEqual({
       merchantId: 'm1',
       planTier: 'pro',
       slug: 'mystore',
+      planExpiresAt: null,
+      premiumFeatures: null,
     });
   });
 });
 
 describe('emailDomainGate', () => {
+  const base = { merchantId: 'm1', planExpiresAt: null, premiumFeatures: null };
+
   it('returns null for an entitled (pro) plan', () => {
-    expect(
-      emailDomainGate({ merchantId: 'm1', planTier: 'pro', slug: 's' })
-    ).toBeNull();
+    expect(emailDomainGate({ ...base, planTier: 'pro', slug: 's' })).toBeNull();
   });
 
   it('returns 403 when plan tier is absent even for legacy negotiation slugs', () => {
     const res = emailDomainGate({
-      merchantId: 'm1',
+      ...base,
       planTier: null,
       slug: 'ogabassey',
     });
@@ -113,10 +123,32 @@ describe('emailDomainGate', () => {
 
   it('returns 403 for a free plan', () => {
     const res = emailDomainGate({
-      merchantId: 'm1',
+      ...base,
       planTier: 'free',
       slug: 's',
     });
     expect(res?.status).toBe(403);
+  });
+
+  it('returns 403 for a paid plan whose subscription has expired', () => {
+    const res = emailDomainGate({
+      ...base,
+      planTier: 'pro',
+      slug: 's',
+      planExpiresAt: new Date('2000-01-01T00:00:00Z').toISOString(),
+    });
+    expect(res?.status).toBe(403);
+  });
+
+  it('returns null when an explicit premium grant overrides an expired plan', () => {
+    expect(
+      emailDomainGate({
+        ...base,
+        planTier: 'pro',
+        slug: 's',
+        planExpiresAt: new Date('2000-01-01T00:00:00Z').toISOString(),
+        premiumFeatures: ['custom_email_domain'],
+      })
+    ).toBeNull();
   });
 });

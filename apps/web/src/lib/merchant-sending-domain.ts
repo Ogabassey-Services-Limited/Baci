@@ -1,6 +1,9 @@
 import 'server-only';
 
-import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
+import {
+  type CustomEmailDomainEntitlementSource,
+  hasCustomEmailDomainEntitlement,
+} from '@/lib/feature-flags';
 import { createClient as createAdminClient } from '@/lib/supabase/admin';
 
 const TABLE = 'merchant_email_domains';
@@ -8,17 +11,19 @@ const TABLE = 'merchant_email_domains';
 interface SendingDomainRow {
   domain: string | null;
   merchants:
-    | { plan_tier: string | null }
-    | { plan_tier: string | null }[]
+    | CustomEmailDomainEntitlementSource
+    | CustomEmailDomainEntitlementSource[]
     | null;
 }
 
-function planTierOf(row: SendingDomainRow): string | null {
+function merchantEntitlementOf(
+  row: SendingDomainRow
+): CustomEmailDomainEntitlementSource | null {
   const rel = row.merchants;
   if (Array.isArray(rel)) {
-    return rel[0]?.plan_tier ?? null;
+    return rel[0] ?? null;
   }
-  return rel?.plan_tier ?? null;
+  return rel ?? null;
 }
 
 async function merchantStillOwnsActiveStorefrontDomain(
@@ -72,7 +77,9 @@ export async function getActiveMerchantSendingDomain(
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from(TABLE)
-      .select('domain, merchants!inner(plan_tier)')
+      .select(
+        'domain, merchants!inner(plan_tier, plan_expires_at, premium_features)'
+      )
       .eq('merchant_id', merchantId)
       .eq('status', 'verified')
       .eq('enabled', true)
@@ -82,11 +89,9 @@ export async function getActiveMerchantSendingDomain(
       return null;
     }
 
-    const planTier = planTierOf(data);
-    if (
-      !isPlanTier(planTier) ||
-      !planHasFeature(planTier, FEATURES.CUSTOM_EMAIL_DOMAIN)
-    ) {
+    // Honor plan expiry/premium grants, not just plan_tier — an expired paid
+    // merchant must stop sending from the custom domain.
+    if (!hasCustomEmailDomainEntitlement(merchantEntitlementOf(data))) {
       return null;
     }
 

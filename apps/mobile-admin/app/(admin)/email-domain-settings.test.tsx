@@ -206,6 +206,53 @@ describe('EmailDomainSettingsScreen', () => {
     expect(screen.getByText(/Check that the DKIM TXT/)).toBeInTheDocument();
   });
 
+  it('lets a merchant swap a pending domain for a different one', async () => {
+    mocks.config = {
+      domain: 'wrong.com',
+      senderLocalPart: 'noreply',
+      status: 'pending',
+      enabled: false,
+      records: [],
+    };
+    render(<EmailDomainSettingsScreen />);
+
+    // Switch from the configured view back to the registration form.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use a different domain' })
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('yourstore.com'), {
+      target: { value: 'right.com' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add domain'));
+    });
+
+    await expect.poll(() => mocks.register).toHaveBeenCalledWith('right.com');
+  });
+
+  it('cancels a replace and returns to the configured view', () => {
+    mocks.config = {
+      domain: 'wrong.com',
+      senderLocalPart: 'noreply',
+      status: 'failed',
+      enabled: false,
+      records: [],
+    };
+    render(<EmailDomainSettingsScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use a different domain' })
+    );
+    expect(screen.getByPlaceholderText('yourstore.com')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(
+      screen.queryByPlaceholderText('yourstore.com')
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Verification failed')).toBeInTheDocument();
+  });
+
   it('toggles sending once the domain is verified', () => {
     mocks.config = {
       domain: 'mystore.com',

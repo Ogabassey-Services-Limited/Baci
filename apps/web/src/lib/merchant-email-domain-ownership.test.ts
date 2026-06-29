@@ -32,9 +32,26 @@ describe('assertMerchantOwnsVerifiedStorefrontDomain', () => {
     vi.clearAllMocks();
   });
 
-  it('passes for an exact active domain that verifies on Vercel', async () => {
+  it('accepts a Baci-purchased domain without Vercel verification', async () => {
+    const { supabase } = stubDomains({
+      data: [{ id: 'd1', domain: 'ogabassey.com', domain_type: 'purchased' }],
+      error: null,
+    });
+
+    await expect(
+      assertMerchantOwnsVerifiedStorefrontDomain(
+        supabase,
+        'm1',
+        'ogabassey.com'
+      )
+    ).resolves.toBeUndefined();
+    // Purchased domains are registrar-backed and not in Vercel — must not gate.
+    expect(mockVerifyDomain).not.toHaveBeenCalled();
+  });
+
+  it('passes for an exact active custom domain that verifies on Vercel', async () => {
     const { supabase, eqCalls } = stubDomains({
-      data: [{ id: 'd1', domain: 'ogabassey.com' }],
+      data: [{ id: 'd1', domain: 'ogabassey.com', domain_type: 'custom' }],
       error: null,
     });
     mockVerifyDomain.mockResolvedValue({ verified: true, verification: [] });

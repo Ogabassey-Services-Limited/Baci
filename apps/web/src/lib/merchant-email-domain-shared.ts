@@ -50,6 +50,7 @@ export interface DomainOwnerRow {
 export interface StorefrontDomainOwnershipRow {
   id: string;
   domain: string;
+  domain_type: 'custom' | 'purchased' | string;
 }
 
 export function rowToDomain(row: Row): MerchantEmailDomain {

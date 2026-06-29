@@ -8,6 +8,8 @@ export type ResolvedMerchant = {
   merchantId: string;
   planTier: string | null;
   slug: string | null;
+  planExpiresAt: string | null;
+  premiumFeatures: unknown;
 };
 
 /**
@@ -46,7 +48,7 @@ export async function resolveMerchantForEmailDomain(
   }
   const { data: merchant, error } = await supabase
     .from('merchants')
-    .select('plan_tier, slug')
+    .select('plan_tier, slug, plan_expires_at, premium_features')
     .eq('id', ctx.merchantId)
     .single();
   // A real read failure is a server error, not an authorization denial. With
@@ -76,6 +78,8 @@ export async function resolveMerchantForEmailDomain(
     merchantId: ctx.merchantId,
     planTier: (merchant.plan_tier as string | null) ?? null,
     slug: (merchant.slug as string | null) ?? ctx.merchantSlug ?? null,
+    planExpiresAt: (merchant.plan_expires_at as string | null) ?? null,
+    premiumFeatures: merchant.premium_features ?? null,
   };
 }
 
@@ -83,7 +87,13 @@ export async function resolveMerchantForEmailDomain(
 export function emailDomainGate(
   resolved: ResolvedMerchant
 ): NextResponse | null {
-  if (!hasCustomEmailDomainEntitlement(resolved.planTier, resolved.slug)) {
+  if (
+    !hasCustomEmailDomainEntitlement({
+      plan_tier: resolved.planTier,
+      plan_expires_at: resolved.planExpiresAt,
+      premium_features: resolved.premiumFeatures,
+    })
+  ) {
     return NextResponse.json(
       { error: 'Upgrade your plan to send from a custom email domain.' },
       { status: 403 }

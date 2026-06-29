@@ -15,6 +15,7 @@ interface EmailDomainConfiguredViewProps {
   verifying: boolean;
   onToggle: (enabled: boolean) => void;
   toggling: boolean;
+  onReplace: () => void;
 }
 
 function getStatusPresentation(
@@ -55,6 +56,7 @@ export function EmailDomainConfiguredView({
   verifying,
   onToggle,
   toggling,
+  onReplace,
 }: EmailDomainConfiguredViewProps) {
   const styles = makeEmailDomainSettingsStyles(colors);
   const verified = config.status === 'verified';
@@ -112,6 +114,18 @@ export function EmailDomainConfiguredView({
               I've added these — Verify
             </Text>
           )}
+        </Pressable>
+      )}
+
+      {verified ? null : (
+        <Pressable
+          style={styles.secondaryButton}
+          disabled={verifying}
+          onPress={onReplace}
+          accessibilityRole="button"
+          accessibilityLabel="Use a different domain"
+        >
+          <Text style={styles.secondaryButtonText}>Use a different domain</Text>
         </Pressable>
       )}
     </View>

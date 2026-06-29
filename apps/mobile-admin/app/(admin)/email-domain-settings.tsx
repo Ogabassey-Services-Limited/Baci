@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmailDomainConfiguredView } from '@/components/email-domain/email-domain-configured-view';
@@ -25,6 +26,10 @@ export default function EmailDomainSettingsScreen() {
   const { colors } = useTheme();
   const styles = makeEmailDomainSettingsStyles(colors);
   const queryClient = useQueryClient();
+  // Lets a merchant whose domain is still pending/failed go back to the form to
+  // register a different domain (e.g. they typed the wrong one). The register
+  // endpoint upserts the single per-merchant row, so a new submit replaces it.
+  const [replacing, setReplacing] = useState(false);
 
   const {
     data: config,
@@ -47,7 +52,10 @@ export default function EmailDomainSettingsScreen() {
 
   const registerMutation = useMutation({
     mutationFn: registerEmailDomain,
-    onSuccess: refresh,
+    onSuccess: (next) => {
+      setReplacing(false);
+      refresh(next);
+    },
     onError: handleError,
   });
   const verifyMutation = useMutation({
@@ -88,7 +96,7 @@ export default function EmailDomainSettingsScreen() {
             refreshing={isFetching}
             onRetry={() => refetch()}
           />
-        ) : config ? (
+        ) : config && !replacing ? (
           <EmailDomainConfiguredView
             colors={colors}
             config={config}
@@ -97,12 +105,14 @@ export default function EmailDomainSettingsScreen() {
             verifying={verifyMutation.isPending}
             onToggle={(enabled) => enableMutation.mutate(enabled)}
             toggling={enableMutation.isPending}
+            onReplace={() => setReplacing(true)}
           />
         ) : (
           <EmailDomainRegistrationForm
             colors={colors}
             onSubmit={(domain) => registerMutation.mutate(domain)}
             pending={registerMutation.isPending}
+            onCancel={config ? () => setReplacing(false) : undefined}
           />
         )}
       </ScrollView>
