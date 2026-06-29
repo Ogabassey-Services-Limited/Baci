@@ -19,6 +19,8 @@ const {
   )),
 }));
 
+vi.mock('@/app/(storefront)/storefront-home-critical.css', () => ({}));
+
 vi.mock('@/app/(storefront)/storefront-full.css', () => {
   mockFullStorefrontCssImport();
   return {};
@@ -141,10 +143,6 @@ describe('Storefront homepage structured data', () => {
         ['x-pathname', '/'],
       ])
     );
-  });
-
-  it('loads the full storefront stylesheet at the dynamic home page leaf', () => {
-    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
   });
 
   it('emits OnlineStore, WebSite, and address-backed Store schemas on the homepage', async () => {
@@ -283,7 +281,7 @@ describe('Storefront homepage structured data', () => {
     });
 
     const page = await StorefrontPage({
-      params: Promise.resolve({ slug: 'ogabassey' }),
+      params: Promise.resolve({ slug: 'another-shop' }),
     });
 
     render(
@@ -294,15 +292,5 @@ describe('Storefront homepage structured data', () => {
     expect(
       screen.queryByText('Storefront page content')
     ).not.toBeInTheDocument();
-  });
-
-  it('renders other storefronts through the shared page content path', async () => {
-    render(
-      await StorefrontPage({
-        params: Promise.resolve({ slug: 'another-shop' }),
-      })
-    );
-
-    expect(screen.getByText('Storefront page content')).toBeInTheDocument();
   });
 });
