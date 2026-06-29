@@ -116,3 +116,7 @@
 **Learning:** By default, setting the `disabled` prop on a `Pressable` in React Native prevents interaction but does not automatically inform assistive technologies (like VoiceOver or TalkBack) of the disabled state.
 **Action:** When conditionally disabling an interactive element, always pair the functional `disabled` prop with the semantic `accessibilityState={{ disabled: boolean }}` prop.
 **Source:** WCAG 4.1.2 Name, Role, Value / React Native Accessibility API docs
+## 2024-06-29 — Toggle Button Accessibility State
+**Learning:** For toggle buttons (like "Show/Hide password" buttons), dynamically swapping the `aria-label` based on state (e.g., `aria-label={showPassword ? 'Hide password' : 'Show password'}`) is less ideal than using a static label with an explicit `aria-pressed` state. A dynamic name forces screen reader users to rediscover the button's purpose upon every interaction.
+**Action:** Always provide a static, descriptive `aria-label` (e.g., "Show password") and use `aria-pressed={booleanState}` to convey the toggled state dynamically, per ARIA APG guidelines.
+**Source:** ARIA APG (Toggle Button pattern) / WCAG 4.1.2 Name, Role, Value

@@ -17,12 +17,12 @@ describe('PasswordInput', () => {
     // Click to show password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'text');
-    expect(toggleButton).toHaveAttribute('aria-label', 'Hide password');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'true');
 
     // Click to hide password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'password');
-    expect(toggleButton).toHaveAttribute('aria-label', 'Show password');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('is accessible via keyboard (tabIndex is not -1)', () => {

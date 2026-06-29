@@ -3095,7 +3095,8 @@ export const CheckoutPage: React.FC = () => {
                                 type="button"
                                 onClick={() => setIsPasswordVisible(!isPasswordVisible)}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+                                aria-label="Show password"
+                                aria-pressed={isPasswordVisible}
                               >
                                 {isPasswordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                               </button>

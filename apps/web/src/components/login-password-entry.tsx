@@ -79,7 +79,8 @@ export function LoginPasswordEntry({
               size="sm"
               className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20"
               onClick={onTogglePassword}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label="Show password"
+              aria-pressed={showPassword}
             >
               {showPassword ? (
                 <EyeOff className="size-4 text-muted-foreground" />
