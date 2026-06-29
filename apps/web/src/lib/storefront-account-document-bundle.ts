@@ -308,16 +308,26 @@ export function buildStorefrontAccountDocumentBundle({
       )
     );
     receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
-    // Reconcile only the lines + tax subtotals with the stored total. The
-    // document totals (preTaxTotal / taxInclusiveAmount) ALREADY include the
-    // assurance premium — it is rolled into order.subtotal/total — so they must
-    // NOT be re-derived from the line sum alone, which would drop shipping and
-    // discount from BT-109/BT-112.
     reconcileAssuranceTaxSubtotal(
       taxSubtotals,
       sumLineExtensionAmounts(invoiceItems)
     );
   }
+
+  // Document tax-exclusive (BT-109) / tax-inclusive (BT-112) totals. For
+  // assurance orders, derive BT-109 from `subtotal` (which includes the VAT-free
+  // premium on BOTH order-creation paths) + shipping - discount, rather than the
+  // stored tax totals: storefront RPC orders persist tax_exclusive_amount as a
+  // product-only line sum that excludes the premium, so reusing it would leave
+  // the itemized assurance line + tax subtotal exceeding BT-109 by the premium.
+  const documentTaxExclusive =
+    assuranceTotal > 0
+      ? Number((subtotal + shippingFee - discountAmount).toFixed(2))
+      : resolveMoneyValue(order.tax_exclusive_amount, preTaxTotal);
+  const documentTaxInclusive =
+    assuranceTotal > 0
+      ? Number((documentTaxExclusive + taxAmount).toFixed(2))
+      : taxInclusiveAmount;
 
   const orderDetail: StorefrontOrder = {
     id: order.id,
@@ -406,12 +416,9 @@ export function buildStorefrontAccountDocumentBundle({
     items: invoiceItems,
     tax_subtotals: taxSubtotals,
     subtotal,
-    tax_exclusive_amount: resolveMoneyValue(
-      order.tax_exclusive_amount,
-      preTaxTotal
-    ),
+    tax_exclusive_amount: documentTaxExclusive,
     tax_amount: taxAmount,
-    tax_inclusive_amount: taxInclusiveAmount,
+    tax_inclusive_amount: documentTaxInclusive,
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,
