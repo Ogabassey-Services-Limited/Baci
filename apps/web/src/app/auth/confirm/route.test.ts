@@ -179,4 +179,23 @@ describe('GET /auth/confirm', () => {
       'https://usebaci.com/login?error=OTP%20expired'
     );
   });
+
+  it('routes failed root-domain storefront confirms to the slug storefront login', async () => {
+    // Root-domain storefront confirms stay on the platform host with a
+    // slug-prefixed next; on failure the customer must reach the storefront
+    // login, not the merchant /login.
+    mockVerifyOtp.mockResolvedValue({
+      error: { message: 'OTP expired' },
+    });
+
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/auth/confirm?token_hash=hash-123&type=magiclink&next=%2Fogabassey%2Faccount%2Forders'
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://usebaci.com/ogabassey/account/login?error=OTP%20expired'
+    );
+  });
 });

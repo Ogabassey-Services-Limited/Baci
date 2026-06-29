@@ -7,13 +7,28 @@ import { createClient } from '@/lib/supabase/server';
 function buildConfirmationErrorRedirect(
   origin: string,
   message: string,
-  requestHeaders: Headers
+  requestHeaders: Headers,
+  next: string
 ): string {
+  // Storefront customers must land on the storefront login (where they can
+  // request a fresh code), not the merchant/admin `/login`. Two storefront
+  // shapes reach here:
+  //  - own-origin confirms (custom domain): flagged by the proxy headers →
+  //    `/account/login` on that origin.
+  //  - root-domain confirms: kept on the platform host with a slug-prefixed
+  //    `next` (e.g. `/ogabassey/account/...`) → derive `/{slug}/account/login`.
+  const slugMatch = next.match(/^\/([^/]+)\/account(?:\/|$)/);
   const isStorefrontDomainConfirm = Boolean(
     requestHeaders.get('x-custom-domain') ||
       requestHeaders.get('x-merchant-domain')
   );
-  const loginPath = isStorefrontDomainConfirm ? '/account/login' : '/login';
+
+  let loginPath = '/login';
+  if (slugMatch) {
+    loginPath = `/${slugMatch[1]}/account/login`;
+  } else if (isStorefrontDomainConfirm) {
+    loginPath = '/account/login';
+  }
   return `${origin}${loginPath}?error=${encodeURIComponent(message)}`;
 }
 
@@ -46,7 +61,8 @@ export async function GET(request: Request) {
       buildConfirmationErrorRedirect(
         url.origin,
         'Invalid confirmation link',
-        requestHeaders
+        requestHeaders,
+        next
       )
     );
   }
@@ -60,7 +76,8 @@ export async function GET(request: Request) {
       buildConfirmationErrorRedirect(
         url.origin,
         error.message || 'Could not authenticate user',
-        requestHeaders
+        requestHeaders,
+        next
       )
     );
   }

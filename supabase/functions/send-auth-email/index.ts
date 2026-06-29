@@ -129,11 +129,50 @@ async function fetchActiveCustomDomainForMerchant(
   return selectActiveCustomDomainForBranding(data);
 }
 
+// Is the auth-email recipient a verified customer of this merchant? Checked
+// against the trusted `customers` table (keyed by merchant + auth user id),
+// which — unlike `redirect_to` — cannot be forged by the caller. Fails closed
+// (returns false → platform sender) on any lookup error.
+async function recipientIsMerchantCustomer(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string,
+  recipientUserId: string | null
+): Promise<boolean> {
+  if (!recipientUserId) {
+    return false;
+  }
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .eq('user_id', recipientUserId)
+    .limit(1);
+  if (error) {
+    console.log('Customer relationship lookup failed:', error.message);
+    return false;
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
 async function fetchMerchantSendingAddress(
   supabase: ReturnType<typeof createClient>,
-  merchant: Pick<MerchantBrandingRow, 'id' | 'plan_tier'>
+  merchant: Pick<MerchantBrandingRow, 'id' | 'plan_tier'>,
+  recipientUserId: string | null
 ): Promise<string | null> {
   if (!hasCustomEmailDomainEntitlement(merchant.plan_tier)) {
+    return null;
+  }
+
+  // Security gate: `redirect_to` (which selects the merchant) is caller-
+  // controllable via the allowlisted `*.usebaci.com/account/verify` redirect,
+  // so an attacker could request an OTP for any address while pointing at a
+  // victim merchant. Only send from the merchant's DKIM-signed custom domain
+  // when the recipient is genuinely that merchant's customer; everyone else
+  // (including first-time signups) gets the platform sender. The email stays
+  // merchant-branded either way — only the From domain falls back.
+  if (
+    !(await recipientIsMerchantCustomer(supabase, merchant.id, recipientUserId))
+  ) {
     return null;
   }
 
@@ -168,7 +207,8 @@ async function fetchMerchantSendingAddress(
 }
 
 async function fetchMerchantBranding(
-  lookup: MerchantLookup
+  lookup: MerchantLookup,
+  recipientUserId: string | null
 ): Promise<MerchantBranding | null> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -252,7 +292,8 @@ async function fetchMerchantBranding(
 
     const sendingFromAddress = await fetchMerchantSendingAddress(
       supabase,
-      merchant
+      merchant,
+      recipientUserId
     );
 
     return {
@@ -329,7 +370,10 @@ Deno.serve(async (req) => {
 
   if (merchantLookup) {
     console.log('Detected merchant auth email lookup');
-    const merchantBranding = await fetchMerchantBranding(merchantLookup);
+    const merchantBranding = await fetchMerchantBranding(
+      merchantLookup,
+      user?.id ?? null
+    );
     if (merchantBranding) {
       branding = merchantBranding;
       console.log('Using merchant branding');
