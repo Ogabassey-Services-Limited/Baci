@@ -16,6 +16,10 @@ vi.mock('../components/ReceiptModal', () => ({
   ReceiptModal: () => <div data-testid="receipt-modal" />,
 }));
 
+vi.mock('./receipt-claim-app-download-banner', () => ({
+  ReceiptClaimAppDownloadBanner: () => null,
+}));
+
 function createJsonResponse(body: unknown): Response {
   return {
     ok: true,

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
@@ -419,7 +419,9 @@ export const OgabasseyV2Receipts: React.FC = () => {
           </div>
         </div>
 
-        <ReceiptClaimAppDownloadBanner />
+        <Suspense fallback={null}>
+          <ReceiptClaimAppDownloadBanner />
+        </Suspense>
 
         {filteredReceipts.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">

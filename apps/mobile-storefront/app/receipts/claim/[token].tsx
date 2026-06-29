@@ -41,8 +41,12 @@ function buildClaimLoginEmailApiUrl(token: string) {
 }
 
 function withReceiptClaimedSearchParam(path: string) {
-  const separator = path.includes('?') ? '&' : '?';
-  return `${path}${separator}receiptClaimed=1`;
+  const hashIndex = path.indexOf('#');
+  const pathWithoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
+  const separator = pathWithoutHash.includes('?') ? '&' : '?';
+
+  return `${pathWithoutHash}${separator}receiptClaimed=1${hash}`;
 }
 
 async function readErrorMessage(response: Response) {
