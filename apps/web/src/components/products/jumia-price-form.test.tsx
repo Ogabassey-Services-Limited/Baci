@@ -1,12 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { describe, expect, it, vi } from 'vitest';
 import { JumiaPriceForm } from './jumia-price-form';
-
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: vi.fn(),
-}));
 
 vi.mock('@/components/themed/themed-input', async () => {
   const { forwardRef } = await import('react');
@@ -78,14 +73,6 @@ function createOverrides(
 }
 
 describe('JumiaPriceForm', () => {
-  beforeEach(() => {
-    vi.mocked(useMerchantSafe).mockReturnValue({
-      merchant: { country: 'NG' },
-    } as Partial<ReturnType<typeof useMerchantSafe>> as ReturnType<
-      typeof useMerchantSafe
-    >);
-  });
-
   it('renders price inputs with currency symbol', () => {
     render(
       <JumiaPriceForm
@@ -103,13 +90,7 @@ describe('JumiaPriceForm', () => {
     expect(screen.getAllByText('\u20A6').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders price inputs with default USD currency symbol when country is unsupported', () => {
-    vi.mocked(useMerchantSafe).mockReturnValue({
-      merchant: { country: 'ZZ' },
-    } as Partial<ReturnType<typeof useMerchantSafe>> as ReturnType<
-      typeof useMerchantSafe
-    >);
-
+  it('keeps Jumia override inputs in NGN because Jumia feeds are Nigeria-pilot only', () => {
     render(
       <JumiaPriceForm
         overrides={createOverrides()}
@@ -122,8 +103,12 @@ describe('JumiaPriceForm', () => {
     expect(
       screen.getByLabelText('Jumia Sale Price (Optional)')
     ).toBeInTheDocument();
-    // Dollar symbol is rendered
-    expect(screen.getAllByText('$').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('₦').length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByText(
+        'Leave empty to follow Baci base price. Jumia overrides are submitted in NGN.'
+      )
+    ).toBeInTheDocument();
   });
 
   it('renders sale date inputs', () => {
@@ -222,7 +207,9 @@ describe('JumiaPriceForm', () => {
     );
 
     expect(
-      screen.getByText('Leave empty to follow Baci base price')
+      screen.getByText(
+        'Leave empty to follow Baci base price. Jumia overrides are submitted in NGN.'
+      )
     ).toBeInTheDocument();
   });
 });

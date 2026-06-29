@@ -36,7 +36,7 @@ describe('createNewOrderTotals', () => {
     expect(totals.taxesToUse).toBe(2450);
     expect(totals.total).toBe(28450);
     expect(totals.formatPrice(1000)).toBe(
-      formatCurrency(1000, undefined, 'NGN')
+      formatCurrency(1000, undefined, 'NGN', 'en-NG')
     );
   });
 
@@ -88,6 +88,19 @@ describe('createNewOrderTotals', () => {
     expect(totals.total).toBe(10750);
   });
 
+  it('uses the Nigerian currency symbol for NGN totals on non-Nigerian runtimes', () => {
+    const totals = createNewOrderTotals({
+      discount: 0,
+      isVatApplied: false,
+      merchantCurrency: 'NGN',
+      orderItems: [],
+      shippingFee: 0,
+      taxes: 0,
+    });
+
+    expect(totals.formatPrice(5000)).toBe('₦5,000.00');
+  });
+
   it('falls back to ₦X.XX format when merchantCurrency is invalid', () => {
     const totals = createNewOrderTotals({
       discount: 0,
@@ -100,6 +113,6 @@ describe('createNewOrderTotals', () => {
 
     // formatPrice should sanitize invalid to NGN, not throw
     const formatted = totals.formatPrice(1500);
-    expect(formatted).toBe(formatCurrency(1500, undefined, 'NGN'));
+    expect(formatted).toBe(formatCurrency(1500, undefined, 'NGN', 'en-NG'));
   });
 });

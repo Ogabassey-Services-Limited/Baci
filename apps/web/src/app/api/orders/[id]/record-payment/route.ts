@@ -140,6 +140,7 @@ export async function POST(
         .from('transactions')
         .select('amount, gateway, gateway_reference, status')
         .eq('order_id', id)
+        .eq('merchant_id', merchantId)
         .in('status', ['completed', 'pending', 'processing']),
     ]);
 

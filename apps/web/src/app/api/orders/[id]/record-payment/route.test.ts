@@ -127,7 +127,7 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
 
 // Δ-36 (A3): the route now does a SINGLE `transactions` SELECT covering
 // completed + pending + processing rows, then filters in TS. The chain
-// shape is `.eq().in()` (was `.eq().eq()` pre-A3). Existing mocks were
+// shape is `.eq().eq().in()` so the concurrent transaction read is tenant-scoped. Existing mocks were
 // updated to match; rows with completed semantics carry an explicit
 // `status: 'completed'` field so the TS-side filter keeps them.
 describe('POST /api/orders/[id]/record-payment', () => {
@@ -933,7 +933,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const { orderQuery } = setupRecordPaymentSupabase({
+    const { orderQuery, transactionQuery } = setupRecordPaymentSupabase({
       merchant: mockMerchant,
       order: mockOrder,
       transactions: [{ amount: 4000, gateway: 'manual', status: 'completed' }],
@@ -965,6 +965,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
     expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
+    expect(transactionQuery.eq).toHaveBeenCalledWith('order_id', mockOrderId);
+    expect(transactionQuery.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      mockMerchantId
+    );
   });
 
   it('does not update shipping_status if already shipped', async () => {
@@ -1213,18 +1218,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // Return existing transaction with the same reference
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 5000,
-                  gateway_reference: 'REF-DUPE-409',
-                  gateway: 'manual',
-                  status: 'completed',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 5000,
+                gateway_reference: 'REF-DUPE-409',
+                gateway: 'manual',
+                status: 'completed',
+              },
+            ],
+            error: null,
           }),
         };
       }
@@ -1309,18 +1313,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // Already paid 8000 out of 10000
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 8000,
-                  gateway_reference: 'REF-PREV',
-                  gateway: 'manual',
-                  status: 'completed',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 8000,
+                gateway_reference: 'REF-PREV',
+                gateway: 'manual',
+                status: 'completed',
+              },
+            ],
+            error: null,
           }),
         };
       }
@@ -1393,18 +1396,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // returns a pending Paystack row → guard fires.
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 0,
-                  gateway: 'paystack',
-                  gateway_reference: 'paystack-pending-ref',
-                  status: 'pending',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 0,
+                gateway: 'paystack',
+                gateway_reference: 'paystack-pending-ref',
+                status: 'pending',
+              },
+            ],
+            error: null,
           }),
         };
       }
@@ -1649,18 +1651,17 @@ describe('POST /api/orders/[id]/record-payment', () => {
         // Already fully paid
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  amount: 10000,
-                  gateway_reference: 'REF-FULL',
-                  gateway: 'manual',
-                  status: 'completed',
-                },
-              ],
-              error: null,
-            }),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({
+            data: [
+              {
+                amount: 10000,
+                gateway_reference: 'REF-FULL',
+                gateway: 'manual',
+                status: 'completed',
+              },
+            ],
+            error: null,
           }),
         };
       }
@@ -1765,7 +1766,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
       if (table === 'transactions') {
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue(transactionsQuery),
+          eq: vi.fn().mockReturnThis(),
+          in: transactionsQuery.in,
         };
       }
 

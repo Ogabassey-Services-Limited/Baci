@@ -334,23 +334,30 @@ const form = useForm<FormValues>({
 ```
 
 ### AI Flow Pattern
-All AI actions follow this pattern using Vercel AI SDK:
+All AI actions follow this pattern using Vercel AI SDK 6 structured output:
 ```typescript
+import { google } from '@ai-sdk/google';
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
+
 // 1. Define input/output schemas
 const InputSchema = z.object({ /* input fields */ });
 const OutputSchema = z.object({ /* output fields */ });
+type FlowInput = z.infer<typeof InputSchema>;
+type FlowOutput = z.infer<typeof OutputSchema>;
 
 // 2. Create AI function
-export async function generateContent(input: z.infer<typeof InputSchema>): Promise<z.infer<typeof OutputSchema>> {
-  // 3. Call Vercel AI SDK
-  const { object } = await generateObject({
-    model: activeTextModel,
-    system: 'System prompt here',
-    prompt: 'User prompt here',
-    schema: OutputSchema,
+export async function generateContent(input: FlowInput): Promise<FlowOutput> {
+  const validatedInput = InputSchema.parse(input);
+
+  // 3. Call Vercel AI SDK 6 structured output
+  const { output } = await generateText({
+    model: google('gemini-2.5-flash'),
+    output: Output.object({ schema: OutputSchema }),
+    prompt: `Generated prompt based on ${JSON.stringify(validatedInput)}`,
   });
 
-  return object;
+  return output;
 }
 ```
 

@@ -8,7 +8,7 @@ import type { z } from 'zod';
 import { ThemedInput } from '@/components/themed/themed-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
-import { useCurrency } from '@/hooks/use-currency';
+import { formatCurrencyWithConfig } from '@/lib/currency';
 import {
   type JumiaPriceFormValues,
   jumiaPriceSchema,
@@ -30,13 +30,21 @@ interface JumiaPriceFormProps {
   basePrice: number;
 }
 
+const JUMIA_PRICE_CURRENCY_CONFIG = {
+  code: 'NGN',
+  symbol: '₦',
+  locale: 'en-NG',
+};
+
+function formatJumiaPrice(amount: number) {
+  return formatCurrencyWithConfig(amount, JUMIA_PRICE_CURRENCY_CONFIG);
+}
+
 export function JumiaPriceForm({
   overrides,
   setOverrides,
   basePrice,
 }: JumiaPriceFormProps) {
-  const { formatCurrency, currencySymbol } = useCurrency();
-
   const {
     register,
     control,
@@ -159,8 +167,8 @@ export function JumiaPriceForm({
           <AlertCircle className="size-4" />
           <AlertTitle>Low Price Warning</AlertTitle>
           <AlertDescription>
-            Your Jumia price ({formatCurrency(Number(jumiaPrice))}) is more than
-            20% lower than your base price ({formatCurrency(basePrice)}
+            Your Jumia price ({formatJumiaPrice(Number(jumiaPrice))}) is more
+            than 20% lower than your base price ({formatJumiaPrice(basePrice)}
             ). Please verify this is intentional.
           </AlertDescription>
         </Alert>
@@ -172,7 +180,7 @@ export function JumiaPriceForm({
             <Label htmlFor="jumia_price">Jumia Base Price</Label>
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-muted-foreground">
-                {currencySymbol}
+                {JUMIA_PRICE_CURRENCY_CONFIG.symbol}
               </span>
               <ThemedInput
                 id="jumia_price"
@@ -189,7 +197,8 @@ export function JumiaPriceForm({
               </p>
             )}
             <p className="text-[10px] text-muted-foreground">
-              Leave empty to follow Baci base price
+              Leave empty to follow Baci base price. Jumia overrides are
+              submitted in NGN.
             </p>
           </div>
 
@@ -199,7 +208,7 @@ export function JumiaPriceForm({
             </Label>
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-muted-foreground">
-                {currencySymbol}
+                {JUMIA_PRICE_CURRENCY_CONFIG.symbol}
               </span>
               <ThemedInput
                 id="jumia_sale_price"
