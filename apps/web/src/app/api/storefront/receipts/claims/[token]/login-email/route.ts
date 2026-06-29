@@ -4,8 +4,10 @@ import {
   loadReceiptClaimLoginEmailHint,
   parseReceiptClaimToken,
   recordReceiptClaimLoginStarted,
+  recordReceiptClaimLoginStartedBestEffort,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
+import { receiptClaimLoginEmailQuerySchema } from '@/schemas/receipt-claim-login-email-query';
 
 interface RouteContext {
   params: Promise<{ token: string }>;
@@ -16,11 +18,25 @@ async function parseToken(context: RouteContext) {
   return parseReceiptClaimToken(params.token);
 }
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+function parseLoginEmailQuery(request: NextRequest) {
+  return receiptClaimLoginEmailQuerySchema.safeParse({
+    source: request.nextUrl.searchParams.get('source') ?? undefined,
+  });
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const token = await parseToken(context);
   if (!token) {
     return NextResponse.json(
       { error: 'Invalid receipt claim link' },
+      { status: 400 }
+    );
+  }
+
+  const query = parseLoginEmailQuery(request);
+  if (!query.success) {
+    return NextResponse.json(
+      { error: 'Invalid receipt claim login email query' },
       { status: 400 }
     );
   }
@@ -31,6 +47,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     if (!hint.ok) {
       return NextResponse.json({ error: hint.error }, { status: hint.status });
+    }
+
+    if (query.data.source && query.data.source !== 'web') {
+      await recordReceiptClaimLoginStartedBestEffort({
+        source: query.data.source,
+        supabase,
+        token,
+      });
     }
 
     return NextResponse.json({ emailHint: hint.emailHint });
@@ -62,7 +86,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const supabase = await createClient();
-    await recordReceiptClaimLoginStarted({ supabase, token });
+    await recordReceiptClaimLoginStarted({ source: 'web', supabase, token });
 
     return NextResponse.json({ success: true });
   } catch (error) {

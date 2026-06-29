@@ -125,6 +125,34 @@ describe('ReceiptClaimPageClient', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('does not show Ogabassey app links on other merchant claim pages', () => {
+    renderClient();
+
+    expect(
+      screen.queryByRole('link', { name: /app store/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /google play/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows Ogabassey app links on Ogabassey claim pages', () => {
+    mockUseMerchant.mockReturnValue({
+      basePath: '/ogabassey',
+      loading: false,
+      merchant: { slug: 'ogabassey' },
+    });
+
+    renderClient();
+
+    expect(
+      screen.getByRole('link', { name: /google play/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /app store/i })
+    ).toBeInTheDocument();
+  });
+
   it('prefers a sanitized legacy URL email hint when one is present', () => {
     mockSearchParams.set('email', '  UrlHint@Yahoo.CO.UK  ');
 

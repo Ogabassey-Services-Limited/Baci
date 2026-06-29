@@ -49,6 +49,36 @@ const baseCampaignStats = {
   totalRecipients: 1,
 };
 
+const normalizedCampaignStats = {
+  ...baseCampaignStats,
+  appDownloadClickCount: 0,
+  appDownloadClickedCount: 0,
+  claimedAppCount: 0,
+  claimedUnknownCount: 0,
+  claimedWebCount: 1,
+  clickedAppCount: 0,
+  clickedUnknownCount: 0,
+  clickedWebCount: 1,
+  loginStartedAppCount: 0,
+  loginStartedUnknownCount: 0,
+  loginStartedWebCount: 1,
+  recipients: [
+    {
+      ...baseCampaignStats.recipients[0],
+      appDownloadClickCount: 0,
+      claimedSource: 'web',
+      firstAppDownloadClickedAt: null,
+      firstAppDownloadSource: null,
+      firstClickSource: 'web',
+      firstLoginStartedSource: 'web',
+      lastAppDownloadClickedAt: null,
+      lastAppDownloadSource: null,
+      lastClickSource: 'web',
+      lastLoginStartedSource: 'web',
+    },
+  ],
+};
+
 function createSupabaseMock(
   campaignResponse: { data: unknown; error: unknown } = {
     data: baseCampaignStats,
@@ -180,7 +210,7 @@ describe('GET /api/import-jobs/[jobId]', () => {
       job: expect.objectContaining({
         canCommit: true,
         canNotify: false,
-        receiptCampaign: baseCampaignStats,
+        receiptCampaign: normalizedCampaignStats,
       }),
     });
     expect(supabase.rpc).toHaveBeenCalledWith(

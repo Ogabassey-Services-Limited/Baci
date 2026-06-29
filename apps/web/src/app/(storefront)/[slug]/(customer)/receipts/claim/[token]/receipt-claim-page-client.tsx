@@ -17,10 +17,12 @@ import { fetchWithCsrf } from '@/lib/api-client';
 import { sanitizeCustomerLoginEmailPrefill } from '@/lib/customer-login-prefill';
 import type { ReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
 import { asRoute } from '@/lib/routes';
+import ReceiptClaimAppLinks from './receipt-claim-app-links';
 import {
   createDeviceListItems,
   joinBasePath,
 } from './receipt-claim-page-utils';
+import { waitForReceiptClaimLoginStartedTrackingWindow } from './wait-for-receipt-claim-login-started-tracking';
 
 interface ReceiptClaimPageClientProps {
   initialClaim: ReceiptClaimPreview | null;
@@ -28,8 +30,6 @@ interface ReceiptClaimPageClientProps {
   initialError: string | null;
   token: string;
 }
-
-const LOGIN_STARTED_TRACKING_TIMEOUT_MS = 750;
 
 export default function ReceiptClaimPageClient({
   initialClaim,
@@ -39,7 +39,7 @@ export default function ReceiptClaimPageClient({
 }: ReceiptClaimPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { basePath, loading: merchantLoading } = useMerchant();
+  const { basePath, loading: merchantLoading, merchant } = useMerchant();
   const { isAuthenticated, isLoading: authLoading } = useCustomerAuth();
   const [error, setError] = useState<string | null>(initialError);
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -131,42 +131,8 @@ export default function ReceiptClaimPageClient({
     basePath,
     `/account/login?${loginSearchParams.toString()}`
   );
-  const loginStartedPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/login-email`;
-
-  async function trackLoginStarted() {
-    if (!token) {
-      return;
-    }
-    try {
-      await fetchWithCsrf(loginStartedPath, {
-        cache: 'no-store',
-        headers: { accept: 'application/json' },
-        keepalive: true,
-        method: 'POST',
-      });
-    } catch {
-      return;
-    }
-  }
-
-  async function waitForLoginStartedTrackingWindow() {
-    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
-    try {
-      await Promise.race([
-        trackLoginStarted(),
-        new Promise<void>((resolve) => {
-          timeoutId = globalThis.setTimeout(
-            resolve,
-            LOGIN_STARTED_TRACKING_TIMEOUT_MS
-          );
-        }),
-      ]);
-    } finally {
-      if (timeoutId !== null) {
-        globalThis.clearTimeout(timeoutId);
-      }
-    }
-  }
+  const shouldShowOgabasseyAppLinks =
+    merchant?.slug === 'ogabassey' || basePath === '/ogabassey';
 
   async function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {
     if (
@@ -186,7 +152,7 @@ export default function ReceiptClaimPageClient({
     event.preventDefault();
     loginNavigationInFlight.current = true;
     try {
-      await waitForLoginStartedTrackingWindow();
+      await waitForReceiptClaimLoginStartedTrackingWindow(token);
       router.push(asRoute(loginPath));
     } finally {
       loginNavigationInFlight.current = false;
@@ -279,6 +245,10 @@ export default function ReceiptClaimPageClient({
                     </Link>
                   </Button>
                 )}
+
+                {shouldShowOgabasseyAppLinks ? (
+                  <ReceiptClaimAppLinks token={token} />
+                ) : null}
               </>
             ) : (
               <div
