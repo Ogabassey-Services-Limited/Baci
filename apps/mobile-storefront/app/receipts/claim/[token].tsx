@@ -40,10 +40,18 @@ function buildClaimLoginEmailApiUrl(token: string) {
   return `${buildClaimApiUrl(token)}/login-email?source=app`;
 }
 
+function isAbsoluteUrl(path: string) {
+  return /^[a-z][a-z\d+\-.]*:/i.test(path.trim());
+}
+
 function withReceiptClaimedSearchParam(path: string) {
   try {
     const url = new URL(path, 'https://receipt-claim.local');
     url.searchParams.set('receiptClaimed', '1');
+    if (isAbsoluteUrl(path)) {
+      return url.toString();
+    }
+
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return path;

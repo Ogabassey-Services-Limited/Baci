@@ -63,7 +63,8 @@ export default function ReceiptsScreen() {
           text: 'View receipts',
           onPress: () => router.replace('/receipts'),
         },
-      ]
+      ],
+      { cancelable: false }
     );
   }, [isAuthLoading, redirectTo, shouldShowClaimPrompt]);
 

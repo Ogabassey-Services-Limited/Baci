@@ -75,7 +75,7 @@ export function ReceiptClaimAppDownloadBanner({
 
       <div className="grid gap-2 sm:grid-cols-2 md:min-w-[280px]">
         <a
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-store-background-text/15 px-4 py-2.5 text-sm font-bold text-store-background-text/75 transition-colors hover:border-store-primary/25 hover:bg-store-primary/5 hover:text-store-primary"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-store-background-text/15 px-4 py-2.5 text-sm font-bold text-store-background-text/75 transition-colors hover:border-store-primary/25 hover:bg-store-primary/5 hover:text-store-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2"
           href={OGABASSEY_STOREFRONT_APP_STORE_URL}
           onClick={() => trackDownloadClick('app_store')}
           rel="noopener noreferrer"
@@ -85,7 +85,7 @@ export function ReceiptClaimAppDownloadBanner({
           App Store
         </a>
         <a
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-store-background-text/15 px-4 py-2.5 text-sm font-bold text-store-background-text/75 transition-colors hover:border-store-primary/25 hover:bg-store-primary/5 hover:text-store-primary"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-store-background-text/15 px-4 py-2.5 text-sm font-bold text-store-background-text/75 transition-colors hover:border-store-primary/25 hover:bg-store-primary/5 hover:text-store-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2"
           href={OGABASSEY_STOREFRONT_PLAY_STORE_URL}
           onClick={() => trackDownloadClick('play_store')}
           rel="noopener noreferrer"

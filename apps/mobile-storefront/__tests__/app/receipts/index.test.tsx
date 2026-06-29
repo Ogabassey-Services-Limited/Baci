@@ -201,7 +201,8 @@ describe('ReceiptsScreen', () => {
           onPress: expect.any(Function),
           text: 'View receipts',
         },
-      ]
+      ],
+      { cancelable: false }
     );
 
     const actions = (Alert.alert as jest.Mock).mock.calls[0]?.[2] as Array<{
