@@ -1,8 +1,36 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { normalizeAuthNextTarget } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/server';
+
+function buildConfirmationErrorRedirect(
+  origin: string,
+  message: string,
+  requestHeaders: Headers,
+  next: string
+): string {
+  // Storefront customers must land on the storefront login (where they can
+  // request a fresh code), not the merchant/admin `/login`. Two storefront
+  // shapes reach here:
+  //  - own-origin confirms (custom domain): flagged by the proxy headers →
+  //    `/account/login` on that origin.
+  //  - root-domain confirms: kept on the platform host with a slug-prefixed
+  //    `next` (e.g. `/ogabassey/account/...`) → derive `/{slug}/account/login`.
+  const slugMatch = next.match(/^\/([^/]+)\/account(?:\/|$)/);
+  const isStorefrontDomainConfirm = Boolean(
+    requestHeaders.get('x-custom-domain') ||
+      requestHeaders.get('x-merchant-domain')
+  );
+
+  let loginPath = '/login';
+  if (slugMatch) {
+    loginPath = `/${slugMatch[1]}/account/login`;
+  } else if (isStorefrontDomainConfirm) {
+    loginPath = '/account/login';
+  }
+  return `${origin}${loginPath}?error=${encodeURIComponent(message)}`;
+}
 
 const confirmEmailSchema = z.object({
   token_hash: z.string().trim().min(1),
@@ -18,9 +46,19 @@ const confirmEmailSchema = z.object({
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const requestHeaders = await headers();
+  const isStorefrontDomainConfirm = Boolean(
+    requestHeaders.get('x-custom-domain') ||
+      requestHeaders.get('x-merchant-domain')
+  );
+  // On a storefront's own (custom) domain, the platform default `/dashboard`
+  // is storefront content, not the customer account area, so an empty/sanitized
+  // `next` would land the customer on a broken page. Default those confirms to
+  // the customer account area instead.
   const next = normalizeAuthNextTarget(
     url.searchParams.get('next'),
-    url.origin
+    url.origin,
+    isStorefrontDomainConfirm ? '/account' : undefined
   );
   const parsed = confirmEmailSchema.safeParse({
     token_hash: url.searchParams.get('token_hash'),
@@ -29,7 +67,12 @@ export async function GET(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.redirect(
-      `${url.origin}/login?error=${encodeURIComponent('Invalid confirmation link')}`
+      buildConfirmationErrorRedirect(
+        url.origin,
+        'Invalid confirmation link',
+        requestHeaders,
+        next
+      )
     );
   }
 
@@ -39,7 +82,12 @@ export async function GET(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      `${url.origin}/login?error=${encodeURIComponent(error.message || 'Could not authenticate user')}`
+      buildConfirmationErrorRedirect(
+        url.origin,
+        error.message || 'Could not authenticate user',
+        requestHeaders,
+        next
+      )
     );
   }
 

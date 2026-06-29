@@ -16,6 +16,7 @@ export const FEATURES = {
 
   // Other premium features
   CUSTOM_DOMAIN: 'custom_domain',
+  CUSTOM_EMAIL_DOMAIN: 'custom_email_domain',
   ADVANCED_ANALYTICS: 'advanced_analytics',
   PRIORITY_SUPPORT: 'priority_support',
   AI_PRODUCT_DESCRIPTIONS: 'ai_product_descriptions',
@@ -47,6 +48,7 @@ const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {
   starter: [FEATURES.CUSTOM_DOMAIN],
   pro: [
     FEATURES.CUSTOM_DOMAIN,
+    FEATURES.CUSTOM_EMAIL_DOMAIN,
     FEATURES.PRICE_NEGOTIATION,
     FEATURES.DEVICE_ASSURANCE,
     FEATURES.SMART_UPSELLS,
@@ -54,6 +56,7 @@ const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {
   ],
   business: [
     FEATURES.CUSTOM_DOMAIN,
+    FEATURES.CUSTOM_EMAIL_DOMAIN,
     FEATURES.PRICE_NEGOTIATION,
     FEATURES.DEVICE_ASSURANCE,
     FEATURES.SMART_UPSELLS,
@@ -154,6 +157,12 @@ export const FEATURE_METADATA: Record<
     icon: 'globe',
     minPlan: 'starter',
   },
+  [FEATURES.CUSTOM_EMAIL_DOMAIN]: {
+    name: 'Custom Email Domain',
+    description: 'Send emails from your own domain for better inbox delivery',
+    icon: 'mail',
+    minPlan: 'pro',
+  },
   [FEATURES.ADVANCED_ANALYTICS]: {
     name: 'Advanced Analytics',
     description: 'Detailed sales and traffic reports',
@@ -217,4 +226,57 @@ export function hasPriceNegotiationEntitlement(
     typeof merchantSlug === 'string' &&
     LEGACY_NEGOTIATION_SLUGS.has(merchantSlug.toLowerCase())
   );
+}
+
+export interface CustomEmailDomainEntitlementSource {
+  plan_tier?: string | null;
+  plan_expires_at?: string | null;
+  premium_features?: unknown;
+}
+
+function normalizePremiumFeatures(value: unknown): Set<string> {
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+  return new Set(
+    value
+      .filter((feature): feature is string => typeof feature === 'string')
+      .map((feature) => feature.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+/**
+ * Whether a merchant may configure / send from a custom email sending domain
+ * (premium). Mirrors merchantHasFeature: an explicit premium_features grant
+ * (`all_features` or the feature) wins; otherwise the plan tier must include the
+ * feature AND the paid plan must not be expired (plan_expires_at in the future,
+ * or absent). Fail-closed when plan_tier is absent/malformed; this feature must
+ * not inherit legacy price-negotiation allowlists.
+ */
+export function hasCustomEmailDomainEntitlement(
+  merchant: CustomEmailDomainEntitlementSource | null | undefined,
+  now: Date = new Date()
+): boolean {
+  const features = normalizePremiumFeatures(merchant?.premium_features);
+  if (
+    features.has('all_features') ||
+    features.has(FEATURES.CUSTOM_EMAIL_DOMAIN)
+  ) {
+    return true;
+  }
+
+  const planTier = merchant?.plan_tier;
+  if (
+    !isPlanTier(planTier) ||
+    !planHasFeature(planTier, FEATURES.CUSTOM_EMAIL_DOMAIN)
+  ) {
+    return false;
+  }
+
+  if (!merchant?.plan_expires_at) {
+    return true;
+  }
+  const expiryTime = Date.parse(merchant.plan_expires_at);
+  return Number.isFinite(expiryTime) && expiryTime > now.getTime();
 }

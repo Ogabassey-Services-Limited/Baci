@@ -2,29 +2,171 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  buildAuthEmailConfirmationUrl,
   extractMerchantLookup,
   generateEmailHtml,
   getCustomDomainCandidates,
   getEmailConfig,
+  selectActiveCustomDomainForBranding,
 } from '../../../../supabase/functions/send-auth-email/auth-email-template';
-import { generateEmailHtml as generateAppLocalEmailHtml } from '../../supabase/functions/send-auth-email/auth-email-template';
+import {
+  buildAuthEmailConfirmationUrl as buildAppLocalAuthEmailConfirmationUrl,
+  generateEmailHtml as generateAppLocalEmailHtml,
+  selectActiveCustomDomainForBranding as selectAppLocalActiveCustomDomainForBranding,
+} from '../../supabase/functions/send-auth-email/auth-email-template';
 
 describe('send-auth-email template helpers', () => {
   const ogabasseyMerchantLogoUrl =
     'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-logo-2026-v1.png';
   const ogabasseyOpaqueEmailLogoUrl =
     'https://cdn.ogabassey.com/merchants/ogabassey/uploads/ogabassey-email-logo-2026-v1.png';
+  const ogabasseyBranding = {
+    businessName: 'Ogabassey',
+    customDomain: 'ogabassey.com',
+    emailSenderName: 'Ogabassey',
+    logoUrl: null,
+    primaryColor: '#d62027',
+    buttonColor: '#d62027',
+    buttonTextColor: '#ffffff',
+    slug: 'ogabassey',
+    supportEmail: 'support@ogabassey.com',
+  };
 
   it('detects Baci merchant subdomains from auth redirects', () => {
     expect(
-      extractMerchantLookup('https://ogabassey.usebaci.com/account/verify')
+      extractMerchantLookup('https://ogabassey.usebaci.com/account')
     ).toEqual({ customDomain: null, slug: 'ogabassey' });
   });
 
   it('detects custom domains from auth redirects', () => {
-    expect(
-      extractMerchantLookup('https://ogabassey.com/account/verify')
-    ).toEqual({ customDomain: 'ogabassey.com', slug: null });
+    expect(extractMerchantLookup('https://ogabassey.com/account')).toEqual({
+      customDomain: 'ogabassey.com',
+      slug: null,
+    });
+  });
+
+  it('builds same-merchant custom-domain confirmation links with relative next params', () => {
+    const rootUrl = buildAuthEmailConfirmationUrl({
+      branding: ogabasseyBranding,
+      emailType: 'magiclink',
+      redirectTo: 'https://ogabassey.com/account?from=email',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+    const appLocalUrl = buildAppLocalAuthEmailConfirmationUrl({
+      branding: ogabasseyBranding,
+      emailType: 'magiclink',
+      redirectTo: 'https://ogabassey.com/account?from=email',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+
+    expect(appLocalUrl).toBe(rootUrl);
+    const url = new URL(rootUrl ?? '');
+    expect(url.origin).toBe('https://ogabassey.com');
+    expect(url.pathname).toBe('/auth/confirm');
+    expect(url.searchParams.get('token_hash')).toBe('hash-123');
+    expect(url.searchParams.get('type')).toBe('magiclink');
+    expect(url.searchParams.get('next')).toBe('/account?from=email');
+  });
+
+  it('keeps a subdomain confirmation on the platform host even when a custom domain exists', () => {
+    // The custom domain comes from the local `domains` row, which can be stale
+    // (active after transfer/removal). A subdomain request must NOT have its
+    // token-bearing link moved onto that possibly-dead origin — it stays on the
+    // platform host (live/routable) with the slug-routed next.
+    for (const build of [
+      buildAuthEmailConfirmationUrl,
+      buildAppLocalAuthEmailConfirmationUrl,
+    ]) {
+      const url = build({
+        branding: ogabasseyBranding, // has customDomain: ogabassey.com
+        emailType: 'magiclink',
+        redirectTo: 'https://ogabassey.usebaci.com/account?from=email',
+        siteUrl: 'https://usebaci.com',
+        tokenHash: 'hash-123',
+      });
+
+      const parsed = new URL(url ?? '');
+      expect(parsed.origin).toBe('https://usebaci.com');
+      expect(parsed.pathname).toBe('/auth/confirm');
+      expect(parsed.searchParams.get('token_hash')).toBe('hash-123');
+      expect(parsed.searchParams.get('type')).toBe('magiclink');
+      expect(parsed.searchParams.get('next')).toBe(
+        '/ogabassey/account?from=email'
+      );
+    }
+  });
+
+  it('still uses the custom-domain origin when the customer is already on it', () => {
+    // Proven live because the request itself came from the custom domain.
+    const url = buildAuthEmailConfirmationUrl({
+      branding: ogabasseyBranding,
+      emailType: 'magiclink',
+      redirectTo: 'https://ogabassey.com/account?from=email',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+    const parsed = new URL(url ?? '');
+    expect(parsed.origin).toBe('https://ogabassey.com');
+    expect(parsed.searchParams.get('next')).toBe('/account?from=email');
+  });
+
+  it('keeps subdomain-only merchants on the platform host and routes next through the slug', () => {
+    const brandingWithoutCustomDomain = {
+      ...ogabasseyBranding,
+      customDomain: null,
+    };
+
+    const url = buildAuthEmailConfirmationUrl({
+      branding: brandingWithoutCustomDomain,
+      emailType: 'magiclink',
+      redirectTo: 'https://ogabassey.usebaci.com/account?from=email',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+
+    const parsed = new URL(url ?? '');
+    expect(parsed.origin).toBe('https://usebaci.com');
+    expect(parsed.pathname).toBe('/auth/confirm');
+    expect(parsed.searchParams.get('next')).toBe(
+      '/ogabassey/account?from=email'
+    );
+  });
+
+  it('drops external confirmation next targets', () => {
+    const url = buildAuthEmailConfirmationUrl({
+      branding: ogabasseyBranding,
+      emailType: 'magiclink',
+      redirectTo: 'https://evil.example/account',
+      siteUrl: 'https://usebaci.com',
+      tokenHash: 'hash-123',
+    });
+
+    expect(new URL(url ?? '').searchParams.has('next')).toBe(false);
+  });
+
+  it('keeps same-merchant non-HTTPS redirects on the platform host with no next', () => {
+    // A token-bearing confirmation must never be moved onto a plain http://
+    // origin (the token could leak over the wire), so the link stays on
+    // site_url and the untrusted next is dropped.
+    for (const build of [
+      buildAuthEmailConfirmationUrl,
+      buildAppLocalAuthEmailConfirmationUrl,
+    ]) {
+      const url = build({
+        branding: ogabasseyBranding,
+        emailType: 'magiclink',
+        redirectTo: 'http://ogabassey.com/account',
+        siteUrl: 'https://usebaci.com',
+        tokenHash: 'hash-123',
+      });
+      const parsed = new URL(url ?? '');
+      expect(parsed.origin).toBe('https://usebaci.com');
+      expect(parsed.pathname).toBe('/auth/confirm');
+      expect(parsed.searchParams.has('next')).toBe(false);
+      expect(parsed.searchParams.get('token_hash')).toBe('hash-123');
+    }
   });
 
   it('builds custom-domain candidates with and without www', () => {
@@ -36,6 +178,60 @@ describe('send-auth-email template helpers', () => {
       'www.ogabassey.com',
       'ogabassey.com',
     ]);
+  });
+
+  it('selects only active custom or purchased domains for branded auth links', () => {
+    for (const select of [
+      selectActiveCustomDomainForBranding,
+      selectAppLocalActiveCustomDomainForBranding,
+    ]) {
+      expect(
+        select([
+          {
+            domain: 'ogabassey.usebaci.com',
+            domain_type: 'subdomain',
+            is_primary: true,
+          },
+        ])
+      ).toBeNull();
+      expect(
+        select([
+          {
+            domain: 'shop.ogabassey.com',
+            domain_type: 'custom',
+            is_primary: false,
+          },
+          {
+            domain: 'ogabassey.com',
+            domain_type: 'custom',
+            is_primary: true,
+          },
+        ])
+      ).toBe('ogabassey.com');
+      expect(
+        select([
+          {
+            domain: 'ogabassey.com',
+            domain_type: 'purchased',
+            is_primary: false,
+          },
+        ])
+      ).toBe('ogabassey.com');
+      expect(
+        select([
+          {
+            domain: 'shop.ogabassey.com',
+            domain_type: 'custom',
+            is_primary: false,
+          },
+          {
+            domain: 'ogabassey.com',
+            domain_type: 'custom',
+            is_primary: false,
+          },
+        ])
+      ).toBeNull();
+    }
   });
 
   it('uses sign-in-code copy for magiclink auth emails', () => {
@@ -52,24 +248,14 @@ describe('send-auth-email template helpers', () => {
     const html = generateEmailHtml(
       getEmailConfig('magiclink', 'Ogabassey'),
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
-      {
-        businessName: 'Ogabassey',
-        customDomain: 'ogabassey.com',
-        emailSenderName: 'Ogabassey',
-        logoUrl: null,
-        primaryColor: '#d62027',
-        buttonColor: '#d62027',
-        buttonTextColor: '#ffffff',
-        slug: 'ogabassey',
-        supportEmail: 'support@ogabassey.com',
-      },
+      ogabasseyBranding,
       '123456',
-      'https://ogabassey.com/account/verify'
+      'https://ogabassey.com/account'
     );
 
     expect(html).toContain('Secure sign in');
     expect(html).toContain('123456');
-    expect(html).toContain('href="https://ogabassey.com/account/verify"');
+    expect(html).toContain('href="https://ogabassey.com/account"');
     expect(html).toContain('support@ogabassey.com');
     expect(html).toContain('Ogabassey Never Disappoints.');
     expect(html).toContain('content="light dark"');
@@ -86,19 +272,9 @@ describe('send-auth-email template helpers', () => {
     const html = generateEmailHtml(
       getEmailConfig('magiclink', 'Ogabassey'),
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
-      {
-        businessName: 'Ogabassey',
-        customDomain: 'ogabassey.com',
-        emailSenderName: 'Ogabassey',
-        logoUrl: ogabasseyMerchantLogoUrl,
-        primaryColor: '#d62027',
-        buttonColor: '#d62027',
-        buttonTextColor: '#ffffff',
-        slug: 'ogabassey',
-        supportEmail: 'support@ogabassey.com',
-      },
+      { ...ogabasseyBranding, logoUrl: ogabasseyMerchantLogoUrl },
       '123456',
-      'https://ogabassey.com/account/verify'
+      'https://ogabassey.com/account'
     );
 
     expect(html).toContain(`<img src="${ogabasseyMerchantLogoUrl}"`);
@@ -118,19 +294,12 @@ describe('send-auth-email template helpers', () => {
     const confirmationUrl =
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink';
     const branding = {
-      businessName: 'Ogabassey',
-      customDomain: 'ogabassey.com',
+      ...ogabasseyBranding,
       emailLogoUrl: ogabasseyOpaqueEmailLogoUrl,
-      emailSenderName: 'Ogabassey',
       logoUrl: ogabasseyMerchantLogoUrl,
-      primaryColor: '#d62027',
-      buttonColor: '#d62027',
-      buttonTextColor: '#ffffff',
-      slug: 'ogabassey',
-      supportEmail: 'support@ogabassey.com',
     };
     const token = '123456';
-    const actionUrl = 'https://ogabassey.com/account/verify';
+    const actionUrl = 'https://ogabassey.com/account';
 
     const rootHtml = generateEmailHtml(
       config,
@@ -189,18 +358,11 @@ describe('send-auth-email template helpers', () => {
     const confirmationUrl =
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink';
     const branding = {
-      businessName: 'Ogabassey',
-      customDomain: 'ogabassey.com',
-      emailSenderName: 'Ogabassey',
+      ...ogabasseyBranding,
       logoUrl: ogabasseyMerchantLogoUrl,
-      primaryColor: '#d62027',
-      buttonColor: '#d62027',
-      buttonTextColor: '#ffffff',
-      slug: 'ogabassey',
-      supportEmail: 'support@ogabassey.com',
     };
     const token = '123456';
-    const actionUrl = 'https://ogabassey.com/account/verify';
+    const actionUrl = 'https://ogabassey.com/account';
 
     const rootHtml = generateEmailHtml(
       config,
@@ -241,7 +403,7 @@ describe('send-auth-email template helpers', () => {
         supportEmail: 'support@example.com',
       },
       '123456',
-      'https://shop-ogabassey.example.com/account/verify'
+      'https://shop-ogabassey.example.com/account'
     );
 
     expect(html).toContain(`<img src="${resellerLogoUrl}"`);
@@ -250,22 +412,10 @@ describe('send-auth-email template helpers', () => {
 
   it('omits the Ogabassey CTA when the action URL is unsafe', () => {
     const config = getEmailConfig('magiclink', 'Ogabassey');
-    const branding = {
-      businessName: 'Ogabassey',
-      customDomain: 'ogabassey.com',
-      emailSenderName: 'Ogabassey',
-      logoUrl: null,
-      primaryColor: '#d62027',
-      buttonColor: '#d62027',
-      buttonTextColor: '#ffffff',
-      slug: 'ogabassey',
-      supportEmail: 'support@ogabassey.com',
-    };
-
     const html = generateEmailHtml(
       config,
       'https://usebaci.com/auth/confirm?token_hash=hash&type=magiclink',
-      branding,
+      ogabasseyBranding,
       '123456',
       'javascript:alert(1)'
     );

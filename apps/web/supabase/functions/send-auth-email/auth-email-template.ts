@@ -5,7 +5,9 @@ const BACI_LOGO_URL =
 const BACI_PRIMARY_COLOR = '#1e40af';
 const BACI_BUTTON_COLOR = '#fbbf24';
 const BACI_BUTTON_TEXT_COLOR = '#1e1e1e';
-const OGABASSEY_COLOR = '#d62027';
+// Neutral platform fallback used by normalizeHexColor when a merchant's
+// primaryColor is missing/invalid (value is the seed-merchant red).
+const BACI_FALLBACK_ACCENT_COLOR = '#d62027';
 const PLATFORM_DOMAIN = 'usebaci.com';
 const RESERVED_BACI_SUBDOMAINS = new Set(['app', 'dashboard', 'www']);
 
@@ -36,11 +38,22 @@ export interface MerchantBranding {
   buttonTextColor: string;
   slug?: string | null;
   supportEmail?: string | null;
+  /**
+   * The merchant's verified + enabled custom sending address (e.g.
+   * "noreply@ogabassey.com"). Null → fall back to the platform sender.
+   */
+  sendingFromAddress?: string | null;
 }
 
 export interface MerchantLookup {
   customDomain: string | null;
   slug: string | null;
+}
+
+export interface BrandingCustomDomainRow {
+  domain: string | null;
+  domain_type: string | null;
+  is_primary: boolean | null;
 }
 
 export const BACI_BRANDING: MerchantBranding = {
@@ -101,6 +114,38 @@ export function getEmailConfig(
   };
 
   return configs[emailType] || configs.signup;
+}
+
+export function selectActiveCustomDomainForBranding(
+  rows: BrandingCustomDomainRow[] | null | undefined
+): string | null {
+  const customDomains =
+    rows?.filter(
+      (row): row is BrandingCustomDomainRow & { domain: string } =>
+        typeof row.domain === 'string' &&
+        row.domain.length > 0 &&
+        (row.domain_type === 'custom' || row.domain_type === 'purchased')
+    ) ?? [];
+
+  const primary = customDomains.find((row) => row.is_primary);
+  if (primary) {
+    return primary.domain;
+  }
+
+  if (customDomains.length === 1) {
+    return customDomains[0].domain;
+  }
+
+  // 0 or 2+ active custom domains with no is_primary: fall back to platform
+  // branding rather than guess. Log the ambiguous case so a merchant whose
+  // branding silently reverts to the subdomain is diagnosable.
+  if (customDomains.length > 1) {
+    console.warn(
+      'Multiple active custom domains with no primary; using platform branding',
+      { count: customDomains.length }
+    );
+  }
+  return null;
 }
 
 function normalizeHostname(hostname: string): string | null {
@@ -181,6 +226,163 @@ export function getCustomDomainCandidates(
   }
 
   return [normalized, `www.${normalized}`];
+}
+
+function isSameMerchantRedirect(
+  nextUrl: URL,
+  siteUrl: URL,
+  branding: MerchantBranding
+): boolean {
+  if (nextUrl.origin === siteUrl.origin) {
+    return true;
+  }
+
+  // A cross-origin redirect's origin is copied into a token-bearing confirmation
+  // link, so only allow the merchant's own routable HTTPS origin — never a
+  // plain http:// origin that could leak the token over the wire.
+  if (nextUrl.protocol !== 'https:') {
+    return false;
+  }
+
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+  if (nextLookup?.slug && branding.slug) {
+    return nextLookup.slug === branding.slug.toLowerCase();
+  }
+
+  if (nextLookup?.customDomain && branding.customDomain) {
+    return getCustomDomainCandidates(branding.customDomain).includes(
+      nextLookup.customDomain
+    );
+  }
+
+  return false;
+}
+
+function normalizeStorefrontNextPath(pathname: string): string {
+  // The web storefront has /account, /account/login, and /account/callback;
+  // /account/verify is a mobile placeholder. After /auth/confirm verifies the
+  // token, land web customers on the existing account shell instead of a 404.
+  return pathname === '/account/verify' ? '/account' : pathname;
+}
+
+function buildMerchantRelativeNext(
+  nextUrl: URL,
+  branding: MerchantBranding,
+  options: { includeSlugForSubdomain: boolean }
+) {
+  const pathname = normalizeStorefrontNextPath(nextUrl.pathname);
+  const route = `${pathname}${nextUrl.search}${nextUrl.hash}`;
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+
+  if (
+    options.includeSlugForSubdomain &&
+    nextLookup?.slug &&
+    branding.slug &&
+    nextLookup.slug === branding.slug.toLowerCase()
+  ) {
+    const slugPrefix = `/${nextLookup.slug}`;
+    return pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)
+      ? route
+      : `${slugPrefix}${route.startsWith('/') ? route : `/${route}`}`;
+  }
+
+  return route;
+}
+
+function getCustomDomainConfirmationOrigin(
+  nextUrl: URL,
+  branding: MerchantBranding
+): string | null {
+  const customDomain = normalizeHostname(branding.customDomain ?? '');
+  if (!customDomain) return null;
+
+  const nextLookup = extractMerchantLookup(nextUrl.toString());
+  // Only prefer the custom-domain origin when the customer is ALREADY on it —
+  // that proves it's live and routable. We must NOT move a token-bearing
+  // /auth/confirm link onto branding.customDomain for a slug/subdomain request:
+  // that custom-domain row is the local `domains` table only, which can be
+  // stale (status='active' after the domain was transferred/removed), so the
+  // link could point at a dead host even though the subdomain the customer used
+  // is live. Subdomain requests therefore keep the confirmation on the platform
+  // host (see buildAuthEmailConfirmationUrl), which is always routable.
+  if (
+    nextLookup?.customDomain &&
+    getCustomDomainCandidates(customDomain).includes(nextLookup.customDomain)
+  ) {
+    return nextUrl.origin;
+  }
+
+  return null;
+}
+
+export function buildAuthEmailConfirmationUrl({
+  branding,
+  emailType,
+  redirectTo,
+  siteUrl,
+  tokenHash,
+}: {
+  branding: MerchantBranding;
+  emailType: string;
+  redirectTo?: string;
+  siteUrl: string;
+  tokenHash: string;
+}): string | null {
+  let confirmationUrl: URL;
+  let parsedSiteUrl: URL;
+  try {
+    parsedSiteUrl = new URL(siteUrl);
+    confirmationUrl = new URL('/auth/confirm', parsedSiteUrl);
+  } catch {
+    return null;
+  }
+
+  confirmationUrl.searchParams.set('token_hash', tokenHash);
+  confirmationUrl.searchParams.set('type', emailType);
+
+  if (!redirectTo) {
+    return confirmationUrl.toString();
+  }
+
+  if (/^https?:\/\//i.test(redirectTo)) {
+    try {
+      const nextUrl = new URL(redirectTo);
+      if (isSameMerchantRedirect(nextUrl, parsedSiteUrl, branding)) {
+        // `/auth/confirm` only accepts same-origin absolute next URLs. Move the
+        // token-bearing link onto the merchant's custom-domain origin whenever
+        // available, including slug/subdomain redirects for merchants that also
+        // have an active custom domain. That keeps the Supabase session cookie on
+        // the same origin as the eventual account page.
+        const customDomainOrigin = getCustomDomainConfirmationOrigin(
+          nextUrl,
+          branding
+        );
+        const useCustomDomainOrigin = Boolean(
+          customDomainOrigin && customDomainOrigin !== parsedSiteUrl.origin
+        );
+        if (useCustomDomainOrigin && customDomainOrigin) {
+          confirmationUrl = new URL('/auth/confirm', customDomainOrigin);
+          confirmationUrl.searchParams.set('token_hash', tokenHash);
+          confirmationUrl.searchParams.set('type', emailType);
+        }
+        confirmationUrl.searchParams.set(
+          'next',
+          buildMerchantRelativeNext(nextUrl, branding, {
+            includeSlugForSubdomain: !useCustomDomainOrigin,
+          })
+        );
+      }
+    } catch {
+      // Ignore malformed redirects; the confirmation link itself remains valid.
+    }
+    return confirmationUrl.toString();
+  }
+
+  confirmationUrl.searchParams.set(
+    'next',
+    redirectTo === '/account/verify' ? '/account' : redirectTo
+  );
+  return confirmationUrl.toString();
 }
 
 export function sanitizeUrl(url: string): string {
@@ -289,7 +491,10 @@ function renderOgabasseyEmailHtml(
   token?: string
 ): string {
   const safeBrandName = escapeHtml(branding.businessName);
-  const brandColor = normalizeHexColor(branding.primaryColor, OGABASSEY_COLOR);
+  const brandColor = normalizeHexColor(
+    branding.primaryColor,
+    BACI_FALLBACK_ACCENT_COLOR
+  );
   const support = branding.supportEmail || 'support@ogabassey.com';
   const safeSupport = escapeHtml(support);
   const supportHtml = support.includes('@')
@@ -312,7 +517,7 @@ function renderOgabasseyEmailHtml(
 </style>
 </head>
 <body class="a-bg" style="margin:0;padding:0;background:#f2f4f7;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;">${escapeHtml(config.body)}</span>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(config.body)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="a-bg" style="background:#f2f4f7;">
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="a-card" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #e8edf3;border-radius:18px;overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,0.10);">

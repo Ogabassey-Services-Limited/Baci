@@ -7,12 +7,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 import {
   BACI_BRANDING,
+  buildAuthEmailConfirmationUrl,
   extractMerchantLookup,
   generateEmailHtml,
   getCustomDomainCandidates,
   getEmailConfig,
   type MerchantBranding,
   type MerchantLookup,
+  selectActiveCustomDomainForBranding,
 } from './auth-email-template.ts';
 
 function getRequiredEnv(name: string): string {
@@ -57,27 +59,211 @@ interface EmailPayload {
 // ⚠️ Keep MERCHANT_BRANDING_COLUMNS and MerchantBrandingRow in sync — a Deno
 // edge fn gets no typed Supabase inference, so a mismatch surfaces only at runtime.
 const MERCHANT_BRANDING_COLUMNS =
-  'business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email';
+  'id, business_name, logo_url, email_logo_url, brand_colors, slug, support_email, email_sender_name, email, plan_tier, plan_expires_at, premium_features';
 
 interface MerchantBrandingRow {
+  id: string;
   brand_colors: { primary?: string; accent?: string } | null;
   business_name: string;
   email: string | null;
   email_logo_url: string | null;
   email_sender_name: string | null;
   logo_url: string | null;
+  plan_tier: string | null;
+  plan_expires_at: string | null;
+  premium_features: unknown;
   slug: string | null;
   support_email: string | null;
 }
 
+const CUSTOM_EMAIL_DOMAIN_PLAN_TIERS = new Set([
+  'pro',
+  'business',
+  'enterprise',
+]);
+
+function normalizePremiumFeatures(value: unknown): Set<string> {
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+  return new Set(
+    value
+      .filter((feature): feature is string => typeof feature === 'string')
+      .map((feature) => feature.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+/**
+ * The merchant's verified + enabled custom sending address (e.g.
+ * "noreply@ogabassey.com"), or null to fall back to the platform sender.
+ * Aligning the From-domain with the brand/links materially improves inbox
+ * placement; see merchant_email_domains migration. Mirrors the web
+ * hasCustomEmailDomainEntitlement: premium_features grant wins, else plan tier
+ * must include the feature AND the paid plan must not be expired.
+ */
+function hasCustomEmailDomainEntitlement(
+  merchant: Pick<
+    MerchantBrandingRow,
+    'plan_tier' | 'plan_expires_at' | 'premium_features'
+  >,
+  now = new Date()
+): boolean {
+  const features = normalizePremiumFeatures(merchant.premium_features);
+  if (features.has('all_features') || features.has('custom_email_domain')) {
+    return true;
+  }
+  if (
+    !(
+      merchant.plan_tier &&
+      CUSTOM_EMAIL_DOMAIN_PLAN_TIERS.has(merchant.plan_tier)
+    )
+  ) {
+    return false;
+  }
+  if (!merchant.plan_expires_at) {
+    return true;
+  }
+  const expiryTime = Date.parse(merchant.plan_expires_at);
+  return Number.isFinite(expiryTime) && expiryTime > now.getTime();
+}
+
+async function merchantStillOwnsSendingDomain(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string,
+  domain: string
+): Promise<boolean> {
+  // Require ownership of the EXACT sender domain (no www↔apex counterpart),
+  // matching the exact-match proof now enforced at registration/enabling. A
+  // counterpart match would let the hook send OTP mail from a stale sender
+  // domain after a transfer/removal.
+  const { data, error } = await supabase
+    .from('domains')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .eq('domain', domain.toLowerCase())
+    .eq('status', 'active')
+    .limit(1);
+
+  if (error) {
+    console.log('Sending-domain ownership lookup failed:', error.message);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
+async function fetchActiveCustomDomainForMerchant(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('domains')
+    .select('domain, domain_type, is_primary')
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .in('domain_type', ['custom', 'purchased'])
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(2);
+
+  if (error) {
+    console.log('Merchant active custom-domain lookup failed:', error.message);
+    return null;
+  }
+
+  return selectActiveCustomDomainForBranding(data);
+}
+
+// Is the auth-email recipient a verified customer of this merchant? Checked
+// against the trusted `customers` table (keyed by merchant + auth user id),
+// which — unlike `redirect_to` — cannot be forged by the caller. Fails closed
+// (returns false → platform sender) on any lookup error.
+async function recipientIsMerchantCustomer(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string,
+  recipientUserId: string | null
+): Promise<boolean> {
+  if (!recipientUserId) {
+    return false;
+  }
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .eq('user_id', recipientUserId)
+    .limit(1);
+  if (error) {
+    console.log('Customer relationship lookup failed:', error.message);
+    return false;
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
+async function fetchMerchantSendingAddress(
+  supabase: ReturnType<typeof createClient>,
+  merchant: Pick<
+    MerchantBrandingRow,
+    'id' | 'plan_tier' | 'plan_expires_at' | 'premium_features'
+  >,
+  recipientUserId: string | null
+): Promise<string | null> {
+  if (!hasCustomEmailDomainEntitlement(merchant)) {
+    return null;
+  }
+
+  // Security gate: `redirect_to` (which selects the merchant) is caller-
+  // controllable via the allowlisted `*.usebaci.com/account/verify` redirect,
+  // so an attacker could request an OTP for any address while pointing at a
+  // victim merchant. Only send from the merchant's DKIM-signed custom domain
+  // when the recipient is genuinely that merchant's customer; everyone else
+  // (including first-time signups) gets the platform sender. The email stays
+  // merchant-branded either way — only the From domain falls back.
+  if (
+    !(await recipientIsMerchantCustomer(supabase, merchant.id, recipientUserId))
+  ) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('merchant_email_domains')
+    .select('domain, sender_local_part')
+    .eq('merchant_id', merchant.id)
+    .eq('enabled', true)
+    .eq('status', 'verified')
+    .maybeSingle();
+
+  if (error) {
+    // Fail open to the platform sender — never block an auth email over this.
+    console.log('Sending-domain lookup failed:', error.message);
+    return null;
+  }
+  if (!data?.domain) {
+    return null;
+  }
+
+  const stillOwnsDomain = await merchantStillOwnsSendingDomain(
+    supabase,
+    merchant.id,
+    data.domain as string
+  );
+  if (!stillOwnsDomain) {
+    return null;
+  }
+
+  const localPart = (data.sender_local_part as string) || 'noreply';
+  return `${localPart}@${data.domain}`;
+}
+
 async function fetchMerchantBranding(
-  lookup: MerchantLookup
+  lookup: MerchantLookup,
+  recipientUserId: string | null
 ): Promise<MerchantBranding | null> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     let merchant: MerchantBrandingRow | null = null;
     // The resolved live custom domain, sourced from `public.domains` (not from
-    // a `merchants` column). Stays null for slug-based lookups.
+    // a `merchants` column). Slug lookups also resolve this so links land on the custom-domain origin when one exists.
     let resolvedCustomDomain: string | null = null;
 
     if (lookup.slug) {
@@ -89,9 +275,15 @@ async function fetchMerchantBranding(
         .maybeSingle();
 
       if (error) {
-        console.log('Merchant slug lookup failed:', lookup.slug, error.message);
+        console.log('Merchant slug lookup failed:', error.message);
       }
       merchant = data;
+      if (merchant) {
+        resolvedCustomDomain = await fetchActiveCustomDomainForMerchant(
+          supabase,
+          merchant.id
+        );
+      }
     }
 
     if (!merchant && lookup.customDomain) {
@@ -112,7 +304,7 @@ async function fetchMerchantBranding(
           .maybeSingle();
 
         if (domainError) {
-          console.log('Domain lookup failed:', candidate, domainError.message);
+          console.log('Domain lookup failed:', domainError.message);
           continue;
         }
         if (!domainRow) continue;
@@ -125,11 +317,7 @@ async function fetchMerchantBranding(
           .maybeSingle();
 
         if (error) {
-          console.log(
-            'Merchant custom-domain lookup failed:',
-            candidate,
-            error.message
-          );
+          console.log('Merchant custom-domain lookup failed:', error.message);
           continue;
         }
 
@@ -142,7 +330,7 @@ async function fetchMerchantBranding(
     }
 
     if (!merchant) {
-      console.log('Merchant not found for auth email lookup:', lookup);
+      console.log('Merchant not found for auth email lookup');
       return null;
     }
 
@@ -150,6 +338,12 @@ async function fetchMerchantBranding(
       primary?: string;
       accent?: string;
     } | null;
+
+    const sendingFromAddress = await fetchMerchantSendingAddress(
+      supabase,
+      merchant,
+      recipientUserId
+    );
 
     return {
       businessName: merchant.business_name,
@@ -163,6 +357,7 @@ async function fetchMerchantBranding(
       buttonTextColor: '#ffffff',
       slug: merchant.slug,
       supportEmail: merchant.support_email || merchant.email,
+      sendingFromAddress,
     };
   } catch (err) {
     console.error('Error fetching merchant branding:', err);
@@ -174,13 +369,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
-
-  console.log(
-    'Token length:',
-    ZEPTOMAIL_TOKEN.length,
-    'Secret length:',
-    SEND_EMAIL_HOOK_SECRET.length
-  );
 
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers);
@@ -230,25 +418,28 @@ Deno.serve(async (req) => {
   let branding = BACI_BRANDING;
 
   if (merchantLookup) {
-    console.log('Detected merchant auth email lookup:', merchantLookup);
-    const merchantBranding = await fetchMerchantBranding(merchantLookup);
+    console.log('Detected merchant auth email lookup');
+    const merchantBranding = await fetchMerchantBranding(
+      merchantLookup,
+      user?.id ?? null
+    );
     if (merchantBranding) {
       branding = merchantBranding;
-      console.log('Using merchant branding:', branding.businessName);
+      console.log('Using merchant branding');
     }
   }
 
   const config = getEmailConfig(emailType, branding.businessName);
 
-  let confirmationUrl: URL;
-  try {
-    confirmationUrl = new URL('/auth/confirm', emailData.site_url);
-  } catch (error) {
-    console.error(
-      'Invalid site URL for auth email:',
-      emailData.site_url,
-      error
-    );
+  const confirmationUrl = buildAuthEmailConfirmationUrl({
+    branding,
+    emailType,
+    redirectTo: emailData.redirect_to,
+    siteUrl: emailData.site_url,
+    tokenHash: emailData.token_hash,
+  });
+  if (!confirmationUrl) {
+    console.error('Invalid site URL for auth email:', emailData.site_url);
     return new Response(
       JSON.stringify({ error: 'Invalid email configuration' }),
       {
@@ -258,88 +449,123 @@ Deno.serve(async (req) => {
     );
   }
 
-  confirmationUrl.searchParams.set('token_hash', emailData.token_hash);
-  confirmationUrl.searchParams.set('type', emailType);
-
-  let actionUrlOverride: string | undefined;
-
-  if (emailData.redirect_to) {
-    if (/^https?:\/\//i.test(emailData.redirect_to)) {
-      try {
-        const nextUrl = new URL(emailData.redirect_to);
-        const siteUrl = new URL(emailData.site_url);
-
-        if (nextUrl.origin === siteUrl.origin) {
-          confirmationUrl.searchParams.set('next', nextUrl.toString());
-        }
-
-        if (emailType === 'magiclink') {
-          actionUrlOverride = nextUrl.toString();
-        }
-      } catch (error) {
-        console.warn(
-          'Ignoring invalid redirect_to URL:',
-          emailData.redirect_to,
-          error
-        );
-      }
-    } else {
-      confirmationUrl.searchParams.set('next', emailData.redirect_to);
-    }
-  }
-
+  // The CTA points at /auth/confirm (token_hash), so clicking it verifies the
+  // token and signs the user in directly — the 6-digit code stays as a manual
+  // fallback for forwarded mail or a different browser/device.
   const htmlBody = generateEmailHtml(
     config,
-    confirmationUrl.toString(),
+    confirmationUrl,
     branding,
-    emailData.token,
-    actionUrlOverride
+    emailData.token
   );
 
-  // Sender: use merchant name for merchant emails, "Baci" for platform emails.
-  // The address stays on usebaci.com for SPF/DKIM alignment.
+  // Sender name: merchant name for merchant emails, "Baci" for platform emails.
   const senderName =
     branding.businessName !== 'Baci'
       ? branding.emailSenderName || branding.businessName
       : 'Baci';
 
+  // From-address: a merchant's verified+enabled custom domain when present,
+  // otherwise the platform sender. Sending from the merchant's own domain
+  // aligns From ↔ brand ↔ links and improves inbox placement.
+  const fromAddress = branding.sendingFromAddress || 'noreply@usebaci.com';
+
+  // Plain-text alternative. HTML-only mail is a deliverability/spam signal;
+  // a multipart message scores better.
+  const textBodyLines = [
+    config.subject,
+    '',
+    ...(emailData.token ? [`Your code: ${emailData.token}`] : []),
+    `Continue: ${confirmationUrl}`,
+    '',
+    'If you did not request this email, you can safely ignore it.',
+  ];
+  const textBody = textBodyLines.join('\n');
+
   console.log(
-    'Sending email to:',
-    user.email,
+    'Sending auth email',
     'Type:',
     emailType,
-    'Brand:',
-    branding.businessName
+    'MerchantBranded:',
+    branding.businessName !== 'Baci',
+    'CustomFrom:',
+    Boolean(branding.sendingFromAddress)
   );
 
   // Send via ZeptoMail
   try {
-    const response = await fetch('https://api.zeptomail.com/v1.1/email', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
-      },
-      body: JSON.stringify({
-        from: { address: 'noreply@usebaci.com', name: senderName },
-        to: [{ email_address: { address: user.email } }],
-        subject: config.subject,
-        htmlbody: htmlBody,
-      }),
-    });
+    const emailRequestBody = {
+      to: [{ email_address: { address: user.email } }],
+      subject: config.subject,
+      htmlbody: htmlBody,
+      textbody: textBody,
+    };
+    // Bound the ZeptoMail call so a slow/hung API can't keep the auth-email
+    // function open until the runtime kills it. Applies to both the primary and
+    // fallback sends (a timeout aborts the fetch and is handled by the catch
+    // below as a delivery failure).
+    const ZEPTOMAIL_SEND_TIMEOUT_MS = 10_000;
+    const sendWithFrom = (address: string) =>
+      fetch('https://api.zeptomail.com/v1.1/email', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
+        },
+        body: JSON.stringify({
+          ...emailRequestBody,
+          from: { address, name: senderName },
+        }),
+        signal: AbortSignal.timeout(ZEPTOMAIL_SEND_TIMEOUT_MS),
+      });
 
-    const responseText = await response.text();
-    console.log('ZeptoMail response:', response.status, responseText);
+    // Only status-level diagnostics are logged/returned — ZeptoMail response
+    // bodies can echo recipient PII, so they are never logged or exposed.
+    const deliveryFailed = new Response(
+      JSON.stringify({ error: 'Email delivery failed' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+    const usingCustomSender = Boolean(branding.sendingFromAddress);
 
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: 'ZeptoMail failed', details: responseText }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+    // A custom sender can fail by returning a non-2xx response OR by throwing
+    // (AbortSignal.timeout, DNS/TLS, transient network). Both must fall back to
+    // the platform sender so a merchant-domain hiccup never blocks a customer's
+    // auth email. A platform-sender throw is a genuine failure → outer catch.
+    let response: Response | null = null;
+    try {
+      response = await sendWithFrom(fromAddress);
+      console.log('ZeptoMail response status:', response.status);
+    } catch (sendError) {
+      if (!usingCustomSender) {
+        throw sendError;
+      }
+      console.warn('Custom auth-email sender threw; retrying with platform');
+    }
+
+    if (usingCustomSender && (response === null || !response.ok)) {
+      console.warn(
+        'Custom auth-email sender failed; retrying with platform sender',
+        response?.status ?? 'threw'
       );
+      const fallbackResponse = await sendWithFrom('noreply@usebaci.com');
+      console.log(
+        'ZeptoMail fallback response status:',
+        fallbackResponse.status
+      );
+
+      if (fallbackResponse.ok) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return deliveryFailed;
+    }
+
+    if (!response?.ok) {
+      return deliveryFailed;
     }
 
     return new Response(JSON.stringify({ success: true }), {

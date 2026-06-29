@@ -1,5 +1,6 @@
 import { SendMailClient } from 'zeptomail';
 import { getZeptoMailFromDomain, getZeptoMailToken } from '@/env';
+import { getActiveMerchantSendingDomain } from '@/lib/merchant-sending-domain';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Lazy-initialized client
@@ -55,6 +56,45 @@ function getSenderAddress(
   };
 }
 
+// Customer-facing email types that should send from the merchant's own verified
+// sending domain (e.g. orders@ogabassey.com) when one is configured. Platform→
+// merchant mail (settlement, sales summaries — sent as `noreply`) deliberately
+// stays on the platform domain even though it carries a merchantId.
+const MERCHANT_DOMAIN_EMAIL_TYPES: ReadonlySet<EmailType> = new Set(['orders']);
+
+/**
+ * Resolve the From address for a send, preferring the merchant's verified
+ * custom sending domain for customer-facing mail and falling back to the
+ * platform domain otherwise. Keeps the per-type prefix (orders@, etc.) and the
+ * resolved display name; only the domain swaps.
+ */
+async function resolveSenderAddress(
+  emailType: EmailType,
+  customName: string | undefined,
+  merchantId: string | null | undefined
+): Promise<{ address: string; name: string; isCustomDomain: boolean }> {
+  const base = {
+    ...getSenderAddress(emailType, customName),
+    isCustomDomain: false,
+  };
+
+  if (!merchantId || !MERCHANT_DOMAIN_EMAIL_TYPES.has(emailType)) {
+    return base;
+  }
+
+  const customDomain = await getActiveMerchantSendingDomain(merchantId);
+  if (!customDomain) {
+    return base;
+  }
+
+  const prefix = (EMAIL_SENDERS[emailType] || EMAIL_SENDERS.noreply).prefix;
+  return {
+    address: `${prefix}@${customDomain}`,
+    name: base.name,
+    isCustomDomain: true,
+  };
+}
+
 /**
  * Validate email address format
  * Uses length limit and simpler pattern to prevent ReDoS
@@ -87,6 +127,9 @@ interface SendEmailParams {
   emailType?: EmailType;
   fromName?: string;
   auditContext?: EmailAuditContext;
+  // When set (or via auditContext.merchantId), customer-facing mail is sent
+  // from this merchant's verified custom sending domain if one is configured.
+  merchantId?: string | null;
   // Δ-64 (A1): forwarded to ZeptoMail's documented `client_reference`
   // field. The outbox helper sets this to `order:<id>:paid_email` so we
   // have a server-side audit trail showing which sends actually went out
@@ -111,6 +154,7 @@ interface SendEmailWithTemplateParams {
   emailType?: EmailType;
   fromName?: string;
   auditContext?: EmailAuditContext;
+  merchantId?: string | null;
 }
 
 interface EmailResult {
@@ -163,14 +207,16 @@ type EmailAttemptInsert = EmailAttemptRow & {
   id?: string;
 };
 
-/**
- * Parse ZeptoMail error response
- */
-function parseError(error: unknown): {
+interface SendFailure {
   message: string;
   code?: string;
   details?: unknown;
-} {
+}
+
+/**
+ * Parse ZeptoMail error response
+ */
+function parseError(error: unknown): SendFailure {
   if (error instanceof Error) {
     return { message: error.message };
   }
@@ -336,9 +382,14 @@ export async function sendEmail({
   emailType = 'noreply',
   fromName,
   auditContext,
+  merchantId,
   clientReference,
 }: SendEmailParams): Promise<EmailResult> {
-  const sender = getSenderAddress(emailType, fromName);
+  const sender = await resolveSenderAddress(
+    emailType,
+    fromName,
+    merchantId ?? auditContext?.merchantId
+  );
 
   // Validate email
   if (!isValidEmail(to)) {
@@ -387,8 +438,6 @@ export async function sendEmail({
     };
   }
 
-  let lastError: { message: string; code?: string; details?: unknown } | null =
-    null;
   const auditIds = await insertEmailAttempts([
     createAuditAttempt({
       transportType: 'html',
@@ -403,81 +452,127 @@ export async function sendEmail({
     }),
   ]);
 
-  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
-    try {
-      const zeptoClient = getClient();
+  // Run the retry loop for a single From identity. Returns the success result,
+  // or the parsed failure when all attempts for this sender were exhausted.
+  const dispatch = async (
+    activeSender: { address: string; name: string },
+    attemptOffset: number
+  ): Promise<
+    { ok: EmailResult } | { failed: SendFailure; attempts: number }
+  > => {
+    let failure: SendFailure = { message: 'Unknown error' };
+    let attemptsMade = 0;
+    for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+      attemptsMade = attempt + 1;
+      try {
+        const zeptoClient = getClient();
 
-      const response = await zeptoClient.sendMail({
-        from: sender,
-        to: [
-          {
-            email_address: {
-              address: to,
-              name: toName || to,
-            },
-          },
-        ],
-        subject,
-        htmlbody: htmlContent,
-        ...(textContent && { textbody: textContent }),
-        ...(attachments?.length ? { attachments } : {}),
-        // Δ-64: forward to ZeptoMail's documented `client_reference` only
-        // when supplied; absent otherwise so unrelated calls don't have
-        // to set it. The omission test asserts this.
-        ...(clientReference && { client_reference: clientReference }),
-        ...(replyTo && {
-          reply_to: [
+        const response = await zeptoClient.sendMail({
+          from: { address: activeSender.address, name: activeSender.name },
+          to: [
             {
-              address: replyTo,
-              name: replyTo,
+              email_address: {
+                address: to,
+                name: toName || to,
+              },
             },
           ],
-        }),
-      });
+          subject,
+          htmlbody: htmlContent,
+          ...(textContent && { textbody: textContent }),
+          ...(attachments?.length ? { attachments } : {}),
+          // Δ-64: forward to ZeptoMail's documented `client_reference` only
+          // when supplied; absent otherwise so unrelated calls don't have
+          // to set it. The omission test asserts this.
+          ...(clientReference && { client_reference: clientReference }),
+          ...(replyTo && {
+            reply_to: [
+              {
+                address: replyTo,
+                name: replyTo,
+              },
+            ],
+          }),
+        });
 
-      await updateEmailAttempts(auditIds, {
-        status: 'accepted',
-        provider_message_id: response?.request_id || 'unknown',
-        attempt_count: attempt + 1,
-      });
+        await updateEmailAttempts(auditIds, {
+          status: 'accepted',
+          provider_message_id: response?.request_id || 'unknown',
+          attempt_count: attemptOffset + attempt + 1,
+          from_address: activeSender.address,
+        });
 
-      return {
-        success: true,
-        messageId: response?.request_id || 'unknown',
-      };
-    } catch (error) {
-      lastError = parseError(error);
+        return {
+          ok: {
+            success: true,
+            messageId: response?.request_id || 'unknown',
+          },
+        };
+      } catch (error) {
+        failure = parseError(error);
 
-      // Only retry on retryable errors
-      if (
-        attempt < RETRY_CONFIG.maxRetries &&
-        isRetryableError(lastError.code)
-      ) {
-        const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
-        console.warn(
-          `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`
-        );
-        await sleep(delay);
-        continue;
+        // Only retry on retryable errors
+        if (
+          attempt < RETRY_CONFIG.maxRetries &&
+          isRetryableError(failure.code)
+        ) {
+          const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
+          console.warn(
+            `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${failure.message}`
+          );
+          await sleep(delay);
+          continue;
+        }
+
+        break;
       }
-
-      break;
     }
+    return { failed: failure, attempts: attemptsMade };
+  };
+
+  const primary = await dispatch(sender, 0);
+  if ('ok' in primary) {
+    return primary.ok;
+  }
+  let lastError = primary.failed;
+  let totalAttempts = primary.attempts;
+  let finalSenderAddress = sender.address;
+
+  // Fail-open: a merchant custom sender may be rejected by ZeptoMail (stale or
+  // not-yet-verified domain, restricted sender). Order confirmations must not be
+  // lost to that, so retry once from the platform domain — mirroring the
+  // auth-email hook, which also falls back to the platform sender.
+  if (sender.isCustomDomain) {
+    const platformSender = getSenderAddress(emailType, fromName);
+    console.warn(
+      `ZeptoMail custom sender rejected (${lastError.code ?? 'unknown'}); retrying from platform sender`
+    );
+    // Offset the fallback attempt counter by the primary's actual tries (not a
+    // fixed maxRetries+1) so a fallback that succeeds on its first send records
+    // attempt_count as primary.attempts + 1, not an inflated 5.
+    const fallback = await dispatch(platformSender, primary.attempts);
+    if ('ok' in fallback) {
+      return fallback.ok;
+    }
+    lastError = fallback.failed;
+    totalAttempts += fallback.attempts;
+    finalSenderAddress = platformSender.address;
   }
 
   console.error('ZeptoMail email error:', JSON.stringify(lastError));
   await updateEmailAttempts(auditIds, {
     status: 'failed',
-    attempt_count: RETRY_CONFIG.maxRetries + 1,
-    provider_error_code: lastError?.code,
-    provider_error_message: lastError?.message || 'Unknown error',
-    provider_error_details: lastError?.details,
+    attempt_count: totalAttempts,
+    from_address: finalSenderAddress,
+    provider_error_code: lastError.code,
+    provider_error_message: lastError.message || 'Unknown error',
+    provider_error_details: lastError.details,
   });
   return {
     success: false,
-    error: lastError?.message || 'Unknown error',
-    errorCode: lastError?.code,
-    errorDetails: lastError?.details,
+    error: lastError.message || 'Unknown error',
+    errorCode: lastError.code,
+    errorDetails: lastError.details,
   };
 }
 
@@ -493,8 +588,13 @@ export async function sendEmailWithTemplate({
   emailType = 'noreply',
   fromName,
   auditContext,
+  merchantId,
 }: SendEmailWithTemplateParams): Promise<EmailResult> {
-  const sender = getSenderAddress(emailType, fromName);
+  const sender = await resolveSenderAddress(
+    emailType,
+    fromName,
+    merchantId ?? auditContext?.merchantId
+  );
 
   // Validate email
   if (!isValidEmail(to)) {
@@ -560,65 +660,111 @@ export async function sendEmailWithTemplate({
     }),
   ]);
 
-  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
-    try {
-      const zeptoClient = getClient();
+  // Run the retry loop for a single From identity. Returns success, or the
+  // parsed failure plus the number of attempts made for this sender.
+  const dispatchTemplate = async (
+    activeSender: { address: string; name: string },
+    attemptOffset: number
+  ): Promise<
+    | { ok: EmailResult }
+    | {
+        failed: { message: string; code?: string; details?: unknown };
+        attempts: number;
+      }
+  > => {
+    let failure: { message: string; code?: string; details?: unknown } = {
+      message: 'Unknown error',
+    };
+    let attemptsMade = 0;
+    for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+      attemptsMade = attempt + 1;
+      try {
+        const zeptoClient = getClient();
 
-      const response = await zeptoClient.sendMailWithTemplate({
-        template_key: templateKey,
-        from: sender,
-        to: [
-          {
-            email_address: {
-              address: to,
-              name: toName || to,
-            },
-          },
-        ],
-        merge_info: mergeInfo,
-        ...(replyTo && {
-          reply_to: [
+        const response = await zeptoClient.sendMailWithTemplate({
+          template_key: templateKey,
+          from: { address: activeSender.address, name: activeSender.name },
+          to: [
             {
-              address: replyTo,
-              name: replyTo,
+              email_address: {
+                address: to,
+                name: toName || to,
+              },
             },
           ],
-        }),
-      });
+          merge_info: mergeInfo,
+          ...(replyTo && {
+            reply_to: [
+              {
+                address: replyTo,
+                name: replyTo,
+              },
+            ],
+          }),
+        });
 
-      await updateEmailAttempts(auditIds, {
-        status: 'accepted',
-        provider_message_id: response?.request_id || 'unknown',
-        attempt_count: attempt + 1,
-      });
+        await updateEmailAttempts(auditIds, {
+          status: 'accepted',
+          provider_message_id: response?.request_id || 'unknown',
+          attempt_count: attemptOffset + attempt + 1,
+          from_address: activeSender.address,
+        });
 
-      return {
-        success: true,
-        messageId: response?.request_id || 'unknown',
-      };
-    } catch (error) {
-      lastError = parseError(error);
+        return {
+          ok: { success: true, messageId: response?.request_id || 'unknown' },
+        };
+      } catch (error) {
+        failure = parseError(error);
 
-      if (
-        attempt < RETRY_CONFIG.maxRetries &&
-        isRetryableError(lastError.code)
-      ) {
-        const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
-        console.warn(
-          `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`
-        );
-        await sleep(delay);
-        continue;
+        if (
+          attempt < RETRY_CONFIG.maxRetries &&
+          isRetryableError(failure.code)
+        ) {
+          const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
+          console.warn(
+            `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${failure.message}`
+          );
+          await sleep(delay);
+          continue;
+        }
+
+        break;
       }
-
-      break;
     }
+    return { failed: failure, attempts: attemptsMade };
+  };
+
+  const primary = await dispatchTemplate(sender, 0);
+  if ('ok' in primary) {
+    return primary.ok;
+  }
+  lastError = primary.failed;
+  let totalAttempts = primary.attempts;
+  let finalSenderAddress = sender.address;
+
+  // Fail-open: mirror sendEmail — a merchant custom sender may be rejected, so
+  // retry once from the platform domain rather than dropping the email.
+  if (sender.isCustomDomain) {
+    const platformSender = getSenderAddress(emailType, fromName);
+    console.warn(
+      `ZeptoMail custom template sender rejected (${lastError?.code ?? 'unknown'}); retrying from platform sender`
+    );
+    // Offset by the primary's actual tries (see sendEmail) so a first-try
+    // fallback success records attempt_count as primary.attempts + 1.
+    const fallback = await dispatchTemplate(platformSender, primary.attempts);
+    if ('ok' in fallback) {
+      return fallback.ok;
+    }
+    lastError = fallback.failed;
+    totalAttempts += fallback.attempts;
+    finalSenderAddress = platformSender.address;
   }
 
   console.error('ZeptoMail template email error:', JSON.stringify(lastError));
   await updateEmailAttempts(auditIds, {
     status: 'failed',
-    attempt_count: RETRY_CONFIG.maxRetries + 1,
+    attempt_count: totalAttempts,
+    from_address: finalSenderAddress,
     provider_error_code: lastError?.code,
     provider_error_message: lastError?.message || 'Unknown error',
     provider_error_details: lastError?.details,

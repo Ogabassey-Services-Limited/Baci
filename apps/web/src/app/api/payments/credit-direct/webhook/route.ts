@@ -598,6 +598,7 @@ async function sendOrderConfirmationEmail(
         <p style="color: #666; font-size: 14px;">Thank you for shopping with us!</p>
       </div>
     `,
+    emailType: 'orders',
     auditContext: {
       merchantId: order.merchant_id,
       orderId: order.id,

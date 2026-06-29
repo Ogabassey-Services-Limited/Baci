@@ -6,6 +6,8 @@ const mailBatchWithTemplateMock = vi.fn();
 
 const getZeptoMailTokenMock = vi.fn<() => string | undefined>();
 const getZeptoMailFromDomainMock = vi.fn<() => string>();
+const getActiveMerchantSendingDomainMock =
+  vi.fn<(merchantId: string | null | undefined) => Promise<string | null>>();
 
 const auditState = {
   inserts: [] as unknown[],
@@ -24,6 +26,10 @@ vi.mock('zeptomail', () => ({
 vi.mock('@/env', () => ({
   getZeptoMailToken: getZeptoMailTokenMock,
   getZeptoMailFromDomain: getZeptoMailFromDomainMock,
+}));
+
+vi.mock('@/lib/merchant-sending-domain', () => ({
+  getActiveMerchantSendingDomain: getActiveMerchantSendingDomainMock,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -58,6 +64,7 @@ describe('zeptomail audit logging', () => {
     auditState.nextId = 1;
     getZeptoMailTokenMock.mockReturnValue('test-token');
     getZeptoMailFromDomainMock.mockReturnValue('usebaci.com');
+    getActiveMerchantSendingDomainMock.mockResolvedValue(null);
   });
 
   it('returns failure when ZEPTOMAIL_TOKEN is whitespace-only', async () => {
@@ -338,5 +345,122 @@ describe('zeptomail audit logging', () => {
         attempt_count: 1,
       },
     });
+  });
+
+  it('sends order mail from the merchant custom domain when verified+enabled', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-custom' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+    });
+
+    expect(getActiveMerchantSendingDomainMock).toHaveBeenCalledWith(
+      'merchant-1'
+    );
+    const callArgs = sendMailMock.mock.calls[0]?.[0];
+    expect(callArgs?.from?.address).toBe('orders@ogabassey.com');
+    // Audit row records the actual From address that went out.
+    expect(auditState.inserts[0]).toMatchObject({
+      from_address: 'orders@ogabassey.com',
+    });
+  });
+
+  it('fails open to the platform sender when the provider rejects the custom domain', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    // Non-retryable rejection for the custom sender; success for the platform one.
+    sendMailMock.mockImplementation((args: { from?: { address?: string } }) => {
+      if (args.from?.address === 'orders@ogabassey.com') {
+        return Promise.reject({
+          error: { code: 'TM_3201', message: 'Invalid sender domain' },
+        });
+      }
+      return Promise.resolve({ request_id: 'zepto-fellback' });
+    });
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+    });
+
+    expect(result).toEqual({ success: true, messageId: 'zepto-fellback' });
+    // Both senders were attempted: custom first, then platform fallback.
+    expect(sendMailMock.mock.calls.map((c) => c[0]?.from?.address)).toEqual([
+      'orders@ogabassey.com',
+      'orders@usebaci.com',
+    ]);
+    // Audit records the address that actually delivered, and the attempt count
+    // reflects actual sends (1 primary + 1 fallback = 2), not an inflated 5.
+    expect(auditState.updates.at(-1)).toMatchObject({
+      patch: {
+        status: 'accepted',
+        from_address: 'orders@usebaci.com',
+        attempt_count: 2,
+      },
+    });
+  });
+
+  it('falls back to the platform domain for order mail without a custom domain', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue(null);
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-fallback' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: { merchantId: 'merchant-2', orderId: 'order-2' },
+    });
+
+    const callArgs = sendMailMock.mock.calls[0]?.[0];
+    expect(callArgs?.from?.address).toBe('orders@usebaci.com');
+  });
+
+  it('keeps platform→merchant noreply mail on the platform domain even with a custom domain', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-noreply' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'merchant@example.com',
+      subject: 'Settlement processed',
+      htmlContent: '<p>Paid</p>',
+      emailType: 'noreply',
+      auditContext: { merchantId: 'merchant-1' },
+    });
+
+    // noreply is not a customer-facing type, so resolution is skipped entirely.
+    expect(getActiveMerchantSendingDomainMock).not.toHaveBeenCalled();
+    const callArgs = sendMailMock.mock.calls[0]?.[0];
+    expect(callArgs?.from?.address).toBe('noreply@usebaci.com');
+  });
+
+  it('prefers an explicit merchantId over auditContext for the sending domain', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    sendMailMock.mockResolvedValue({ request_id: 'zepto-explicit' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      merchantId: 'explicit-merchant',
+      auditContext: { merchantId: 'audit-merchant' },
+    });
+
+    expect(getActiveMerchantSendingDomainMock).toHaveBeenCalledWith(
+      'explicit-merchant'
+    );
   });
 });

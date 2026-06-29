@@ -87,19 +87,28 @@ function resolveOtpRedirectUrl(
   request: Request,
   merchant: StorefrontAuthMerchant
 ) {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const allowlistedSubdomainOrigin = `${protocol}://${merchant.slug}.${rootDomain}`;
   const storefrontOrigins = buildStorefrontOrigins(merchant);
   const requestOrigin = getRequestOrigin(request);
+
+  if (process.env.NODE_ENV === 'production') {
+    // Supabase Auth only allowlists the merchant subdomain at /account/verify.
+    // The send-auth-email hook will move the confirmation link onto the
+    // custom-domain origin ONLY when redirect_to is already that custom domain
+    // (i.e. the customer is on it). This production redirect always points at
+    // the subdomain, so confirmation links land on the subdomain here; the
+    // custom-domain pass-through covers the dev path (request-origin redirect)
+    // and future flows.
+    return `${allowlistedSubdomainOrigin}/account/verify`;
+  }
 
   if (requestOrigin && storefrontOrigins.has(requestOrigin)) {
     return `${requestOrigin}/account/verify`;
   }
 
-  const preferredOrigin =
-    merchant.custom_domain && process.env.NODE_ENV === 'production'
-      ? `https://${merchant.custom_domain.toLowerCase()}`
-      : Array.from(storefrontOrigins)[0];
-
-  return `${preferredOrigin}/account/verify`;
+  return `${allowlistedSubdomainOrigin}/account/verify`;
 }
 
 /**

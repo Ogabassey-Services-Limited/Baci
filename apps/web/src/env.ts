@@ -217,6 +217,12 @@ const serverSchema = z
     // Email
     ZEPTOMAIL_TOKEN: z.string().optional(),
     ZEPTOMAIL_FROM_DOMAIN: z.string().optional(),
+    // ZeptoMail Domains API (per-merchant custom sending domains). Zoho OAuth
+    // self-client with scope Zeptomail.Domains.All.
+    ZOHO_CLIENT_ID: optionalTrimmedStringSchema,
+    ZOHO_CLIENT_SECRET: optionalTrimmedStringSchema,
+    ZOHO_REFRESH_TOKEN: optionalTrimmedStringSchema,
+    ZEPTOMAIL_MAILAGENT_KEY: optionalTrimmedStringSchema,
 
     // Zoho Campaigns
     ZOHO_CAMPAIGNS_ENABLED: optionalTrimmedStringSchema,
@@ -596,6 +602,10 @@ const getEnv = () => {
           process.env.WEB_BOT_AUTH_PUBLIC_JWKS_JSON,
         WEB_BOT_AUTH_PRIVATE_KEY_PEM: process.env.WEB_BOT_AUTH_PRIVATE_KEY_PEM,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
+        ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
+        ZOHO_CLIENT_SECRET: process.env.ZOHO_CLIENT_SECRET,
+        ZOHO_REFRESH_TOKEN: process.env.ZOHO_REFRESH_TOKEN,
+        ZEPTOMAIL_MAILAGENT_KEY: process.env.ZEPTOMAIL_MAILAGENT_KEY,
         ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
         ZOHO_CAMPAIGNS_ENABLED: process.env.ZOHO_CAMPAIGNS_ENABLED,
         ZOHO_CAMPAIGNS_AUTO_SEND: process.env.ZOHO_CAMPAIGNS_AUTO_SEND,
@@ -1035,6 +1045,17 @@ export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;
 export const getZeptoMailFromDomain = () =>
   env?.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
+export const getZohoClientId = () =>
+  getRuntimeEnvValue(process.env.ZOHO_CLIENT_ID, env?.ZOHO_CLIENT_ID);
+export const getZohoClientSecret = () =>
+  getRuntimeEnvValue(process.env.ZOHO_CLIENT_SECRET, env?.ZOHO_CLIENT_SECRET);
+export const getZohoRefreshToken = () =>
+  getRuntimeEnvValue(process.env.ZOHO_REFRESH_TOKEN, env?.ZOHO_REFRESH_TOKEN);
+export const getZeptoMailAgentKey = () =>
+  getRuntimeEnvValue(
+    process.env.ZEPTOMAIL_MAILAGENT_KEY,
+    env?.ZEPTOMAIL_MAILAGENT_KEY
+  );
 
 const normalizeRuntimeBoolean = (value: string | undefined): boolean => {
   if (!value) return false;

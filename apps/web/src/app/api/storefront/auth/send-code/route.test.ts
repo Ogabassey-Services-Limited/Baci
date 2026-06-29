@@ -76,7 +76,10 @@ describe('POST /api/storefront/auth/send-code', () => {
     });
   });
 
-  it('uses the current merchant custom-domain origin for OTP email redirects', async () => {
+  it('uses the allowlisted merchant subdomain verify route for OTP email redirects in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
+
     const response = await POST(
       makeRequest(
         { email: 'customer@example.com', merchantSlug: 'ogabassey' },
@@ -101,7 +104,7 @@ describe('POST /api/storefront/auth/send-code', () => {
           pending_merchant_id: 'merchant-1',
           role: 'customer',
         }),
-        emailRedirectTo: 'https://ogabassey.com/account/verify',
+        emailRedirectTo: 'https://ogabassey.usebaci.com/account/verify',
       }),
     });
   });
@@ -172,7 +175,7 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).not.toHaveBeenCalled();
   });
 
-  it('falls back to the merchant custom domain in production when the origin is untrusted', async () => {
+  it('falls back to the allowlisted merchant subdomain verify route in production when the origin is untrusted', async () => {
     vi.stubEnv('NODE_ENV', 'production');
 
     const response = await POST(
@@ -186,7 +189,27 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
-        emailRedirectTo: 'https://ogabassey.com/account/verify',
+        emailRedirectTo: 'https://ogabassey.usebaci.com/account/verify',
+      }),
+    });
+  });
+
+  it('keeps the allowlisted merchant subdomain verify route in production even when the request starts on the subdomain', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
+
+    const response = await POST(
+      makeRequest(
+        { email: 'customer@example.com', merchantSlug: 'ogabassey' },
+        { origin: 'https://ogabassey.usebaci.com' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
+      email: 'customer@example.com',
+      options: expect.objectContaining({
+        emailRedirectTo: 'https://ogabassey.usebaci.com/account/verify',
       }),
     });
   });
@@ -211,7 +234,7 @@ describe('POST /api/storefront/auth/send-code', () => {
     });
   });
 
-  it('keeps a custom-domain identifier on the custom-domain redirect', async () => {
+  it('keeps a custom-domain identifier while using the allowlisted subdomain verify redirect', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'usebaci.com');
 
@@ -229,7 +252,7 @@ describe('POST /api/storefront/auth/send-code', () => {
     expect(sendCodeMocks.mockSignInWithOtp).toHaveBeenCalledWith({
       email: 'customer@example.com',
       options: expect.objectContaining({
-        emailRedirectTo: 'https://ogabassey.com/account/verify',
+        emailRedirectTo: 'https://ogabassey.usebaci.com/account/verify',
       }),
     });
   });

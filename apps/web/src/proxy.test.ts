@@ -592,6 +592,83 @@ describe('Middleware Proxy', () => {
     expect(getSlugForCustomDomain).not.toHaveBeenCalled();
   });
 
+  it('passes /auth/confirm through on custom domains so tokens reach the verifier', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    // Passed through (NextResponse.next), not storefront-rewritten to /<domain>/auth/confirm.
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('does not pass /auth/confirm through for unregistered custom domains', async () => {
+    // Apex request: one slug lookup (no www to strip → no www fallback), null.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(
+      'https://attacker.example/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'attacker.example');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('attacker.example');
+    expect(res.headers.get('x-middleware-rewrite')).toContain(
+      '/attacker.example/auth/confirm'
+    );
+  });
+
+  it('passes /auth/confirm through for a www request when only www is registered', async () => {
+    // Request is on www.example.com: apex lookup is null, www counterpart resolves.
+    vi.mocked(getSlugForCustomDomain)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('ogabassey');
+    const req = new NextRequest(
+      'https://www.example.com/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'www.example.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('www.example.com');
+    // Passed through (not storefront-rewritten).
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
+  it('does not pass /auth/confirm through on the apex when only www is registered', async () => {
+    // Request is on the APEX example.com (no www to strip). The www counterpart
+    // must NOT be used to promote this unregistered host to an auth-confirm
+    // origin — it stays storefront-rewritten.
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(
+      'https://example.com/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'example.com');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toContain(
+      '/example.com/auth/confirm'
+    );
+  });
+
+  it('still storefront-rewrites other /auth paths on custom domains (scoping)', async () => {
+    const req = new NextRequest('https://ogabassey.com/auth/login');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // Only /auth/confirm is exempted; /auth/login falls through to the
+    // storefront rewrite (proving the passthrough is narrowly scoped).
+    expect(res.headers.get('x-middleware-rewrite')).toContain(
+      '/ogabassey.com/auth/login'
+    );
+  });
+
   it('strips app credentials from PostHog relay requests', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/baci-relay/e/capture/`

@@ -2446,7 +2446,12 @@ export async function proxy(request: NextRequest) {
     } else if (isValidCustomDomain(hostname)) {
       // Custom domain: ogabassey.com - validated format
       // Normalize: lowercase, remove port, and strip 'www.' prefix for consistent lookup
-      const domain = normalizeHostname(hostname).replace(/^www\./, '');
+      const normalizedRequestHost = normalizeHostname(hostname);
+      const domain = normalizedRequestHost.replace(/^www\./, '');
+      // Whether the ACTUAL request host carried the www. prefix (so the apex was
+      // derived by stripping it). Scopes the www-counterpart auth-confirm
+      // fallback below to genuine www requests only.
+      const requestHostHadWww = normalizedRequestHost.startsWith('www.');
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
@@ -2624,6 +2629,55 @@ export async function proxy(request: NextRequest) {
           request,
           hostname
         );
+      }
+
+      // Auth confirmation links (one-click magic-link / signup / recovery)
+      // emitted for custom-domain storefronts point at
+      // https://<custom-domain>/auth/confirm. Like /api, this route lives at
+      // /auth/confirm (not /{domain}/auth/confirm), so pass it through instead
+      // of storefront-rewriting it — otherwise the token never reaches the
+      // verifier and the session cookie is never set on the custom domain.
+      // Scoped to /auth/confirm only; the rest of /auth stays storefront-bound.
+      if (
+        pathname === '/auth/confirm' ||
+        pathname.startsWith('/auth/confirm/')
+      ) {
+        // Only pass through for a REGISTERED merchant custom domain (unknown
+        // hosts still get the storefront rewrite). `domain` has the www prefix
+        // stripped, so a www-only registration leaves the apex slug null. Only
+        // fall back to the www host when the REQUEST itself was on www. — never
+        // promote an unregistered apex request just because the www counterpart
+        // is registered (that would make a non-merchant host an auth-confirm
+        // origin that receives session cookies).
+        const confirmMerchantSlug =
+          domainMerchantSlug ??
+          (requestHostHadWww
+            ? await getSlugForCustomDomain(normalizedRequestHost)
+            : null);
+        if (confirmMerchantSlug) {
+          const requestHeaders = buildProxyRequestHeaders(request);
+          requestHeaders.set('x-custom-domain', domain);
+          requestHeaders.set('x-merchant-domain', domain);
+
+          const response = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          });
+
+          const routeType = getRouteType(pathname); // returns 'auth'
+          const isLocal = isLocalhost(hostname);
+          return applySecurityHeaders(
+            response,
+            pathname,
+            userAgent,
+            routeType,
+            isLocal,
+            undefined,
+            request,
+            hostname
+          );
+        }
       }
 
       // Prevent redirect loop: if the path already starts with the domain,
