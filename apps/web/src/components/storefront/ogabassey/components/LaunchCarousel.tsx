@@ -1,11 +1,10 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useState } from 'react';
-import { asRoute } from '@/lib/routes';
+import { useEffect, useRef, useState } from 'react';
 import { CarouselPlayToggle } from './carousel-play-toggle';
+import { CarouselProgressFill } from './carousel-progress-fill';
+import { LaunchSlideItem } from './launch-slide-item';
 import { useCarouselAutoplay } from './use-carousel-autoplay';
 
 /** A slide backed by a real catalog product (reuses the served CDN image). */
@@ -32,91 +31,89 @@ export interface LaunchPromoSlide {
   ctaLabel?: string;
 }
 
-export type LaunchSlide = LaunchProductSlide | LaunchPromoSlide;
+/** A slide that hosts arbitrary content (e.g. an ad placement) — no PDP link. */
+export interface LaunchAdSlide {
+  kind: 'ad';
+  id: string;
+  content: React.ReactNode;
+}
+
+export type LaunchSlide = LaunchProductSlide | LaunchPromoSlide | LaunchAdSlide;
 
 export interface LaunchCarouselProps {
   slides: LaunchSlide[];
   className?: string;
+  /** Accessible name for the carousel region landmark. */
+  regionLabel?: string;
+  /** Eager/high-priority the first slide's image when the carousel is the
+   *  topmost above-fold content (e.g. category pages), so it's a healthy LCP
+   *  candidate. Defaults off (the homepage hero stays the LCP element). */
+  prioritizeFirstSlide?: boolean;
 }
 
 const AUTOPLAY_INTERVAL_MS = 6000;
 const MIN_SWIPE_DISTANCE_PX = 50;
 
-function ProductSlideBody({ slide }: { slide: LaunchProductSlide }) {
-  return (
-    <div className="grid h-full grid-cols-5 bg-store-background">
-      <div className="col-span-3 flex flex-col justify-center gap-1 bg-store-primary px-5 py-4 text-store-on-primary md:col-span-3 md:px-8">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80">
-          Just launched
-        </span>
-        <h3 className="line-clamp-2 text-lg font-bold leading-tight md:text-2xl">
-          {slide.name}
-        </h3>
-        <p className="text-sm font-semibold opacity-90 md:text-base">
-          {slide.priceLabel}
-        </p>
-        <span className="mt-2 inline-flex w-fit items-center rounded-full bg-store-on-primary px-4 py-1.5 text-xs font-bold text-store-primary shadow-sm transition-transform active:scale-95 md:text-sm">
-          {slide.ctaLabel}
-        </span>
-      </div>
-      <div className="relative col-span-2 bg-store-background">
-        <Image
-          src={slide.imageUrl}
-          alt={slide.imageAlt}
-          fill
-          sizes="(max-width: 768px) 40vw, 320px"
-          className="object-contain p-2"
-          loading="lazy"
-          fetchPriority="low"
-        />
-      </div>
-    </div>
-  );
-}
-
-function PromoSlideBody({ slide }: { slide: LaunchPromoSlide }) {
-  return (
-    <div className="flex h-full flex-col justify-center gap-1 bg-store-primary px-6 text-store-on-primary md:px-10">
-      <h3 className="line-clamp-2 text-xl font-bold leading-tight md:text-3xl">
-        {slide.title}
-      </h3>
-      {slide.subtitle ? (
-        <p className="line-clamp-2 max-w-md text-sm opacity-90 md:text-lg">
-          {slide.subtitle}
-        </p>
-      ) : null}
-      {slide.ctaLabel ? (
-        <span className="mt-3 inline-flex w-fit items-center rounded-full bg-store-on-primary px-5 py-2 text-xs font-bold text-store-primary shadow-sm transition-transform active:scale-95 md:text-sm">
-          {slide.ctaLabel}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 export function LaunchCarousel({
   slides,
   className = 'h-52 md:h-60 lg:h-64',
+  regionLabel = 'Just launched products',
+  prioritizeFirstSlide = false,
 }: LaunchCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  // Re-arms the active progress fill on a slide change / autoplay resume.
+  const [progressCycle, setProgressCycle] = useState(0);
+  // Transient pause while a touch gesture is active, so the slide can't advance
+  // under the user's finger mid-swipe.
+  const [isTouchActive, setIsTouchActive] = useState(false);
   const slideCount = slides.length;
   const autoplay = useCarouselAutoplay();
+  // Rotation actually runs only when autoplay is active AND no touch is in
+  // progress; track that combined state so the progress fill re-keys whenever
+  // rotation resumes (autoplay toggle, hover/focus leave, or touch end).
+  const isRunning = autoplay.isActive && !isTouchActive;
+  const wasRunningRef = useRef(isRunning);
+  // Swipe start X is held in a ref (not state) so finger movement does not
+  // re-render the carousel on every pixel.
+  const touchStartXRef = useRef<number | null>(null);
+  // A handled swipe must not also fire the slide's full-bleed PDP link.
+  const swipeHandledRef = useRef(false);
+  const swipeResetTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isRunning && !wasRunningRef.current) {
+      setProgressCycle((value) => value + 1);
+    }
+    wasRunningRef.current = isRunning;
+  }, [isRunning]);
+
+  useEffect(() => {
+    return () => {
+      if (swipeResetTimerRef.current !== null) {
+        window.clearTimeout(swipeResetTimerRef.current);
+      }
+    };
+  }, []);
 
   // WCAG 2.2.2 (Pause, Stop, Hide): autoplay stops on hover, on keyboard focus,
   // on the explicit toggle, and when the OS prefers reduced motion.
   useEffect(() => {
-    if (slideCount <= 1 || !autoplay.isActive) {
+    if (slideCount <= 1 || !autoplay.isActive || isTouchActive) {
       return;
     }
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slideCount);
     }, AUTOPLAY_INTERVAL_MS);
     return () => clearInterval(timer);
-    // `currentSlide` resets the timer on manual navigation so a swipe/dot tap
-    // can't trigger an immediate second advance.
-  }, [slideCount, currentSlide, autoplay.isActive]);
+    // `currentSlide` resets the timer on manual nav (no immediate double-advance).
+  }, [slideCount, currentSlide, autoplay.isActive, isTouchActive]);
+
+  // Keep the active index in range if the slide list ever shrinks.
+  useEffect(() => {
+    if (currentSlide > slideCount - 1) {
+      setCurrentSlide(0);
+    }
+  }, [currentSlide, slideCount]);
 
   if (slideCount === 0) {
     return null;
@@ -127,19 +124,54 @@ export function LaunchCarousel({
     setCurrentSlide((prev) => (prev - 1 + slideCount) % slideCount);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    touchStartXRef.current = e.targetTouches[0]?.clientX ?? null;
+    setIsTouchActive(true);
   };
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+  const markSwipeHandled = () => {
+    swipeHandledRef.current = true;
+    // Safety net: clear the flag if the browser never emits the post-swipe
+    // click, so the next genuine tap on a slide link isn't blocked.
+    if (swipeResetTimerRef.current !== null) {
+      window.clearTimeout(swipeResetTimerRef.current);
+    }
+    swipeResetTimerRef.current = window.setTimeout(() => {
+      swipeHandledRef.current = false;
+      swipeResetTimerRef.current = null;
+    }, 400);
   };
-  const onTouchEnd = () => {
-    if (touchStart === null || touchEnd === null) return;
-    const distance = touchStart - touchEnd;
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    setIsTouchActive(false);
+    const startX = touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (startX === null) return;
+    // Read the final position from the event rather than tracking it in state
+    // during the move, so a swipe doesn't re-render on every pixel.
+    const endX = e.changedTouches[0]?.clientX ?? startX;
+    const distance = startX - endX;
     if (distance > MIN_SWIPE_DISTANCE_PX) {
+      markSwipeHandled();
       goNext();
     } else if (distance < -MIN_SWIPE_DISTANCE_PX) {
+      markSwipeHandled();
       goPrev();
+    }
+  };
+
+  const onTouchCancel = () => {
+    setIsTouchActive(false);
+    touchStartXRef.current = null;
+  };
+
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (swipeHandledRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      swipeHandledRef.current = false;
+      if (swipeResetTimerRef.current !== null) {
+        window.clearTimeout(swipeResetTimerRef.current);
+        swipeResetTimerRef.current = null;
+      }
     }
   };
 
@@ -153,85 +185,86 @@ export function LaunchCarousel({
     }
   };
 
+  const progressAnimates = slideCount > 1 && !autoplay.prefersReducedMotion;
+
   return (
-    <div
-      aria-label="Just launched products"
-      aria-roledescription="carousel"
-      className={`relative w-full overflow-hidden rounded-xl border border-store-border bg-store-background shadow-sm ${className}`}
-      onKeyDown={onKeyDown}
-      onTouchEnd={onTouchEnd}
-      onTouchMove={onTouchMove}
-      onTouchStart={onTouchStart}
-      role="region"
-      tabIndex={0}
-      {...autoplay.containerHandlers}
-    >
+    <div className="w-full">
+      {/* Hover/focus pause is scoped to the panel (the auto-advancing content),
+          NOT this wrapper — otherwise focusing the pause/play or dot controls
+          below would keep autoplay inactive and the Play button wouldn't
+          actually resume rotation. */}
       <div
-        className="flex h-full transition-transform duration-700 ease-in-out"
-        style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+        aria-label={regionLabel}
+        aria-roledescription="carousel"
+        className={`relative w-full overflow-hidden rounded-xl border border-store-border bg-store-background shadow-sm ${className}`}
+        onClickCapture={onClickCapture}
+        onKeyDown={onKeyDown}
+        onTouchCancel={onTouchCancel}
+        onTouchEnd={onTouchEnd}
+        onTouchStart={onTouchStart}
+        role="region"
+        tabIndex={0}
+        {...autoplay.containerHandlers}
       >
-        {slides.map((slide, idx) => {
-          const isCurrent = idx === currentSlide;
-          const label =
-            slide.kind === 'product'
-              ? `${slide.name} — ${slide.ctaLabel}`
-              : (slide.ctaLabel ?? slide.title);
-          return (
-            <div
-              key={slide.id}
-              className="relative h-full w-full shrink-0"
-              aria-hidden={!isCurrent}
-              inert={!isCurrent}
-              role="group"
-              aria-roledescription="slide"
-              aria-label={`Slide ${idx + 1}: ${slide.kind === 'product' ? slide.name : slide.title}`}
-            >
-              {slide.kind === 'product' ? (
-                <ProductSlideBody slide={slide} />
-              ) : (
-                <PromoSlideBody slide={slide} />
-              )}
-              {slide.href ? (
-                <Link
-                  aria-label={label}
-                  className="absolute inset-0"
-                  href={asRoute(slide.href)}
-                  prefetch={false}
-                >
-                  <span className="sr-only">{label}</span>
-                </Link>
-              ) : null}
-            </div>
-          );
-        })}
+        <div
+          className="flex h-full transition-transform duration-700 ease-in-out"
+          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+        >
+        {slides.map((slide, idx) => (
+          <LaunchSlideItem
+            index={idx}
+            isCurrent={idx === currentSlide}
+            key={slide.id}
+            prioritizeImage={prioritizeFirstSlide && idx === 0}
+            slide={slide}
+          />
+        ))}
+        </div>
       </div>
 
       {slideCount > 1 ? (
-        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
-          {slides.map((slide, idx) => {
-            const isCurrent = idx === currentSlide;
-            return (
-              <button
-                aria-current={isCurrent ? 'true' : undefined}
-                aria-label={`Go to slide ${idx + 1}`}
-                className="group flex h-11 min-w-11 items-center justify-center rounded-full"
-                key={slide.id}
-                onClick={() => setCurrentSlide(idx)}
-                type="button"
-              >
-                <span
-                  className={`block h-1.5 rounded-full shadow-sm transition-all duration-300 ${isCurrent ? 'w-6' : 'w-1.5'}`}
-                  style={{
-                    backgroundColor: isCurrent
-                      ? 'var(--store-on-primary, #ffffff)'
-                      : 'color-mix(in srgb, var(--store-on-primary, #ffffff) 45%, transparent)',
-                  }}
-                />
-              </button>
-            );
-          })}
+        <div className="mt-2 flex items-center gap-2 px-1">
+          <div
+            aria-label="Carousel slide controls"
+            className="flex flex-1 items-center gap-1.5"
+            role="group"
+          >
+            {slides.map((slide, idx) => {
+              const isActive = idx === currentSlide;
+              const isPast = idx < currentSlide;
+              return (
+                <button
+                  aria-current={isActive ? 'true' : undefined}
+                  aria-label={`Go to slide ${idx + 1}`}
+                  className="group relative h-6 flex-1 cursor-pointer"
+                  key={slide.id}
+                  onClick={() => setCurrentSlide(idx)}
+                  type="button"
+                >
+                  <span className="absolute inset-x-0 top-1/2 block h-1 -translate-y-1/2 overflow-hidden rounded-full bg-store-primary/20">
+                    {isActive ? (
+                      <CarouselProgressFill
+                        animate={progressAnimates}
+                        cycleKey={progressCycle * 1000 + currentSlide}
+                        durationMs={AUTOPLAY_INTERVAL_MS}
+                        isPaused={!autoplay.isActive || isTouchActive}
+                      />
+                    ) : (
+                      <span
+                        className={`block h-full origin-left rounded-full bg-store-primary transition-transform duration-300 ${isPast ? 'scale-x-100' : 'scale-x-0'}`}
+                      />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           {autoplay.prefersReducedMotion ? null : (
+            // The controls row sits below the carousel on the page background,
+            // so give the toggle a primary-filled circle for contrast (its icon
+            // is `text-store-on-primary`, intended for a coloured surface).
             <CarouselPlayToggle
+              className="bg-store-primary shadow-sm"
               isPlaying={autoplay.isPlaying}
               onToggle={autoplay.toggle}
             />

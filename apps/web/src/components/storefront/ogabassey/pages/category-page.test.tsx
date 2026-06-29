@@ -69,7 +69,11 @@ vi.mock('@/components/ui/safe-html', () => ({
   ),
 }));
 vi.mock('../components/AdUnit', () => ({ AdUnit: () => null }));
-vi.mock('../components/BannerCarousel', () => ({ BannerCarousel: () => null }));
+vi.mock('../components/CategoryRecentCarousel', () => ({
+  CategoryRecentCarousel: () => (
+    <section aria-label="Recently added products" />
+  ),
+}));
 vi.mock('../components/CategoryFiltersSidebar', () => ({
   CategoryFiltersSidebar: () => null,
 }));
@@ -92,37 +96,92 @@ vi.mock('../components/ProductCard', () => ({
   ),
 }));
 
+import { useParams } from 'next/navigation';
 import { CategoryPage } from './category-page';
 
 describe('CategoryPage', () => {
   beforeEach(() => {
     window.scrollTo = vi.fn();
     mockAddToCart.mockReset();
+    vi.mocked(useParams).mockReturnValue({
+      slug: 'test',
+      category: 'electronics',
+    });
   });
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
   });
 
-  it('renders the category banner region on desktop', () => {
+  const PRODUCT_WITH_IMAGE = {
+    id: '1',
+    name: 'Newest Phone',
+    slug: 'newest-phone',
+    description: 'A newly added phone',
+    price: '₦100',
+    rawPrice: 100,
+    image: 'https://cdn.ogabassey.com/newest.avif',
+    condition: 'New' as const,
+  };
+
+  it('renders the recently-added product carousel in place of the promo banner', () => {
     mockMatchMedia(true);
 
-    render(<CategoryPage products={[]} />);
+    render(<CategoryPage products={[PRODUCT_WITH_IMAGE]} />);
 
-    const banner = screen.getByRole('region', {
-      name: /category banner carousel/i,
-    });
-    expect(banner).toBeInTheDocument();
-  });
-
-  it('does not render the category banner region on mobile', () => {
-    mockMatchMedia(false);
-
-    render(<CategoryPage products={[]} />);
-
+    expect(screen.getByRole('region', { name: /recently added products/i })).toBeInTheDocument();
     expect(
       screen.queryByRole('region', { name: /category banner carousel/i })
     ).not.toBeInTheDocument();
+  });
+
+  it.each(['best-sellers', 'on-sale', 'featured'])(
+    'hides the recent carousel on the sorted collection route "%s" (not created_at ordered)',
+    (collection) => {
+      mockMatchMedia(true);
+      vi.mocked(useParams).mockReturnValue({
+        slug: 'test',
+        category: collection,
+      });
+
+      render(<CategoryPage products={[PRODUCT_WITH_IMAGE]} />);
+
+      expect(
+        screen.queryByRole('region', { name: /recently added products/i })
+      ).not.toBeInTheDocument();
+    }
+  );
+
+  it('hides the recent carousel on later pre-paginated pages (page slice is not the newest items)', () => {
+    mockMatchMedia(true);
+
+    render(
+      <CategoryPage
+        currentPage={2}
+        products={[]}
+        productsArePrePaginated={true}
+        totalProductCount={25}
+      />
+    );
+
+    expect(
+      screen.queryByRole('region', { name: /recently added products/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('still shows the recent carousel on the first pre-paginated page', () => {
+    mockMatchMedia(true);
+
+    render(
+      <CategoryPage
+        currentPage={1}
+        products={[PRODUCT_WITH_IMAGE]}
+        productsArePrePaginated={true}
+        totalProductCount={25}
+      />
+    );
+
+    expect(screen.getByRole('region', { name: /recently added products/i })).toBeInTheDocument();
   });
 
   it('renders crawlable pagination links for category results', () => {

@@ -1,6 +1,28 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+beforeEach(() => {
+  // jsdom has no matchMedia; default to "no reduced-motion preference".
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 const mockGetImageProps = vi.hoisted(() =>
   vi.fn((props: Record<string, unknown>) => ({
@@ -93,9 +115,8 @@ describe('HeroMobileCarousel', () => {
       '/ogabassey/smartphones/samsung-galaxy-a27-5g'
     );
     expect(link).toHaveAttribute('data-prefetch', 'false');
-    expect(link.textContent?.trim()).toBe(
-      'Samsung Galaxy A27 5G — Pre-order now'
-    );
+    // Crawlable anchor text (visually-hidden span), not an empty anchor.
+    expect(link).toHaveTextContent('Samsung Galaxy A27 5G — Pre-order now');
   });
 
   it('serves the first slide image as the eager, high-priority LCP picture', () => {
@@ -105,7 +126,7 @@ describe('HeroMobileCarousel', () => {
     expect(lcpImg).toHaveAttribute('fetchpriority', 'high');
   });
 
-  it('shows slide-control dots when there are multiple slides', () => {
+  it('shows the progress-bar slide controls when there are multiple slides', () => {
     render(<HeroMobileCarousel slides={SLIDES} />);
 
     expect(
@@ -115,7 +136,6 @@ describe('HeroMobileCarousel', () => {
       screen.getByRole('button', { name: /go to hero slide 2/i })
     ).toBeInTheDocument();
   });
-
 
   it('defers inactive non-LCP slide images until their slide is selected', () => {
     render(<HeroMobileCarousel slides={SLIDES} />);

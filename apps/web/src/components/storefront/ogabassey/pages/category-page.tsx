@@ -13,11 +13,11 @@ import {
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
 import { AdUnit } from '../components/AdUnit';
-import { BannerCarousel } from '../components/BannerCarousel';
 import {
   CategoryFiltersSidebar,
   type FilterState,
 } from '../components/CategoryFiltersSidebar';
+import { CategoryRecentCarousel } from '../components/CategoryRecentCarousel';
 import { ProductCard } from '../components/ProductCard';
 import { StorefrontPagination } from '../components/StorefrontPagination';
 import { CategoryHubSections } from '../seo/category-hub-sections';
@@ -49,6 +49,16 @@ type CategoryPageColor =
 function getColorName(color: CategoryPageColor): string | null {
   return typeof color === 'string' ? color : color.name || null;
 }
+
+// Special collection routes whose products are NOT ordered by created_at
+// (best-sellers → rating, on-sale → price, featured → updated_at), so the
+// recently-added "Just in" carousel would mislabel them. (new-arrivals IS
+// created_at-ordered, so it keeps the carousel.)
+const NON_RECENCY_COLLECTION_SLUGS = new Set([
+  'best-sellers',
+  'on-sale',
+  'featured',
+]);
 
 const INITIAL_FILTER_STATE: FilterState = {
   brand: [],
@@ -93,11 +103,15 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const [_showMobileIntro, _setShowMobileIntro] = useState(false);
   const params = useParams();
   const categoryName = (params?.category || 'All') as string;
+  // The raw URL slug (kebab-case, e.g. "best-sellers") — distinct from the
+  // human-readable display title. Used for slug-based checks like the
+  // non-recency collection gate below.
+  const categorySlug =
+    typeof params?.category === 'string' ? params.category : '';
   const _router = useRouter();
   const { addToCart } = useCart();
   const [addedItems, setAddedItems] = useState<string[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [showDesktopBanner, setShowDesktopBanner] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const merchantContext = useMerchantSafe();
@@ -121,27 +135,6 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       window.scrollTo(0, 0);
     }
   }, [categoryName]);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
-    const updateBannerVisibility = () => {
-      setShowDesktopBanner(mediaQuery.matches);
-    };
-
-    updateBannerVisibility();
-
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', updateBannerVisibility);
-      return () => {
-        mediaQuery.removeEventListener('change', updateBannerVisibility);
-      };
-    }
-
-    mediaQuery.addListener(updateBannerVisibility);
-    return () => {
-      mediaQuery.removeListener(updateBannerVisibility);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isMobileFilterOpen) return;
@@ -395,22 +388,23 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   return (
     <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-4">
-      {/* Header Ad replaced with Banner Carousel */}
-      <section className="mx-auto mb-4 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6">
-        {showDesktopBanner && (
-          <section
-            data-testid="category-banner-carousel"
-            aria-label="Category banner carousel"
-          >
-            <BannerCarousel
-              className="h-40 md:h-52"
-              categoryImage={categoryImage}
-              title={displayTitle}
-              description={seoDescription}
-            />
-          </section>
+      {/* Product-driven banner carousel of the most recently-added products in
+          this category, replacing the static promo banner. When products are
+          server-pre-paginated, `products` is only the current page's slice, so
+          render the carousel only on the first page where the newest items are
+          (otherwise it would surface page-local items, not the true recents). */}
+      {!NON_RECENCY_COLLECTION_SLUGS.has(categorySlug.toLowerCase()) &&
+        !(productsArePrePaginated && currentPage > 1) && (
+          <CategoryRecentCarousel
+            categoryImage={categoryImage}
+            categoryName={displayTitle}
+            // Key by the slug so the carousel remounts (resetting the active
+            // slide) when navigating client-side between categories, instead of
+            // reusing the previous category's index (e.g. the ad slide).
+            key={categorySlug}
+            products={products}
+          />
         )}
-      </section>
 
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">

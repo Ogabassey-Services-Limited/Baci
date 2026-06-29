@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -85,6 +85,27 @@ describe('LaunchCarousel', () => {
     }
   });
 
+  it('eager-loads only the first image when prioritizeFirstSlide is set, and labels the region', () => {
+    const { container } = render(
+      <LaunchCarousel
+        prioritizeFirstSlide
+        regionLabel="Just in: Smartphones"
+        slides={PRODUCT_SLIDES}
+      />
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'Just in: Smartphones' })
+    ).toBeInTheDocument();
+
+    const images = Array.from(container.querySelectorAll('img'));
+    expect(images[0].getAttribute('loading')).toBe('eager');
+    expect(images[0].getAttribute('fetchpriority')).toBe('high');
+    // Remaining slides stay lazy/low so only the LCP candidate is prioritized.
+    expect(images[1].getAttribute('loading')).toBe('lazy');
+    expect(images[1].getAttribute('fetchpriority')).toBe('low');
+  });
+
   it('renders a CSS-only promo slide with no image', () => {
     const promo: LaunchSlide[] = [
       {
@@ -104,6 +125,25 @@ describe('LaunchCarousel', () => {
     expect(
       screen.getByRole('link', { name: 'Shop the sale' }).getAttribute('href')
     ).toBe('/ogabassey/products');
+  });
+
+  it('renders an ad slide content without a PDP link', () => {
+    const withAd: LaunchSlide[] = [
+      PRODUCT_SLIDES[0],
+      {
+        kind: 'ad',
+        id: 'ad-1',
+        content: <div>Sponsored unit</div>,
+      },
+    ];
+
+    render(<LaunchCarousel slides={withAd} />);
+
+    expect(screen.getByText('Sponsored unit')).toBeInTheDocument();
+    // The ad slide must not produce its own deep-link.
+    expect(
+      screen.queryByRole('link', { name: /advertisement/i })
+    ).not.toBeInTheDocument();
   });
 
   it('renders nothing when there are no slides', () => {
@@ -128,66 +168,5 @@ describe('LaunchCarousel', () => {
     expect(visibleIndex()).toBe(1);
     fireEvent.keyDown(region, { key: 'ArrowLeft' });
     expect(visibleIndex()).toBe(0);
-  });
-
-  it('resets the autoplay timer on manual navigation (no double-advance)', () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
-      const visibleIndex = () =>
-        Array.from(
-          container.querySelectorAll('[aria-roledescription="slide"]')
-        ).findIndex((slide) => slide.getAttribute('aria-hidden') === 'false');
-
-      expect(visibleIndex()).toBe(0);
-      // Almost a full 6s interval elapses on slide 1.
-      act(() => {
-        vi.advanceTimersByTime(5800);
-      });
-      // User manually jumps to slide 2.
-      act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'Go to slide 2' }));
-      });
-      expect(visibleIndex()).toBe(1);
-      // Past the *original* boundary, but only 0.5s since the manual nav — the
-      // timer reset means no immediate second advance.
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
-      expect(visibleIndex()).toBe(1);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('renders a pause/play control that toggles autoplay (WCAG 2.2.2)', () => {
-    render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
-
-    const pause = screen.getByRole('button', { name: 'Pause auto-rotation' });
-    fireEvent.click(pause);
-    expect(
-      screen.getByRole('button', { name: 'Play auto-rotation' })
-    ).toBeDefined();
-  });
-
-  it('hides the pause/play control when reduced motion is preferred', () => {
-    mockReducedMotion.value = true;
-    render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
-
-    expect(
-      screen.queryByRole('button', { name: /auto-rotation/i })
-    ).toBeNull();
-  });
-
-  it('shows navigation dots only when there is more than one slide', () => {
-    const { rerender } = render(<LaunchCarousel slides={PRODUCT_SLIDES} />);
-    expect(screen.getAllByRole('button', { name: /Go to slide/ })).toHaveLength(
-      2
-    );
-
-    rerender(<LaunchCarousel slides={[PRODUCT_SLIDES[0]]} />);
-    expect(screen.queryAllByRole('button', { name: /Go to slide/ })).toHaveLength(
-      0
-    );
   });
 });

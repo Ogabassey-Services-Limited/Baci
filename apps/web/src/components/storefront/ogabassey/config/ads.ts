@@ -13,6 +13,10 @@ export interface AdPlacement {
 export const DEFERRED_SHELL_MOUNT_DELAY_MS = 1;
 export const HOMEPAGE_STRIP_AD_BOOT_DELAY_MS = 12_000;
 export const SPONSORED_SLIDE_AD_BOOT_DELAY_MS = 9000;
+// The category carousel auto-advances every 6s with the ad in the second slot,
+// so the ad must boot well before it rotates into view (~6s). Keep it past the
+// initial paint but with enough lead time to fill before it's shown.
+export const CATEGORY_CAROUSEL_AD_BOOT_DELAY_MS = 3000;
 
 export const AD_CONFIG: Record<string, AdPlacement> = {
   // 1. HEADER LEADERBOARD (Standard)
@@ -172,5 +176,21 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     mobileWidth: 150,
     mobileHeight: 280,
     type: 'in-feed',
+  },
+
+  // 12. CATEGORY CAROUSEL BANNER
+  // Location: Second slide of the category "recently added" carousel.
+  // Banner-shaped so it fits the carousel height (~208px mobile) without
+  // cropping. Standard: 728x90 (Desktop) | 320x100 (Mobile).
+  CATEGORY_CAROUSEL_BANNER: {
+    id: 'div-gpt-ad-category-carousel',
+    // Must exactly match the Google Ad Manager ad unit code (case-sensitive).
+    name: 'CATEGORY_CAROUSEL_BANNER',
+    description: 'Banner ad inside the category recently-added carousel.',
+    width: 728,
+    height: 90,
+    mobileWidth: 320,
+    mobileHeight: 100,
+    type: 'banner',
   },
 };

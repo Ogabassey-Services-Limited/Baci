@@ -51,6 +51,10 @@
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
 @source "../../components/storefront/ogabassey/components/HomeProductGrid.tsx";
 @source "../../components/storefront/ogabassey/components/LaunchCarousel.tsx";
+@source "../../components/storefront/ogabassey/components/launch-slide-item.tsx";
+@source "../../components/storefront/ogabassey/components/product-slide-body.tsx";
+@source "../../components/storefront/ogabassey/components/promo-slide-body.tsx";
+@source "../../components/storefront/ogabassey/components/carousel-progress-fill.tsx";
 @source "../../components/storefront/ogabassey/components/HomeProductGridCard.tsx";
 @source "../../components/storefront/ogabassey/components/ProductRatingRow.tsx";
 @source "../../components/storefront/ogabassey/components/Logo.tsx";

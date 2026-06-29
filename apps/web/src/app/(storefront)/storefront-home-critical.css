@@ -24,6 +24,8 @@
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
+@source "../../components/storefront/ogabassey/components/carousel-progress-fill.tsx";
+@source "../../components/storefront/ogabassey/components/carousel-play-toggle.tsx";
 @source "../../components/storefront/ogabassey/components/hero-desktop-grid.tsx";
 @source "../../components/storefront/ogabassey/components/hero-utility-panel.tsx";
 @source "../../components/storefront/ogabassey/components/mobile-lcp-hero-image.tsx";
