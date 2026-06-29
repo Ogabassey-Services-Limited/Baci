@@ -88,6 +88,19 @@ function hasProductLimitGrant(features: Set<string>): boolean {
   );
 }
 
+function merchantHasFullProAccess(
+  merchant: FeatureGateMerchant | null | undefined,
+  now: Date
+): boolean {
+  const features = normalizePremiumFeatures(merchant?.premium_features);
+
+  if (features.has(ALL_FEATURES)) {
+    return true;
+  }
+
+  return Boolean(merchant && hasActivePaidPlan(merchant, now));
+}
+
 export const baciFeatureGates = {
   FREE_PRODUCT_LIMIT,
 
@@ -144,5 +157,12 @@ export const baciFeatureGates = {
 
     const expiryTime = Date.parse(merchant.plan_expires_at);
     return Number.isFinite(expiryTime) && expiryTime > now.getTime();
+  },
+
+  hasFullProAccess(
+    merchant: FeatureGateMerchant | null | undefined,
+    now = new Date()
+  ): boolean {
+    return merchantHasFullProAccess(merchant, now);
   },
 };

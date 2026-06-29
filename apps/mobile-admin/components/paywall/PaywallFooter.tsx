@@ -14,6 +14,8 @@ interface PaywallFooterProps {
   colors: ThemeColors;
   isLoading: boolean;
   isPro: boolean;
+  isSubscriptionStatusLoading: boolean;
+  onManageSubscription: () => void;
   onPurchase: () => void;
   onRestore: () => void;
   selectedPackage: PurchasesPackage | null;
@@ -24,11 +26,14 @@ export default function PaywallFooter({
   colors,
   isLoading,
   isPro,
+  isSubscriptionStatusLoading,
+  onManageSubscription,
   onPurchase,
   onRestore,
   selectedPackage,
   stickyFooterPaddingBottom,
 }: PaywallFooterProps) {
+  const isButtonLoading = isLoading || isSubscriptionStatusLoading;
   const subscriptionSettingsLabel = isRuntimePlatform('ios')
     ? 'Apple ID settings'
     : isRuntimePlatform('android')
@@ -47,26 +52,33 @@ export default function PaywallFooter({
       ]}
     >
       <Pressable
-        onPress={onPurchase}
-        disabled={!selectedPackage || isLoading}
+        onPress={isPro ? onManageSubscription : onPurchase}
+        disabled={isButtonLoading || (!isPro && !selectedPackage)}
         style={({ pressed }) => [
           paywallStyles.mainButton,
           {
             backgroundColor: colors.primary,
-            opacity: pressed || !selectedPackage || isLoading ? 0.8 : 1,
+            opacity:
+              pressed || isButtonLoading || (!isPro && !selectedPackage)
+                ? 0.8
+                : 1,
           },
         ]}
         accessibilityRole="button"
         accessibilityLabel={
-          isLoading
-            ? 'Processing purchase'
-            : isPro
-              ? 'Manage your subscription'
-              : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
+          isSubscriptionStatusLoading
+            ? 'Loading subscription status'
+            : isLoading
+              ? 'Processing purchase'
+              : isPro
+                ? 'Manage your subscription'
+                : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
         }
-        accessibilityState={{ disabled: !selectedPackage || isLoading }}
+        accessibilityState={{
+          disabled: isButtonLoading || (!isPro && !selectedPackage),
+        }}
       >
-        {isLoading ? (
+        {isButtonLoading ? (
           <ActivityIndicator color="#FFF" />
         ) : (
           <Text style={paywallStyles.mainButtonText}>
@@ -83,7 +95,7 @@ export default function PaywallFooter({
           { color: colors.textMuted },
         ]}
       >
-        {selectedPackage && (
+        {selectedPackage && !isPro && (
           <>
             Subscription auto-renews{' '}
             {selectedPackage.packageType === 'ANNUAL' ? 'yearly' : 'monthly'} at{' '}

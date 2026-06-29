@@ -89,12 +89,15 @@ describe('PaywallFooter', () => {
   it('renders platform-specific disclosure text and hooks footer actions', () => {
     const onPurchase = vi.fn();
     const onRestore = vi.fn();
+    const onManageSubscription = vi.fn();
 
     render(
       <PaywallFooter
         colors={colors}
         isLoading={false}
         isPro={false}
+        isSubscriptionStatusLoading={false}
+        onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={onRestore}
         selectedPackage={selectedPackage}
@@ -128,6 +131,35 @@ describe('PaywallFooter', () => {
       screen.getByRole('button', { name: /subscribe to monthly/i })
     );
     expect(onPurchase).toHaveBeenCalledTimes(1);
+    expect(onManageSubscription).not.toHaveBeenCalled();
+  });
+
+  it('uses the management action for Pro users instead of purchase', () => {
+    const onPurchase = vi.fn();
+    const onManageSubscription = vi.fn();
+
+    render(
+      <PaywallFooter
+        colors={colors}
+        isLoading={false}
+        isPro={true}
+        isSubscriptionStatusLoading={false}
+        onManageSubscription={onManageSubscription}
+        onPurchase={onPurchase}
+        onRestore={() => undefined}
+        selectedPackage={selectedPackage}
+        stickyFooterPaddingBottom={24}
+      />
+    );
+
+    expect(screen.queryByText(/Subscription auto-renews/i)).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(onManageSubscription).toHaveBeenCalledTimes(1);
+    expect(onPurchase).not.toHaveBeenCalled();
   });
 
   it('switches disclosure settings label for Android', () => {
@@ -138,6 +170,8 @@ describe('PaywallFooter', () => {
         colors={colors}
         isLoading={false}
         isPro={false}
+        isSubscriptionStatusLoading={false}
+        onManageSubscription={() => undefined}
         onPurchase={() => undefined}
         onRestore={() => undefined}
         selectedPackage={selectedPackage}
@@ -146,5 +180,35 @@ describe('PaywallFooter', () => {
     );
 
     expect(screen.getByText(/Google Play settings/i)).toBeInTheDocument();
+  });
+
+  it('uses a neutral label while subscription status is loading', () => {
+    const onPurchase = vi.fn();
+
+    render(
+      <PaywallFooter
+        colors={colors}
+        isLoading={false}
+        isPro={false}
+        isSubscriptionStatusLoading={true}
+        onManageSubscription={() => undefined}
+        onPurchase={onPurchase}
+        onRestore={() => undefined}
+        selectedPackage={selectedPackage}
+        stickyFooterPaddingBottom={24}
+      />
+    );
+
+    const loadingButton = screen.getByRole('button', {
+      name: /loading subscription status/i,
+    });
+
+    expect(loadingButton).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: /processing purchase/i })
+    ).toBeNull();
+
+    fireEvent.click(loadingButton);
+    expect(onPurchase).not.toHaveBeenCalled();
   });
 });

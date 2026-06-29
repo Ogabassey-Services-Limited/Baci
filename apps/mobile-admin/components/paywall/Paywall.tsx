@@ -3,8 +3,11 @@ import { ActivityIndicator, Alert, ScrollView, View } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { baciFeatureGates } from '@/lib/feature-gates';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 import PaywallFeatureList from './PaywallFeatureList';
 import PaywallFooter from './PaywallFooter';
 import PaywallHeader from './PaywallHeader';
@@ -34,6 +37,11 @@ export default function Paywall({ onClose }: PaywallProps) {
     isLoading,
     error,
   } = useRevenueCat();
+  const { merchant, isLoading: isMerchantLoading } = useMerchant();
+  const hasServerProSubscription = baciFeatureGates.hasFullProAccess(merchant);
+  const hasProSubscription = isPro || hasServerProSubscription;
+  const isMerchantEntitlementLoading = !isPro && isMerchantLoading;
+  const isServerManagedProSubscription = hasServerProSubscription && !isPro;
   const [selectedPackage, setSelectedPackage] =
     useState<PurchasesPackage | null>(() =>
       getDefaultPackage(currentOffering?.availablePackages)
@@ -96,6 +104,22 @@ export default function Paywall({ onClose }: PaywallProps) {
     }
   };
 
+  const onManageSubscription = async () => {
+    if (isServerManagedProSubscription) {
+      Alert.alert(
+        'Baci Pro is active',
+        'This subscription is managed through your Baci account, not the App Store or Google Play. Contact support if you need to make changes.'
+      );
+      return;
+    }
+
+    try {
+      await SubscriptionManagement.openNativeManagement();
+    } catch (_err) {
+      Alert.alert('Error', 'Unable to open subscription management');
+    }
+  };
+
   const onRestore = async () => {
     try {
       const success = await restorePurchases();
@@ -150,7 +174,9 @@ export default function Paywall({ onClose }: PaywallProps) {
       <PaywallFooter
         colors={colors}
         isLoading={isLoading}
-        isPro={isPro}
+        isPro={hasProSubscription}
+        isSubscriptionStatusLoading={isMerchantEntitlementLoading}
+        onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={onRestore}
         selectedPackage={selectedPackage}

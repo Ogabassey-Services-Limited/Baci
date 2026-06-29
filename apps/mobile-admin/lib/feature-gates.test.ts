@@ -99,4 +99,31 @@ describe('baciFeatureGates', () => {
       requiresUpgrade: true,
     });
   });
+
+  it('distinguishes full Pro access from product-limit-only grants', () => {
+    expect(
+      baciFeatureGates.hasFullProAccess({
+        plan_tier: 'pro',
+        premium_features: [],
+      })
+    ).toBe(true);
+    expect(
+      baciFeatureGates.hasFullProAccess({
+        plan_tier: 'free',
+        premium_features: ['all_features'],
+      })
+    ).toBe(true);
+    expect(
+      baciFeatureGates.hasFullProAccess({
+        plan_tier: 'free',
+        premium_features: ['product_limit'],
+      })
+    ).toBe(false);
+    expect(
+      baciFeatureGates.hasFeature(
+        { plan_tier: 'free', premium_features: ['product_limit'] },
+        'product_limit'
+      )
+    ).toBe(true);
+  });
 });

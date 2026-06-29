@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SPACING } from '@/constants/theme';
 import Paywall from './Paywall';
 
@@ -11,8 +11,23 @@ const mocks = vi.hoisted(() => ({
   capturedHeaderPaddingTop: 0,
   capturedStickyPaddingBottom: 0,
   insets: { bottom: 34, left: 0, right: 0, top: 44 },
+  isMerchantLoading: false,
+  isPro: false,
+  merchant: {
+    id: 'merchant-1',
+    plan_expires_at: null as string | null,
+    plan_tier: 'free' as string | null,
+    premium_features: [] as string[],
+  } as {
+    id: string;
+    plan_expires_at: string | null;
+    plan_tier: string | null;
+    premium_features: string[];
+  } | null,
+  openNativeManagement: vi.fn(),
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
+  hasFullProAccess: vi.fn(),
   offering: {
     availablePackages: [
       {
@@ -48,10 +63,29 @@ vi.mock('@/hooks/useRevenueCat', () => ({
     currentOffering: mocks.offering,
     error: null,
     isLoading: false,
-    isPro: false,
+    isPro: mocks.isPro,
     purchasePackage: mocks.purchasePackage,
     restorePurchases: mocks.restorePurchases,
   }),
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({
+    isLoading: mocks.isMerchantLoading,
+    merchant: mocks.merchant,
+  }),
+}));
+
+vi.mock('@/lib/feature-gates', () => ({
+  baciFeatureGates: {
+    hasFullProAccess: (...args: unknown[]) => mocks.hasFullProAccess(...args),
+  },
+}));
+
+vi.mock('@/utils/SubscriptionManagement', () => ({
+  SubscriptionManagement: {
+    openNativeManagement: () => mocks.openNativeManagement(),
+  },
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -102,11 +136,13 @@ vi.mock('react-native', () => ({
   Pressable: ({
     accessibilityLabel,
     children,
+    disabled,
     onPress,
     style,
   }: {
     accessibilityLabel?: string;
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
     style?: unknown;
   }) => {
@@ -130,9 +166,10 @@ vi.mock('react-native', () => ({
     }
     return (
       <button
-        type="button"
         aria-label={accessibilityLabel}
+        disabled={disabled}
         onClick={() => onPress?.()}
+        type="button"
       >
         {children}
       </button>
@@ -162,11 +199,23 @@ vi.mock('react-native', () => ({
 }));
 
 describe('Paywall', () => {
-  afterEach(() => {
+  beforeEach(() => {
     mocks.alert.mockReset();
     mocks.capturedCloseTop = 0;
     mocks.capturedHeaderPaddingTop = 0;
     mocks.capturedStickyPaddingBottom = 0;
+    mocks.hasFullProAccess.mockReset();
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.insets = { bottom: 34, left: 0, right: 0, top: 44 };
+    mocks.isMerchantLoading = false;
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: [],
+    };
+    mocks.openNativeManagement.mockReset();
     mocks.purchasePackage.mockReset();
     mocks.restorePurchases.mockReset();
   });
@@ -279,5 +328,134 @@ describe('Paywall', () => {
       'You are now a Pro member!',
       [{ text: 'OK', onPress: onClose }]
     );
+  });
+
+  it('uses the manage state for server-backed Pro entitlements', () => {
+    mocks.hasFullProAccess.mockReturnValue(true);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+
+    render(<Paywall />);
+
+    expect(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /subscribe to monthly/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Baci Pro is active',
+      expect.stringContaining('managed through your Baci account')
+    );
+    expect(mocks.openNativeManagement).not.toHaveBeenCalled();
+    expect(mocks.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it('opens native subscription management for RevenueCat Pro entitlements', () => {
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = true;
+
+    render(<Paywall />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Baci Pro is active',
+      expect.any(String)
+    );
+  });
+
+  it('uses native subscription management when RevenueCat and server Pro are both active', () => {
+    mocks.hasFullProAccess.mockReturnValue(true);
+    mocks.isPro = true;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+
+    render(<Paywall />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Baci Pro is active',
+      expect.any(String)
+    );
+  });
+
+  it('shows an error alert when native subscription management fails', async () => {
+    mocks.isPro = true;
+    mocks.openNativeManagement.mockRejectedValue(
+      new Error('Subscription settings unavailable')
+    );
+
+    render(<Paywall />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /manage your subscription/i })
+    );
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Unable to open subscription management'
+      );
+    });
+  });
+
+  it('disables purchase while merchant entitlements are loading', () => {
+    mocks.isMerchantLoading = true;
+    mocks.isPro = false;
+    mocks.merchant = null;
+
+    render(<Paywall />);
+
+    const purchaseButton = screen.getByRole('button', {
+      name: /loading subscription status/i,
+    });
+
+    expect(purchaseButton).toBeDisabled();
+    fireEvent.click(purchaseButton);
+
+    expect(mocks.purchasePackage).not.toHaveBeenCalled();
+    expect(mocks.openNativeManagement).not.toHaveBeenCalled();
+  });
+
+  it('keeps the purchase CTA for product-limit-only grants', () => {
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: ['product_limit'],
+    };
+
+    render(<Paywall />);
+
+    expect(
+      screen.getByRole('button', { name: /subscribe to monthly/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /manage your subscription/i })
+    ).not.toBeInTheDocument();
   });
 });

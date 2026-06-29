@@ -6,7 +6,14 @@ import MenuScreen from './menu';
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   hasFeature: vi.fn(),
+  hasFullProAccess: vi.fn(),
   isPro: true,
+  merchant: {
+    id: 'merchant-1',
+    plan_expires_at: null as string | null,
+    plan_tier: 'free' as string | null,
+    premium_features: [] as string[],
+  },
   resetOnboarding: vi.fn(),
   router: {
     push: vi.fn(),
@@ -65,9 +72,15 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('@/components/settings/SubscriptionStatusCard', () => ({
-  SubscriptionStatusCard: ({ onPress }: { onPress?: () => void }) => (
+  SubscriptionStatusCard: ({
+    isPro,
+    onPress,
+  }: {
+    isPro?: boolean;
+    onPress?: () => void;
+  }) => (
     <button onClick={() => onPress?.()} type="button">
-      Subscription status
+      {isPro ? 'Baci Pro Merchant Active' : 'Free Plan UPGRADE'}
     </button>
   ),
 }));
@@ -86,7 +99,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
-    merchant: { id: 'merchant-1', premium_features: [] },
+    merchant: mocks.merchant,
   }),
 }));
 
@@ -126,6 +139,7 @@ vi.mock('@/hooks/useTheme', () => ({
 vi.mock('@/lib/feature-gates', () => ({
   baciFeatureGates: {
     hasFeature: (...args: unknown[]) => mocks.hasFeature(...args),
+    hasFullProAccess: (...args: unknown[]) => mocks.hasFullProAccess(...args),
   },
 }));
 
@@ -134,7 +148,14 @@ describe('MenuScreen', () => {
     vi.clearAllMocks();
     vi.stubGlobal('__DEV__', false);
     mocks.hasFeature.mockReturnValue(true);
+    mocks.hasFullProAccess.mockReturnValue(false);
     mocks.isPro = true;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: [],
+    };
   });
 
   it('renders the main menu sections', () => {
@@ -198,5 +219,51 @@ describe('MenuScreen', () => {
     );
 
     expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/negotiations');
+  });
+
+  it('opens the subscription screen from the free plan card', () => {
+    mocks.hasFeature.mockReturnValue(false);
+    mocks.isPro = false;
+
+    render(<MenuScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Free Plan UPGRADE/i }));
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/subscribe');
+  });
+
+  it('shows Pro status when the merchant has a server-backed Pro entitlement', () => {
+    mocks.hasFullProAccess.mockReturnValue(true);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'pro',
+      premium_features: [],
+    };
+
+    render(<MenuScreen />);
+
+    expect(screen.getByText(/Baci Pro Merchant Active/i)).toBeTruthy();
+    expect(screen.queryByText(/Free Plan UPGRADE/i)).toBeNull();
+  });
+
+  it('keeps the upgrade card for product-limit-only grants', () => {
+    mocks.hasFeature.mockImplementation(
+      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
+    );
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: ['product_limit'],
+    };
+
+    render(<MenuScreen />);
+
+    expect(screen.getByText(/Free Plan UPGRADE/i)).toBeTruthy();
+    expect(screen.queryByText(/Baci Pro Merchant Active/i)).toBeNull();
   });
 });
