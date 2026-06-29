@@ -1,19 +1,20 @@
 import type { Metadata } from 'next';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
-import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from '../../blog-search-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 interface AuthorPageProps {
   params: Promise<{ slug: string; authorSlug: string }>;
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
 
 const AUTHOR_NOT_FOUND_METADATA: Metadata = {
@@ -40,7 +41,9 @@ export async function generateMetadata({
   searchParams,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
-  const page = parseBlogListingPage((await searchParams)?.page);
+  const page = parseBlogListingPage(
+    toSingleBlogSearchParam((await searchParams)?.page)
+  );
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
@@ -97,67 +100,27 @@ export async function generateMetadata({
   };
 }
 
-function buildAuthorPageHref(authorSlug: string, page: number): string {
-  return page > 1 ? `./${authorSlug}?page=${page}` : `./${authorSlug}`;
+function isStaticAuthorTenant(slug: string): boolean {
+  return OGABASSEY_AUTHOR_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
 }
 
-async function resolveAuthorRouteBeforeShell({
+export default async function BlogAuthorPage({
   params,
   searchParams,
 }: AuthorPageProps) {
-  const { slug, authorSlug } = await params;
-  const requestedPage = parseBlogListingPage((await searchParams)?.page);
-  const normalizedAuthorSlug = authorSlug.toLowerCase();
-
-  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
-  if (!profile) {
-    const fallbackOutcome = await resolveBlogCatchAllOutcome({
-      params: Promise.resolve({
-        slug,
-        catchAll: ['author', normalizedAuthorSlug],
-      }),
-    });
-
-    if (fallbackOutcome.type === 'redirect') {
-      if (fallbackOutcome.status === 308) {
-        permanentRedirect(asRoute(fallbackOutcome.url));
-      }
-      redirect(asRoute(fallbackOutcome.url));
-    }
-
-    notFound();
-  }
-
-  const data = await getCachedBlogAuthor(slug, profile.name, {
-    page: requestedPage,
-  });
-  if (!data) {
-    notFound();
-  }
-
-  if (data.currentPage > data.totalPages) {
-    redirect(
-      asRoute(buildAuthorPageHref(normalizedAuthorSlug, data.totalPages))
-    );
-  }
-
-  return {
-    data,
-    normalizedAuthorSlug,
-    sameAs: profile.sameAs,
-  };
-}
-
-export default async function BlogAuthorPage(props: AuthorPageProps) {
-  const route = await resolveAuthorRouteBeforeShell(props);
-
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogAuthorPageContent
-        data={route.data}
-        normalizedAuthorSlug={route.normalizedAuthorSlug}
-        sameAs={route.sameAs}
-      />
-    </Suspense>
+  const resolvedParams = await params;
+  const content = (
+    <BlogAuthorPageContent
+      params={Promise.resolve(resolvedParams)}
+      searchParams={searchParams}
+    />
   );
+
+  if (isStaticAuthorTenant(resolvedParams.slug)) {
+    return content;
+  }
+
+  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

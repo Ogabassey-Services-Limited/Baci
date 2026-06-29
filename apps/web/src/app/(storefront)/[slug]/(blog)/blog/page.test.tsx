@@ -1,12 +1,10 @@
 import { render, screen } from '@testing-library/react';
+import { isValidElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
   merchant,
   mockGetCachedBlogListing,
-  mockNotFound,
-  mockPermanentRedirect,
-  mockRedirect,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -41,95 +39,38 @@ describe('blog page shell', () => {
     expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
   });
 
-  it('renders monitored OgaBassey listing content through the static Suspense shell', async () => {
-    render(
-      await BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({}),
-      })
-    );
-
-    expect(screen.getByText('Blog page content')).toBeInTheDocument();
-  });
-
-  it('resolves root listing route decisions before rendering the Suspense shell', async () => {
-    render(
-      await BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({ page: '1' }),
-      })
-    );
-
-    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('ogabassey.com', {
-      category: undefined,
-      page: 1,
-      searchQuery: undefined,
+  it('renders monitored OgaBassey listing content outside Suspense for crawlable static HTML', async () => {
+    const ui = await BlogPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      searchParams: Promise.resolve({}),
     });
-    expect(mockBlogPageContent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        preloadedListing: expect.objectContaining({
-          merchant: expect.objectContaining({ business_name: 'Ogabassey' }),
-        }),
-        routeDecisionsResolved: true,
-      })
-    );
+
+    expect(isValidElement(ui)).toBe(true);
+    expect(ui.type).not.toBe(Suspense);
+
+    render(ui);
+
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
   });
 
-  it('permanently redirects category query URLs to clean category routes before streaming the shell', async () => {
-    await expect(
-      BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({
-          category: 'News',
-          utm_source: 'newsletter',
-        }),
-      })
-    ).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://test-store.usebaci.com/blog/category/news?utm_source=newsletter'
-    );
+  it('does not subscribe to listing search params before rendering the route shell', async () => {
+    const thenSpy = vi.fn(() => {
+      throw new Error('search params resolved before content render');
+    });
+    const searchParams = Object.defineProperty({}, 'then', {
+      value: thenSpy,
+    }) as Promise<Record<string, never>>;
 
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      'https://test-store.usebaci.com/blog/category/news?utm_source=newsletter'
-    );
+    await BlogPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      searchParams,
+    });
+
+    expect(thenSpy).not.toHaveBeenCalled();
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
-  it('redirects stale paginated root listings before streaming the shell', async () => {
-    mockGetCachedBlogListing.mockResolvedValueOnce(
-      buildListingResult({ totalPosts: 13 })
-    );
-
-    await expect(
-      BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({ page: '3' }),
-      })
-    ).rejects.toThrow(
-      'NEXT_REDIRECT:https://test-store.usebaci.com/blog?page=2'
-    );
-
-    expect(mockRedirect).toHaveBeenCalledWith(
-      'https://test-store.usebaci.com/blog?page=2'
-    );
-    expect(mockBlogPageContent).not.toHaveBeenCalled();
-  });
-
-  it('returns notFound before streaming when the root blog listing is unavailable', async () => {
-    mockGetCachedBlogListing.mockResolvedValueOnce(null);
-
-    await expect(
-      BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-
-    expect(mockNotFound).toHaveBeenCalled();
-    expect(mockBlogPageContent).not.toHaveBeenCalled();
-  });
-
-  it('shows the blog listing fallback while monitored OgaBassey content is resolving', async () => {
+  it('shows the blog listing fallback while dynamic tenant content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Intentionally never resolves so Suspense fallback remains visible.
@@ -138,7 +79,7 @@ describe('blog page shell', () => {
 
     render(
       await BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        params: Promise.resolve({ slug: 'dynamic-store' }),
         searchParams: Promise.resolve({}),
       })
     );

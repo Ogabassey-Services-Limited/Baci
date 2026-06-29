@@ -2,6 +2,15 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockGetBlogAuthorBySlug, mockGetCachedBlogAuthor, mockRedirect } =
+  vi.hoisted(() => ({
+    mockGetBlogAuthorBySlug: vi.fn(),
+    mockGetCachedBlogAuthor: vi.fn(),
+    mockRedirect: vi.fn((url: string) => {
+      throw new Error(`NEXT_REDIRECT:${url}`);
+    }),
+  }));
+
 vi.mock('next/image', () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     // biome-ignore lint/performance/noImgElement: test stub for next/image
@@ -13,6 +22,29 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
+}));
+
+vi.mock('next/navigation', () => ({
+  notFound: () => {
+    throw new Error('NEXT_NOT_FOUND');
+  },
+  permanentRedirect: (url: string) => {
+    throw new Error(`NEXT_PERMANENT_REDIRECT:${url}`);
+  },
+  redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock(
+  '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution',
+  () => ({ resolveBlogCatchAllOutcome: vi.fn() })
+);
+
+vi.mock('@/lib/blog-authors', () => ({
+  getBlogAuthorBySlug: (...args: unknown[]) => mockGetBlogAuthorBySlug(...args),
+}));
+
+vi.mock('@/lib/cached-data', () => ({
+  getCachedBlogAuthor: (...args: unknown[]) => mockGetCachedBlogAuthor(...args),
 }));
 
 vi.mock('@/lib/routes', () => ({ asRoute: (value: string) => value }));
@@ -40,7 +72,7 @@ const authorData = {
     id: 'm1',
     business_name: 'Ogabassey',
     slug: 'ogabassey',
-    logo_url: '',
+    logo_url: null,
     custom_domain: 'ogabassey.com',
   },
   author: {
@@ -58,10 +90,6 @@ const authorData = {
       featured_image_url: null,
       featured_image_alt: null,
       category: 'Smartphones',
-      author_name: 'Bassey John',
-      author_title: 'Performance Marketing Specialist',
-      author_bio: 'Bassey John writes practical device buying guides.',
-      author_image_url: 'https://cdn.ogabassey.com/authors/bassey-john.jpg',
       published_at: '2026-03-16T10:00:00.000Z',
       reading_time_minutes: 4,
     },
@@ -71,29 +99,31 @@ const authorData = {
   totalPages: 1,
 };
 
-function renderAuthorContent(
-  data: typeof authorData = authorData,
-  sameAs: string[] = []
-) {
-  return BlogAuthorPageContent({
-    data,
-    normalizedAuthorSlug: 'bassey-john',
-    sameAs,
-  });
-}
-
 describe('BlogAuthorPageContent navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetBlogAuthorBySlug.mockReturnValue({
+      name: 'Bassey John',
+      sameAs: [],
+    });
+    mockGetCachedBlogAuthor.mockResolvedValue(authorData);
   });
 
   it('renders crawlable pagination and a full-count ItemList for multi-page authors', async () => {
+    mockGetCachedBlogAuthor.mockResolvedValue({
+      ...authorData,
+      totalPosts: 30,
+      currentPage: 2,
+      totalPages: 3,
+    });
+
     const { container } = render(
-      await renderAuthorContent({
-        ...authorData,
-        totalPosts: 30,
-        currentPage: 2,
-        totalPages: 3,
+      await BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({ page: ['2', '999'] }),
       })
     );
 
@@ -114,8 +144,34 @@ describe('BlogAuthorPageContent navigation', () => {
     expect(itemListScript?.textContent).toContain('"position":13');
   });
 
+  it('redirects an out-of-range author page to the last valid page', async () => {
+    mockGetCachedBlogAuthor.mockResolvedValue({
+      ...authorData,
+      totalPosts: 30,
+      currentPage: 5,
+      totalPages: 3,
+    });
+
+    await expect(
+      BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({ page: '5' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:./bassey-john?page=3');
+  });
+
   it('keeps author navigation origin-preserving without relying on merchant headers', async () => {
-    render(await renderAuthorContent());
+    render(
+      await BlogAuthorPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          authorSlug: 'bassey-john',
+        }),
+      })
+    );
 
     expect(screen.getByRole('link', { name: /Back to Blog/ })).toHaveAttribute(
       'href',
