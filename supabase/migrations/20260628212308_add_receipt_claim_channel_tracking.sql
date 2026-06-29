@@ -82,6 +82,31 @@ EXCEPTION
 END;
 $$;
 
+UPDATE public.receipt_claims
+SET first_click_source = 'web'
+WHERE first_clicked_at IS NOT NULL
+  AND first_click_source IS NULL;
+
+UPDATE public.receipt_claims
+SET last_click_source = 'web'
+WHERE last_clicked_at IS NOT NULL
+  AND last_click_source IS NULL;
+
+UPDATE public.receipt_claims
+SET first_login_started_source = 'web'
+WHERE first_login_started_at IS NOT NULL
+  AND first_login_started_source IS NULL;
+
+UPDATE public.receipt_claims
+SET last_login_started_source = 'web'
+WHERE last_login_started_at IS NOT NULL
+  AND last_login_started_source IS NULL;
+
+UPDATE public.receipt_claims
+SET claimed_source = 'web'
+WHERE claimed_at IS NOT NULL
+  AND claimed_source IS NULL;
+
 CREATE OR REPLACE FUNCTION private.record_receipt_claim_click_v2(
   p_token_hash text,
   p_source text
@@ -289,7 +314,6 @@ BEGIN
   SELECT rc.* INTO v_claim
   FROM public.receipt_claims AS rc
   WHERE rc.token_hash = p_token_hash
-    AND rc.notification_sent_at IS NOT NULL
   LIMIT 1
   FOR UPDATE;
 
@@ -452,7 +476,7 @@ BEGIN
       rc.click_count,
       CASE
         WHEN rc.first_clicked_at IS NULL THEN NULL
-        ELSE COALESCE(rc.first_click_source, rc.last_click_source, 'web')
+        ELSE COALESCE(rc.first_click_source, 'web')
       END AS first_click_source,
       CASE
         WHEN rc.last_clicked_at IS NULL THEN NULL
@@ -465,7 +489,6 @@ BEGIN
         WHEN rc.first_login_started_at IS NULL THEN NULL
         ELSE COALESCE(
           rc.first_login_started_source,
-          rc.last_login_started_source,
           'web'
         )
       END AS first_login_started_source,

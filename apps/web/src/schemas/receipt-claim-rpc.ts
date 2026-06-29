@@ -33,6 +33,97 @@ const receiptClaimAppDownloadSourceSchema = z
   .enum(['app_store', 'play_store', 'unknown'])
   .nullable();
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readNonNegativeIntegerFallback(
+  value: unknown,
+  fallback: number
+): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+    ? value
+    : fallback;
+}
+
+function defaultSourceWhenTimestampExists({
+  fallbackSource,
+  normalized,
+  sourceField,
+  timestampField,
+}: {
+  fallbackSource: 'app_store' | 'play_store' | 'unknown' | 'web';
+  normalized: Record<string, unknown>;
+  sourceField: string;
+  timestampField: string;
+}) {
+  if (sourceField in normalized) {
+    return;
+  }
+
+  normalized[sourceField] =
+    normalized[timestampField] === null ||
+    normalized[timestampField] === undefined
+      ? null
+      : fallbackSource;
+}
+
+function normalizeReceiptClaimCampaignRecipient(value: unknown) {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const normalized = { ...value };
+  normalized.appDownloadClickCount ??= 0;
+  normalized.firstAppDownloadClickedAt ??= null;
+  normalized.lastAppDownloadClickedAt ??= null;
+
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'web',
+    normalized,
+    sourceField: 'claimedSource',
+    timestampField: 'claimedAt',
+  });
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'web',
+    normalized,
+    sourceField: 'firstClickSource',
+    timestampField: 'firstClickedAt',
+  });
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'web',
+    normalized,
+    sourceField: 'lastClickSource',
+    timestampField: 'lastClickedAt',
+  });
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'web',
+    normalized,
+    sourceField: 'firstLoginStartedSource',
+    timestampField: 'firstLoginStartedAt',
+  });
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'web',
+    normalized,
+    sourceField: 'lastLoginStartedSource',
+    timestampField: 'lastLoginStartedAt',
+  });
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'unknown',
+    normalized,
+    sourceField: 'firstAppDownloadSource',
+    timestampField: 'firstAppDownloadClickedAt',
+  });
+  defaultSourceWhenTimestampExists({
+    fallbackSource: 'unknown',
+    normalized,
+    sourceField: 'lastAppDownloadSource',
+    timestampField: 'lastAppDownloadClickedAt',
+  });
+
+  return normalized;
+}
+
 const receiptClaimCampaignRecipientBaseSchema = z.object({
   appDownloadClickCount: nonNegativeIntegerSchema,
   claimedAt: nullableIsoDateTimeSchema,
@@ -57,7 +148,8 @@ const receiptClaimCampaignRecipientBaseSchema = z.object({
   notificationSentAt: nullableIsoDateTimeSchema,
 });
 
-const receiptClaimCampaignRecipientSchema =
+const receiptClaimCampaignRecipientSchema = z.preprocess(
+  normalizeReceiptClaimCampaignRecipient,
   receiptClaimCampaignRecipientBaseSchema.superRefine((recipient, context) => {
     const pairedFields = [
       ['claimedAt', 'claimedSource'],
@@ -83,7 +175,33 @@ const receiptClaimCampaignRecipientSchema =
         path: [hasTimestamp ? sourceField : timestampField],
       });
     }
-  });
+  })
+);
+
+function normalizeReceiptClaimCampaignStats(value: unknown) {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const clickedCount = readNonNegativeIntegerFallback(value.clickedCount, 0);
+  const loginStartedCount = readNonNegativeIntegerFallback(
+    value.loginStartedCount,
+    0
+  );
+  const claimedCount = readNonNegativeIntegerFallback(value.claimedCount, 0);
+
+  return {
+    ...value,
+    appDownloadClickCount: value.appDownloadClickCount ?? 0,
+    appDownloadClickedCount: value.appDownloadClickedCount ?? 0,
+    claimedAppCount: value.claimedAppCount ?? 0,
+    claimedWebCount: value.claimedWebCount ?? claimedCount,
+    clickedAppCount: value.clickedAppCount ?? 0,
+    clickedWebCount: value.clickedWebCount ?? clickedCount,
+    loginStartedAppCount: value.loginStartedAppCount ?? 0,
+    loginStartedWebCount: value.loginStartedWebCount ?? loginStartedCount,
+  };
+}
 
 export const receiptClaimRecordSchema = z.object({
   claimed_at: z.string().nullable(),
@@ -116,23 +234,26 @@ export const createReceiptClaimResultSchema = z.object({
   status: z.enum(['created', 'skipped']),
 });
 
-export const receiptClaimCampaignStatsSchema = z.object({
-  appDownloadClickCount: nonNegativeIntegerSchema,
-  appDownloadClickedCount: nonNegativeIntegerSchema,
-  claimedAppCount: nonNegativeIntegerSchema,
-  claimedCount: nonNegativeIntegerSchema,
-  claimedWebCount: nonNegativeIntegerSchema,
-  clickedAppCount: nonNegativeIntegerSchema,
-  clickedCount: nonNegativeIntegerSchema,
-  clickedWebCount: nonNegativeIntegerSchema,
-  lastActivityAt: nullableIsoDateTimeSchema,
-  loginStartedAppCount: nonNegativeIntegerSchema,
-  loginStartedCount: nonNegativeIntegerSchema,
-  loginStartedWebCount: nonNegativeIntegerSchema,
-  recipients: z.array(receiptClaimCampaignRecipientSchema),
-  sentCount: nonNegativeIntegerSchema,
-  totalRecipients: nonNegativeIntegerSchema,
-});
+export const receiptClaimCampaignStatsSchema = z.preprocess(
+  normalizeReceiptClaimCampaignStats,
+  z.object({
+    appDownloadClickCount: nonNegativeIntegerSchema,
+    appDownloadClickedCount: nonNegativeIntegerSchema,
+    claimedAppCount: nonNegativeIntegerSchema,
+    claimedCount: nonNegativeIntegerSchema,
+    claimedWebCount: nonNegativeIntegerSchema,
+    clickedAppCount: nonNegativeIntegerSchema,
+    clickedCount: nonNegativeIntegerSchema,
+    clickedWebCount: nonNegativeIntegerSchema,
+    lastActivityAt: nullableIsoDateTimeSchema,
+    loginStartedAppCount: nonNegativeIntegerSchema,
+    loginStartedCount: nonNegativeIntegerSchema,
+    loginStartedWebCount: nonNegativeIntegerSchema,
+    recipients: z.array(receiptClaimCampaignRecipientSchema),
+    sentCount: nonNegativeIntegerSchema,
+    totalRecipients: nonNegativeIntegerSchema,
+  })
+);
 
 export type ReceiptClaimRecord = z.infer<typeof receiptClaimRecordSchema>;
 export type CreateReceiptClaimResult = z.infer<

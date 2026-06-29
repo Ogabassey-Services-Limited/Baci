@@ -1,11 +1,5 @@
 'use client';
-import {
-  AlertTriangle,
-  Download,
-  Loader2,
-  ReceiptText,
-  Smartphone,
-} from 'lucide-react';
+import { AlertTriangle, Loader2, ReceiptText, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
@@ -17,23 +11,18 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  OGABASSEY_STOREFRONT_APP_STORE_URL,
-  OGABASSEY_STOREFRONT_PLAY_STORE_URL,
-} from '@/config/platform';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { sanitizeCustomerLoginEmailPrefill } from '@/lib/customer-login-prefill';
-import type {
-  ReceiptClaimAppDownloadTarget,
-  ReceiptClaimPreview,
-} from '@/lib/import-notifications/receipt-claim-preview';
+import type { ReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
 import { asRoute } from '@/lib/routes';
+import ReceiptClaimAppLinks from './receipt-claim-app-links';
 import {
   createDeviceListItems,
   joinBasePath,
 } from './receipt-claim-page-utils';
+import { waitForReceiptClaimLoginStartedTrackingWindow } from './wait-for-receipt-claim-login-started-tracking';
 
 interface ReceiptClaimPageClientProps {
   initialClaim: ReceiptClaimPreview | null;
@@ -41,8 +30,6 @@ interface ReceiptClaimPageClientProps {
   initialError: string | null;
   token: string;
 }
-
-const LOGIN_STARTED_TRACKING_TIMEOUT_MS = 750;
 
 export default function ReceiptClaimPageClient({
   initialClaim,
@@ -144,61 +131,8 @@ export default function ReceiptClaimPageClient({
     basePath,
     `/account/login?${loginSearchParams.toString()}`
   );
-  const loginStartedPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/login-email`;
-  const appDownloadTrackingPath = `/api/storefront/receipts/claims/${encodeURIComponent(token)}/app-download-click`;
   const shouldShowOgabasseyAppLinks =
     merchant?.slug === 'ogabassey' || basePath === '/ogabassey';
-
-  async function trackLoginStarted() {
-    if (!token) {
-      return;
-    }
-    try {
-      await fetchWithCsrf(loginStartedPath, {
-        cache: 'no-store',
-        headers: { accept: 'application/json' },
-        keepalive: true,
-        method: 'POST',
-      });
-    } catch {
-      return;
-    }
-  }
-
-  function trackAppDownloadClick(target: ReceiptClaimAppDownloadTarget) {
-    if (!token) {
-      return;
-    }
-
-    void fetchWithCsrf(appDownloadTrackingPath, {
-      body: JSON.stringify({ target }),
-      headers: {
-        'Content-Type': 'application/json',
-        accept: 'application/json',
-      },
-      keepalive: true,
-      method: 'POST',
-    }).catch(() => undefined);
-  }
-
-  async function waitForLoginStartedTrackingWindow() {
-    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
-    try {
-      await Promise.race([
-        trackLoginStarted(),
-        new Promise<void>((resolve) => {
-          timeoutId = globalThis.setTimeout(
-            resolve,
-            LOGIN_STARTED_TRACKING_TIMEOUT_MS
-          );
-        }),
-      ]);
-    } finally {
-      if (timeoutId !== null) {
-        globalThis.clearTimeout(timeoutId);
-      }
-    }
-  }
 
   async function handleLoginClick(event: MouseEvent<HTMLAnchorElement>) {
     if (
@@ -218,7 +152,7 @@ export default function ReceiptClaimPageClient({
     event.preventDefault();
     loginNavigationInFlight.current = true;
     try {
-      await waitForLoginStartedTrackingWindow();
+      await waitForReceiptClaimLoginStartedTrackingWindow(token);
       router.push(asRoute(loginPath));
     } finally {
       loginNavigationInFlight.current = false;
@@ -313,43 +247,7 @@ export default function ReceiptClaimPageClient({
                 )}
 
                 {shouldShowOgabasseyAppLinks ? (
-                  <div className="space-y-3 rounded-md border border-store-border bg-store-secondary/40 p-4">
-                    <p className="text-sm font-medium text-store-background-text">
-                      Open in the Ogabassey app
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Button
-                        asChild
-                        className="border-store-border"
-                        variant="outline"
-                      >
-                        <a
-                          href={OGABASSEY_STOREFRONT_APP_STORE_URL}
-                          onClick={() => trackAppDownloadClick('app_store')}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          <Download aria-hidden="true" className="size-4" />
-                          App Store
-                        </a>
-                      </Button>
-                      <Button
-                        asChild
-                        className="border-store-border"
-                        variant="outline"
-                      >
-                        <a
-                          href={OGABASSEY_STOREFRONT_PLAY_STORE_URL}
-                          onClick={() => trackAppDownloadClick('play_store')}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          <Download aria-hidden="true" className="size-4" />
-                          Google Play
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
+                  <ReceiptClaimAppLinks token={token} />
                 ) : null}
               </>
             ) : (

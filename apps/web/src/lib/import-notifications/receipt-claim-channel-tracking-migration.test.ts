@@ -39,6 +39,12 @@ describe('receipt claim channel tracking migration', () => {
     expect(migrationSql).toMatch(
       /ADD COLUMN IF NOT EXISTS last_app_download_clicked_at/i
     );
+    expect(migrationSql).toMatch(
+      /ADD COLUMN IF NOT EXISTS first_app_download_source text/i
+    );
+    expect(migrationSql).toMatch(
+      /ADD COLUMN IF NOT EXISTS last_app_download_source text/i
+    );
     expect(migrationSql).toMatch(/CHECK \(app_download_click_count >= 0\)/i);
     expect(migrationSql).toMatch(
       /CHECK \(app_download_click_count >= 0\) NOT VALID/i
@@ -46,6 +52,29 @@ describe('receipt claim channel tracking migration', () => {
     expect(migrationSql).toMatch(/'web'[\s\S]*'app'[\s\S]*'unknown'/i);
     expect(migrationSql).toMatch(
       /'app_store'[\s\S]*'play_store'[\s\S]*'unknown'/i
+    );
+  });
+
+  it('backfills legacy channel sources as web and keeps delivered claim links redeemable', () => {
+    const redeemReceiptClaimV2Sql =
+      migrationSql.match(
+        /CREATE OR REPLACE FUNCTION private\.redeem_receipt_claim_v2\([\s\S]*?END;\s*\$\$/i
+      )?.[0] ?? '';
+
+    expect(migrationSql).toMatch(
+      /UPDATE public\.receipt_claims\s+SET first_click_source = 'web'\s+WHERE first_clicked_at IS NOT NULL\s+AND first_click_source IS NULL/i
+    );
+    expect(migrationSql).toMatch(
+      /UPDATE public\.receipt_claims\s+SET first_login_started_source = 'web'\s+WHERE first_login_started_at IS NOT NULL\s+AND first_login_started_source IS NULL/i
+    );
+    expect(migrationSql).toMatch(
+      /UPDATE public\.receipt_claims\s+SET claimed_source = 'web'\s+WHERE claimed_at IS NOT NULL\s+AND claimed_source IS NULL/i
+    );
+    expect(redeemReceiptClaimV2Sql).toMatch(
+      /FROM public\.receipt_claims AS rc\s+WHERE rc\.token_hash = p_token_hash\s+LIMIT 1\s+FOR UPDATE/i
+    );
+    expect(redeemReceiptClaimV2Sql).not.toMatch(
+      /rc\.notification_sent_at\s+IS\s+NOT\s+NULL/i
     );
   });
 

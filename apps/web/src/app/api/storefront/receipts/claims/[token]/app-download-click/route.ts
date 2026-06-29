@@ -1,19 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   parseReceiptClaimToken,
   recordReceiptClaimAppDownloadClicked,
 } from '@/lib/import-notifications/receipt-claim-preview';
 import { createClient } from '@/lib/supabase/server';
+import { receiptClaimAppDownloadClickBodySchema } from '@/schemas/receipt-claim-app-download-click';
 
 interface RouteContext {
   params: Promise<{ token: string }>;
 }
-
-const appDownloadClickBodySchema = z.object({
-  target: z.enum(['app_store', 'play_store']),
-});
 
 async function parseToken(context: RouteContext) {
   const params = await context.params;
@@ -22,9 +18,11 @@ async function parseToken(context: RouteContext) {
 
 async function parseBody(request: NextRequest) {
   try {
-    return appDownloadClickBodySchema.safeParse(await request.json());
+    return receiptClaimAppDownloadClickBodySchema.safeParse(
+      await request.json()
+    );
   } catch {
-    return appDownloadClickBodySchema.safeParse({});
+    return receiptClaimAppDownloadClickBodySchema.safeParse({});
   }
 }
 

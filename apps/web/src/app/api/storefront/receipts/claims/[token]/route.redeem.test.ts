@@ -186,6 +186,26 @@ describe('POST /api/storefront/receipts/claims/[token]', () => {
     });
   });
 
+  it('treats lowercase bearer authorization as mobile redemption', async () => {
+    const supabase = createSupabaseRpcMock({
+      data: { redirectPath: '/receipts', status: 'ok' },
+      error: null,
+    });
+    mockAuthenticatedSupabase(supabase);
+
+    const response = await POST(
+      postRequest({ Authorization: 'bearer mobile-session-token' }),
+      params
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith('redeem_receipt_claim_v2', {
+      p_source: 'app',
+      p_token_hash: hashReceiptClaimToken('claim-token'),
+    });
+  });
+
   it('returns 500 when the customer record cannot be linked', async () => {
     const supabase = createSupabaseRpcMock({
       data: { status: 'customer_link_failed' },

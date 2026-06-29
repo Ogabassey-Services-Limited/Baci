@@ -38,6 +38,22 @@ export type ReceiptClaimAppDownloadTarget =
   | 'play_store'
   | 'unknown';
 
+type RecordReceiptClaimActivityInput = {
+  supabase: SupabaseClient;
+  token: string;
+} & (
+  | {
+      rpcName:
+        | 'record_receipt_claim_click_v2'
+        | 'record_receipt_claim_login_started_v2';
+      source: ReceiptClaimActivitySource;
+    }
+  | {
+      rpcName: 'record_receipt_claim_app_download_clicked_v2';
+      source: ReceiptClaimAppDownloadTarget;
+    }
+);
+
 export function parseReceiptClaimToken(token: string | undefined) {
   const parsed = receiptClaimRouteParamsSchema.safeParse({ token });
   return parsed.success ? parsed.data.token : null;
@@ -156,15 +172,7 @@ async function recordReceiptClaimActivity({
   source,
   supabase,
   token,
-}: {
-  rpcName:
-    | 'record_receipt_claim_click_v2'
-    | 'record_receipt_claim_login_started_v2'
-    | 'record_receipt_claim_app_download_clicked_v2';
-  source: ReceiptClaimActivitySource | ReceiptClaimAppDownloadTarget;
-  supabase: SupabaseClient;
-  token: string;
-}) {
+}: RecordReceiptClaimActivityInput) {
   const { error } = await supabase.rpc(rpcName, {
     p_source: source,
     p_token_hash: hashReceiptClaimToken(token),

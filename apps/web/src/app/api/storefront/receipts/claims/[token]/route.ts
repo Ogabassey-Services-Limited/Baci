@@ -26,7 +26,9 @@ async function parseToken(context: RouteContext) {
 }
 
 function hasBearerAuthorization(request: NextRequest) {
-  return request.headers.get('Authorization')?.startsWith('Bearer ') ?? false;
+  const authorization = request.headers.get('Authorization') ?? '';
+  const scheme = authorization.trim().split(/\s+/, 1)[0] ?? '';
+  return scheme.toLowerCase() === 'bearer';
 }
 
 async function validateReceiptClaimCsrf(request: NextRequest) {

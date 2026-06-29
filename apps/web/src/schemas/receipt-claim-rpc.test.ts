@@ -157,6 +157,9 @@ describe('receipt claim RPC schemas', () => {
     });
 
     expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      throw new Error('expected campaign stats to parse');
+    }
     expect(parsed.data).toMatchObject({
       appDownloadClickCount: 3,
       appDownloadClickedCount: 1,
@@ -174,6 +177,94 @@ describe('receipt claim RPC schemas', () => {
           lastAppDownloadSource: 'play_store',
         }),
       ],
+    });
+  });
+
+  it('accepts legacy campaign stats while the database migration is rolling out', () => {
+    const parsed = receiptClaimCampaignStatsSchema.safeParse({
+      claimedCount: 1,
+      clickedCount: 2,
+      lastActivityAt: '2026-06-27T10:05:00+00:00',
+      loginStartedCount: 1,
+      recipients: [
+        {
+          claimedAt: '2026-06-27T10:05:00+00:00',
+          clickCount: 3,
+          customerEmail: 'ada@example.com',
+          customerName: 'Ada Lovelace',
+          firstClickedAt: '2026-06-27T10:00:00+00:00',
+          firstLoginStartedAt: '2026-06-27T10:01:00+00:00',
+          id: 'claim-1',
+          lastClickedAt: '2026-06-27T10:02:00+00:00',
+          lastLoginStartedAt: '2026-06-27T10:01:00+00:00',
+          loginStartedCount: 1,
+          notificationSentAt: '2026-06-27T09:59:00+00:00',
+        },
+      ],
+      sentCount: 3,
+      totalRecipients: 3,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      throw new Error('expected legacy campaign stats to parse');
+    }
+    expect(parsed.data).toMatchObject({
+      appDownloadClickCount: 0,
+      appDownloadClickedCount: 0,
+      claimedAppCount: 0,
+      claimedWebCount: 1,
+      clickedAppCount: 0,
+      clickedWebCount: 2,
+      loginStartedAppCount: 0,
+      loginStartedWebCount: 1,
+      recipients: [
+        expect.objectContaining({
+          appDownloadClickCount: 0,
+          claimedSource: 'web',
+          firstClickSource: 'web',
+          firstLoginStartedSource: 'web',
+          lastAppDownloadSource: null,
+        }),
+      ],
+    });
+  });
+
+  it('defaults legacy app-download sources to unknown when timestamps exist without sources', () => {
+    const parsed = receiptClaimCampaignStatsSchema.safeParse({
+      claimedCount: 0,
+      clickedCount: 0,
+      lastActivityAt: '2026-06-27T10:05:00+00:00',
+      loginStartedCount: 0,
+      recipients: [
+        {
+          claimedAt: null,
+          clickCount: 0,
+          customerEmail: 'ada@example.com',
+          customerName: 'Ada Lovelace',
+          firstAppDownloadClickedAt: '2026-06-27T10:03:00+00:00',
+          firstClickedAt: null,
+          firstLoginStartedAt: null,
+          id: 'claim-1',
+          lastAppDownloadClickedAt: '2026-06-27T10:04:00+00:00',
+          lastClickedAt: null,
+          lastLoginStartedAt: null,
+          loginStartedCount: 0,
+          notificationSentAt: null,
+        },
+      ],
+      sentCount: 1,
+      totalRecipients: 1,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      throw new Error('expected legacy app-download sources to parse');
+    }
+
+    expect(parsed.data.recipients[0]).toMatchObject({
+      firstAppDownloadSource: 'unknown',
+      lastAppDownloadSource: 'unknown',
     });
   });
 
