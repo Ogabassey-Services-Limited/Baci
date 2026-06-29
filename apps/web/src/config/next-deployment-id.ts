@@ -72,20 +72,17 @@ export function getNextDeploymentId(
 }
 
 /**
- * Keep Next's direct `process.env.NEXT_DEPLOYMENT_ID` override synchronized
- * with the normalized config value before `next.config.ts` is exported. If no
- * safe custom ID is configured, clear it so a raw dpl_ or oversized manual env
- * value cannot bypass the normalization above.
+ * Return the normalized custom deployment ID for `next.config.ts` while clearing
+ * Next's direct `process.env.NEXT_DEPLOYMENT_ID` override. Next 16 enables its
+ * runtime server deployment-id path when that env var is present during the
+ * production build; prebuilt Skew Protection must instead use the stable custom
+ * `deploymentId` value serialized into the config.
  */
 export function applyNextDeploymentIdEnv(
   env: MutableDeploymentIdEnv = process.env,
   deploymentId = getNextDeploymentId(env)
 ): string | undefined {
-  if (deploymentId) {
-    env.NEXT_DEPLOYMENT_ID = deploymentId;
-  } else {
-    delete env.NEXT_DEPLOYMENT_ID;
-  }
+  delete env.NEXT_DEPLOYMENT_ID;
 
   return deploymentId;
 }

@@ -95,14 +95,14 @@ describe('getNextDeploymentId', () => {
     ).toBe('fallback-dpl');
   });
 
-  it('mirrors the normalized id into NEXT_DEPLOYMENT_ID for Next config export', () => {
+  it('returns the normalized id without mirroring it into NEXT_DEPLOYMENT_ID', () => {
     const env = {
       BACI_NEXT_DEPLOYMENT_ID_SOURCE: 'dpl_manual-release',
       NEXT_DEPLOYMENT_ID: 'dpl_raw-platform-id',
     };
 
     expect(applyNextDeploymentIdEnv(env)).toBe('baci_dpl_manual-release');
-    expect(env.NEXT_DEPLOYMENT_ID).toBe('baci_dpl_manual-release');
+    expect(env).not.toHaveProperty('NEXT_DEPLOYMENT_ID');
   });
 
   it('clears raw NEXT_DEPLOYMENT_ID when no safe custom id is available', () => {
