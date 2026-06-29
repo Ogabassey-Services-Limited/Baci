@@ -10,9 +10,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
 import {
-  appendAssuranceTaxSubtotal,
   buildAssuranceInvoiceLineItem,
+  nextInvoiceLineId,
+  reconcileAssuranceTaxSubtotal,
   sumAssuranceFees,
+  sumLineExtensionAmounts,
 } from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
@@ -438,11 +440,12 @@ export async function GET(
     const assuranceTotal = sumAssuranceFees(orderItems ?? []);
     if (assuranceTotal > 0) {
       items.push(
-        buildAssuranceInvoiceLineItem(items.length + 1, assuranceTotal)
+        buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
       );
-      appendAssuranceTaxSubtotal(invoiceTaxSubtotals, assuranceTotal, {
-        vatRegistered: merchant.vat_registration_status === 'registered',
-      });
+      reconcileAssuranceTaxSubtotal(
+        invoiceTaxSubtotals,
+        sumLineExtensionAmounts(items)
+      );
     }
 
     const { data: paymentAccounts, error: paymentAccountError } = await supabase

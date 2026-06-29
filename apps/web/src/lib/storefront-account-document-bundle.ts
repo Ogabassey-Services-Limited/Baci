@@ -6,10 +6,12 @@ import {
   type ReceiptOrder,
 } from '@baci/shared';
 import {
-  appendAssuranceTaxSubtotal,
   buildAssuranceInvoiceLineItem,
   buildAssuranceReceiptItem,
+  nextInvoiceLineId,
+  reconcileAssuranceTaxSubtotal,
   sumAssuranceFees,
+  sumLineExtensionAmounts,
 } from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
@@ -300,12 +302,16 @@ export function buildStorefrontAccountDocumentBundle({
   const assuranceTotal = sumAssuranceFees(itemRows);
   if (assuranceTotal > 0) {
     invoiceItems.push(
-      buildAssuranceInvoiceLineItem(invoiceItems.length + 1, assuranceTotal)
+      buildAssuranceInvoiceLineItem(
+        nextInvoiceLineId(invoiceItems),
+        assuranceTotal
+      )
     );
     receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
-    appendAssuranceTaxSubtotal(taxSubtotals, assuranceTotal, {
-      vatRegistered: sellerIsVatRegistered,
-    });
+    reconcileAssuranceTaxSubtotal(
+      taxSubtotals,
+      sumLineExtensionAmounts(invoiceItems)
+    );
   }
 
   const orderDetail: StorefrontOrder = {

@@ -38,6 +38,23 @@ export function sumAssuranceFees(
   return Number(total.toFixed(2));
 }
 
+/**
+ * Next free invoice line id — one above the max existing `line_id`. Order items
+ * can carry sparse/imported line ids, so `items.length + 1` could collide.
+ */
+export function nextInvoiceLineId(
+  items: ReadonlyArray<{ line_id?: number | null }>
+): number {
+  const maxId = items.reduce((max, item) => {
+    const id =
+      typeof item.line_id === 'number' && Number.isFinite(item.line_id)
+        ? item.line_id
+        : 0;
+    return id > max ? id : max;
+  }, 0);
+  return maxId + 1;
+}
+
 export function buildAssuranceInvoiceLineItem(
   lineId: number,
   assuranceTotal: number
@@ -73,17 +90,27 @@ export function buildAssuranceReceiptItem(
 }
 
 /**
- * Add a zero-rated `O` tax subtotal for assurance — but only for VAT-registered
- * sellers. For non-registered sellers the single existing `O` subtotal already
- * spans the full tax-exclusive amount (which includes assurance), so adding
- * another row would double-count.
+ * Reconcile the tax-subtotal breakdown with the post-assurance line total.
+ *
+ * The assurance premium is zero-rated, so any shortfall between the line
+ * total and the summed taxable amounts is folded into an `O` (outside-scope)
+ * subtotal. This is robust across seller types: VAT-registered orders carry an
+ * `S` subtotal for products and need a new `O` row for assurance; some
+ * non-registered orders already have an `O` row whose taxable amount excludes
+ * assurance (it's derived from `tax_exclusive_amount`), so the gap is added
+ * there. When the existing subtotals already span the line total, the gap is
+ * ~0 and nothing changes — preventing double-counting.
  */
-export function appendAssuranceTaxSubtotal(
+export function reconcileAssuranceTaxSubtotal(
   taxSubtotals: TaxSubtotal[],
-  assuranceTotal: number,
-  { vatRegistered }: { vatRegistered: boolean }
+  lineExtensionTotal: number
 ): void {
-  if (!vatRegistered) return;
+  const existingTaxable = taxSubtotals.reduce(
+    (sum, subtotal) => sum + subtotal.taxable_amount,
+    0
+  );
+  const gap = Number((lineExtensionTotal - existingTaxable).toFixed(2));
+  if (gap <= 0.01) return;
 
   const existing = taxSubtotals.find(
     (subtotal) =>
@@ -91,7 +118,7 @@ export function appendAssuranceTaxSubtotal(
   );
   if (existing) {
     existing.taxable_amount = Number(
-      (existing.taxable_amount + assuranceTotal).toFixed(2)
+      (existing.taxable_amount + gap).toFixed(2)
     );
     return;
   }
@@ -99,8 +126,24 @@ export function appendAssuranceTaxSubtotal(
   taxSubtotals.push({
     vat_category_code: 'O',
     vat_rate: 0,
-    taxable_amount: assuranceTotal,
+    taxable_amount: gap,
     tax_amount: 0,
     exemption_reason: ASSURANCE_EXEMPTION_REASON,
   });
+}
+
+/** Sum line-extension amounts across invoice line items. */
+export function sumLineExtensionAmounts(
+  items: ReadonlyArray<{ line_extension_amount?: number | null }>
+): number {
+  const total = items.reduce(
+    (sum, item) =>
+      sum +
+      (typeof item.line_extension_amount === 'number' &&
+      Number.isFinite(item.line_extension_amount)
+        ? item.line_extension_amount
+        : 0),
+    0
+  );
+  return Number(total.toFixed(2));
 }

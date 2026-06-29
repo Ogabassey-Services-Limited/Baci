@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { TaxSubtotal } from '@/lib/invoice-generator';
 import {
   ASSURANCE_LINE_NAME,
-  appendAssuranceTaxSubtotal,
   buildAssuranceInvoiceLineItem,
   buildAssuranceReceiptItem,
+  nextInvoiceLineId,
+  reconcileAssuranceTaxSubtotal,
   sumAssuranceFees,
+  sumLineExtensionAmounts,
 } from './insurance-assurance-line';
 
 describe('sumAssuranceFees', () => {
@@ -56,8 +58,17 @@ describe('buildAssuranceReceiptItem', () => {
   });
 });
 
-describe('appendAssuranceTaxSubtotal', () => {
-  it('adds an O subtotal for VAT-registered sellers', () => {
+describe('nextInvoiceLineId', () => {
+  it('returns one above the max existing line_id (handles sparse ids)', () => {
+    expect(nextInvoiceLineId([{ line_id: 1 }, { line_id: 3 }])).toBe(4);
+    expect(nextInvoiceLineId([{ line_id: 2 }])).toBe(3);
+    expect(nextInvoiceLineId([{}, { line_id: null }])).toBe(1);
+    expect(nextInvoiceLineId([])).toBe(1);
+  });
+});
+
+describe('reconcileAssuranceTaxSubtotal', () => {
+  it('adds an O subtotal covering the gap (VAT-registered: products in S)', () => {
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'S',
@@ -66,7 +77,8 @@ describe('appendAssuranceTaxSubtotal', () => {
         tax_amount: 7.5,
       },
     ];
-    appendAssuranceTaxSubtotal(subtotals, 4000, { vatRegistered: true });
+    // line total = products(100) + assurance(4000)
+    reconcileAssuranceTaxSubtotal(subtotals, 4100);
     expect(subtotals).toHaveLength(2);
     expect(subtotals[1]).toMatchObject({
       vat_category_code: 'O',
@@ -75,7 +87,8 @@ describe('appendAssuranceTaxSubtotal', () => {
     });
   });
 
-  it('merges into an existing O subtotal for VAT-registered sellers', () => {
+  it('folds the gap into an existing O subtotal that excludes assurance', () => {
+    // non-registered with O taxable derived from tax_exclusive (products only)
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'O',
@@ -84,12 +97,12 @@ describe('appendAssuranceTaxSubtotal', () => {
         tax_amount: 0,
       },
     ];
-    appendAssuranceTaxSubtotal(subtotals, 4000, { vatRegistered: true });
+    reconcileAssuranceTaxSubtotal(subtotals, 5000);
     expect(subtotals).toHaveLength(1);
     expect(subtotals[0].taxable_amount).toBe(5000);
   });
 
-  it('does nothing for non-registered sellers (already covered by the O row)', () => {
+  it('does nothing when subtotals already span the line total', () => {
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'O',
@@ -99,7 +112,20 @@ describe('appendAssuranceTaxSubtotal', () => {
         exemption_reason: 'Outside scope of VAT',
       },
     ];
-    appendAssuranceTaxSubtotal(subtotals, 4000, { vatRegistered: false });
+    reconcileAssuranceTaxSubtotal(subtotals, 5000);
+    expect(subtotals).toHaveLength(1);
     expect(subtotals[0].taxable_amount).toBe(5000);
+  });
+});
+
+describe('sumLineExtensionAmounts', () => {
+  it('sums line extension amounts, ignoring missing', () => {
+    expect(
+      sumLineExtensionAmounts([
+        { line_extension_amount: 100 },
+        { line_extension_amount: 4000 },
+        {},
+      ])
+    ).toBe(4100);
   });
 });
