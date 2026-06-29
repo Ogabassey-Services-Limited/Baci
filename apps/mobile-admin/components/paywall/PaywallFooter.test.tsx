@@ -96,6 +96,7 @@ describe('PaywallFooter', () => {
         colors={colors}
         isLoading={false}
         isPro={false}
+        isSubscriptionStatusLoading={false}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={onRestore}
@@ -142,6 +143,7 @@ describe('PaywallFooter', () => {
         colors={colors}
         isLoading={false}
         isPro={true}
+        isSubscriptionStatusLoading={false}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={() => undefined}
@@ -168,6 +170,7 @@ describe('PaywallFooter', () => {
         colors={colors}
         isLoading={false}
         isPro={false}
+        isSubscriptionStatusLoading={false}
         onManageSubscription={() => undefined}
         onPurchase={() => undefined}
         onRestore={() => undefined}
@@ -177,5 +180,35 @@ describe('PaywallFooter', () => {
     );
 
     expect(screen.getByText(/Google Play settings/i)).toBeInTheDocument();
+  });
+
+  it('uses a neutral label while subscription status is loading', () => {
+    const onPurchase = vi.fn();
+
+    render(
+      <PaywallFooter
+        colors={colors}
+        isLoading={false}
+        isPro={false}
+        isSubscriptionStatusLoading={true}
+        onManageSubscription={() => undefined}
+        onPurchase={onPurchase}
+        onRestore={() => undefined}
+        selectedPackage={selectedPackage}
+        stickyFooterPaddingBottom={24}
+      />
+    );
+
+    const loadingButton = screen.getByRole('button', {
+      name: /loading subscription status/i,
+    });
+
+    expect(loadingButton).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: /processing purchase/i })
+    ).toBeNull();
+
+    fireEvent.click(loadingButton);
+    expect(onPurchase).not.toHaveBeenCalled();
   });
 });

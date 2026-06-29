@@ -385,7 +385,7 @@ describe('Paywall', () => {
     render(<Paywall />);
 
     const purchaseButton = screen.getByRole('button', {
-      name: /processing purchase/i,
+      name: /loading subscription status/i,
     });
 
     expect(purchaseButton).toBeDisabled();

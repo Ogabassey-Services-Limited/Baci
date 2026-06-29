@@ -14,6 +14,7 @@ interface PaywallFooterProps {
   colors: ThemeColors;
   isLoading: boolean;
   isPro: boolean;
+  isSubscriptionStatusLoading: boolean;
   onManageSubscription: () => void;
   onPurchase: () => void;
   onRestore: () => void;
@@ -25,12 +26,14 @@ export default function PaywallFooter({
   colors,
   isLoading,
   isPro,
+  isSubscriptionStatusLoading,
   onManageSubscription,
   onPurchase,
   onRestore,
   selectedPackage,
   stickyFooterPaddingBottom,
 }: PaywallFooterProps) {
+  const isButtonLoading = isLoading || isSubscriptionStatusLoading;
   const subscriptionSettingsLabel = isRuntimePlatform('ios')
     ? 'Apple ID settings'
     : isRuntimePlatform('android')
@@ -50,28 +53,32 @@ export default function PaywallFooter({
     >
       <Pressable
         onPress={isPro ? onManageSubscription : onPurchase}
-        disabled={isLoading || (!isPro && !selectedPackage)}
+        disabled={isButtonLoading || (!isPro && !selectedPackage)}
         style={({ pressed }) => [
           paywallStyles.mainButton,
           {
             backgroundColor: colors.primary,
             opacity:
-              pressed || isLoading || (!isPro && !selectedPackage) ? 0.8 : 1,
+              pressed || isButtonLoading || (!isPro && !selectedPackage)
+                ? 0.8
+                : 1,
           },
         ]}
         accessibilityRole="button"
         accessibilityLabel={
-          isLoading
-            ? 'Processing purchase'
-            : isPro
-              ? 'Manage your subscription'
-              : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
+          isSubscriptionStatusLoading
+            ? 'Loading subscription status'
+            : isLoading
+              ? 'Processing purchase'
+              : isPro
+                ? 'Manage your subscription'
+                : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
         }
         accessibilityState={{
-          disabled: isLoading || (!isPro && !selectedPackage),
+          disabled: isButtonLoading || (!isPro && !selectedPackage),
         }}
       >
-        {isLoading ? (
+        {isButtonLoading ? (
           <ActivityIndicator color="#FFF" />
         ) : (
           <Text style={paywallStyles.mainButtonText}>

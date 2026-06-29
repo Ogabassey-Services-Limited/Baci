@@ -173,8 +173,9 @@ export default function Paywall({ onClose }: PaywallProps) {
 
       <PaywallFooter
         colors={colors}
-        isLoading={isLoading || isMerchantEntitlementLoading}
+        isLoading={isLoading}
         isPro={hasProSubscription}
+        isSubscriptionStatusLoading={isMerchantEntitlementLoading}
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={onRestore}
