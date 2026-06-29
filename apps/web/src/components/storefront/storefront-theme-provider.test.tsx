@@ -165,8 +165,42 @@ describe('StorefrontThemeProvider', () => {
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toHaveClass('storefront-theme-scope');
     expect(wrapper).toHaveClass('storefront-light');
+    expect(document.documentElement).toHaveAttribute(
+      DOCUMENT_HYDRATION_READY_ATTR,
+      'true'
+    );
     expect(document.documentElement).not.toHaveClass('storefront-theme-scope');
     expect(document.body).not.toHaveClass('storefront-light');
+  });
+
+  it('uses a non-document fallback mount to make the first portal theme pass immediate', () => {
+    const fallback = render(
+      <StorefrontThemeProvider scopeDocument={false}>
+        <span>fallback</span>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).toHaveAttribute(
+      DOCUMENT_HYDRATION_READY_ATTR,
+      'true'
+    );
+    expect(document.documentElement).not.toHaveClass('storefront-theme-scope');
+
+    fallback.unmount();
+
+    render(
+      <StorefrontThemeProvider
+        appearance={{ mode: 'system', variant: 'ogabassey' }}
+      >
+        <div>resolved storefront</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).toHaveClass('storefront-theme-scope');
+    expect(document.documentElement).toHaveClass(
+      'storefront-variant-ogabassey'
+    );
+    expect(document.documentElement).toHaveClass('storefront-mode-system');
   });
 
   it('forces light mode for default storefront portal surfaces while mounted', () => {

@@ -104,7 +104,9 @@ export function StorefrontNotFoundContent() {
             >
               <ArrowLeft className="size-3" /> Home
             </Link>
-            <span className="text-store-border">|</span>
+            <span aria-hidden="true" className="text-store-border">
+              |
+            </span>
             <Link
               href={storefrontProductsHref}
               className="text-store-background-text hover:text-store-primary transition-colors"
@@ -113,7 +115,9 @@ export function StorefrontNotFoundContent() {
             </Link>
             {merchant?.pages?.contact && (
               <>
-                <span className="text-store-border">|</span>
+                <span aria-hidden="true" className="text-store-border">
+                  |
+                </span>
                 <Link
                   href={storefrontContactHref}
                   className="text-store-background-text hover:text-store-primary transition-colors"

@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Trash2,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
@@ -179,9 +180,12 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         href={asRoute(productHref)}
                         className="ogabassey-product-card-image-surface w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center"
                       >
-                        <img
-                          src={item.image}
+                        <Image
+                          src={item.image || '/placeholder.png'}
                           alt={item.name}
+                          width={112}
+                          height={112}
+                          sizes="(max-width: 768px) 80px, 112px"
                           className="w-full h-full object-contain mix-blend-multiply"
                         />
                       </Link>

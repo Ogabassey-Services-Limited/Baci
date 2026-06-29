@@ -348,6 +348,22 @@ describe('CheckoutPage', () => {
     expect(match).toBeTruthy();
   });
 
+  it('marks desktop order-summary thumbnails as neutral image surfaces', async () => {
+    mockCheckoutSubmissionState();
+
+    render(<CheckoutPage />);
+
+    await screen.findAllByText(/secure checkout/i);
+
+    const orderSummary = screen
+      .getByRole('heading', { name: /order summary/i })
+      .closest('section,aside,div');
+
+    expect(
+      orderSummary?.querySelector('.ogabassey-product-card-image-surface')
+    ).toBeInTheDocument();
+  });
+
   it('shows Klump in installment checkout when the merchant enables it', async () => {
     vi.mocked(useCart).mockReturnValue({
       cart: [

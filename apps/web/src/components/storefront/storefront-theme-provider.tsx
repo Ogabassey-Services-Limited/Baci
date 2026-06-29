@@ -105,6 +105,7 @@ export function StorefrontThemeProvider({
 
   useEffect(() => {
     if (!scopeDocument) {
+      markDocumentThemeHydrationReady(document.documentElement);
       return;
     }
 

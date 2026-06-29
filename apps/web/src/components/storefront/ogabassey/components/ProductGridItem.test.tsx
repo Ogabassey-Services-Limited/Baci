@@ -249,9 +249,11 @@ describe('ProductGridItem', () => {
       />
     );
 
-    expect(screen.getByAltText(baseProduct.name).parentElement).toHaveClass(
-      'ogabassey-product-card-image-surface'
-    );
+    expect(
+      screen
+        .getByAltText(baseProduct.name)
+        .closest('.ogabassey-product-card-image-surface')
+    ).toBeInTheDocument();
   });
 
   it('falls back to the product name after selecting a non-primary image', () => {

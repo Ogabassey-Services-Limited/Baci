@@ -98,10 +98,8 @@ describe('Ogabassey Footer', () => {
       derivedLinks: {},
     });
 
-    const { container } = render(
-      <Footer storeSlug="ogabassey" merchant={merchantFixture} />
-    );
-    const pattern = container.querySelector('.ogabassey-footer__pattern');
+    render(<Footer storeSlug="ogabassey" merchant={merchantFixture} />);
+    const pattern = screen.getByTestId('ogabassey-gadget-pattern');
 
     expect(pattern).toHaveAttribute('aria-hidden', 'true');
   });
