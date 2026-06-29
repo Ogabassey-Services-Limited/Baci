@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReceiptClaimAppDownloadBanner } from './receipt-claim-app-download-banner';
 
@@ -15,6 +15,7 @@ vi.mock('@/lib/api-client', () => ({
 
 describe('ReceiptClaimAppDownloadBanner', () => {
   beforeEach(() => {
+    mockFetchWithCsrf.mockClear();
     mockFetchWithCsrf.mockResolvedValue(new Response(null, { status: 204 }));
     mockSearchParams.delete('receiptClaimed');
   });
@@ -22,6 +23,19 @@ describe('ReceiptClaimAppDownloadBanner', () => {
   it('stays hidden outside the post-claim receipts flow', () => {
     render(<ReceiptClaimAppDownloadBanner readTrackingToken={() => null} />);
 
+    expect(screen.queryByText('Receipts ready')).not.toBeInTheDocument();
+  });
+
+  it('stays hidden when only a stored tracking token is available', async () => {
+    const readTrackingToken = vi.fn(() => 'claim-token');
+
+    render(
+      <ReceiptClaimAppDownloadBanner readTrackingToken={readTrackingToken} />
+    );
+
+    await waitFor(() => {
+      expect(readTrackingToken).toHaveBeenCalled();
+    });
     expect(screen.queryByText('Receipts ready')).not.toBeInTheDocument();
   });
 
@@ -42,6 +56,8 @@ describe('ReceiptClaimAppDownloadBanner', () => {
   });
 
   it('tracks app-store taps when a claim token is available', () => {
+    mockSearchParams.set('receiptClaimed', '1');
+
     render(
       <ReceiptClaimAppDownloadBanner
         readTrackingToken={() => 'claim-token'}
@@ -57,5 +73,15 @@ describe('ReceiptClaimAppDownloadBanner', () => {
         method: 'POST',
       })
     );
+  });
+
+  it('does not track app-store taps when no claim token is available', () => {
+    mockSearchParams.set('receiptClaimed', '1');
+
+    render(<ReceiptClaimAppDownloadBanner readTrackingToken={() => null} />);
+
+    fireEvent.click(screen.getByRole('link', { name: /app store/i }));
+
+    expect(mockFetchWithCsrf).not.toHaveBeenCalled();
   });
 });

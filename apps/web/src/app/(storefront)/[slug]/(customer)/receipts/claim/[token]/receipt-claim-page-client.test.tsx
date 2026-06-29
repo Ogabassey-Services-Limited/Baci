@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readReceiptClaimAppDownloadToken } from '@/lib/import-notifications/receipt-claim-app-download-storage';
 import ReceiptClaimPageClient from './receipt-claim-page-client';
 
 const mockPush = vi.fn();
@@ -277,11 +278,7 @@ describe('ReceiptClaimPageClient', () => {
         '/ogabassey/receipts?receiptClaimed=1'
       );
     });
-    expect(
-      window.sessionStorage.getItem(
-        'ogabassey:receipt-claim-app-download-token'
-      )
-    ).toBe('claim-token');
+    expect(readReceiptClaimAppDownloadToken()).toBe('claim-token');
   });
 
   it('keeps the redemption request active after showing the claiming state', async () => {

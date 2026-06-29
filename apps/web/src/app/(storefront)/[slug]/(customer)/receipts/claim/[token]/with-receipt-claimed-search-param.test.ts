@@ -13,4 +13,14 @@ describe('withReceiptClaimedSearchParam', () => {
       '/receipts?receiptClaimed=1#latest'
     );
   });
+
+  it('preserves absolute URL origins while adding the marker', () => {
+    expect(withReceiptClaimedSearchParam('https://example.com/receipts')).toBe(
+      'https://example.com/receipts?receiptClaimed=1'
+    );
+  });
+
+  it('returns malformed paths unchanged', () => {
+    expect(withReceiptClaimedSearchParam('http://[')).toBe('http://[');
+  });
 });

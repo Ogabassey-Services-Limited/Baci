@@ -41,12 +41,13 @@ function buildClaimLoginEmailApiUrl(token: string) {
 }
 
 function withReceiptClaimedSearchParam(path: string) {
-  const hashIndex = path.indexOf('#');
-  const pathWithoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
-  const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
-  const separator = pathWithoutHash.includes('?') ? '&' : '?';
-
-  return `${pathWithoutHash}${separator}receiptClaimed=1${hash}`;
+  try {
+    const url = new URL(path, 'https://receipt-claim.local');
+    url.searchParams.set('receiptClaimed', '1');
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return path;
+  }
 }
 
 async function readErrorMessage(response: Response) {

@@ -19,9 +19,22 @@ export function rememberReceiptClaimAppDownloadToken(token: string) {
     return;
   }
 
-  storage.setItem(RECEIPT_CLAIM_APP_DOWNLOAD_TOKEN_KEY, token);
+  try {
+    storage.setItem(RECEIPT_CLAIM_APP_DOWNLOAD_TOKEN_KEY, token);
+  } catch {
+    // Best-effort attribution storage; receipt claim navigation must not fail.
+  }
 }
 
 export function readReceiptClaimAppDownloadToken() {
-  return getSessionStorage()?.getItem(RECEIPT_CLAIM_APP_DOWNLOAD_TOKEN_KEY);
+  const storage = getSessionStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    return storage.getItem(RECEIPT_CLAIM_APP_DOWNLOAD_TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }

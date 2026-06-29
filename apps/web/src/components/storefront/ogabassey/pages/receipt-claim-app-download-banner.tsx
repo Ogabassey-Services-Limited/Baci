@@ -30,7 +30,7 @@ export function ReceiptClaimAppDownloadBanner({
     setTrackingToken(readReceiptClaimAppDownloadToken() ?? null);
   }, [readTrackingToken]);
 
-  if (!hasClaimedRedirect && !trackingToken) {
+  if (!hasClaimedRedirect) {
     return null;
   }
 

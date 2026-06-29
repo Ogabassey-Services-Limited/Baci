@@ -203,6 +203,24 @@ describe('ReceiptClaimScreen', () => {
     });
   });
 
+  it('replaces an existing receipt claim marker in the redirect path', async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({
+        success: true,
+        redirectPath: '/receipts?receiptClaimed=0&claimed=1',
+      }),
+      ok: true,
+    });
+
+    render(<ReceiptClaimScreen />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/receipts?receiptClaimed=1&claimed=1'
+      );
+    });
+  });
+
   it('preserves redirect URL fragments when marking the receipt claim success', async () => {
     mockFetch.mockResolvedValue({
       json: async () => ({
