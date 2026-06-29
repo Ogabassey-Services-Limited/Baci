@@ -854,6 +854,132 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
+    it('accepts documented string product amounts for merchant payment completed events', async () => {
+      const stringAmountPayload = {
+        ...merchantPaymentPayload,
+        products: [
+          {
+            productName: 'Product 1',
+            productAmount: '30000',
+            productId: 'prod_1',
+          },
+          {
+            productName: 'Product 2',
+            productAmount: '20000',
+            productId: 'prod_2',
+          },
+        ],
+      };
+      vi.mocked(parseWebhookPayload).mockReturnValue(stringAmountPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [mockOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
+            error: null,
+          });
+          return updateChain;
+        }
+        if (fromCallCount === 3) {
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi.fn().mockResolvedValue({
+            data: null,
+            error: null,
+          });
+          return txCheckChain;
+        }
+        if (fromCallCount === 4) {
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi.fn().mockResolvedValue({
+            data: { id: 'cd-txn-1' },
+            error: null,
+          });
+          return txInsertChain;
+        }
+        return mockChain;
+      });
+
+      const request = createMockRequest(stringAmountPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ received: true });
+      expect(logger.info).toHaveBeenCalledWith({
+        message: 'Credit Direct merchant payment completed',
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+        amount: 50000,
+        platformFee: 1000,
+        merchantAmount: 49000,
+      });
+    });
+
+    it('returns 400 when webhook product amount is not numeric', async () => {
+      const invalidAmountPayload = {
+        ...merchantPaymentPayload,
+        products: [
+          {
+            productName: 'Product 1',
+            productAmount: 'not-a-number',
+            productId: 'prod_1',
+          },
+        ],
+      };
+      vi.mocked(parseWebhookPayload).mockReturnValue(invalidAmountPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      mockChain.select.mockReturnValue(mockChain);
+      mockChain.eq.mockReturnValue(mockChain);
+      mockChain.ilike.mockResolvedValue({
+        data: [mockOrder],
+        error: null,
+      });
+
+      const request = createMockRequest(invalidAmountPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data).toEqual({ error: 'Invalid payment amount' });
+      expect(logger.error).toHaveBeenCalledWith({
+        message: 'Invalid Credit Direct webhook product amount',
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+      });
+    });
+
     it('suppresses paid side effects and files reconciliation when the order was clamped as cancelled', async () => {
       vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
 

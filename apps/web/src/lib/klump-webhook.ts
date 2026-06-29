@@ -191,7 +191,13 @@ function extractKlumpDetails(payload: JsonRecord): KlumpWebhookDetails | null {
     'checkout_transaction_id',
     'checkoutTransactionId',
   ]);
-  const amount = readNumber(sources, ['amount', 'total_amount', 'totalAmount']);
+  const amount = readNumber(sources, [
+    'original_amount',
+    'originalAmount',
+    'amount',
+    'total_amount',
+    'totalAmount',
+  ]);
 
   if (!(merchantReference && transactionId && amount)) {
     return null;

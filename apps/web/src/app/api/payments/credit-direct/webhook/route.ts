@@ -25,6 +25,35 @@ function readNoteString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function readProductAmount(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const amount = Number(value.trim());
+    return Number.isFinite(amount) ? amount : null;
+  }
+
+  return null;
+}
+
+function getWebhookProductsTotal(
+  products: CreditDirectWebhookPayload['products']
+) {
+  let total = 0;
+
+  for (const product of products) {
+    const amount = readProductAmount(product.productAmount);
+    if (amount === null) {
+      return null;
+    }
+    total += amount;
+  }
+
+  return total;
+}
+
 /**
  * POST /api/payments/credit-direct/webhook
  *
@@ -283,11 +312,19 @@ export async function POST(request: NextRequest) {
       case 'Checkout_Merchant_Payment_Completed': {
         // Credit Direct has paid the merchant in full
         // Mark order as fully paid and create transaction record
-        const webhookTotal = payload.products.reduce(
-          (sum, product) => sum + product.productAmount,
-          0
-        );
+        const webhookTotal = getWebhookProductsTotal(payload.products);
         const expectedAmount = signedAmount ?? (Number(order.total) || 0);
+        if (webhookTotal === null) {
+          logger.error({
+            message: 'Invalid Credit Direct webhook product amount',
+            orderId: order.id,
+            transactionId: payload.checkoutTransactionId,
+          });
+          return NextResponse.json(
+            { error: 'Invalid payment amount' },
+            { status: 400 }
+          );
+        }
         if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
           logger.error({
             message: 'Invalid expected amount for Credit Direct payment',

@@ -97,6 +97,31 @@ function readBoolean(sources: readonly JsonRecord[], keys: readonly string[]) {
   return null;
 }
 
+function isSuccessfulKlumpVerification(
+  root: JsonRecord,
+  sources: readonly JsonRecord[]
+) {
+  const explicitSuccess = readBoolean(sources, [
+    'is_successful',
+    'isSuccessful',
+  ]);
+  if (explicitSuccess === true) {
+    return true;
+  }
+
+  const status = readString(sources, [
+    'status',
+    'payment_status',
+    'transaction_status',
+  ]);
+  if (KLUMP_SUCCESS_STATUSES.has(status?.toLowerCase() ?? '')) {
+    return true;
+  }
+
+  const state = readString([root], ['state']);
+  return KLUMP_SUCCESS_STATUSES.has(state?.toLowerCase() ?? '');
+}
+
 function parseKlumpVerifiedTransactionResponse(
   response: unknown
 ): KlumpVerifiedTransactionDetails | null {
@@ -110,7 +135,7 @@ function parseKlumpVerifiedTransactionResponse(
     'transaction_status',
   ]);
 
-  if (!KLUMP_SUCCESS_STATUSES.has(status?.toLowerCase() ?? '')) {
+  if (!isSuccessfulKlumpVerification(root, sources)) {
     return null;
   }
 
@@ -121,7 +146,13 @@ function parseKlumpVerifiedTransactionResponse(
     'checkout_transaction_id',
     'checkoutTransactionId',
   ]);
-  const amount = readNumber(sources, ['amount', 'total_amount', 'totalAmount']);
+  const amount = readNumber(sources, [
+    'original_amount',
+    'originalAmount',
+    'amount',
+    'total_amount',
+    'totalAmount',
+  ]);
 
   if (!(transactionId && amount)) {
     return null;

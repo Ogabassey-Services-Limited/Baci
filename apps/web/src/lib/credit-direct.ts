@@ -19,6 +19,12 @@ export interface CreditDirectProduct {
   productId: string;
 }
 
+export interface CreditDirectWebhookProduct {
+  productName: string;
+  productAmount: number | string;
+  productId: string;
+}
+
 export interface CreditDirectTransaction {
   totalAmount: number;
   customerEmail: string;
@@ -52,7 +58,7 @@ export interface CreditDirectWebhookPayload {
     | 'Checkout_Customer_Payment_Completed'
     | 'Checkout_Merchant_Payment_Completed';
   metaData: string | null;
-  products: CreditDirectProduct[];
+  products: CreditDirectWebhookProduct[];
   timeStamp: string;
 }
 

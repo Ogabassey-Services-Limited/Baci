@@ -34,6 +34,8 @@ const migrationsDirectory = resolve(
 const migrationFilePattern = /^\d{14}.*\.sql$/;
 const markAbandonedOrdersDefinitionPattern =
   /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:(?:"public"|public)\s*\.\s*)?(?:"mark_abandoned_orders"|mark_abandoned_orders)\s*\(/i;
+const createPaymentTransactionDefinitionPattern =
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:(?:"public"|public)\s*\.\s*)?(?:"create_payment_transaction"|create_payment_transaction)\s*\(/i;
 
 function createCronRequest(auth = 'Bearer cron-secret') {
   return new NextRequest('http://localhost:3000/api/cron/cleanup-orders', {
@@ -60,6 +62,16 @@ function readLatestMarkAbandonedOrdersMigrationSql() {
   }
 
   throw new Error('No mark_abandoned_orders migration found');
+}
+
+function readLatestCreatePaymentTransactionMigrationSql() {
+  for (const { sql } of readMigrationSqlFiles().toReversed()) {
+    if (createPaymentTransactionDefinitionPattern.test(sql)) {
+      return sql;
+    }
+  }
+
+  throw new Error('No create_payment_transaction migration found');
 }
 
 function readAppliedMarkAbandonedOrdersSql() {
@@ -132,7 +144,7 @@ describe('GET /api/cron/cleanup-orders', () => {
 });
 
 describe('mark_abandoned_orders migration contract', () => {
-  it('cancels stale Credit Direct BNPL checkout sessions as abandoned orders', () => {
+  it('cancels stale BNPL checkout sessions as abandoned orders', () => {
     const sql = readLatestMarkAbandonedOrdersMigrationSql();
 
     expect(sql).toMatch(markAbandonedOrdersDefinitionPattern);
@@ -141,8 +153,16 @@ describe('mark_abandoned_orders migration contract', () => {
     expect(sql).toMatch(/hours_threshold\s+>\s+720/i);
     expect(sql).toContain('invalid_hours_threshold');
     expect(sql).toMatch(/payment_status\s*=\s*'unpaid'/i);
-    expect(sql).toMatch(/payment_method\s*=\s*'credit_direct'/i);
-    expect(sql).toMatch(/payment_status\s*=\s*'bnpl_pending'/i);
+    expect(sql).toMatch(
+      /payment_method\s*IN\s*\('credit_direct',\s*'klump'\)/i
+    );
+    expect(sql).toMatch(
+      /payment_status\s+IN\s*\('pending',\s*'bnpl_pending'\)/i
+    );
+    expect(sql).toMatch(
+      /EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+public\.transactions/i
+    );
+    expect(sql).toMatch(/t\.gateway\s+IN\s*\('credit_direct',\s*'klump'\)/i);
     expect(sql).toMatch(/created_at\s*</i);
     expect(sql).toMatch(/hours_threshold\s*\*\s*interval\s+'1 hour'/i);
     expect(sql).not.toMatch(/hours_threshold\s*\|\|\s*' hours'/i);
@@ -156,5 +176,21 @@ describe('mark_abandoned_orders migration contract', () => {
     expect(appliedSql).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.mark_abandoned_orders\(integer\)\s+TO\s+service_role/i
     );
+  });
+});
+
+describe('create_payment_transaction migration contract', () => {
+  it('starts Klump and Credit Direct orders in BNPL pending status', () => {
+    const sql = readLatestCreatePaymentTransactionMigrationSql();
+
+    expect(sql).toMatch(createPaymentTransactionDefinitionPattern);
+    expect(sql).toMatch(/v_gateway\s+IN\s*\('klump',\s*'credit_direct'\)/i);
+    expect(sql).toMatch(/THEN\s+'bnpl_pending'/i);
+    expect(sql).toMatch(/ELSE\s+'pending'/i);
+    expect(sql).toMatch(/payment_status\s*=\s*v_order_payment_status/i);
+    expect(sql).toMatch(/o\.payment_status\s+NOT\s+IN/i);
+    expect(sql).toMatch(/'paid'/i);
+    expect(sql).toMatch(/'bnpl_approved'/i);
+    expect(sql).toMatch(/'cancelled'/i);
   });
 });

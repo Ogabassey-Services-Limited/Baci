@@ -126,4 +126,24 @@ describe('Klump webhook helpers', () => {
       transactionId: 'klump-txn-123',
     });
   });
+
+  it('prefers original_amount over customer charged amount', () => {
+    const parsed = parseKlumpWebhookPayload(
+      JSON.stringify({
+        data: {
+          amount: '694122.50',
+          currency: 'NGN',
+          id: 'klump-txn-123',
+          is_live: true,
+          merchant_reference: 'BAC-ABCD12345678',
+          original_amount: '687250.00',
+          status: 'successful',
+        },
+        event: 'klump.payment.transaction.successful',
+      })
+    );
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.success ? parsed.details?.amount : null).toBe(687250);
+  });
 });

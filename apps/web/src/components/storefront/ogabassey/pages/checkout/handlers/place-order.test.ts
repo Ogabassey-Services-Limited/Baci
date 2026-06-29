@@ -660,7 +660,7 @@ describe('handlePlaceOrder', () => {
       const orderBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(orderBody).toEqual(
         expect.objectContaining({
-          payment_method: 'card',
+          payment_method: 'klump',
         }),
       );
       expect(mockFetch).toHaveBeenCalledWith(
