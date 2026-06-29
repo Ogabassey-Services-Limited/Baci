@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StatusBar, Text, View } from 'react-native';
+import { StatusBar, View } from 'react-native';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
 import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
+import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
 import { StoreSettingsSaveButton } from '@/components/store-settings/StoreSettingsSaveButton';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { storeSettingsStyles as styles } from '@/components/store-settings/store-settings.styles';
@@ -16,7 +17,6 @@ import {
 } from '@/components/store-settings/store-settings-payload';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
-import { LogoPicker } from '@/components/ui/LogoPicker';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import {
   StatusModal,
@@ -242,20 +242,15 @@ export default function StoreSettingsScreen() {
         edges={['bottom']}
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View
-          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
-        >
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Store Logo
-          </Text>
-          <LogoPicker
-            businessName={businessName}
-            cachedLogoUri={cachedLogoUri}
-            merchantId={merchant?.id}
-            onStatusChange={setStatusModal}
-            onUploadSuccess={invalidateMerchantQueries}
-          />
-        </View>
+        <StoreLogoSection
+          businessName={businessName}
+          cachedLogoUri={cachedLogoUri}
+          colors={colors}
+          merchantId={merchant?.id}
+          onStatusChange={setStatusModal}
+          onUploadSuccess={invalidateMerchantQueries}
+          shadowStyle={shadows.sm}
+        />
 
         <StoreSettingsDetailsCard
           address={address}
