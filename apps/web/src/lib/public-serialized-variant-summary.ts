@@ -32,6 +32,22 @@ interface PublicSerializedAvailabilityCountRow {
   public_available_units: number | null;
 }
 
+function isPublicSerializedAvailabilityCountRow(
+  value: unknown
+): value is PublicSerializedAvailabilityCountRow {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.product_id === 'string' &&
+    (typeof row.variant_id === 'string' || row.variant_id === null) &&
+    (typeof row.public_available_units === 'number' ||
+      row.public_available_units === null)
+  );
+}
+
 function isSerializedInventoryPolicy(
   policy: string | null | undefined
 ): policy is Extract<
@@ -94,15 +110,16 @@ export async function getPublicSerializedVariantSummariesByProductId(
         .from('products')
         .select('id, inventory_tracking_policy, has_variants, status')
         .eq('merchant_id', merchantId)
-        .in('id', chunk);
+        .in('id', chunk)
+        .returns<ProductInventoryPolicyRow[]>();
 
       if (productsError) {
         throw productsError;
       }
 
-      const activeProducts = (
-        (products || []) as ProductInventoryPolicyRow[]
-      ).filter((product) => product.status === 'active');
+      const activeProducts = (products || []).filter(
+        (product) => product.status === 'active'
+      );
       if (activeProducts.length === 0) {
         return [];
       }
@@ -116,7 +133,8 @@ export async function getPublicSerializedVariantSummariesByProductId(
           'id, product_id, inventory_tracking_policy, is_inventory_anchor'
         )
         .eq('merchant_id', merchantId)
-        .in('product_id', activeProductIds);
+        .in('product_id', activeProductIds)
+        .returns<ProductVariantInventoryPolicyRow[]>();
 
       if (variantsError) {
         throw variantsError;
@@ -129,8 +147,7 @@ export async function getPublicSerializedVariantSummariesByProductId(
       const productsMap = new Map(
         activeProducts.map((product) => [product.id, product])
       );
-      const variantRows = (variants ||
-        []) as ProductVariantInventoryPolicyRow[];
+      const variantRows = variants || [];
       const variantsByProductMap = new Map<
         string,
         ProductVariantInventoryPolicyRow[]
@@ -212,22 +229,27 @@ export async function getPublicSerializedVariantSummariesByProductId(
       // Fetch available counts only for products with an effective serialized
       // policy. Most storefront lists are non-serialized; avoiding the count RPC
       // for those products keeps public HTML rendering out of Supabase timeouts.
-      const { data: counts, error: countsError } = await supabase.rpc(
-        'get_public_serialized_variant_availability_counts',
-        {
+      const { data: rawCounts, error: countsError } = await supabase
+        .rpc('get_public_serialized_variant_availability_counts', {
           p_merchant_id: merchantId,
           p_product_ids: serializedProductIds,
           p_branch_id: branchId || null,
-        }
-      );
+        })
+        .overrideTypes<
+          PublicSerializedAvailabilityCountRow[],
+          { merge: false }
+        >();
 
       if (countsError) {
         throw countsError;
       }
 
+      const counts = Array.isArray(rawCounts)
+        ? rawCounts.filter(isPublicSerializedAvailabilityCountRow)
+        : [];
+
       const countsMap = new Map<string, number>(); // key: productId:variantId
-      for (const c of (counts ||
-        []) as PublicSerializedAvailabilityCountRow[]) {
+      for (const c of counts) {
         const key = `${c.product_id}:${c.variant_id ?? 'null'}`;
         countsMap.set(key, c.public_available_units ?? 0);
       }
