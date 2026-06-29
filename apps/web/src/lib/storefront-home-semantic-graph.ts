@@ -1,5 +1,5 @@
 import type { CategoryNavItem } from '@/lib/cached-categories';
-import type { JsonLdGraphData } from '@/lib/json-ld-types';
+import type { JsonLdGraphData, JsonLdGraphNode } from '@/lib/json-ld-types';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 
@@ -19,6 +19,13 @@ interface StorefrontHomeSemanticGraphInput {
 }
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isJsonLdGraphNode(value: unknown): value is JsonLdGraphNode {
+  return (
+    isRecord(value) &&
+    (typeof value['@type'] === 'string' || typeof value['@id'] === 'string')
+  );
 }
 function stripContext(
   schema: Record<string, unknown>
@@ -57,19 +64,25 @@ function schemaId(baseUrl: string, fragment: string): string {
   return `${storeUrl(baseUrl)}/#${fragment}`;
 }
 
-function getIdentityGraphNodes(identityGraph: Record<string, unknown>) {
+function getIdentityGraphNodes(
+  identityGraph: Record<string, unknown>
+): JsonLdGraphNode[] {
   const graph = identityGraph['@graph'];
   if (Array.isArray(graph)) {
-    return graph.filter(isRecord).map(stripContext);
+    return graph
+      .filter(isJsonLdGraphNode)
+      .map(stripContext)
+      .filter(isJsonLdGraphNode);
   }
 
-  return [stripContext(identityGraph)];
+  const node = stripContext(identityGraph);
+  return isJsonLdGraphNode(node) ? [node] : [];
 }
 
 function withIdentityIds(
-  nodes: Record<string, unknown>[],
+  nodes: JsonLdGraphNode[],
   baseUrl: string
-): Record<string, unknown>[] {
+): JsonLdGraphNode[] {
   const onlineStoreId = schemaId(baseUrl, 'online-store');
   const physicalStoreId = schemaId(baseUrl, 'physical-store');
   const websiteId = schemaId(baseUrl, 'website');
@@ -295,6 +308,6 @@ export function buildStorefrontHomeSemanticGraph(
       categoryHubList,
       buildNavigationNode(input, categories),
       blogNode,
-    ].filter(isRecord),
+    ].filter(isJsonLdGraphNode),
   };
 }

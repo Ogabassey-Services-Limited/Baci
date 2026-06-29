@@ -1,4 +1,4 @@
-import type { JsonLdStructuredData } from './json-ld-types';
+import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import { stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaUrl } from './sanitize-json-ld';
 

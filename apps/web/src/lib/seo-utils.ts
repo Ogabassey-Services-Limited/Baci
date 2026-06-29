@@ -13,6 +13,7 @@ import type {
   ReturnMethodEnumeration,
   WithContext,
 } from 'schema-dts';
+import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import {
   type CheckoutPaymentMerchant,
   isBankTransferCheckoutAvailable,
@@ -24,7 +25,6 @@ import {
   isExternalPlaceholderImageUrl,
   PLACEHOLDER_IMAGE,
 } from './image-utils';
-import type { JsonLdStructuredData } from './json-ld-types';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import type {
   Product,

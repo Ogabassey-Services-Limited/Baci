@@ -84,7 +84,7 @@ describe('buildStorefrontHomeSemanticGraph', () => {
       additionalTopics: ['Consumer electronics retail in Nigeria'],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const homepage = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#homepage'
     );
@@ -183,7 +183,7 @@ describe('buildStorefrontHomeSemanticGraph', () => {
       ],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const homepage = graph.find(
       (node) => node['@id'] === 'http://localhost:3000/ogabassey/#homepage'
     );
@@ -216,7 +216,7 @@ describe('buildStorefrontHomeSemanticGraph', () => {
       products: [],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const homepage = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#homepage'
     );
@@ -246,7 +246,7 @@ describe('buildStorefrontHomeSemanticGraph', () => {
       products: [makeProduct()],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const homepage = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#homepage'
     ) as { hasPart?: Record<string, unknown>[] };

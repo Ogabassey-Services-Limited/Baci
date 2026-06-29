@@ -7,9 +7,13 @@ export interface JsonLdStructuredData extends Record<string, unknown> {
   '@type': string;
 }
 
+export type JsonLdGraphNode =
+  | (Record<string, unknown> & { '@type': string })
+  | (Record<string, unknown> & { '@id': string });
+
 export interface JsonLdGraphData extends Record<string, unknown> {
   '@context': string;
-  '@graph': readonly Record<string, unknown>[];
+  '@graph': readonly JsonLdGraphNode[];
 }
 
 export type JsonLdScriptData =

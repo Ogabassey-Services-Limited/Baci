@@ -53,12 +53,14 @@ describe('JsonLd', () => {
     expect(renderToStaticMarkup(<JsonLd data={undefined} />)).toBe('');
   });
 
-  it('keeps arbitrary structured data out of the default JsonLd API', () => {
+  it('keeps arbitrary structured data out of the default JsonLd API type', () => {
     const invalidSchema = { name: 'Missing schema.org context' };
 
-    renderToStaticMarkup(
+    const markup = renderToStaticMarkup(
       // @ts-expect-error JsonLd should require schema-dts data or top-level schema.org keys.
       <JsonLd data={invalidSchema} />
     );
+
+    expect(markup).toContain('Missing schema.org context');
   });
 });

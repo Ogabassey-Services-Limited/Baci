@@ -63,7 +63,7 @@ describe('buildStorefrontHomeSemanticGraph edge cases', () => {
       products: [makeProduct()],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const homepage = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#homepage'
     );
@@ -96,7 +96,7 @@ describe('buildStorefrontHomeSemanticGraph edge cases', () => {
       ],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const homepage = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#homepage'
     );
@@ -122,7 +122,7 @@ describe('buildStorefrontHomeSemanticGraph edge cases', () => {
       products: [],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
     const categoryHubs = graph.find(
       (node) => node['@id'] === 'https://ogabassey.com/#category-hubs'
     ) as { itemListElement?: { item?: Record<string, unknown> }[] };
@@ -148,7 +148,7 @@ describe('buildStorefrontHomeSemanticGraph edge cases', () => {
       products: [],
     });
 
-    const graph = schema['@graph'] as Record<string, unknown>[];
+    const graph = schema['@graph'];
 
     expect(graph).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: 'Valid node' })])
