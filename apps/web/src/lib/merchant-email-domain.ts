@@ -1,193 +1,30 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { assertMerchantOwnsVerifiedStorefrontDomain } from '@/lib/merchant-email-domain-ownership';
+import {
+  type DomainKeyRow,
+  type DomainOwnerRow,
+  isUniqueDomainReservationError,
+  type MerchantEmailDomain,
+  type MerchantEmailDomainWriteContext,
+  type Row,
+  rowToDomain,
+  SELECT,
+  stateToColumns,
+  TABLE,
+  writeDomainViaRpc,
+} from '@/lib/merchant-email-domain-shared';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { vercel } from '@/lib/vercel';
 import {
   associateSendingDomainWithConfiguredMailagent,
   findSendingDomainByName,
   registerSendingDomain,
   type SendingDomainState,
   verifySendingDomain,
-  type ZeptomailDnsRecord,
 } from '@/lib/zeptomail-domains';
 
-const TABLE = 'merchant_email_domains';
-const SELECT =
-  'domain, sender_local_part, status, enabled, dkim_host, dkim_value, bounce_host, bounce_value';
-
-type EmailDomainWriteRpc =
-  | 'save_merchant_email_domain_registration'
-  | 'save_merchant_email_domain_verification'
-  | 'set_merchant_email_domain_enabled';
-
-interface MerchantEmailDomainWriteContext {
-  actorUserId: string;
-  supabase: SupabaseClient;
-}
-
-export interface MerchantEmailDomain {
-  domain: string;
-  senderLocalPart: string;
-  status: 'pending' | 'verified' | 'failed';
-  enabled: boolean;
-  records: ZeptomailDnsRecord[];
-}
-
-interface Row {
-  domain: string;
-  sender_local_part: string;
-  status: 'pending' | 'verified' | 'failed';
-  enabled: boolean;
-  dkim_host: string | null;
-  dkim_value: string | null;
-  bounce_host: string | null;
-  bounce_value: string | null;
-}
-
-interface DomainKeyRow extends Row {
-  zeptomail_domain_id: string | null;
-}
-
-interface DomainOwnerRow {
-  merchant_id: string;
-  status: 'pending' | 'verified' | 'failed';
-  enabled: boolean;
-}
-
-interface StorefrontDomainOwnershipRow {
-  id: string;
-  domain: string;
-}
-
-function rowToDomain(row: Row): MerchantEmailDomain {
-  const records: ZeptomailDnsRecord[] = [];
-  if (row.dkim_host && row.dkim_value) {
-    records.push({ type: 'TXT', host: row.dkim_host, value: row.dkim_value });
-  }
-  if (row.bounce_host && row.bounce_value) {
-    records.push({
-      type: 'CNAME',
-      host: row.bounce_host,
-      value: row.bounce_value,
-    });
-  }
-  return {
-    domain: row.domain,
-    senderLocalPart: row.sender_local_part,
-    status: row.status,
-    enabled: row.enabled,
-    records,
-  };
-}
-
-function recordsToColumns(records: ZeptomailDnsRecord[]) {
-  const dkim = records.find((record) => record.type === 'TXT');
-  const bounce = records.find((record) => record.type === 'CNAME');
-  return {
-    dkim_host: dkim?.host ?? null,
-    dkim_value: dkim?.value ?? null,
-    bounce_host: bounce?.host ?? null,
-    bounce_value: bounce?.value ?? null,
-  };
-}
-
-function stateToColumns(state: SendingDomainState) {
-  return {
-    zeptomail_domain_id: state.domainKey,
-    status: state.verified ? 'verified' : (state.status ?? 'pending'),
-    verified_at: state.verified ? new Date().toISOString() : null,
-    ...recordsToColumns(state.records),
-  };
-}
-
-async function writeDomainViaRpc(
-  supabase: SupabaseClient,
-  rpcName: EmailDomainWriteRpc,
-  args: Record<string, unknown>,
-  errorPrefix: string
-): Promise<Row | null> {
-  const { data, error } = await supabase.rpc(rpcName, args).maybeSingle();
-  if (error) {
-    throw new Error(`${errorPrefix}: ${error.message}`);
-  }
-  return data as Row | null;
-}
-
-function isUniqueDomainReservationError(error: unknown): boolean {
-  if (!(error && typeof error === 'object')) {
-    return false;
-  }
-  const candidate = error as { code?: string; message?: string };
-  return (
-    candidate.code === '23505' ||
-    candidate.message
-      ?.toLowerCase()
-      .includes('merchant_email_domains_domain') === true
-  );
-}
-
-function isVercelDomainVerified(
-  verification: Awaited<ReturnType<typeof vercel.verifyDomain>>
-) {
-  return (
-    verification.verified === true &&
-    (!verification.verification || verification.verification.length === 0)
-  );
-}
-
-async function assertMerchantOwnsVerifiedStorefrontDomain(
-  supabase: SupabaseClient,
-  merchantId: string,
-  domain: string
-) {
-  // Require an active+verified row for the EXACT sender domain. Do NOT accept a
-  // www↔apex counterpart: verifying www.example.com does not prove control of
-  // example.com (e.g. a delegated subdomain), and registration sends ZeptoMail
-  // the submitted domain — so accepting the counterpart would let a merchant
-  // reserve a sender domain they haven't actually verified.
-  const { data, error } = await supabase
-    .from('domains')
-    .select('id, domain')
-    .eq('merchant_id', merchantId)
-    .eq('domain', domain.toLowerCase())
-    .eq('status', 'active')
-    .in('domain_type', ['custom', 'purchased']);
-  if (error) {
-    throw new Error(`Failed to load storefront domain: ${error.message}`);
-  }
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error(
-      'Domain must be an active verified storefront domain before email sending can be configured'
-    );
-  }
-
-  const verifiedDomain = await firstVerifiedVercelDomain(
-    data as StorefrontDomainOwnershipRow[]
-  );
-  if (!verifiedDomain) {
-    throw new Error(
-      'Domain must be an active verified storefront domain before email sending can be configured'
-    );
-  }
-}
-
-async function firstVerifiedVercelDomain(
-  rows: StorefrontDomainOwnershipRow[]
-): Promise<StorefrontDomainOwnershipRow | null> {
-  for (const row of rows) {
-    try {
-      const verification = await vercel.verifyDomain(row.domain);
-      if (isVercelDomainVerified(verification)) {
-        return row;
-      }
-    } catch {
-      // Fail closed: a Vercel/API error means the local `domains` row is not a
-      // sufficient proof of sender ownership for self-serve email domains.
-    }
-  }
-  return null;
-}
+export type { MerchantEmailDomain };
 
 async function getLocalDomainOwner(
   supabase: SupabaseClient,
