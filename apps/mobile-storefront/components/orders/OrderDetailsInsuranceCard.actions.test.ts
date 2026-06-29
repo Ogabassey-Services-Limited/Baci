@@ -47,6 +47,24 @@ describe('resolveInsuranceCardActions', () => {
     });
   });
 
+  it('continues a pending claim that only has claim_progress', () => {
+    // MyCover may emit just claim_progress (e.g. claim.submitted) — that is an
+    // in-progress claim, not a fresh "File a Claim".
+    expect(
+      resolveInsuranceCardActions({
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        claimProgress: 'submission',
+        claimStatus: 'pending',
+        inspectionStatus: 'completed',
+        isDelivered: true,
+        onFileClaim: jest.fn(),
+      })
+    ).toMatchObject({
+      showContinueClaim: true,
+      showClaim: false,
+    });
+  });
+
   it('hides claim continuation for terminal claims', () => {
     expect(
       resolveInsuranceCardActions({

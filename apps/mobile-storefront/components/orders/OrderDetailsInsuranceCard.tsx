@@ -82,6 +82,7 @@ export function OrderDetailsInsuranceCard({
   } = resolveInsuranceCardActions({
     claimComment: insurancePolicy.claim_comment,
     claimLink: insurancePolicy.claim_link,
+    claimProgress: insurancePolicy.claim_progress,
     claimStage: insurancePolicy.claim_stage,
     claimStatus: insurancePolicy.claim_status,
     inspectionLink: insurancePolicy.inspection_link,

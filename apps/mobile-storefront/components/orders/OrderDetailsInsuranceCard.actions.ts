@@ -6,6 +6,7 @@ import {
 interface ResolveInsuranceCardActionsInput {
   claimComment?: string | null;
   claimLink?: string | null;
+  claimProgress?: string | null;
   claimStage?: string | null;
   claimStatus?: string | null;
   inspectionLink?: string | null;
@@ -48,6 +49,7 @@ export interface InsuranceCardActions {
 export function resolveInsuranceCardActions({
   claimComment,
   claimLink,
+  claimProgress,
   claimStage,
   claimStatus,
   inspectionLink,
@@ -62,8 +64,10 @@ export function resolveInsuranceCardActions({
 
   const normalizedInspectionStatus = inspectionStatus?.trim().toLowerCase();
   const normalizedClaimStatus = claimStatus?.trim().toLowerCase();
+  // Mirror the web `hasExistingClaim`: any of stage/progress/comment signals a
+  // real, in-progress claim (MyCover may send only `claim_progress`).
   const hasExplicitClaimProgress =
-    !!claimStage?.trim() || !!claimComment?.trim();
+    !!claimStage?.trim() || !!claimProgress?.trim() || !!claimComment?.trim();
   const isPlaceholderPendingClaim =
     normalizedClaimStatus === 'pending' && !hasExplicitClaimProgress;
   const terminalClaim = isTerminalClaimStatusToken(normalizedClaimStatus);
