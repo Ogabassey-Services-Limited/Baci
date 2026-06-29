@@ -99,6 +99,11 @@ export async function registerMerchantEmailDomain(
     domain
   );
 
+  // NOTE: RLS scopes this read to the current merchant only — we cannot detect a
+  // different merchant's row here. Cross-merchant domain conflicts are enforced
+  // at the DB level (unique index on lower(domain)) and surface via the write
+  // RPC as isUniqueDomainReservationError. This check exists solely to let the
+  // same merchant re-register their own domain (allowVerifiedReuse below).
   const localOwner = await getLocalDomainOwner(supabase, domain);
   if (localOwner && localOwner.merchant_id !== merchantId) {
     throw new Error('Domain is already registered by another merchant');

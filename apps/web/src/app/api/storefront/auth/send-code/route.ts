@@ -94,10 +94,13 @@ function resolveOtpRedirectUrl(
   const requestOrigin = getRequestOrigin(request);
 
   if (process.env.NODE_ENV === 'production') {
-    // Hosted Supabase Auth currently allowlists dynamic merchant subdomains at
-    // /account/verify. The send-auth-email hook rewrites the customer-facing
-    // confirmation link/next target to the merchant account page, including the
-    // custom-domain origin when that domain is available for the merchant.
+    // Supabase Auth only allowlists the merchant subdomain at /account/verify.
+    // The send-auth-email hook will move the confirmation link onto the
+    // custom-domain origin ONLY when redirect_to is already that custom domain
+    // (i.e. the customer is on it). This production redirect always points at
+    // the subdomain, so confirmation links land on the subdomain here; the
+    // custom-domain pass-through covers the dev path (request-origin redirect)
+    // and future flows.
     return `${allowlistedSubdomainOrigin}/account/verify`;
   }
 

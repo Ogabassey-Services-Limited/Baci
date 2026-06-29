@@ -5,7 +5,9 @@ const BACI_LOGO_URL =
 const BACI_PRIMARY_COLOR = '#1e40af';
 const BACI_BUTTON_COLOR = '#fbbf24';
 const BACI_BUTTON_TEXT_COLOR = '#1e1e1e';
-const OGABASSEY_COLOR = '#d62027';
+// Neutral platform fallback used by normalizeHexColor when a merchant's
+// primaryColor is missing/invalid (value is the seed-merchant red).
+const BACI_FALLBACK_ACCENT_COLOR = '#d62027';
 const PLATFORM_DOMAIN = 'usebaci.com';
 const RESERVED_BACI_SUBDOMAINS = new Set(['app', 'dashboard', 'www']);
 
@@ -130,7 +132,20 @@ export function selectActiveCustomDomainForBranding(
     return primary.domain;
   }
 
-  return customDomains.length === 1 ? customDomains[0].domain : null;
+  if (customDomains.length === 1) {
+    return customDomains[0].domain;
+  }
+
+  // 0 or 2+ active custom domains with no is_primary: fall back to platform
+  // branding rather than guess. Log the ambiguous case so a merchant whose
+  // branding silently reverts to the subdomain is diagnosable.
+  if (customDomains.length > 1) {
+    console.warn(
+      'Multiple active custom domains with no primary; using platform branding',
+      { count: customDomains.length }
+    );
+  }
+  return null;
 }
 
 function normalizeHostname(hostname: string): string | null {
@@ -476,7 +491,10 @@ function renderOgabasseyEmailHtml(
   token?: string
 ): string {
   const safeBrandName = escapeHtml(branding.businessName);
-  const brandColor = normalizeHexColor(branding.primaryColor, OGABASSEY_COLOR);
+  const brandColor = normalizeHexColor(
+    branding.primaryColor,
+    BACI_FALLBACK_ACCENT_COLOR
+  );
   const support = branding.supportEmail || 'support@ogabassey.com';
   const safeSupport = escapeHtml(support);
   const supportHtml = support.includes('@')
