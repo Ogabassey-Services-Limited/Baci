@@ -30,12 +30,12 @@ function getSupportedMerchantCurrencyCodes(): Set<string> | null {
 function isSupportedMerchantCurrency(currency: string): boolean {
   if (!/^[A-Z]{3}$/.test(currency)) return false;
 
-  const runtimeSupportedCurrencies = getSupportedMerchantCurrencyCodes();
-  if (runtimeSupportedCurrencies) {
-    return runtimeSupportedCurrencies.has(currency);
+  if (FALLBACK_SUPPORTED_MERCHANT_CURRENCY_CODES.has(currency)) {
+    return true;
   }
 
-  return FALLBACK_SUPPORTED_MERCHANT_CURRENCY_CODES.has(currency);
+  const runtimeSupportedCurrencies = getSupportedMerchantCurrencyCodes();
+  return runtimeSupportedCurrencies?.has(currency) ?? false;
 }
 
 const validCurrencyCache = new Set<string>();

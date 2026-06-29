@@ -261,10 +261,11 @@ export function CheckoutIdentityModal({
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium"
-                    aria-label="Show password"
-                    aria-pressed={showPassword}
+                    aria-label={
+                      showPassword ? 'Hide password' : 'Show password'
+                    }
                   >
-                    Show
+                    {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>

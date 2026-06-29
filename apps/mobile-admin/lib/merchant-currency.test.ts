@@ -36,6 +36,21 @@ describe('normalizeMerchantCurrency', () => {
     }
   });
 
+  it('accepts selectable country currencies missing from the runtime supported list', async () => {
+    vi.spyOn(Intl, 'supportedValuesOf').mockImplementation(() => [
+      'NGN',
+      'USD',
+    ]);
+    vi.resetModules();
+
+    const { normalizeMerchantCurrency: normalizeFreshMerchantCurrency } =
+      await import('./merchant-currency');
+
+    expect(normalizeFreshMerchantCurrency('GHS')).toBe('GHS');
+    expect(normalizeFreshMerchantCurrency('XAF')).toBe('XAF');
+    expect(normalizeFreshMerchantCurrency('ABC')).toBeUndefined();
+  });
+
   it('returns undefined for blank or invalid currency codes', () => {
     expect(normalizeMerchantCurrency('   ')).toBeUndefined();
     expect(normalizeMerchantCurrency('INVALID')).toBeUndefined();
