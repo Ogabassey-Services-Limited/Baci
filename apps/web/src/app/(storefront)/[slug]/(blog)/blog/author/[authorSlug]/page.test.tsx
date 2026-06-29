@@ -200,30 +200,22 @@ describe('blog author page metadata', () => {
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
-  it('redirects legacy author-prefixed post URLs before rendering the shell', async () => {
-    mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
-    mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({
-      type: 'redirect',
-      status: 308,
-      url: 'https://ogabassey.com/blog/canonical-post',
+  it('does not resolve author params before rendering the Suspense shell', async () => {
+    const params = new Promise<{ slug: string; authorSlug: string }>(() => {
+      // Intentionally unresolved; author validation and legacy redirects must
+      // happen inside BlogAuthorPageContent, not in the static page shell.
     });
+    const thenSpy = vi.spyOn(params, 'then');
 
-    await expect(
-      BlogAuthorPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          authorSlug: 'legacy-post-slug',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
-    );
+    BlogAuthorPage({
+      params,
+      searchParams: Promise.resolve({}),
+    });
+    await Promise.resolve();
 
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      'https://ogabassey.com/blog/canonical-post'
-    );
+    expect(thenSpy).not.toHaveBeenCalled();
     expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
+    expect(mockResolveBlogCatchAllOutcome).not.toHaveBeenCalled();
   });
 
   it('builds a page-scoped canonical for paginated author routes', async () => {

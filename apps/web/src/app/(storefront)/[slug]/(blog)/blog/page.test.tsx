@@ -38,7 +38,7 @@ describe('blog page shell', () => {
     expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
   });
 
-  it('renders monitored OgaBassey listing content directly so raw HTML keeps post anchors', async () => {
+  it('renders monitored OgaBassey listing content through the static Suspense shell', async () => {
     render(
       await BlogPage({
         params: Promise.resolve({ slug: 'ogabassey.com' }),
@@ -49,7 +49,24 @@ describe('blog page shell', () => {
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
   });
 
-  it('shows the blog listing fallback while a non-static tenant listing is resolving', async () => {
+  it('does not subscribe to listing search params before rendering the Suspense shell', async () => {
+    const searchParams = new Promise<Record<string, never>>(() => {
+      // Intentionally unresolved; the route shell must pass it through without
+      // attaching a then handler outside the Suspense boundary.
+    });
+    const thenSpy = vi.spyOn(searchParams, 'then');
+
+    await BlogPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      searchParams,
+    });
+    await Promise.resolve();
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('shows the blog listing fallback while monitored OgaBassey content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Intentionally never resolves so Suspense fallback remains visible.
@@ -58,7 +75,7 @@ describe('blog page shell', () => {
 
     render(
       await BlogPage({
-        params: Promise.resolve({ slug: 'test-store' }),
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
         searchParams: Promise.resolve({}),
       })
     );

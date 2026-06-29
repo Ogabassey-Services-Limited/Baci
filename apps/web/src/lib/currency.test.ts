@@ -158,6 +158,42 @@ describe('Currency Utils', () => {
       expect(result).toBe('$1000');
     });
 
+    it('normalizes invalid fraction digit options before formatting', () => {
+      expect(
+        formatCurrencyWithConfig(
+          1234.567,
+          { code: 'NGN', symbol: '₦', locale: 'en-NG' },
+          {
+            minimumFractionDigits: Number.NaN,
+            maximumFractionDigits: Number.POSITIVE_INFINITY,
+          }
+        )
+      ).toBe('₦1,234.57');
+    });
+
+    it('keeps maximumFractionDigits at least minimumFractionDigits', () => {
+      expect(
+        formatCurrencyWithConfig(
+          1234.567,
+          { code: 'NGN', symbol: '₦', locale: 'en-NG' },
+          {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 1,
+          }
+        )
+      ).toBe('₦1,234.567');
+    });
+
+    it('sets a compatible minimum for whole-number currency requests', () => {
+      expect(
+        formatCurrencyWithConfig(
+          1234.56,
+          { code: 'NGN', symbol: '₦', locale: 'en-NG' },
+          { maximumFractionDigits: 0 }
+        )
+      ).toBe('₦1,235');
+    });
+
     it('should handle undefined country (default to USD)', () => {
       expect(formatCurrency(1000)).toBe('$1,000.00');
     });

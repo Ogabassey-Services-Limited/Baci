@@ -28,16 +28,14 @@ export async function generateMetadata({
 
 export default async function BlogPage(props: BlogPageProps) {
   const { slug } = await props.params;
-  const content = (
-    <BlogPageContent {...props} params={Promise.resolve({ slug })} />
+
+  // With Cache Components, the page shell must not subscribe to request-bound
+  // searchParams or listing data. React still server-streams the cached listing
+  // content after this static fallback, preserving crawlable links and metadata
+  // without forcing a request-time shell or adding connection() workarounds.
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent {...props} params={Promise.resolve({ slug })} />
+    </Suspense>
   );
-
-  // Keep the canonical listing content in the root blog HTML. The deploy smoke
-  // check and HTML-only crawlers extract post anchors directly from this page;
-  // author/category routes own the PPR shell fallback instead.
-  if (OGABASSEY_BLOG_STATIC_TENANTS.some((staticSlug) => staticSlug === slug)) {
-    return content;
-  }
-
-  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

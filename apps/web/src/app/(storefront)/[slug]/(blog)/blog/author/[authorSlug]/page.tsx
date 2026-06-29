@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
-import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -33,34 +30,6 @@ export function generateStaticParams(): Array<{
   return OGABASSEY_AUTHOR_STATIC_TENANTS.flatMap((slug) =>
     getBlogAuthorSlugs().map((authorSlug) => ({ slug, authorSlug }))
   );
-}
-
-async function assertAuthorRouteBeforeShell({
-  params,
-}: Pick<AuthorPageProps, 'params'>) {
-  const { slug, authorSlug } = await params;
-  const normalizedAuthorSlug = authorSlug.toLowerCase();
-
-  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
-  if (profile) {
-    return { slug, authorSlug: normalizedAuthorSlug };
-  }
-
-  const fallbackOutcome = await resolveBlogCatchAllOutcome({
-    params: Promise.resolve({
-      slug,
-      catchAll: ['author', normalizedAuthorSlug],
-    }),
-  });
-
-  if (fallbackOutcome.type === 'redirect') {
-    if (fallbackOutcome.status === 308) {
-      permanentRedirect(asRoute(fallbackOutcome.url));
-    }
-    redirect(asRoute(fallbackOutcome.url));
-  }
-
-  notFound();
 }
 
 export async function generateMetadata({
@@ -125,21 +94,16 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogAuthorPage({
+export default function BlogAuthorPage({
   params,
   searchParams,
 }: AuthorPageProps) {
-  // Resolve only static slug-shape and legacy catch-all outcomes before the
-  // shell. Request-query/data validation stays behind Suspense so Cache
-  // Components can keep a static shell for this route.
-  const resolvedParams = await assertAuthorRouteBeforeShell({ params });
-
+  // Keep the route shell invariant under Cache Components: author validation,
+  // legacy redirect fallback, searchParams, and cached author data all resolve
+  // inside the Suspense subtree instead of the page shell.
   return (
     <Suspense fallback={<BlogListingFallback />}>
-      <BlogAuthorPageContent
-        params={Promise.resolve(resolvedParams)}
-        searchParams={searchParams}
-      />
+      <BlogAuthorPageContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
