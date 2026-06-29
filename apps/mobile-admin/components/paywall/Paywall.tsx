@@ -39,7 +39,7 @@ export default function Paywall({ onClose }: PaywallProps) {
   } = useRevenueCat();
   const { merchant } = useMerchant();
   const hasProSubscription =
-    isPro || baciFeatureGates.hasFeature(merchant, 'product_limit');
+    isPro || baciFeatureGates.hasFullProAccess(merchant);
   const [selectedPackage, setSelectedPackage] =
     useState<PurchasesPackage | null>(() =>
       getDefaultPackage(currentOffering?.availablePackages)

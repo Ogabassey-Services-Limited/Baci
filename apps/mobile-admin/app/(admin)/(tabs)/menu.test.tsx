@@ -6,6 +6,7 @@ import MenuScreen from './menu';
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   hasFeature: vi.fn(),
+  hasFullProAccess: vi.fn(),
   isPro: true,
   merchant: {
     id: 'merchant-1',
@@ -138,6 +139,7 @@ vi.mock('@/hooks/useTheme', () => ({
 vi.mock('@/lib/feature-gates', () => ({
   baciFeatureGates: {
     hasFeature: (...args: unknown[]) => mocks.hasFeature(...args),
+    hasFullProAccess: (...args: unknown[]) => mocks.hasFullProAccess(...args),
   },
 }));
 
@@ -146,6 +148,7 @@ describe('MenuScreen', () => {
     vi.clearAllMocks();
     vi.stubGlobal('__DEV__', false);
     mocks.hasFeature.mockReturnValue(true);
+    mocks.hasFullProAccess.mockReturnValue(false);
     mocks.isPro = true;
     mocks.merchant = {
       id: 'merchant-1',
@@ -230,9 +233,7 @@ describe('MenuScreen', () => {
   });
 
   it('shows Pro status when the merchant has a server-backed Pro entitlement', () => {
-    mocks.hasFeature.mockImplementation(
-      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
-    );
+    mocks.hasFullProAccess.mockReturnValue(true);
     mocks.isPro = false;
     mocks.merchant = {
       id: 'merchant-1',
@@ -245,5 +246,24 @@ describe('MenuScreen', () => {
 
     expect(screen.getByText(/Baci Pro Merchant Active/i)).toBeTruthy();
     expect(screen.queryByText(/Free Plan UPGRADE/i)).toBeNull();
+  });
+
+  it('keeps the upgrade card for product-limit-only grants', () => {
+    mocks.hasFeature.mockImplementation(
+      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
+    );
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: ['product_limit'],
+    };
+
+    render(<MenuScreen />);
+
+    expect(screen.getByText(/Free Plan UPGRADE/i)).toBeTruthy();
+    expect(screen.queryByText(/Baci Pro Merchant Active/i)).toBeNull();
   });
 });

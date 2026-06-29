@@ -49,7 +49,7 @@ export default function MenuScreen() {
   const { unregisterPush } = usePushNotifications();
   const router = useRouter();
   const hasProSubscription =
-    isPro || baciFeatureGates.hasFeature(merchant, 'product_limit');
+    isPro || baciFeatureGates.hasFullProAccess(merchant);
 
   const canAccessFeature = (feature: MobileFeatureGate) =>
     isPro || baciFeatureGates.hasFeature(merchant, feature);

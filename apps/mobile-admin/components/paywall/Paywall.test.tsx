@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   openNativeManagement: vi.fn(),
   purchasePackage: vi.fn(),
   restorePurchases: vi.fn(),
-  hasFeature: vi.fn(),
+  hasFullProAccess: vi.fn(),
   offering: {
     availablePackages: [
       {
@@ -71,7 +71,7 @@ vi.mock('@/hooks/useMerchant', () => ({
 
 vi.mock('@/lib/feature-gates', () => ({
   baciFeatureGates: {
-    hasFeature: (...args: unknown[]) => mocks.hasFeature(...args),
+    hasFullProAccess: (...args: unknown[]) => mocks.hasFullProAccess(...args),
   },
 }));
 
@@ -194,8 +194,8 @@ describe('Paywall', () => {
     mocks.capturedCloseTop = 0;
     mocks.capturedHeaderPaddingTop = 0;
     mocks.capturedStickyPaddingBottom = 0;
-    mocks.hasFeature.mockReset();
-    mocks.hasFeature.mockReturnValue(false);
+    mocks.hasFullProAccess.mockReset();
+    mocks.hasFullProAccess.mockReturnValue(false);
     mocks.isPro = false;
     mocks.merchant = {
       id: 'merchant-1',
@@ -319,9 +319,7 @@ describe('Paywall', () => {
   });
 
   it('uses the manage state for server-backed Pro entitlements', () => {
-    mocks.hasFeature.mockImplementation(
-      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
-    );
+    mocks.hasFullProAccess.mockReturnValue(true);
     mocks.isPro = false;
     mocks.merchant = {
       id: 'merchant-1',
@@ -345,5 +343,25 @@ describe('Paywall', () => {
 
     expect(mocks.openNativeManagement).toHaveBeenCalledTimes(1);
     expect(mocks.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it('keeps the purchase CTA for product-limit-only grants', () => {
+    mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.isPro = false;
+    mocks.merchant = {
+      id: 'merchant-1',
+      plan_expires_at: null,
+      plan_tier: 'free',
+      premium_features: ['product_limit'],
+    };
+
+    render(<Paywall />);
+
+    expect(
+      screen.getByRole('button', { name: /subscribe to monthly/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /manage your subscription/i })
+    ).not.toBeInTheDocument();
   });
 });
