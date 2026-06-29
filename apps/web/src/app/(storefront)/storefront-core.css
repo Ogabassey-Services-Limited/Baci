@@ -136,7 +136,7 @@
   }
 
   .ogabassey-category-hub-card__link {
-    color: var(--storefront-dark-accent, var(--store-primary, #d62027));
+    color: var(--store-primary, #d62027);
     font-size: 0.9375rem;
     font-weight: 700;
     text-decoration: none;
@@ -174,7 +174,7 @@
   }
 
   .ogabassey-category-hub-card-grid__eyebrow {
-    color: var(--storefront-dark-accent, var(--store-primary, #d62027));
+    color: var(--store-primary, #d62027);
     font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.16em;
@@ -335,6 +335,16 @@
     outline: 3px solid
       color-mix(in srgb, var(--ogabassey-brand) 35%, transparent);
     outline-offset: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .storefront-variant-ogabassey.storefront-mode-system
+      :is(
+        .ogabassey-category-hub-card__link,
+        .ogabassey-category-hub-card-grid__eyebrow
+      ) {
+      color: var(--storefront-dark-accent, var(--store-primary, #d62027));
+    }
   }
 
   @media (max-width: 640px) {

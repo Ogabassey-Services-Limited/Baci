@@ -212,6 +212,73 @@ describe('storefront CSS partitioning', () => {
     );
   });
 
+  it('covers darkened OgaBassey tinted panels without changing light category links', () => {
+    const coreCss = readStorefrontFile('storefront-core.css');
+    const utilityCss = readStorefrontFile(
+      'storefront-ogabassey-dark-mode-utilities.css'
+    );
+    const darkPanelBackgroundUtilities = [
+      '.bg-white\\/95',
+      '.bg-gray-50\\/95',
+      '.bg-red-50\\/50',
+      '.bg-red-50\\/80',
+    ];
+    const darkPanelTextUtilities = [
+      '.text-blue-900',
+      '.text-indigo-700',
+      '.text-yellow-700',
+    ];
+    const scopedPanelClasses = [
+      'ogabassey-storefront-shell',
+      'ogabassey-checkout-page',
+    ];
+    const categoryHubLightLink =
+      /\.ogabassey-category-hub-card__link\s*\{[\s\S]*?color:\s*var\(--store-primary,\s*#d62027\);/;
+    const categoryHubLightEyebrow =
+      /\.ogabassey-category-hub-card-grid__eyebrow\s*\{[\s\S]*?color:\s*var\(--store-primary,\s*#d62027\);/;
+    const categoryHubDarkAccent =
+      /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-category-hub-card__link[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
+    const categoryHubDarkEyebrow =
+      /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-category-hub-card-grid__eyebrow[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
+    const scopedUtilityRule = (
+      scopeClass: string,
+      utility: string,
+      declarationPattern: string
+    ) =>
+      new RegExp(
+        `\\.storefront-variant-ogabassey\\.storefront-mode-system\\s+\\.${scopeClass}\\s+:is\\([\\s\\S]*${utility.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*\\)\\s*\\{\\s*${declarationPattern}`
+      );
+
+    for (const scopeClass of scopedPanelClasses) {
+      for (const utility of darkPanelBackgroundUtilities) {
+        expect(utilityCss).toMatch(
+          scopedUtilityRule(
+            scopeClass,
+            utility,
+            'background-color:\\s*var\\(--storefront-dark-card\\);'
+          )
+        );
+      }
+
+      for (const utility of darkPanelTextUtilities) {
+        const color = utility.includes('blue')
+          ? '#93c5fd'
+          : utility.includes('indigo')
+            ? '#a5b4fc'
+            : '#fde68a';
+
+        expect(utilityCss).toMatch(
+          scopedUtilityRule(scopeClass, utility, `color:\\s*${color};`)
+        );
+      }
+    }
+
+    expect(coreCss).toMatch(categoryHubLightLink);
+    expect(coreCss).toMatch(categoryHubLightEyebrow);
+    expect(coreCss).toMatch(categoryHubDarkAccent);
+    expect(coreCss).toMatch(categoryHubDarkEyebrow);
+  });
+
   it('loads OgaBassey below-fold PDP styles through the deferred PDP stylesheet', () => {
     const deferredPdpCss = readStorefrontFile(
       'storefront-ogabassey-pdp-deferred.css'

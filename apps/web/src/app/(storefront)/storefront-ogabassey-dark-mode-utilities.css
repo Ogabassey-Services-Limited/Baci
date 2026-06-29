@@ -35,8 +35,11 @@
       :is(
         .bg-white\/90,
         .bg-white\/80,
+        .bg-white\/95,
+        .bg-gray-50\/95,
         .bg-gray-50\/50,
         .bg-blue-100\/50,
+        .bg-red-50\/50,
         .bg-red-50\/80,
         .hover\:bg-blue-50:hover,
         .hover\:bg-blue-100\/50:hover,
@@ -108,7 +111,7 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
-      :is(.text-blue-600, .text-blue-700, .text-blue-800) {
+      :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900) {
       color: #93c5fd;
     }
 
@@ -116,6 +119,28 @@
       .ogabassey-storefront-shell
       :is(.text-purple-600, .text-purple-700, .text-purple-800) {
       color: #c4b5fd;
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
+      :is(
+        .text-indigo-600,
+        .text-indigo-700,
+        .text-indigo-800,
+        .text-indigo-900
+      ) {
+      color: #a5b4fc;
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
+      :is(
+        .text-yellow-600,
+        .text-yellow-700,
+        .text-yellow-800,
+        .text-yellow-900
+      ) {
+      color: #fde68a;
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
@@ -210,8 +235,12 @@
       .ogabassey-checkout-page
       :is(
         .bg-white\/90,
+        .bg-white\/95,
+        .bg-gray-50\/95,
         .bg-gray-50\/50,
         .bg-blue-100\/50,
+        .bg-red-50\/50,
+        .bg-red-50\/80,
         .hover\:bg-blue-50:hover,
         .hover\:bg-blue-100\/50:hover,
         .hover\:bg-green-100:hover,
@@ -264,7 +293,7 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-checkout-page
-      :is(.text-blue-600, .text-blue-700, .text-blue-800) {
+      :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900) {
       color: #93c5fd;
     }
 
@@ -272,6 +301,28 @@
       .ogabassey-checkout-page
       :is(.text-purple-600, .text-purple-700, .text-purple-800) {
       color: #c4b5fd;
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(
+        .text-indigo-600,
+        .text-indigo-700,
+        .text-indigo-800,
+        .text-indigo-900
+      ) {
+      color: #a5b4fc;
+    }
+
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-checkout-page
+      :is(
+        .text-yellow-600,
+        .text-yellow-700,
+        .text-yellow-800,
+        .text-yellow-900
+      ) {
+      color: #fde68a;
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
