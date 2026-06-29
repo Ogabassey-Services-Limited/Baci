@@ -3,7 +3,7 @@ import '@/app/(storefront)/storefront-core.css';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import type React from 'react';
-import { Suspense } from 'react';
+import { Suspense, use } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
@@ -298,6 +298,12 @@ function StorefrontPprStaticShell({
   );
 }
 
+function resolveFallbackAppearanceForSlug(slug: string): StorefrontAppearance {
+  return isValidMerchantIdentifier(slug)
+    ? resolveStorefrontAppearance(slug)
+    : DEFAULT_STOREFRONT_APPEARANCE;
+}
+
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -355,12 +361,13 @@ export async function StorefrontLayoutContent(props: {
   );
 }
 
-export default function StorefrontLayout(props: {
+function StorefrontLayoutShell(props: {
   children: React.ReactNode;
   fallbackAppearance?: StorefrontAppearance;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const resolvedParams = use(props.params);
   // Keep the request-bound tenant lookup out of the prerendered root HTML.
   // Next 16.2/PPR can resume Googlebot's blocking metadata boundary into the
   // dynamic Suspense slot when that slot owns a visible fallback. Preserve the
@@ -368,7 +375,7 @@ export default function StorefrontLayout(props: {
   // and LCP imagery, while the resume slot itself stays null for bot/blocking
   // metadata requests.
   const {
-    fallbackAppearance = DEFAULT_STOREFRONT_APPEARANCE,
+    fallbackAppearance = resolveFallbackAppearanceForSlug(resolvedParams.slug),
     loadingFallback,
   } = props;
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
@@ -386,9 +393,22 @@ export default function StorefrontLayout(props: {
       appearance={fallbackAppearance}
       loadingFallback={staticLoadingFallback}
     >
-      <StorefrontLayoutContent params={props.params}>
+      <StorefrontLayoutContent params={Promise.resolve(resolvedParams)}>
         {props.children}
       </StorefrontLayoutContent>
     </StorefrontPprStaticShell>
+  );
+}
+
+export default function StorefrontLayout(props: {
+  children: React.ReactNode;
+  fallbackAppearance?: StorefrontAppearance;
+  loadingFallback?: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <StorefrontLayoutShell {...props} />
+    </Suspense>
   );
 }

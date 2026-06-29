@@ -325,7 +325,7 @@ describe('StorefrontThemeProvider', () => {
 });
 
 describe('storefront theme dark-mode CSS contracts', () => {
-  it('keeps dark utilities available in system-aware scopes while forced-light guards remain', () => {
+  it('blocks app-level dark leakage in system-aware scopes while preserving forced-light guards', () => {
     const tailwindConfig = readFileSync(
       join(process.cwd(), 'tailwind.config.mjs'),
       'utf8'
@@ -338,12 +338,30 @@ describe('storefront theme dark-mode CSS contracts', () => {
       join(process.cwd(), 'src/app/(storefront)/storefront-globals.css'),
       'utf8'
     );
+    const ogabasseyUtilityCss = readFileSync(
+      join(
+        process.cwd(),
+        'src/app/(storefront)/storefront-ogabassey-dark-mode-utilities.css'
+      ),
+      'utf8'
+    );
     const broadThemeScopeGuard =
       /:not\(\.storefront-theme-scope\):not\(\.storefront-theme-scope \*\)|:not\(\.storefront-theme-scope \*\)/;
+    const systemModeSelfGuard = /:not\(\.storefront-mode-system\)/;
+    const systemModeDescendantGuard =
+      /:not\(\s*\.storefront-mode-system\s+\*\s*\)/;
+    const ogabasseyAccentUtility =
+      /\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.text-store-primary[\s\S]*color:\s*var\(--storefront-dark-accent\);/;
 
     expect(tailwindConfig).toContain(':not(.storefront-light *)');
+    expect(tailwindConfig).toContain(':not(.storefront-mode-system *)');
     expect(globalCss).toContain(':not(.storefront-light *)');
+    expect(globalCss).toMatch(systemModeSelfGuard);
+    expect(globalCss).toMatch(systemModeDescendantGuard);
     expect(storefrontGlobalCss).toContain(':not(.storefront-light *)');
+    expect(storefrontGlobalCss).toMatch(systemModeSelfGuard);
+    expect(storefrontGlobalCss).toMatch(systemModeDescendantGuard);
+    expect(ogabasseyUtilityCss).toMatch(ogabasseyAccentUtility);
     expect(tailwindConfig).not.toMatch(broadThemeScopeGuard);
     expect(globalCss).not.toMatch(broadThemeScopeGuard);
     expect(storefrontGlobalCss).not.toMatch(broadThemeScopeGuard);
