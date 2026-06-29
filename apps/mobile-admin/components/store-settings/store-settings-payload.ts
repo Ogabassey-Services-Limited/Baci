@@ -19,6 +19,12 @@ export type StoreSettingsFormValues = {
   [K in keyof EditableMerchantColumns]: string;
 };
 
+export function hasNonEmptyTrimmedValue(
+  value: string | null | undefined
+): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 /**
  * Build the persisted baseline for the store-settings diff.
  *
@@ -106,6 +112,13 @@ export function buildMerchantUpdatePayload(
     if (formValues[key] !== baseline[key]) {
       payload[key] = formValues[key];
     }
+  }
+
+  // Established storefront slugs are immutable at the database layer. Keep the
+  // mobile settings diff from submitting a stale or manually edited slug while
+  // still allowing first-time slug creation for merchants that do not have one.
+  if (hasNonEmptyTrimmedValue(baseline.slug)) {
+    delete payload.slug;
   }
 
   // Store readiness accepts public support contact only. Until the mobile UI

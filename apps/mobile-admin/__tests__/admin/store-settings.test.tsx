@@ -74,8 +74,11 @@ vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
     onBusinessNameChange,
     onOpenCountryPicker,
     onPhoneChange,
+    onSlugChange,
     onSupportPhoneChange,
     phone,
+    slug,
+    slugLocked,
     supportPhone,
   }: {
     businessName: string;
@@ -84,8 +87,11 @@ vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
     onBusinessNameChange: (text: string) => void;
     onOpenCountryPicker: () => void;
     onPhoneChange: (text: string) => void;
+    onSlugChange: (text: string) => void;
     onSupportPhoneChange: (text: string) => void;
     phone: string;
+    slug: string;
+    slugLocked: boolean;
     supportPhone: string;
   }) => (
     <div>
@@ -106,6 +112,14 @@ vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
         aria-label="Support Phone"
         onChange={(event) => onSupportPhoneChange(event.target.value)}
         value={supportPhone}
+      />
+      <input
+        aria-label="Store slug"
+        onChange={(event) => {
+          if (!slugLocked) onSlugChange(event.target.value);
+        }}
+        readOnly={slugLocked}
+        value={slug}
       />
       <button
         aria-label="Open country picker"
@@ -396,6 +410,42 @@ describe('StoreSettingsScreen', () => {
     expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
   });
 
+  it('treats whitespace-only persisted slugs as first-time slug setup', async () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_address: '12 Allen Avenue',
+        business_name: 'Baci Foods',
+        country: 'NG',
+        email: 'support@usebaci.com',
+        logo_url: 'https://example.com/logo.png',
+        payout_currency: 'NGN',
+        phone: '+2348012345678',
+        slug: '   ',
+        support_email: 'support@usebaci.com',
+        support_phone: '+2347000000000',
+        updated_at: '2026-06-17T08:00:00.000Z',
+      },
+      isLoading: false,
+    });
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Yodha Shopping' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.update).toHaveBeenCalledWith({
+      business_name: 'Yodha Shopping',
+      slug: 'yodha-shopping',
+    });
+  });
 
   it('guards saves with the loaded updated_at concurrency token', async () => {
     render(<StoreSettingsScreen />);

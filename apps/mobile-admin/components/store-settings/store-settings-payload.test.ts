@@ -5,6 +5,7 @@ import {
   buildBaselineFromMerchant,
   buildInitialFormValues,
   buildMerchantUpdatePayload,
+  hasNonEmptyTrimmedValue,
   type StoreSettingsFormValues,
 } from './store-settings-payload';
 
@@ -39,6 +40,13 @@ function makeMerchant(overrides: Partial<Merchant> = {}): Merchant {
 }
 
 describe('store settings payload helpers', () => {
+  it('detects non-empty trimmed values consistently', () => {
+    expect(hasNonEmptyTrimmedValue(' baci-foods ')).toBe(true);
+    expect(hasNonEmptyTrimmedValue('   ')).toBe(false);
+    expect(hasNonEmptyTrimmedValue(null)).toBe(false);
+    expect(hasNonEmptyTrimmedValue(undefined)).toBe(false);
+  });
+
   it('returns only the changed column when a single field is edited', () => {
     expect(
       buildMerchantUpdatePayload(baselineForm, {
@@ -56,6 +64,42 @@ describe('store settings payload helpers', () => {
 
     expect(payload).toEqual({ support_phone: '+2349999999999' });
     expect(payload).not.toHaveProperty('phone');
+  });
+
+  it('does not submit slug changes for established store URLs', () => {
+    const nextForm = {
+      ...baselineForm,
+      business_name: 'Baci Foods Ltd',
+      slug: 'baci-foods-ltd',
+    };
+
+    const payload = buildMerchantUpdatePayload(baselineForm, nextForm);
+
+    expect(payload).toEqual({ business_name: 'Baci Foods Ltd' });
+  });
+
+  it('allows a slug to be set when the merchant does not have one yet', () => {
+    const unlockedBaseline = { ...baselineForm, slug: '' };
+    const nextForm = {
+      ...baselineForm,
+      slug: 'baci-foods',
+    };
+
+    const payload = buildMerchantUpdatePayload(unlockedBaseline, nextForm);
+
+    expect(payload).toEqual({ slug: 'baci-foods' });
+  });
+
+  it('allows a slug to be set when the baseline slug is whitespace only', () => {
+    const unlockedBaseline = { ...baselineForm, slug: '   ' };
+    const nextForm = {
+      ...baselineForm,
+      slug: 'baci-foods',
+    };
+
+    const payload = buildMerchantUpdatePayload(unlockedBaseline, nextForm);
+
+    expect(payload).toEqual({ slug: 'baci-foods' });
   });
 
   it('copies a newly entered primary phone into support_phone when no public contact exists', () => {
