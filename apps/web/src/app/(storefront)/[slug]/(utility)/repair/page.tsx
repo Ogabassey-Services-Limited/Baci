@@ -5,6 +5,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 
 interface RepairPageProps {
@@ -28,9 +29,14 @@ export async function generateMetadata({
     };
   }
 
+  const baseUrl = buildStoreUrl(merchant);
+
   return {
     title: `Book a Repair - ${merchant.business_name}`,
     description: `Book phone, laptop, console and gadget repairs with ${merchant.business_name}. Check diagnosis, fault details, service expectations and support before submitting a repair request.`,
+    alternates: {
+      canonical: `${baseUrl}/repair`,
+    },
   };
 }
 

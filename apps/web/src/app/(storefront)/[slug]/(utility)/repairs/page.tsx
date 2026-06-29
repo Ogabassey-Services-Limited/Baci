@@ -6,6 +6,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -38,9 +39,14 @@ export async function generateMetadata({
     };
   }
 
+  const baseUrl = buildStoreUrl(merchant);
+
   return {
     title: `Book a Repair - ${merchant.business_name}`,
     description: `Schedule a device repair with ${merchant.business_name}`,
+    alternates: {
+      canonical: `${baseUrl}/repairs`,
+    },
   };
 }
 
