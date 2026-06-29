@@ -245,7 +245,7 @@ function DomainsDashboardContent({
           style={[styles.fab, { backgroundColor: colors.primary }, shadows.lg]}
           onPress={() => router.push('/domains/add')}
         >
-          <Ionicons name="add" size={32} color="#FFF" />
+          <Ionicons name="add" size={32} color={colors.textOnPrimary} />
         </Pressable>
       </SafeAreaView>
 

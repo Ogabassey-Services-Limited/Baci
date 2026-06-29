@@ -10,3 +10,7 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+## 2026-06-29 — Theming FAB icons with textOnPrimary
+**Learning:** Hardcoded white (#FFF) icons inside FABs with primary backgrounds fail to use the design system properly. `textOnPrimary` is the correct semantic token for content placed on a primary background in the mobile admin app.
+**Action:** Always replace hardcoded #FFF or #FFFFFF with `colors.textOnPrimary` when the element is sitting on a `colors.primary` background.
+**Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
