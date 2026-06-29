@@ -71,7 +71,7 @@ This section provides quick navigation and critical information for AI assistant
 │   │           └── add-product-form.tsx # Product creation form
 │   │
 │   ├── ai/                             # Genkit AI flows
-│   │   ├── genkit.ts                   # Genkit initialization
+│   │   ├── provider.ts                 # AI provider configuration and model exports
 │   │   └── flows/
 │   │       ├── _AI_README.md           # AI flows context
 │   │       ├── guide-business-onboarding.ts
@@ -122,7 +122,7 @@ This section provides quick navigation and critical information for AI assistant
 |------|--------|
 | 1 | Read `/src/ai/flows/_AI_README.md` for flow details |
 | 2 | Locate flow file in `/src/ai/flows/` |
-| 3 | Test in Genkit Dev UI: `npm run genkit:dev` → http://localhost:4000 |
+| 3 | Test with scripts or API routes |
 | 4 | Search for callers: `grep -r "flowName" src/` |
 | 5 | Update callers if schema changed |
 | 6 | Test with all business types |
@@ -189,7 +189,7 @@ This section provides quick navigation and critical information for AI assistant
 **⚠️ When changing AI flows:**
 - DO NOT change input/output schemas without updating ALL callers
 - Use `grep -r "flowName" src/` to find callers
-- Test in Genkit Dev UI first: `npm run genkit:dev`
+- Test using Vercel AI SDK patterns and API routes
 - Update TypeScript types if schema changes
 - Test error handling paths
 
@@ -361,7 +361,7 @@ npm run typecheck
 npm run dev  # http://localhost:9002
 
 # Genkit Dev UI (test AI flows)
-npm run genkit:dev  # http://localhost:4000
+
 ```
 
 #### What to Test
@@ -407,7 +407,7 @@ npm run genkit:dev  # http://localhost:4000
 
 #### External Resources
 - [Next.js 15 Docs](https://nextjs.org/docs)
-- [Genkit Docs](https://firebase.google.com/docs/genkit)
+- [Vercel AI SDK Docs](https://sdk.vercel.ai/docs)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 - [Radix UI](https://www.radix-ui.com/primitives/docs/overview/introduction)
 - [Zod Validation](https://zod.dev/)
