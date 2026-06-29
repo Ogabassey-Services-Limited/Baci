@@ -32,13 +32,16 @@ async function merchantStillOwnsActiveStorefrontDomain(
   domain: string
 ): Promise<boolean> {
   // Re-check ownership of the EXACT sender domain (not a www↔apex counterpart),
-  // matching the exact-match proof required at registration.
+  // matching the exact-match proof required at registration — including the same
+  // domain_type scope, so a row that isn't an actual storefront domain
+  // (custom/purchased) can't keep an old sender alive.
   const { data, error } = await supabase
     .from('domains')
     .select('id')
     .eq('merchant_id', merchantId)
     .eq('domain', domain.toLowerCase())
     .eq('status', 'active')
+    .in('domain_type', ['custom', 'purchased'])
     .limit(1);
 
   if (error) {
