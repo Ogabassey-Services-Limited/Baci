@@ -206,6 +206,40 @@ describe('submitNewOrder', () => {
     expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
   });
 
+  it('normalizes unsupported merchant currencies before saving orders', async () => {
+    await submitNewOrder(
+      createSubmitParams({
+        merchantCurrency: 'ABC',
+      })
+    );
+
+    expect(mocks.createManualOrderWithItems).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        order: expect.objectContaining({
+          currency: 'NGN',
+        }),
+      })
+    );
+  });
+
+  it('normalizes lowercase merchant currencies before saving orders', async () => {
+    await submitNewOrder(
+      createSubmitParams({
+        merchantCurrency: 'egp',
+      })
+    );
+
+    expect(mocks.createManualOrderWithItems).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        order: expect.objectContaining({
+          currency: 'EGP',
+        }),
+      })
+    );
+  });
+
   it('preserves custom match status and selected variant attributes', async () => {
     await submitNewOrder(
       createSubmitParams({

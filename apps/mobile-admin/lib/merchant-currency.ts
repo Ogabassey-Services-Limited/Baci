@@ -1,22 +1,10 @@
-const FALLBACK_SUPPORTED_MERCHANT_CURRENCY_CODES = new Set([
-  'AED',
-  'AUD',
-  'BRL',
-  'CAD',
-  'CHF',
-  'CNY',
-  'EUR',
-  'GBP',
-  'GHS',
-  'INR',
-  'JPY',
-  'KES',
-  'NGN',
-  'USD',
-  'XAF',
-  'XOF',
-  'ZAR',
-]);
+import { COUNTRIES } from '@/constants/countries';
+
+const FALLBACK_SUPPORTED_MERCHANT_CURRENCY_CODES = new Set(
+  COUNTRIES.map(({ currency }) => currency.trim().toUpperCase()).filter(
+    (currency) => /^[A-Z]{3}$/.test(currency)
+  )
+);
 
 let supportedMerchantCurrencyCodes: Set<string> | null | undefined;
 
