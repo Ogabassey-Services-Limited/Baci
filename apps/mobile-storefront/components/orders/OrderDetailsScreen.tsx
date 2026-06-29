@@ -1,13 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
-import {
-  Alert,
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderDetailsActionsCard } from '@/components/orders/OrderDetailsActionsCard';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
@@ -45,10 +38,7 @@ import {
   canShowStorefrontRiderContact,
   isStorefrontReceiptAvailable,
 } from '@/lib/post-purchase-actions';
-import {
-  normalizeInsuranceCertificateUrl,
-  normalizeInsuranceFlowUrl,
-} from './insurance-link-safety';
+import { createInsuranceFlowActions } from './insurance-flow-actions';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';
 import { formatOrderDetailsDate } from './order-details.helpers';
 
@@ -120,50 +110,11 @@ export function OrderDetailsScreen() {
         insurancePolicy?.premium_amount
       ),
     });
-  const openInsuranceFlowUrl = async (url: string) => {
-    await openSafeInsuranceUrl(url, normalizeInsuranceFlowUrl);
-  };
-  const openInsuranceCertificateUrl = async (url: string) => {
-    await openSafeInsuranceUrl(url, normalizeInsuranceCertificateUrl);
-  };
-  // Legacy policies / missed webhooks may carry no hosted claim link, and mobile
-  // has no embedded MyCover SDK. The web policy page hosts the SDK fallback but
-  // authenticates with web cookies, so app-only customers can't use it — route
-  // them to support (in-session, mobile-safe) instead of a page they'd hit as
-  // Unauthorized.
-  const openInsuranceClaimFallback = () => {
-    Alert.alert(
-      'File your claim',
-      'We could not find an online claim link for this policy. Our support team can file your claim for you.',
-      [
-        { style: 'cancel', text: 'Not now' },
-        { onPress: handleContactSupport, text: 'Contact support' },
-      ]
-    );
-  };
-  const openSafeInsuranceUrl = async (
-    url: string,
-    normalizeUrl: (url: string) => string | null
-  ) => {
-    const safeUrl = normalizeUrl(url);
-
-    if (!safeUrl) {
-      Alert.alert(
-        'Unable to open link',
-        'This insurance link is not available. Please contact support if the issue continues.'
-      );
-      return;
-    }
-
-    try {
-      await Linking.openURL(safeUrl);
-    } catch {
-      Alert.alert(
-        'Unable to open link',
-        'Please try again or contact support if the issue continues.'
-      );
-    }
-  };
+  const {
+    openInsuranceCertificateUrl,
+    openInsuranceClaimFallback,
+    openInsuranceFlowUrl,
+  } = createInsuranceFlowActions(handleContactSupport);
 
   return (
     <>
