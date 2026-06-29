@@ -156,7 +156,9 @@ describe('POST /api/orders/[id]/confirm', () => {
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
     expect(mockPurchaseOrderInsurance).toHaveBeenCalledWith(
       ORDER_ID,
-      expect.objectContaining({ imei: '123456789012345' })
+      expect.objectContaining({ imei: '123456789012345' }),
+      // The route reuses its already-authorized client (Bearer-safe).
+      expect.anything()
     );
   });
 

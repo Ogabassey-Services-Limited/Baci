@@ -76,4 +76,19 @@ describe('normalizeInsuranceCertificateUrl', () => {
       normalizeInsuranceCertificateUrl('https://evil.com/cert.pdf')
     ).toBeNull();
   });
+
+  it('rejects buckets that only prefix an allowed name (mycover.evil)', () => {
+    // Exact-match only: an attacker-registered `mycover.evil` bucket must not
+    // pass via a startsWith('mycover.') shortcut.
+    expect(
+      normalizeInsuranceCertificateUrl(
+        'https://s3.eu-west-2.amazonaws.com/mycover.evil/cert.pdf'
+      )
+    ).toBeNull();
+    expect(
+      normalizeInsuranceCertificateUrl(
+        'https://s3.eu-west-2.amazonaws.com/mycover-evil/cert.pdf'
+      )
+    ).toBeNull();
+  });
 });

@@ -75,14 +75,31 @@ export type DeviceInsuranceDetailsInput = z.infer<
  * confirm needs no device data. Output is normalized so the route never has to
  * touch the raw, unvalidated JSON.
  */
+const INSURANCE_FIELD_KEYS = [
+  'imei',
+  'serialNumber',
+  'deviceColor',
+  'deviceModel',
+  'deviceMake',
+  'deviceType',
+  'deviceValue',
+  'purchaseDate',
+  'devicePhotos',
+  'customerPhoto',
+  'gender',
+  'dateOfBirth',
+] as const;
+
 export const confirmOrderBodySchema = z
-  .looseObject({
-    imei: z.unknown().optional(),
-    devicePhotos: z.unknown().optional(),
-  })
+  .looseObject({})
   .transform((body, ctx) => {
-    const wantsInsurance =
-      body.imei !== undefined || body.devicePhotos !== undefined;
+    // Any insurance-related field signals an intended purchase. We detect the
+    // whole set (not just imei/devicePhotos) so a partial payload can't slip
+    // through as a plain confirm — it must carry the complete KYC or be rejected.
+    const payload = body as Record<string, unknown>;
+    const wantsInsurance = INSURANCE_FIELD_KEYS.some(
+      (key) => payload[key] !== undefined
+    );
     if (!wantsInsurance) {
       return {
         shouldPurchaseInsurance: false as const,

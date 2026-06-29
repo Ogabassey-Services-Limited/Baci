@@ -4,7 +4,7 @@
  */
 
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { shippingService } from '@/lib/shipping';
@@ -213,7 +213,15 @@ async function persistTrackingResult({
   }
 
   if (delivered) {
-    await notifyDeliveredProtectionActivation(shipment.order_id);
+    // Best-effort push — don't block the tracking read on it. `after` runs the
+    // task once the response has been sent (falls back to fire-and-forget if
+    // unavailable), matching api/orders/[id]/route.ts.
+    const orderId = shipment.order_id;
+    try {
+      after(() => notifyDeliveredProtectionActivation(orderId));
+    } catch {
+      void notifyDeliveredProtectionActivation(orderId);
+    }
   }
 }
 

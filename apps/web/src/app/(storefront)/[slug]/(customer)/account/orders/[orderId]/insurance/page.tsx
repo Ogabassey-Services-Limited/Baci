@@ -28,6 +28,17 @@ interface PolicyRow {
   inspection_status: string | null;
 }
 
+/**
+ * Canonicalize the stored claim status at the Policy boundary so every consumer
+ * (resolveInsuranceCta, the UI badge) sees the same contract — padded or
+ * differently-cased sentinels like ' none ' / 'NONE' collapse to 'None'.
+ */
+function normalizeClaimStatus(raw: string | null): string {
+  const trimmed = raw?.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'none') return 'None';
+  return trimmed;
+}
+
 function mapPolicy(row: PolicyRow, orderDelivered: boolean): Policy {
   return {
     certificateUrl: row.certificate_url ?? undefined,
@@ -35,7 +46,7 @@ function mapPolicy(row: PolicyRow, orderDelivered: boolean): Policy {
     claimLink: row.claim_link ?? null,
     claimProgress: row.claim_progress ?? null,
     claimStage: row.claim_stage ?? null,
-    claimStatus: row.claim_status || 'None',
+    claimStatus: normalizeClaimStatus(row.claim_status),
     coverage: row.coverage_amount,
     expiryDate: row.policy_expiry_date,
     id: row.id,

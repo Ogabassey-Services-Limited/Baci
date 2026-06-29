@@ -45,6 +45,7 @@ describe('normalizeClaimStatus', () => {
     expect(normalizeClaimStatus(undefined, 'claim.offer_rejected')).toBe(
       'offer_rejected'
     );
+    expect(normalizeClaimStatus(undefined, 'claim.paid')).toBe('paid');
   });
 
   it('defaults to pending for unknown input', () => {

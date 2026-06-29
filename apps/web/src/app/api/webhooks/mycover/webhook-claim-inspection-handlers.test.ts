@@ -27,4 +27,75 @@ describe('MyCover claim and inspection webhook handlers', () => {
 
     expect(supabase.from).not.toHaveBeenCalled();
   });
+
+  function makeUpdateCapture(result: { data: unknown; error: unknown }) {
+    const calls: { update?: Record<string, unknown> } = {};
+    const chain = {
+      update: (payload: Record<string, unknown>) => {
+        calls.update = payload;
+        return chain;
+      },
+      eq: () => chain,
+      select: () => chain,
+      maybeSingle: () => Promise.resolve(result),
+    };
+    return {
+      calls,
+      supabase: { from: () => chain } as unknown as SupabaseClient,
+    };
+  }
+
+  it('persists data.claim_id as claim_id and flips status to claimed on approval', async () => {
+    const { supabase, calls } = makeUpdateCapture({
+      data: { id: 'pol-row-1' },
+      error: null,
+    });
+
+    await handleClaimUpdate(supabase, {
+      event: 'claim.approved',
+      data: {
+        policy_id: 'pol-1',
+        claim_id: 'claim-abc',
+        essential: { status: 'Approved' },
+      },
+    });
+
+    expect(calls.update).toMatchObject({
+      claim_status: 'approved',
+      claim_id: 'claim-abc',
+      status: 'claimed',
+    });
+  });
+
+  it('falls back to data.id for claim_id when claim_id is absent', async () => {
+    const { supabase, calls } = makeUpdateCapture({
+      data: { id: 'pol-row-1' },
+      error: null,
+    });
+
+    await handleClaimUpdate(supabase, {
+      event: 'claim.updated',
+      data: {
+        policy_id: 'pol-1',
+        id: 'claim-primary-id',
+        essential: { status: 'Offer sent' },
+      },
+    });
+
+    expect(calls.update).toMatchObject({ claim_id: 'claim-primary-id' });
+  });
+
+  it('rethrows a Supabase error from the claim update', async () => {
+    const { supabase } = makeUpdateCapture({
+      data: null,
+      error: { message: 'db down' },
+    });
+
+    await expect(
+      handleClaimUpdate(supabase, {
+        event: 'claim.updated',
+        data: { policy_id: 'pol-1', essential: { status: 'Offer sent' } },
+      })
+    ).rejects.toMatchObject({ message: 'db down' });
+  });
 });

@@ -9,10 +9,10 @@
 
 const ALLOWED_INSURANCE_PROVIDER_HOST = 'mycover.ai';
 const ALLOWED_MY_COVER_S3_CERTIFICATE_HOST = 's3.eu-west-2.amazonaws.com';
-const ALLOWED_MY_COVER_S3_CERTIFICATE_BUCKET_PREFIXES = [
+const ALLOWED_MY_COVER_S3_CERTIFICATE_BUCKETS: ReadonlySet<string> = new Set([
   'mycover',
   'staging.mycover',
-] as const;
+]);
 
 export function isMyCoverHost(hostname: string): boolean {
   return (
@@ -25,9 +25,9 @@ function hasAllowedMyCoverS3CertificateBucket(pathname: string): boolean {
   const [bucketName] = pathname.split('/').filter(Boolean);
   if (!bucketName) return false;
 
-  return ALLOWED_MY_COVER_S3_CERTIFICATE_BUCKET_PREFIXES.some(
-    (prefix) => bucketName === prefix || bucketName.startsWith(`${prefix}.`)
-  );
+  // Exact bucket names only. A prefix/startsWith match would trust an
+  // attacker-registered bucket like `mycover.evil`.
+  return ALLOWED_MY_COVER_S3_CERTIFICATE_BUCKETS.has(bucketName);
 }
 
 function parseHttpsUrl(url: string | null | undefined): URL | null {

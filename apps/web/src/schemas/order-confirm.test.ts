@@ -140,6 +140,20 @@ describe('confirmOrderBodySchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a partial payload that carries only a KYC field (no imei/photos)', () => {
+    // gender/dateOfBirth/deviceValue alone must not slip through as a plain
+    // confirm — they signal an (incomplete) insurance purchase.
+    expect(confirmOrderBodySchema.safeParse({ gender: 'Male' }).success).toBe(
+      false
+    );
+    expect(
+      confirmOrderBodySchema.safeParse({ dateOfBirth: '1995-04-12' }).success
+    ).toBe(false);
+    expect(
+      confirmOrderBodySchema.safeParse({ deviceValue: 1_200_000 }).success
+    ).toBe(false);
+  });
+
   it('rejects a non-object body', () => {
     expect(confirmOrderBodySchema.safeParse(null).success).toBe(false);
     expect(confirmOrderBodySchema.safeParse('confirm').success).toBe(false);

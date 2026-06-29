@@ -109,8 +109,11 @@ export function reconcileAssuranceTaxSubtotal(
     (sum, subtotal) => sum + subtotal.taxable_amount,
     0
   );
+  // `gap` is already rounded to currency precision, so only a non-positive gap
+  // means "nothing to reconcile". A genuine 0.01 shortfall must still be folded
+  // in (skipping it would leave the document a cent short).
   const gap = Number((lineExtensionTotal - existingTaxable).toFixed(2));
-  if (gap <= 0.01) return;
+  if (gap <= 0) return;
 
   const existing = taxSubtotals.find(
     (subtotal) =>

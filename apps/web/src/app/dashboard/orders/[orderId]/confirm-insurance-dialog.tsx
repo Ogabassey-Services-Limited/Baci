@@ -30,10 +30,19 @@ export type ConfirmOrderPayload =
   | ConfirmInsurancePayload
   | Record<string, never>;
 
+/** `YYYY-MM-DD` from the LOCAL calendar (not UTC), so "today"/"yesterday"
+ * match the user's timezone rather than shifting across the date line. */
+function toLocalDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function getMaxDateOfBirth() {
   const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  return yesterday.toISOString().slice(0, 10);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toLocalDateOnly(yesterday);
 }
 
 function isValidPastDateOnly(value: string, maxDate: string) {
@@ -150,7 +159,7 @@ export default function ConfirmInsuranceDialog({
         deviceMake: 'Generic', // TODO: Extract from product name
         deviceType: 'Phone' as const,
         deviceValue: assuranceItems[0]?.price || 0,
-        purchaseDate: new Date().toISOString().split('T')[0] ?? '',
+        purchaseDate: toLocalDateOnly(new Date()),
         devicePhotos: {
           about: uploadedUrl,
         },

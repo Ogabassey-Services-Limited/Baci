@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import {
   claimStatusLabel,
@@ -59,10 +60,13 @@ interface DatabaseOrder {
  */
 export async function purchaseOrderInsurance(
   orderId: string,
-  deviceDetails: DeviceInsuranceDetails
+  deviceDetails: DeviceInsuranceDetails,
+  // Reuse the caller's already-authorized session. The confirm route may be
+  // hit with a Bearer token (mobile), which has no cookies — falling back to a
+  // cookie client there would read the order as anon and fail.
+  client?: SupabaseClient
 ) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = client ?? createClient(await cookies());
 
   // 1. Fetch Order with Customer and Items
   const { data: order, error: orderError } = await supabase
@@ -116,8 +120,20 @@ export async function purchaseOrderInsurance(
     typedOrder.customer_name.trim().split(/\s+/);
   const lastName = remainingNames.join(' ') || firstName;
 
-  // 4. Process each insured item
-  for (const item of insuredItems) {
+  // 4. Process insured items. We only collect ONE device's KYC/details at
+  // confirmation, so we can faithfully insure a single device — cloning the
+  // same serial/IMEI/photos across multiple policies would send the insurer
+  // duplicate device data. Insure the first item and flag any extras.
+  for (const [index, item] of insuredItems.entries()) {
+    if (index > 0) {
+      results.push({
+        success: false,
+        error:
+          'Additional insured items require their own device details and were not insured.',
+        itemId: item.id,
+      });
+      continue;
+    }
     try {
       const policy = await myCover.purchaseGadgetInsurance({
         product_id: productId,

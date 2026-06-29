@@ -116,7 +116,7 @@ export async function POST(
       const details: DeviceInsuranceDetails = deviceDetails;
 
       try {
-        insuranceResult = await purchaseOrderInsurance(id, details);
+        insuranceResult = await purchaseOrderInsurance(id, details, supabase);
       } catch (err: unknown) {
         logger.error({
           message: 'Insurance purchase error during confirm',

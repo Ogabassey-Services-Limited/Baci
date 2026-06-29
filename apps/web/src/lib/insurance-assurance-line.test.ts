@@ -116,6 +116,24 @@ describe('reconcileAssuranceTaxSubtotal', () => {
     expect(subtotals).toHaveLength(1);
     expect(subtotals[0].taxable_amount).toBe(5000);
   });
+
+  it('reconciles a genuine one-cent shortfall (gap === 0.01)', () => {
+    const subtotals: TaxSubtotal[] = [
+      {
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+        taxable_amount: 100,
+        tax_amount: 7.5,
+      },
+    ];
+    reconcileAssuranceTaxSubtotal(subtotals, 100.01);
+    expect(subtotals).toHaveLength(2);
+    expect(subtotals[1]).toMatchObject({
+      vat_category_code: 'O',
+      taxable_amount: 0.01,
+      tax_amount: 0,
+    });
+  });
 });
 
 describe('sumLineExtensionAmounts', () => {

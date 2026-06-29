@@ -30,7 +30,8 @@ export function isStaleWebhookClaim(
 
 export async function claimMyCoverWebhookEvent(
   supabase: SupabaseClient,
-  payload: MyCoverWebhookPayload
+  payload: MyCoverWebhookPayload,
+  attempt = 0
 ): Promise<MyCoverWebhookEventClaimResult> {
   if (!payload.event_id) {
     return { receivedAt: null, status: 'claimed' };
@@ -69,6 +70,13 @@ export async function claimMyCoverWebhookEvent(
 
   if (data?.processing_status === 'processed') {
     return { status: 'processed_duplicate' };
+  }
+
+  // The conflicting row vanished between our insert and this lookup — another
+  // worker released its failed claim — so the event is free to claim again.
+  // Retry the insert (bounded) instead of dropping the delivery.
+  if (!data && attempt < 2) {
+    return claimMyCoverWebhookEvent(supabase, payload, attempt + 1);
   }
 
   if (data && isStaleWebhookClaim(data)) {

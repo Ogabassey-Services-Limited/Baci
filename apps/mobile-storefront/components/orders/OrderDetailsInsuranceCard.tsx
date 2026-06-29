@@ -159,8 +159,9 @@ export function OrderDetailsInsuranceCard({
                 { color: colors.text, textTransform: 'capitalize' },
               ]}
             >
-              {insurancePolicy.claim_stage ||
-                insurancePolicy.claim_status.replace(/_/g, ' ')}
+              {(insurancePolicy.claim_stage || insurancePolicy.claim_status)
+                .trim()
+                .replace(/_/g, ' ')}
             </Text>
           </View>
         )}

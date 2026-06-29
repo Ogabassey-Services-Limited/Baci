@@ -100,7 +100,10 @@ export async function handleClaimUpdate(
   if (claimComment !== undefined) updateData.claim_comment = claimComment;
   const { claim_link: claimLink } = getHostedFlowLinks(data);
   if (claimLink) updateData.claim_link = claimLink;
-  if (data.claim_id) updateData.claim_id = data.claim_id;
+  // Claim webhooks may carry the claim's primary id as `data.id` when
+  // `data.claim_id` is absent — persist either so claim_id isn't left null.
+  const claimId = data.claim_id ?? data.id;
+  if (claimId) updateData.claim_id = claimId;
   if (token === 'approved' || token === 'paid') {
     updateData.status = 'claimed';
   }

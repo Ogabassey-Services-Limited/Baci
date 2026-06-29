@@ -81,7 +81,12 @@ interface ConfirmOrderResponse {
   insuranceError?: string;
   insurance?: {
     success?: boolean;
-    results: Array<{ policyNumber: string }>;
+    results?: Array<{
+      success?: boolean;
+      policyNumber?: string;
+      error?: string;
+      itemId?: string;
+    }>;
   };
 }
 
@@ -186,15 +191,31 @@ export default function OrderDetailsClientPage({
     try {
       const result = await confirmOrderRequest(order.id, data);
 
+      // `insurance.success` is the request-level flag and is true even when
+      // every item failed, so trust an actual policy number for the success
+      // copy and surface item-level failures as destructive.
+      const insuranceResults = result.insurance?.results ?? [];
+      const activePolicy = insuranceResults.find((item) => item.policyNumber);
+      const failedItem = insuranceResults.find(
+        (item) => item.success === false
+      );
+      const insuranceFailed =
+        Boolean(result.insuranceError) ||
+        (!activePolicy && Boolean(failedItem));
+      const insuranceFailureMessage =
+        result.insuranceError ||
+        failedItem?.error ||
+        'Insurance could not be activated';
+
       toast({
-        title: result.insuranceError
+        title: insuranceFailed
           ? 'Order Confirmed, Insurance Failed'
           : 'Order Confirmed',
-        variant: result.insuranceError ? 'destructive' : undefined,
-        description: result.insuranceError
-          ? `Order was processed, but insurance failed: ${result.insuranceError}`
-          : result.insurance?.success
-            ? `Policy Active: ${result.insurance.results[0].policyNumber}`
+        variant: insuranceFailed ? 'destructive' : undefined,
+        description: insuranceFailed
+          ? `Order was processed, but insurance failed: ${insuranceFailureMessage}`
+          : activePolicy
+            ? `Policy Active: ${activePolicy.policyNumber}`
             : 'Order processed successfully.',
       });
 
