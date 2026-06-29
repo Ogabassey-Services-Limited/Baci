@@ -127,9 +127,9 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
 
 // Δ-36 (A3): the route now does a SINGLE `transactions` SELECT covering
 // completed + pending + processing rows, then filters in TS. The chain
-// shape is `.eq().eq().in()` so the concurrent transaction read is tenant-scoped. Existing mocks were
-// updated to match; rows with completed semantics carry an explicit
-// `status: 'completed'` field so the TS-side filter keeps them.
+// shape is `.eq().in()` after the tenant-scoped order read succeeds; rows with
+// completed semantics carry an explicit `status: 'completed'` field so the
+// TS-side filter keeps them.
 describe('POST /api/orders/[id]/record-payment', () => {
   const mockOrderId = 'order-123';
   const mockMerchantId = 'merchant-456';
@@ -936,7 +936,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const { orderQuery, transactionQuery } = setupRecordPaymentSupabase({
       merchant: mockMerchant,
       order: mockOrder,
-      transactions: [{ amount: 4000, gateway: 'manual', status: 'completed' }],
+      transactions: [
+        {
+          amount: 4000,
+          gateway: 'manual',
+          merchant_id: 'stale-denormalized-merchant',
+          status: 'completed',
+        },
+      ],
     });
 
     const request = createRequest({
@@ -965,8 +972,9 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
     expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
+    expect(transactionQuery.eq).toHaveBeenCalledTimes(1);
     expect(transactionQuery.eq).toHaveBeenCalledWith('order_id', mockOrderId);
-    expect(transactionQuery.eq).toHaveBeenCalledWith(
+    expect(transactionQuery.eq).not.toHaveBeenCalledWith(
       'merchant_id',
       mockMerchantId
     );

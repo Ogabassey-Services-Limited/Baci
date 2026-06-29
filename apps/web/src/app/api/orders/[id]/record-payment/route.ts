@@ -116,8 +116,10 @@ export async function POST(
       );
     }
 
-    // ⚡ Bolt Performance Optimization: Use Promise.all to fetch independent queries concurrently
-    const [merchantResult, orderResult, txnsResult] = await Promise.all([
+    // Fetch independent tenant-scoped records concurrently. Transactions are
+    // read only after the order itself is verified below because
+    // transactions.merchant_id is denormalized and can drift from orders.
+    const [merchantResult, orderResult] = await Promise.all([
       supabase
         .from('merchants')
         .select(
@@ -131,22 +133,10 @@ export async function POST(
         .eq('id', id)
         .eq('merchant_id', merchantId)
         .single(),
-      // Δ-36 (A3): widen the existing completed-only fetch to also cover
-      // pending/processing rows so we can guard against shadowing a real
-      // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
-      // Direct, Juicyway) with a parallel manual transaction. One DB
-      // round-trip serves both purposes — filter in TS below.
-      supabase
-        .from('transactions')
-        .select('amount, gateway, gateway_reference, status')
-        .eq('order_id', id)
-        .eq('merchant_id', merchantId)
-        .in('status', ['completed', 'pending', 'processing']),
     ]);
 
     const { data: merchant, error: merchantError } = merchantResult;
     const { data: order, error: orderError } = orderResult;
-    const { data: relevantTxns, error: txError } = txnsResult;
 
     if (merchantError || !merchant) {
       logger.error({
@@ -170,6 +160,18 @@ export async function POST(
       });
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
+
+    // Δ-36 (A3): widen the existing completed-only fetch to also cover
+    // pending/processing rows so we can guard against shadowing a real
+    // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
+    // Direct, Juicyway) with a parallel manual transaction. The order was
+    // tenant-scoped above, so key this read by order_id instead of the
+    // denormalized transactions.merchant_id column.
+    const { data: relevantTxns, error: txError } = await supabase
+      .from('transactions')
+      .select('amount, gateway, gateway_reference, status')
+      .eq('order_id', id)
+      .in('status', ['completed', 'pending', 'processing']);
 
     if (txError) {
       logger.error({
