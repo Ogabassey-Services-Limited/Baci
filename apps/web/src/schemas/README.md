@@ -32,7 +32,7 @@ Understanding schemas is critical for:
 | `refinedFormSchema` | `/src/app/onboarding/onboarding-form.tsx:103` | Adds conditional "other" validation | Extends baseFormSchema |
 | `addProductSchema` | `/src/app/dashboard/products/add/add-product-form.tsx:42` | Product creation validation | name, description, price, stock, status, image |
 
-### AI Flow Schemas (Genkit)
+### AI Flow Schemas (Vercel AI SDK)
 
 | Schema | Location | Purpose | Fields |
 |--------|----------|---------|--------|
@@ -308,7 +308,7 @@ const form = useForm<MyFormValues>({
 />
 ```
 
-### AI Flow Schemas (Genkit)
+### AI Flow Schemas (Vercel AI SDK)
 
 ```typescript
 // 1. Define input/output schemas
@@ -499,12 +499,7 @@ describe('baseFormSchema', () => {
 
 ### Manual Testing
 
-Use Genkit Dev UI for AI flow schemas:
-```bash
-npm run genkit:dev
-# Visit: http://localhost:4000
-# Test flows with sample data
-```
+Test API routes directly for AI flow schemas.
 
 ---
 
@@ -574,4 +569,3 @@ const schema = z.string({
 
 - **Zod Documentation:** https://zod.dev/
 - **React Hook Form:** https://react-hook-form.com/get-started
-- **Genkit Schemas:** https://firebase.google.com/docs/genkit/zod

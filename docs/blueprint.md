@@ -77,6 +77,7 @@ This section provides quick navigation and critical information for AI assistant
 │   │           └── add-product-form.tsx # Product creation form
 │   │
 │   ├── ai/                             # Vercel AI SDK flows
+│   │   ├── provider.ts                 # AI provider configuration and model exports
 │   │   └── flows/
 │   │       ├── _AI_README.md           # AI flows context
 │   │       ├── guide-business-onboarding.ts
@@ -127,9 +128,10 @@ This section provides quick navigation and critical information for AI assistant
 |------|--------|
 | 1 | Read `/src/ai/flows/_AI_README.md` for flow details |
 | 2 | Locate flow file in `/src/ai/flows/` |
-| 3 | Search for callers: `grep -r "flowName" src/` |
-| 4 | Update callers if schema changed |
-| 5 | Test with all business types |
+| 3 | Test with scripts, unit tests, or API routes |
+| 4 | Search for callers: `grep -r "flowName" src/` |
+| 5 | Update callers if schema changed |
+| 6 | Test with all business types |
 
 #### Task: Add a New Form Field
 
@@ -193,6 +195,7 @@ This section provides quick navigation and critical information for AI assistant
 **⚠️ When changing AI flows:**
 - DO NOT change input/output schemas without updating ALL callers
 - Use `grep -r "flowName" src/` to find callers
+- Test using Vercel AI SDK patterns and API routes
 - Update TypeScript types if schema changes
 - Test error handling paths
 
@@ -363,6 +366,8 @@ pnpm turbo typecheck
 # Dev server
 pnpm turbo dev  # http://localhost:9002
 
+# Test AI flows with scripts, unit tests, or API routes
+
 ```
 
 #### What to Test
@@ -406,7 +411,7 @@ pnpm turbo dev  # http://localhost:9002
 - [Enhancement Flow](/src/ai/flows/enhance-product-images.ts)
 
 #### External Resources
-- [Next.js 15 Docs](https://nextjs.org/docs)
+- [Next.js 16 Docs](https://nextjs.org/docs)
 - [Vercel AI SDK Docs](https://ai-sdk.dev/docs)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 - [Radix UI](https://www.radix-ui.com/primitives/docs/overview/introduction)
@@ -429,6 +434,7 @@ pnpm turbo dev  # http://localhost:9002
    ```
 
 3. **Test your changes:**
+   - Use Vercel AI SDK patterns for AI flows
    - Run `pnpm turbo typecheck` for type errors
    - Test in browser: `pnpm turbo dev`
 
