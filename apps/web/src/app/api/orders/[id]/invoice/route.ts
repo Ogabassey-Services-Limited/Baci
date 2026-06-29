@@ -438,13 +438,18 @@ export async function GET(
     // itemized — surface it as a single zero-rated line so the invoice
     // reconciles with the stored total.
     const assuranceTotal = sumAssuranceFees(orderItems ?? []);
+    // When assurance is itemized, the document's tax-exclusive (BT-109) /
+    // tax-inclusive (BT-112) totals must include it too, or the stored
+    // product-only totals contradict the lines + tax subtotals.
+    let assuranceLineExtensionTotal: number | null = null;
     if (assuranceTotal > 0) {
       items.push(
         buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
       );
+      assuranceLineExtensionTotal = sumLineExtensionAmounts(items);
       reconcileAssuranceTaxSubtotal(
         invoiceTaxSubtotals,
-        sumLineExtensionAmounts(items)
+        assuranceLineExtensionTotal
       );
     }
 
@@ -546,14 +551,17 @@ export async function GET(
 
       // Totals
       subtotal: Number(order.subtotal || 0),
-      tax_exclusive_amount: Number(
-        order.tax_exclusive_amount || order.subtotal || 0
-      ),
+      tax_exclusive_amount:
+        assuranceLineExtensionTotal ??
+        Number(order.tax_exclusive_amount || order.subtotal || 0),
       tax_amount: Number(order.tax_amount || 0),
-      tax_inclusive_amount: Number(
-        order.tax_inclusive_amount ||
-          (order.subtotal || 0) + (order.tax_amount || 0)
-      ),
+      tax_inclusive_amount:
+        assuranceLineExtensionTotal != null
+          ? assuranceLineExtensionTotal + Number(order.tax_amount || 0)
+          : Number(
+              order.tax_inclusive_amount ||
+                (order.subtotal || 0) + (order.tax_amount || 0)
+            ),
       shipping_fee: Number(order.shipping_fee || 0),
       discount_amount: Number(order.discount_amount || 0),
       total: Number(order.total || 0),
