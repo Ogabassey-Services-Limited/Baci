@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { OrderDetailsActionsCard } from '@/components/orders/OrderDetailsActionsCard';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
 import { OrderDetailsHeaderCard } from '@/components/orders/OrderDetailsHeaderCard';
@@ -34,7 +35,9 @@ import {
   getCustomerOrderStatusPalette,
   isCustomerOrderClosed,
 } from '@/lib/customer-order-status';
+import { CONFIG } from '@/lib/config';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { buildWebInsuranceClaimUrl } from '@/lib/insurance-claim-fallback-url';
 import {
   getOrderAssuranceFeeTotal,
   getOrderSummaryBreakdown,
@@ -125,6 +128,31 @@ export function OrderDetailsScreen() {
   };
   const openInsuranceCertificateUrl = async (url: string) => {
     await openSafeInsuranceUrl(url, normalizeInsuranceCertificateUrl);
+  };
+  // Legacy policies / missed webhooks may carry no hosted claim link. Mobile has
+  // no embedded MyCover SDK, so route to the web policy page (which hosts the SDK
+  // claim modal) instead of leaving the customer with no way to file.
+  const openInsuranceClaimFallback = async () => {
+    const url = buildWebInsuranceClaimUrl(
+      EXPO_PUBLIC_API_URL,
+      CONFIG.MERCHANT_SLUG,
+      order.id
+    );
+    if (!url) {
+      Alert.alert(
+        'Unable to open link',
+        'This insurance claim is not available right now. Please contact support to file your claim.'
+      );
+      return;
+    }
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(
+        'Unable to open link',
+        'Please try again or contact support if the issue continues.'
+      );
+    }
   };
   const openSafeInsuranceUrl = async (
     url: string,
@@ -219,6 +247,7 @@ export function OrderDetailsScreen() {
             isPaid={order.payment_status === 'paid'}
             onCompleteInspection={openInsuranceFlowUrl}
             onFileClaim={openInsuranceFlowUrl}
+            onFileClaimFallback={openInsuranceClaimFallback}
             onOpenCertificate={openInsuranceCertificateUrl}
           />
 

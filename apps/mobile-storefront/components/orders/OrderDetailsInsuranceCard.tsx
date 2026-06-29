@@ -22,6 +22,7 @@ interface OrderDetailsInsuranceCardProps {
   isPaid: boolean;
   onCompleteInspection?: (inspectionUrl: string) => void;
   onFileClaim?: (claimUrl: string) => void;
+  onFileClaimFallback?: () => void;
   onOpenCertificate: (certificateUrl: string) => void;
 }
 
@@ -33,6 +34,7 @@ export function OrderDetailsInsuranceCard({
   isPaid,
   onCompleteInspection,
   onFileClaim,
+  onFileClaimFallback,
   onOpenCertificate,
 }: OrderDetailsInsuranceCardProps) {
   if (!insurancePolicy) {
@@ -64,14 +66,14 @@ export function OrderDetailsInsuranceCard({
       ? INSURANCE_COLORS.active
       : INSURANCE_COLORS.pending;
   const certificateUrl = insurancePolicy.certificate_url;
-  const claimUrl = insurancePolicy.claim_link;
-  const inspectionUrl = insurancePolicy.inspection_link;
   // Pre-loss inspection ("Activate Protection") gates claims and can only
   // happen after delivery: show nothing actionable until delivered, then
   // "Activate Protection" until inspection is done, then "File a Claim".
   // Claim-only policies can inherit the DB default `pending`; treat that as an
   // inspection gate only while the hosted claim link is still absent.
   const {
+    claimActionUrl,
+    inspectionActionUrl,
     showActivationPending,
     showAwaitingDelivery,
     showClaim,
@@ -79,15 +81,23 @@ export function OrderDetailsInsuranceCard({
     showInspection,
   } = resolveInsuranceCardActions({
     claimComment: insurancePolicy.claim_comment,
-    claimLink: claimUrl,
+    claimLink: insurancePolicy.claim_link,
     claimStage: insurancePolicy.claim_stage,
     claimStatus: insurancePolicy.claim_status,
-    inspectionLink: inspectionUrl,
+    inspectionLink: insurancePolicy.inspection_link,
     inspectionStatus: insurancePolicy.inspection_status,
     isDelivered,
     onCompleteInspection,
     onFileClaim,
+    onFileClaimFallback,
   });
+  const handleFileClaimPress = () => {
+    if (claimActionUrl) {
+      onFileClaim?.(claimActionUrl);
+      return;
+    }
+    onFileClaimFallback?.();
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -208,7 +218,11 @@ export function OrderDetailsInsuranceCard({
               styles.fileClaimButton,
               { backgroundColor: INSURANCE_COLORS.active.foreground },
             ]}
-            onPress={() => onCompleteInspection?.(inspectionUrl as string)}
+            onPress={() => {
+              if (inspectionActionUrl) {
+                onCompleteInspection?.(inspectionActionUrl);
+              }
+            }}
             accessibilityRole="button"
             accessibilityLabel="Activate protection with a device inspection"
           >
@@ -255,7 +269,7 @@ export function OrderDetailsInsuranceCard({
               styles.fileClaimButton,
               { backgroundColor: INSURANCE_COLORS.active.foreground },
             ]}
-            onPress={() => onFileClaim?.(claimUrl as string)}
+            onPress={handleFileClaimPress}
             accessibilityRole="button"
             accessibilityLabel={
               showContinueClaim

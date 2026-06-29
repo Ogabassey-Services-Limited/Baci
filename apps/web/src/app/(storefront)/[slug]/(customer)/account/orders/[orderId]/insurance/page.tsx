@@ -148,7 +148,12 @@ async function fetchPolicyForOrder(
       order.shipping_status === 'completed';
 
     return {
-      policy: mapPolicy(policies[0] as PolicyRow, orderDelivered),
+      // The viewer is the authenticated owner of this order, so their account
+      // email is the right value to pre-fill the SDK claim fallback with.
+      policy: {
+        ...mapPolicy(policies[0] as PolicyRow, orderDelivered),
+        customer_email: user.email ?? undefined,
+      },
       error: '',
     };
   } catch (error) {

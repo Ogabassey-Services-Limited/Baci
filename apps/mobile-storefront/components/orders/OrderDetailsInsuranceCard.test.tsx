@@ -357,4 +357,32 @@ describe('OrderDetailsInsuranceCard', () => {
     expect(screen.queryByText(/Protection activation is pending/i)).toBeNull();
     expect(screen.getByText('pending')).toBeTruthy();
   });
+
+  it('routes to the claim fallback when no hosted claim link exists', () => {
+    const onFileClaim = jest.fn();
+    const onFileClaimFallback = jest.fn();
+
+    render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{
+          ...policyWithLinks,
+          claim_link: null,
+          claim_status: null,
+          inspection_link: null,
+          inspection_status: 'completed',
+        }}
+        isDelivered
+        isPaid
+        onFileClaim={onFileClaim}
+        onFileClaimFallback={onFileClaimFallback}
+        onOpenCertificate={jest.fn()}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: claimLabel }));
+    expect(onFileClaimFallback).toHaveBeenCalledTimes(1);
+    expect(onFileClaim).not.toHaveBeenCalled();
+  });
 });
