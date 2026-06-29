@@ -473,18 +473,31 @@ Deno.serve(async (req) => {
 
     // Only status-level diagnostics are logged/returned — ZeptoMail response
     // bodies can echo recipient PII, so they are never logged or exposed.
-    const response = await sendWithFrom(fromAddress);
-    console.log('ZeptoMail response status:', response.status);
-
     const deliveryFailed = new Response(
       JSON.stringify({ error: 'Email delivery failed' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
+    const usingCustomSender = Boolean(branding.sendingFromAddress);
 
-    if (!response.ok && branding.sendingFromAddress) {
+    // A custom sender can fail by returning a non-2xx response OR by throwing
+    // (AbortSignal.timeout, DNS/TLS, transient network). Both must fall back to
+    // the platform sender so a merchant-domain hiccup never blocks a customer's
+    // auth email. A platform-sender throw is a genuine failure → outer catch.
+    let response: Response | null = null;
+    try {
+      response = await sendWithFrom(fromAddress);
+      console.log('ZeptoMail response status:', response.status);
+    } catch (sendError) {
+      if (!usingCustomSender) {
+        throw sendError;
+      }
+      console.warn('Custom auth-email sender threw; retrying with platform');
+    }
+
+    if (usingCustomSender && (response === null || !response.ok)) {
       console.warn(
-        'Custom auth-email sender rejected; retrying with platform sender',
-        response.status
+        'Custom auth-email sender failed; retrying with platform sender',
+        response?.status ?? 'threw'
       );
       const fallbackResponse = await sendWithFrom('noreply@usebaci.com');
       console.log(
@@ -502,7 +515,7 @@ Deno.serve(async (req) => {
       return deliveryFailed;
     }
 
-    if (!response.ok) {
+    if (!response?.ok) {
       return deliveryFailed;
     }
 

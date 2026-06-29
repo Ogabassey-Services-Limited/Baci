@@ -348,10 +348,13 @@ export async function verifyMerchantEmailDomain(
       p_zeptomail_domain_id: columns.zeptomail_domain_id,
       p_status: columns.status,
       p_verified_at: columns.verified_at,
-      p_dkim_host: columns.dkim_host,
-      p_dkim_value: columns.dkim_value,
-      p_bounce_host: columns.bounce_host,
-      p_bounce_value: columns.bounce_value,
+      // Preserve the previously stored DNS records when a partial verify
+      // response omits them — otherwise a failed/pending re-check would null
+      // out the DKIM/CNAME values the merchant still needs to fix their DNS.
+      p_dkim_host: columns.dkim_host ?? existingRow.dkim_host,
+      p_dkim_value: columns.dkim_value ?? existingRow.dkim_value,
+      p_bounce_host: columns.bounce_host ?? existingRow.bounce_host,
+      p_bounce_value: columns.bounce_value ?? existingRow.bounce_value,
     },
     'Failed to update email domain'
   );

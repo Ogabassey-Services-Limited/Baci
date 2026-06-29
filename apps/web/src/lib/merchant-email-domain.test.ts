@@ -154,6 +154,45 @@ describe('merchant-email-domain service', () => {
     expect(result.status).toBe('verified');
   });
 
+  it('verifyMerchantEmailDomain preserves stored DNS records on a partial verify response', async () => {
+    const storedRow = {
+      ...ROW,
+      zeptomail_domain_id: 'dk1',
+      dkim_host: 'stored-dkim-host',
+      dkim_value: 'stored-dkim-value',
+      bounce_host: 'stored-bounce-host',
+      bounce_value: 'stored-bounce-value',
+    };
+    mockScopedFrom.mockReturnValueOnce(
+      builderFor({ data: storedRow, error: null })
+    );
+    // Partial/failed re-check: ZeptoMail returns no DNS records this round.
+    mockVerify.mockResolvedValue({
+      domainKey: 'dk1',
+      domain: 'mystore.com',
+      status: 'pending',
+      verified: false,
+      records: [],
+      associatedMailagentKeys: [],
+    });
+    mockScopedRpc.mockReturnValueOnce(
+      builderFor({ data: storedRow, error: null })
+    );
+
+    await verifyMerchantEmailDomain('m1', scopedSupabase);
+
+    // Stored DKIM/CNAME values must survive, not be nulled out.
+    expect(mockScopedRpc).toHaveBeenCalledWith(
+      'save_merchant_email_domain_verification',
+      expect.objectContaining({
+        p_dkim_host: 'stored-dkim-host',
+        p_dkim_value: 'stored-dkim-value',
+        p_bounce_host: 'stored-bounce-host',
+        p_bounce_value: 'stored-bounce-value',
+      })
+    );
+  });
+
   it('verifyMerchantEmailDomain recovers a missing local ZeptoMail domain id', async () => {
     mockScopedFrom.mockReturnValueOnce(
       builderFor({
