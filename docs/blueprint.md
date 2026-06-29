@@ -76,7 +76,7 @@ This section provides quick navigation and critical information for AI assistant
 │   │           ├── page.tsx
 │   │           └── add-product-form.tsx # Product creation form
 │   │
-│   ├── ai/                             # Genkit AI flows
+│   ├── ai/                             # Vercel AI SDK flows
 │   │   ├── provider.ts                 # AI provider configuration and model exports
 │   │   └── flows/
 │   │       ├── _AI_README.md           # AI flows context
@@ -361,12 +361,12 @@ User Navigates to /dashboard/products/add
 
 ```bash
 # Type check
-npm run typecheck
+pnpm turbo typecheck
 
 # Dev server
-npm run dev  # http://localhost:9002
+pnpm turbo dev  # http://localhost:9002
 
-# Genkit Dev UI (test AI flows)
+# Test AI flows
 
 ```
 
@@ -435,9 +435,9 @@ npm run dev  # http://localhost:9002
    ```
 
 3. **Test your changes:**
-   - Use Genkit Dev UI for AI flows
-   - Run `npm run typecheck` for type errors
-   - Test in browser: `npm run dev`
+   - Use Vercel AI SDK patterns for AI flows
+   - Run `pnpm turbo typecheck` for type errors
+   - Test in browser: `pnpm turbo dev`
 
 4. **Ask the user:**
    - If documentation is unclear
