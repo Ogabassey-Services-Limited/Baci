@@ -33,10 +33,15 @@ function toSafeExternalUrl(value: string | null | undefined): string | null {
   return normalizeInsuranceCertificateUrl(value);
 }
 
+// Explicit locale so SSR and client render identically — `undefined` resolves
+// to the runtime's locale (en-US on the server, the visitor's on the client),
+// which causes a React hydration mismatch.
+const POLICY_LOCALE = 'en-NG';
+
 function formatPolicyDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(POLICY_LOCALE, {
     day: 'numeric',
     month: 'numeric',
     timeZone: 'UTC',
@@ -184,7 +189,7 @@ export function InsurancePolicyClient({
                 Coverage Amount
               </div>
               <div className="font-semibold">
-                ₦{policy.coverage.toLocaleString()}
+                ₦{policy.coverage.toLocaleString(POLICY_LOCALE)}
               </div>
             </div>
             <div>
@@ -192,7 +197,7 @@ export function InsurancePolicyClient({
                 Premium Paid
               </div>
               <div className="font-semibold">
-                ₦{policy.premium.toLocaleString()}
+                ₦{policy.premium.toLocaleString(POLICY_LOCALE)}
               </div>
             </div>
           </div>
