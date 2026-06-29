@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { JumiaPriceForm } from './jumia-price-form';
+
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: vi.fn(),
+}));
 
 vi.mock('@/components/themed/themed-input', async () => {
   const { forwardRef } = await import('react');
@@ -73,7 +78,15 @@ function createOverrides(
 }
 
 describe('JumiaPriceForm', () => {
-  it('renders price inputs with Naira symbol', () => {
+  beforeEach(() => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { country: 'NG' },
+    } as Partial<ReturnType<typeof useMerchantSafe>> as ReturnType<
+      typeof useMerchantSafe
+    >);
+  });
+
+  it('renders price inputs with currency symbol', () => {
     render(
       <JumiaPriceForm
         overrides={createOverrides()}
@@ -90,6 +103,29 @@ describe('JumiaPriceForm', () => {
     expect(screen.getAllByText('\u20A6').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('renders price inputs with default USD currency symbol when country is unsupported', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { country: 'ZZ' },
+    } as Partial<ReturnType<typeof useMerchantSafe>> as ReturnType<
+      typeof useMerchantSafe
+    >);
+
+    render(
+      <JumiaPriceForm
+        overrides={createOverrides()}
+        setOverrides={vi.fn()}
+        basePrice={5000}
+      />
+    );
+
+    expect(screen.getByLabelText('Jumia Base Price')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Jumia Sale Price (Optional)')
+    ).toBeInTheDocument();
+    // Dollar symbol is rendered
+    expect(screen.getAllByText('$').length).toBeGreaterThanOrEqual(1);
+  });
+
   it('renders sale date inputs', () => {
     render(
       <JumiaPriceForm
@@ -103,7 +139,7 @@ describe('JumiaPriceForm', () => {
     expect(screen.getByLabelText('Sale End')).toBeInTheDocument();
   });
 
-  it('shows low price warning when jumia price is 80% below base', async () => {
+  it('shows low price warning with merchant currency formatting', async () => {
     const setOverrides = vi.fn();
     render(
       <JumiaPriceForm
@@ -116,6 +152,9 @@ describe('JumiaPriceForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Low Price Warning')).toBeInTheDocument();
     });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('₦3,000.00');
+    expect(screen.getByRole('alert')).toHaveTextContent('₦5,000.00');
   });
 
   it('does not show low price warning when price is within range', () => {
