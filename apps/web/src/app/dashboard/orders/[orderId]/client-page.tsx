@@ -52,6 +52,7 @@ import { StatusBadge } from '../status-badge';
 import ConfirmInsuranceDialog, {
   type ConfirmOrderPayload,
 } from './confirm-insurance-dialog';
+import { summarizeInsuranceConfirmation } from './insurance-confirmation-summary';
 
 // Type definitions
 interface OrderDetailsClientPageProps {
@@ -191,33 +192,9 @@ export default function OrderDetailsClientPage({
     try {
       const result = await confirmOrderRequest(order.id, data);
 
-      // `insurance.success` is the request-level flag and is true even when
-      // every item failed, so trust an actual policy number for the success
-      // copy and surface item-level failures as destructive.
-      const insuranceResults = result.insurance?.results ?? [];
-      const activePolicy = insuranceResults.find((item) => item.policyNumber);
-      const failedItem = insuranceResults.find(
-        (item) => item.success === false
-      );
-      const insuranceFailed =
-        Boolean(result.insuranceError) ||
-        (!activePolicy && Boolean(failedItem));
-      const insuranceFailureMessage =
-        result.insuranceError ||
-        failedItem?.error ||
-        'Insurance could not be activated';
-
-      toast({
-        title: insuranceFailed
-          ? 'Order Confirmed, Insurance Failed'
-          : 'Order Confirmed',
-        variant: insuranceFailed ? 'destructive' : undefined,
-        description: insuranceFailed
-          ? `Order was processed, but insurance failed: ${insuranceFailureMessage}`
-          : activePolicy
-            ? `Policy Active: ${activePolicy.policyNumber}`
-            : 'Order processed successfully.',
-      });
+      // Surface item-level failures (incl. partial: one policy created + other
+      // paid items not insured) instead of masking them with the first policy.
+      toast(summarizeInsuranceConfirmation(result));
 
       // Update local state
       setOrder((prev) => ({

@@ -182,13 +182,15 @@ export async function handlePolicyExpired(
   const policyId = getPolicyId(data);
   if (!policyId) return;
 
-  const { error } = await supabase
+  const { data: expiredPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       status: 'expired',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', policyId);
+    .eq('mycover_policy_id', policyId)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to expire policy:', {
@@ -196,5 +198,15 @@ export async function handlePolicyExpired(
       policyId,
     });
     throw error;
+  }
+
+  // Zero rows matched — the same MyCover account also emits events for policies
+  // we don't store (test account, other channels). Surface it for observability
+  // instead of silently 200-ing.
+  if (!expiredPolicy) {
+    console.warn(
+      '[MyCover Webhook] policy.expired matched no stored policy:',
+      policyId.replace(/[\r\n]/g, '')
+    );
   }
 }

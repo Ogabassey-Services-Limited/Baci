@@ -11,7 +11,7 @@ describe('MyCover policy webhook handlers', () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  it('expires the matching policy by mycover_policy_id', async () => {
+  function makeExpireChain(result: { data: unknown; error: unknown }) {
     const calls: { update?: Record<string, unknown>; eq?: [string, unknown] } =
       {};
     const chain = {
@@ -21,10 +21,22 @@ describe('MyCover policy webhook handlers', () => {
       },
       eq: (column: string, value: unknown) => {
         calls.eq = [column, value];
-        return Promise.resolve({ error: null });
+        return chain;
       },
+      select: () => chain,
+      maybeSingle: () => Promise.resolve(result),
     };
-    const supabase = { from: () => chain } as unknown as SupabaseClient;
+    return {
+      calls,
+      supabase: { from: () => chain } as unknown as SupabaseClient,
+    };
+  }
+
+  it('expires the matching policy by mycover_policy_id', async () => {
+    const { supabase, calls } = makeExpireChain({
+      data: { id: 'pol-row-1' },
+      error: null,
+    });
 
     await handlePolicyExpired(supabase, { policy_id: 'pol-1' });
 
@@ -32,12 +44,26 @@ describe('MyCover policy webhook handlers', () => {
     expect(calls.eq).toEqual(['mycover_policy_id', 'pol-1']);
   });
 
+  it('warns (without throwing) when no stored policy matched', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { supabase } = makeExpireChain({ data: null, error: null });
+
+    await handlePolicyExpired(supabase, { policy_id: 'unknown-pol' });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('matched no stored policy'),
+      'unknown-pol'
+    );
+    warnSpy.mockRestore();
+  });
+
   it('rethrows a Supabase error from the expire update', async () => {
-    const chain = {
-      update: () => chain,
-      eq: () => Promise.resolve({ error: { message: 'db down' } }),
-    };
-    const supabase = { from: () => chain } as unknown as SupabaseClient;
+    const { supabase } = makeExpireChain({
+      data: null,
+      error: { message: 'db down' },
+    });
 
     await expect(
       handlePolicyExpired(supabase, { policy_id: 'pol-1' })

@@ -64,6 +64,12 @@ describe('normalizeInsuranceCertificateUrl', () => {
         'https://s3.eu-west-2.amazonaws.com/staging.mycover/cert.pdf'
       )
     ).toBe('https://s3.eu-west-2.amazonaws.com/staging.mycover/cert.pdf');
+    // MyCover's documented path-style certificate buckets use the `.ai` name.
+    expect(
+      normalizeInsuranceCertificateUrl(
+        'https://s3.eu-west-2.amazonaws.com/staging.mycover.ai/cert.pdf'
+      )
+    ).toBe('https://s3.eu-west-2.amazonaws.com/staging.mycover.ai/cert.pdf');
   });
 
   it('rejects other S3 buckets and foreign hosts', () => {

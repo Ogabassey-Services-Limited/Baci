@@ -1,3 +1,4 @@
+import { normalizeInsuranceFlowUrl } from '@baci/shared/insurance';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   MyCoverPolicyInspectionState,
@@ -5,21 +6,9 @@ import type {
   MyCoverWebhookData,
 } from './webhook-types';
 
-export function normalizeMyCoverHostedLink(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  try {
-    const url = new URL(trimmed);
-    const hostname = url.hostname.toLowerCase();
-    const isMyCoverHost =
-      hostname === 'mycover.ai' || hostname.endsWith('.mycover.ai');
-    return url.protocol === 'https:' && isMyCoverHost ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
+// Single source of truth for the MyCover hosted-flow allowlist (web + mobile +
+// webhooks), so a future subdomain change can't silently diverge here.
+export const normalizeMyCoverHostedLink = normalizeInsuranceFlowUrl;
 
 export function getHostedFlowLinks(data: MyCoverWebhookData): {
   claim_link?: string;

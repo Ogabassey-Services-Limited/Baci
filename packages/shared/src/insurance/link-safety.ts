@@ -11,7 +11,11 @@ const ALLOWED_INSURANCE_PROVIDER_HOST = 'mycover.ai';
 const ALLOWED_MY_COVER_S3_CERTIFICATE_HOST = 's3.eu-west-2.amazonaws.com';
 const ALLOWED_MY_COVER_S3_CERTIFICATE_BUCKETS: ReadonlySet<string> = new Set([
   'mycover',
+  'mycover.ai',
   'staging.mycover',
+  // MyCover's documented path-style certificate URLs use the `.ai` bucket name,
+  // e.g. https://s3.eu-west-2.amazonaws.com/staging.mycover.ai/...
+  'staging.mycover.ai',
 ]);
 
 export function isMyCoverHost(hostname: string): boolean {
