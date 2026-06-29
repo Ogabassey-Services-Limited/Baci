@@ -21,23 +21,18 @@ function planTierOf(row: SendingDomainRow): string | null {
   return rel?.plan_tier ?? null;
 }
 
-function domainOwnershipCandidates(domain: string): string[] {
-  const normalized = domain.toLowerCase();
-  return normalized.startsWith('www.')
-    ? [normalized, normalized.slice(4)]
-    : [normalized, `www.${normalized}`];
-}
-
 async function merchantStillOwnsActiveStorefrontDomain(
   supabase: ReturnType<typeof createAdminClient>,
   merchantId: string,
   domain: string
 ): Promise<boolean> {
+  // Re-check ownership of the EXACT sender domain (not a www↔apex counterpart),
+  // matching the exact-match proof required at registration.
   const { data, error } = await supabase
     .from('domains')
     .select('id')
     .eq('merchant_id', merchantId)
-    .in('domain', domainOwnershipCandidates(domain))
+    .eq('domain', domain.toLowerCase())
     .eq('status', 'active')
     .limit(1);
 

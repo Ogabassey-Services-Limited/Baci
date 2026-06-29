@@ -127,13 +127,6 @@ function isUniqueDomainReservationError(error: unknown): boolean {
   );
 }
 
-function domainOwnershipCandidates(domain: string): string[] {
-  const normalized = domain.toLowerCase();
-  return normalized.startsWith('www.')
-    ? [normalized, normalized.slice(4)]
-    : [normalized, `www.${normalized}`];
-}
-
 function isVercelDomainVerified(
   verification: Awaited<ReturnType<typeof vercel.verifyDomain>>
 ) {
@@ -148,11 +141,16 @@ async function assertMerchantOwnsVerifiedStorefrontDomain(
   merchantId: string,
   domain: string
 ) {
+  // Require an active+verified row for the EXACT sender domain. Do NOT accept a
+  // www↔apex counterpart: verifying www.example.com does not prove control of
+  // example.com (e.g. a delegated subdomain), and registration sends ZeptoMail
+  // the submitted domain — so accepting the counterpart would let a merchant
+  // reserve a sender domain they haven't actually verified.
   const { data, error } = await supabase
     .from('domains')
     .select('id, domain')
     .eq('merchant_id', merchantId)
-    .in('domain', domainOwnershipCandidates(domain))
+    .eq('domain', domain.toLowerCase())
     .eq('status', 'active')
     .in('domain_type', ['custom', 'purchased']);
   if (error) {

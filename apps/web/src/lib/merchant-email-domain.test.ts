@@ -347,10 +347,8 @@ describe('merchant-email-domain service', () => {
 
     await setMerchantEmailDomainEnabled('m1', true, scopedSupabase);
 
-    expect(ownershipBuilder.in).toHaveBeenCalledWith('domain', [
-      'ogabassey.com',
-      'www.ogabassey.com',
-    ]);
+    // Ownership requires the EXACT submitted domain (no www↔apex counterpart).
+    expect(ownershipBuilder.eq).toHaveBeenCalledWith('domain', 'ogabassey.com');
     expect(ownershipBuilder.eq).toHaveBeenCalledWith('status', 'active');
     expect(ownershipBuilder.in).toHaveBeenCalledWith('domain_type', [
       'custom',

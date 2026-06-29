@@ -80,13 +80,14 @@ describe('getActiveMerchantSendingDomain', () => {
       ['status', 'verified'],
       ['enabled', true],
     ]);
+    // Ownership re-check scopes to the EXACT sender domain (no www↔apex
+    // counterpart), matching the registration-time proof.
     expect(activeDomainQuery.eqCalls).toEqual([
       ['merchant_id', 'merchant-1'],
+      ['domain', 'ogabassey.com'],
       ['status', 'active'],
     ]);
-    expect(activeDomainQuery.inCalls).toEqual([
-      ['domain', ['ogabassey.com', 'www.ogabassey.com']],
-    ]);
+    expect(activeDomainQuery.inCalls).toEqual([]);
   });
 
   it('handles the joined merchant returned as an array', async () => {
