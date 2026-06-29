@@ -5,6 +5,7 @@ import {
   buildBaselineFromMerchant,
   buildInitialFormValues,
   buildMerchantUpdatePayload,
+  hasNonEmptyTrimmedValue,
   type StoreSettingsFormValues,
 } from './store-settings-payload';
 
@@ -39,6 +40,13 @@ function makeMerchant(overrides: Partial<Merchant> = {}): Merchant {
 }
 
 describe('store settings payload helpers', () => {
+  it('detects non-empty trimmed values consistently', () => {
+    expect(hasNonEmptyTrimmedValue(' baci-foods ')).toBe(true);
+    expect(hasNonEmptyTrimmedValue('   ')).toBe(false);
+    expect(hasNonEmptyTrimmedValue(null)).toBe(false);
+    expect(hasNonEmptyTrimmedValue(undefined)).toBe(false);
+  });
+
   it('returns only the changed column when a single field is edited', () => {
     expect(
       buildMerchantUpdatePayload(baselineForm, {

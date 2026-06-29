@@ -11,6 +11,7 @@ import {
   buildBaselineFromMerchant,
   buildInitialFormValues,
   buildMerchantUpdatePayload,
+  hasNonEmptyTrimmedValue,
   type StoreSettingsFormValues,
 } from '@/components/store-settings/store-settings-payload';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
@@ -80,7 +81,7 @@ export default function StoreSettingsScreen() {
     setCountry(initialForm.country);
     setCurrency(initialForm.currency);
     setSlug(initialForm.slug);
-    if (merchant.slug) setIsSlugEdited(true);
+    setIsSlugEdited(hasNonEmptyTrimmedValue(merchant.slug));
 
     // The baseline diffs against the merchant's REAL persisted columns (null →
     // empty string), never the UI fallback. Otherwise a merchant whose country
@@ -88,6 +89,10 @@ export default function StoreSettingsScreen() {
     // would produce an empty diff and never write the column.
     setBaseline(buildBaselineFromMerchant(merchant));
   }
+
+  const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(
+    baseline?.slug ?? merchant?.slug
+  );
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
     setCountry(selected.code);
@@ -97,7 +102,7 @@ export default function StoreSettingsScreen() {
 
   const handleBusinessNameChange = (text: string) => {
     setBusinessName(text);
-    if (!isSlugEdited && !merchant?.slug) {
+    if (!(isSlugEdited || hasEstablishedMerchantSlug)) {
       const generated = text
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -107,7 +112,7 @@ export default function StoreSettingsScreen() {
   };
 
   const handleSlugChange = (text: string) => {
-    if (baseline?.slug.trim()) return;
+    if (hasEstablishedMerchantSlug) return;
 
     setIsSlugEdited(true);
     const sanitized = text.toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -209,7 +214,6 @@ export default function StoreSettingsScreen() {
   const planLabel = SubscriptionManagement.getPlanLabel(isPro) || 'Free Plan';
   const manageSubscriptionLabel =
     SubscriptionManagement.getManagementLabel() || 'Manage Subscription';
-  const slugLocked = Boolean(baseline?.slug.trim());
 
   return (
     <>
@@ -269,7 +273,7 @@ export default function StoreSettingsScreen() {
           onSupportPhoneChange={setSupportPhone}
           phone={phone}
           shadowStyle={shadows.sm}
-          slugLocked={slugLocked}
+          slugLocked={hasEstablishedMerchantSlug}
           slug={slug}
           supportPhone={supportPhone}
         />
