@@ -5,6 +5,12 @@ import {
   type ReceiptMerchant,
   type ReceiptOrder,
 } from '@baci/shared';
+import {
+  appendAssuranceTaxSubtotal,
+  buildAssuranceInvoiceLineItem,
+  buildAssuranceReceiptItem,
+  sumAssuranceFees,
+} from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
   InvoiceLineItem,
@@ -287,6 +293,19 @@ export function buildStorefrontAccountDocumentBundle({
   }
   if (taxRows.length === 0) {
     alignSingleZeroTaxSubtotalWithDocumentTotal(taxSubtotals, preTaxTotal);
+  }
+
+  // Ogabassey Assurance is rolled into order.subtotal but VAT-free and was never
+  // itemized — surface it as a single zero-rated line so the document reconciles.
+  const assuranceTotal = sumAssuranceFees(itemRows);
+  if (assuranceTotal > 0) {
+    invoiceItems.push(
+      buildAssuranceInvoiceLineItem(invoiceItems.length + 1, assuranceTotal)
+    );
+    receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
+    appendAssuranceTaxSubtotal(taxSubtotals, assuranceTotal, {
+      vatRegistered: sellerIsVatRegistered,
+    });
   }
 
   const orderDetail: StorefrontOrder = {

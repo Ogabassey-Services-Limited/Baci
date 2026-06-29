@@ -86,6 +86,7 @@ export interface StorefrontAccountDocumentItemRow {
   name: string;
   quantity: number | null;
   price: MoneyValue;
+  assurance_fee?: MoneyValue;
   line_extension_amount?: MoneyValue;
   unit_code?: string | null;
   vat_category_code?: string | null;

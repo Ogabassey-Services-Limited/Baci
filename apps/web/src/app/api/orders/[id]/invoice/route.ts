@@ -9,6 +9,11 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
+import {
+  appendAssuranceTaxSubtotal,
+  buildAssuranceInvoiceLineItem,
+  sumAssuranceFees,
+} from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
   InvoiceLineItem,
@@ -221,7 +226,7 @@ export async function GET(
     const { data: orderItems, error: itemsError } = await supabase
       .from('order_items')
       .select(
-        'id, line_id, name, item_description, quantity, price, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
+        'id, line_id, name, item_description, quantity, price, assurance_fee, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
       )
       .eq('order_id', orderId)
       .order('line_id', { ascending: true });
@@ -424,6 +429,19 @@ export async function GET(
         ),
         tax_amount: 0,
         exemption_reason: 'Outside scope of VAT',
+      });
+    }
+
+    // Ogabassey Assurance is rolled into order.subtotal but VAT-free and not
+    // itemized — surface it as a single zero-rated line so the invoice
+    // reconciles with the stored total.
+    const assuranceTotal = sumAssuranceFees(orderItems ?? []);
+    if (assuranceTotal > 0) {
+      items.push(
+        buildAssuranceInvoiceLineItem(items.length + 1, assuranceTotal)
+      );
+      appendAssuranceTaxSubtotal(invoiceTaxSubtotals, assuranceTotal, {
+        vatRegistered: merchant.vat_registration_status === 'registered',
       });
     }
 
