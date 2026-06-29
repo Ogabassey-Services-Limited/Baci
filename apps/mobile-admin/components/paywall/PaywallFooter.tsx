@@ -88,7 +88,7 @@ export default function PaywallFooter({
           { color: colors.textMuted },
         ]}
       >
-        {selectedPackage && (
+        {selectedPackage && !isPro && (
           <>
             Subscription auto-renews{' '}
             {selectedPackage.packageType === 'ANNUAL' ? 'yearly' : 'monthly'} at{' '}

@@ -145,10 +145,12 @@ describe('PaywallFooter', () => {
         onManageSubscription={onManageSubscription}
         onPurchase={onPurchase}
         onRestore={() => undefined}
-        selectedPackage={null}
+        selectedPackage={selectedPackage}
         stickyFooterPaddingBottom={24}
       />
     );
+
+    expect(screen.queryByText(/Subscription auto-renews/i)).toBeNull();
 
     fireEvent.click(
       screen.getByRole('button', { name: /manage your subscription/i })
