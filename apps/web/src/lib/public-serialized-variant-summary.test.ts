@@ -33,6 +33,9 @@ describe('getEffectiveInventoryTrackingPolicy', () => {
   it('defaults to off if neither product nor variant policy is serialized', () => {
     expect(getEffectiveInventoryTrackingPolicy('off', 'inherit')).toBe('off');
     expect(getEffectiveInventoryTrackingPolicy('off', null)).toBe('off');
+    expect(getEffectiveInventoryTrackingPolicy('unexpected-policy')).toBe(
+      'off'
+    );
   });
 });
 

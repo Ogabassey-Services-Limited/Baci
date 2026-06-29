@@ -1,13 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+type InventoryTrackingPolicy =
+  | 'off'
+  | 'serialized_strict'
+  | 'serialized_then_unlimited';
+
 export interface PublicSerializedVariantSummary {
   productId: string;
   variantId: string | null;
   publicAvailableUnits: number;
-  inventoryTrackingPolicy:
-    | 'off'
-    | 'serialized_strict'
-    | 'serialized_then_unlimited';
+  inventoryTrackingPolicy: InventoryTrackingPolicy;
 }
 
 interface ProductInventoryPolicyRow {
@@ -31,8 +33,11 @@ interface PublicSerializedAvailabilityCountRow {
 }
 
 function isSerializedInventoryPolicy(
-  policy: PublicSerializedVariantSummary['inventoryTrackingPolicy']
-): policy is 'serialized_strict' | 'serialized_then_unlimited' {
+  policy: string | null | undefined
+): policy is Extract<
+  InventoryTrackingPolicy,
+  'serialized_strict' | 'serialized_then_unlimited'
+> {
   return (
     policy === 'serialized_strict' || policy === 'serialized_then_unlimited'
   );
@@ -44,7 +49,7 @@ function isSerializedInventoryPolicy(
 export function getEffectiveInventoryTrackingPolicy(
   productPolicy: string,
   variantPolicy?: string | null
-): 'off' | 'serialized_strict' | 'serialized_then_unlimited' {
+): InventoryTrackingPolicy {
   if (
     variantPolicy === 'off' ||
     variantPolicy === 'serialized_strict' ||
