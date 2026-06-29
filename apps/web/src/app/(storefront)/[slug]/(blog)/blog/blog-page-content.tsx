@@ -37,6 +37,10 @@ export interface BlogPageProps {
   isCleanCategoryRoute?: boolean;
   itemListSchemaUrl?: string;
   params: Promise<{ slug: string }>;
+  preloadedListing?: NonNullable<
+    Awaited<ReturnType<typeof getCachedBlogListing>>
+  >;
+  routeDecisionsResolved?: boolean;
   searchParams: Promise<{
     [key: string]: BlogSearchParamValue;
     category?: BlogSearchParamValue;
@@ -103,6 +107,8 @@ export async function BlogPageContent({
   isCleanCategoryRoute = false,
   itemListSchemaUrl,
   params,
+  preloadedListing,
+  routeDecisionsResolved = false,
   searchParams,
 }: BlogPageProps) {
   const { slug } = await params;
@@ -112,11 +118,13 @@ export async function BlogPageContent({
   const page = toSingleBlogSearchParam(searchParamValues.page);
   const search = toSingleBlogSearchParam(searchParamValues.search);
   const currentPage = parseBlogListingPage(page);
-  const data = await getCachedBlogListing(slug, {
-    category,
-    page: currentPage,
-    searchQuery: search,
-  });
+  const data =
+    preloadedListing ??
+    (await getCachedBlogListing(slug, {
+      category,
+      page: currentPage,
+      searchQuery: search,
+    }));
   if (!data) {
     notFound();
   }
@@ -137,7 +145,13 @@ export async function BlogPageContent({
   const templateBasePath = baseUrl;
   const authorLinks = getBlogAuthorPageLinks(slug);
 
-  if (!isCleanCategoryRoute && category && !search && currentPage === 1) {
+  if (
+    !routeDecisionsResolved &&
+    !isCleanCategoryRoute &&
+    category &&
+    !search &&
+    currentPage === 1
+  ) {
     const categoryLabel = findPublicCategoryLabel(publicCategories, category);
     if (categoryLabel) {
       const categoryHref = buildBlogCategoryHref(
@@ -158,7 +172,7 @@ export async function BlogPageContent({
     }
   }
 
-  if (currentPage > totalPages) {
+  if (!routeDecisionsResolved && currentPage > totalPages) {
     redirect(
       asRoute(
         buildBlogListingRouteHref({

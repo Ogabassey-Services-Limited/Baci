@@ -197,25 +197,90 @@ describe('blog author page metadata', () => {
     expect(
       screen.getByRole('status', { name: 'Loading blog posts' })
     ).toBeInTheDocument();
+  });
+
+  it('permanently redirects legacy author-prefixed post URLs before streaming the shell', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
+    mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({
+      type: 'redirect',
+      status: 308,
+      url: 'https://ogabassey.com/blog/legacy-post',
+    });
+
+    await expect(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'legacy-post',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/legacy-post'
+    );
+
+    expect(mockResolveBlogCatchAllOutcome).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog/legacy-post'
+    );
+    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
     expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
   });
 
-  it('does not resolve author params before rendering the Suspense shell', async () => {
-    const params = new Promise<{ slug: string; authorSlug: string }>(() => {
-      // Intentionally unresolved; author validation and legacy redirects must
-      // happen inside BlogAuthorPageContent, not in the static page shell.
-    });
-    const thenSpy = vi.spyOn(params, 'then');
+  it('returns notFound for unknown author routes when the legacy fallback misses before streaming the shell', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValueOnce(null);
+    mockResolveBlogCatchAllOutcome.mockResolvedValueOnce({ type: 'notFound' });
 
-    BlogAuthorPage({
-      params,
-      searchParams: Promise.resolve({}),
-    });
-    await Promise.resolve();
+    await expect(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'nobody',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockResolveBlogCatchAllOutcome).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
     expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
-    expect(mockResolveBlogCatchAllOutcome).not.toHaveBeenCalled();
+    expect(mockGetCachedBlogAuthor).not.toHaveBeenCalled();
+  });
+
+  it('redirects stale paginated author URLs before streaming the shell', async () => {
+    mockGetCachedBlogAuthor.mockResolvedValueOnce({
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      },
+      author: {
+        name: 'Bassey John',
+        title: 'Performance Marketing Specialist',
+        bio: 'Bassey John writes practical device buying guides.',
+        imageUrl: 'https://cdn.ogabassey.com/authors/bassey-john.jpg',
+      },
+      posts: [],
+      totalPosts: 0,
+      currentPage: 5,
+      totalPages: 2,
+    });
+
+    await expect(
+      BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({ page: '5' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:./bassey-john?page=2');
+
+    expect(mockRedirect).toHaveBeenCalledWith('./bassey-john?page=2');
+    expect(mockBlogAuthorPageContent).not.toHaveBeenCalled();
   });
 
   it('builds a page-scoped canonical for paginated author routes', async () => {

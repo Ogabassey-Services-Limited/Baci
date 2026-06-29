@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getBlogAuthorBySlug, getBlogAuthorSlugs } from '@/lib/blog-authors';
 import { getCachedBlogAuthor } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -94,16 +97,67 @@ export async function generateMetadata({
   };
 }
 
-export default function BlogAuthorPage({
+function buildAuthorPageHref(authorSlug: string, page: number): string {
+  return page > 1 ? `./${authorSlug}?page=${page}` : `./${authorSlug}`;
+}
+
+async function resolveAuthorRouteBeforeShell({
   params,
   searchParams,
 }: AuthorPageProps) {
-  // Keep the route shell invariant under Cache Components: author validation,
-  // legacy redirect fallback, searchParams, and cached author data all resolve
-  // inside the Suspense subtree instead of the page shell.
+  const { slug, authorSlug } = await params;
+  const requestedPage = parseBlogListingPage((await searchParams)?.page);
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
+
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
+  if (!profile) {
+    const fallbackOutcome = await resolveBlogCatchAllOutcome({
+      params: Promise.resolve({
+        slug,
+        catchAll: ['author', normalizedAuthorSlug],
+      }),
+    });
+
+    if (fallbackOutcome.type === 'redirect') {
+      if (fallbackOutcome.status === 308) {
+        permanentRedirect(asRoute(fallbackOutcome.url));
+      }
+      redirect(asRoute(fallbackOutcome.url));
+    }
+
+    notFound();
+  }
+
+  const data = await getCachedBlogAuthor(slug, profile.name, {
+    page: requestedPage,
+  });
+  if (!data) {
+    notFound();
+  }
+
+  if (data.currentPage > data.totalPages) {
+    redirect(
+      asRoute(buildAuthorPageHref(normalizedAuthorSlug, data.totalPages))
+    );
+  }
+
+  return {
+    data,
+    normalizedAuthorSlug,
+    sameAs: profile.sameAs,
+  };
+}
+
+export default async function BlogAuthorPage(props: AuthorPageProps) {
+  const route = await resolveAuthorRouteBeforeShell(props);
+
   return (
     <Suspense fallback={<BlogListingFallback />}>
-      <BlogAuthorPageContent params={params} searchParams={searchParams} />
+      <BlogAuthorPageContent
+        data={route.data}
+        normalizedAuthorSlug={route.normalizedAuthorSlug}
+        sameAs={route.sameAs}
+      />
     </Suspense>
   );
 }

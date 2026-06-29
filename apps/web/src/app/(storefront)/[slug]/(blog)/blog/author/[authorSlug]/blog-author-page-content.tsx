@@ -1,23 +1,24 @@
 import { ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { resolveBlogCatchAllOutcome } from '@/app/(storefront)/[slug]/(blog)/blog/[...catchAll]/blog-catch-all-resolution';
 import { JsonLd } from '@/components/seo/json-ld';
-import { getBlogAuthorBySlug } from '@/lib/blog-authors';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { buildBlogOrganizationId } from '@/lib/blog-organization-id';
-import { getCachedBlogAuthor } from '@/lib/cached-data';
+import type { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogAuthorPagination } from './blog-author-pagination';
 
-interface BlogAuthorPageContentProps {
-  params: Promise<{ slug: string; authorSlug: string }>;
-  searchParams?: Promise<{ page?: string }>;
+type ResolvedBlogAuthorData = NonNullable<
+  Awaited<ReturnType<typeof getCachedBlogAuthor>>
+>;
+
+export interface BlogAuthorPageContentProps {
+  data: ResolvedBlogAuthorData;
+  normalizedAuthorSlug: string;
+  sameAs: string[];
 }
 
 function labelForProfileUrl(url: string): string {
@@ -33,40 +34,11 @@ function labelForProfileUrl(url: string): string {
   }
 }
 
-export async function BlogAuthorPageContent({
-  params,
-  searchParams,
+export function BlogAuthorPageContent({
+  data,
+  normalizedAuthorSlug,
+  sameAs,
 }: BlogAuthorPageContentProps) {
-  const { slug, authorSlug } = await params;
-  const requestedPage = parseBlogListingPage((await searchParams)?.page);
-  const normalizedAuthorSlug = authorSlug.toLowerCase();
-
-  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
-  if (!profile) {
-    const fallbackOutcome = await resolveBlogCatchAllOutcome({
-      params: Promise.resolve({
-        slug,
-        catchAll: ['author', normalizedAuthorSlug],
-      }),
-    });
-
-    if (fallbackOutcome.type === 'redirect') {
-      if (fallbackOutcome.status === 308) {
-        permanentRedirect(asRoute(fallbackOutcome.url));
-      }
-      redirect(asRoute(fallbackOutcome.url));
-    }
-
-    notFound();
-  }
-
-  const data = await getCachedBlogAuthor(slug, profile.name, {
-    page: requestedPage,
-  });
-  if (!data) {
-    notFound();
-  }
-
   const { merchant, author, posts, totalPosts, totalPages, currentPage } = data;
   const baseUrl = buildStoreUrl(merchant);
   // Keep interactive navigation relative to the current storefront origin.
@@ -81,16 +53,10 @@ export async function BlogAuthorPageContent({
   const buildAuthorPageUrl = (page: number): string =>
     page > 1 ? `${authorPageUrl}?page=${page}` : authorPageUrl;
 
-  // Stale paginated URL (e.g. /blog/author/x?page=999) -> last valid page.
-  if (currentPage > totalPages) {
-    redirect(asRoute(buildAuthorPageHref(totalPages)));
-  }
-
   const personId = `${baseUrl}#author-${normalizedAuthorSlug}`;
   const personImageUrl = author.imageUrl
     ? sanitizeSchemaUrl(author.imageUrl)
     : '';
-  const { sameAs } = profile;
 
   const previousPageUrl =
     currentPage > 1 ? buildAuthorPageUrl(currentPage - 1) : undefined;

@@ -4,6 +4,9 @@ import {
   buildListingResult,
   merchant,
   mockGetCachedBlogListing,
+  mockNotFound,
+  mockPermanentRedirect,
+  mockRedirect,
   postsPayload,
   resetBlogPageContentMocks,
 } from './blog-page-content.test-utils';
@@ -49,20 +52,80 @@ describe('blog page shell', () => {
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
   });
 
-  it('does not subscribe to listing search params before rendering the Suspense shell', async () => {
-    const searchParams = new Promise<Record<string, never>>(() => {
-      // Intentionally unresolved; the route shell must pass it through without
-      // attaching a then handler outside the Suspense boundary.
-    });
-    const thenSpy = vi.spyOn(searchParams, 'then');
+  it('resolves root listing route decisions before rendering the Suspense shell', async () => {
+    render(
+      await BlogPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    );
 
-    await BlogPage({
-      params: Promise.resolve({ slug: 'ogabassey.com' }),
-      searchParams,
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('ogabassey.com', {
+      category: undefined,
+      page: 1,
+      searchQuery: undefined,
     });
-    await Promise.resolve();
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preloadedListing: expect.objectContaining({
+          merchant: expect.objectContaining({ business_name: 'Ogabassey' }),
+        }),
+        routeDecisionsResolved: true,
+      })
+    );
+    expect(screen.getByText('Blog page content')).toBeInTheDocument();
+  });
 
-    expect(thenSpy).not.toHaveBeenCalled();
+  it('permanently redirects category query URLs to clean category routes before streaming the shell', async () => {
+    await expect(
+      BlogPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({
+          category: 'News',
+          utm_source: 'newsletter',
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://test-store.usebaci.com/blog/category/news?utm_source=newsletter'
+    );
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://test-store.usebaci.com/blog/category/news?utm_source=newsletter'
+    );
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('redirects stale paginated root listings before streaming the shell', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({ totalPosts: 13 })
+    );
+
+    await expect(
+      BlogPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({ page: '3' }),
+      })
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:https://test-store.usebaci.com/blog?page=2'
+    );
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      'https://test-store.usebaci.com/blog?page=2'
+    );
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('returns notFound before streaming when the root blog listing is unavailable', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(null);
+
+    await expect(
+      BlogPage({
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalled();
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 

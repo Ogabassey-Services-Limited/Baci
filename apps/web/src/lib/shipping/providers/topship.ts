@@ -171,7 +171,6 @@ function getTopshipQuoteDiagnostics(
     weightBucket: getTopshipQuoteWeightBucket(totalWeight),
     itemCategories: getTopshipQuoteItemCategories(request),
     responseStatus: responseRecord?.status,
-    responseMessage: responseRecord?.message,
   };
 }
 

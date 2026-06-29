@@ -237,7 +237,6 @@ describe('TopshipProvider', () => {
         receiverCity: 'abuja',
         receiverCountryCode: 'NG',
         receiverState: 'fct',
-        responseMessage: 'no rate',
         responseStatus: true,
         senderCity: 'lagos',
         senderCountryCode: 'NG',
@@ -246,5 +245,9 @@ describe('TopshipProvider', () => {
     );
     expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('Private Street');
     expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('08012345678');
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain(
+      'Private Crescent'
+    );
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('08087654321');
   });
 });
