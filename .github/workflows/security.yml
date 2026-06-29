@@ -107,7 +107,20 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git fetch --no-tags --prune origin "${{ github.event.pull_request.base.ref }}"
+          fetch_askpass="$(mktemp)"
+          trap 'rm -f "$fetch_askpass"' EXIT
+          cat > "$fetch_askpass" <<'EOF'
+          #!/usr/bin/env sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$GITHUB_TOKEN" ;;
+            *) printf '\n' ;;
+          esac
+          EOF
+          chmod 700 "$fetch_askpass"
+          GIT_ASKPASS="$fetch_askpass" GIT_TERMINAL_PROMPT=0 \
+            git -c credential.helper= fetch --no-tags --prune origin \
+            "${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
           mapfile -t changed_files < <(
             git diff --name-only --diff-filter=d "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- \
               '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.sql' '*.yml' '*.yaml' |
@@ -122,6 +135,7 @@ jobs:
 
           semgrep scan --config auto --sarif --output=semgrep.sarif "${changed_files[@]}"
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
         continue-on-error: true
 
