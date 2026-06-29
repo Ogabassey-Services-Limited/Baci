@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUserTiming } from './use-user-timing';
 
 // Mock useId to return a predictable component ID
@@ -13,16 +13,22 @@ vi.mock('react', async (importOriginal) => {
 });
 
 describe('useUserTiming', () => {
-  const originalPerformance = global.performance;
-
   beforeEach(() => {
-    // Reset global performance mocks before each test
-    global.performance = {
-      ...originalPerformance,
-      mark: vi.fn(),
-      measure: vi.fn(),
-      clearMarks: vi.fn(),
-    } as unknown as Performance;
+    // Safely spy on existing global.performance methods
+    vi.spyOn(global.performance, 'mark').mockImplementation((() => {
+      // noop
+    }) as any);
+    vi.spyOn(global.performance, 'measure').mockImplementation((() => {
+      // noop
+    }) as any);
+    vi.spyOn(global.performance, 'clearMarks').mockImplementation(() => {
+      // noop
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('marks performance on mount and measures/clears on unmount', () => {
@@ -96,14 +102,10 @@ describe('useUserTiming', () => {
   });
 
   it('bails out gracefully if performance API is undefined', () => {
-    // @ts-expect-error - simulating environment without performance API
-    delete global.performance;
+    vi.stubGlobal('performance', undefined);
 
     const { unmount } = renderHook(() => useUserTiming('no-perf-test'));
 
     expect(() => unmount()).not.toThrow();
-
-    // Restore performance for subsequent tests
-    global.performance = originalPerformance;
   });
 });
