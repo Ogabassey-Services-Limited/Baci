@@ -3,7 +3,9 @@ import { generateRecoveryCodes, hashRecoveryCode } from './recovery-codes';
 /**
  * Issuing (generating) a merchant's recovery-code set. Pure orchestration so it
  * can be unit-tested against a fake store; the Supabase-backed `createCodeSet`
- * (revoke prior set + insert the new one) is wired separately.
+ * persists a PENDING set only — the previous set stays active and is revoked
+ * later, in `acknowledge_recovery_code_set()`, once the merchant confirms they
+ * saved the new codes.
  */
 export interface RecoveryCodeIssuerStore {
   /** Persist a pending new code set and return its id. */

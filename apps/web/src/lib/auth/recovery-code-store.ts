@@ -44,7 +44,12 @@ export function createRecoveryCodeStore(): RecoveryCodeStore &
       if (error) {
         throw new Error(`Failed to create recovery code set: ${error.message}`);
       }
-      return data as string;
+      // Fail closed: a null/non-string RPC response must not be reported as a
+      // successful generation (the action only treats throws as failure).
+      if (typeof data !== 'string' || data.length === 0) {
+        throw new Error('Failed to create recovery code set: invalid response');
+      }
+      return data;
     },
 
     async acknowledgeCodeSet(

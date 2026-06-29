@@ -115,4 +115,47 @@ describe('RecoveryCodesCard', () => {
       );
     });
   });
+
+  it('copies the codes and confirms via toast', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    render(<RecoveryCodesCard initialCount={0} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /generate recovery codes/i })
+    );
+    await screen.findByText('AAAA-AAAA');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('AAAA-AAAA\nBBBB-BBBB');
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Copied to clipboard' })
+      );
+    });
+  });
+
+  it('shows a destructive toast when copying to the clipboard fails', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+    render(<RecoveryCodesCard initialCount={0} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /generate recovery codes/i })
+    );
+    await screen.findByText('AAAA-AAAA');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    // One-time codes must never report a false "Copied" success.
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: 'destructive' })
+      );
+    });
+  });
 });

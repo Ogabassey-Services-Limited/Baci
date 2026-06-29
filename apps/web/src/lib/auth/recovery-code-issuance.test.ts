@@ -30,6 +30,17 @@ describe('issueRecoveryCodes', () => {
     expect(result.codeSetId).toBe('code-set-1');
   });
 
+  it('propagates a store failure from createCodeSet', async () => {
+    const createCodeSet = vi
+      .fn<RecoveryCodeIssuerStore['createCodeSet']>()
+      .mockRejectedValueOnce(new Error('store unavailable'));
+    const store: RecoveryCodeIssuerStore = { createCodeSet };
+
+    await expect(
+      issueRecoveryCodes({ userId: USER, pepper: PEPPER, store })
+    ).rejects.toThrow('store unavailable');
+  });
+
   it('persists hashes only — never plaintext codes', async () => {
     const { store, createCodeSet } = makeStore();
     const result = await issueRecoveryCodes({

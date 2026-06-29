@@ -64,12 +64,24 @@ export function RecoveryCodesCard({ initialCount }: { initialCount: number }) {
     });
   };
 
-  const copyCodes = () => {
+  const copyCodes = async () => {
     if (!codes) {
       return;
     }
-    void navigator.clipboard?.writeText(codes.join('\n'));
-    toast({ title: 'Copied to clipboard' });
+    try {
+      if (!navigator.clipboard) {
+        throw new Error('Clipboard unavailable');
+      }
+      await navigator.clipboard.writeText(codes.join('\n'));
+      toast({ title: 'Copied to clipboard' });
+    } catch {
+      // Never claim success for one-time codes that weren't actually copied.
+      toast({
+        variant: 'destructive',
+        title: "Couldn't copy codes",
+        description: 'Copy them manually or use Download before continuing.',
+      });
+    }
   };
 
   const downloadCodes = () => {
@@ -112,7 +124,11 @@ export function RecoveryCodesCard({ initialCount }: { initialCount: number }) {
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={copyCodes}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void copyCodes()}
+              >
                 Copy
               </Button>
               <Button type="button" variant="outline" onClick={downloadCodes}>

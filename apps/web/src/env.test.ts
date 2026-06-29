@@ -1101,4 +1101,22 @@ describe('recovery-code env', () => {
 
     expect(getRecoveryCodePepper()).toBe('x'.repeat(32));
   });
+
+  it('throws when the runtime pepper is shorter than 32 characters', async () => {
+    vi.stubEnv('RECOVERY_CODE_PEPPER', 'x'.repeat(40));
+    const { getRecoveryCodePepper } = await loadEnvModule();
+
+    // Defensive runtime guard: a too-short value reaching the getter must fail.
+    vi.stubEnv('RECOVERY_CODE_PEPPER', 'too-short');
+    expect(() => getRecoveryCodePepper()).toThrow(/at least 32 characters/i);
+  });
+
+  it('refuses to read the pepper on the client runtime', async () => {
+    vi.stubEnv('RECOVERY_CODE_PEPPER', 'x'.repeat(40));
+    const { getRecoveryCodePepper } = await loadEnvModule();
+
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubGlobal('window', {} as unknown as Window & typeof globalThis);
+    expect(() => getRecoveryCodePepper()).toThrow(/client/i);
+  });
 });
