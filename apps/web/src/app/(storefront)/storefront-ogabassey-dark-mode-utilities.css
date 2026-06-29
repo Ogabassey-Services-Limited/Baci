@@ -13,6 +13,8 @@
         .bg-red-100,
         .bg-green-50,
         .bg-green-100,
+        .bg-emerald-50,
+        .bg-emerald-100,
         .bg-amber-50,
         .bg-amber-100,
         .bg-yellow-50,
@@ -36,6 +38,7 @@
         .bg-white\/90,
         .bg-white\/80,
         .bg-white\/95,
+        .bg-white\/50,
         .bg-gray-50\/95,
         .bg-gray-50\/50,
         .bg-blue-100\/50,
@@ -80,7 +83,11 @@
       .ogabassey-storefront-shell
       :is(
         .text-store-primary,
+        .text-store-primary\/60,
+        .text-store-primary\/80,
+        .text-store-primary\/90,
         .hover\:text-store-primary:hover,
+        .hover\:text-store-primary\/80:hover,
         .focus\:text-store-primary:focus,
         .group:hover .group-hover\:text-store-primary,
         .text-primary,
@@ -108,6 +115,8 @@
         .border-red-200,
         .border-green-100,
         .border-green-200,
+        .border-emerald-100,
+        .border-emerald-200,
         .border-amber-100,
         .border-amber-200,
         .border-yellow-100,
@@ -195,13 +204,30 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
-      :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) {
+      :is(
+        .text-red-500,
+        .text-red-600,
+        .text-red-700,
+        .text-red-800,
+        .text-red-900
+      ) {
       color: var(--storefront-dark-error);
     }
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
-      :is(.text-green-500, .text-green-600, .text-green-700, .text-green-800) {
+      :is(
+        .text-green-500,
+        .text-green-600,
+        .text-green-700,
+        .text-green-800,
+        .text-green-900,
+        .text-emerald-500,
+        .text-emerald-600,
+        .text-emerald-700,
+        .text-emerald-800,
+        .text-emerald-900
+      ) {
       color: var(--storefront-dark-success);
     }
 

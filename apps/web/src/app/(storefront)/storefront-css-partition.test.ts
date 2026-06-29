@@ -192,12 +192,9 @@ describe('storefront CSS partitioning', () => {
     expect(normalizedDarkModeCss).toContain(
       '.storefront-variant-ogabassey.storefront-mode-system .ogabassey-storefront-shell .ogabassey-checkout-page'
     );
-    expect(normalizedDarkModeCss).toContain(
-      ':is(.text-green-500, .text-green-600, .text-green-700, .text-green-800)'
-    );
-    expect(normalizedDarkModeCss).toContain(
-      ':is(.text-red-500, .text-red-600, .text-red-700, .text-red-800)'
-    );
+    expect(normalizedDarkModeCss).toContain('.text-green-900');
+    expect(normalizedDarkModeCss).toContain('.text-emerald-900');
+    expect(normalizedDarkModeCss).toContain('.text-red-900');
     expect(darkModeCss).toContain(
       'background-color: var(--storefront-dark-card);'
     );
@@ -246,6 +243,9 @@ describe('storefront CSS partitioning', () => {
     );
     const combinedUtilityCss = [utilityCss, checkoutUtilityCss].join('\n');
     const darkPanelBackgroundUtilities = [
+      '.bg-emerald-50',
+      '.bg-emerald-100',
+      '.bg-white\\/50',
       '.bg-white\\/95',
       '.bg-gray-50\\/95',
       '.bg-red-50\\/50',
@@ -257,6 +257,12 @@ describe('storefront CSS partitioning', () => {
       '.text-yellow-700',
     ];
     const darkPrimaryForegroundUtilities = [
+      '.text-store-primary',
+      '.text-store-primary\\/60',
+      '.text-store-primary\\/80',
+      '.text-store-primary\\/90',
+      '.hover\\:text-store-primary:hover',
+      '.hover\\:text-store-primary\\/80:hover',
       '.text-primary',
       '.text-primary\\/60',
       '.text-primary\\/80',
@@ -265,6 +271,17 @@ describe('storefront CSS partitioning', () => {
       '.hover\\:text-primary\\/80:hover',
       '.focus\\:text-primary:focus',
       '.group:hover .group-hover\\:text-primary',
+    ];
+    const darkSuccessTextUtilities = [
+      '.text-green-600',
+      '.text-green-900',
+      '.text-emerald-700',
+      '.text-emerald-900',
+    ];
+    const darkErrorTextUtilities = ['.text-red-600', '.text-red-900'];
+    const darkPanelBorderUtilities = [
+      '.border-emerald-100',
+      '.border-emerald-200',
     ];
     const darkPrimaryFillUtilities = [
       '.fill-primary',
@@ -332,6 +349,36 @@ describe('storefront CSS partitioning', () => {
         );
       }
 
+      for (const utility of darkSuccessTextUtilities) {
+        expect(combinedUtilityCss).toMatch(
+          scopedUtilityRule(
+            scopeClass,
+            utility,
+            'color:\\s*var\\(--storefront-dark-success\\);'
+          )
+        );
+      }
+
+      for (const utility of darkErrorTextUtilities) {
+        expect(combinedUtilityCss).toMatch(
+          scopedUtilityRule(
+            scopeClass,
+            utility,
+            'color:\\s*var\\(--storefront-dark-error\\);'
+          )
+        );
+      }
+
+      for (const utility of darkPanelBorderUtilities) {
+        expect(combinedUtilityCss).toMatch(
+          scopedUtilityRule(
+            scopeClass,
+            utility,
+            'border-color:\\s*var\\(--storefront-dark-border\\);'
+          )
+        );
+      }
+
       for (const utility of darkPrimaryFillUtilities) {
         expect(combinedUtilityCss).toMatch(
           scopedUtilityRule(
@@ -359,6 +406,16 @@ describe('storefront CSS partitioning', () => {
       '../../components/storefront/ogabassey/pages/checkout-page.tsx',
       '../../components/storefront/ogabassey/pages/checkout/components/OrderSummarySidebar.tsx',
       '../../components/storefront/ogabassey/components/MobileCheckoutComponents.tsx',
+      '../../components/storefront/ogabassey/pages/receipts.tsx',
+      '../../components/storefront/ogabassey/pages/order-details-item-row.tsx',
+      '../../components/storefront/ogabassey/pages/saved.tsx',
+      '../../components/storefront/ogabassey/pages/saved-page.tsx',
+      '../../components/storefront/ogabassey/pages/orders.tsx',
+      '../../components/storefront/ogabassey/components/ProductListItem.tsx',
+      '../../components/storefront/ogabassey/pages/product-details.tsx',
+      '../../components/storefront/ogabassey/pages/reviews.tsx',
+      '../../components/storefront/ogabassey/pages/cart-page.tsx',
+      '../../components/storefront/ogabassey/components/UpsellToast.tsx',
     ];
 
     for (const fileName of imageSurfaceSourceFiles) {

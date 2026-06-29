@@ -256,7 +256,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {/* Image */}
                       <Link
                         href={productHref}
-                        className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center relative overflow-hidden"
+                        className="ogabassey-product-card-image-surface w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center relative overflow-hidden"
                       >
                         <Image
                           src={item.image || '/placeholder.png'}
