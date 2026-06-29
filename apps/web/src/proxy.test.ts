@@ -607,7 +607,10 @@ describe('Middleware Proxy', () => {
   });
 
   it('does not pass /auth/confirm through for unregistered custom domains', async () => {
-    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    // Neither the apex nor the www counterpart resolve to a merchant.
+    vi.mocked(getSlugForCustomDomain)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
     const req = new NextRequest(
       'https://attacker.example/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
     );
@@ -619,6 +622,23 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-rewrite')).toContain(
       '/attacker.example/auth/confirm'
     );
+  });
+
+  it('passes /auth/confirm through for a www-only registered custom domain', async () => {
+    // Apex lookup is null (registration is www-only); the www counterpart resolves.
+    vi.mocked(getSlugForCustomDomain)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('ogabassey');
+    const req = new NextRequest(
+      'https://example.com/auth/confirm?token_hash=abc&type=magiclink&next=%2F'
+    );
+    req.headers.set('host', 'example.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('www.example.com');
+    // Passed through (not storefront-rewritten).
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
   });
 
   it('still storefront-rewrites other /auth paths on custom domains (scoping)', async () => {

@@ -2634,31 +2634,39 @@ export async function proxy(request: NextRequest) {
       // verifier and the session cookie is never set on the custom domain.
       // Scoped to /auth/confirm only; the rest of /auth stays storefront-bound.
       if (
-        domainMerchantSlug &&
-        (pathname === '/auth/confirm' || pathname.startsWith('/auth/confirm/'))
+        pathname === '/auth/confirm' ||
+        pathname.startsWith('/auth/confirm/')
       ) {
-        const requestHeaders = buildProxyRequestHeaders(request);
-        requestHeaders.set('x-custom-domain', domain);
-        requestHeaders.set('x-merchant-domain', domain);
+        // Only pass through for a REGISTERED merchant custom domain (unknown
+        // hosts still get the storefront rewrite). `domain` has the www prefix
+        // stripped, so a www-only registration leaves the apex slug null — also
+        // resolve the www counterpart so those confirmation links don't break.
+        const confirmMerchantSlug =
+          domainMerchantSlug ?? (await getSlugForCustomDomain(`www.${domain}`));
+        if (confirmMerchantSlug) {
+          const requestHeaders = buildProxyRequestHeaders(request);
+          requestHeaders.set('x-custom-domain', domain);
+          requestHeaders.set('x-merchant-domain', domain);
 
-        const response = NextResponse.next({
-          request: {
-            headers: requestHeaders,
-          },
-        });
+          const response = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          });
 
-        const routeType = getRouteType(pathname); // returns 'auth'
-        const isLocal = isLocalhost(hostname);
-        return applySecurityHeaders(
-          response,
-          pathname,
-          userAgent,
-          routeType,
-          isLocal,
-          undefined,
-          request,
-          hostname
-        );
+          const routeType = getRouteType(pathname); // returns 'auth'
+          const isLocal = isLocalhost(hostname);
+          return applySecurityHeaders(
+            response,
+            pathname,
+            userAgent,
+            routeType,
+            isLocal,
+            undefined,
+            request,
+            hostname
+          );
+        }
       }
 
       // Prevent redirect loop: if the path already starts with the domain,

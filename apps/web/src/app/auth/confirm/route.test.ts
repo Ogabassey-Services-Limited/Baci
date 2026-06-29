@@ -104,6 +104,24 @@ describe('GET /auth/confirm', () => {
     );
   });
 
+  it('defaults custom-domain confirms with no next to the account area, not /dashboard', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+    mockVerifyOtp.mockResolvedValue({ error: null });
+
+    const response = await GET(
+      new Request(
+        'https://ogabassey.com/auth/confirm?token_hash=hash-123&type=magiclink'
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://ogabassey.com/account'
+    );
+  });
+
   it('blocks external next redirects and falls back to the dashboard', async () => {
     mockVerifyOtp.mockResolvedValue({ error: null });
 

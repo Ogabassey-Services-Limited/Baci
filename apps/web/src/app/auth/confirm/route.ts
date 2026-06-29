@@ -46,11 +46,20 @@ const confirmEmailSchema = z.object({
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const requestHeaders = await headers();
+  const isStorefrontDomainConfirm = Boolean(
+    requestHeaders.get('x-custom-domain') ||
+      requestHeaders.get('x-merchant-domain')
+  );
+  // On a storefront's own (custom) domain, the platform default `/dashboard`
+  // is storefront content, not the customer account area, so an empty/sanitized
+  // `next` would land the customer on a broken page. Default those confirms to
+  // the customer account area instead.
   const next = normalizeAuthNextTarget(
     url.searchParams.get('next'),
-    url.origin
+    url.origin,
+    isStorefrontDomainConfirm ? '/account' : undefined
   );
-  const requestHeaders = await headers();
   const parsed = confirmEmailSchema.safeParse({
     token_hash: url.searchParams.get('token_hash'),
     type: url.searchParams.get('type'),
