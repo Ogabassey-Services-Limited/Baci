@@ -2446,7 +2446,12 @@ export async function proxy(request: NextRequest) {
     } else if (isValidCustomDomain(hostname)) {
       // Custom domain: ogabassey.com - validated format
       // Normalize: lowercase, remove port, and strip 'www.' prefix for consistent lookup
-      const domain = normalizeHostname(hostname).replace(/^www\./, '');
+      const normalizedRequestHost = normalizeHostname(hostname);
+      const domain = normalizedRequestHost.replace(/^www\./, '');
+      // Whether the ACTUAL request host carried the www. prefix (so the apex was
+      // derived by stripping it). Scopes the www-counterpart auth-confirm
+      // fallback below to genuine www requests only.
+      const requestHostHadWww = normalizedRequestHost.startsWith('www.');
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
@@ -2639,10 +2644,16 @@ export async function proxy(request: NextRequest) {
       ) {
         // Only pass through for a REGISTERED merchant custom domain (unknown
         // hosts still get the storefront rewrite). `domain` has the www prefix
-        // stripped, so a www-only registration leaves the apex slug null — also
-        // resolve the www counterpart so those confirmation links don't break.
+        // stripped, so a www-only registration leaves the apex slug null. Only
+        // fall back to the www host when the REQUEST itself was on www. — never
+        // promote an unregistered apex request just because the www counterpart
+        // is registered (that would make a non-merchant host an auth-confirm
+        // origin that receives session cookies).
         const confirmMerchantSlug =
-          domainMerchantSlug ?? (await getSlugForCustomDomain(`www.${domain}`));
+          domainMerchantSlug ??
+          (requestHostHadWww
+            ? await getSlugForCustomDomain(normalizedRequestHost)
+            : null);
         if (confirmMerchantSlug) {
           const requestHeaders = buildProxyRequestHeaders(request);
           requestHeaders.set('x-custom-domain', domain);
