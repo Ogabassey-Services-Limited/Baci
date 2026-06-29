@@ -30,42 +30,6 @@ export type ReceiptClaimPreviewWithLoginEmailHintResult =
   | { ok: true; claim: ReceiptClaimPreview; emailHint: string }
   | { ok: false; error: string; status: 400 | 404 | 410 };
 
-const RECEIPT_CLAIM_ACTIVITY_TIMEOUT_MS = 300;
-
-export type ReceiptClaimActivitySource = 'app' | 'unknown' | 'web';
-export type ReceiptClaimAppDownloadTarget =
-  | 'app_store'
-  | 'play_store'
-  | 'unknown';
-type ReceiptClaimActivityRpcName =
-  | 'record_receipt_claim_click_v2'
-  | 'record_receipt_claim_login_started_v2';
-type ReceiptClaimSourceInput = {
-  source?: ReceiptClaimActivitySource;
-  supabase: SupabaseClient;
-  token: string;
-};
-
-type RecordReceiptClaimActivityInput = {
-  supabase: SupabaseClient;
-  token: string;
-} & (
-  | {
-      rpcName: ReceiptClaimActivityRpcName;
-      source: ReceiptClaimActivitySource;
-    }
-  | {
-      rpcName: 'record_receipt_claim_app_download_clicked_v2';
-      source: ReceiptClaimAppDownloadTarget;
-    }
-);
-
-type RecordReceiptClaimActivityBestEffortInput = ReceiptClaimSourceInput & {
-  logMessage: string;
-  rpcName: ReceiptClaimActivityRpcName;
-  source: ReceiptClaimActivitySource;
-};
-
 export function parseReceiptClaimToken(token: string | undefined) {
   const parsed = receiptClaimRouteParamsSchema.safeParse({ token });
   return parsed.success ? parsed.data.token : null;
@@ -179,122 +143,12 @@ export async function loadReceiptClaimLoginEmailHint({
   };
 }
 
-async function recordReceiptClaimActivity({
-  rpcName,
-  source,
-  supabase,
-  token,
-}: RecordReceiptClaimActivityInput) {
-  const { error } = await supabase.rpc(rpcName, {
-    p_source: source,
-    p_token_hash: hashReceiptClaimToken(token),
-  });
-
-  if (error) {
-    throw new Error(
-      `Failed to record receipt claim activity: ${error.message}`
-    );
-  }
-}
-
-export async function recordReceiptClaimClick({
-  source = 'web',
-  supabase,
-  token,
-}: ReceiptClaimSourceInput) {
-  await recordReceiptClaimActivity({
-    rpcName: 'record_receipt_claim_click_v2',
-    source,
-    supabase,
-    token,
-  });
-}
-
-export async function recordReceiptClaimLoginStarted({
-  source = 'web',
-  supabase,
-  token,
-}: ReceiptClaimSourceInput) {
-  await recordReceiptClaimActivity({
-    rpcName: 'record_receipt_claim_login_started_v2',
-    source,
-    supabase,
-    token,
-  });
-}
-
-export async function recordReceiptClaimAppDownloadClicked({
-  supabase,
-  target,
-  token,
-}: {
-  supabase: SupabaseClient;
-  target: ReceiptClaimAppDownloadTarget;
-  token: string;
-}) {
-  await recordReceiptClaimActivity({
-    rpcName: 'record_receipt_claim_app_download_clicked_v2',
-    source: target,
-    supabase,
-    token,
-  });
-}
-
-async function recordReceiptClaimActivityBestEffort({
-  logMessage,
-  rpcName,
-  source,
-  supabase,
-  token,
-}: RecordReceiptClaimActivityBestEffortInput) {
-  const tracking = recordReceiptClaimActivity({
-    rpcName,
-    source,
-    supabase,
-    token,
-  }).catch((error: unknown) => {
-    console.error(logMessage, error);
-  });
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    await Promise.race([
-      tracking,
-      new Promise<void>((resolve) => {
-        timeout = setTimeout(resolve, RECEIPT_CLAIM_ACTIVITY_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-  }
-}
-
-export async function recordReceiptClaimClickBestEffort({
-  source = 'web',
-  supabase,
-  token,
-}: ReceiptClaimSourceInput) {
-  await recordReceiptClaimActivityBestEffort({
-    logMessage: 'Failed to record receipt claim click',
-    rpcName: 'record_receipt_claim_click_v2',
-    source,
-    supabase,
-    token,
-  });
-}
-
-export async function recordReceiptClaimLoginStartedBestEffort({
-  source = 'web',
-  supabase,
-  token,
-}: ReceiptClaimSourceInput) {
-  await recordReceiptClaimActivityBestEffort({
-    logMessage: 'Failed to record receipt claim login start',
-    rpcName: 'record_receipt_claim_login_started_v2',
-    source,
-    supabase,
-    token,
-  });
-}
+export {
+  type ReceiptClaimActivitySource,
+  type ReceiptClaimAppDownloadTarget,
+  recordReceiptClaimAppDownloadClicked,
+  recordReceiptClaimClick,
+  recordReceiptClaimClickBestEffort,
+  recordReceiptClaimLoginStarted,
+  recordReceiptClaimLoginStartedBestEffort,
+} from '@/lib/import-notifications/receipt-claim-activity';

@@ -119,13 +119,16 @@ describe('receipt claim RPC schemas', () => {
       appDownloadClickedCount: 1,
       claimedAppCount: 1,
       claimedCount: 1,
+      claimedUnknownCount: 0,
       claimedWebCount: 0,
       clickedAppCount: 0,
       clickedCount: 2,
+      clickedUnknownCount: 0,
       clickedWebCount: 2,
       lastActivityAt: '2026-06-27T10:05:00+00:00',
       loginStartedAppCount: 0,
       loginStartedCount: 1,
+      loginStartedUnknownCount: 0,
       loginStartedWebCount: 1,
       recipients: [
         {
@@ -164,8 +167,11 @@ describe('receipt claim RPC schemas', () => {
       appDownloadClickCount: 3,
       appDownloadClickedCount: 1,
       claimedAppCount: 1,
+      claimedUnknownCount: 0,
       claimedWebCount: 0,
+      clickedUnknownCount: 0,
       clickedWebCount: 2,
+      loginStartedUnknownCount: 0,
       loginStartedWebCount: 1,
       recipients: [
         expect.objectContaining({
@@ -213,10 +219,13 @@ describe('receipt claim RPC schemas', () => {
       appDownloadClickCount: 0,
       appDownloadClickedCount: 0,
       claimedAppCount: 0,
+      claimedUnknownCount: 0,
       claimedWebCount: 1,
       clickedAppCount: 0,
+      clickedUnknownCount: 0,
       clickedWebCount: 2,
       loginStartedAppCount: 0,
+      loginStartedUnknownCount: 0,
       loginStartedWebCount: 1,
       recipients: [
         expect.objectContaining({
@@ -227,6 +236,34 @@ describe('receipt claim RPC schemas', () => {
           lastAppDownloadSource: null,
         }),
       ],
+    });
+  });
+
+  it('derives rollout web counters from totals after app and unknown counts', () => {
+    const parsed = receiptClaimCampaignStatsSchema.safeParse({
+      claimedAppCount: 1,
+      claimedCount: 4,
+      claimedUnknownCount: 1,
+      clickedAppCount: 2,
+      clickedCount: 5,
+      clickedUnknownCount: 1,
+      lastActivityAt: null,
+      loginStartedAppCount: 1,
+      loginStartedCount: 3,
+      loginStartedUnknownCount: 1,
+      recipients: [],
+      sentCount: 5,
+      totalRecipients: 5,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      throw new Error('expected rollout campaign stats to parse');
+    }
+    expect(parsed.data).toMatchObject({
+      claimedWebCount: 2,
+      clickedWebCount: 2,
+      loginStartedWebCount: 1,
     });
   });
 

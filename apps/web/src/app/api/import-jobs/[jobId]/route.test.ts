@@ -54,10 +54,13 @@ const normalizedCampaignStats = {
   appDownloadClickCount: 0,
   appDownloadClickedCount: 0,
   claimedAppCount: 0,
+  claimedUnknownCount: 0,
   claimedWebCount: 1,
   clickedAppCount: 0,
+  clickedUnknownCount: 0,
   clickedWebCount: 1,
   loginStartedAppCount: 0,
+  loginStartedUnknownCount: 0,
   loginStartedWebCount: 1,
   recipients: [
     {

@@ -92,6 +92,9 @@ describe('receipt claim channel tracking migration', () => {
       /first_click_source = CASE\s+WHEN first_clicked_at IS NULL THEN v_source/i
     );
     expect(redeemReceiptClaimV2Sql).toMatch(/last_click_source = v_source/i);
+    expect(redeemReceiptClaimV2Sql).toMatch(
+      /click_count = CASE\s+WHEN first_clicked_at IS NULL THEN click_count \+ 1\s+ELSE click_count/i
+    );
   });
 
   it('uses versioned source-aware RPCs to avoid overloaded PostgREST functions', () => {
@@ -130,10 +133,13 @@ describe('receipt claim channel tracking migration', () => {
     );
     expect(migrationSql).toMatch(/'clickedWebCount'/i);
     expect(migrationSql).toMatch(/'clickedAppCount'/i);
+    expect(migrationSql).toMatch(/'clickedUnknownCount'/i);
     expect(migrationSql).toMatch(/'loginStartedWebCount'/i);
     expect(migrationSql).toMatch(/'loginStartedAppCount'/i);
+    expect(migrationSql).toMatch(/'loginStartedUnknownCount'/i);
     expect(migrationSql).toMatch(/'claimedWebCount'/i);
     expect(migrationSql).toMatch(/'claimedAppCount'/i);
+    expect(migrationSql).toMatch(/'claimedUnknownCount'/i);
     expect(migrationSql).toMatch(/'appDownloadClickedCount'/i);
     expect(migrationSql).toMatch(/'appDownloadClickCount'/i);
     expect(migrationSql).toMatch(/'claimedSource'/i);

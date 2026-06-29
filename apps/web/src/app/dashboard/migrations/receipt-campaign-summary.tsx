@@ -37,8 +37,17 @@ function formatCountLabel(count: number, singular: string, plural: string) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function formatChannelBreakdown(webCount: number, appCount: number) {
-  return `Web ${webCount} · App ${appCount}`;
+function formatChannelBreakdown(
+  webCount: number,
+  appCount: number,
+  unknownCount: number
+) {
+  const parts = [`Web ${webCount}`, `App ${appCount}`];
+  if (unknownCount > 0) {
+    parts.push(`Unknown ${unknownCount}`);
+  }
+
+  return parts.join(' · ');
 }
 
 function formatClaimSource(source: ReceiptCampaignRecipient['claimedSource']) {
@@ -115,7 +124,8 @@ export default function ReceiptCampaignSummary({
             label: 'Link clicked',
             secondary: formatChannelBreakdown(
               receiptCampaign.clickedWebCount,
-              receiptCampaign.clickedAppCount
+              receiptCampaign.clickedAppCount,
+              receiptCampaign.clickedUnknownCount
             ),
             value: receiptCampaign.clickedCount,
           },
@@ -123,7 +133,8 @@ export default function ReceiptCampaignSummary({
             label: 'Login started',
             secondary: formatChannelBreakdown(
               receiptCampaign.loginStartedWebCount,
-              receiptCampaign.loginStartedAppCount
+              receiptCampaign.loginStartedAppCount,
+              receiptCampaign.loginStartedUnknownCount
             ),
             value: receiptCampaign.loginStartedCount,
           },
@@ -131,7 +142,8 @@ export default function ReceiptCampaignSummary({
             label: 'Receipt claimed',
             secondary: formatChannelBreakdown(
               receiptCampaign.claimedWebCount,
-              receiptCampaign.claimedAppCount
+              receiptCampaign.claimedAppCount,
+              receiptCampaign.claimedUnknownCount
             ),
             value: receiptCampaign.claimedCount,
           },

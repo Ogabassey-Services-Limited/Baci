@@ -359,6 +359,10 @@ BEGIN
         ELSE first_click_source
       END,
       last_click_source = v_source,
+      click_count = CASE
+        WHEN first_clicked_at IS NULL THEN click_count + 1
+        ELSE click_count
+      END,
       claimed_source = CASE
         WHEN claimed_source IS NULL THEN v_source
         ELSE claimed_source
@@ -416,12 +420,15 @@ BEGIN
       'clickedCount', 0,
       'clickedWebCount', 0,
       'clickedAppCount', 0,
+      'clickedUnknownCount', 0,
       'loginStartedCount', 0,
       'loginStartedWebCount', 0,
       'loginStartedAppCount', 0,
+      'loginStartedUnknownCount', 0,
       'claimedCount', 0,
       'claimedWebCount', 0,
       'claimedAppCount', 0,
+      'claimedUnknownCount', 0,
       'appDownloadClickedCount', 0,
       'appDownloadClickCount', 0,
       'lastActivityAt', NULL,
@@ -459,12 +466,15 @@ BEGIN
       'clickedCount', 0,
       'clickedWebCount', 0,
       'clickedAppCount', 0,
+      'clickedUnknownCount', 0,
       'loginStartedCount', 0,
       'loginStartedWebCount', 0,
       'loginStartedAppCount', 0,
+      'loginStartedUnknownCount', 0,
       'claimedCount', 0,
       'claimedWebCount', 0,
       'claimedAppCount', 0,
+      'claimedUnknownCount', 0,
       'appDownloadClickedCount', 0,
       'appDownloadClickCount', 0,
       'lastActivityAt', NULL,
@@ -564,6 +574,10 @@ BEGIN
           AND first_click_source = 'app'
       )::integer AS clicked_app_count,
       COUNT(*) FILTER (
+        WHERE first_clicked_at IS NOT NULL
+          AND first_click_source = 'unknown'
+      )::integer AS clicked_unknown_count,
+      COUNT(*) FILTER (
         WHERE first_login_started_at IS NOT NULL
       )::integer AS login_started_count,
       COUNT(*) FILTER (
@@ -575,6 +589,10 @@ BEGIN
           AND first_login_started_source = 'app'
       )::integer AS login_started_app_count,
       COUNT(*) FILTER (
+        WHERE first_login_started_at IS NOT NULL
+          AND first_login_started_source = 'unknown'
+      )::integer AS login_started_unknown_count,
+      COUNT(*) FILTER (
         WHERE claimed_at IS NOT NULL
       )::integer AS claimed_count,
       COUNT(*) FILTER (
@@ -585,6 +603,10 @@ BEGIN
         WHERE claimed_at IS NOT NULL
           AND claimed_source = 'app'
       )::integer AS claimed_app_count,
+      COUNT(*) FILTER (
+        WHERE claimed_at IS NOT NULL
+          AND claimed_source = 'unknown'
+      )::integer AS claimed_unknown_count,
       COUNT(*) FILTER (
         WHERE first_app_download_clicked_at IS NOT NULL
       )::integer AS app_download_clicked_count,
@@ -605,12 +627,18 @@ BEGIN
     'clickedCount', COALESCE(a.clicked_count, 0),
     'clickedWebCount', COALESCE(a.clicked_web_count, 0),
     'clickedAppCount', COALESCE(a.clicked_app_count, 0),
+    'clickedUnknownCount', COALESCE(a.clicked_unknown_count, 0),
     'loginStartedCount', COALESCE(a.login_started_count, 0),
     'loginStartedWebCount', COALESCE(a.login_started_web_count, 0),
     'loginStartedAppCount', COALESCE(a.login_started_app_count, 0),
+    'loginStartedUnknownCount', COALESCE(
+      a.login_started_unknown_count,
+      0
+    ),
     'claimedCount', COALESCE(a.claimed_count, 0),
     'claimedWebCount', COALESCE(a.claimed_web_count, 0),
     'claimedAppCount', COALESCE(a.claimed_app_count, 0),
+    'claimedUnknownCount', COALESCE(a.claimed_unknown_count, 0),
     'appDownloadClickedCount', COALESCE(a.app_download_clicked_count, 0),
     'appDownloadClickCount', COALESCE(a.app_download_click_count, 0),
     'lastActivityAt', a.last_activity_at,

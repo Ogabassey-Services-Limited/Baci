@@ -7,13 +7,16 @@ const baseReceiptCampaign = {
   appDownloadClickedCount: 1,
   claimedAppCount: 1,
   claimedCount: 1,
+  claimedUnknownCount: 0,
   claimedWebCount: 0,
   clickedAppCount: 0,
   clickedCount: 1,
+  clickedUnknownCount: 0,
   clickedWebCount: 1,
   lastActivityAt: '2026-06-27T10:05:00.000Z',
   loginStartedAppCount: 0,
   loginStartedCount: 1,
+  loginStartedUnknownCount: 0,
   loginStartedWebCount: 1,
   recipients: [
     {
@@ -91,6 +94,26 @@ describe('ReceiptCampaignSummary', () => {
     expect(screen.getByText(/claim rate 25%/i)).toBeInTheDocument();
   });
 
+  it('shows unknown channel counts when attribution is unavailable', () => {
+    render(
+      <ReceiptCampaignSummary
+        receiptCampaign={{
+          ...baseReceiptCampaign,
+          claimedCount: 2,
+          claimedUnknownCount: 1,
+          clickedCount: 2,
+          clickedUnknownCount: 1,
+          loginStartedCount: 2,
+          loginStartedUnknownCount: 1,
+        }}
+        sentCountFallback={0}
+      />
+    );
+
+    expect(screen.getAllByText('Web 1 · App 0 · Unknown 1')).toHaveLength(2);
+    expect(screen.getByText('Web 0 · App 1 · Unknown 1')).toBeInTheDocument();
+  });
+
   it('renders the empty recipient fallback', () => {
     render(
       <ReceiptCampaignSummary
@@ -100,12 +123,15 @@ describe('ReceiptCampaignSummary', () => {
           appDownloadClickedCount: 0,
           claimedAppCount: 0,
           claimedCount: 0,
+          claimedUnknownCount: 0,
           claimedWebCount: 0,
           clickedAppCount: 0,
           clickedCount: 0,
+          clickedUnknownCount: 0,
           clickedWebCount: 0,
           loginStartedAppCount: 0,
           loginStartedCount: 0,
+          loginStartedUnknownCount: 0,
           loginStartedWebCount: 0,
           recipients: [],
           sentCount: 0,

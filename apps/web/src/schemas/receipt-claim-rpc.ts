@@ -46,17 +46,29 @@ function readNonNegativeIntegerFallback(
     : fallback;
 }
 
+function readRemainingChannelCount(
+  value: unknown,
+  totalCount: number,
+  appCount: number,
+  unknownCount: number
+) {
+  return readNonNegativeIntegerFallback(
+    value,
+    Math.max(totalCount - appCount - unknownCount, 0)
+  );
+}
+
 function defaultSourceWhenTimestampExists({
   fallbackSource,
   normalized,
   sourceField,
   timestampField,
-}: {
+}: Readonly<{
   fallbackSource: 'app_store' | 'play_store' | 'unknown' | 'web';
   normalized: Record<string, unknown>;
   sourceField: string;
   timestampField: string;
-}) {
+}>) {
   if (sourceField in normalized) {
     return;
   }
@@ -78,48 +90,24 @@ function normalizeReceiptClaimCampaignRecipient(value: unknown) {
   normalized.firstAppDownloadClickedAt ??= null;
   normalized.lastAppDownloadClickedAt ??= null;
 
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'web',
-    normalized,
-    sourceField: 'claimedSource',
-    timestampField: 'claimedAt',
-  });
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'web',
-    normalized,
-    sourceField: 'firstClickSource',
-    timestampField: 'firstClickedAt',
-  });
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'web',
-    normalized,
-    sourceField: 'lastClickSource',
-    timestampField: 'lastClickedAt',
-  });
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'web',
-    normalized,
-    sourceField: 'firstLoginStartedSource',
-    timestampField: 'firstLoginStartedAt',
-  });
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'web',
-    normalized,
-    sourceField: 'lastLoginStartedSource',
-    timestampField: 'lastLoginStartedAt',
-  });
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'unknown',
-    normalized,
-    sourceField: 'firstAppDownloadSource',
-    timestampField: 'firstAppDownloadClickedAt',
-  });
-  defaultSourceWhenTimestampExists({
-    fallbackSource: 'unknown',
-    normalized,
-    sourceField: 'lastAppDownloadSource',
-    timestampField: 'lastAppDownloadClickedAt',
-  });
+  const sourceDefaults = [
+    ['claimedSource', 'claimedAt', 'web'],
+    ['firstClickSource', 'firstClickedAt', 'web'],
+    ['lastClickSource', 'lastClickedAt', 'web'],
+    ['firstLoginStartedSource', 'firstLoginStartedAt', 'web'],
+    ['lastLoginStartedSource', 'lastLoginStartedAt', 'web'],
+    ['firstAppDownloadSource', 'firstAppDownloadClickedAt', 'unknown'],
+    ['lastAppDownloadSource', 'lastAppDownloadClickedAt', 'unknown'],
+  ] as const;
+
+  for (const [sourceField, timestampField, fallbackSource] of sourceDefaults) {
+    defaultSourceWhenTimestampExists({
+      fallbackSource,
+      normalized,
+      sourceField,
+      timestampField,
+    });
+  }
 
   return normalized;
 }
@@ -189,17 +177,59 @@ function normalizeReceiptClaimCampaignStats(value: unknown) {
     0
   );
   const claimedCount = readNonNegativeIntegerFallback(value.claimedCount, 0);
+  const claimedAppCount = readNonNegativeIntegerFallback(
+    value.claimedAppCount,
+    0
+  );
+  const claimedUnknownCount = readNonNegativeIntegerFallback(
+    value.claimedUnknownCount,
+    0
+  );
+  const clickedAppCount = readNonNegativeIntegerFallback(
+    value.clickedAppCount,
+    0
+  );
+  const clickedUnknownCount = readNonNegativeIntegerFallback(
+    value.clickedUnknownCount,
+    0
+  );
+  const loginStartedAppCount = readNonNegativeIntegerFallback(
+    value.loginStartedAppCount,
+    0
+  );
+  const loginStartedUnknownCount = readNonNegativeIntegerFallback(
+    value.loginStartedUnknownCount,
+    0
+  );
 
   return {
     ...value,
     appDownloadClickCount: value.appDownloadClickCount ?? 0,
     appDownloadClickedCount: value.appDownloadClickedCount ?? 0,
     claimedAppCount: value.claimedAppCount ?? 0,
-    claimedWebCount: value.claimedWebCount ?? claimedCount,
+    claimedUnknownCount: value.claimedUnknownCount ?? 0,
+    claimedWebCount: readRemainingChannelCount(
+      value.claimedWebCount,
+      claimedCount,
+      claimedAppCount,
+      claimedUnknownCount
+    ),
     clickedAppCount: value.clickedAppCount ?? 0,
-    clickedWebCount: value.clickedWebCount ?? clickedCount,
+    clickedUnknownCount: value.clickedUnknownCount ?? 0,
+    clickedWebCount: readRemainingChannelCount(
+      value.clickedWebCount,
+      clickedCount,
+      clickedAppCount,
+      clickedUnknownCount
+    ),
     loginStartedAppCount: value.loginStartedAppCount ?? 0,
-    loginStartedWebCount: value.loginStartedWebCount ?? loginStartedCount,
+    loginStartedUnknownCount: value.loginStartedUnknownCount ?? 0,
+    loginStartedWebCount: readRemainingChannelCount(
+      value.loginStartedWebCount,
+      loginStartedCount,
+      loginStartedAppCount,
+      loginStartedUnknownCount
+    ),
   };
 }
 
@@ -241,13 +271,16 @@ export const receiptClaimCampaignStatsSchema = z.preprocess(
     appDownloadClickedCount: nonNegativeIntegerSchema,
     claimedAppCount: nonNegativeIntegerSchema,
     claimedCount: nonNegativeIntegerSchema,
+    claimedUnknownCount: nonNegativeIntegerSchema,
     claimedWebCount: nonNegativeIntegerSchema,
     clickedAppCount: nonNegativeIntegerSchema,
     clickedCount: nonNegativeIntegerSchema,
+    clickedUnknownCount: nonNegativeIntegerSchema,
     clickedWebCount: nonNegativeIntegerSchema,
     lastActivityAt: nullableIsoDateTimeSchema,
     loginStartedAppCount: nonNegativeIntegerSchema,
     loginStartedCount: nonNegativeIntegerSchema,
+    loginStartedUnknownCount: nonNegativeIntegerSchema,
     loginStartedWebCount: nonNegativeIntegerSchema,
     recipients: z.array(receiptClaimCampaignRecipientSchema),
     sentCount: nonNegativeIntegerSchema,

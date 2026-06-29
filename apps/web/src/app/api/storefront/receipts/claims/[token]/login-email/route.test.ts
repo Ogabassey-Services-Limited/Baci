@@ -85,6 +85,17 @@ describe('GET /api/storefront/receipts/claims/[token]/login-email', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for invalid source query values', async () => {
+    const response = await GET(getRequest('GET', '?source=mobile'), params);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'Invalid receipt claim login email query',
+    });
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
   it('returns a sanitized email hint for a valid claim token', async () => {
     const supabase = createSupabaseRpcMock({ data: baseClaim, error: null });
     mockCreateClient.mockResolvedValue(supabase);

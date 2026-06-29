@@ -88,4 +88,26 @@ describe('authenticateApiRequest', () => {
     expect(authMocks.createScopedClient).toHaveBeenCalledWith('mobile-token');
     expect(authMocks.cookies).not.toHaveBeenCalled();
   });
+
+  it('rejects an invalid lowercase bearer token without falling back to cookies', async () => {
+    authMocks.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'invalid token' },
+    });
+
+    const result = await authenticateApiRequest(
+      new Request('https://example.com', {
+        headers: { authorization: 'bearer bad-token' },
+      })
+    );
+
+    expect(result).toEqual({
+      error: 'Invalid or expired token',
+      supabase: null,
+      user: null,
+    });
+    expect(authMocks.getUser).toHaveBeenCalledWith('bad-token');
+    expect(authMocks.createScopedClient).not.toHaveBeenCalled();
+    expect(authMocks.cookies).not.toHaveBeenCalled();
+  });
 });
