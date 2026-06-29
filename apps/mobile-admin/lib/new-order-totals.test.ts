@@ -92,7 +92,7 @@ describe('createNewOrderTotals', () => {
     const totals = createNewOrderTotals({
       discount: 0,
       isVatApplied: false,
-      merchantCurrency: 'NGN',
+      merchantCurrency: 'ngn',
       orderItems: [],
       shippingFee: 0,
       taxes: 0,

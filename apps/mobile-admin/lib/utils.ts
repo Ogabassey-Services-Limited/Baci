@@ -125,18 +125,24 @@ export function normalizeMerchantCurrency(
   currency?: string | null
 ): string | undefined {
   if (!currency) return undefined;
-  if (currency === 'NGN') return currency; // Fast path for default
 
-  if (validCurrencyCache.has(currency)) {
-    return currency;
+  const normalizedCurrency = currency.trim().toUpperCase();
+  if (!normalizedCurrency) return undefined;
+  if (normalizedCurrency === 'NGN') return normalizedCurrency; // Fast path for default
+
+  if (validCurrencyCache.has(normalizedCurrency)) {
+    return normalizedCurrency;
   }
 
   try {
-    // Attempt instantiation to validate currency code
-    new Intl.NumberFormat(undefined, { style: 'currency', currency });
+    // Attempt instantiation to validate the normalized ISO-4217 currency code.
+    new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: normalizedCurrency,
+    });
     if (validCurrencyCache.size > 50) validCurrencyCache.clear();
-    validCurrencyCache.add(currency);
-    return currency;
+    validCurrencyCache.add(normalizedCurrency);
+    return normalizedCurrency;
   } catch {
     return undefined;
   }
