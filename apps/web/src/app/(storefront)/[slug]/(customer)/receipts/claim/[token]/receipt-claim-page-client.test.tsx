@@ -102,6 +102,7 @@ describe('ReceiptClaimPageClient', () => {
     mockFetchWithCsrf.mockResolvedValue(
       createJsonResponse({ redirectPath: '/receipts', success: true })
     );
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -272,8 +273,15 @@ describe('ReceiptClaimPageClient', () => {
       );
     });
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+      expect(mockPush).toHaveBeenCalledWith(
+        '/ogabassey/receipts?receiptClaimed=1'
+      );
     });
+    expect(
+      window.sessionStorage.getItem(
+        'ogabassey:receipt-claim-app-download-token'
+      )
+    ).toBe('claim-token');
   });
 
   it('keeps the redemption request active after showing the claiming state', async () => {
@@ -303,7 +311,9 @@ describe('ReceiptClaimPageClient', () => {
     );
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+      expect(mockPush).toHaveBeenCalledWith(
+        '/ogabassey/receipts?receiptClaimed=1'
+      );
     });
   });
 

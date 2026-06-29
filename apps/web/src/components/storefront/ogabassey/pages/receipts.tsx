@@ -21,6 +21,7 @@ import { EmptyState } from '../components/empty-state';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { ReceiptClaimAppDownloadBanner } from './receipt-claim-app-download-banner';
 
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 
@@ -417,6 +418,8 @@ export const OgabasseyV2Receipts: React.FC = () => {
             </p>
           </div>
         </div>
+
+        <ReceiptClaimAppDownloadBanner />
 
         {filteredReceipts.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">

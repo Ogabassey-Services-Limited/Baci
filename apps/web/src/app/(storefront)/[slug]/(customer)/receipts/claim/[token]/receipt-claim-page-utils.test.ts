@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createDeviceListItems,
   joinBasePath,
+  withReceiptClaimedSearchParam,
 } from './receipt-claim-page-utils';
 
 describe('receipt claim page utils', () => {
@@ -19,5 +20,17 @@ describe('receipt claim page utils', () => {
       { device: 'Pixel 9', key: 'Pixel 9-1' },
       { device: 'Pixel 9', key: 'Pixel 9-2' },
     ]);
+  });
+
+  it('marks receipt redirects as coming from a successful claim', () => {
+    expect(withReceiptClaimedSearchParam('/receipts')).toBe(
+      '/receipts?receiptClaimed=1'
+    );
+    expect(withReceiptClaimedSearchParam('/receipts?tab=devices')).toBe(
+      '/receipts?tab=devices&receiptClaimed=1'
+    );
+    expect(withReceiptClaimedSearchParam('/receipts#latest')).toBe(
+      '/receipts?receiptClaimed=1#latest'
+    );
   });
 });

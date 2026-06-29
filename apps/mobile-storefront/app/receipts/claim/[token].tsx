@@ -40,6 +40,11 @@ function buildClaimLoginEmailApiUrl(token: string) {
   return `${buildClaimApiUrl(token)}/login-email?source=app`;
 }
 
+function withReceiptClaimedSearchParam(path: string) {
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}receiptClaimed=1`;
+}
+
 async function readErrorMessage(response: Response) {
   try {
     const body = (await response.json()) as { error?: unknown };
@@ -185,7 +190,7 @@ export default function ReceiptClaimScreen() {
 
         if (!isActive) return;
         // Validated server path (starts with '/'); typed routes need an Href.
-        router.replace(redirectPath as Href);
+        router.replace(withReceiptClaimedSearchParam(redirectPath) as Href);
       } catch {
         if (!isActive) return;
         setStatus('error');
