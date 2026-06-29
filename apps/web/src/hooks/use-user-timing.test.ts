@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import type React from 'react';
+import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUserTiming } from './use-user-timing';
 
@@ -17,10 +17,10 @@ describe('useUserTiming', () => {
     // Safely spy on existing global.performance methods
     vi.spyOn(global.performance, 'mark').mockImplementation((() => {
       // noop
-    }) as any);
+    }) as unknown as typeof global.performance.mark);
     vi.spyOn(global.performance, 'measure').mockImplementation((() => {
       // noop
-    }) as any);
+    }) as unknown as typeof global.performance.measure);
     vi.spyOn(global.performance, 'clearMarks').mockImplementation(() => {
       // noop
     });
