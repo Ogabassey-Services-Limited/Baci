@@ -217,7 +217,10 @@
 
     .storefront-variant-ogabassey.storefront-mode-system
       .ogabassey-storefront-shell
-      .ogabassey-checkout-page {
+      .ogabassey-checkout-page,
+    .storefront-variant-ogabassey.storefront-mode-system
+      .ogabassey-storefront-shell
+      .ogabassey-checkout-page.bg-gray-50\/50 {
       background-color: var(--storefront-dark-background);
       color: var(--storefront-dark-foreground);
     }

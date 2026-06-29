@@ -265,6 +265,8 @@ describe('storefront CSS partitioning', () => {
       /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-category-hub-card-grid__eyebrow[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
     const emptyCartDarkAccent =
       /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-cart-empty-state__eyebrow[\s\S]*\.ogabassey-cart-empty-state__secondary-action:hover[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
+    const checkoutRootBackground =
+      /\.storefront-variant-ogabassey\.storefront-mode-system\s+\.ogabassey-storefront-shell\s+\.ogabassey-checkout-page\.bg-gray-50\\\/50\s*\{\s*background-color:\s*var\(--storefront-dark-background\);/;
     const scopedUtilityRule = (
       scopeClass: string,
       utility: string,
@@ -323,6 +325,7 @@ describe('storefront CSS partitioning', () => {
     expect(coreCss).toMatch(categoryHubDarkAccent);
     expect(coreCss).toMatch(categoryHubDarkEyebrow);
     expect(coreCss).toMatch(emptyCartDarkAccent);
+    expect(utilityCss).toMatch(checkoutRootBackground);
   });
 
   it('loads OgaBassey below-fold PDP styles through the deferred PDP stylesheet', () => {
