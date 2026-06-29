@@ -1,8 +1,5 @@
 import { headers } from 'next/headers';
-import {
-  DEFAULT_STOREFRONT_APPEARANCE,
-  resolveKnownStorefrontAppearance,
-} from '@/components/storefront/storefront-appearance';
+import { resolveKnownStorefrontAppearance } from '@/components/storefront/storefront-appearance';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { StorefrontNotFoundContent } from './storefront-not-found-content';
 
@@ -12,15 +9,10 @@ function normalizeHostHeader(rawHost: string | null): string {
   );
 }
 
-function getPathStorefrontIdentifier(pathname: string | null): string {
-  return pathname?.split('/').filter(Boolean)[0] ?? '';
-}
-
 function resolveStorefrontNotFoundAppearance(headersList: Headers) {
   const candidates = [
     headersList.get('x-merchant-slug'),
     normalizeHostHeader(headersList.get('x-custom-domain')),
-    getPathStorefrontIdentifier(headersList.get('x-pathname')),
     normalizeHostHeader(headersList.get('x-forwarded-host')),
     normalizeHostHeader(headersList.get('host')),
   ];
@@ -32,16 +24,21 @@ function resolveStorefrontNotFoundAppearance(headersList: Headers) {
     }
   }
 
-  return { ...DEFAULT_STOREFRONT_APPEARANCE };
+  return null;
 }
 
 export default async function StorefrontNotFound() {
   const headersList = await headers();
   const appearance = resolveStorefrontNotFoundAppearance(headersList);
+  const content = <StorefrontNotFoundContent />;
+
+  if (!appearance) {
+    return content;
+  }
 
   return (
     <StorefrontThemeProvider appearance={appearance}>
-      <StorefrontNotFoundContent />
+      {content}
     </StorefrontThemeProvider>
   );
 }

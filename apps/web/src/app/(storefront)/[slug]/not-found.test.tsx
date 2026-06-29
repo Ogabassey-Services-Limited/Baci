@@ -84,16 +84,15 @@ describe('StorefrontNotFound', () => {
     ]);
   });
 
-  it('uses the OgaBassey system appearance when the path identifies the merchant', async () => {
+  it('does not use response-only pathname headers for path-based theming', async () => {
     mockHeaders.mockResolvedValue(
       new Headers([['x-pathname', '/ogabassey.com/missing-page']])
     );
 
     render(await StorefrontNotFound());
 
-    expect(themeProviderAppearances).toEqual([
-      { mode: 'system', variant: 'ogabassey' },
-    ]);
+    expect(screen.getByText('Missing storefront page')).toBeInTheDocument();
+    expect(themeProviderAppearances).toEqual([]);
   });
 
   it('uses the OgaBassey system appearance when the forwarded host matches', async () => {
@@ -108,13 +107,12 @@ describe('StorefrontNotFound', () => {
     ]);
   });
 
-  it('uses the default light appearance for unrelated storefront hosts', async () => {
+  it('preserves the parent layout theme when request headers do not identify a known storefront', async () => {
     mockHeaders.mockResolvedValue(new Headers([['host', 'example.com']]));
 
     render(await StorefrontNotFound());
 
-    expect(themeProviderAppearances).toEqual([
-      { mode: 'light', variant: 'default' },
-    ]);
+    expect(screen.getByText('Missing storefront page')).toBeInTheDocument();
+    expect(themeProviderAppearances).toEqual([]);
   });
 });

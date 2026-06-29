@@ -3558,7 +3558,7 @@ export const CheckoutPage: React.FC = () => {
                       : item.price;
                   return (
                     <div key={itemKey} className="flex gap-3">
-                      <div className="relative size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
+                      <div className="ogabassey-product-card-image-surface relative size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0">
                         <Image
                           src={itemImage}
                           alt={itemName}

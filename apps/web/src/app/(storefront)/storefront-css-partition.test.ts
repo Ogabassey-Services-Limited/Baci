@@ -23,6 +23,7 @@ function readStorefrontDarkModeCss(): string {
     readStorefrontFile('storefront-ogabassey-dark-mode.css'),
     readStorefrontFile('storefront-ogabassey-dark-mode-tokens.css'),
     readStorefrontFile('storefront-ogabassey-dark-mode-utilities.css'),
+    readStorefrontFile('storefront-ogabassey-dark-mode-checkout-utilities.css'),
   ].join('\n');
 }
 
@@ -74,6 +75,22 @@ describe('storefront CSS partitioning', () => {
     expect(darkModeEntryCss).toMatch(
       /@import\s+['"]\.\/storefront-ogabassey-dark-mode-utilities\.css['"];?/
     );
+    expect(darkModeEntryCss).toMatch(
+      /@import\s+['"]\.\/storefront-ogabassey-dark-mode-checkout-utilities\.css['"];?/
+    );
+  });
+
+  it('keeps OgaBassey dark-mode utility styles split into auditable chunks', () => {
+    const darkModeUtilityFiles = [
+      'storefront-ogabassey-dark-mode-utilities.css',
+      'storefront-ogabassey-dark-mode-checkout-utilities.css',
+    ];
+
+    for (const fileName of darkModeUtilityFiles) {
+      expect(
+        readStorefrontFile(fileName).split('\n').length
+      ).toBeLessThanOrEqual(300);
+    }
   });
 
   it('keeps the OgaBassey header and footer on the same chrome background tokens', () => {
@@ -224,6 +241,10 @@ describe('storefront CSS partitioning', () => {
     const utilityCss = readStorefrontFile(
       'storefront-ogabassey-dark-mode-utilities.css'
     );
+    const checkoutUtilityCss = readStorefrontFile(
+      'storefront-ogabassey-dark-mode-checkout-utilities.css'
+    );
+    const combinedUtilityCss = [utilityCss, checkoutUtilityCss].join('\n');
     const darkPanelBackgroundUtilities = [
       '.bg-white\\/95',
       '.bg-gray-50\\/95',
@@ -267,6 +288,8 @@ describe('storefront CSS partitioning', () => {
       /@media \(prefers-color-scheme: dark\)[\s\S]*\.storefront-variant-ogabassey\.storefront-mode-system[\s\S]*\.ogabassey-cart-empty-state__eyebrow[\s\S]*\.ogabassey-cart-empty-state__secondary-action:hover[\s\S]*color:\s*var\(--storefront-dark-accent,\s*var\(--store-primary,\s*#d62027\)\);/;
     const checkoutRootBackground =
       /\.storefront-variant-ogabassey\.storefront-mode-system\s+\.ogabassey-storefront-shell\s+\.ogabassey-checkout-page\.bg-gray-50\\\/50\s*\{\s*background-color:\s*var\(--storefront-dark-background\);/;
+    const imageSurfaceBackground =
+      /\.ogabassey-product-card-image-surface\.bg-gray-50[\s\S]*background-color:\s*#f9fafb;/;
     const scopedUtilityRule = (
       scopeClass: string,
       utility: string,
@@ -278,7 +301,7 @@ describe('storefront CSS partitioning', () => {
 
     for (const scopeClass of scopedPanelClasses) {
       for (const utility of darkPanelBackgroundUtilities) {
-        expect(utilityCss).toMatch(
+        expect(combinedUtilityCss).toMatch(
           scopedUtilityRule(
             scopeClass,
             utility,
@@ -294,13 +317,13 @@ describe('storefront CSS partitioning', () => {
             ? '#a5b4fc'
             : '#fde68a';
 
-        expect(utilityCss).toMatch(
+        expect(combinedUtilityCss).toMatch(
           scopedUtilityRule(scopeClass, utility, `color:\\s*${color};`)
         );
       }
 
       for (const utility of darkPrimaryForegroundUtilities) {
-        expect(utilityCss).toMatch(
+        expect(combinedUtilityCss).toMatch(
           scopedUtilityRule(
             scopeClass,
             utility,
@@ -310,7 +333,7 @@ describe('storefront CSS partitioning', () => {
       }
 
       for (const utility of darkPrimaryFillUtilities) {
-        expect(utilityCss).toMatch(
+        expect(combinedUtilityCss).toMatch(
           scopedUtilityRule(
             scopeClass,
             utility,
@@ -325,7 +348,24 @@ describe('storefront CSS partitioning', () => {
     expect(coreCss).toMatch(categoryHubDarkAccent);
     expect(coreCss).toMatch(categoryHubDarkEyebrow);
     expect(coreCss).toMatch(emptyCartDarkAccent);
-    expect(utilityCss).toMatch(checkoutRootBackground);
+    expect(combinedUtilityCss).toMatch(checkoutRootBackground);
+    expect(combinedUtilityCss).toMatch(imageSurfaceBackground);
+  });
+
+  it('marks cart and checkout thumbnails as neutral image surfaces', () => {
+    const imageSurfaceSourceFiles = [
+      '../../components/storefront/ogabassey/pages/cart.tsx',
+      '../../components/storefront/ogabassey/components/CartSidebar.tsx',
+      '../../components/storefront/ogabassey/pages/checkout-page.tsx',
+      '../../components/storefront/ogabassey/pages/checkout/components/OrderSummarySidebar.tsx',
+      '../../components/storefront/ogabassey/components/MobileCheckoutComponents.tsx',
+    ];
+
+    for (const fileName of imageSurfaceSourceFiles) {
+      expect(readStorefrontFile(fileName)).toContain(
+        'ogabassey-product-card-image-surface'
+      );
+    }
   });
 
   it('loads OgaBassey below-fold PDP styles through the deferred PDP stylesheet', () => {

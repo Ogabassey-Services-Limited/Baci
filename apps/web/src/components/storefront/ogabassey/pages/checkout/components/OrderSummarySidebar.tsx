@@ -82,7 +82,7 @@ export function OrderSummarySidebar({
               key={item.cartItemId ?? item.id ?? `order-item-${index}`}
               className="flex gap-3"
             >
-              <div className="size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0 relative">
+              <div className="ogabassey-product-card-image-surface size-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0 relative">
                 <ThumbnailImage
                   src={item.image || item.image_url || '/placeholder.png'}
                   alt={
