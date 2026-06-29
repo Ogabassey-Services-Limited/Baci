@@ -1,3 +1,4 @@
+import { isTerminalClaimStatusToken } from '@baci/shared/insurance';
 import { notifyActivateProtection } from '@/lib/expo-push';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -38,7 +39,7 @@ export async function maybeNotifyActivateProtection(
   // Inspectable policies still awaiting activation that we haven't nudged yet.
   const { data: policies, error: policiesError } = await supabase
     .from('order_insurance_policies')
-    .select('id')
+    .select('id, status, claim_status')
     .eq('order_id', orderId)
     .eq('inspection_status', 'pending')
     .not('inspection_link', 'is', null)
@@ -48,7 +49,15 @@ export async function maybeNotifyActivateProtection(
     console.error('[ActivateProtection] policy lookup failed:', policiesError);
     return;
   }
-  if (!policies || policies.length === 0) return;
+  // Don't nudge "Activate Protection" for a policy whose claim already closed
+  // (paid/declined/etc.) or that is no longer active — e.g. when an
+  // inspection.completed webhook was missed but a claim webhook already landed.
+  const eligiblePolicies = (policies ?? []).filter(
+    (policy) =>
+      policy.status === 'active' &&
+      !isTerminalClaimStatusToken(policy.claim_status)
+  );
+  if (eligiblePolicies.length === 0) return;
 
   const { data: customer, error: customerError } = await supabase
     .from('customers')
@@ -70,7 +79,7 @@ export async function maybeNotifyActivateProtection(
   // Claim each candidate atomically; only notify if we win at least one. The
   // `is(..., null)` predicate makes concurrent deliveries race-safe.
   const claimedIds: string[] = [];
-  for (const policy of policies) {
+  for (const policy of eligiblePolicies) {
     const { data: claimed, error: claimError } = await supabase
       .from('order_insurance_policies')
       .update({ activation_reminder_sent_at: new Date().toISOString() })

@@ -89,6 +89,20 @@ describe('resolveInsuranceCta', () => {
     ).toEqual({ kind: 'activation_pending' });
   });
 
+  it('keeps the inspection gate when the inspection link is rejected by normalization', () => {
+    // Raw inspection_link present (e.g. http or not-yet-allowlisted host) so it
+    // normalizes to null, but a valid claim link exists — must stay gated
+    // (activation_pending), not offer "File a Claim" before the inspection.
+    expect(
+      resolveInsuranceCta({
+        inspectionLink: 'http://mycover.ai/purchase?q=inspect',
+        inspectionStatus: 'pending',
+        claimLink: 'https://mycover.ai/purchase?q=claim',
+        orderDelivered: true,
+      })
+    ).toEqual({ kind: 'activation_pending' });
+  });
+
   it('does not treat a claim-only pending default as an inspection gate', () => {
     expect(
       resolveInsuranceCta({

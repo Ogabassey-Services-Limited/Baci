@@ -23,7 +23,7 @@ export function resolveInsuranceCardActions({
   onCompleteInspection,
   onFileClaim,
 }: ResolveInsuranceCardActionsInput) {
-  const normalizedInspectionStatus = inspectionStatus?.toLowerCase();
+  const normalizedInspectionStatus = inspectionStatus?.trim().toLowerCase();
   const normalizedClaimStatus = claimStatus?.trim().toLowerCase();
   const hasExplicitClaimProgress =
     !!claimStage?.trim() || !!claimComment?.trim();

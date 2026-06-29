@@ -43,7 +43,7 @@ beforeEach(() => {
   });
 });
 
-const PENDING_POLICY = { id: 'policy-1' };
+const PENDING_POLICY = { id: 'policy-1', status: 'active', claim_status: null };
 const ORDER = {
   order_number: 'OG-1001',
   customer_id: 'cust-1',
@@ -69,6 +69,28 @@ describe('maybeNotifyActivateProtection', () => {
       'order-1',
       'OG-1001'
     );
+  });
+
+  it('does not nudge when the policy claim is already terminal (paid/declined)', async () => {
+    resultQueue = [
+      { data: ORDER },
+      { data: [{ id: 'policy-1', status: 'active', claim_status: 'paid' }] },
+    ];
+
+    await maybeNotifyActivateProtection('order-1');
+
+    expect(mockNotifyActivateProtection).not.toHaveBeenCalled();
+  });
+
+  it('does not nudge when the policy is no longer active', async () => {
+    resultQueue = [
+      { data: ORDER },
+      { data: [{ id: 'policy-1', status: 'expired', claim_status: null }] },
+    ];
+
+    await maybeNotifyActivateProtection('order-1');
+
+    expect(mockNotifyActivateProtection).not.toHaveBeenCalled();
   });
 
   it('releases the claim when the push is not delivered (retry stays open)', async () => {

@@ -78,9 +78,16 @@ export function resolveInsuranceCta(
 
   const inspectionUrl = resolveInspectionUrl(policy);
   const inspectionStatus = policy.inspectionStatus?.trim().toLowerCase();
+  // Gate on the RAW presence of an inspection requirement, not the normalized
+  // URL — a stored inspection_link that fails normalization (e.g. an http link
+  // or a not-yet-allowlisted host) must still block "File a Claim" before the
+  // pre-loss inspection; the normalized URL only decides if the button opens.
+  const hasInspectionLink =
+    typeof policy.inspectionLink === 'string' &&
+    policy.inspectionLink.trim().length > 0;
   const inspectionPending =
     inspectionStatus !== 'completed' &&
-    (inspectionUrl !== null ||
+    (hasInspectionLink ||
       (inspectionStatus === 'pending' && claimUrl === null));
 
   if (inspectionPending) {

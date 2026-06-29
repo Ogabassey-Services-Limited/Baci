@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeInsuranceCertificateUrl } from '@baci/shared/insurance';
 import mycoverai from '@mycoverai/mca-javascript-sdk';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -24,13 +25,9 @@ import { InsurancePolicyFooterActions } from './insurance-policy-footer-actions'
 import type { PolicyFetchResult } from './insurance-policy-types';
 
 function toSafeExternalUrl(value: string | null | undefined): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' ? url.toString() : null;
-  } catch {
-    return null;
-  }
+  // Allowlist MyCover hosts / their S3 certificate bucket — a bare https check
+  // would still render attacker-controlled links.
+  return normalizeInsuranceCertificateUrl(value);
 }
 
 function formatPolicyDate(value: string): string {
