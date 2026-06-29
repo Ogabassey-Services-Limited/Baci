@@ -80,7 +80,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                     <div className="space-y-4 mb-6 pt-2">
                         {cart.map((item) => (
                             <div key={item.cartItemId} className="flex gap-3">
-                                <div className="relative size-16 bg-white rounded-lg border border-gray-100 p-1 shrink-0">
+                                <div className="ogabassey-product-card-image-surface relative size-16 bg-white rounded-lg border border-gray-100 p-1 shrink-0">
                                     <Image
                                         src={item.image || '/placeholder.png'}
                                         alt={item.name}

@@ -37,8 +37,8 @@ export function RecoveryCodesCard({ initialCount }: { initialCount: number }) {
         });
         return;
       }
-      setCodes(result.codes);
       setCodeSetId(result.codeSetId);
+      setCodes(result.codes);
     });
   };
 
@@ -135,7 +135,11 @@ export function RecoveryCodesCard({ initialCount }: { initialCount: number }) {
                 <Download className="mr-2 size-4" />
                 Download
               </Button>
-              <Button type="button" onClick={acknowledge} disabled={isPending}>
+              <Button
+                type="button"
+                onClick={acknowledge}
+                disabled={isPending || !codeSetId}
+              >
                 {isPending ? (
                   <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : null}

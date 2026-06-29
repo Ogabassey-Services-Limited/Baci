@@ -153,6 +153,36 @@ describe('CartPage', () => {
     expect(screen.getByText('Test Gadget')).toBeInTheDocument();
   });
 
+  it('does not render a stray continue-shopping link in the page header', () => {
+    render(<CartPage />);
+
+    expect(
+      screen.queryByRole('link', { name: 'Continue Shopping' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders the cart-specific empty state when no items are in the cart', () => {
+    mockCartItems = [];
+
+    render(<CartPage />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Your cart is empty' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Add phones, accessories, or repair services/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/currently not available/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /start shopping/i })
+    ).toHaveAttribute('href', '/test-store');
+    expect(
+      screen.getByRole('link', { name: 'Browse smartphones' })
+    ).toHaveAttribute('href', '/test-store/smartphones');
+  });
+
   it('links cart items to canonical product routes', () => {
     render(<CartPage />);
     expect(screen.getAllByRole('link', { name: /test gadget/i })[0]).toHaveAttribute(

@@ -154,7 +154,7 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
             </p>
 
             <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100">
-              <div className="size-10 bg-white rounded-lg p-1 flex items-center justify-center border border-gray-100 shrink-0">
+              <div className="ogabassey-product-card-image-surface size-10 bg-white rounded-lg p-1 flex items-center justify-center border border-gray-100 shrink-0">
                 <img
                   src={suggestion.image}
                   alt={suggestion.name}

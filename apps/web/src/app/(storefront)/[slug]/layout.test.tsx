@@ -8,6 +8,8 @@ import {
 } from './storefront-shell-snapshot';
 
 const providerSnapshots: unknown[] = [];
+const themeProviderAppearances: unknown[] = [];
+const themeProviderDocumentScopes: unknown[] = [];
 let themeProviderRenders = 0;
 const mockConnection = vi.hoisted(() => vi.fn());
 const mockIsValidMerchantIdentifier = vi.hoisted(() =>
@@ -57,8 +59,18 @@ vi.mock('@/components/storefront/store-not-published', () => ({
 }));
 
 vi.mock('@/components/storefront/storefront-theme-provider', () => ({
-  StorefrontThemeProvider: ({ children }: { children: ReactNode }) => {
+  StorefrontThemeProvider: ({
+    appearance,
+    children,
+    scopeDocument,
+  }: {
+    appearance?: unknown;
+    children: ReactNode;
+    scopeDocument?: unknown;
+  }) => {
     themeProviderRenders += 1;
+    themeProviderAppearances.push(appearance);
+    themeProviderDocumentScopes.push(scopeDocument);
     return <div data-testid="storefront-theme-provider">{children}</div>;
   },
 }));
@@ -191,6 +203,8 @@ describe('storefront layout', () => {
     mockWebMcp.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
+    themeProviderAppearances.length = 0;
+    themeProviderDocumentScopes.length = 0;
     themeProviderRenders = 0;
   });
 
@@ -242,7 +256,10 @@ describe('storefront layout', () => {
       }),
       undefined
     );
-    expect(themeProviderRenders).toBe(0);
+    expect(themeProviderRenders).toBe(1);
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
@@ -304,28 +321,58 @@ describe('storefront layout', () => {
     );
 
     expect(mockConnection).not.toHaveBeenCalled();
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
     expect(screen.getByText('Generic storefront content')).toBeInTheDocument();
   });
 
-  it('renders the static PPR shell by default while tenant data is loading', async () => {
+  it('waits for params before rendering the static PPR shell fallback', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
+    const deferredParams = createDeferred<{ slug: string }>();
 
     let unmount: () => void = () => undefined;
     let container: HTMLElement | undefined;
 
-    await act(() => {
-      ({ container, unmount } = render(
-        <StorefrontLayout params={Promise.resolve({ slug: 'ogabassey' })}>
-          <main>Storefront content</main>
-        </StorefrontLayout>
-      ));
+    const ui = StorefrontLayout({
+      params: deferredParams.promise,
+      children: <main>Storefront content</main>,
     });
 
+    await act(async () => {
+      ({ container, unmount } = render(ui));
+      await Promise.resolve();
+    });
+
+    expect(themeProviderAppearances).toEqual([]);
+    expect(getStorefrontShellSnapshotBase).not.toHaveBeenCalled();
     expect(
-      screen.getByRole('status', { name: /loading storefront chrome/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: /loading storefront chrome/i })
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      deferredParams.resolve({ slug: 'generic-store' });
+      await deferredParams.promise;
+    });
+
+    await screen.findByRole('status', { name: /loading storefront chrome/i });
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
+    expect(themeProviderDocumentScopes).toEqual([false]);
+    expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith(
+      'generic-store'
+    );
+    const staticShell = container?.querySelector(
+      '.storefront-ppr-static-shell'
+    );
+    expect(staticShell).toBeTruthy();
+    expect(staticShell).toHaveClass('storefront-theme-scope');
+    expect(staticShell).toHaveClass('storefront-variant-default');
+    expect(staticShell).toHaveClass('storefront-light');
     expect(
       container?.querySelector('.storefront-ppr-static-shell__fallback')
     ).toBeTruthy();
@@ -333,6 +380,43 @@ describe('storefront layout', () => {
       container?.querySelector('.storefront-ppr-static-shell__content')
     ).toBeFalsy();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
+
+    unmount();
+  });
+
+  it('derives OgaBassey static fallback appearance from params before tenant data resolves', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
+      createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
+    );
+
+    let unmount: () => void = () => undefined;
+    let container: HTMLElement | undefined;
+
+    const ui = StorefrontLayout({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      children: <main>Storefront content</main>,
+    });
+
+    await act(async () => {
+      ({ container, unmount } = render(ui));
+      await Promise.resolve();
+    });
+
+    await screen.findByRole('status', { name: /loading storefront chrome/i });
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
+    expect(themeProviderDocumentScopes).toEqual([false]);
+    const staticShell = container?.querySelector(
+      '.storefront-ppr-static-shell'
+    );
+    expect(staticShell).toHaveClass('storefront-theme-scope');
+    expect(staticShell).toHaveClass('storefront-variant-ogabassey');
+    expect(staticShell).toHaveClass('storefront-mode-system');
+    expect(
+      screen.getByRole('status', { name: /loading storefront chrome/i })
+    ).toBeInTheDocument();
 
     unmount();
   });
@@ -346,17 +430,24 @@ describe('storefront layout', () => {
 
     let unmount: () => void = () => undefined;
 
-    await act(() => {
-      ({ unmount } = render(
-        <StorefrontLayout
-          params={Promise.resolve({ slug: 'ogabassey' })}
-          loadingFallback={fallback}
-        >
-          <main>Storefront content</main>
-        </StorefrontLayout>
-      ));
+    const ui = StorefrontLayout({
+      fallbackAppearance: { mode: 'system', variant: 'ogabassey' },
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      loadingFallback: fallback,
+      children: <main>Storefront content</main>,
     });
 
+    await act(async () => {
+      ({ unmount } = render(ui));
+      await Promise.resolve();
+    });
+
+    await screen.findByText('Loading route shell');
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
+    expect(themeProviderDocumentScopes).toEqual([false]);
     expect(screen.getByText('Loading route shell')).toBeInTheDocument();
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })
@@ -366,18 +457,92 @@ describe('storefront layout', () => {
     unmount();
   });
 
-  it('calls notFound before route content renders when the shell snapshot is missing', async () => {
+  it('keeps non-OgaBassey storefronts forced light after the shell resolves', async () => {
+    const genericMerchant = {
+      ...baseShellSnapshot.merchant,
+      business_name: 'Generic Store',
+      custom_domain: undefined,
+      slug: 'generic-store',
+      template_id: 'modern',
+    };
+    const genericShellSnapshotBase = {
+      ...baseShellSnapshotWithoutCategories,
+      merchant: genericMerchant,
+    };
+    const genericShellSnapshot = {
+      ...baseShellSnapshot,
+      merchant: genericMerchant,
+    };
+
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      genericShellSnapshotBase
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(
+      genericShellSnapshot
+    );
+
+    const ui = await StorefrontLayoutContent({
+      params: Promise.resolve({ slug: 'generic-store' }),
+      children: <main>Generic storefront content</main>,
+    });
+
+    render(ui);
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
+  });
+
+  it('uses system appearance for the OgaBassey custom-domain identifier after the shell resolves', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      baseShellSnapshotWithoutCategories
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(baseShellSnapshot);
+
+    const ui = await StorefrontLayoutContent({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      children: <main>Storefront content</main>,
+    });
+
+    render(ui);
+
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'system', variant: 'ogabassey' },
+    ]);
+  });
+
+  it('calls notFound directly when the shell snapshot is missing', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(null);
 
     await expect(
       StorefrontLayoutContent({
-        params: Promise.resolve({ slug: 'missing-store' }),
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
         children: <main>Storefront content</main>,
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(notFound).toHaveBeenCalledTimes(1);
+    expect(notFound).toHaveBeenCalled();
     expect(themeProviderRenders).toBe(0);
+    expect(themeProviderAppearances).toEqual([]);
+    expect(providerSnapshots).toEqual([]);
+  });
+
+  it('calls notFound directly when the full shell snapshot is missing', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      baseShellSnapshotWithoutCategories
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(null);
+
+    await expect(
+      StorefrontLayoutContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        children: <main>Storefront content</main>,
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(notFound).toHaveBeenCalled();
+    expect(themeProviderRenders).toBe(0);
+    expect(themeProviderAppearances).toEqual([]);
     expect(providerSnapshots).toEqual([]);
   });
 
@@ -405,7 +570,10 @@ describe('storefront layout', () => {
 
     expect(screen.getByText('Draft Store unpublished')).toBeInTheDocument();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
-    expect(themeProviderRenders).toBe(0);
+    expect(themeProviderRenders).toBe(1);
+    expect(themeProviderAppearances).toEqual([
+      { mode: 'light', variant: 'default' },
+    ]);
     expect(getStorefrontShellSnapshot).not.toHaveBeenCalled();
     expect(providerSnapshots).toEqual([]);
   });

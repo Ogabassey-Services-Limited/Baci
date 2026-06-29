@@ -137,7 +137,7 @@ function ReceiptProductThumbnail({
           ? undefined
           : `No product image available for ${productName}`
       }
-      className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center relative overflow-hidden"
+      className="ogabassey-product-card-image-surface w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center relative overflow-hidden"
       role={shouldRenderImage ? undefined : 'img'}
     >
       {imageSrc && !hasImageError ? (

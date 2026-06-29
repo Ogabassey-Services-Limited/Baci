@@ -4,6 +4,7 @@ import '@/app/(storefront)/storefront-home-critical.css';
 import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
+import type { StorefrontAppearance } from '@/components/storefront/storefront-appearance';
 import { OGABASSEY_STOREFRONT_IOS_APP_ID } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -17,6 +18,10 @@ import { OgabasseyStaticResourceHints } from './ogabassey-static-resource-hints'
 export const preferredRegion = 'dub1';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
+const OGABASSEY_FALLBACK_APPEARANCE = {
+  mode: 'system',
+  variant: 'ogabassey',
+} satisfies StorefrontAppearance;
 
 export { generateViewport };
 
@@ -113,6 +118,7 @@ export default function OgabasseyLayout({ children }: { children: ReactNode }) {
     <>
       <OgabasseyStaticResourceHints />
       <StorefrontLayout
+        fallbackAppearance={OGABASSEY_FALLBACK_APPEARANCE}
         loadingFallback={<OgabasseyHomeShellFallback />}
         params={OGABASSEY_PARAMS}
       >

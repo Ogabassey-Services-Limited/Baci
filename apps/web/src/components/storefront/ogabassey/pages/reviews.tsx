@@ -102,7 +102,7 @@ const RatingModal: React.FC<RatingModalProps> = ({
         </button>
 
         <div className="text-center mb-6">
-          <div className="size-16 bg-gray-50 rounded-xl border border-gray-100 p-2 mx-auto mb-4 flex items-center justify-center relative">
+          <div className="ogabassey-product-card-image-surface size-16 bg-gray-50 rounded-xl border border-gray-100 p-2 mx-auto mb-4 flex items-center justify-center relative">
             <Image
               src={product.image}
               alt={product.name}
@@ -336,7 +336,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
                   key={`${item.id}-${idx}`}
                   className="bg-white p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-all"
                 >
-                  <div className="size-16 bg-gray-50 rounded-lg p-2 shrink-0 border border-gray-100 relative">
+                  <div className="ogabassey-product-card-image-surface size-16 bg-gray-50 rounded-lg p-2 shrink-0 border border-gray-100 relative">
                     <Image
                       src={item.image}
                       alt={item.name}
@@ -379,7 +379,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
                   className="bg-white p-6 rounded-xl border border-gray-100 space-y-4 shadow-sm"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="size-12 bg-gray-50 rounded-lg p-1 shrink-0 border border-gray-100 relative">
+                    <div className="ogabassey-product-card-image-surface size-12 bg-gray-50 rounded-lg p-1 shrink-0 border border-gray-100 relative">
                       <Image
                         // Handle joined product data structure
                         src={review.products?.images?.[0] || '/placeholder.png'}

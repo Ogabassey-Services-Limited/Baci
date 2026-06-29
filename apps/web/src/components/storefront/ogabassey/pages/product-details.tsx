@@ -1129,7 +1129,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                     {comparableProducts.map((comp) => (
                       <div key={comp.id} className="space-y-4 relative group">
                         <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4 opacity-90 hover:opacity-100 transition-opacity">
-                          <div className="p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 size-24 flex items-center justify-center relative">
+                          <div className="ogabassey-product-card-image-surface p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 size-24 flex items-center justify-center relative">
                             <Image
                               src={comp.image}
                               alt={comp.name}

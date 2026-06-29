@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Trash2,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
@@ -24,9 +25,9 @@ import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
-import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
+import { CartEmptyState } from './cart-empty-state';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -54,6 +55,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     cartTotal,
   } = useCart();
   const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath ?? `/${storeSlug || 'ogabassey'}`;
   const negotiationVatRate =
     merchantContext?.merchant?.vat_registration_status === 'registered'
       ? (merchantContext.merchant.vat_rate ?? 7.5) / 100
@@ -134,7 +136,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 shrink-0">
+        <div className="flex items-center mb-6 shrink-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingCart className="text-red-600 fill-red-600" />
             Cart{' '}
@@ -142,23 +144,11 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
               ({cart.length})
             </span>
           </h1>
-          <Link
-            href={`/${storeSlug || 'ogabassey'}` as any}
-            className="text-sm font-medium text-red-600 hover:text-red-700 hidden md:block"
-          >
-            Continue Shopping
-          </Link>
         </div>
 
         {cart.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center pb-32 md:pb-0">
-            <EmptyState
-              variant="cart"
-              title="Your cart is empty 🤧"
-              description="Sorry, the product you are looking for is currently not available at the moment."
-              actionLabel="Start Shopping"
-              actionLink={`/${storeSlug || 'ogabassey'}`}
-            />
+          <div className="flex-1 flex items-start justify-center pb-20">
+            <CartEmptyState basePath={basePath || '/'} />
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
@@ -167,7 +157,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
               {cart.map((item) => {
                 const productHref = getStorefrontProductHref(
                   item,
-                  merchantContext?.basePath || `/${storeSlug || 'ogabassey'}`
+                  basePath
                 );
                 const priceToUse =
                   item.negotiatedPrice !== undefined
@@ -188,11 +178,14 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                       {/* Image */}
                       <Link
                         href={asRoute(productHref)}
-                        className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center"
+                        className="ogabassey-product-card-image-surface w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center"
                       >
-                        <img
-                          src={item.image}
+                        <Image
+                          src={item.image || '/placeholder.png'}
                           alt={item.name}
+                          width={112}
+                          height={112}
+                          sizes="(max-width: 768px) 80px, 112px"
                           className="w-full h-full object-contain mix-blend-multiply"
                         />
                       </Link>

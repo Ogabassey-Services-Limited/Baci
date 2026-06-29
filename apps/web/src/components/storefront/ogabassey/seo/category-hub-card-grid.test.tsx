@@ -33,6 +33,8 @@ describe('CategoryHubCardGrid', () => {
     expect(
       screen.getByRole('link', { name: 'Best for Photography' })
     ).toHaveAttribute('href', '/smartphones/apple-pro');
+    expect(screen.getByText('Strong camera options.')).toBeInTheDocument();
+    expect(screen.getByText('Smartphones')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'Compare Apple Pro vs Samsung Ultra',
@@ -64,6 +66,31 @@ describe('CategoryHubCardGrid', () => {
     );
     expect(
       screen.queryByRole('link', { name: /compare samsung/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not depend on PDP-only semantic classes for category listing pages', () => {
+    render(
+      <CategoryHubCardGrid
+        title="Best price bands"
+        cards={[
+          {
+            title: 'Best Smartphones Under ₦500,000',
+            description: 'Value picks in the first band.',
+            href: '/smartphones/best-under/under-500k',
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Best price bands' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Best Smartphones Under ₦500,000' })
+    ).toHaveAttribute('href', '/smartphones/best-under/under-500k');
+    expect(
+      screen.queryByRole('link', { name: /compare/i })
     ).not.toBeInTheDocument();
   });
 });

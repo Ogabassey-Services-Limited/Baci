@@ -92,6 +92,18 @@ describe('Ogabassey Footer', () => {
     expect(footer?.className).not.toContain('text-store-primary-text');
   });
 
+  it('renders the branded gadget pattern overlay instead of a dot texture', () => {
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+
+    render(<Footer storeSlug="ogabassey" merchant={merchantFixture} />);
+    const pattern = screen.getByTestId('ogabassey-gadget-pattern');
+
+    expect(pattern).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('adds trust policy links to the support section when available', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
       returnPolicy: {

@@ -24,10 +24,12 @@ const { mockStorefrontLayout } = vi.hoisted(() => ({
   mockStorefrontLayout: vi.fn(
     ({
       children,
+      fallbackAppearance: _fallbackAppearance,
       loadingFallback: _loadingFallback,
       params: _params,
     }: {
       children: ReactNode;
+      fallbackAppearance?: unknown;
       loadingFallback?: ReactNode;
       params: Promise<{ slug: string }>;
     }) => <section aria-label="generic storefront layout">{children}</section>
@@ -151,6 +153,10 @@ describe('OgabasseyLayout', () => {
     expect(storefrontLayout).toHaveTextContent('Home content');
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
+    expect(props?.fallbackAppearance).toEqual({
+      mode: 'system',
+      variant: 'ogabassey',
+    });
     expect(props?.loadingFallback).toBeDefined();
     const fallbackRender = render(<div>{props?.loadingFallback}</div>);
     expect(

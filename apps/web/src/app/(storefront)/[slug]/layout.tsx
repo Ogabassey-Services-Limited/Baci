@@ -3,11 +3,17 @@ import '@/app/(storefront)/storefront-core.css';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import type React from 'react';
-import { Suspense } from 'react';
+import { Suspense, use } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import {
+  DEFAULT_STOREFRONT_APPEARANCE,
+  getStorefrontAppearanceClasses,
+  resolveStorefrontAppearance,
+  type StorefrontAppearance,
+} from '@/components/storefront/storefront-appearance';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { WebMcpStorefrontTools } from '@/components/storefront/webmcp-storefront-tools';
 import { MOBILE_APPS } from '@/config/platform';
@@ -247,19 +253,39 @@ function StorefrontShellFrame({
   );
 }
 
-function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
-  return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
+function StorefrontThemeFrame({
+  appearance,
+  children,
+  scopeDocument = true,
+}: {
+  appearance: StorefrontAppearance;
+  children: React.ReactNode;
+  scopeDocument?: boolean;
+}) {
+  return (
+    <StorefrontThemeProvider
+      appearance={appearance}
+      scopeDocument={scopeDocument}
+    >
+      {children}
+    </StorefrontThemeProvider>
+  );
 }
 
 function StorefrontPprStaticShell({
   children,
   loadingFallback,
+  appearance,
 }: {
   children: React.ReactNode;
   loadingFallback: React.ReactNode;
+  appearance: StorefrontAppearance;
 }) {
+  const appearanceClassName =
+    getStorefrontAppearanceClasses(appearance).join(' ');
+
   return (
-    <div className="storefront-ppr-static-shell">
+    <div className={`storefront-ppr-static-shell ${appearanceClassName}`}>
       <Suspense fallback={null}>
         <div className="storefront-ppr-static-shell__content">{children}</div>
       </Suspense>
@@ -272,6 +298,12 @@ function StorefrontPprStaticShell({
   );
 }
 
+function resolveFallbackAppearanceForSlug(slug: string): StorefrontAppearance {
+  return isValidMerchantIdentifier(slug)
+    ? resolveStorefrontAppearance(slug)
+    : DEFAULT_STOREFRONT_APPEARANCE;
+}
+
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -282,6 +314,8 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
+  const appearance = resolveStorefrontAppearance(slug);
+
   const shellSnapshotBase = await getStorefrontShellSnapshotBase(slug);
 
   if (!shellSnapshotBase) {
@@ -291,9 +325,11 @@ export async function StorefrontLayoutContent(props: {
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
-      <StoreNotPublished
-        businessName={shellSnapshotBase.merchant.business_name}
-      />
+      <StorefrontThemeFrame appearance={appearance}>
+        <StoreNotPublished
+          businessName={shellSnapshotBase.merchant.business_name}
+        />
+      </StorefrontThemeFrame>
     );
   }
 
@@ -312,39 +348,67 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <StorefrontShellFrame
-      // Page-level resource hints own LCP preloads. Keeping the shared
-      // layout disabled prevents home hero hints from leaking onto nested routes.
-      preloadHeroLcpImages={false}
-      shellSnapshot={shellSnapshot}
-    >
-      {props.children}
-    </StorefrontShellFrame>
+    <StorefrontThemeFrame appearance={appearance}>
+      <StorefrontShellFrame
+        // Page-level resource hints own LCP preloads. Keeping the shared
+        // layout disabled prevents home hero hints from leaking onto nested routes.
+        preloadHeroLcpImages={false}
+        shellSnapshot={shellSnapshot}
+      >
+        {props.children}
+      </StorefrontShellFrame>
+    </StorefrontThemeFrame>
   );
 }
 
-export default function StorefrontLayout(props: {
+function StorefrontLayoutShell(props: {
   children: React.ReactNode;
+  fallbackAppearance?: StorefrontAppearance;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const resolvedParams = use(props.params);
   // Keep the request-bound tenant lookup out of the prerendered root HTML.
   // Next 16.2/PPR can resume Googlebot's blocking metadata boundary into the
   // dynamic Suspense slot when that slot owns a visible fallback. Preserve the
   // human PPR shell as a static sibling instead: browsers get immediate chrome
   // and LCP imagery, while the resume slot itself stays null for bot/blocking
   // metadata requests.
-  const { loadingFallback, ...contentProps } = props;
+  const {
+    fallbackAppearance = resolveFallbackAppearanceForSlug(resolvedParams.slug),
+    loadingFallback,
+  } = props;
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
   // routes that intentionally need no static visual shell.
-  const staticLoadingFallback =
+  const fallbackContent =
     loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
+  const staticLoadingFallback = fallbackContent ? (
+    <StorefrontThemeFrame appearance={fallbackAppearance} scopeDocument={false}>
+      {fallbackContent}
+    </StorefrontThemeFrame>
+  ) : null;
 
   return (
-    <StorefrontThemeFrame>
-      <StorefrontPprStaticShell loadingFallback={staticLoadingFallback}>
-        <StorefrontLayoutContent {...contentProps} />
-      </StorefrontPprStaticShell>
-    </StorefrontThemeFrame>
+    <StorefrontPprStaticShell
+      appearance={fallbackAppearance}
+      loadingFallback={staticLoadingFallback}
+    >
+      <StorefrontLayoutContent params={Promise.resolve(resolvedParams)}>
+        {props.children}
+      </StorefrontLayoutContent>
+    </StorefrontPprStaticShell>
+  );
+}
+
+export default function StorefrontLayout(props: {
+  children: React.ReactNode;
+  fallbackAppearance?: StorefrontAppearance;
+  loadingFallback?: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <StorefrontLayoutShell {...props} />
+    </Suspense>
   );
 }
