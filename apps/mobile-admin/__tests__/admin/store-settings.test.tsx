@@ -447,7 +447,6 @@ describe('StoreSettingsScreen', () => {
     });
   });
 
-
   it('guards saves with the loaded updated_at concurrency token', async () => {
     render(<StoreSettingsScreen />);
 

@@ -5,6 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import { StoreUrlSection } from './StoreUrlSection';
 
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  default: ({ accessibilityLabel }: { accessibilityLabel?: string }) => (
+    <span aria-label={accessibilityLabel} role="img" />
+  ),
+}));
+
 vi.mock('react-native', () => ({
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
@@ -68,6 +74,9 @@ describe('StoreUrlSection', () => {
         'This is your unique store link. Changing it will break existing links.'
       )
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('img', { name: 'Store URL locked' })
+    ).not.toBeInTheDocument();
   });
 
   it('locks the slug input after the store URL is established', () => {
@@ -92,6 +101,9 @@ describe('StoreUrlSection', () => {
       screen.getByText(
         'Store links are locked after setup. Contact support if you need a change.'
       )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Store URL locked' })
     ).toBeInTheDocument();
 
     fireEvent.change(slugInput, {

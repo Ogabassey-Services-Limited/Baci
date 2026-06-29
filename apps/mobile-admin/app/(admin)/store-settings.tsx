@@ -90,9 +90,7 @@ export default function StoreSettingsScreen() {
     setBaseline(buildBaselineFromMerchant(merchant));
   }
 
-  const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(
-    baseline?.slug ?? merchant?.slug
-  );
+  const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(baseline?.slug);
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
     setCountry(selected.code);

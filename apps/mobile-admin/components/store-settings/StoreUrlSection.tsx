@@ -1,3 +1,4 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
 import {
   type StyleProp,
   StyleSheet,
@@ -55,9 +56,19 @@ export function StoreUrlSection({
           ]}
           value={slug}
         />
-        <Text style={[styles.urlSuffix, { color: colors.textSecondary }]}>
-          .usebaci.com
-        </Text>
+        <View style={styles.urlSuffixGroup}>
+          <Text style={[styles.urlSuffix, { color: colors.textSecondary }]}>
+            .usebaci.com
+          </Text>
+          {slugLocked ? (
+            <Ionicons
+              accessibilityLabel="Store URL locked"
+              color={colors.textMuted}
+              name="lock-closed"
+              size={14}
+            />
+          ) : null}
+        </View>
       </View>
       <Text style={[styles.helperText, { color: colors.textSecondary }]}>
         {helperMessage}
@@ -88,6 +99,11 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.md,
     padding: 0,
+  },
+  urlSuffixGroup: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.xs,
   },
   lockedUrlInput: {
     opacity: 0.7,
