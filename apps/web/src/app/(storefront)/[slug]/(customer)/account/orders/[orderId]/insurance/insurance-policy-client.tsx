@@ -1,6 +1,9 @@
 'use client';
 
-import { normalizeInsuranceCertificateUrl } from '@baci/shared/insurance';
+import {
+  normalizeInsuranceCertificateUrl,
+  normalizeInsuranceFlowUrl,
+} from '@baci/shared/insurance';
 import mycoverai from '@mycoverai/mca-javascript-sdk';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -55,7 +58,12 @@ export function InsurancePolicyClient({
   const { policy, error } = initialResult;
 
   const openHostedFlow = (url: string) => {
-    const safeUrl = toSafeExternalUrl(url);
+    // Claim/inspection links live on MyCover's hosted-FLOW hosts, which differ
+    // from the certificate (S3) allowlist. resolveClaimUrl/resolveInspectionUrl
+    // already validated against the flow allowlist; re-check against the SAME
+    // allowlist here (not the certificate one) so legitimate links aren't
+    // silently rejected.
+    const safeUrl = normalizeInsuranceFlowUrl(url);
     if (!safeUrl) return;
     window.open(safeUrl, '_blank', 'noopener,noreferrer');
   };

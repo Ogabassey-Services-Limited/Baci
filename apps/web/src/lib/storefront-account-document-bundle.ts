@@ -300,10 +300,6 @@ export function buildStorefrontAccountDocumentBundle({
   // Ogabassey Assurance is rolled into order.subtotal but VAT-free and was never
   // itemized — surface it as a single zero-rated line so the document reconciles.
   const assuranceTotal = sumAssuranceFees(itemRows);
-  // When assurance is itemized, the invoice's tax-exclusive (BT-109) /
-  // tax-inclusive (BT-112) totals must include it too — otherwise the stored
-  // product-only totals contradict the lines + tax subtotals.
-  let assuranceLineExtensionTotal: number | null = null;
   if (assuranceTotal > 0) {
     invoiceItems.push(
       buildAssuranceInvoiceLineItem(
@@ -312,8 +308,15 @@ export function buildStorefrontAccountDocumentBundle({
       )
     );
     receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
-    assuranceLineExtensionTotal = sumLineExtensionAmounts(invoiceItems);
-    reconcileAssuranceTaxSubtotal(taxSubtotals, assuranceLineExtensionTotal);
+    // Reconcile only the lines + tax subtotals with the stored total. The
+    // document totals (preTaxTotal / taxInclusiveAmount) ALREADY include the
+    // assurance premium — it is rolled into order.subtotal/total — so they must
+    // NOT be re-derived from the line sum alone, which would drop shipping and
+    // discount from BT-109/BT-112.
+    reconcileAssuranceTaxSubtotal(
+      taxSubtotals,
+      sumLineExtensionAmounts(invoiceItems)
+    );
   }
 
   const orderDetail: StorefrontOrder = {
@@ -403,14 +406,12 @@ export function buildStorefrontAccountDocumentBundle({
     items: invoiceItems,
     tax_subtotals: taxSubtotals,
     subtotal,
-    tax_exclusive_amount:
-      assuranceLineExtensionTotal ??
-      resolveMoneyValue(order.tax_exclusive_amount, preTaxTotal),
+    tax_exclusive_amount: resolveMoneyValue(
+      order.tax_exclusive_amount,
+      preTaxTotal
+    ),
     tax_amount: taxAmount,
-    tax_inclusive_amount:
-      assuranceLineExtensionTotal != null
-        ? assuranceLineExtensionTotal + taxAmount
-        : taxInclusiveAmount,
+    tax_inclusive_amount: taxInclusiveAmount,
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,

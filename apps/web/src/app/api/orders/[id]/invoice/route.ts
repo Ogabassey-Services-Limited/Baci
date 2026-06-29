@@ -438,18 +438,19 @@ export async function GET(
     // itemized — surface it as a single zero-rated line so the invoice
     // reconciles with the stored total.
     const assuranceTotal = sumAssuranceFees(orderItems ?? []);
-    // When assurance is itemized, the document's tax-exclusive (BT-109) /
-    // tax-inclusive (BT-112) totals must include it too, or the stored
-    // product-only totals contradict the lines + tax subtotals.
-    let assuranceLineExtensionTotal: number | null = null;
     if (assuranceTotal > 0) {
       items.push(
         buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
       );
-      assuranceLineExtensionTotal = sumLineExtensionAmounts(items);
+      // Reconcile only the lines + tax subtotals with the stored total. The
+      // stored document totals ALREADY include the assurance premium — it is
+      // rolled into order.subtotal, which feeds tax_exclusive_amount = subtotal
+      // + shipping - discount (see api/orders/route.ts). Re-deriving BT-109 /
+      // BT-112 from the line sum alone would silently drop shipping and
+      // discount, so the totals below are left as the stored values.
       reconcileAssuranceTaxSubtotal(
         invoiceTaxSubtotals,
-        assuranceLineExtensionTotal
+        sumLineExtensionAmounts(items)
       );
     }
 
@@ -551,17 +552,14 @@ export async function GET(
 
       // Totals
       subtotal: Number(order.subtotal || 0),
-      tax_exclusive_amount:
-        assuranceLineExtensionTotal ??
-        Number(order.tax_exclusive_amount || order.subtotal || 0),
+      tax_exclusive_amount: Number(
+        order.tax_exclusive_amount || order.subtotal || 0
+      ),
       tax_amount: Number(order.tax_amount || 0),
-      tax_inclusive_amount:
-        assuranceLineExtensionTotal != null
-          ? assuranceLineExtensionTotal + Number(order.tax_amount || 0)
-          : Number(
-              order.tax_inclusive_amount ||
-                (order.subtotal || 0) + (order.tax_amount || 0)
-            ),
+      tax_inclusive_amount: Number(
+        order.tax_inclusive_amount ||
+          (order.subtotal || 0) + (order.tax_amount || 0)
+      ),
       shipping_fee: Number(order.shipping_fee || 0),
       discount_amount: Number(order.discount_amount || 0),
       total: Number(order.total || 0),

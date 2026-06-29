@@ -75,6 +75,9 @@ describe('InsurancePolicyFooterActions', () => {
     fireEvent.click(screen.getByRole('button', { name: /continue claim/i }));
     expect(onFileClaim).toHaveBeenCalledTimes(1);
 
+    // Even without a hosted link, an in-progress claim keeps an actionable
+    // button (handleFileClaim falls back to the SDK modal).
+    onFileClaim.mockClear();
     rerender(
       <InsurancePolicyFooterActions
         certificateUrl={null}
@@ -83,7 +86,8 @@ describe('InsurancePolicyFooterActions', () => {
         onFileClaim={onFileClaim}
       />
     );
-    expect(screen.getByText('Existing claim in progress')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /continue claim/i }));
+    expect(onFileClaim).toHaveBeenCalledTimes(1);
 
     rerender(
       <InsurancePolicyFooterActions

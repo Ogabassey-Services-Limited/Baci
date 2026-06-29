@@ -58,7 +58,9 @@ export function InsurancePolicyFooterActions({
         </p>
       )}
 
-      {cta.kind === 'claim_existing' && cta.url && (
+      {cta.kind === 'claim_existing' && (
+        // Even with no hosted claim_link (legacy / missed webhook), keep the
+        // action: handleFileClaim falls back to the public-key SDK modal.
         <Button
           className="w-full sm:w-auto gap-2 sm:ml-auto"
           onClick={onFileClaim}
@@ -66,12 +68,6 @@ export function InsurancePolicyFooterActions({
           <ExternalLink className="size-4" />
           Continue Claim
         </Button>
-      )}
-
-      {cta.kind === 'claim_existing' && !cta.url && (
-        <p className="text-sm text-muted-foreground sm:ml-auto sm:self-center">
-          Existing claim in progress
-        </p>
       )}
 
       {cta.kind === 'claim_terminal' && (
