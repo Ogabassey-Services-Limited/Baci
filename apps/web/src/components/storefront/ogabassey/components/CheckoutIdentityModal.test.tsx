@@ -86,34 +86,33 @@ describe('CheckoutIdentityModal', () => {
     ).toBeInTheDocument();
   });
 
-  it('updates the password visibility toggle action label', () => {
+  it('keeps the password visibility toggle name stable while pressed', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
     fireEvent.click(screen.getByText('Sign In'));
 
     const passwordInput = screen.getByLabelText('Password');
-    const showButton = screen.getByRole('button', {
+    const toggleButton = screen.getByRole('button', {
       name: 'Show password',
     });
 
     expect(passwordInput).toHaveAttribute('type', 'password');
-    expect(showButton).toHaveTextContent('Show');
+    expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
+    expect(toggleButton).not.toHaveTextContent('Show');
 
-    fireEvent.click(showButton);
-
-    const hideButton = screen.getByRole('button', {
-      name: 'Hide password',
-    });
+    fireEvent.click(toggleButton);
 
     expect(passwordInput).toHaveAttribute('type', 'text');
-    expect(hideButton).toHaveTextContent('Hide');
+    expect(
+      screen.getByRole('button', { name: 'Show password' })
+    ).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(hideButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
 
     expect(passwordInput).toHaveAttribute('type', 'password');
     expect(
       screen.getByRole('button', { name: 'Show password' })
-    ).toHaveTextContent('Show');
+    ).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('shows error message when sign-in fails', async () => {
