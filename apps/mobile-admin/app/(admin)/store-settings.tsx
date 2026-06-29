@@ -107,6 +107,8 @@ export default function StoreSettingsScreen() {
   };
 
   const handleSlugChange = (text: string) => {
+    if (baseline?.slug.trim()) return;
+
     setIsSlugEdited(true);
     const sanitized = text.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setSlug(sanitized);
@@ -207,6 +209,7 @@ export default function StoreSettingsScreen() {
   const planLabel = SubscriptionManagement.getPlanLabel(isPro) || 'Free Plan';
   const manageSubscriptionLabel =
     SubscriptionManagement.getManagementLabel() || 'Manage Subscription';
+  const slugLocked = Boolean(baseline?.slug.trim());
 
   return (
     <>
@@ -266,6 +269,7 @@ export default function StoreSettingsScreen() {
           onSupportPhoneChange={setSupportPhone}
           phone={phone}
           shadowStyle={shadows.sm}
+          slugLocked={slugLocked}
           slug={slug}
           supportPhone={supportPhone}
         />

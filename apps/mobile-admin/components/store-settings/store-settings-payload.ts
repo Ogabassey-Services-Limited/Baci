@@ -108,6 +108,13 @@ export function buildMerchantUpdatePayload(
     }
   }
 
+  // Established storefront slugs are immutable at the database layer. Keep the
+  // mobile settings diff from submitting a stale or manually edited slug while
+  // still allowing first-time slug creation for merchants that do not have one.
+  if (baseline.slug.trim().length > 0) {
+    delete payload.slug;
+  }
+
   // Store readiness accepts public support contact only. Until the mobile UI
   // migrates to structured contact input, a merchant that only edits the
   // visible primary phone should still complete contact readiness when no

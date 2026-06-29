@@ -28,6 +28,7 @@ interface StoreSettingsDetailsCardProps {
   onSupportPhoneChange: (text: string) => void;
   phone: string;
   shadowStyle: StyleProp<ViewStyle>;
+  slugLocked: boolean;
   slug: string;
   supportPhone: string;
 }
@@ -48,6 +49,7 @@ export function StoreSettingsDetailsCard({
   onSupportPhoneChange,
   phone,
   shadowStyle,
+  slugLocked,
   slug,
   supportPhone,
 }: StoreSettingsDetailsCardProps) {
@@ -219,10 +221,16 @@ export function StoreSettingsDetailsCard({
           <TextInput
             accessibilityLabel="Store slug"
             autoCapitalize="none"
+            editable={!slugLocked}
             onChangeText={onSlugChange}
             placeholder="your-store-name"
             placeholderTextColor={colors.textMuted}
-            style={[styles.urlInput, { color: colors.text }]}
+            selectTextOnFocus={!slugLocked}
+            style={[
+              styles.urlInput,
+              slugLocked && styles.lockedUrlInput,
+              { color: slugLocked ? colors.textSecondary : colors.text },
+            ]}
             value={slug}
           />
           <Text style={[styles.urlSuffix, { color: colors.textSecondary }]}>
@@ -230,7 +238,9 @@ export function StoreSettingsDetailsCard({
           </Text>
         </View>
         <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-          This is your unique store link. Changing it will break existing links.
+          {slugLocked
+            ? 'Store links are locked after setup. Contact support if you need a change.'
+            : 'This is your unique store link. Changing it will break existing links.'}
         </Text>
       </View>
     </>
@@ -286,6 +296,9 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.md,
     padding: 0,
+  },
+  lockedUrlInput: {
+    opacity: 0.7,
   },
   urlSuffix: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,

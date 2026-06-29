@@ -58,6 +58,42 @@ describe('store settings payload helpers', () => {
     expect(payload).not.toHaveProperty('phone');
   });
 
+  it('does not submit slug changes for established store URLs', () => {
+    const nextForm = {
+      ...baselineForm,
+      business_name: 'Baci Foods Ltd',
+      slug: 'baci-foods-ltd',
+    };
+
+    const payload = buildMerchantUpdatePayload(baselineForm, nextForm);
+
+    expect(payload).toEqual({ business_name: 'Baci Foods Ltd' });
+  });
+
+  it('allows a slug to be set when the merchant does not have one yet', () => {
+    const unlockedBaseline = { ...baselineForm, slug: '' };
+    const nextForm = {
+      ...baselineForm,
+      slug: 'baci-foods',
+    };
+
+    const payload = buildMerchantUpdatePayload(unlockedBaseline, nextForm);
+
+    expect(payload).toEqual({ slug: 'baci-foods' });
+  });
+
+  it('allows a slug to be set when the baseline slug is whitespace only', () => {
+    const unlockedBaseline = { ...baselineForm, slug: '   ' };
+    const nextForm = {
+      ...baselineForm,
+      slug: 'baci-foods',
+    };
+
+    const payload = buildMerchantUpdatePayload(unlockedBaseline, nextForm);
+
+    expect(payload).toEqual({ slug: 'baci-foods' });
+  });
+
   it('copies a newly entered primary phone into support_phone when no public contact exists', () => {
     expect(
       buildMerchantUpdatePayload(

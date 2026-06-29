@@ -38,16 +38,21 @@ vi.mock('react-native', () => ({
   ),
   TextInput: ({
     accessibilityLabel,
+    editable = true,
     onChangeText,
     value,
   }: {
     accessibilityLabel?: string;
+    editable?: boolean;
     onChangeText?: (text: string) => void;
     value?: string;
   }) => (
     <input
       aria-label={accessibilityLabel}
-      onChange={(event) => onChangeText?.(event.target.value)}
+      onChange={(event) => {
+        if (editable) onChangeText?.(event.target.value);
+      }}
+      readOnly={!editable}
       value={value ?? ''}
     />
   ),
@@ -76,6 +81,7 @@ describe('StoreSettingsDetailsCard', () => {
         email="support@usebaci.com"
         phone="+2348012345678"
         shadowStyle={SHADOWS.sm}
+        slugLocked={false}
         slug="baci-foods"
         supportPhone="+2347000000000"
         {...callbacks}
@@ -137,5 +143,39 @@ describe('StoreSettingsDetailsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select country' }));
 
     expect(callbacks.onOpenCountryPicker).toHaveBeenCalledTimes(1);
+  });
+
+  it('locks the store slug input when the slug is established', () => {
+    render(
+      <StoreSettingsDetailsCard
+        address="12 Allen Avenue"
+        businessName="Baci Foods"
+        colors={LIGHT_COLORS}
+        countryLabel="Nigeria"
+        currency="NGN"
+        email="support@usebaci.com"
+        phone="+2348012345678"
+        shadowStyle={SHADOWS.sm}
+        slug="baci-foods"
+        slugLocked
+        supportPhone="+2347000000000"
+        {...callbacks}
+      />
+    );
+
+    const slugInput = screen.getByLabelText('Store slug');
+
+    expect(slugInput).toHaveAttribute('readonly');
+    expect(
+      screen.getByText(
+        'Store links are locked after setup. Contact support if you need a change.'
+      )
+    ).toBeInTheDocument();
+
+    fireEvent.change(slugInput, {
+      target: { value: 'baci-stores' },
+    });
+
+    expect(callbacks.onSlugChange).not.toHaveBeenCalled();
   });
 });
