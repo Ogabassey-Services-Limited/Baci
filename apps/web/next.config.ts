@@ -35,11 +35,6 @@ const STOREFRONT_METADATA_VARY_HEADER_VALUE = [
   'next-router-segment-prefetch',
 ].join(', ');
 const OGABASSEY_DOMAIN = 'ogabassey.com';
-const OGABASSEY_WWW_DOMAIN = `www.${OGABASSEY_DOMAIN}`;
-const OGABASSEY_REDIRECT_HOST_MATCHERS = [
-  OGABASSEY_DOMAIN.replaceAll('.', '\\.'),
-  OGABASSEY_WWW_DOMAIN.replaceAll('.', '\\.'),
-] as const;
 const OGABASSEY_NON_PDP_FIRST_SEGMENT_PATTERN = [
   'about',
   'account',
@@ -441,23 +436,6 @@ const nextConfig: NextConfig = {
         destination: '/blog/wwdc-2025-5-game-changing-apple-announcements',
         permanent: true,
       },
-      // Off-topic imported posts retired from the public tech blog.
-      ...OGABASSEY_REDIRECT_HOST_MATCHERS.flatMap((hostMatcher) => [
-        {
-          source:
-            '/blog/abubakar-malami-remanded-former-nigerian-agf-faces-multi-billion-naira-property-charges',
-          destination: '/blog',
-          permanent: true,
-          has: [{ type: 'host' as const, value: hostMatcher }],
-        },
-        {
-          source:
-            '/blog/cbn-forecast-nigerias-external-reserves-projected-to-hit-5104-billion-by-2026',
-          destination: '/blog',
-          permanent: true,
-          has: [{ type: 'host' as const, value: hostMatcher }],
-        },
-      ]),
       // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)
       // and thumbnail_id query-string stripping are owned by apps/web/src/proxy.ts
       // (single source of truth, also handles /blog/wp-admin 410s). Do not re-add here to

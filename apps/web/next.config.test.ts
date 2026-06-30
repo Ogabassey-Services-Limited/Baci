@@ -526,42 +526,6 @@ describe('next.config OgaBassey resource headers', () => {
     );
   });
 
-  it('redirects retired off-topic blog imports back to the tech blog index', async () => {
-    expect(typeof nextConfig.redirects).toBe('function');
-    const redirects = await nextConfig.redirects?.();
-    const retiredRedirectSources = [
-      '/blog/abubakar-malami-remanded-former-nigerian-agf-faces-multi-billion-naira-property-charges',
-      '/blog/cbn-forecast-nigerias-external-reserves-projected-to-hit-5104-billion-by-2026',
-    ];
-
-    for (const source of retiredRedirectSources) {
-      const sourceRedirects = redirects?.filter(
-        (entry) =>
-          entry.source === source &&
-          entry.destination === '/blog' &&
-          entry.permanent === true
-      );
-      expect(sourceRedirects).toHaveLength(2);
-
-      const hostMatchers =
-        sourceRedirects?.flatMap(
-          (entry) =>
-            entry.has
-              ?.filter((condition) => condition.type === 'host')
-              .map((condition) => condition.value)
-              .filter((value): value is string => typeof value === 'string') ??
-            []
-        ) ?? [];
-
-      const matchesHost = (host: string) =>
-        hostMatchers.some((matcher) => new RegExp(`^${matcher}$`).test(host));
-
-      expect(matchesHost('ogabassey.com')).toBe(true);
-      expect(matchesHost('www.ogabassey.com')).toBe(true);
-      expect(matchesHost('shop.ogabassey.com')).toBe(false);
-    }
-  });
-
   it('does not emit OgaBassey hero image preload Link headers from next.config', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
