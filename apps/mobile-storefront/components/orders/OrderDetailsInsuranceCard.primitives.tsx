@@ -19,6 +19,7 @@ export function InsuranceCardHeader({
     <View style={styles.insuranceHeader}>
       <Ionicons name={iconName} size={20} color={iconColor} />
       <Text
+        accessibilityRole="header"
         style={[
           styles.sectionTitle,
           { color: colors.text, marginBottom: 0, marginLeft: 8 },

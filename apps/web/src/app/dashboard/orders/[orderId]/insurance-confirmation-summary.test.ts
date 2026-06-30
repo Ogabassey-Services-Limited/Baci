@@ -47,6 +47,19 @@ describe('summarizeInsuranceConfirmation', () => {
     expect(toast.description).toContain('MyCover unavailable');
   });
 
+  it('treats a request-level success:false (no results) as a failure', () => {
+    const toast = summarizeInsuranceConfirmation({
+      insurance: {
+        success: false,
+        message: 'No items in this order require assurance.',
+      },
+    });
+
+    expect(toast.variant).toBe('destructive');
+    expect(toast.title).toBe('Order Confirmed, Insurance Failed');
+    expect(toast.description).toContain('No items in this order require');
+  });
+
   it('reports a failure when every item failed and no policy exists', () => {
     const toast = summarizeInsuranceConfirmation({
       insurance: {

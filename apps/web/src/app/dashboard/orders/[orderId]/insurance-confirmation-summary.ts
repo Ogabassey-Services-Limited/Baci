@@ -13,6 +13,7 @@ export interface InsuranceConfirmationResult {
   insuranceError?: string;
   insurance?: {
     success?: boolean;
+    message?: string;
     results?: Array<{
       success?: boolean;
       policyNumber?: string;
@@ -31,13 +32,23 @@ export interface InsuranceConfirmationToast {
 export function summarizeInsuranceConfirmation(
   result: InsuranceConfirmationResult
 ): InsuranceConfirmationToast {
-  const results = result.insurance?.results ?? [];
+  const insurance = result.insurance;
+  const results = insurance?.results ?? [];
   const activePolicy = results.find((item) => item.policyNumber);
   const failedItem = results.find((item) => item.success === false);
-  const hasFailure = Boolean(result.insuranceError) || Boolean(failedItem);
+  // `purchaseOrderInsurance` can also signal a request-level failure (e.g. "no
+  // items require assurance") via `insurance.success: false` with no results —
+  // never report that as success.
+  const requestLevelFailure =
+    insurance !== undefined && insurance.success === false;
+  const hasFailure =
+    Boolean(result.insuranceError) ||
+    Boolean(failedItem) ||
+    requestLevelFailure;
   const failureMessage =
     result.insuranceError ||
     failedItem?.error ||
+    insurance?.message ||
     'Insurance could not be activated';
 
   if (!hasFailure) {

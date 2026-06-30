@@ -37,6 +37,7 @@ interface DatabaseOrderItem {
   id: string;
   has_assurance: boolean;
   assurance_fee?: number;
+  price?: number;
   name: string;
   [key: string]: unknown;
 }
@@ -74,7 +75,7 @@ export async function purchaseOrderInsurance(
     .select(`
       id, merchant_id, customer_name, customer_email, customer_phone,
       shipping_address,
-      order_items (id, name, has_assurance, assurance_fee)
+      order_items (id, name, has_assurance, assurance_fee, price)
     `)
     .eq('id', orderId)
     .single();
@@ -134,6 +135,18 @@ export async function purchaseOrderInsurance(
       });
       continue;
     }
+    // Insured value comes from the trusted server-side order item price, never
+    // the client-supplied deviceDetails.deviceValue, so a tampered confirm
+    // payload can't inflate/deflate the coverage or premium basis.
+    const insuredValue = Number(item.price);
+    if (!(Number.isFinite(insuredValue) && insuredValue > 0)) {
+      results.push({
+        success: false,
+        error: 'Insured item is missing a valid server-side price.',
+        itemId: item.id,
+      });
+      continue;
+    }
     try {
       const policy = await myCover.purchaseGadgetInsurance({
         product_id: productId,
@@ -151,7 +164,7 @@ export async function purchaseOrderInsurance(
         serial_number: deviceDetails.serialNumber,
         device_purchase_date: deviceDetails.purchaseDate,
         image_url: deviceDetails.devicePhotos.about,
-        value: deviceDetails.deviceValue,
+        value: insuredValue,
       });
 
       // 5. Save Policy to Database — premium from MyCover response (source of truth)
@@ -167,7 +180,7 @@ export async function purchaseOrderInsurance(
           mycover_purchase_id: policy.purchase_id,
           mycover_product_id: productId,
           mycover_customer_id: policy.customer_id,
-          coverage_amount: deviceDetails.deviceValue,
+          coverage_amount: insuredValue,
           premium_amount: premiumAmount,
           status: 'active',
           policy_type: 'gadget',

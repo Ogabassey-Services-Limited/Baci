@@ -33,6 +33,29 @@ describe('MyCover webhook signature verification', () => {
     ).resolves.toBe(true);
   });
 
+  it('accepts a signature computed over the verbatim raw body', async () => {
+    // Whitespace body whose canonical re-serialization differs from the wire
+    // bytes — only the verbatim-raw-body candidate can match here.
+    const rawBody = '{\n  "event":   "purchase.successful"\n}';
+    const signature = await hmacSha512Hex('secret', rawBody);
+
+    await expect(
+      verifyWebhookSignature(rawBody, signature, 'secret')
+    ).resolves.toBe(true);
+  });
+
+  it('rejects a non-matching signature', async () => {
+    const rawBody = '{"event":"purchase.successful"}';
+    const wrong = await hmacSha512Hex('different-secret', rawBody);
+
+    await expect(
+      verifyWebhookSignature(rawBody, wrong, 'secret')
+    ).resolves.toBe(false);
+    await expect(
+      verifyWebhookSignature(rawBody, 'deadbeef', 'secret')
+    ).resolves.toBe(false);
+  });
+
   it('rejects missing signatures', async () => {
     await expect(verifyWebhookSignature('{}', null, 'secret')).resolves.toBe(
       false

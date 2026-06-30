@@ -208,6 +208,25 @@ describe('POST /api/orders/[id]/confirm', () => {
     expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
   });
 
+  it('returns 400 (not 500) for a malformed JSON body', async () => {
+    const request = new NextRequest(
+      `https://usebaci.com/api/orders/${ORDER_ID}/confirm`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{ not valid json',
+      }
+    );
+
+    const response = await POST(request, createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid request body' });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid route ids before updating the order', async () => {
     const response = await POST(
       createRequest(createInsuranceDetails()),

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -143,10 +143,34 @@ describe('ConfirmInsuranceDialog', () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:device-photo');
   });
 
+  it('confirms a non-assurance order with an empty payload and no upload', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    render(
+      <ConfirmInsuranceDialog
+        isOpen={true}
+        onClose={onClose}
+        onConfirm={onConfirm}
+        orderItems={[{ ...assuranceItem, hasAssurance: false }]}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /confirm order/i }));
+
+    expect(onConfirm).toHaveBeenCalledWith({});
+    expect(mockUploadImage).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
   it('rejects today-or-future date of birth before uploading the device photo', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
-    const today = new Date().toISOString().slice(0, 10);
+    // Build "today" from the LOCAL calendar, matching the dialog's local-date
+    // validation — using toISOString() (UTC) would flake across the date line.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     render(
       <ConfirmInsuranceDialog

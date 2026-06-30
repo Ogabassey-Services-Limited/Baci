@@ -9,6 +9,12 @@ export const INSURANCE_COLORS = {
     background: '#FEF3C7',
     foreground: '#92400E',
   },
+  // Terminal/inactive states (expired, cancelled) — neutral grey rather than
+  // the amber "pending" treatment, which would imply the policy is still coming.
+  inactive: {
+    background: '#E5E7EB',
+    foreground: '#374151',
+  },
   cta: {
     foreground: '#ffffff',
   },

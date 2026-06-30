@@ -177,6 +177,18 @@ describe('purchaseOrderInsurance', () => {
       expect(args).not.toHaveProperty('device_value');
     });
 
+    it('uses the server order-item price as the insured value, ignoring client deviceValue', async () => {
+      await purchaseOrderInsurance(VALID_ORDER_ID, {
+        ...mockDeviceDetails,
+        deviceValue: 9_999_999,
+      });
+      // The first insured order item's price is 500,000 — a tampered client
+      // deviceValue must not change the insured/coverage amount.
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
+        expect.objectContaining({ value: 500000 })
+      );
+    });
+
     it('passes "serial_number" instead of "device_serial_number"', async () => {
       await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
       expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(

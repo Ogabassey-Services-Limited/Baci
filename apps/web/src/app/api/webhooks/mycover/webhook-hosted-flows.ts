@@ -46,6 +46,13 @@ export function shouldResetInspectionToPending(
 ) {
   if (!hostedFlowLinks.inspection_link) return false;
 
+  // Never reopen an already-completed inspection: a later policy.updated /
+  // certificate-regeneration webhook that rotates the hosted URL must not flip a
+  // completed policy back to pending (which would re-queue activation reminders).
+  if (currentState?.inspection_status?.trim().toLowerCase() === 'completed') {
+    return false;
+  }
+
   const currentInspectionLink = currentState?.inspection_link?.trim() ?? null;
 
   // MyCover can replay purchase/policy detail updates with the same hosted

@@ -49,4 +49,20 @@ describe('MyCover hosted flow helpers', () => {
       inspection_status: 'pending',
     });
   });
+
+  it('does not reopen a completed inspection when the URL is rotated', () => {
+    const update = hostedFlowUpdateColumns(
+      { inspection_link: 'https://mycover.ai/purchase?q=new' },
+      {
+        inspection_link: 'https://mycover.ai/purchase?q=old',
+        inspection_status: 'completed',
+      }
+    );
+
+    // Only the (new) link is written; status stays completed and no reminder
+    // is re-armed.
+    expect(update).toEqual({
+      inspection_link: 'https://mycover.ai/purchase?q=new',
+    });
+  });
 });

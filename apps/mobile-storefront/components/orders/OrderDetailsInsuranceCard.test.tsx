@@ -355,7 +355,34 @@ describe('OrderDetailsInsuranceCard', () => {
     expect(screen.queryByRole('button', { name: claimLabel })).toBeNull();
     expect(screen.queryByRole('button', { name: inspectionLabel })).toBeNull();
     expect(screen.queryByText(/Protection activation is pending/i)).toBeNull();
-    expect(screen.getByText('pending')).toBeTruthy();
+    // A bare placeholder claim status ('pending') is suppressed, not surfaced.
+    expect(screen.queryByText('pending')).toBeNull();
+  });
+
+  it('suppresses a bare placeholder claim status but shows a real one', () => {
+    const { rerender } = render(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{ ...policyWithLinks, claim_status: 'none' }}
+        isDelivered
+        isPaid
+        onOpenCertificate={jest.fn()}
+      />
+    );
+    expect(screen.queryByText(/^none$/i)).toBeNull();
+
+    rerender(
+      <OrderDetailsInsuranceCard
+        colors={colors}
+        hasAssuranceItems
+        insurancePolicy={{ ...policyWithLinks, claim_status: 'offer_sent' }}
+        isDelivered
+        isPaid
+        onOpenCertificate={jest.fn()}
+      />
+    );
+    expect(screen.getByText('offer sent')).toBeTruthy();
   });
 
   it('routes to the claim fallback when no hosted claim link exists', () => {

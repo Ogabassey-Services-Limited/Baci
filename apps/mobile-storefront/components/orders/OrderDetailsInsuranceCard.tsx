@@ -61,10 +61,14 @@ export function OrderDetailsInsuranceCard({
     );
   }
 
+  const policyStatusToken = insurancePolicy.status?.trim().toLowerCase();
   const policyColors =
-    insurancePolicy.status === 'active'
+    policyStatusToken === 'active'
       ? INSURANCE_COLORS.active
-      : INSURANCE_COLORS.pending;
+      : policyStatusToken === 'pending'
+        ? INSURANCE_COLORS.pending
+        : // expired / cancelled / other terminal states
+          INSURANCE_COLORS.inactive;
   const certificateUrl = insurancePolicy.certificate_url;
   // Pre-loss inspection ("Activate Protection") gates claims and can only
   // happen after delivery: show nothing actionable until delivered, then
@@ -99,6 +103,20 @@ export function OrderDetailsInsuranceCard({
     }
     onFileClaimFallback?.();
   };
+
+  // Suppress bare placeholder claim states (the DB default `pending`, or `none`)
+  // so internal tokens never surface to customers; real stages/statuses render.
+  const claimStageLabel = insurancePolicy.claim_stage?.trim();
+  const claimStatusToken = insurancePolicy.claim_status?.trim().toLowerCase();
+  const hasRealClaimStatus =
+    !!claimStatusToken &&
+    claimStatusToken !== 'none' &&
+    claimStatusToken !== 'pending';
+  const claimLabel = (
+    claimStageLabel ||
+    (hasRealClaimStatus ? insurancePolicy.claim_status?.trim() : '') ||
+    ''
+  ).replace(/_/g, ' ');
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -147,7 +165,7 @@ export function OrderDetailsInsuranceCard({
             </Text>
           </View>
         </View>
-        {insurancePolicy.claim_status && (
+        {claimLabel && (
           <View style={styles.insuranceRow}>
             <Text
               style={[styles.insuranceLabel, { color: colors.textSecondary }]}
@@ -160,9 +178,7 @@ export function OrderDetailsInsuranceCard({
                 { color: colors.text, textTransform: 'capitalize' },
               ]}
             >
-              {(insurancePolicy.claim_stage || insurancePolicy.claim_status)
-                .trim()
-                .replace(/_/g, ' ')}
+              {claimLabel}
             </Text>
           </View>
         )}

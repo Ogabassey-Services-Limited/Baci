@@ -50,8 +50,17 @@ export async function POST(
     const { id } = routeParams.data;
 
     // Validate the entire request body before reading any property: a confirm
-    // carrying device fields must supply complete insurance KYC.
-    const body = await request.json();
+    // carrying device fields must supply complete insurance KYC. Malformed JSON
+    // is a client error (400), not a server error.
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
     const bodyResult = confirmOrderBodySchema.safeParse(body);
     if (!bodyResult.success) {
       return NextResponse.json(

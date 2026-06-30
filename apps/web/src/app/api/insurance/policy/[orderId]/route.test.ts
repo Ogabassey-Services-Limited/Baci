@@ -227,8 +227,23 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       expect(body.policies).toHaveLength(2);
     });
 
-    it('returns { found: false, policies: [] } when no policies exist', async () => {
+    it('returns { found: false, policies: [] } when the owned order has no policies', async () => {
+      // Use the OWNED order id so the ownership gate passes and we actually
+      // reach the empty-policies branch (not the missing-order early return).
       mockDb({ policies: [] });
+
+      const response = await GET(createMockRequest(), createParams(ORDER_ID));
+      const body = await response.json();
+
+      expect(body).toHaveProperty('found', false);
+      expect(body).toHaveProperty('policies');
+      expect(body.policies).toEqual([]);
+    });
+
+    it('returns { found: false, policies: [] } when the order is not owned', async () => {
+      // Even with policies present, a non-owned order id fails the ownership
+      // gate and discloses nothing.
+      mockDb({ policies: [mockPolicyRow] });
 
       const response = await GET(
         createMockRequest(),
@@ -236,9 +251,7 @@ describe('GET /api/insurance/policy/[orderId]', () => {
       );
       const body = await response.json();
 
-      expect(body).toHaveProperty('found', false);
-      expect(body).toHaveProperty('policies');
-      expect(body.policies).toEqual([]);
+      expect(body).toEqual({ found: false, policies: [] });
     });
   });
 

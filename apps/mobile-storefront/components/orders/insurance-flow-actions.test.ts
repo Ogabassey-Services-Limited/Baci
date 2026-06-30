@@ -41,6 +41,21 @@ describe('createInsuranceFlowActions', () => {
     );
   });
 
+  it('alerts when opening an allowlisted URL fails (openURL rejects)', async () => {
+    openUrlSpy.mockRejectedValueOnce(new Error('no handler') as never);
+    const actions = createInsuranceFlowActions(jest.fn());
+
+    await actions.openInsuranceFlowUrl('https://mycover.ai/purchase?q=claim');
+
+    expect(openUrlSpy).toHaveBeenCalledWith(
+      'https://mycover.ai/purchase?q=claim'
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unable to open link',
+      expect.any(String)
+    );
+  });
+
   it('opens an allowlisted S3 certificate URL', async () => {
     const actions = createInsuranceFlowActions(jest.fn());
 
