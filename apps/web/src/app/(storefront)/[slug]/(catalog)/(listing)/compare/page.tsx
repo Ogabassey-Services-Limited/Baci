@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
   getCachedCategories,
   getCachedCategoryPageData,
@@ -27,6 +28,9 @@ interface CompareIndexPageProps {
 }
 
 const COMPARE_CATEGORY_SLUG = 'compare';
+const COMPARE_HUB_IGNORED_SEARCH_PARAM_KEYS = new Set([
+  STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM,
+]);
 
 function hasActiveCompareCategory(
   categories: {
@@ -58,7 +62,9 @@ async function hasCompareHubSearchParams(
   searchParams: CompareIndexPageProps['searchParams']
 ) {
   const resolvedSearchParams = await (searchParams ?? Promise.resolve({}));
-  return Object.keys(resolvedSearchParams).length > 0;
+  return Object.keys(resolvedSearchParams).some(
+    (key) => !COMPARE_HUB_IGNORED_SEARCH_PARAM_KEYS.has(key)
+  );
 }
 
 function buildCompareNotFoundMetadata(): Metadata {

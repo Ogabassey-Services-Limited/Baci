@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
   getCachedCategories,
   getCachedCategoryPageData,
@@ -192,6 +193,23 @@ describe('compare index page', () => {
     });
 
     expect(metadata.title).toBe('Compare products | Ogabassey');
+    expect(metadata.alternates).toMatchObject({
+      canonical: 'https://ogabassey.com/compare',
+    });
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+    });
+  });
+
+  it('keeps the compare index indexable for internal metadata cache bucket requests', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({
+        [STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM]: 'metadata-blocking',
+      }),
+    });
+
     expect(metadata.alternates).toMatchObject({
       canonical: 'https://ogabassey.com/compare',
     });
