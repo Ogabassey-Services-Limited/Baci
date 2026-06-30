@@ -159,10 +159,11 @@ describe('mark_abandoned_orders migration contract', () => {
     expect(sql).toMatch(
       /payment_status\s+IN\s*\('pending',\s*'bnpl_pending'\)/i
     );
-    expect(sql).toMatch(
+    expect(sql).toMatch(/shipping_status\s*=\s*CASE/i);
+    expect(sql).toMatch(/cancelled_at\s*=\s*CASE/i);
+    expect(sql).not.toMatch(
       /EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+public\.transactions/i
     );
-    expect(sql).toMatch(/t\.gateway\s+IN\s*\('credit_direct',\s*'klump'\)/i);
     expect(sql).toMatch(/created_at\s*</i);
     expect(sql).toMatch(/hours_threshold\s*\*\s*interval\s+'1 hour'/i);
     expect(sql).not.toMatch(/hours_threshold\s*\|\|\s*' hours'/i);
@@ -184,13 +185,31 @@ describe('create_payment_transaction migration contract', () => {
     const sql = readLatestCreatePaymentTransactionMigrationSql();
 
     expect(sql).toMatch(createPaymentTransactionDefinitionPattern);
+    expect(sql).toMatch(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_payment_transaction/i
+    );
+    expect(sql).toMatch(/p_metadata\s+jsonb\s+DEFAULT\s+'\{\}'::jsonb/i);
     expect(sql).toMatch(/v_gateway\s+IN\s*\('klump',\s*'credit_direct'\)/i);
     expect(sql).toMatch(/THEN\s+'bnpl_pending'/i);
     expect(sql).toMatch(/ELSE\s+'pending'/i);
+    expect(sql).toMatch(/RAISE\s+EXCEPTION\s+'reference_in_use'/i);
+    expect(sql).toMatch(/COALESCE\(p_metadata,\s*'\{\}'::jsonb\)/i);
     expect(sql).toMatch(/payment_status\s*=\s*v_order_payment_status/i);
     expect(sql).toMatch(/o\.payment_status\s+NOT\s+IN/i);
     expect(sql).toMatch(/'paid'/i);
     expect(sql).toMatch(/'bnpl_approved'/i);
     expect(sql).toMatch(/'cancelled'/i);
+    expect(sql).not.toMatch(
+      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_payment_transaction/i
+    );
+    expect(sql).not.toMatch(
+      /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*TO\s+anon/i
+    );
+    expect(sql).not.toMatch(
+      /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*TO\s+authenticated/i
+    );
+    expect(sql).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*jsonb[\s\S]*TO\s+service_role/i
+    );
   });
 });

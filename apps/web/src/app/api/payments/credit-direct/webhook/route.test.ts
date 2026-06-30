@@ -61,7 +61,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/lib/zeptomail', () => ({
-  sendEmail: vi.fn(() => Promise.resolve()),
+  sendEmail: vi.fn(() => Promise.resolve({ success: true })),
 }));
 
 // ============================================================================
@@ -77,6 +77,10 @@ const {
 } = await import('@/lib/credit-direct');
 const { createServiceClient } = await import('@/lib/supabase/service');
 const { logger } = await import('@/lib/logger');
+const { ensurePaidOrderInventoryConfirmed } = await import(
+  '@/lib/payments/ensure-paid-order-inventory-confirmed'
+);
+const { sendEmail } = await import('@/lib/zeptomail');
 
 // ============================================================================
 // Test Data
@@ -730,6 +734,51 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
+    it('does not reprocess duplicate customer payment completed events', async () => {
+      vi.mocked(parseWebhookPayload).mockReturnValue(customerPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const updateSpy = vi.fn();
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = {
+            ...createMockSupabaseClient().from('orders'),
+          };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [{ ...mockOrder, payment_status: 'bnpl_approved' }],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+
+        const updateChain = { ...createMockSupabaseClient().from(table) };
+        updateChain.update = updateSpy.mockReturnValue(updateChain);
+        updateChain.eq = vi.fn().mockResolvedValue({ data: null, error: null });
+        return updateChain;
+      });
+
+      const request = createMockRequest(customerPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ received: true, message: 'Already processed' });
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith({
+        message:
+          'Credit Direct customer payment webhook already processed for order',
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+      });
+    });
+
     it('returns 500 when order update fails for customer payment', async () => {
       vi.mocked(parseWebhookPayload).mockReturnValue(customerPaymentPayload);
 
@@ -857,9 +906,13 @@ describe('POST /api/payments/credit-direct/webhook', () => {
     it('accepts documented string product amounts for merchant payment completed events', async () => {
       const stringAmountPayload = {
         ...merchantPaymentPayload,
+        checkoutCustomer: {
+          ...merchantPaymentPayload.checkoutCustomer,
+          firstName: '<img src=x onerror=alert(1)>',
+        },
         products: [
           {
-            productName: 'Product 1',
+            productName: '<script>alert(1)</script>',
             productAmount: '30000',
             productId: 'prod_1',
           },
@@ -941,6 +994,17 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         platformFee: 1000,
         merchantAmount: 49000,
       });
+      expect(sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          htmlContent: expect.stringContaining('₦30,000'),
+        })
+      );
+      const emailHtml = vi.mocked(sendEmail).mock.calls.at(-1)?.[0].htmlContent;
+      expect(emailHtml).toContain('&lt;img');
+      expect(emailHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+      expect(emailHtml).not.toContain('<script>');
+      expect(emailHtml).not.toContain('<img src=x');
+      expect(emailHtml).not.toContain('onerror=');
     });
 
     it('returns 400 when webhook product amount is not numeric', async () => {

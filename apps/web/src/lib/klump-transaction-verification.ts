@@ -36,9 +36,11 @@ export function getKlumpExpectedPaymentAmount(
   transaction: Pick<KlumpTransactionRecord, 'amount' | 'merchant_amount'>
 ) {
   const merchantAmount = transaction.merchant_amount;
+  const parsedMerchantAmount = Number(merchantAmount);
   if (
     merchantAmount != null &&
-    !(typeof merchantAmount === 'string' && merchantAmount.trim() === '')
+    Number.isFinite(parsedMerchantAmount) &&
+    parsedMerchantAmount > 0
   ) {
     return merchantAmount;
   }
@@ -97,10 +99,7 @@ function readBoolean(sources: readonly JsonRecord[], keys: readonly string[]) {
   return null;
 }
 
-function isSuccessfulKlumpVerification(
-  root: JsonRecord,
-  sources: readonly JsonRecord[]
-) {
+function isSuccessfulKlumpVerification(sources: readonly JsonRecord[]) {
   const explicitSuccess = readBoolean(sources, [
     'is_successful',
     'isSuccessful',
@@ -118,8 +117,7 @@ function isSuccessfulKlumpVerification(
     return true;
   }
 
-  const state = readString([root], ['state']);
-  return KLUMP_SUCCESS_STATUSES.has(state?.toLowerCase() ?? '');
+  return false;
 }
 
 function parseKlumpVerifiedTransactionResponse(
@@ -135,7 +133,7 @@ function parseKlumpVerifiedTransactionResponse(
     'transaction_status',
   ]);
 
-  if (!isSuccessfulKlumpVerification(root, sources)) {
+  if (!isSuccessfulKlumpVerification(sources)) {
     return null;
   }
 

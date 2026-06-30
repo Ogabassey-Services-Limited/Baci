@@ -26,16 +26,19 @@ const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
   mockGeneratePaymentAccount,
+  mockAdminRpc,
   mockFrom,
   mockRpc,
   mockSupabaseClient,
 } = vi.hoisted(() => {
   const mockFrom = vi.fn();
+  const mockAdminRpc = vi.fn().mockResolvedValue({ error: null });
   const mockRpc = vi.fn().mockResolvedValue({ error: null });
   return {
     mockAuthenticateApiRequest: vi.fn(),
     mockGetMerchantIdForApiUser: vi.fn(),
     mockGeneratePaymentAccount: vi.fn(),
+    mockAdminRpc,
     mockFrom,
     mockRpc,
     mockSupabaseClient: {
@@ -45,6 +48,12 @@ const {
     },
   };
 });
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    rpc: mockAdminRpc,
+  })),
+}));
 
 // Mock API auth
 vi.mock('@/lib/api-auth', () => ({
@@ -109,6 +118,7 @@ function mockQuery(data: unknown, error: unknown = null) {
 describe('POST /api/orders/[id]/generate-dva', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAdminRpc.mockResolvedValue({ error: null });
     mockRpc.mockResolvedValue({ error: null });
   });
 
@@ -314,7 +324,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     });
 
     // Verify transaction record was created
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockAdminRpc).toHaveBeenCalledWith(
       'create_payment_transaction',
       expect.objectContaining({
         p_merchant_id: MERCHANT_ID,

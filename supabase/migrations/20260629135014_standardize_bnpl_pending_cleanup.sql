@@ -1,3 +1,17 @@
+DROP FUNCTION IF EXISTS public.create_payment_transaction(
+  uuid,
+  uuid,
+  numeric,
+  text,
+  text,
+  text,
+  numeric,
+  numeric,
+  text,
+  text,
+  text
+);
+
 CREATE OR REPLACE FUNCTION public.create_payment_transaction(
   p_merchant_id uuid,
   p_order_id uuid,
@@ -9,7 +23,8 @@ CREATE OR REPLACE FUNCTION public.create_payment_transaction(
   p_merchant_amount numeric,
   p_customer_email text,
   p_customer_name text,
-  p_session_id text DEFAULT NULL::text
+  p_session_id text DEFAULT NULL::text,
+  p_metadata jsonb DEFAULT '{}'::jsonb
 ) RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -78,6 +93,11 @@ BEGIN
   LIMIT 1;
 
   IF v_existing_id IS NOT NULL THEN
+    IF v_existing_order_id IS DISTINCT FROM p_order_id
+      OR v_existing_merchant_id IS DISTINCT FROM p_merchant_id THEN
+      RAISE EXCEPTION 'reference_in_use';
+    END IF;
+
     UPDATE public.orders o
     SET
       payment_status = v_order_payment_status,
@@ -85,8 +105,6 @@ BEGIN
       updated_at = now()
     WHERE o.id = p_order_id
       AND o.merchant_id = p_merchant_id
-      AND v_existing_order_id = p_order_id
-      AND v_existing_merchant_id = p_merchant_id
       AND o.payment_status NOT IN (
         'paid',
         'partially_paid',
@@ -123,10 +141,12 @@ BEGIN
     p_platform_fee,
     p_merchant_amount,
     'Payment for order ' || p_order_id::text,
-    jsonb_build_object(
-      'customer_email', p_customer_email,
-      'customer_name', p_customer_name,
-      'session_id', p_session_id
+    jsonb_strip_nulls(
+      jsonb_build_object(
+        'customer_email', p_customer_email,
+        'customer_name', p_customer_name,
+        'session_id', p_session_id
+      ) || COALESCE(p_metadata, '{}'::jsonb)
     )
   )
   RETURNING transactions.id INTO v_existing_id;
@@ -161,9 +181,10 @@ COMMENT ON FUNCTION public.create_payment_transaction(
   numeric,
   text,
   text,
-  text
+  text,
+  jsonb
 ) IS
-  'Creates a pending payment transaction and moves BNPL gateways into bnpl_pending while retaining generic pending for non-BNPL gateways.';
+  'Creates a pending payment transaction with metadata and moves BNPL gateways into bnpl_pending while retaining generic pending for non-BNPL gateways.';
 
 REVOKE ALL ON FUNCTION public.create_payment_transaction(
   uuid,
@@ -176,9 +197,10 @@ REVOKE ALL ON FUNCTION public.create_payment_transaction(
   numeric,
   text,
   text,
-  text
-) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.create_payment_transaction(
+  text,
+  jsonb
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_payment_transaction(
   uuid,
   uuid,
   numeric,
@@ -189,33 +211,8 @@ GRANT ALL ON FUNCTION public.create_payment_transaction(
   numeric,
   text,
   text,
-  text
-) TO anon;
-GRANT ALL ON FUNCTION public.create_payment_transaction(
-  uuid,
-  uuid,
-  numeric,
   text,
-  text,
-  text,
-  numeric,
-  numeric,
-  text,
-  text,
-  text
-) TO authenticated;
-GRANT ALL ON FUNCTION public.create_payment_transaction(
-  uuid,
-  uuid,
-  numeric,
-  text,
-  text,
-  text,
-  numeric,
-  numeric,
-  text,
-  text,
-  text
+  jsonb
 ) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.mark_abandoned_orders(hours_threshold int DEFAULT 72)
@@ -233,29 +230,32 @@ BEGIN
   UPDATE public.orders o
   SET
     payment_status = 'cancelled',
+    shipping_status = CASE
+      WHEN o.payment_status IN ('pending', 'bnpl_pending')
+        AND o.payment_method IN ('credit_direct', 'klump')
+      THEN 'cancelled'
+      ELSE o.shipping_status
+    END,
+    cancelled_at = CASE
+      WHEN o.payment_status IN ('pending', 'bnpl_pending')
+        AND o.payment_method IN ('credit_direct', 'klump')
+      THEN COALESCE(o.cancelled_at, now())
+      ELSE o.cancelled_at
+    END,
     updated_at = now()
   WHERE o.created_at < (now() - (hours_threshold * interval '1 hour'))
     AND (
       o.payment_status = 'unpaid'
       OR (
         o.payment_status IN ('pending', 'bnpl_pending')
-        AND (
-          o.payment_method IN ('credit_direct', 'klump')
-          OR EXISTS (
-            SELECT 1
-            FROM public.transactions t
-            WHERE t.order_id = o.id
-              AND t.gateway IN ('credit_direct', 'klump')
-              AND t.status = 'pending'
-          )
-        )
+        AND o.payment_method IN ('credit_direct', 'klump')
       )
     );
 END;
 $$;
 
 COMMENT ON FUNCTION public.mark_abandoned_orders(integer) IS
-  'Cancels stale unpaid orders and stale BNPL orders for Credit Direct/Klump, including legacy pending rows before BNPL status normalization.';
+  'Cancels stale unpaid orders and stale active BNPL orders for Credit Direct/Klump.';
 
 REVOKE ALL ON FUNCTION public.mark_abandoned_orders(integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mark_abandoned_orders(integer) TO service_role;

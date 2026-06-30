@@ -489,7 +489,7 @@ describe('POST /api/payments/klump/webhook', () => {
           is_live: true,
           merchant_reference: 'BAC-ABCD12345678',
           original_amount: '687250.00',
-          status: 'new',
+          status: 'successful',
         },
         state: 'success',
       })
