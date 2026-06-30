@@ -2,6 +2,7 @@ import type { UnifiedLocation } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
   GIGL_STATIONS_CACHE_TTL_MS,
+  GIGL_STATIONS_TIMEOUT_MS,
   withGiglRequestTimeout,
 } from './gigl.constants';
 import type { GiglStation } from './gigl.schemas';
@@ -30,13 +31,16 @@ export class GiglStationsService {
     }));
   }
 
-  getStations(timeout?: number, signal?: AbortSignal): Promise<GiglStation[]> {
+  getStations(
+    timeout = GIGL_STATIONS_TIMEOUT_MS,
+    signal?: AbortSignal
+  ): Promise<GiglStation[]> {
     if (this.stationsCache && Date.now() < this.stationsCacheExpiry) {
       return Promise.resolve(this.stationsCache);
     }
 
     if (!this.stationsRequest) {
-      this.stationsRequest = this.fetchStations().finally(() => {
+      this.stationsRequest = this.fetchStations(timeout, signal).finally(() => {
         this.stationsRequest = null;
       });
       void this.stationsRequest.catch(() => undefined);
@@ -51,14 +55,19 @@ export class GiglStationsService {
     );
   }
 
-  private async fetchStations(): Promise<GiglStation[]> {
-    const tokenData = await this.apiClient.getApiToken();
+  private async fetchStations(
+    timeout: number,
+    signal?: AbortSignal
+  ): Promise<GiglStation[]> {
+    const tokenData = await this.apiClient.getApiToken(timeout, signal);
     const { envelope, response } =
       await this.apiClient.safeFetchEnvelopeWithAccessToken(
         `${this.apiClient.baseUrl}/localstations/get`,
         tokenData,
         () => ({
           method: 'GET',
+          timeout,
+          signal,
         })
       );
 
@@ -70,14 +79,19 @@ export class GiglStationsService {
       throw new Error('Invalid GIGL stations response');
     }
 
-    this.stationsCache = this.apiClient.parseEnvelopeData(
+    const stations = this.apiClient.parseEnvelopeData(
       envelope,
       giglSchemas.stationsData,
       'stations'
     );
+    if (stations.length === 0) {
+      throw new Error('GIGL returned empty station list');
+    }
+
+    this.stationsCache = stations;
     this.stationsCacheExpiry = Date.now() + GIGL_STATIONS_CACHE_TTL_MS;
 
-    return this.stationsCache || [];
+    return this.stationsCache;
   }
 
   async findStationById(

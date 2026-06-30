@@ -9,6 +9,10 @@ import {
 } from './gigl.constants';
 import { giglSchemas } from './gigl.schemas';
 
+type NormalizedTrackingEvent = TrackingEvent & {
+  status: TrackingResult['status'];
+};
+
 export async function trackGiglShipment(
   apiClient: GiglApiClient,
   io: GiglProviderIo,
@@ -52,7 +56,7 @@ export async function trackGiglShipment(
     }
 
     const shipment = trackingData[0];
-    const events: TrackingEvent[] = (
+    const events: NormalizedTrackingEvent[] = (
       shipment.MobileShipmentTrackings || []
     ).map((tracking) => ({
       status: mapGiglStatus(tracking.Status),
@@ -65,9 +69,7 @@ export async function trackGiglShipment(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
     const latestEvent = sortedEvents[0];
-    const status = latestEvent
-      ? mapGiglStatus(latestEvent.rawStatus || '')
-      : 'pending';
+    const status = latestEvent?.status ?? 'pending';
     const actualDelivery =
       status === 'delivered' && latestEvent ? latestEvent.timestamp : undefined;
 

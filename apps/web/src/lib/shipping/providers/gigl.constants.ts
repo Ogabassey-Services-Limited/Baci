@@ -18,8 +18,12 @@ export const GIGL_PASSWORD = trimmedEnv(process.env.GIGL_PASSWORD);
 export const GIGL_TOKEN_EXPIRY_MS = 20 * 24 * 60 * 60 * 1000;
 export const GIGL_QUOTE_TIMEOUT_MS =
   positiveIntegerEnv(process.env.GIGL_QUOTE_TIMEOUT_MS) || 5000;
+export const GIGL_BOOKING_TIMEOUT_MS =
+  positiveIntegerEnv(process.env.GIGL_BOOKING_TIMEOUT_MS) || 10000;
 export const GIGL_TRACKING_TIMEOUT_MS =
   positiveIntegerEnv(process.env.GIGL_TRACKING_TIMEOUT_MS) || 5000;
+export const GIGL_STATIONS_TIMEOUT_MS =
+  positiveIntegerEnv(process.env.GIGL_STATIONS_TIMEOUT_MS) || 5000;
 export const GIGL_STATIONS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface GiglToken {

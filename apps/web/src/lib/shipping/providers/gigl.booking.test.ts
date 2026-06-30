@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 import { GiglApiClient } from './gigl.auth';
 import { bookGiglShipment } from './gigl.booking';
+import { GIGL_BOOKING_TIMEOUT_MS } from './gigl.constants';
 import { GiglStationsService } from './gigl.stations';
 import {
   baseUrl,
@@ -45,6 +46,8 @@ describe('GiglProvider booking requests', () => {
     delete process.env.GIGL_BASE_URL;
     delete process.env.GIGL_EMAIL;
     delete process.env.GIGL_PASSWORD;
+    delete process.env.GIGL_BOOKING_TIMEOUT_MS;
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -78,6 +81,11 @@ describe('GiglProvider booking requests', () => {
         VehicleType: 1,
       },
     });
+    const bookingOptions = fetchMock.mock.calls[2]?.[1] as
+      | (RequestInit & { timeout?: number })
+      | undefined;
+    expect(bookingOptions?.timeout).toBe(GIGL_BOOKING_TIMEOUT_MS);
+    expect(bookingOptions?.signal).toBeInstanceOf(AbortSignal);
     expect(result).toMatchObject({
       provider: 'GIGL',
       trackingNumber: 'GIGL-WB-1',
@@ -175,6 +183,26 @@ describe('GiglProvider booking requests', () => {
       trackingNumber: 'GIGL-WB-1',
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('bounds slow booking token fetches with the GIGL booking timeout', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const provider = buildBookingHarness();
+    const bookingPromise = provider.bookShipment(bookingRequest);
+    const bookingAssertion = expect(bookingPromise).rejects.toThrow(
+      'GIGL booking timed out'
+    );
+
+    await vi.advanceTimersByTimeAsync(GIGL_BOOKING_TIMEOUT_MS);
+
+    await bookingAssertion;
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/login`,
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('rejects bookings when the sender station cannot be resolved', async () => {
