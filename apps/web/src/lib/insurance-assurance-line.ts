@@ -90,29 +90,40 @@ export function buildAssuranceReceiptItem(
 }
 
 /**
- * Reconcile the tax-subtotal breakdown with the post-assurance line total.
+ * Reconcile the tax-subtotal breakdown to account for the VAT-free assurance
+ * premium, allocating it correctly by seller type:
  *
- * The assurance premium is zero-rated, so any shortfall between the line
- * total and the summed taxable amounts is folded into an `O` (outside-scope)
- * subtotal. This is robust across seller types: VAT-registered orders carry an
- * `S` subtotal for products and need a new `O` row for assurance; some
- * non-registered orders already have an `O` row whose taxable amount excludes
- * assurance (it's derived from `tax_exclusive_amount`), so the gap is added
- * there. When the existing subtotals already span the line total, the gap is
- * ~0 and nothing changes — preventing double-counting.
+ * - VAT-registered orders carry a taxable (e.g. `S`) subtotal that already
+ *   accounts for shipping/discount in its category, so the ONLY outside-scope
+ *   amount is the assurance premium — add exactly that to an `O` subtotal. (Do
+ *   NOT fold shipping/discount into `O`; they belong to the taxable category.)
+ * - Fully outside-scope (non-VAT) orders keep every charge/allowance in the `O`
+ *   bucket, so reconcile that bucket up to the whole document tax-exclusive
+ *   total (BT-109), which keeps Σ TaxableAmount === BT-109 (Peppol BR-CO-13).
+ *
+ * When the existing subtotals already span the target the gap is ~0 and nothing
+ * changes — preventing double-counting.
  */
 export function reconcileAssuranceTaxSubtotal(
   taxSubtotals: TaxSubtotal[],
-  lineExtensionTotal: number
+  documentTaxExclusive: number,
+  assuranceTotal: number
 ): void {
   const existingTaxable = taxSubtotals.reduce(
     (sum, subtotal) => sum + subtotal.taxable_amount,
     0
   );
+  // A positive-rate subtotal means a VAT category is present (shipping/discount
+  // live there); otherwise every amount is outside-scope.
+  const hasTaxableCategory = taxSubtotals.some(
+    (subtotal) => subtotal.vat_rate > 0
+  );
   // `gap` is already rounded to currency precision, so only a non-positive gap
   // means "nothing to reconcile". A genuine 0.01 shortfall must still be folded
   // in (skipping it would leave the document a cent short).
-  const gap = Number((lineExtensionTotal - existingTaxable).toFixed(2));
+  const gap = hasTaxableCategory
+    ? Number(assuranceTotal.toFixed(2))
+    : Number((documentTaxExclusive - existingTaxable).toFixed(2));
   if (gap <= 0) return;
 
   const existing = taxSubtotals.find(

@@ -68,7 +68,7 @@ describe('nextInvoiceLineId', () => {
 });
 
 describe('reconcileAssuranceTaxSubtotal', () => {
-  it('adds an O subtotal covering the gap (VAT-registered: products in S)', () => {
+  it('adds ONLY the assurance premium to O for VAT orders (products in S)', () => {
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'S',
@@ -77,8 +77,8 @@ describe('reconcileAssuranceTaxSubtotal', () => {
         tax_amount: 7.5,
       },
     ];
-    // line total = products(100) + assurance(4000)
-    reconcileAssuranceTaxSubtotal(subtotals, 4100);
+    // BT-109 = products(100) + assurance(4000); only the premium is O.
+    reconcileAssuranceTaxSubtotal(subtotals, 4100, 4000);
     expect(subtotals).toHaveLength(2);
     expect(subtotals[1]).toMatchObject({
       vat_category_code: 'O',
@@ -87,8 +87,29 @@ describe('reconcileAssuranceTaxSubtotal', () => {
     });
   });
 
-  it('folds the gap into an existing O subtotal that excludes assurance', () => {
-    // non-registered with O taxable derived from tax_exclusive (products only)
+  it('does not fold shipping/discount into O for VAT orders', () => {
+    // S already includes shipping/discount (products 100 + shipping 50 - disc 10
+    // = 140); BT-109 = 140 + assurance(30) = 170. Only 30 (the premium) is O.
+    const subtotals: TaxSubtotal[] = [
+      {
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+        taxable_amount: 140,
+        tax_amount: 10.5,
+      },
+    ];
+    reconcileAssuranceTaxSubtotal(subtotals, 170, 30);
+    expect(subtotals).toHaveLength(2);
+    expect(subtotals[0].taxable_amount).toBe(140); // S unchanged
+    expect(subtotals[1]).toMatchObject({
+      vat_category_code: 'O',
+      taxable_amount: 30,
+    });
+  });
+
+  it('reconciles the O bucket up to BT-109 for non-VAT orders', () => {
+    // non-registered: single O taxable derived from tax_exclusive (products
+    // only). BT-109 includes shipping/discount + assurance, all outside-scope.
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'O',
@@ -97,12 +118,12 @@ describe('reconcileAssuranceTaxSubtotal', () => {
         tax_amount: 0,
       },
     ];
-    reconcileAssuranceTaxSubtotal(subtotals, 5000);
+    reconcileAssuranceTaxSubtotal(subtotals, 5000, 3000);
     expect(subtotals).toHaveLength(1);
     expect(subtotals[0].taxable_amount).toBe(5000);
   });
 
-  it('does nothing when subtotals already span the line total', () => {
+  it('does nothing when subtotals already span the target (non-VAT)', () => {
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'O',
@@ -112,12 +133,12 @@ describe('reconcileAssuranceTaxSubtotal', () => {
         exemption_reason: 'Outside scope of VAT',
       },
     ];
-    reconcileAssuranceTaxSubtotal(subtotals, 5000);
+    reconcileAssuranceTaxSubtotal(subtotals, 5000, 3000);
     expect(subtotals).toHaveLength(1);
     expect(subtotals[0].taxable_amount).toBe(5000);
   });
 
-  it('reconciles a genuine one-cent shortfall (gap === 0.01)', () => {
+  it('reconciles a genuine one-cent assurance premium (VAT order)', () => {
     const subtotals: TaxSubtotal[] = [
       {
         vat_category_code: 'S',
@@ -126,7 +147,7 @@ describe('reconcileAssuranceTaxSubtotal', () => {
         tax_amount: 7.5,
       },
     ];
-    reconcileAssuranceTaxSubtotal(subtotals, 100.01);
+    reconcileAssuranceTaxSubtotal(subtotals, 100.01, 0.01);
     expect(subtotals).toHaveLength(2);
     expect(subtotals[1]).toMatchObject({
       vat_category_code: 'O',

@@ -261,6 +261,23 @@ describe('purchaseOrderInsurance', () => {
       );
     });
 
+    it('fails closed (no policy) when the selected itemId is not an assured item', async () => {
+      orderSupabaseMock(mockOrderWithInsurance);
+
+      const result = await purchaseOrderInsurance(VALID_ORDER_ID, {
+        ...mockDeviceDetails,
+        itemId: 'does-not-exist',
+      });
+
+      expect(mockPurchaseGadgetInsurance).not.toHaveBeenCalled();
+      expect(result.results).toEqual([
+        expect.objectContaining({
+          success: false,
+          itemId: 'does-not-exist',
+        }),
+      ]);
+    });
+
     it('flags uninsured extra units when an assured line has quantity > 1', async () => {
       orderSupabaseMock({
         ...mockOrderWithInsurance,

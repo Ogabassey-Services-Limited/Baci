@@ -470,11 +470,14 @@ export async function GET(
       items.push(
         buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
       );
-      // Reconcile the tax breakdown against BT-109 (which includes the shipping
-      // charge and discount allowance), NOT just the product+assurance line sum
-      // — otherwise Σ TaxSubtotal/TaxableAmount falls short of BT-109 by the
-      // shipping-minus-discount amount and the UBL fails Peppol BR-CO checks.
-      reconcileAssuranceTaxSubtotal(invoiceTaxSubtotals, taxExclusiveValue);
+      // VAT orders: add only the premium to an O subtotal (shipping/discount
+      // stay in their taxable category). Non-VAT orders: reconcile the O bucket
+      // up to BT-109 so Σ TaxableAmount === BT-109 (Peppol BR-CO-13).
+      reconcileAssuranceTaxSubtotal(
+        invoiceTaxSubtotals,
+        taxExclusiveValue,
+        assuranceTotal
+      );
     }
 
     const { data: paymentAccounts, error: paymentAccountError } = await supabase

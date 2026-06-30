@@ -11,6 +11,7 @@
 
 export interface InsuranceConfirmationResult {
   insuranceError?: string;
+  // `null` for a plain (non-assurance) confirm; an object when insurance ran.
   insurance?: {
     success?: boolean;
     message?: string;
@@ -20,7 +21,7 @@ export interface InsuranceConfirmationResult {
       error?: string;
       itemId?: string;
     }>;
-  };
+  } | null;
 }
 
 export interface InsuranceConfirmationToast {
@@ -38,9 +39,9 @@ export function summarizeInsuranceConfirmation(
   const failedItem = results.find((item) => item.success === false);
   // `purchaseOrderInsurance` can also signal a request-level failure (e.g. "no
   // items require assurance") via `insurance.success: false` with no results —
-  // never report that as success.
-  const requestLevelFailure =
-    insurance !== undefined && insurance.success === false;
+  // never report that as success. A plain (non-assurance) confirm returns
+  // `insurance: null`, so guard with optional chaining.
+  const requestLevelFailure = insurance?.success === false;
   const hasFailure =
     Boolean(result.insuranceError) ||
     Boolean(failedItem) ||

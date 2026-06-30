@@ -15,6 +15,12 @@ vi.mock('@/lib/expo-push', () => ({
   notifyOrderStatusChange: vi.fn(),
 }));
 
+const mockNotifyActivateProtection = vi.fn();
+vi.mock('@/lib/insurance/notify-activate-protection', () => ({
+  maybeNotifyActivateProtection: (...args: unknown[]) =>
+    mockNotifyActivateProtection(...args),
+}));
+
 vi.mock('@/lib/order-queries', () => ({
   ORDER_COLUMNS: 'id, shipping_status, shipping_provider, tracking_number',
   ORDER_WITH_ITEMS_QUERY: 'id',
@@ -213,6 +219,44 @@ describe('PATCH /api/orders/[id]', () => {
       status: 'claimed',
       lockToken: 'lock-1',
     });
+  });
+
+  it('queues the activation reminder when an order is marked completed', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'shipped',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: 'cust-1',
+      selected_quote_id: null,
+      shipping_provider: null,
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'completed',
+      shipping_provider: null,
+      tracking_number: null,
+    };
+    const { supabase } = createSupabaseMock(existingOrder, updatedOrder);
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'completed' }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    // `completed` (not just `delivered`) must queue the one-time reminder.
+    await vi.waitFor(() =>
+      expect(mockNotifyActivateProtection).toHaveBeenCalledWith('order-1')
+    );
   });
 
   it('rejects shipping an order that has not reached processing', async () => {

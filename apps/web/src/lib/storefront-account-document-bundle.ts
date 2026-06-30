@@ -323,11 +323,14 @@ export function buildStorefrontAccountDocumentBundle({
       )
     );
     receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
-    // Reconcile the tax breakdown against BT-109 (which includes shipping and
-    // discount), not just the product+assurance line sum — otherwise the tax
-    // subtotal is short by the shipping-minus-discount amount and the UBL tax
-    // breakdown is inconsistent with BT-109.
-    reconcileAssuranceTaxSubtotal(taxSubtotals, documentTaxExclusive);
+    // VAT orders: add only the premium to an O subtotal (shipping/discount stay
+    // in their taxable category). Non-VAT orders: reconcile the O bucket up to
+    // BT-109 so Σ TaxableAmount === BT-109 (Peppol BR-CO-13).
+    reconcileAssuranceTaxSubtotal(
+      taxSubtotals,
+      documentTaxExclusive,
+      assuranceTotal
+    );
   }
 
   const orderDetail: StorefrontOrder = {

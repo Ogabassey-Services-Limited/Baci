@@ -1423,6 +1423,24 @@ describe('POST /api/webhooks/mycover', () => {
     expect(mocks.policyUpdate).not.toHaveBeenCalled();
   });
 
+  it('fail-closes on a non-lowercase failed status (e.g. "FAILED")', async () => {
+    const payload = {
+      event: 'purchase.successful',
+      status: '  FAILED  ',
+      data: { essential: { policy_id: 'pol-1' } },
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ received: true, skipped: 'failed_status' });
+    expect(mocks.policyUpdate).not.toHaveBeenCalled();
+  });
+
   it('accepts a signature computed over the re-serialized JSON body', async () => {
     // Body with whitespace; MyCover signs JSON.stringify(parsed) (no spaces).
     const canonical = JSON.stringify({

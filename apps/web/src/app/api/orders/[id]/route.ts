@@ -493,8 +493,11 @@ export async function PATCH(
     }
 
     // On delivery, nudge the customer to activate any pending gadget cover.
+    // `completed` counts as delivered too (matching maybeNotifyActivateProtection
+    // and the customer policy APIs), so an API client that marks an order
+    // completed still queues the one-time reminder.
     if (
-      shipping_status === 'delivered' &&
+      (shipping_status === 'delivered' || shipping_status === 'completed') &&
       shipping_status !== existingOrder.shipping_status
     ) {
       runAfterResponse(() => maybeNotifyActivateProtection(id));

@@ -114,6 +114,26 @@ export async function purchaseOrderInsurance(
     };
   }
 
+  // If the merchant explicitly selected an item but it is no longer in the order
+  // / no longer has assurance (stale dashboard or bad client), fail closed
+  // rather than silently insuring a different SKU than the details describe.
+  if (
+    selectedItemId &&
+    !insuredItems.some((item) => item.id === selectedItemId)
+  ) {
+    return {
+      success: true,
+      results: [
+        {
+          success: false,
+          error:
+            'Selected insurance item is no longer in the order or no longer has assurance.',
+          itemId: selectedItemId,
+        },
+      ],
+    };
+  }
+
   // 3. Initialize MyCover Client
   const myCover = createMyCoverClient();
   if (!myCover) {

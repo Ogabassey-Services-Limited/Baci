@@ -9,6 +9,14 @@ describe('summarizeInsuranceConfirmation', () => {
     });
   });
 
+  it('treats a plain confirm with insurance: null as success (no throw)', () => {
+    // POST /confirm serializes insurance: null for non-assurance orders.
+    expect(summarizeInsuranceConfirmation({ insurance: null })).toEqual({
+      title: 'Order Confirmed',
+      description: 'Order processed successfully.',
+    });
+  });
+
   it('reports an active policy by its number', () => {
     expect(
       summarizeInsuranceConfirmation({

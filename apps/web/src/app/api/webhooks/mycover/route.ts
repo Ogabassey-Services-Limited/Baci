@@ -106,8 +106,9 @@ async function dispatchMyCoverEvent(
 
   try {
     // The top-level `status` is the operation outcome. Don't mutate state on a
-    // failed operation — acknowledge so MyCover stops retrying.
-    if (payload.status === 'failed') {
+    // failed operation — acknowledge so MyCover stops retrying. Normalize case /
+    // whitespace so "Failed"/"FAILED" are also fail-closed.
+    if (payload.status?.trim().toLowerCase() === 'failed') {
       console.log('[MyCover Webhook] Skipping failed-status event:', safeEvent);
       if (payload.event_id) {
         await completeMyCoverWebhookEventClaim(
