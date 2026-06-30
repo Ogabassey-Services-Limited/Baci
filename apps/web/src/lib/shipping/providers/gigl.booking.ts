@@ -31,6 +31,10 @@ export async function bookGiglShipment(
     request.sender.state
   );
 
+  if (!senderStation) {
+    throw new Error('No GIGL station found for pickup location');
+  }
+
   if (isStationPickup && selectedRate.receiverStationId === undefined) {
     throw new Error('Invalid GIGL station pickup rate');
   }
@@ -72,13 +76,13 @@ export async function bookGiglShipment(
           SenderDetails: {
             SenderLocation: {
               Latitude:
-                request.sender.latitude ?? senderStation?.Latitude ?? 6.5244,
+                request.sender.latitude ?? senderStation.Latitude ?? 6.5244,
               Longitude:
-                request.sender.longitude ?? senderStation?.Longitude ?? 3.3792,
+                request.sender.longitude ?? senderStation.Longitude ?? 3.3792,
             },
             SenderName: request.sender.name,
             SenderPhoneNumber: request.sender.phone,
-            SenderStationId: senderStation?.StationId ?? 4,
+            SenderStationId: senderStation.StationId,
             SenderAddress: request.sender.address,
             InputtedSenderAddress: request.sender.address,
             SenderLocality: request.sender.state,

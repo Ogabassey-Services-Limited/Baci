@@ -1,6 +1,9 @@
 import type { UnifiedLocation } from '../types';
 import type { GiglApiClient } from './gigl.auth';
-import { GIGL_STATIONS_CACHE_TTL_MS } from './gigl.constants';
+import {
+  GIGL_STATIONS_CACHE_TTL_MS,
+  withGiglRequestTimeout,
+} from './gigl.constants';
 import type { GiglStation } from './gigl.schemas';
 import { giglSchemas } from './gigl.schemas';
 
@@ -11,6 +14,7 @@ function normalizeLocation(value: string): string {
 export class GiglStationsService {
   private stationsCache: GiglStation[] | null = null;
   private stationsCacheExpiry = 0;
+  private stationsRequest: Promise<GiglStation[]> | null = null;
 
   constructor(private readonly apiClient: GiglApiClient) {}
 
@@ -26,23 +30,35 @@ export class GiglStationsService {
     }));
   }
 
-  async getStations(
-    timeout?: number,
-    signal?: AbortSignal
-  ): Promise<GiglStation[]> {
+  getStations(timeout?: number, signal?: AbortSignal): Promise<GiglStation[]> {
     if (this.stationsCache && Date.now() < this.stationsCacheExpiry) {
-      return this.stationsCache;
+      return Promise.resolve(this.stationsCache);
     }
 
-    const tokenData = await this.apiClient.getApiToken(timeout, signal);
+    if (!this.stationsRequest) {
+      this.stationsRequest = this.fetchStations().finally(() => {
+        this.stationsRequest = null;
+      });
+      void this.stationsRequest.catch(() => undefined);
+    }
+
+    return withGiglRequestTimeout(
+      this.stationsRequest,
+      timeout,
+      signal,
+      'GIGL stations request timed out',
+      'GIGL stations request aborted'
+    );
+  }
+
+  private async fetchStations(): Promise<GiglStation[]> {
+    const tokenData = await this.apiClient.getApiToken();
     const { envelope, response } =
       await this.apiClient.safeFetchEnvelopeWithAccessToken(
         `${this.apiClient.baseUrl}/localstations/get`,
         tokenData,
         () => ({
           method: 'GET',
-          timeout,
-          signal,
         })
       );
 

@@ -20,6 +20,7 @@ import type {
 import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+import { buildShipmentInsertPayload } from './shipment-insert-payload';
 
 function isShippingProviderCode(value: string): value is ShippingProviderCode {
   return (SHIPPING_PROVIDER_CODES as readonly string[]).includes(value);
@@ -189,27 +190,17 @@ export async function POST(request: NextRequest) {
     // Create shipment record in database
     const { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
-      .insert({
-        order_id: data.orderId,
-        merchant_id: merchantId,
-        provider: result.provider,
-        provider_shipment_id: result.providerShipmentId,
-        tracking_number: result.trackingNumber,
-        carrier_name: result.carrierName,
-        status: result.status,
-        sender_address: senderInfo,
-        receiver_address: data.receiver,
-        items: data.items,
-        price: quote.price,
-        currency: quote.currency,
-        estimated_delivery_days: quote.estimated_days,
-        is_station_pickup: result.isStationPickup ?? false,
-        station_name: result.pickupStationName ?? null,
-        station_address: result.pickupStationAddress ?? null,
-        pickup_scheduled_at: result.pickupScheduledAt,
-        label_url: result.labelUrl,
-        provider_response: result.rawResponse,
-      })
+      .insert(
+        buildShipmentInsertPayload({
+          orderId: data.orderId,
+          merchantId,
+          senderInfo,
+          receiver: data.receiver,
+          items: data.items,
+          quote,
+          result,
+        })
+      )
       // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full shipment rows on insertion, as only the ID is needed below
       .select('id')
       .single();

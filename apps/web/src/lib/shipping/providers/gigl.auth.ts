@@ -66,14 +66,27 @@ function isAuthRejectedResponseStatus(status: number): boolean {
 }
 
 function isAuthRejectedEnvelope(envelope: GiglApiEnvelope): boolean {
+  if (isAuthRejectedResponseStatus(envelope.status)) {
+    return true;
+  }
+
+  if (envelope.status >= 200 && envelope.status < 300) {
+    return false;
+  }
+
   const message = envelope.message?.toLowerCase() ?? '';
-  return (
-    envelope.status === 401 ||
-    envelope.status === 403 ||
-    message.includes('token') ||
-    message.includes('auth') ||
-    message.includes('unauthor')
-  );
+  return [
+    'wrong authentication credentials',
+    'unauthorized',
+    'unauthorised',
+    'invalid token',
+    'expired token',
+    'token expired',
+    'authentication failed',
+    'authentication required',
+    'authorization failed',
+    'authorization required',
+  ].some((authFailure) => message.includes(authFailure));
 }
 
 export class GiglApiClient {

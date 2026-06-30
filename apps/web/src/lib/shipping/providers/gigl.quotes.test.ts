@@ -262,6 +262,30 @@ describe('GiglProvider quote requests', () => {
     await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
   });
 
+  it('skips GIGL quotes when the sender station cannot be resolved', async () => {
+    const fetchMock = mockGiglFetchSequence(
+      jsonResponse(loginResponseWithoutCustomerType),
+      jsonResponse(stationsResponse)
+    );
+
+    const provider = buildQuoteHarness();
+    if (!quoteRequest.sender) {
+      throw new Error('Quote fixture must include sender details');
+    }
+
+    await expect(
+      provider.getQuotes({
+        ...quoteRequest,
+        sender: {
+          ...quoteRequest.sender,
+          city: 'Asaba',
+          state: 'Delta',
+        },
+      })
+    ).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects malformed price envelopes with schema validation', async () => {
     mockGiglFetchSequence(
       jsonResponse(loginResponseWithoutCustomerType),

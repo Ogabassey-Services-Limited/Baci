@@ -48,6 +48,33 @@ describe('GIGL station lookup', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('deduplicates concurrent station fetches while the cache is cold', async () => {
+    let resolveStations: (response: Response) => void = () => undefined;
+    const stationsPromise = new Promise<Response>((resolve) => {
+      resolveStations = resolve;
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockReturnValueOnce(stationsPromise);
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+    const firstLocations = provider.getLocations();
+    const secondLocations = provider.getLocations();
+
+    resolveStations(jsonResponse(stationsResponse));
+
+    await expect(
+      Promise.all([firstLocations, secondLocations])
+    ).resolves.toEqual([
+      expect.arrayContaining([expect.objectContaining({ stationId: 30 })]),
+      expect.arrayContaining([expect.objectContaining({ stationId: 30 })]),
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects failed station envelopes without poisoning the success path', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

@@ -42,6 +42,8 @@ describe('GiglProvider tracking requests', () => {
     delete process.env.GIGL_BASE_URL;
     delete process.env.GIGL_EMAIL;
     delete process.env.GIGL_PASSWORD;
+    delete process.env.GIGL_TRACKING_TIMEOUT_MS;
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -187,6 +189,57 @@ describe('GiglProvider tracking requests', () => {
 
     await expect(provider.trackShipment('GIGL123')).rejects.toThrow(
       'Shipment not found'
+    );
+  });
+
+  it('treats null tracking events as an empty tracking history', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            status: 200,
+            data: [
+              {
+                Waybill: 'GIGL123',
+                MobileShipmentTrackings: null,
+              },
+            ],
+          },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.trackShipment('GIGL123')).resolves.toMatchObject({
+      status: 'pending',
+      events: [],
+    });
+  });
+
+  it('bounds tracking token fetches with the GIGL tracking timeout', async () => {
+    process.env.GIGL_TRACKING_TIMEOUT_MS = '25';
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+    const trackingPromise = provider.trackShipment('TOPSHIP123');
+    const trackingAssertion = expect(trackingPromise).rejects.toThrow(
+      'GIGL tracking timed out'
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await trackingAssertion;
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/login`,
+      expect.objectContaining({ method: 'POST' })
     );
   });
 

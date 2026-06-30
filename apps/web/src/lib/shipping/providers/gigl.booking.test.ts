@@ -152,6 +152,53 @@ describe('GiglProvider booking requests', () => {
     });
   });
 
+  it('does not replay successful booking envelopes with benign auth wording', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            message: 'Authentication token recorded for shipment',
+            status: 200,
+            data: { Waybill: 'GIGL-WB-1' },
+          },
+        })
+      );
+
+    const provider = buildBookingHarness();
+
+    await expect(provider.bookShipment(bookingRequest)).resolves.toMatchObject({
+      trackingNumber: 'GIGL-WB-1',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects bookings when the sender station cannot be resolved', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse));
+
+    const provider = buildBookingHarness();
+
+    await expect(
+      provider.bookShipment({
+        ...bookingRequest,
+        sender: {
+          ...bookingRequest.sender,
+          city: 'Asaba',
+          state: 'Delta',
+        },
+      })
+    ).rejects.toThrow('No GIGL station found for pickup location');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('recomputes heavy legacy bookings with the van vehicle type', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

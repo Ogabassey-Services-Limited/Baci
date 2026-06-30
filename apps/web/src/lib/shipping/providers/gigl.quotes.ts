@@ -49,6 +49,15 @@ async function getQuotesWithinTimeout(
           signal
         )
       : null;
+
+    if (!request.sender || !senderStation) {
+      io.log('warn', 'No GIGL station found for sender location', {
+        city: request.sender?.city,
+        state: request.sender?.state,
+      });
+      return [];
+    }
+
     const receiverStation = await stationsService.findStationForCity(
       request.receiver.city,
       request.receiver.state,
@@ -121,7 +130,7 @@ async function fetchGiglQuote(
   io: GiglQuoteIo,
   tokenData: GiglToken,
   request: QuoteRequest,
-  senderStation: GiglStation | null,
+  senderStation: GiglStation,
   receiverStation: GiglStation,
   pickupOption: PickupOptions,
   totalWeight: number,
@@ -140,14 +149,14 @@ async function fetchGiglQuote(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            SenderStationId: senderStation?.StationId ?? 4,
+            SenderStationId: senderStation.StationId,
             ReceiverStationId: receiverStation.StationId,
-            SenderLocation: senderStation
-              ? {
-                  Latitude: senderStation.Latitude ?? 6.5244,
-                  Longitude: senderStation.Longitude ?? 3.3792,
-                }
-              : { Latitude: 6.5244, Longitude: 3.3792 },
+            SenderLocation: {
+              Latitude:
+                request.sender?.latitude ?? senderStation.Latitude ?? 6.5244,
+              Longitude:
+                request.sender?.longitude ?? senderStation.Longitude ?? 3.3792,
+            },
             ReceiverLocation: {
               Latitude:
                 request.receiver.latitude ?? receiverStation.Latitude ?? 6.5244,

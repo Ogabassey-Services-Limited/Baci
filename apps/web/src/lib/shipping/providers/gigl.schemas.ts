@@ -90,7 +90,10 @@ const trackingShipment = z
     Destination: optionalStringSchema,
     PickupOptions: optionalNumberSchema,
     DeliveryType: optionalNumberSchema,
-    MobileShipmentTrackings: z.array(trackingEvent).default([]),
+    MobileShipmentTrackings: z
+      .array(trackingEvent)
+      .nullish()
+      .transform((value) => value ?? []),
   })
   .loose();
 
