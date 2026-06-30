@@ -1,4 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  OGABASSEY_APPLE_TOUCH_ICON_URL,
+  OGABASSEY_DESCRIPTION,
+  OGABASSEY_FAVICON_URL,
+  OGABASSEY_SOCIAL_IMAGE_URL,
+  OGABASSEY_TITLE,
+  OGABASSEY_TWITTER_HANDLE,
+  OGABASSEY_URL,
+} from '@/config/ogabassey';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
 vi.mock('@/lib/cached-data', () => ({
@@ -30,24 +39,57 @@ describe('storefront homepage metadata', () => {
     vi.mocked(getRequestScopedMerchant).mockReset();
   });
 
-  it('emits self-referencing canonical and hreflang alternates', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
-      baseMerchant as unknown as Awaited<
-        ReturnType<typeof getRequestScopedMerchant>
-      >
-    );
-
+  it('emits the static OgaBassey metadata from the dynamic home route', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
+    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(metadata.title).toBe(OGABASSEY_TITLE);
+    expect(metadata.description).toBe(OGABASSEY_DESCRIPTION);
     expect(metadata.alternates).toEqual({
-      canonical: 'https://ogabassey.com',
+      canonical: OGABASSEY_URL,
       languages: {
-        'en-NG': 'https://ogabassey.com',
-        'x-default': 'https://ogabassey.com',
+        'en-NG': OGABASSEY_URL,
+        'x-default': OGABASSEY_URL,
       },
     });
+    expect(metadata.openGraph).toEqual(
+      expect.objectContaining({
+        images: [
+          {
+            alt: 'OgaBassey storefront preview',
+            height: 900,
+            url: OGABASSEY_SOCIAL_IMAGE_URL,
+            width: 1440,
+          },
+        ],
+      })
+    );
+    expect(metadata.twitter).toEqual(
+      expect.objectContaining({
+        images: [OGABASSEY_SOCIAL_IMAGE_URL],
+        site: OGABASSEY_TWITTER_HANDLE,
+      })
+    );
+    expect(metadata.icons).toEqual({
+      apple: OGABASSEY_APPLE_TOUCH_ICON_URL,
+      icon: OGABASSEY_FAVICON_URL,
+      shortcut: OGABASSEY_FAVICON_URL,
+    });
+  });
+
+  it('uses the same static OgaBassey metadata for the local custom-domain route identifier', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+    });
+
+    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
+    expect(metadata.alternates).toEqual(
+      expect.objectContaining({
+        canonical: OGABASSEY_URL,
+      })
+    );
   });
 
   it('omits Nigerian hreflang for storefronts outside Nigeria', async () => {
@@ -68,5 +110,22 @@ describe('storefront homepage metadata', () => {
         'x-default': 'https://ghana.example.com',
       },
     });
+  });
+
+  it('does not leak OgaBassey utility keywords into generic storefront metadata', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      business_name: 'Ada Fashion',
+      custom_domain: 'ada-fashion.example.com',
+      site_title: 'Ada Fashion',
+      slug: 'ada-fashion',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ada-fashion' }),
+    });
+
+    expect(metadata.title).toBe('Ada Fashion');
+    expect(metadata.keywords).toBeUndefined();
   });
 });

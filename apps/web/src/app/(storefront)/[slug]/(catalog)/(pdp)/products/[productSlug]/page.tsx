@@ -20,6 +20,7 @@ import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
+import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import {
   getCategorizedRedirectTarget,
   getInvalidVariantSelectionRedirectTarget,
@@ -164,7 +165,7 @@ export async function generateMetadata(
           : `@${socialMedia.twitter}`,
       }),
     },
-    other: socialMetadata.other,
+    other: mergeStorefrontSmartAppBannerOther(slug, socialMetadata.other),
   };
 }
 

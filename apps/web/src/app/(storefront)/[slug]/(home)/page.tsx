@@ -1,10 +1,112 @@
 import type { Metadata } from 'next';
-import '@/app/(storefront)/storefront-full.css';
+import {
+  OGABASSEY_APPLE_TOUCH_ICON_URL,
+  OGABASSEY_DESCRIPTION,
+  OGABASSEY_FAVICON_URL,
+  OGABASSEY_SOCIAL_IMAGE_URL,
+  OGABASSEY_TITLE,
+  OGABASSEY_TWITTER_HANDLE,
+  OGABASSEY_URL,
+} from '@/config/ogabassey';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { StorefrontPageContent } from '../storefront-page-content';
+
+const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
+
+function isOgabasseyIdentifier(slug: string): boolean {
+  const normalizedSlug = slug.toLowerCase();
+  return (
+    normalizedSlug === OGABASSEY_TEMPLATE_ID ||
+    normalizedSlug === OGABASSEY_DOMAIN_IDENTIFIER
+  );
+}
+
+function getOgabasseyHomePathPrefix(slug: string): string {
+  return slug.toLowerCase() === OGABASSEY_DOMAIN_IDENTIFIER
+    ? ''
+    : `/${OGABASSEY_TEMPLATE_ID}`;
+}
+
+async function renderGenericStorefrontHomePage(
+  params: Promise<{ slug: string }>
+) {
+  const { GenericStorefrontHomePage } = await import(
+    './generic-storefront-home-page'
+  );
+
+  return <GenericStorefrontHomePage params={params} />;
+}
+
+async function renderOgabasseyStaticHomePage(slug: string) {
+  const { OgabasseyStaticHomePage } = await import(
+    './ogabassey-static-home-page'
+  );
+
+  return (
+    <OgabasseyStaticHomePage pathPrefix={getOgabasseyHomePathPrefix(slug)} />
+  );
+}
+
+function buildOgabasseyStaticHomeMetadata(): Metadata {
+  const other = mergeStorefrontSmartAppBannerOther(OGABASSEY_TEMPLATE_ID);
+
+  return {
+    metadataBase: new URL(OGABASSEY_URL),
+    title: OGABASSEY_TITLE,
+    description: OGABASSEY_DESCRIPTION,
+    keywords: [
+      'Showmax Subscription',
+      'Buy Showmax Online',
+      'Cheap Airtime',
+      'Buy Data Bundle',
+      'Pay Electricity Bill',
+      'Utility Payment',
+      'OgaBassey',
+      'Online Shopping',
+      'Nigeria',
+    ],
+    alternates: {
+      canonical: OGABASSEY_URL,
+      languages: {
+        'en-NG': OGABASSEY_URL,
+        'x-default': OGABASSEY_URL,
+      },
+    },
+    openGraph: {
+      title: OGABASSEY_TITLE,
+      description: OGABASSEY_DESCRIPTION,
+      url: OGABASSEY_URL,
+      type: 'website',
+      siteName: 'OgaBassey',
+      images: [
+        {
+          url: OGABASSEY_SOCIAL_IMAGE_URL,
+          width: 1440,
+          height: 900,
+          alt: 'OgaBassey storefront preview',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: OGABASSEY_TITLE,
+      description: OGABASSEY_DESCRIPTION,
+      images: [OGABASSEY_SOCIAL_IMAGE_URL],
+      site: OGABASSEY_TWITTER_HANDLE,
+    },
+    icons: {
+      icon: OGABASSEY_FAVICON_URL,
+      shortcut: OGABASSEY_FAVICON_URL,
+      apple: OGABASSEY_APPLE_TOUCH_ICON_URL,
+    },
+    ...(other ? { other } : {}),
+    manifest: null,
+  };
+}
 
 function buildStorefrontLanguageAlternates(
   baseUrl: string,
@@ -28,6 +130,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
 
+  if (isOgabasseyIdentifier(slug)) {
+    return buildOgabasseyStaticHomeMetadata();
+  }
+
   // Skip database query for invalid identifiers (like static asset requests)
   if (!isValidMerchantIdentifier(slug)) {
     return {
@@ -47,8 +153,8 @@ export async function generateMetadata({
   }
 
   const title =
-    merchant?.site_title ||
-    (merchant?.business_name
+    merchant.site_title ||
+    (merchant.business_name
       ? `${merchant.business_name} - Official Online Store`
       : 'Official Online Store');
   const description = generateMetaDescription(
@@ -68,17 +174,6 @@ export async function generateMetadata({
     metadataBase: new URL(baseUrl),
     title: title,
     description: description,
-    keywords: [
-      'Showmax Subscription',
-      'Buy Showmax Online',
-      'Cheap Airtime',
-      'Buy Data Bundle',
-      'Pay Electricity Bill',
-      'Utility Payment',
-      merchant.business_name,
-      'Online Shopping',
-      'Nigeria',
-    ],
     alternates: {
       canonical: baseUrl,
       languages: buildStorefrontLanguageAlternates(baseUrl, merchant.country),
@@ -118,10 +213,14 @@ export async function generateMetadata({
   };
 }
 
-export default function StorefrontPage({
+export default async function StorefrontPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  return <StorefrontPageContent params={params} />;
+  const { slug } = await params;
+
+  return isOgabasseyIdentifier(slug)
+    ? renderOgabasseyStaticHomePage(slug)
+    : renderGenericStorefrontHomePage(params);
 }

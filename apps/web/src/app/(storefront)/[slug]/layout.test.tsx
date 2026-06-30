@@ -384,7 +384,7 @@ describe('storefront layout', () => {
     unmount();
   });
 
-  it('derives OgaBassey static fallback appearance from params before tenant data resolves', async () => {
+  it('uses the neutral static fallback with OgaBassey appearance before tenant data resolves', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
@@ -610,7 +610,7 @@ describe('storefront layout metadata', () => {
     expect(metadata.alternates).toBeNull();
   });
 
-  it('uses the merchant domain as metadataBase for custom domains without request-binding metadata', async () => {
+  it('uses the merchant domain as metadataBase and keeps the OgaBassey app banner on Oga routes', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       baseMerchant as unknown as Awaited<
         ReturnType<typeof getRequestScopedMerchant>
@@ -623,6 +623,28 @@ describe('storefront layout metadata', () => {
 
     expect(mockConnection).not.toHaveBeenCalled();
     expect(metadata.metadataBase?.toString()).toBe('https://ogabassey.com/');
+    expect(metadata.other).toEqual({
+      'apple-itunes-app': 'app-id=6472735367',
+    });
+  });
+
+  it('does not leak the OgaBassey app banner onto generic storefronts', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      business_name: 'Template Test Store',
+      slug: 'template-test-store',
+      custom_domain: null,
+      site_title: 'Template Test Store',
+      template_id: 'ogabassey',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'template-test-store' }),
+    });
+
+    expect(metadata.metadataBase?.toString()).toBe(
+      'https://template-test-store.usebaci.com/'
+    );
     expect(metadata.other).toBeUndefined();
   });
 

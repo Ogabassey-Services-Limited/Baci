@@ -936,6 +936,37 @@ describe('products/[productSlug] page', () => {
     ]);
   });
 
+  it('keeps the OgaBassey app banner when product metadata adds social tags', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      business_name: 'Ogabassey',
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+    });
+    mockGetCachedProduct.mockResolvedValue({
+      ...uncategorizedProduct,
+      images: ['https://cdn.example.com/products/mystery-item.png'],
+    });
+
+    const metadata = await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      stubParent
+    );
+
+    expect(metadata.other).toMatchObject({
+      'apple-itunes-app': 'app-id=6472735367',
+      'product:price:amount': '500000',
+      'product:price:currency': 'NGN',
+      'product:availability': 'in stock',
+    });
+  });
+
   it('does not retry detailed lookup with a lowercased slug', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);

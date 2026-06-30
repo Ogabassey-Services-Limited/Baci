@@ -1096,6 +1096,57 @@ describe('[category]/[productSlug] page metadata', () => {
     });
   });
 
+  it('keeps the OgaBassey app banner when category PDP metadata adds product tags', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      business_name: 'Ogabassey',
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+    });
+    mockGetCachedProductLcpHint.mockResolvedValueOnce({
+      id: 'prod-1',
+      name: 'HP Laptop 14-ep0063nia',
+      slug: 'hp-laptop-14-ep0063nia',
+      canonical_url: null,
+      brand: 'HP',
+      category: 'Laptops',
+      categories: {
+        id: 'cat-1',
+        name: 'Laptops',
+        slug: 'laptops',
+      },
+      condition: 'new',
+      manage_stock: false,
+      price: 645_600,
+      base_price: 645_600,
+      sale_price: null,
+      stock_quantity: 10,
+      meta_title: 'HP Laptop 14 Price',
+      meta_description:
+        '<p>Shop the HP Laptop 14-ep0063nia with warranty and delivery.</p>',
+      keywords: ['hp laptop', 'laptop price in nigeria'],
+      images: ['https://cdn.example.com/products/hp-laptop.png'],
+      schema_markup: null,
+      product_categories: [],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.other).toMatchObject({
+      'apple-itunes-app': 'app-id=6472735367',
+      'product:price:amount': '645600',
+      'product:price:currency': 'NGN',
+      'product:availability': 'in stock',
+    });
+  });
+
   it('normalizes explicit plus-model metadata to crawler-stable text', async () => {
     mockGetCachedProductLcpHint.mockResolvedValueOnce({
       id: 'prod-plus',

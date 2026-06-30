@@ -16,13 +16,13 @@ import {
 } from '@/components/storefront/storefront-appearance';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { WebMcpStorefrontTools } from '@/components/storefront/webmcp-storefront-tools';
-import { MOBILE_APPS } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
+import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { getStorefrontSeoDescription } from './seo-helpers';
 import {
@@ -162,6 +162,8 @@ export async function generateMetadata({
     metadataBase = undefined;
   }
 
+  const other = mergeStorefrontSmartAppBannerOther(slug);
+
   return {
     metadataBase,
     description,
@@ -181,13 +183,7 @@ export async function generateMetadata({
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },
     // Apple Smart App Banner — prompts iOS Safari users to open/install the app
-    ...(MOBILE_APPS.storefront.iosAppId
-      ? {
-          other: {
-            'apple-itunes-app': `app-id=${MOBILE_APPS.storefront.iosAppId}`,
-          },
-        }
-      : {}),
+    ...(other ? { other } : {}),
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
   };

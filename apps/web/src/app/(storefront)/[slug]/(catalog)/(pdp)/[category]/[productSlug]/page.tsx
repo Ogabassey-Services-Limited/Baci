@@ -76,6 +76,7 @@ import {
   DEFAULT_STORE_NAME,
   DEFAULT_STOREFRONT_SEO_CATEGORY,
 } from '@/lib/storefront-seo-defaults';
+import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
   isDomainIdentifier,
@@ -983,10 +984,12 @@ function buildCategoryProductMetadata({
   baseUrl,
   merchant,
   product,
+  storeSlug,
 }: {
   baseUrl: string;
   merchant: CachedMerchant;
   product: LcpRouteProduct;
+  storeSlug: string;
 }): Metadata {
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productCategoryName =
@@ -1081,7 +1084,7 @@ function buildCategoryProductMetadata({
           : `@${socialMedia.twitter}`,
       }),
     },
-    other: socialMetadata.other,
+    other: mergeStorefrontSmartAppBannerOther(storeSlug, socialMetadata.other),
   };
 }
 
@@ -1211,7 +1214,12 @@ export async function generateMetadata({
   }
 
   const baseUrl = buildStoreUrl(merchant);
-  return buildCategoryProductMetadata({ baseUrl, merchant, product });
+  return buildCategoryProductMetadata({
+    baseUrl,
+    merchant,
+    product,
+    storeSlug: slug,
+  });
 }
 
 interface CategoryProductPageContentProps {
