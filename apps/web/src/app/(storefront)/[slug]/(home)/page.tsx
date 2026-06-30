@@ -13,6 +13,7 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
@@ -53,10 +54,14 @@ async function renderOgabasseyStaticHomePage(slug: string) {
 
 function buildOgabasseyStaticHomeMetadata(): Metadata {
   const other = mergeStorefrontSmartAppBannerOther(OGABASSEY_TEMPLATE_ID);
+  const { metadataTitle, title } = buildStorefrontMetadataTitle({
+    fallback: 'OgaBassey',
+    title: OGABASSEY_TITLE,
+  });
 
   return {
     metadataBase: new URL(OGABASSEY_URL),
-    title: OGABASSEY_TITLE,
+    title: metadataTitle,
     description: OGABASSEY_DESCRIPTION,
     keywords: [
       'Showmax Subscription',
@@ -77,7 +82,7 @@ function buildOgabasseyStaticHomeMetadata(): Metadata {
       },
     },
     openGraph: {
-      title: OGABASSEY_TITLE,
+      title,
       description: OGABASSEY_DESCRIPTION,
       url: OGABASSEY_URL,
       type: 'website',
@@ -93,7 +98,7 @@ function buildOgabasseyStaticHomeMetadata(): Metadata {
     },
     twitter: {
       card: 'summary_large_image',
-      title: OGABASSEY_TITLE,
+      title,
       description: OGABASSEY_DESCRIPTION,
       images: [OGABASSEY_SOCIAL_IMAGE_URL],
       site: OGABASSEY_TWITTER_HANDLE,
@@ -152,11 +157,14 @@ export async function generateMetadata({
     };
   }
 
-  const title =
-    merchant.site_title ||
-    (merchant.business_name
-      ? `${merchant.business_name} - Official Online Store`
-      : 'Official Online Store');
+  const { metadataTitle, title } = buildStorefrontMetadataTitle({
+    title:
+      merchant.site_title ||
+      (merchant.business_name
+        ? `${merchant.business_name} - Official Online Store`
+        : 'Official Online Store'),
+    fallback: 'Official Online Store',
+  });
   const description = generateMetaDescription(
     merchant.site_description || merchant.site_tagline || '',
     160,
@@ -172,7 +180,7 @@ export async function generateMetadata({
 
   return {
     metadataBase: new URL(baseUrl),
-    title: title,
+    title: metadataTitle,
     description: description,
     alternates: {
       canonical: baseUrl,

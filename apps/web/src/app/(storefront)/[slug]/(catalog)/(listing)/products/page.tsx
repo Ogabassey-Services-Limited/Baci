@@ -11,6 +11,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import {
   buildStorefrontPageHref,
   parseStorefrontPageParam,
@@ -93,10 +94,11 @@ export async function generateMetadata({
     productsUrl,
     currentPage
   );
-  const title =
-    currentPage > 1
-      ? `Products | Page ${currentPage} | ${merchant.business_name}`
-      : `Products | ${merchant.business_name}`;
+  const { metadataTitle, title } = buildStorefrontMetadataTitle({
+    title: currentPage > 1 ? `Products | Page ${currentPage}` : 'Products',
+    suffix: merchant.business_name,
+    fallback: 'Products',
+  });
   const fallbackDescription = `Browse all products available at ${merchant.business_name}. Compare smartphones, laptops, accessories, and gaming devices with nationwide delivery and flexible payment options.`;
   const baseDescription = merchant.site_description || fallbackDescription;
   const pageAwareDescription =
@@ -118,7 +120,7 @@ export async function generateMetadata({
   ];
 
   return {
-    title,
+    title: metadataTitle,
     description,
     alternates: {
       canonical: paginatedProductsUrl,

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
-import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
+import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -135,11 +136,12 @@ export async function buildBlogListingMetadata({
       : normalizedCategory
         ? `${categoryLabel} Articles${pageSuffix}`
         : `Blog${pageSuffix}`;
-  const metadataTitle = generateMetaTitle(metadataTitleBase, {
-    suffix: data.merchant.business_name,
-    maxLength: 70,
-    fallback: 'Blog',
-  });
+  const { metadataTitle, title: metadataTitleText } =
+    buildStorefrontMetadataTitle({
+      title: metadataTitleBase,
+      suffix: data.merchant.business_name,
+      fallback: 'Blog',
+    });
   const baseDescription = normalizedSearch
     ? `Search results for "${normalizedSearch}" on ${data.merchant.business_name}'s blog.`
     : knownCategoryLabel
@@ -160,7 +162,7 @@ export async function buildBlogListingMetadata({
     title: metadataTitle,
     description,
     openGraph: {
-      title: metadataTitle,
+      title: metadataTitleText,
       description,
       type: 'website',
       url: canonicalUrl,
@@ -173,7 +175,7 @@ export async function buildBlogListingMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: metadataTitle,
+      title: metadataTitleText,
       description,
       images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
     },

@@ -13,8 +13,9 @@ import {
 } from '@/lib/cached-data';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { asRoute } from '@/lib/routes';
-import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
+import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { createPublicClient } from '@/lib/supabase/anon';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
@@ -166,11 +167,12 @@ export async function generateMetadata({
 
   const { merchant, post } = data;
   const title = post.seo_title || post.title || 'Blog Post';
-  const metadataTitle = generateMetaTitle(title, {
-    suffix: merchant.business_name,
-    maxLength: 70,
-    fallback: 'Blog Post',
-  });
+  const { metadataTitle, title: metadataTitleText } =
+    buildStorefrontMetadataTitle({
+      title,
+      suffix: merchant.business_name,
+      fallback: 'Blog Post',
+    });
   const description = generateMetaDescription(
     post.seo_description ||
       post.excerpt ||
@@ -199,7 +201,7 @@ export async function generateMetadata({
     keywords: post.keywords?.join(', '),
     authors: [{ name: post.author_name }],
     openGraph: {
-      title,
+      title: metadataTitleText,
       description,
       type: 'article',
       url,
@@ -217,7 +219,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: metadataTitleText,
       description,
       images: [socialImageUrl],
     },

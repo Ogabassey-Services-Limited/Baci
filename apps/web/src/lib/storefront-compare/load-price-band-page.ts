@@ -17,6 +17,7 @@ import {
   getCountryShoppingContext,
   getStorefrontLocale,
 } from '@/lib/storefront-localization';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { isDomainIdentifier } from '@/lib/validation';
 import { buildPriceBandCandidate } from './compare-eligibility';
 import { getCuratedPriceBands } from './price-band-taxonomy';
@@ -187,7 +188,11 @@ export async function loadPriceBandPage(
   return {
     merchant,
     canonicalUrl,
-    metaTitle: `${heading} | ${merchant.business_name}`,
+    metaTitle: buildStorefrontMetadataTitle({
+      title: heading,
+      suffix: merchant.business_name,
+      fallback: categoryName,
+    }).title,
     metaDescription: `Compare the best ${categoryName.toLowerCase()} under ${ceilingText}${countrySuffix}. See live prices, stock, condition, and buying options from ${merchant.business_name}.`,
     heading,
     intro: `These are the strongest ${categoryName.toLowerCase()} options under ${ceilingText}${countrySuffix}, based on live ${merchant.business_name} inventory with price, condition, and availability details.`,

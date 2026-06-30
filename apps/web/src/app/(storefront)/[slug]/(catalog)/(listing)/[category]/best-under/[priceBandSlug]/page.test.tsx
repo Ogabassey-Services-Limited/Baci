@@ -147,7 +147,7 @@ describe('price-band page metadata', () => {
         includeRequestPathPrefix: false,
       }
     );
-    expect(metadata.title).toBe(priceBandPageModel.metaTitle);
+    expect(metadata.title).toEqual({ absolute: priceBandPageModel.metaTitle });
     expect(metadata.description).toBe(priceBandPageModel.metaDescription);
     expect(metadata.alternates?.canonical).toContain(
       '/smartphones/best-under/under-500k'

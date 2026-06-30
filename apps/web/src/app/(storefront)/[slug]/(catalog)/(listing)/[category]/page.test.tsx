@@ -860,11 +860,13 @@ describe('category page route', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
-    expect(typeof metadata.title).toBe('string');
-    expect(metadata.title).toContain('Smartphones');
-    expect(metadata.title).toContain('Ogabassey');
-    expect((metadata.title as string).length).toBeLessThanOrEqual(70);
-    expect(metadata.title).not.toContain('| Ogabassey | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: expect.stringContaining('Smartphones'),
+    });
+    const title = (metadata.title as { absolute: string }).absolute;
+    expect(title).toContain('Ogabassey');
+    expect(title.length).toBeLessThanOrEqual(60);
+    expect(title).not.toContain('| Ogabassey | Ogabassey');
     expect(metadata.description).toBe(
       CATEGORY_HUB_DEFAULTS.smartphones.intro.description
     );
@@ -892,12 +894,15 @@ describe('category page route', () => {
     expect(secondPageMetadata.alternates?.canonical).toBe(
       'https://test-store.usebaci.com/smartphones?page=2'
     );
-    expect(typeof secondPageMetadata.title).toBe('string');
-    expect(secondPageMetadata.title).toContain('Smartphones');
-    expect(secondPageMetadata.title).toContain('Page 2');
-    expect(secondPageMetadata.title).toContain('Ogabassey');
-    expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
-    expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
+    expect(secondPageMetadata.title).toEqual({
+      absolute: expect.stringContaining('Smartphones'),
+    });
+    const secondPageTitle = (secondPageMetadata.title as { absolute: string })
+      .absolute;
+    expect(secondPageTitle).toContain('Page 2');
+    expect(secondPageTitle).toContain('Ogabassey');
+    expect(secondPageTitle.length).toBeLessThanOrEqual(60);
+    expect(secondPageTitle).not.toContain('| Ogabassey | Ogabassey');
     expect(secondPageMetadata.description).toContain('Page 2 of');
     expect(secondPageMetadata.openGraph?.description).toContain('Page 2 of');
     expect(secondPageMetadata.twitter?.description).toContain('Page 2 of');
@@ -1112,10 +1117,12 @@ describe('category page route', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
-    expect(typeof metadata.title).toBe('string');
-    expect(metadata.title).toContain('Page 2');
-    expect(metadata.title).toContain('Ogabassey');
-    expect((metadata.title as string).length).toBeLessThanOrEqual(70);
+    expect(metadata.title).toEqual({
+      absolute: expect.stringContaining('Page 2'),
+    });
+    const title = (metadata.title as { absolute: string }).absolute;
+    expect(title).toContain('Ogabassey');
+    expect(title.length).toBeLessThanOrEqual(60);
   });
 
   it('returns noindex soft-404 metadata for out-of-range metadata pages', async () => {

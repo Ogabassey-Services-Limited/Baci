@@ -174,7 +174,7 @@ describe('loadComparePage', () => {
       'http://localhost:3000/ogabassey/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );
     expect(result?.metaTitle).toBe(
-      'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold in Nigeria | Ogabassey'
+      'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold... | Ogabassey'
     );
     expect(result?.metaDescription).toContain(
       'Compare iPhone 17 Pro Max vs Samsung Galaxy Z TriFold in Nigeria by price, specs'

@@ -204,7 +204,9 @@ describe('blog category page', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe('Smartphones Articles | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'Smartphones Articles | Ogabassey',
+    });
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/category/smartphones'

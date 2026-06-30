@@ -10,11 +10,11 @@ import {
 import type { RawDbProduct } from '@/lib/normalize-product';
 import {
   generateMetaDescription,
-  generateMetaTitle,
   getCanonicalStorefrontFilterSearchParams,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import {
   buildStorefrontPageHref,
   parseStorefrontPageParam,
@@ -174,8 +174,8 @@ export async function generateMetadata({
   const titleFragment = hubContent.intro.heading;
   const pageTitleFragment =
     currentPage > 1 ? `Page ${currentPage} | ${titleFragment}` : titleFragment;
-  const title = generateMetaTitle(pageTitleFragment, {
-    maxLength: 70,
+  const { metadataTitle, title } = buildStorefrontMetadataTitle({
+    title: pageTitleFragment,
     suffix: merchant.business_name,
     fallback: categoryName,
   });
@@ -198,7 +198,7 @@ export async function generateMetadata({
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
 
   return {
-    title,
+    title: metadataTitle,
     description,
     alternates: {
       canonical: paginatedCategoryUrl,

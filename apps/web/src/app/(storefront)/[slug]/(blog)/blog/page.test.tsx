@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
+  merchant,
   mockGetCachedBlogListing,
   postsPayload,
   resetBlogPageContentMocks,
@@ -163,9 +164,7 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).not.toBe('Ogabassey');
-    expect(String(metadata.title)).toContain('Blog');
-    expect(String(metadata.title)).toContain('Ogabassey');
+    expect(metadata.title).toEqual({ absolute: 'Blog | Ogabassey' });
     expect(String(metadata.description).length).toBeGreaterThan(30);
     expect(metadata.alternates?.canonical).toBe(
       'https://test-store.usebaci.com/blog'
@@ -188,7 +187,7 @@ describe('blog page metadata', () => {
       searchParams: requestSearchParams,
     });
 
-    expect(String(metadata.title)).toContain('Blog');
+    expect(metadata.title).toEqual({ absolute: 'Blog | Ogabassey' });
     expect(String(metadata.alternates?.canonical)).toContain('/blog');
     expect(thenSpy).not.toHaveBeenCalled();
   });
@@ -205,11 +204,159 @@ describe('blog page metadata', () => {
       searchParams: Promise.resolve({ page: '2' }),
     });
 
-    expect(metadata.title).toBe('Blog | Page 2 | Ogabassey');
+    expect(metadata.title).toEqual({ absolute: 'Blog | Page 2 | Ogabassey' });
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
       page: 2,
     });
+  });
+
+  it('uses a self-canonical URL for paginated blog listings', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'ogabassey',
+          custom_domain: 'example.com',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'example.com' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://example.com/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+    expect(metadata.title).toEqual({ absolute: 'Blog | Page 2 | Ogabassey' });
+    expect(metadata.description).toContain('Page 2:');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.other).toBeUndefined();
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('example.com', {
+      page: 2,
+    });
+  });
+
+  it('uses distinct noindex metadata for filtered blog listings', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ category: 'buying-guides' }),
+    });
+
+    expect(metadata.title).toEqual({
+      absolute: 'Buying Guides Articles | Ogabassey',
+    });
+    expect(metadata.description).toContain('buying guides articles');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      category: 'buying-guides',
+      page: 1,
+    });
+  });
+
+  it('uses distinct noindex metadata for blog search listings', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ search: 'iphone-reviews' }),
+    });
+
+    expect(metadata.title).toEqual({
+      absolute: 'Search: iphone reviews | Ogabassey',
+    });
+    expect(metadata.description).toContain(
+      'Search results for "iphone reviews"'
+    );
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      page: 1,
+      searchQuery: 'iphone-reviews',
+    });
+  });
+
+  it('uses the first repeated blog search parameter without throwing', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({ totalPosts: 50 })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({
+        category: ['buying-guides', 'tablets'],
+        page: ['2', '3'],
+        search: ['iphone-reviews', 'ipad-reviews'],
+      }),
+    });
+
+    expect(metadata.title).toEqual({
+      absolute: 'Search: iphone reviews | Page 2 | Ogabassey',
+    });
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/blog?category=buying-guides&search=iphone-reviews&page=2'
+    );
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      category: 'buying-guides',
+      page: 2,
+      searchQuery: 'iphone-reviews',
+    });
+  });
+
+  it('caps long filtered metadata titles without changing the listing query', async () => {
+    const longSearch =
+      'iphone-reviews-for-used-flagship-smartphones-in-nigeria-under-budget';
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ search: longSearch }),
+    });
+
+    const title = (metadata.title as { absolute: string }).absolute;
+    expect(title.length).toBeLessThanOrEqual(60);
+    expect(title).toContain('Ogabassey');
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      page: 1,
+      searchQuery: longSearch,
+    });
+  });
+
+  it('preserves storefront path prefixes in paginated metadata URLs', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          slug: 'path-store',
+          store_url: 'http://localhost:3000/ogabassey',
+        },
+        totalPosts: 50,
+      })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'path-store' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'http://localhost:3000/ogabassey/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe(
+      'http://localhost:3000/ogabassey/blog?page=2'
+    );
+  });
+
+  it('clamps invalid page params back to the first page metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ page: '0' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/blog'
+    );
+    expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
   it('returns fallback metadata when the merchant is missing', async () => {

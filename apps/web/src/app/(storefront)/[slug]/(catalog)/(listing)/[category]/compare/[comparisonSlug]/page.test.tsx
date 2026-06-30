@@ -135,6 +135,9 @@ describe('compare page metadata', () => {
       categorySlug: 'smartphones',
       comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
     });
+    expect(metadata.title).toEqual({
+      absolute: comparePageModel.metaTitle,
+    });
     expect(metadata.alternates?.canonical).toContain(
       '/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );

@@ -545,7 +545,9 @@ describe('products/[productSlug] page', () => {
       expect(metadata.alternates?.canonical).toBe(
         'https://teststore.usebaci.com/products/mystery-item'
       );
-      expect(metadata.title).toBe('Mystery Item Price in Nigeria | TestStore');
+      expect(metadata.title).toEqual({
+        absolute: 'Mystery Item Price in Nigeria | TestStore',
+      });
       expect(metadata.description).toContain(
         'Mystery Item price in Nigeria is ₦500,000 on TestStore'
       );
@@ -602,9 +604,9 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      expect(metadata.title).toBe(
-        'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
-      );
+      expect(metadata.title).toEqual({
+        absolute: 'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore',
+      });
       expect(metadata.description).toBe(
         'Shop Samsung Galaxy Tab S9 Plus tablet at Ogabassey before checkout.'
       );
@@ -631,9 +633,9 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      expect(metadata.title).toBe(
-        'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
-      );
+      expect(metadata.title).toEqual({
+        absolute: 'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore',
+      });
       expect(metadata.description).toBe('Shop Samsung Galaxy Tab S9 Plus.');
     });
 
@@ -659,9 +661,9 @@ describe('products/[productSlug] page', () => {
         stubParent
       );
 
-      expect(metadata.title).toBe(
-        'PSN Gift Card £50 GBP Price in Nigeria | TestStore'
-      );
+      expect(metadata.title).toEqual({
+        absolute: 'PSN Gift Card £50 GBP Price in Nigeria | TestStore',
+      });
       expect(metadata.description).toBe(
         'PSN Gift Card £50 GBP at Ogabassey: £50 GBP value for PlayStation Store.'
       );

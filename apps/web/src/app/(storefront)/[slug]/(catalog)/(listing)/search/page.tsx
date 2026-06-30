@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { SearchPageContent, type SearchPageProps } from './search-page-content';
 
@@ -27,10 +28,14 @@ export async function generateMetadata({
   const sanitizedQuery = sanitizeSearchQuery(q || '');
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
+  const { metadataTitle } = buildStorefrontMetadataTitle({
+    title: sanitizedQuery ? `Search results for ${sanitizedQuery}` : 'Search',
+    suffix: merchant.business_name,
+    fallback: 'Search',
+  });
+
   return {
-    title: sanitizedQuery
-      ? `Search results for ${sanitizedQuery} | ${merchant.business_name}`
-      : `Search | ${merchant.business_name}`,
+    title: metadataTitle,
     robots: {
       index: false,
       follow: true,
