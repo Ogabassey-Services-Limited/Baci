@@ -8,6 +8,7 @@
  */
 
 import crypto from 'node:crypto';
+import { creditDirectWebhookSchema } from '@/schemas/credit-direct';
 
 // ============================================================================
 // Types
@@ -62,10 +63,6 @@ export interface CreditDirectWebhookPayload {
   timeStamp: string;
 }
 
-export type CreditDirectWebhookEvent =
-  | 'Checkout_Customer_Payment_Completed'
-  | 'Checkout_Merchant_Payment_Completed';
-
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -78,31 +75,6 @@ export const CREDIT_DIRECT_CONFIG = {
   minAmount: 10000, // Alias for easier access
   maxAmount: 5000000, // Alias for easier access
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isWebhookProduct(value: unknown): value is CreditDirectWebhookProduct {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const amount = value.productAmount;
-  const isAmountShapeValid =
-    (typeof amount === 'number' && Number.isFinite(amount)) ||
-    (typeof amount === 'string' && amount.trim().length > 0);
-
-  return (
-    isNonEmptyString(value.productName) &&
-    isAmountShapeValid &&
-    isNonEmptyString(value.productId)
-  );
-}
 
 // ============================================================================
 // Transaction Signing
@@ -289,65 +261,8 @@ export function verifyWebhookSignature({
 export function parseWebhookPayload(
   payload: unknown
 ): CreditDirectWebhookPayload | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  const p = payload;
-
-  // Validate required fields
-  if (
-    !isNonEmptyString(p.checkoutTransactionId) ||
-    !isNonEmptyString(p.eventType) ||
-    !isNonEmptyString(p.timeStamp) ||
-    !isRecord(p.checkoutCustomer)
-  ) {
-    return null;
-  }
-
-  const checkoutCustomer = p.checkoutCustomer;
-  if (
-    typeof checkoutCustomer.firstName !== 'string' ||
-    typeof checkoutCustomer.lastName !== 'string'
-  ) {
-    return null;
-  }
-
-  if (
-    !(
-      p.metaData === null ||
-      p.metaData === undefined ||
-      typeof p.metaData === 'string'
-    )
-  ) {
-    return null;
-  }
-
-  const products = p.products;
-  if (!Array.isArray(products) || !products.every(isWebhookProduct)) {
-    return null;
-  }
-
-  // Validate event type
-  const validEvents: CreditDirectWebhookEvent[] = [
-    'Checkout_Customer_Payment_Completed',
-    'Checkout_Merchant_Payment_Completed',
-  ];
-  if (!validEvents.includes(p.eventType as CreditDirectWebhookEvent)) {
-    return null;
-  }
-
-  return {
-    checkoutCustomer: {
-      firstName: checkoutCustomer.firstName,
-      lastName: checkoutCustomer.lastName,
-    },
-    checkoutTransactionId: p.checkoutTransactionId,
-    eventType: p.eventType as CreditDirectWebhookEvent,
-    metaData: p.metaData ?? null,
-    products,
-    timeStamp: p.timeStamp,
-  };
+  const result = creditDirectWebhookSchema.safeParse(payload);
+  return result.success ? result.data : null;
 }
 
 // ============================================================================
