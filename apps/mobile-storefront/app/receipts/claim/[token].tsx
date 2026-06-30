@@ -1,3 +1,4 @@
+import { withReceiptClaimedSearchParam } from '@baci/shared/lib';
 import { sanitizeCustomerLoginEmailHint } from '@baci/shared/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, Redirect, router, useLocalSearchParams } from 'expo-router';
@@ -185,7 +186,7 @@ export default function ReceiptClaimScreen() {
 
         if (!isActive) return;
         // Validated server path (starts with '/'); typed routes need an Href.
-        router.replace(redirectPath as Href);
+        router.replace(withReceiptClaimedSearchParam(redirectPath) as Href);
       } catch {
         if (!isActive) return;
         setStatus('error');

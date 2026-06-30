@@ -15,12 +15,14 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { sanitizeCustomerLoginEmailPrefill } from '@/lib/customer-login-prefill';
+import { rememberReceiptClaimAppDownloadToken } from '@/lib/import-notifications/receipt-claim-app-download-storage';
 import type { ReceiptClaimPreview } from '@/lib/import-notifications/receipt-claim-preview';
 import { asRoute } from '@/lib/routes';
 import ReceiptClaimAppLinks from './receipt-claim-app-links';
 import {
   createDeviceListItems,
   joinBasePath,
+  withReceiptClaimedSearchParam,
 } from './receipt-claim-page-utils';
 import { waitForReceiptClaimLoginStartedTrackingWindow } from './wait-for-receipt-claim-login-started-tracking';
 
@@ -83,8 +85,14 @@ export default function ReceiptClaimPageClient({
           return;
         }
         setRedeemedToken(token);
+        rememberReceiptClaimAppDownloadToken(token);
         router.push(
-          asRoute(joinBasePath(basePath, data.redirectPath || '/receipts'))
+          asRoute(
+            joinBasePath(
+              basePath,
+              withReceiptClaimedSearchParam(data.redirectPath || '/receipts')
+            )
+          )
         );
       } catch {
         if (!cancelled) {

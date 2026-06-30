@@ -4,8 +4,9 @@
  * Follows the orders/index.tsx pattern: auth guard, offline support, search
  */
 import { useQueryClient } from '@tanstack/react-query';
-import { Redirect } from 'expo-router';
-import { useState } from 'react';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { getPaymentConfig } from '@/components/receipts/ReceiptCard';
 import { ReceiptsTabs } from '@/components/receipts/ReceiptsTabs';
 import { ReceiptsView } from '@/components/receipts/ReceiptsView';
@@ -17,6 +18,10 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { receiptDetailQueryOptions, useReceipts } from '@/hooks/use-receipts';
 
+function readSingleParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function ReceiptsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -24,7 +29,12 @@ export default function ReceiptsScreen() {
 
   // Auth guard
   const { redirectTo, user, isLoading: isAuthLoading } = useRequireAuth();
+  const { receiptClaimed } = useLocalSearchParams<{
+    receiptClaimed?: string | string[];
+  }>();
   const { isOnline } = useNetworkState();
+  const shouldShowClaimPrompt = readSingleParam(receiptClaimed) === '1';
+  const claimPromptShown = useRef(false);
 
   // Data
   const { data: receipts, isLoading, error, refetch } = useReceipts(user?.id);
@@ -40,6 +50,30 @@ export default function ReceiptsScreen() {
   // Search
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (
+      isAuthLoading ||
+      redirectTo ||
+      !shouldShowClaimPrompt ||
+      claimPromptShown.current
+    ) {
+      return;
+    }
+
+    claimPromptShown.current = true;
+    Alert.alert(
+      'Receipts ready',
+      'Your imported receipts are now available in Ogabassey.',
+      [
+        {
+          text: 'View receipts',
+          onPress: () => router.replace('/receipts'),
+        },
+      ],
+      { cancelable: false }
+    );
+  }, [isAuthLoading, redirectTo, shouldShowClaimPrompt]);
 
   // Declarative auth-gate
   if (redirectTo) {
