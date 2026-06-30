@@ -21,4 +21,35 @@ describe('buildStorefrontMetadataTitle', () => {
 
     expect(result.metadataTitle).toEqual({ absolute: result.title });
   });
+
+  it('uses the fallback when the provided title is empty', () => {
+    const result = buildStorefrontMetadataTitle({
+      fallback: 'Smartphones',
+      suffix: 'Ogabassey',
+      title: '   ',
+    });
+
+    expect(result.title).toBe('Smartphones | Ogabassey');
+    expect(result.metadataTitle).toEqual({ absolute: result.title });
+  });
+
+  it('does not duplicate an existing storefront suffix', () => {
+    const result = buildStorefrontMetadataTitle({
+      suffix: 'Ogabassey',
+      title: 'Samsung Galaxy S25 Ultra Price | Ogabassey',
+    });
+
+    expect(result.title).toBe('Samsung Galaxy S25 Ultra Price | Ogabassey');
+  });
+
+  it('honors a custom title length override', () => {
+    const result = buildStorefrontMetadataTitle({
+      maxLength: 42,
+      suffix: 'Ogabassey',
+      title: 'Apple Magic Keyboard 11-inch for iPad Pro and iPad Air',
+    });
+
+    expect(result.title).toHaveLength(42);
+    expect(result.title).toContain('| Ogabassey');
+  });
 });

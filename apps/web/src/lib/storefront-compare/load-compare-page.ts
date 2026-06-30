@@ -461,6 +461,8 @@ async function loadComparePageUncached(args: {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
       canonicalUrl,
+      // The page model stores a plain string; the route wraps it as
+      // Metadata.title.absolute when composing the final Next metadata object.
       metaTitle: buildStorefrontMetadataTitle({
         title: compareLabel,
         suffix: merchant.business_name,
@@ -588,6 +590,8 @@ async function loadComparePageUncached(args: {
     kind: 'brand',
     canonicalSlug: parsed.canonicalSlug,
     canonicalUrl,
+    // The page model stores a plain string; the route wraps it as
+    // Metadata.title.absolute when composing the final Next metadata object.
     metaTitle: buildStorefrontMetadataTitle({
       title: heading,
       suffix: merchant.business_name,
