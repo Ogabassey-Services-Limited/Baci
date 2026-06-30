@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   type CachedMerchant,
@@ -98,8 +99,6 @@ interface BrandComparePageModel {
   isLegacyFallback: boolean;
   leftBrand: string;
   rightBrand: string;
-  leftBrandProducts: ComparableCategoryProduct[];
-  rightBrandProducts: ComparableCategoryProduct[];
 }
 
 const CURATED_COMPARE_POLICY_DOC =
@@ -275,7 +274,24 @@ function loadSupportedGuidePosts(
     : Promise.resolve([]);
 }
 
-export async function loadComparePage(args: {
+export function loadComparePage(args: {
+  merchantSlug: string;
+  categorySlug: string;
+  comparisonSlug: string;
+}): Promise<ProductComparePageModel | BrandComparePageModel | null> {
+  return loadComparePageForRoute(
+    args.merchantSlug,
+    args.categorySlug,
+    args.comparisonSlug
+  );
+}
+
+const loadComparePageForRoute = cache(
+  (merchantSlug: string, categorySlug: string, comparisonSlug: string) =>
+    loadComparePageUncached({ merchantSlug, categorySlug, comparisonSlug })
+);
+
+async function loadComparePageUncached(args: {
   merchantSlug: string;
   categorySlug: string;
   comparisonSlug: string;
@@ -608,7 +624,5 @@ export async function loadComparePage(args: {
     isLegacyFallback: !isCuratedCanonicalSlug,
     leftBrand: brandCandidate.leftBrand,
     rightBrand: brandCandidate.rightBrand,
-    leftBrandProducts,
-    rightBrandProducts,
   };
 }

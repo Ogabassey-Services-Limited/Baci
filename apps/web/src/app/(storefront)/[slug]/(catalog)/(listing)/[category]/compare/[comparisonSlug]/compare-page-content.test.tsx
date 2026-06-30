@@ -398,8 +398,6 @@ describe('ComparePageContent', () => {
       isIndexable: true,
       leftBrand: 'Apple',
       rightBrand: 'Samsung',
-      leftBrandProducts: [],
-      rightBrandProducts: [],
     });
     const { ComparePageContent } = await import('./compare-page-content');
 
