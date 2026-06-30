@@ -1,18 +1,14 @@
 import { getProductSemanticSupport } from '@/config/product-semantic-support';
 import { formatCurrencyCompact } from '@/lib/currency';
-import {
-  buildProductSupportLinks,
-  type CommercialSupportLink,
-} from '@/lib/storefront-compare/build-commercial-support-links';
-import {
-  buildCompareDiscoveryLinks,
-  PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT,
-} from '@/lib/storefront-compare/build-compare-discovery-links';
 import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-eligibility';
 import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
 import { buildProductContextParagraphs } from './build-product-context-paragraphs';
 import { buildProductGuideLinks } from './build-product-guide-links';
+import {
+  buildProductHref,
+  buildProductSemanticCompareSupport,
+} from './build-product-semantic-compare-support';
 import { buildProductTrustBullets } from './build-product-trust-bullets';
 import type {
   BuildProductSemanticModelInput,
@@ -60,49 +56,6 @@ function countMatchingSpecs(
   return Object.keys(currentSpecs).filter(
     (key) => key in candidateSpecs && currentSpecs[key] === candidateSpecs[key]
   ).length;
-}
-
-function buildProductHref(storeUrl: string, product: ProductSemanticCandidate) {
-  return product.category_slug
-    ? `${storeUrl}/${product.category_slug}/${product.slug}`
-    : `${storeUrl}/products/${product.slug}`;
-}
-
-function buildCategoryHubLink(
-  input: BuildProductSemanticModelInput
-): CommercialSupportLink {
-  return {
-    href: `${input.storeUrl}/${input.categorySlug}`,
-    label: `Shop more ${input.categoryName}`,
-  };
-}
-
-function getBoundedProductSupportInventory(
-  input: BuildProductSemanticModelInput
-) {
-  return input.inventory
-    .filter(
-      (product) =>
-        (product.category_slug ?? input.categorySlug) === input.categorySlug
-    )
-    .slice(0, PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT)
-    .map((product) => ({
-      ...product,
-      category_slug: product.category_slug ?? input.categorySlug,
-    }));
-}
-
-function dedupeLinks(links: CommercialSupportLink[]) {
-  const seen = new Set<string>();
-
-  return links.filter((link) => {
-    if (seen.has(link.href)) {
-      return false;
-    }
-
-    seen.add(link.href);
-    return true;
-  });
 }
 
 function buildDirectCompareCta(input: {
@@ -298,38 +251,22 @@ function buildSamePriceSection(
 export function buildProductSemanticModel(
   input: BuildProductSemanticModelInput
 ): ProductSemanticModel {
-  const currentProductHref = buildProductHref(
-    input.storeUrl,
-    input.currentProduct
-  );
-  const compareSupportInventory = getBoundedProductSupportInventory(input);
-  const approvedCompareSlugs = new Set(
-    buildCompareDiscoveryLinks({
-      storeUrl: input.storeUrl,
-      categorySlug: input.categorySlug,
-      categoryName: input.categoryName,
-      includeBrandCompareLinks: false,
-      products: compareSupportInventory,
-    }).map((link) => link.canonicalSlug)
-  );
-  const supportLinks = dedupeLinks([
-    buildCategoryHubLink(input),
-    ...buildProductSupportLinks({
-      storeUrl: input.storeUrl,
-      categorySlug: input.categorySlug,
-      currentProductSlug: input.currentProduct.slug,
-      currentProductPrice: input.currentProduct.price,
-      includeBrandCompareLink: false,
-      products: compareSupportInventory,
-    }),
-  ]).filter((link) => link.href !== currentProductHref);
-  return {
-    contextParagraphs: buildProductContextParagraphs(input),
-    trustBullets: buildProductTrustBullets(input),
+  const {
+    approvedCompareSlugs,
+    input: normalizedInput,
     supportLinks,
-    guideLinks: buildProductGuideLinks(input),
-    alternatives: buildAlternativesSection(input, approvedCompareSlugs),
-    sameBrand: buildSameBrandSection(input, approvedCompareSlugs),
-    samePrice: buildSamePriceSection(input, approvedCompareSlugs),
+  } = buildProductSemanticCompareSupport(input);
+
+  return {
+    contextParagraphs: buildProductContextParagraphs(normalizedInput),
+    trustBullets: buildProductTrustBullets(normalizedInput),
+    supportLinks,
+    guideLinks: buildProductGuideLinks(normalizedInput),
+    alternatives: buildAlternativesSection(
+      normalizedInput,
+      approvedCompareSlugs
+    ),
+    sameBrand: buildSameBrandSection(normalizedInput, approvedCompareSlugs),
+    samePrice: buildSamePriceSection(normalizedInput, approvedCompareSlugs),
   };
 }

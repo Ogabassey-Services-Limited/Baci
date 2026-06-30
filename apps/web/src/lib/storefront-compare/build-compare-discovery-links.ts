@@ -177,15 +177,17 @@ export function buildCompareDiscoveryLinks(
 export function buildCommercialSupportDiscoveryLinks(
   input: CompareDiscoveryInput
 ): CommercialSupportLink[] {
+  const storeUrl = trimTrailingSlash(input.storeUrl);
   const categorySupportLinks = buildCategorySupportLinks({
     ...input,
+    storeUrl,
     includeBrandCompareLink: input.includeBrandCompareLinks,
   }).filter(
     (link) => extractCategoryCompareSlug(link.href, input.categorySlug) === null
   );
 
   return dedupeLinks([
-    ...buildCompareDiscoveryLinks(input),
+    ...buildCompareDiscoveryLinks({ ...input, storeUrl }),
     ...categorySupportLinks,
   ]);
 }

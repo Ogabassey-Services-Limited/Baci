@@ -405,6 +405,7 @@ export async function getCommercialSupportSitemapEntries(
 ): Promise<MetadataRoute.Sitemap> {
   const categoryEntries = await getCategorySitemapEntries(context);
   const commercialEntries: MetadataRoute.Sitemap = [];
+  const seenCommercialUrls = new Set<string>();
 
   for (
     let index = 0;
@@ -467,6 +468,11 @@ export async function getCommercialSupportSitemapEntries(
           break;
         }
 
+        if (seenCommercialUrls.has(entry.url)) {
+          continue;
+        }
+
+        seenCommercialUrls.add(entry.url);
         commercialEntries.push(entry);
       }
 

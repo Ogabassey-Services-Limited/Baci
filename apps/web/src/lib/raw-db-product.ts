@@ -50,6 +50,7 @@ export function isRawDbProductRecord(
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
-    typeof candidate.price === 'number'
+    typeof candidate.price === 'number' &&
+    Number.isFinite(candidate.price)
   );
 }

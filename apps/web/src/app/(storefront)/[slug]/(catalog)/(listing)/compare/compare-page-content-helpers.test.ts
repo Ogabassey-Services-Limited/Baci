@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { isRawDbProductRecord } from '@/lib/normalize-product';
 import {
   buildCanonicalCompareCategories,
   getStorefrontPathPrefix,
@@ -11,6 +10,15 @@ describe('compare page content helpers', () => {
   it('uses no path prefix for custom-domain storefront requests', () => {
     expect(
       getStorefrontPathPrefix(new Headers([['x-custom-domain', '1']]), 'store')
+    ).toBe('');
+  });
+
+  it('uses no path prefix for merchant-slug storefront requests', () => {
+    expect(
+      getStorefrontPathPrefix(
+        new Headers([['x-merchant-slug', 'store']]),
+        'store'
+      )
     ).toBe('');
   });
 
@@ -60,19 +68,6 @@ describe('compare page content helpers', () => {
       { name: 'Laptop duplicates', slug: 'laptops', categorySlug: 'laptops' },
       { name: 'Audio', slug: 'audio', categorySlug: 'audio' },
     ]);
-  });
-
-  it('narrows raw product records before normalization', () => {
-    expect(
-      isRawDbProductRecord({
-        id: 'product-1',
-        name: 'Product',
-        price: 1000,
-      })
-    ).toBe(true);
-    expect(isRawDbProductRecord({ name: 'Missing id', price: 1000 })).toBe(
-      false
-    );
   });
 
   it('sorts compare sections by link count before label', () => {

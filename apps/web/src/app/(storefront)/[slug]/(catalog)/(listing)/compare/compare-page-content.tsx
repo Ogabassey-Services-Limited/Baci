@@ -42,9 +42,8 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
   const categories = await getCachedCategories(merchant.id);
   const storeUrl = buildStoreUrl(merchant);
   const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
-  const compareIndexDescription = buildCompareIndexDescription(
-    merchant.business_name
-  );
+  const storefrontName = merchant.business_name?.trim();
+  const compareIndexDescription = buildCompareIndexDescription(storefrontName);
   const sections = await buildCompareIndexSections({
     categories,
     getCategoryPageData: (categorySlug, productOffset, productLimit) =>
@@ -61,7 +60,7 @@ export async function ComparePageContent({ params }: ComparePageContentProps) {
   const canonicalUrl = `${storeUrl}/compare`;
   const breadcrumbSchema: JsonLdData<BreadcrumbList> = generateBreadcrumbSchema(
     [
-      { name: merchant.business_name, url: storeUrl },
+      { name: storefrontName || 'Store', url: storeUrl },
       { name: 'Compare products', url: canonicalUrl },
     ]
   );

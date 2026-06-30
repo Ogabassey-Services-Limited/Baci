@@ -16,6 +16,7 @@ export const COMPARE_INDEX_LINKS_PER_CATEGORY_LIMIT = 80;
 export const COMPARE_INDEX_TOTAL_LINK_LIMIT = 800;
 
 interface CompareIndexCategory {
+  is_active?: boolean | null;
   name?: string | null;
   slug: string | null;
 }
@@ -68,10 +69,6 @@ function capCompareIndexSections(
   }
 
   return cappedSections;
-}
-
-function countSectionLinks(sections: CompareIndexSection[]) {
-  return sections.reduce((total, section) => total + section.links.length, 0);
 }
 
 async function buildCompareIndexSection(input: {
@@ -146,10 +143,9 @@ export async function buildCompareIndexSections({
   storeUrl,
   totalLinkLimit = COMPARE_INDEX_TOTAL_LINK_LIMIT,
 }: BuildCompareIndexSectionsInput) {
-  const canonicalCategories = buildCanonicalCompareCategories(categories).slice(
-    0,
-    Math.max(0, categoryScanLimit)
-  );
+  const canonicalCategories = buildCanonicalCompareCategories(categories)
+    .filter((category) => category.is_active !== false)
+    .slice(0, Math.max(0, categoryScanLimit));
   const sectionInput = {
     getCategoryPageData,
     linksPerCategoryLimit,
@@ -163,13 +159,7 @@ export async function buildCompareIndexSections({
     canonicalCategories.length
   );
 
-  for (
-    let index = 0;
-    index < canonicalCategories.length &&
-    populatedSections.length < categoryLimit &&
-    countSectionLinks(populatedSections) < totalLinkLimit;
-    index += batchSize
-  ) {
+  for (let index = 0; index < canonicalCategories.length; index += batchSize) {
     const batch = canonicalCategories.slice(index, index + batchSize);
     const batchSections = await Promise.all(
       batch.map((category) =>

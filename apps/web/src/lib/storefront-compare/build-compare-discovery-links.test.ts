@@ -148,6 +148,24 @@ describe('buildCompareDiscoveryLinks', () => {
     ).toBe(true);
   });
 
+  it('normalizes non-compare commercial support URLs with trailing store URLs', () => {
+    const links = buildCommercialSupportDiscoveryLinks({
+      storeUrl: 'https://ogabassey.com/',
+      categorySlug: 'laptops',
+      categoryName: 'Laptops',
+      products: [...products],
+    });
+
+    expect(links).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: 'https://ogabassey.com/laptops/best-under/under-1m',
+        }),
+      ])
+    );
+    expect(links.some((link) => link.href.includes('.com//'))).toBe(false);
+  });
+
   it('drops compare candidates when products do not meet publish rules', () => {
     const links = buildCompareDiscoveryLinks({
       storeUrl: 'https://ogabassey.com',

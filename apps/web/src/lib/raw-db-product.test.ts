@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isRawDbProductRecord } from './raw-db-product';
 
 describe('isRawDbProductRecord', () => {
-  it('narrows unknown values to raw product records', () => {
+  it('accepts a finite raw product record', () => {
     expect(
       isRawDbProductRecord({
         id: 'prod-1',
@@ -10,6 +10,9 @@ describe('isRawDbProductRecord', () => {
         price: 860000,
       })
     ).toBe(true);
+  });
+
+  it('rejects invalid raw product record shapes', () => {
     expect(isRawDbProductRecord(null)).toBe(false);
     expect(isRawDbProductRecord('not-an-object')).toBe(false);
     expect(isRawDbProductRecord(42)).toBe(false);
@@ -28,6 +31,16 @@ describe('isRawDbProductRecord', () => {
     );
     expect(
       isRawDbProductRecord({ id: 'p-1', name: 'Bad price', price: '1000' })
+    ).toBe(false);
+    expect(
+      isRawDbProductRecord({ id: 'p-1', name: 'NaN price', price: Number.NaN })
+    ).toBe(false);
+    expect(
+      isRawDbProductRecord({
+        id: 'p-1',
+        name: 'Infinite price',
+        price: Number.POSITIVE_INFINITY,
+      })
     ).toBe(false);
   });
 });

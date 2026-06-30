@@ -689,9 +689,20 @@ describe('sitemap-data', () => {
         },
       ],
     });
+    mockBuildCommercialSupportDiscoveryLinks.mockImplementation(
+      ({
+        products,
+      }: {
+        products: Array<{ category_slug: string; slug: string }>;
+      }) =>
+        products.map((product) => ({
+          href: `https://ogabassey.com/${product.category_slug}/compare/${product.slug}-vs-anchor`,
+          label: `${product.slug} vs Anchor`,
+        }))
+    );
     const { getCommercialSupportSitemapEntries } = sitemapData;
 
-    await getCommercialSupportSitemapEntries({
+    const entries = await getCommercialSupportSitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
       storeUrl: 'https://ogabassey.com',
       supabase: {
@@ -701,17 +712,11 @@ describe('sitemap-data', () => {
       },
     } as unknown as StorefrontSitemapContext);
 
-    expect(mockBuildCommercialSupportDiscoveryLinks).toHaveBeenCalledWith(
+    expect(entries).toEqual([
       expect.objectContaining({
-        categorySlug: 'smartphones',
-        includeBrandCompareLinks: false,
-        products: [
-          expect.objectContaining({
-            category_slug: 'smartphones',
-          }),
-        ],
-      })
-    );
+        url: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-anchor',
+      }),
+    ]);
   });
 
   it('keeps child-category products out of parent-category compare sitemap URLs', async () => {
@@ -737,6 +742,17 @@ describe('sitemap-data', () => {
         },
       ],
     });
+    mockBuildCommercialSupportDiscoveryLinks.mockImplementation(
+      ({
+        products,
+      }: {
+        products: Array<{ category_slug: string; slug: string }>;
+      }) =>
+        products.map((product) => ({
+          href: `https://ogabassey.com/${product.category_slug}/compare/${product.slug}-vs-anchor`,
+          label: `${product.slug} vs Anchor`,
+        }))
+    );
     const {
       getCommercialSupportSitemapEntries,
       resolveStorefrontSitemapContext,
@@ -754,18 +770,17 @@ describe('sitemap-data', () => {
       throw new Error('Expected storefront sitemap context');
     }
 
-    await getCommercialSupportSitemapEntries(context);
+    const entries = await getCommercialSupportSitemapEntries(context);
 
-    expect(mockBuildCommercialSupportDiscoveryLinks).toHaveBeenCalledWith(
-      expect.objectContaining({
-        categorySlug: 'electronics',
-        includeBrandCompareLinks: false,
-        products: [
-          expect.objectContaining({
-            category_slug: 'smartphones',
-          }),
-        ],
-      })
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-anchor',
+        }),
+      ])
+    );
+    expect(entries.map((entry) => entry.url)).not.toContain(
+      'https://ogabassey.com/electronics/compare/iphone-17-pro-max-vs-anchor'
     );
   });
 
@@ -817,17 +832,6 @@ describe('sitemap-data', () => {
 
     const entries = await getCommercialSupportSitemapEntries(context);
 
-    expect(mockBuildCommercialSupportDiscoveryLinks).toHaveBeenCalledWith(
-      expect.objectContaining({
-        categorySlug: 'smartphones',
-        includeBrandCompareLinks: false,
-        products: [
-          expect.objectContaining({
-            category_slug: 'smartphones',
-          }),
-        ],
-      })
-    );
     expect(entries).toEqual([
       expect.objectContaining({
         url: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-galaxy-s25',
@@ -982,6 +986,68 @@ describe('sitemap-data', () => {
     expect(mockBuildCommercialSupportDiscoveryLinks).toHaveBeenCalledTimes(
       SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY
     );
+  });
+
+  it('deduplicates commercial-support URLs across category batches', async () => {
+    const { SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY } = sitemapData;
+    mockCategoriesQuery(
+      Array.from(
+        { length: SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY + 1 },
+        (_, index) => ({
+          slug: `category-${index}`,
+          updated_at: '2026-01-01T00:00:00Z',
+        })
+      )
+    );
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: [
+        {
+          id: 'iphone-17-pro-max',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([
+      {
+        href: 'https://ogabassey.com/smartphones/compare/a-vs-b',
+        label: 'A vs B',
+      },
+    ]);
+    const {
+      getCommercialSupportSitemapEntries,
+      resolveStorefrontSitemapContext,
+    } = sitemapData;
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const context = await resolveStorefrontSitemapContext(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getCommercialSupportSitemapEntries(context);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/compare/a-vs-b',
+      }),
+    ]);
   });
 
   it('resolves slug from request host when headersList is empty and override is undefined', async () => {

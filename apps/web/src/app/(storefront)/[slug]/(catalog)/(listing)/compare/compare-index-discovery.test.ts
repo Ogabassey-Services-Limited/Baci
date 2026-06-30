@@ -60,7 +60,7 @@ describe('compare index discovery', () => {
     );
   });
 
-  it('bounds populated category discovery and concurrent category data loads', async () => {
+  it('bounds scanned category discovery and concurrent category data loads', async () => {
     const categories = Array.from(
       { length: COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT + 4 },
       (_, index) => ({
@@ -92,24 +92,9 @@ describe('compare index discovery', () => {
       storeUrl: 'https://store.test',
     });
 
-    expect(getCategoryPageData.mock.calls.length).toBeGreaterThanOrEqual(
-      COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT
-    );
-    expect(getCategoryPageData.mock.calls.length).toBeLessThanOrEqual(
-      COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT +
-        COMPARE_INDEX_DISCOVERY_CONCURRENCY -
-        1
-    );
+    expect(getCategoryPageData).toHaveBeenCalledTimes(categories.length);
     expect(getCategoryPageData).toHaveBeenCalledWith(
       'category-0',
-      0,
-      COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT
-    );
-    expect(getCategoryPageData).not.toHaveBeenCalledWith(
-      `category-${
-        COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT +
-        COMPARE_INDEX_DISCOVERY_CONCURRENCY
-      }`,
       0,
       COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT
     );
@@ -149,7 +134,7 @@ describe('compare index discovery', () => {
     });
   });
 
-  it('can stop category discovery after the total link limit is satisfied', async () => {
+  it('scans bounded categories before applying the total link limit', async () => {
     const categories = Array.from({ length: 6 }, (_, index) => ({
       name: `Category ${index}`,
       slug: `category-${index}`,
@@ -169,9 +154,37 @@ describe('compare index discovery', () => {
       totalLinkLimit: 1,
     });
 
-    expect(getCategoryPageData).toHaveBeenCalledTimes(2);
+    expect(getCategoryPageData).toHaveBeenCalledTimes(categories.length);
     expect(sections).toHaveLength(1);
     expect(sections[0]?.links).toHaveLength(1);
+  });
+
+  it('filters inactive category rows before applying the raw scan cap', async () => {
+    const getCategoryPageData = vi.fn(async () => ({
+      isCollection: false,
+      isInactiveCategory: false,
+      products: makeProducts(),
+    }));
+
+    const sections = await buildCompareIndexSections({
+      categories: [
+        { name: 'Inactive 1', slug: 'inactive-1', is_active: false },
+        { name: 'Inactive 2', slug: 'inactive-2', is_active: false },
+        { name: 'Working', slug: 'working', is_active: true },
+      ],
+      categoryScanLimit: 1,
+      concurrency: 1,
+      getCategoryPageData,
+      storeUrl: 'https://store.test',
+    });
+
+    expect(getCategoryPageData).toHaveBeenCalledTimes(1);
+    expect(getCategoryPageData).toHaveBeenCalledWith(
+      'working',
+      0,
+      COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT
+    );
+    expect(sections[0]?.categorySlug).toBe('working');
   });
 
   it('scans past non-publishing categories until a populated section is found', async () => {

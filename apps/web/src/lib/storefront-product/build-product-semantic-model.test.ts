@@ -168,7 +168,7 @@ describe('buildProductSemanticModel', () => {
         makeCandidate({
           slug: `phone-${index}`,
           name: `Phone ${index}`,
-          brand: index % 2 === 0 ? 'Apple' : 'Samsung',
+          brand: `Brand ${index % 5}`,
           price: 300_000 + index,
           product_key_specs: {
             chipset: `Chip ${index}`,
@@ -193,6 +193,13 @@ describe('buildProductSemanticModel', () => {
     expect(
       model.supportLinks.some((link) => link.href.includes('/compare/'))
     ).toBe(false);
+    expect(model.supportLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: 'https://ogabassey.com/smartphones/best-under/under-500k',
+        }),
+      ])
+    );
     expect(model.alternatives?.cards.length).toBeGreaterThan(0);
     expect(
       model.alternatives?.cards.some((card) =>
