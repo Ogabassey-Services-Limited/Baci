@@ -301,4 +301,31 @@ describe('GiglProvider quote requests', () => {
 
     await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
   });
+
+  it('rejects zero-value GIGL prices as unpriced routes', async () => {
+    mockGiglFetchSequence(
+      jsonResponse(loginResponseWithoutCustomerType),
+      jsonResponse(stationsResponse),
+      jsonResponse({
+        success: true,
+        data: {
+          message: 'Success',
+          status: 200,
+          data: { GrandTotal: 0 },
+        },
+      }),
+      jsonResponse({
+        success: true,
+        data: {
+          message: 'Success',
+          status: 200,
+          data: { GrandTotal: 0 },
+        },
+      })
+    );
+
+    const provider = buildQuoteHarness();
+
+    await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
+  });
 });

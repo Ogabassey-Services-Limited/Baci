@@ -35,6 +35,7 @@ describe('buildShipmentInsertPayload', () => {
         isStationPickup: true,
         pickupStationName: 'PORT HARCOURT',
         pickupStationAddress: 'Port Harcourt station',
+        pickupScheduledAt: new Date('2026-06-30T12:00:00.000Z'),
         rawResponse: { Waybill: 'GIGL-WB-1' },
       },
     });
@@ -49,6 +50,7 @@ describe('buildShipmentInsertPayload', () => {
       price: 4500,
       currency: 'NGN',
       estimated_delivery_days: 2,
+      pickup_scheduled_at: '2026-06-30T12:00:00.000Z',
     });
   });
 });

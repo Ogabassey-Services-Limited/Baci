@@ -77,6 +77,32 @@ describe('GIGL station lookup', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('does not let one aborted caller cancel a shared station cache fill', async () => {
+    let resolveStations: (response: Response) => void = () => undefined;
+    const stationsPromise = new Promise<Response>((resolve) => {
+      resolveStations = resolve;
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockReturnValueOnce(stationsPromise);
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+    const controller = new AbortController();
+    const abortedStations = provider.getStations(5000, controller.signal);
+    const abortedAssertion = expect(abortedStations).rejects.toThrow();
+    const waitingStations = provider.getStations();
+
+    controller.abort();
+    await abortedAssertion;
+    resolveStations(jsonResponse(stationsResponse));
+
+    await expect(waitingStations).resolves.toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('times out cold station fetches without waiting for the provider default', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn();

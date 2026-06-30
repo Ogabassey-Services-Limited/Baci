@@ -51,7 +51,7 @@ const station = z
 
 const priceData = z
   .object({
-    GrandTotal: z.number(),
+    GrandTotal: z.number().positive(),
     MainCharge: optionalNumberSchema,
     DeliverPrice: optionalNumberSchema,
     PickupCharge: optionalNumberSchema,

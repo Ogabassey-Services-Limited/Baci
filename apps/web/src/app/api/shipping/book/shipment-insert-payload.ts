@@ -46,7 +46,7 @@ export function buildShipmentInsertPayload({
     is_station_pickup: result.isStationPickup ?? false,
     station_name: result.pickupStationName ?? null,
     station_address: result.pickupStationAddress ?? null,
-    pickup_scheduled_at: result.pickupScheduledAt,
+    pickup_scheduled_at: result.pickupScheduledAt?.toISOString(),
     label_url: result.labelUrl,
     provider_response: result.rawResponse,
   };

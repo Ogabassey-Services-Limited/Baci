@@ -40,7 +40,9 @@ export class GiglStationsService {
     }
 
     if (!this.stationsRequest) {
-      this.stationsRequest = this.fetchStations(timeout, signal).finally(() => {
+      this.stationsRequest = this.fetchStations(
+        GIGL_STATIONS_TIMEOUT_MS
+      ).finally(() => {
         this.stationsRequest = null;
       });
       void this.stationsRequest.catch(() => undefined);
