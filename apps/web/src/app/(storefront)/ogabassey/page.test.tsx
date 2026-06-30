@@ -4,6 +4,7 @@ import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
   OGABASSEY_DESCRIPTION,
   OGABASSEY_FAVICON_URL,
+  OGABASSEY_HOME_URL,
   OGABASSEY_MERCHANT_ID,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
@@ -73,18 +74,32 @@ describe('OgabasseyStaticHomePage', () => {
       '@type': 'WebPage',
       description: OGABASSEY_DESCRIPTION,
       name: OGABASSEY_TITLE,
-      url: OGABASSEY_URL,
+      url: OGABASSEY_HOME_URL,
+      isPartOf: {
+        '@type': 'WebSite',
+        name: 'OgaBassey',
+        url: OGABASSEY_HOME_URL,
+      },
     });
   });
 
   it('declares canonical, hreflang, favicon, and social image metadata for the static route', () => {
+    expect(OGABASSEY_HOME_URL).toBe(`${OGABASSEY_URL}/`);
+    expect(OGABASSEY_SOCIAL_IMAGE_URL).toBe(
+      `${OGABASSEY_URL}/template-previews/ogabassey-v2.png`
+    );
     expect(metadata.alternates).toEqual(
       expect.objectContaining({
-        canonical: OGABASSEY_URL,
+        canonical: OGABASSEY_HOME_URL,
         languages: {
-          'en-NG': OGABASSEY_URL,
-          'x-default': OGABASSEY_URL,
+          'en-NG': OGABASSEY_HOME_URL,
+          'x-default': OGABASSEY_HOME_URL,
         },
+      })
+    );
+    expect(metadata.openGraph).toEqual(
+      expect.objectContaining({
+        url: OGABASSEY_HOME_URL,
       })
     );
     expect(metadata.openGraph).toEqual(

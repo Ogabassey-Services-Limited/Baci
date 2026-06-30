@@ -3,6 +3,7 @@ import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
   OGABASSEY_DESCRIPTION,
   OGABASSEY_FAVICON_URL,
+  OGABASSEY_HOME_URL,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
   OGABASSEY_TWITTER_HANDLE,
@@ -26,16 +27,16 @@ export const metadata: Metadata = {
     'Nigeria',
   ],
   alternates: {
-    canonical: OGABASSEY_URL,
+    canonical: OGABASSEY_HOME_URL,
     languages: {
-      'en-NG': OGABASSEY_URL,
-      'x-default': OGABASSEY_URL,
+      'en-NG': OGABASSEY_HOME_URL,
+      'x-default': OGABASSEY_HOME_URL,
     },
   },
   openGraph: {
     title: OGABASSEY_TITLE,
     description: OGABASSEY_DESCRIPTION,
-    url: OGABASSEY_URL,
+    url: OGABASSEY_HOME_URL,
     type: 'website',
     siteName: 'OgaBassey',
     images: [
