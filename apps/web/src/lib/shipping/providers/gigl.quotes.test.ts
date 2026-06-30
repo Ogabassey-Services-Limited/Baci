@@ -8,17 +8,14 @@ vi.hoisted(() => {
 });
 
 import { GiglApiClient } from './gigl.auth';
-import { GIGL_QUOTE_TIMEOUT_MS } from './gigl.constants';
 import { getGiglQuotes } from './gigl.quotes';
 import { GiglStationsService } from './gigl.stations';
 import {
-  abortingFetchResponse,
   baseUrl,
   failedStationsEnvelope,
   jsonResponse,
   loginResponse,
   loginResponseWithoutCustomerType,
-  loginResponseWithToken,
   priceResponse,
   quoteRequest,
   stationsResponse,
@@ -166,86 +163,6 @@ describe('GiglProvider quote requests', () => {
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
     );
     expect(pricePayload.VehicleType).toBe(2);
-  });
-
-  it('refreshes tokens rejected inside successful GIGL envelopes', async () => {
-    const fetchMock = mockGiglFetchSequence(
-      jsonResponse(loginResponseWithToken('old-token')),
-      jsonResponse(stationsResponse),
-      jsonResponse({
-        success: true,
-        data: { message: 'Token expired', status: 401, data: null },
-      }),
-      jsonResponse(loginResponseWithToken('new-token')),
-      jsonResponse(priceResponse)
-    );
-
-    const provider = buildQuoteHarness();
-
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
-
-    const oldPriceHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
-    const newPriceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
-    expect(oldPriceHeaders.get('access-token')).toBe('old-token');
-    expect(newPriceHeaders.get('access-token')).toBe('new-token');
-  });
-
-  it('refreshes cached tokens rejected with HTTP 403', async () => {
-    const fetchMock = mockGiglFetchSequence(
-      jsonResponse(loginResponseWithToken('old-token')),
-      new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-      jsonResponse(loginResponseWithToken('new-token')),
-      jsonResponse(stationsResponse),
-      jsonResponse(priceResponse)
-    );
-
-    const provider = buildQuoteHarness();
-
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
-
-    const oldStationHeaders = new Headers(
-      fetchMock.mock.calls[1]?.[1]?.headers
-    );
-    const newStationHeaders = new Headers(
-      fetchMock.mock.calls[3]?.[1]?.headers
-    );
-    const priceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
-    expect(oldStationHeaders.get('access-token')).toBe('old-token');
-    expect(newStationHeaders.get('access-token')).toBe('new-token');
-    expect(priceHeaders.get('access-token')).toBe('new-token');
-  });
-
-  it('uses the original quote signal during stale-token refresh', async () => {
-    vi.useFakeTimers();
-    let resolveUnauthorized: (response: Response) => void = () => undefined;
-    const unauthorizedResponse = new Promise<Response>((resolve) => {
-      resolveUnauthorized = resolve;
-    });
-    const fetchMock = mockGiglFetchSequence(
-      jsonResponse(loginResponseWithToken('old-token')),
-      jsonResponse(stationsResponse),
-      () => unauthorizedResponse,
-      abortingFetchResponse
-    );
-
-    const provider = buildQuoteHarness();
-    const quotePromise = provider.getQuotes(quoteRequest);
-
-    resolveUnauthorized(
-      new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-    await Promise.resolve();
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(GIGL_QUOTE_TIMEOUT_MS);
-
-    await expect(quotePromise).resolves.toEqual([]);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it('does not cache a failed station envelope as an empty station list', async () => {

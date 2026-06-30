@@ -124,6 +124,8 @@ export async function bookGiglShipment(
               VehicleType: vehicleType,
               PickUpOptions: selectedRate.pickupOption,
               DeliveryOptionIds: isStationPickup ? [11] : [2],
+              CustomerCode: bookingTokenData.userChannelCode,
+              CustomerType: bookingTokenData.customerType,
               IsFromAgility: 0,
               IsBatchPickUp: 0,
             },

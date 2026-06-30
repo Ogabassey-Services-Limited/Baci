@@ -79,6 +79,8 @@ describe('GiglProvider booking requests', () => {
         PickUpOptions: 1,
         DeliveryOptionIds: [11],
         VehicleType: 1,
+        CustomerCode: 'ECO038082',
+        CustomerType: 2,
       },
     });
     const bookingOptions = fetchMock.mock.calls[2]?.[1] as
