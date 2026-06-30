@@ -1,4 +1,4 @@
-## 2024-05-18 — Testing simple config hooks
-**Learning:** Config hooks with statically defined fallbacks like `useIndustryTheme` are straightforward to test without any DOM, API, or Context dependencies.
-**Action:** Use vitest purely to check input vs output on these functions instead of spinning up unnecessary complex react-testing-library renders.
-**Source:** Found manually when exploring `useIndustryTheme.ts`.
+## 2026-06-30 — Testing simple config hooks
+**Learning:** Because React Compiler is enabled, testing hooks outside of a React dispatcher (via \`renderHook\`) violates the Rules of Hooks and causes "Invalid hook call" runtime errors.
+**Action:** Always use \`@testing-library/react\`'s \`renderHook\` to test all hooks, even simple configuration hooks like \`useIndustryTheme\`.
+**Source:** Found during CI review and ADR-004 React Compiler enablement.
