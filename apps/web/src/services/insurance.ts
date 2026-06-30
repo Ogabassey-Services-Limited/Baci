@@ -38,6 +38,7 @@ interface DatabaseOrderItem {
   has_assurance: boolean;
   assurance_fee?: number;
   price?: number;
+  quantity?: number;
   name: string;
   [key: string]: unknown;
 }
@@ -75,7 +76,7 @@ export async function purchaseOrderInsurance(
     .select(`
       id, merchant_id, customer_name, customer_email, customer_phone,
       shipping_address,
-      order_items (id, name, has_assurance, assurance_fee, price)
+      order_items (id, name, has_assurance, assurance_fee, price, quantity)
     `)
     .eq('id', orderId)
     .single();
@@ -220,6 +221,19 @@ export async function purchaseOrderInsurance(
         itemId: item.id,
       });
       results.push({ success: false, error: errorMessage, itemId: item.id });
+    }
+
+    // A single assured line can carry quantity > 1 (assurance_fee is charged per
+    // unit), but we only have ONE device's details, so the extra units of this
+    // SKU are NOT insured — flag them so the merchant isn't told it's fully
+    // active.
+    const insuredUnits = Math.trunc(Number(item.quantity)) || 1;
+    if (insuredUnits > 1) {
+      results.push({
+        success: false,
+        error: `${insuredUnits - 1} additional unit(s) of this item require their own device details and were not insured.`,
+        itemId: item.id,
+      });
     }
   }
 

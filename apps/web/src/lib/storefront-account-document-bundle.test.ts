@@ -354,6 +354,109 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.invoiceData.tax_inclusive_amount).toBe(103000);
   });
 
+  it('reconciles tax subtotals to BT-109 (incl. shipping/discount) for storefront assurance orders', () => {
+    const result = buildStorefrontAccountDocumentBundle({
+      merchant: {
+        business_name: 'Ogabassey',
+        logo_url: null,
+        email: null,
+        phone: null,
+        support_email: null,
+        support_phone: null,
+        business_address: null,
+        cac_rc_number: null,
+        tax_identification_number: null,
+        legal_entity_name: null,
+        brand_colors: null,
+        vat_registration_status: 'unregistered',
+        vat_rate: 0,
+        bank_code: null,
+        bank_account_number: null,
+        bank_name: null,
+        bank_account_name: null,
+        social_media: null,
+        pages: null,
+        registered_address: null,
+      },
+      customer: {
+        first_name: 'Oga',
+        last_name: 'Bassey',
+        email: 'customer@example.com',
+        phone: null,
+      },
+      order: {
+        id: 'order-sf-charges',
+        order_number: 'ORD-SF-CHG',
+        created_at: '2026-03-22T10:00:00.000Z',
+        updated_at: null,
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+        currency: 'NGN',
+        // subtotal 103,000 (incl. 3,000 premium) + 5,000 shipping - 1,000
+        // discount = 107,000 = BT-109. Stored tax totals are product-only.
+        total: 107000,
+        subtotal: 103000,
+        shipping_fee: 5000,
+        tax_amount: 0,
+        discount_amount: 1000,
+        amount_paid: 107000,
+        shipping_address: 'Pickup',
+        customer_name: null,
+        customer_email: null,
+        customer_phone: null,
+        payment_method: 'card',
+        is_credit_order: false,
+        tracking_number: null,
+        shipping_provider: null,
+        notes: null,
+        invoice_type_code: '380',
+        invoice_issue_date: null,
+        tax_point_date: null,
+        payment_due_date: null,
+        buyer_reference: null,
+        purchase_order_reference: null,
+        tax_exclusive_amount: 100000,
+        tax_inclusive_amount: 100000,
+        invoice_note: null,
+        firs_irn: null,
+        firs_csid: null,
+        firs_qr_code: null,
+        payment_terms: null,
+      },
+      itemRows: [
+        {
+          id: 'item-1',
+          product_id: 'prod-1',
+          variant_id: null,
+          variant_name: null,
+          name: 'iPhone 16',
+          quantity: 1,
+          price: 100000,
+          vat_category_code: 'O',
+          vat_rate: 0,
+          vat_amount: 0,
+          assurance_fee: 3000,
+        },
+      ],
+      transactions: [],
+      paymentAccount: null,
+      taxRows: [],
+      paymentStatus: 'paid',
+      shippingStatus: 'shipped',
+      currentDocumentKind: 'invoice',
+    });
+
+    expect(result.invoiceData.tax_exclusive_amount).toBe(107000);
+    // The tax subtotals must sum to BT-109 (107,000), not the product+assurance
+    // line sum (103,000) — otherwise the UBL tax breakdown is short by shipping
+    // minus discount.
+    const taxableSum = result.invoiceData.tax_subtotals.reduce(
+      (sum, st) => sum + st.taxable_amount,
+      0
+    );
+    expect(taxableSum).toBe(107000);
+  });
+
   it('falls back to invoice mode and zero-safe numeric coercion', () => {
     const result = buildStorefrontAccountDocumentBundle({
       merchant: {

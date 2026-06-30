@@ -14,7 +14,6 @@ import {
   nextInvoiceLineId,
   reconcileAssuranceTaxSubtotal,
   sumAssuranceFees,
-  sumLineExtensionAmounts,
 } from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
@@ -438,15 +437,6 @@ export async function GET(
     // itemized — surface it as a single zero-rated line so the invoice
     // reconciles with the stored total.
     const assuranceTotal = sumAssuranceFees(orderItems ?? []);
-    if (assuranceTotal > 0) {
-      items.push(
-        buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
-      );
-      reconcileAssuranceTaxSubtotal(
-        invoiceTaxSubtotals,
-        sumLineExtensionAmounts(items)
-      );
-    }
 
     // Document tax-exclusive (BT-109) / tax-inclusive (BT-112) totals.
     //
@@ -475,6 +465,17 @@ export async function GET(
         : Number(
             order.tax_inclusive_amount || (order.subtotal || 0) + taxAmountValue
           );
+
+    if (assuranceTotal > 0) {
+      items.push(
+        buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
+      );
+      // Reconcile the tax breakdown against BT-109 (which includes the shipping
+      // charge and discount allowance), NOT just the product+assurance line sum
+      // — otherwise Σ TaxSubtotal/TaxableAmount falls short of BT-109 by the
+      // shipping-minus-discount amount and the UBL fails Peppol BR-CO checks.
+      reconcileAssuranceTaxSubtotal(invoiceTaxSubtotals, taxExclusiveValue);
+    }
 
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')

@@ -11,7 +11,6 @@ import {
   nextInvoiceLineId,
   reconcileAssuranceTaxSubtotal,
   sumAssuranceFees,
-  sumLineExtensionAmounts,
 } from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
@@ -300,19 +299,6 @@ export function buildStorefrontAccountDocumentBundle({
   // Ogabassey Assurance is rolled into order.subtotal but VAT-free and was never
   // itemized — surface it as a single zero-rated line so the document reconciles.
   const assuranceTotal = sumAssuranceFees(itemRows);
-  if (assuranceTotal > 0) {
-    invoiceItems.push(
-      buildAssuranceInvoiceLineItem(
-        nextInvoiceLineId(invoiceItems),
-        assuranceTotal
-      )
-    );
-    receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
-    reconcileAssuranceTaxSubtotal(
-      taxSubtotals,
-      sumLineExtensionAmounts(invoiceItems)
-    );
-  }
 
   // Document tax-exclusive (BT-109) / tax-inclusive (BT-112) totals. For
   // assurance orders, derive BT-109 from `subtotal` (which includes the VAT-free
@@ -328,6 +314,21 @@ export function buildStorefrontAccountDocumentBundle({
     assuranceTotal > 0
       ? Number((documentTaxExclusive + taxAmount).toFixed(2))
       : taxInclusiveAmount;
+
+  if (assuranceTotal > 0) {
+    invoiceItems.push(
+      buildAssuranceInvoiceLineItem(
+        nextInvoiceLineId(invoiceItems),
+        assuranceTotal
+      )
+    );
+    receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
+    // Reconcile the tax breakdown against BT-109 (which includes shipping and
+    // discount), not just the product+assurance line sum — otherwise the tax
+    // subtotal is short by the shipping-minus-discount amount and the UBL tax
+    // breakdown is inconsistent with BT-109.
+    reconcileAssuranceTaxSubtotal(taxSubtotals, documentTaxExclusive);
+  }
 
   const orderDetail: StorefrontOrder = {
     id: order.id,

@@ -239,6 +239,40 @@ describe('purchaseOrderInsurance', () => {
     });
   });
 
+  describe('multi-unit / multi-item handling', () => {
+    it('flags uninsured extra units when an assured line has quantity > 1', async () => {
+      orderSupabaseMock({
+        ...mockOrderWithInsurance,
+        order_items: [
+          {
+            id: 'item-qty',
+            name: 'iPhone 16',
+            price: 500000,
+            quantity: 2,
+            has_assurance: true,
+          },
+        ],
+      });
+
+      const result = await purchaseOrderInsurance(
+        VALID_ORDER_ID,
+        mockDeviceDetails
+      );
+
+      // One policy is created; the second paid-for unit is surfaced as a failure
+      // (we only have one device's details), not silently dropped.
+      expect(result.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ success: true }),
+          expect.objectContaining({
+            success: false,
+            error: expect.stringContaining('additional unit'),
+          }),
+        ])
+      );
+    });
+  });
+
   describe('v2 DB persistence', () => {
     it('persists policy_type as "gadget"', async () => {
       const spy = vi.fn().mockResolvedValue({ data: {}, error: null });

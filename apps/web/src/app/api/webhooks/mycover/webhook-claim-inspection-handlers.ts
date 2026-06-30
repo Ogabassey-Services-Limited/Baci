@@ -100,7 +100,10 @@ export async function handleClaimUpdate(
     updated_at: new Date().toISOString(),
   };
   if (claimProgress !== undefined) updateData.claim_progress = claimProgress;
-  if (claimComment !== undefined) updateData.claim_comment = claimComment;
+  // Always (re)write the comment from the current payload so a stale decline /
+  // rejection reason from an earlier event can't linger next to a now-approved
+  // claim. A payload without a comment clears it.
+  updateData.claim_comment = claimComment ?? null;
   const { claim_link: claimLink } = getHostedFlowLinks(data);
   if (claimLink) updateData.claim_link = claimLink;
   // Claim webhooks may carry the claim's primary id as `data.id` when
