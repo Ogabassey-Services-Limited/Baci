@@ -112,7 +112,27 @@ vi.mock('./AdUnit', () => ({
 }));
 
 vi.mock('./empty-state', () => ({
-  EmptyState: () => <div data-testid="empty-state" />,
+  EmptyState: ({
+    actionLabel,
+    description,
+    onAction,
+    title,
+  }: {
+    actionLabel?: string;
+    description: string;
+    onAction?: () => void;
+    title: string;
+  }) => (
+    <div data-testid="empty-state">
+      <h3>{title}</h3>
+      <p>{description}</p>
+      {actionLabel ? (
+        <button type="button" onClick={onAction}>
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  ),
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -153,6 +173,23 @@ describe('CartSidebar', () => {
   it('renders cart items when open', () => {
     render(<CartSidebar />);
     expect(screen.getByText('Test Shoe')).toBeInTheDocument();
+  });
+
+  it('renders cart-specific empty copy in the sidebar', () => {
+    mockCartItems = [];
+
+    render(<CartSidebar />);
+
+    expect(screen.getByText('Your cart is empty')).toBeInTheDocument();
+    expect(
+      screen.getByText('Add an item to your cart and it will appear here.')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/currently not available/i)
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start Shopping' }));
+    expect(mockSetIsCartOpen).toHaveBeenCalledWith(false);
   });
 
   it('links cart items to canonical product routes', () => {

@@ -238,6 +238,24 @@ describe('ProductGridItem', () => {
     ).toBeInTheDocument();
   });
 
+  it('marks the product photo canvas so dark mode keeps transparent assets on a neutral surface', () => {
+    render(
+      <ProductGridItem
+        product={baseProduct}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    expect(
+      screen
+        .getByAltText(baseProduct.name)
+        .closest('.ogabassey-product-card-image-surface')
+    ).toBeInTheDocument();
+  });
+
   it('falls back to the product name after selecting a non-primary image', () => {
     render(
       <ProductGridItem

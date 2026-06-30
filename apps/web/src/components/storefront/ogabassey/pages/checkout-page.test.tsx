@@ -255,6 +255,71 @@ describe('CheckoutPage', () => {
     expect(document.body).toBeTruthy();
   });
 
+  it('wraps the normal checkout state in the OgaBassey checkout scope', async () => {
+    mockCheckoutSubmissionState();
+
+    render(<CheckoutPage />);
+
+    const checkoutMarkers = await screen.findAllByText(/secure checkout/i);
+
+    expect(
+      checkoutMarkers.some((node) =>
+        node.closest('.ogabassey-checkout-page')
+      )
+    ).toBe(true);
+  });
+
+  it('wraps the checkout loading state in the OgaBassey checkout scope', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        gateway: 'credpal',
+        orderId: 'ord-1',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockReturnValue(new Promise<Response>(() => undefined));
+
+    try {
+      render(<CheckoutPage />);
+
+      const loadingRoot = await screen
+        .findByText(/loading order/i)
+        .then((node) => node.closest('.ogabassey-checkout-page'));
+
+      expect(loadingRoot).toBeInTheDocument();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
+  it('wraps the resume-error state in the OgaBassey checkout scope', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        gateway: 'credpal',
+        orderId: 'ord-1',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    } as Response);
+
+    try {
+      render(<CheckoutPage />);
+
+      const errorRoot = await screen
+        .findByText(/something went wrong/i)
+        .then((node) => node.closest('.ogabassey-checkout-page'));
+
+      expect(errorRoot).toBeInTheDocument();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
   it('renders the contact step fields when cart has items', async () => {
     const { useCart } = await import('@/hooks/cart');
     vi.mocked(useCart).mockReturnValue({
@@ -281,6 +346,22 @@ describe('CheckoutPage', () => {
       screen.queryAllByLabelText(/email/i)[0] ??
       screen.queryByText(/contact/i);
     expect(match).toBeTruthy();
+  });
+
+  it('marks desktop order-summary thumbnails as neutral image surfaces', async () => {
+    mockCheckoutSubmissionState();
+
+    render(<CheckoutPage />);
+
+    await screen.findAllByText(/secure checkout/i);
+
+    const orderSummary = screen
+      .getByRole('heading', { name: /order summary/i })
+      .closest('section,aside,div');
+
+    expect(
+      orderSummary?.querySelector('.ogabassey-product-card-image-surface')
+    ).toBeInTheDocument();
   });
 
   it('shows Klump in installment checkout when the merchant enables it', async () => {

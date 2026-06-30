@@ -8,6 +8,7 @@ describe('GadgetPattern', () => {
 
     const pattern = screen.getByTestId('ogabassey-gadget-pattern');
 
+    expect(pattern).toHaveAttribute('aria-hidden', 'true');
     expect(pattern).toHaveStyle({
       backgroundSize: '140px 140px',
       inset: '0',

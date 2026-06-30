@@ -211,8 +211,8 @@ export const CartSidebar: React.FC = () => {
                 <div className="flex-1 flex items-center justify-center">
                   <EmptyState
                     variant="cart"
-                    title="Your cart is empty 🤧"
-                    description="Sorry, the product you are looking for is currently not available at the moment."
+                    title="Your cart is empty"
+                    description="Add an item to your cart and it will appear here."
                     actionLabel="Start Shopping"
                     onAction={() => setIsCartOpen(false)}
                   />
@@ -241,7 +241,7 @@ export const CartSidebar: React.FC = () => {
                       >
                         <Link
                           href={productHref}
-                          className="relative size-24 bg-gray-50 rounded-lg border border-gray-100 p-2 shrink-0 self-start mt-1 block group/image"
+                          className="ogabassey-product-card-image-surface relative size-24 bg-gray-50 rounded-lg border border-gray-100 p-2 shrink-0 self-start mt-1 block group/image"
                         >
                           <Image
                             src={item.image || '/placeholder.png'}

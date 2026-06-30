@@ -1,0 +1,134 @@
+'use client';
+
+import { ArrowLeft, Home, Search } from 'lucide-react';
+import Link from 'next/link';
+import { ThemedButton } from '@/components/themed/themed-button';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
+import { asRoute } from '@/lib/routes';
+
+function normalizeBasePath(basePath: string | null | undefined): string {
+  const normalizedSegment = basePath?.trim().replace(/^\/+|\/+$/g, '') ?? '';
+  return normalizedSegment ? `/${normalizedSegment}` : '';
+}
+
+function buildStorefrontPath(
+  basePath: string | null | undefined,
+  suffix: '/' | '/#products' | '/pages/contact'
+): string {
+  const normalizedBasePath = normalizeBasePath(basePath);
+  if (suffix === '/') {
+    return normalizedBasePath ? `${normalizedBasePath}/` : '/';
+  }
+
+  return `${normalizedBasePath}${suffix}`;
+}
+
+export function StorefrontNotFoundContent() {
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
+  const isLoading = merchantContext?.loading;
+  const basePath = merchantContext?.basePath;
+  const storeName = merchant?.business_name || 'Store';
+  const storefrontHomeHref = asRoute(buildStorefrontPath(basePath, '/'));
+  const storefrontProductsHref = asRoute(
+    buildStorefrontPath(basePath, '/#products')
+  );
+  const storefrontContactHref = asRoute(
+    buildStorefrontPath(basePath, '/pages/contact')
+  );
+
+  if (isLoading) {
+    return (
+      <div
+        className="relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center bg-store-background p-8 text-store-background-text animate-pulse"
+        role="status"
+        aria-label="Loading page"
+      >
+        <div className="h-32 w-48 bg-store-background-text/10 rounded-lg mb-8" />
+        <div className="h-8 w-64 bg-store-background-text/10 rounded mb-4" />
+        <div className="h-4 w-96 bg-store-background-text/10 rounded" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center bg-store-background px-4 py-16 text-store-background-text sm:px-8">
+      <div className="text-center space-y-6 max-w-lg rounded-3xl border border-store-border bg-store-background/95 p-6 shadow-2xl sm:p-8">
+        <div className="text-8xl font-bold text-store-primary opacity-20 md:text-9xl">
+          404
+        </div>
+
+        <h1 className="-mt-8 text-3xl font-bold text-store-primary md:text-4xl">
+          Page Not Found
+        </h1>
+
+        <p className="text-store-background-text text-lg">
+          We couldn&apos;t find what you&apos;re looking for. The page may have
+          been moved, deleted, or never existed.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+          <ThemedButton
+            asChild
+            colorRole="primary"
+            size="lg"
+            className="w-full sm:w-auto"
+          >
+            <Link href={storefrontHomeHref}>
+              <Home className="mr-2 size-4" />
+              Back to {storeName}
+            </Link>
+          </ThemedButton>
+          <ThemedButton
+            asChild
+            colorRole="accent"
+            variant="outline"
+            size="lg"
+            className="w-full sm:w-auto"
+          >
+            <Link href={storefrontProductsHref}>
+              <Search className="mr-2 size-4" />
+              Browse Products
+            </Link>
+          </ThemedButton>
+        </div>
+
+        <div className="pt-8 border-t border-store-border mt-8">
+          <p className="text-sm text-store-background-text mb-4">
+            Here are some helpful links:
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 text-sm">
+            <Link
+              href={storefrontHomeHref}
+              className="text-store-background-text hover:text-store-primary transition-colors flex items-center gap-1"
+            >
+              <ArrowLeft className="size-3" /> Home
+            </Link>
+            <span aria-hidden="true" className="text-store-border">
+              |
+            </span>
+            <Link
+              href={storefrontProductsHref}
+              className="text-store-background-text hover:text-store-primary transition-colors"
+            >
+              All Products
+            </Link>
+            {merchant?.pages?.contact && (
+              <>
+                <span aria-hidden="true" className="text-store-border">
+                  |
+                </span>
+                <Link
+                  href={storefrontContactHref}
+                  className="text-store-background-text hover:text-store-primary transition-colors"
+                >
+                  Contact Us
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

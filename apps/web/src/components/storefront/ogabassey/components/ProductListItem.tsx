@@ -114,7 +114,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
 
       {/* Image (Left Side) */}
-      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
+      <div className="ogabassey-product-card-image-surface w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         {/* Navigation Arrows (Desktop Hover Only) */}
         {product.colors && product.colors.length > 1 && (
           <>

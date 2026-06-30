@@ -164,7 +164,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
       {/* overflow-visible needed for the button to hang off the edge */}
       <div
         ref={imageViewportRef}
-        className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-visible z-10 pointer-events-none"
+        className="ogabassey-product-card-image-surface relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-visible z-10 pointer-events-none"
       >
         {/* Skeleton Loader */}
         {!isImageLoaded && (

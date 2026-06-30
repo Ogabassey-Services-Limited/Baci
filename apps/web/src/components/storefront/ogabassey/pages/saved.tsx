@@ -104,7 +104,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                   className="absolute inset-0 z-0"
                 />
 
-                <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
+                <div className="ogabassey-product-card-image-surface relative aspect-square mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
                   <Image
                     src={product.image}
                     alt={product.name}

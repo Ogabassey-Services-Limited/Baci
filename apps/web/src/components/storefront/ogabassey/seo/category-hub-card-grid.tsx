@@ -20,40 +20,37 @@ export function CategoryHubCardGrid({
   const headingId = buildHeadingId(title);
 
   return (
-    <section
-      aria-labelledby={headingId}
-      className="ogabassey-pdp-semantic-card"
-    >
-      <h3 id={headingId} className="ogabassey-pdp-semantic-card__title">
+    <section aria-labelledby={headingId} className="ogabassey-category-hub-card">
+      <h3 id={headingId} className="ogabassey-category-hub-card__title">
         {title}
       </h3>
-      <div className="ogabassey-pdp-semantic-card-grid">
+      <div className="ogabassey-category-hub-card-grid">
         {cards.map((card) => (
           <article
             key={card.href}
-            className="ogabassey-pdp-semantic-card-grid__item"
+            className="ogabassey-category-hub-card-grid__item"
           >
             {card.eyebrow ? (
-              <p className="ogabassey-pdp-semantic-card-grid__eyebrow">
+              <p className="ogabassey-category-hub-card-grid__eyebrow">
                 {card.eyebrow}
               </p>
             ) : null}
-            <h4 className="ogabassey-pdp-semantic-card-grid__title">
+            <h4 className="ogabassey-category-hub-card-grid__title">
               <a
                 href={card.href}
-                className="ogabassey-pdp-semantic-card__link"
+                className="ogabassey-category-hub-card__link"
               >
                 {card.title}
               </a>
             </h4>
-            <p className="ogabassey-pdp-semantic-card__description">
+            <p className="ogabassey-category-hub-card__description">
               {card.description}
             </p>
             {card.secondaryHref && card.secondaryLabel ? (
-              <div className="ogabassey-pdp-semantic-card-grid__secondary">
+              <div className="ogabassey-category-hub-card-grid__secondary">
                 <a
                   href={card.secondaryHref}
-                  className="ogabassey-pdp-semantic-card__link"
+                  className="ogabassey-category-hub-card__link"
                 >
                   {card.secondaryLabel}
                 </a>

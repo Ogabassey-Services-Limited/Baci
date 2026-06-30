@@ -23,6 +23,7 @@ import Link from 'next/link';
 import type React from 'react';
 
 import { FooterAppPayments } from './FooterAppPayments';
+import { GadgetPattern } from './GadgetPattern';
 import { Logo } from './Logo';
 
 type SocialPlatform =
@@ -116,15 +117,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
 
   return (
     <footer className="ogabassey-footer border-t border-store-border/40 pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans">
-      {/* Pattern Overlay - Same as Navbar */}
-      <div
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            'radial-gradient(color-mix(in srgb, var(--store-background,#ffffff) 22%, transparent) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-        }}
-      />
+      <GadgetPattern className="ogabassey-footer__pattern" opacity={0.1} />
 
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
