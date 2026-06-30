@@ -86,7 +86,7 @@ describe('blog category page', () => {
     ).resolves.toEqual({});
   });
 
-  it('does not resolve category search params before the Suspense content boundary renders', async () => {
+  it('does not resolve non-static category search params before the Suspense content boundary renders', async () => {
     const searchParams = new Promise<{ page?: string; search?: string }>(() => {
       // Intentionally unresolved; this route shell must pass it through
       // without subscribing to it outside the Suspense boundary.
@@ -95,7 +95,7 @@ describe('blog category page', () => {
 
     await BlogCategoryPage({
       params: Promise.resolve({
-        slug: 'ogabassey.com',
+        slug: 'test-store',
         categorySlug: 'smartphones',
       }),
       searchParams,
@@ -106,7 +106,7 @@ describe('blog category page', () => {
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
-  it('shows the category fallback while clean category content is resolving', async () => {
+  it('shows the category fallback while non-static clean category content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Intentionally never resolves so Suspense fallback remains visible.
@@ -116,7 +116,7 @@ describe('blog category page', () => {
     render(
       await BlogCategoryPage({
         params: Promise.resolve({
-          slug: 'ogabassey.com',
+          slug: 'test-store',
           categorySlug: 'smartphones',
         }),
         searchParams: Promise.resolve({ page: '99' }),

@@ -131,10 +131,66 @@ describe('DefaultBlogUi', () => {
         'Read articles and updates about smartphones from Ogabassey.'
       )
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'About Smartphones articles from Ogabassey',
+      })
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
       'href',
       '/ogabassey/blog/category/smartphones'
     );
+  });
+
+  it('does not render category guide copy for searched category listings', () => {
+    render(
+      <DefaultBlogUi
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        basePath="/ogabassey"
+        categories={['Smartphones']}
+        category="Smartphones"
+        merchant={{
+          id: 'merchant-1',
+          business_name: 'Ogabassey',
+        }}
+        posts={[]}
+        searchQuery="iphone"
+        slug="ogabassey"
+        totalPosts={0}
+      />
+    );
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'About Smartphones articles from Ogabassey',
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it('uses the stable OgaBassey tenant slug for category guide selection', () => {
+    render(
+      <DefaultBlogUi
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        basePath="/ogabassey"
+        categories={['Smartphone Comparisons']}
+        category="Smartphone Comparisons"
+        merchant={{
+          id: 'merchant-1',
+          business_name: 'Renamed Storefront',
+        }}
+        posts={[]}
+        slug="ogabassey"
+        totalPosts={3}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'How to use Ogabassey smartphone comparison articles',
+      })
+    ).toBeInTheDocument();
   });
 
   it('renders the Organization entity when an organizationSchema is provided', () => {

@@ -6,7 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { getBlogAuthorPageLinks } from '@/lib/blog-authors';
 import type { JsonLdScriptData } from '@/lib/json-ld-types';
 import { asRoute } from '@/lib/routes';
-import { buildBlogCategoryHref } from './blog-category-routing';
+import { BlogCategoryGuide } from './blog-category-guide';
+import {
+  buildBlogCategoryHref,
+  OGABASSEY_BLOG_STATIC_TENANTS,
+} from './blog-category-routing';
 import { BlogList } from './blog-list';
 
 interface BlogListPost {
@@ -59,6 +63,9 @@ export function DefaultBlogUi({
   currentPage = 1,
 }: DefaultBlogUiProps) {
   const authorLinks = getBlogAuthorPageLinks(slug);
+  const isOgabasseyBlogTenant = OGABASSEY_BLOG_STATIC_TENANTS.some(
+    (staticTenant) => staticTenant === slug
+  );
   const categoryHubTitle =
     category && !searchQuery ? `${category} Articles` : undefined;
   const heading = searchQuery
@@ -150,6 +157,15 @@ export function DefaultBlogUi({
                 </Link>
               ))}
             </nav>
+          )}
+
+          {category && !searchQuery && (
+            <BlogCategoryGuide
+              category={category}
+              isOgabasseyBlogTenant={isOgabasseyBlogTenant}
+              merchantName={merchant.business_name}
+              totalPosts={totalPosts}
+            />
           )}
 
           <div className="mb-8 flex justify-center">

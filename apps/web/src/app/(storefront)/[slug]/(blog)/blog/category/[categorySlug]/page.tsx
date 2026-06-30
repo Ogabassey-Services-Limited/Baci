@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import { BlogListingFallback } from '../../BlogListingFallback';
@@ -10,6 +9,8 @@ import {
   canUseCleanBlogCategorySlug,
   getBlogCategorySlug,
   getCollidingBlogCategorySlugs,
+  OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
+  OGABASSEY_BLOG_STATIC_TENANTS,
 } from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -32,10 +33,6 @@ const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const OGABASSEY_CATEGORY_STATIC_TENANTS = [
-  OGABASSEY_DOMAIN,
-  'ogabassey',
-] as const;
 const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
   'laptops',
   'smartphones',
@@ -61,7 +58,12 @@ export async function generateStaticParams(): Promise<
   let categorySlugs: string[] = [];
 
   try {
-    const listing = await getCachedBlogListing(OGABASSEY_DOMAIN, { page: 1 });
+    const listing = await getCachedBlogListing(
+      OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
+      {
+        page: 1,
+      }
+    );
     categorySlugs = getStaticCategorySlugs(listing?.categories ?? []);
   } catch {
     categorySlugs = [];
@@ -72,7 +74,7 @@ export async function generateStaticParams(): Promise<
       ? categorySlugs
       : [...OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS];
 
-  return OGABASSEY_CATEGORY_STATIC_TENANTS.flatMap((slug) =>
+  return OGABASSEY_BLOG_STATIC_TENANTS.flatMap((slug) =>
     staticCategorySlugs.map((categorySlug) => ({ slug, categorySlug }))
   );
 }
@@ -119,15 +121,19 @@ export default async function BlogCategoryPage({
     notFound();
   }
 
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogPageContent
-        categoryOverride={hub.categoryLabel}
-        isCleanCategoryRoute
-        itemListSchemaUrl={hub.canonicalUrl}
-        params={Promise.resolve({ slug })}
-        searchParams={searchParams ?? Promise.resolve({})}
-      />
-    </Suspense>
+  const content = (
+    <BlogPageContent
+      categoryOverride={hub.categoryLabel}
+      isCleanCategoryRoute
+      itemListSchemaUrl={hub.canonicalUrl}
+      params={Promise.resolve({ slug })}
+      searchParams={searchParams ?? Promise.resolve({})}
+    />
   );
+
+  if (OGABASSEY_BLOG_STATIC_TENANTS.some((staticSlug) => staticSlug === slug)) {
+    return content;
+  }
+
+  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }
