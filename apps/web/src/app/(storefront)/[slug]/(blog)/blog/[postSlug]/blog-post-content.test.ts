@@ -106,7 +106,7 @@ describe('resolveBlogPostContent', () => {
     expect(JSON.stringify(content)).toContain('nofollow');
   });
 
-  it('preserves nofollow on external TipTap source links', async () => {
+  it('strips nofollow from external TipTap source links without removing safe rel tokens', async () => {
     const content = {
       type: 'doc',
       content: [
@@ -122,7 +122,7 @@ describe('resolveBlogPostContent', () => {
                   attrs: {
                     href: 'https://www.samsung.com/ng/support/specs',
                     target: '_blank',
-                    rel: 'nofollow noopener noreferrer',
+                    rel: 'nofollow ugc noopener noreferrer',
                   },
                 },
               ],
@@ -138,7 +138,31 @@ describe('resolveBlogPostContent', () => {
     });
 
     expect(result.isJson).toBe(true);
-    expect(result.renderedContent).toEqual(content);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Samsung source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.samsung.com/ng/support/specs',
+                    target: '_blank',
+                    rel: 'ugc noopener noreferrer',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(result.renderedContent)).not.toContain('nofollow');
   });
 
   it('parses leading TipTap JSON when legacy HTML was appended after it', async () => {
@@ -171,7 +195,30 @@ describe('resolveBlogPostContent', () => {
     const result = await resolveBlogPostContent(content);
 
     expect(result.isJson).toBe(true);
-    expect(result.renderedContent).toEqual(structuredContent);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Shop the MacBook lineup',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'http://ogabassey.com',
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
     expect(result.legacyHtml).toBe('');
   });
 

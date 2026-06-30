@@ -120,12 +120,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isInternalHref(href: string): boolean {
-  return (
-    href.startsWith('#') || (href.startsWith('/') && !href.startsWith('//'))
-  );
-}
-
 function stripNofollowToken(rel: string): string {
   return rel
     .split(/\s+/)
@@ -155,7 +149,7 @@ function normalizeBlogContentLinkMark(
     changed = true;
   }
 
-  if (isInternalHref(normalizedHref) && typeof nextAttrs.rel === 'string') {
+  if (typeof nextAttrs.rel === 'string') {
     const normalizedRel = stripNofollowToken(nextAttrs.rel);
     if (normalizedRel) {
       if (normalizedRel !== nextAttrs.rel) {
@@ -251,7 +245,7 @@ export async function resolveBlogPostContent(
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     const sanitizedHtml = sanitizeHtml(rewrittenHtml, {
-      stripInternalLinkNofollow: true,
+      stripNofollowFromLinks: true,
     });
     const legacyImageSafeHtml =
       removeLegacyOgabasseyCdnBlogImages(sanitizedHtml);

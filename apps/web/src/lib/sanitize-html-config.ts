@@ -13,7 +13,7 @@ export type SanitizeHtmlHeadingOptions =
 
 export type SanitizeHtmlOptions = SanitizeHtmlHeadingOptions & {
   normalizeSeoAnchors?: boolean;
-  stripInternalLinkNofollow?: boolean;
+  stripNofollowFromLinks?: boolean;
   trustedPriorityImageSources?: readonly string[];
 };
 
@@ -105,19 +105,10 @@ function isSerializedAttributeLeakHref(href: string | undefined): boolean {
     );
 }
 
-function isInternalAnchorHref(href: string | undefined): boolean {
-  const normalizedHref = href?.trim();
-  return !!(
-    normalizedHref &&
-    (normalizedHref.startsWith('#') ||
-      (normalizedHref.startsWith('/') && !normalizedHref.startsWith('//')))
-  );
-}
-
 function sanitizeAnchorTag(
   _tagName: string,
   attribs: sanitizeLib.Attributes,
-  options: Pick<SanitizeHtmlOptions, 'stripInternalLinkNofollow'>
+  options: Pick<SanitizeHtmlOptions, 'stripNofollowFromLinks'>
 ) {
   const relTokens = new Set(
     typeof attribs.rel === 'string'
@@ -125,7 +116,7 @@ function sanitizeAnchorTag(
       : []
   );
 
-  if (options.stripInternalLinkNofollow && isInternalAnchorHref(attribs.href)) {
+  if (options.stripNofollowFromLinks) {
     for (const token of Array.from(relTokens)) {
       if (token.toLowerCase() === 'nofollow') {
         relTokens.delete(token);
