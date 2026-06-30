@@ -287,6 +287,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
 
   // Derive merchant receipt data from context during render
   const m = merchantContext?.merchant;
+  const shouldShowOgabasseyAppBanner = m?.slug === 'ogabassey';
   const merchantReceiptData: ReceiptMerchant | null = m
     ? {
         business_name: m.business_name || null,
@@ -419,16 +420,11 @@ export const OgabasseyV2Receipts: React.FC = () => {
           </div>
         </div>
 
-        <Suspense
-          fallback={
-            <div
-              aria-hidden="true"
-              className="mb-6 min-h-[13.5rem] rounded-2xl border border-store-primary/10 bg-store-primary/5 sm:min-h-[10.5rem] md:min-h-[7rem]"
-            />
-          }
-        >
-          <ReceiptClaimAppDownloadBanner />
-        </Suspense>
+        {shouldShowOgabasseyAppBanner ? (
+          <Suspense fallback={null}>
+            <ReceiptClaimAppDownloadBanner />
+          </Suspense>
+        ) : null}
 
         {filteredReceipts.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">

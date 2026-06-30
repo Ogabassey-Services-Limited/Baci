@@ -4,6 +4,8 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { OgabasseyV2Receipts } from './receipts';
 
+const mockReceiptClaimAppDownloadBanner = vi.hoisted(() => vi.fn());
+
 vi.mock('@/contexts/customer-auth-context', () => ({
   useCustomerAuth: vi.fn(),
 }));
@@ -17,7 +19,10 @@ vi.mock('../components/ReceiptModal', () => ({
 }));
 
 vi.mock('./receipt-claim-app-download-banner', () => ({
-  ReceiptClaimAppDownloadBanner: () => null,
+  ReceiptClaimAppDownloadBanner: () => {
+    mockReceiptClaimAppDownloadBanner();
+    return <div>Receipts ready</div>;
+  },
 }));
 
 function createJsonResponse(body: unknown): Response {
@@ -74,6 +79,24 @@ describe('OgabasseyV2Receipts', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it('only mounts the app download banner for the Ogabassey merchant', async () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        slug: 'merchant-using-ogabassey-template',
+        business_name: 'Template Merchant',
+        email: 'support@example.com',
+        template_id: 'ogabassey',
+      },
+    } as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(fetch).mockResolvedValue(createJsonResponse({ orders: [] }));
+
+    render(<OgabasseyV2Receipts />);
+
+    expect(await screen.findByText('No receipts found')).toBeVisible();
+    expect(mockReceiptClaimAppDownloadBanner).not.toHaveBeenCalled();
+    expect(screen.queryByText('Receipts ready')).not.toBeInTheDocument();
   });
 
   it('uses order item image_url for receipt thumbnails', async () => {
