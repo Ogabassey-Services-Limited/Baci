@@ -39,30 +39,7 @@ interface BuildCompareIndexSectionsInput {
   pathPrefix?: string;
   productLimit?: number;
   storeUrl: string;
-  stopWhenTotalLinkLimitReached?: boolean;
   totalLinkLimit?: number;
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  items: TInput[],
-  concurrency: number,
-  mapper: (item: TInput, index: number) => Promise<TOutput>
-) {
-  const workerCount = Math.min(Math.max(1, concurrency), items.length);
-  const results = new Array<TOutput>(items.length);
-  let nextIndex = 0;
-
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (nextIndex < items.length) {
-        const currentIndex = nextIndex;
-        nextIndex += 1;
-        results[currentIndex] = await mapper(items[currentIndex], currentIndex);
-      }
-    })
-  );
-
-  return results;
 }
 
 function capCompareIndexSections(
@@ -164,13 +141,9 @@ export async function buildCompareIndexSections({
   pathPrefix = '',
   productLimit = COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT,
   storeUrl,
-  stopWhenTotalLinkLimitReached = false,
   totalLinkLimit = COMPARE_INDEX_TOTAL_LINK_LIMIT,
 }: BuildCompareIndexSectionsInput) {
-  const canonicalCategories = buildCanonicalCompareCategories(categories).slice(
-    0,
-    categoryLimit
-  );
+  const canonicalCategories = buildCanonicalCompareCategories(categories);
   const sectionInput = {
     getCategoryPageData,
     linksPerCategoryLimit,
@@ -178,58 +151,38 @@ export async function buildCompareIndexSections({
     productLimit,
     storeUrl,
   };
+  const populatedSections: CompareIndexSection[] = [];
+  const batchSize = Math.min(
+    Math.max(1, concurrency),
+    canonicalCategories.length
+  );
 
-  if (stopWhenTotalLinkLimitReached) {
-    const populatedSections: CompareIndexSection[] = [];
-    const batchSize = Math.min(
-      Math.max(1, concurrency),
-      canonicalCategories.length
+  for (
+    let index = 0;
+    index < canonicalCategories.length &&
+    populatedSections.length < categoryLimit &&
+    countSectionLinks(populatedSections) < totalLinkLimit;
+    index += batchSize
+  ) {
+    const batch = canonicalCategories.slice(index, index + batchSize);
+    const batchSections = await Promise.all(
+      batch.map((category) =>
+        buildCompareIndexSection({
+          ...sectionInput,
+          category,
+        })
+      )
     );
 
-    for (
-      let index = 0;
-      index < canonicalCategories.length &&
-      countSectionLinks(populatedSections) < totalLinkLimit;
-      index += batchSize
-    ) {
-      const batch = canonicalCategories.slice(index, index + batchSize);
-      const batchSections = await Promise.all(
-        batch.map((category) =>
-          buildCompareIndexSection({
-            ...sectionInput,
-            category,
-          })
-        )
-      );
-
-      populatedSections.push(
-        ...batchSections.filter(
-          (section): section is CompareIndexSection => section !== null
-        )
-      );
-    }
-
-    return capCompareIndexSections(
-      populatedSections.sort(sortCompareSections),
-      totalLinkLimit
+    populatedSections.push(
+      ...batchSections.filter(
+        (section): section is CompareIndexSection => section !== null
+      )
     );
   }
 
-  const sections = await mapWithConcurrency(
-    canonicalCategories,
-    concurrency,
-    async (category) =>
-      buildCompareIndexSection({
-        ...sectionInput,
-        category,
-      })
-  );
-  const populatedSections = sections.filter(
-    (section): section is CompareIndexSection => section !== null
-  );
-
   return capCompareIndexSections(
-    populatedSections.sort(sortCompareSections),
+    populatedSections.sort(sortCompareSections).slice(0, categoryLimit),
     totalLinkLimit
   );
 }

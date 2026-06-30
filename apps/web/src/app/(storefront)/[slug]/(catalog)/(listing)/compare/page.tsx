@@ -28,9 +28,15 @@ interface CompareIndexPageProps {
 
 const COMPARE_CATEGORY_SLUG = 'compare';
 
-function hasCompareCategory(categories: { slug: string | null | undefined }[]) {
+function hasActiveCompareCategory(
+  categories: {
+    is_active?: boolean | null;
+    slug: string | null | undefined;
+  }[]
+) {
   return categories.some(
     (category) =>
+      category.is_active !== false &&
       canonicalizeCategorySlug(category.slug) === COMPARE_CATEGORY_SLUG
   );
 }
@@ -88,7 +94,7 @@ export async function generateMetadata({
   const storeUrl = buildStoreUrl(merchant);
   const categories = await getCachedCategories(merchant.id);
 
-  if (hasCompareCategory(categories)) {
+  if (hasActiveCompareCategory(categories)) {
     return generateCategoryMetadata(
       buildCompareCategoryPageProps(slug, searchParams)
     );
@@ -106,7 +112,6 @@ export async function generateMetadata({
       ),
     linksPerCategoryLimit: 1,
     storeUrl,
-    stopWhenTotalLinkLimitReached: true,
     totalLinkLimit: 1,
   });
   const hasCompareSections = sections.length > 0;
@@ -157,7 +162,7 @@ async function CompareIndexRuntime(props: CompareIndexPageProps) {
   if (merchant) {
     const categories = await getCachedCategories(merchant.id);
 
-    if (hasCompareCategory(categories)) {
+    if (hasActiveCompareCategory(categories)) {
       return (
         <CategoryPageRoute
           {...buildCompareCategoryPageProps(slug, props.searchParams)}

@@ -103,11 +103,21 @@ function dedupeLinks(links: CommercialSupportLink[]) {
 }
 
 function buildDirectCompareCta(input: {
+  approvedCompareProductSlugs: ReadonlySet<string>;
   storeUrl: string;
   categorySlug: string;
   currentProduct: ProductSemanticCandidate;
   candidate: ProductSemanticCandidate;
 }) {
+  // Compare route approval uses this same bounded window; if either side falls
+  // outside it, the URL becomes a non-indexable legacy fallback.
+  if (
+    !input.approvedCompareProductSlugs.has(input.currentProduct.slug) ||
+    !input.approvedCompareProductSlugs.has(input.candidate.slug)
+  ) {
+    return {};
+  }
+
   const compareCandidate = buildProductCompareCandidate({
     categorySlug: input.categorySlug,
     leftProduct: input.currentProduct,
@@ -137,7 +147,8 @@ export const MAX_SEMANTIC_SECTION_CARDS = 6;
 
 function buildSectionCards(
   input: BuildProductSemanticModelInput,
-  products: ProductSemanticCandidate[]
+  products: ProductSemanticCandidate[],
+  approvedCompareProductSlugs: ReadonlySet<string>
 ) {
   return products.slice(0, MAX_SEMANTIC_SECTION_CARDS).map(
     (product) =>
@@ -146,6 +157,7 @@ function buildSectionCards(
         description: buildCardDescription(product, input.countryCode),
         href: buildProductHref(input.storeUrl, product),
         ...buildDirectCompareCta({
+          approvedCompareProductSlugs,
           storeUrl: input.storeUrl,
           categorySlug: input.categorySlug,
           currentProduct: input.currentProduct,
@@ -158,9 +170,10 @@ function buildSectionCards(
 function buildSection(
   input: BuildProductSemanticModelInput,
   heading: string,
-  products: ProductSemanticCandidate[]
+  products: ProductSemanticCandidate[],
+  approvedCompareProductSlugs: ReadonlySet<string>
 ): ProductSemanticSection | null {
-  const cards = buildSectionCards(input, products);
+  const cards = buildSectionCards(input, products, approvedCompareProductSlugs);
   return cards.length > 0 ? { heading, cards } : null;
 }
 
@@ -196,7 +209,10 @@ function findContainingBand(input: BuildProductSemanticModelInput) {
   );
 }
 
-function buildAlternativesSection(input: BuildProductSemanticModelInput) {
+function buildAlternativesSection(
+  input: BuildProductSemanticModelInput,
+  approvedCompareProductSlugs: ReadonlySet<string>
+) {
   return buildSection(
     input,
     getSupportCopy(input.categorySlug).alternativesHeading,
@@ -206,11 +222,15 @@ function buildAlternativesSection(input: BuildProductSemanticModelInput) {
           product.slug !== input.currentProduct.slug &&
           product.category_slug === input.categorySlug
       )
-      .sort(rankAlternatives(input.currentProduct))
+      .sort(rankAlternatives(input.currentProduct)),
+    approvedCompareProductSlugs
   );
 }
 
-function buildSameBrandSection(input: BuildProductSemanticModelInput) {
+function buildSameBrandSection(
+  input: BuildProductSemanticModelInput,
+  approvedCompareProductSlugs: ReadonlySet<string>
+) {
   const currentBrand = input.currentProduct.brand?.trim();
 
   if (!currentBrand) {
@@ -227,7 +247,8 @@ function buildSameBrandSection(input: BuildProductSemanticModelInput) {
           product.category_slug === input.categorySlug &&
           product.brand?.trim() === currentBrand
       )
-      .sort(rankAlternatives(input.currentProduct))
+      .sort(rankAlternatives(input.currentProduct)),
+    approvedCompareProductSlugs
   );
 }
 
@@ -257,11 +278,15 @@ function buildSamePriceCandidates(input: BuildProductSemanticModelInput) {
   return selectedPool.sort(rankSamePrice(input.currentProduct));
 }
 
-function buildSamePriceSection(input: BuildProductSemanticModelInput) {
+function buildSamePriceSection(
+  input: BuildProductSemanticModelInput,
+  approvedCompareProductSlugs: ReadonlySet<string>
+) {
   return buildSection(
     input,
     getSupportCopy(input.categorySlug).samePriceHeading,
-    buildSamePriceCandidates(input)
+    buildSamePriceCandidates(input),
+    approvedCompareProductSlugs
   );
 }
 
@@ -272,6 +297,10 @@ export function buildProductSemanticModel(
     input.storeUrl,
     input.currentProduct
   );
+  const compareSupportInventory = getBoundedProductSupportInventory(input);
+  const approvedCompareProductSlugs = new Set(
+    compareSupportInventory.map((product) => product.slug)
+  );
   const supportLinks = dedupeLinks([
     buildCategoryHubLink(input),
     ...buildProductSupportLinks({
@@ -280,7 +309,7 @@ export function buildProductSemanticModel(
       currentProductSlug: input.currentProduct.slug,
       currentProductPrice: input.currentProduct.price,
       includeBrandCompareLink: false,
-      products: getBoundedProductSupportInventory(input),
+      products: compareSupportInventory,
     }),
   ]).filter((link) => link.href !== currentProductHref);
   return {
@@ -288,8 +317,8 @@ export function buildProductSemanticModel(
     trustBullets: buildProductTrustBullets(input),
     supportLinks,
     guideLinks: buildProductGuideLinks(input),
-    alternatives: buildAlternativesSection(input),
-    sameBrand: buildSameBrandSection(input),
-    samePrice: buildSamePriceSection(input),
+    alternatives: buildAlternativesSection(input, approvedCompareProductSlugs),
+    sameBrand: buildSameBrandSection(input, approvedCompareProductSlugs),
+    samePrice: buildSamePriceSection(input, approvedCompareProductSlugs),
   };
 }

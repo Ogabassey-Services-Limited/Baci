@@ -59,7 +59,7 @@ describe('compare index discovery', () => {
     );
   });
 
-  it('bounds category discovery and concurrent category data loads', async () => {
+  it('bounds populated category discovery and concurrent category data loads', async () => {
     const categories = Array.from(
       { length: COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT + 4 },
       (_, index) => ({
@@ -91,11 +91,24 @@ describe('compare index discovery', () => {
       storeUrl: 'https://store.test',
     });
 
-    expect(getCategoryPageData).toHaveBeenCalledTimes(
+    expect(getCategoryPageData.mock.calls.length).toBeGreaterThanOrEqual(
       COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT
+    );
+    expect(getCategoryPageData.mock.calls.length).toBeLessThanOrEqual(
+      COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT +
+        COMPARE_INDEX_DISCOVERY_CONCURRENCY -
+        1
     );
     expect(getCategoryPageData).toHaveBeenCalledWith(
       'category-0',
+      0,
+      COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT
+    );
+    expect(getCategoryPageData).not.toHaveBeenCalledWith(
+      `category-${
+        COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT +
+        COMPARE_INDEX_DISCOVERY_CONCURRENCY
+      }`,
       0,
       COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT
     );
@@ -151,7 +164,6 @@ describe('compare index discovery', () => {
       concurrency: 2,
       getCategoryPageData,
       linksPerCategoryLimit: 1,
-      stopWhenTotalLinkLimitReached: true,
       storeUrl: 'https://store.test',
       totalLinkLimit: 1,
     });
@@ -159,6 +171,60 @@ describe('compare index discovery', () => {
     expect(getCategoryPageData).toHaveBeenCalledTimes(2);
     expect(sections).toHaveLength(1);
     expect(sections[0]?.links).toHaveLength(1);
+  });
+
+  it('scans past non-publishing categories until a populated section is found', async () => {
+    mockBuildCompareDiscoveryLinks.mockImplementation(
+      ({ categorySlug }: { categorySlug: string }) =>
+        categorySlug === 'working'
+          ? [
+              {
+                canonicalSlug: 'product-a-vs-product-b',
+                href: `https://store.test/${categorySlug}/compare/product-a-vs-product-b`,
+                label: 'Product A vs Product B',
+              },
+            ]
+          : []
+    );
+    const categories = [
+      ...Array.from(
+        { length: COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT },
+        (_, index) => ({
+          name: `Empty ${index}`,
+          slug: `empty-${index}`,
+        })
+      ),
+      { name: 'Working', slug: 'working' },
+    ];
+    const getCategoryPageData = vi.fn(async () => ({
+      isCollection: false,
+      isInactiveCategory: false,
+      products: makeProducts(),
+    }));
+
+    const sections = await buildCompareIndexSections({
+      categories,
+      categoryLimit: 1,
+      concurrency: 1,
+      getCategoryPageData,
+      storeUrl: 'https://store.test',
+    });
+
+    expect(getCategoryPageData).toHaveBeenCalledTimes(
+      COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT + 1
+    );
+    expect(sections).toEqual([
+      {
+        categoryName: 'Working',
+        categorySlug: 'working',
+        links: [
+          {
+            href: '/working/compare/product-a-vs-product-b',
+            label: 'Product A vs Product B',
+          },
+        ],
+      },
+    ]);
   });
 
   it('enforces the configured product cap even when category data returns extra rows', async () => {

@@ -193,6 +193,12 @@ describe('buildProductSemanticModel', () => {
     expect(
       model.supportLinks.some((link) => link.href.includes('/compare/'))
     ).toBe(false);
+    expect(model.alternatives?.cards.length).toBeGreaterThan(0);
+    expect(
+      model.alternatives?.cards.some((card) =>
+        card.secondaryHref?.includes('/compare/')
+      )
+    ).toBe(false);
   });
 
   it('keeps PDP support links when category inventory rows omit category_slug', () => {

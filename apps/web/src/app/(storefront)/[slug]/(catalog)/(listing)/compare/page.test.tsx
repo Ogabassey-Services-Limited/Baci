@@ -98,6 +98,7 @@ const categories = [
     slug: 'laptops',
     description: null,
     image_url: null,
+    is_active: true,
     parent_id: null,
   },
 ] satisfies CachedCategories;
@@ -209,6 +210,7 @@ describe('compare index page', () => {
         slug: ' Compare ',
         description: null,
         image_url: null,
+        is_active: true,
         parent_id: null,
       },
     ]);
@@ -239,6 +241,29 @@ describe('compare index page', () => {
       sort: 'price-asc',
     });
     expect(getCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
+  it('uses the compare hub when the merchant compare category is inactive', async () => {
+    vi.mocked(getCachedCategories).mockResolvedValueOnce([
+      ...categories,
+      {
+        id: 'category-compare',
+        name: 'Compare',
+        slug: 'compare',
+        description: null,
+        image_url: null,
+        is_active: false,
+        parent_id: null,
+      },
+    ]);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.title).toBe('Compare products | Ogabassey');
+    expect(mockGenerateCategoryMetadata).not.toHaveBeenCalled();
+    expect(getCachedCategoryPageData).toHaveBeenCalled();
   });
 
   it('returns noindex metadata when the compare index has no eligible sections', async () => {
