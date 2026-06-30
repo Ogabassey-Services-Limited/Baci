@@ -192,7 +192,15 @@ describe('create_payment_transaction migration contract', () => {
     expect(sql).toMatch(/v_gateway\s+IN\s*\('klump',\s*'credit_direct'\)/i);
     expect(sql).toMatch(/THEN\s+'bnpl_pending'/i);
     expect(sql).toMatch(/ELSE\s+'pending'/i);
+    expect(sql).toMatch(/auth\.uid\(\)/i);
+    expect(sql).toMatch(/request\.jwt\.claim\.role/i);
+    expect(sql).toMatch(/request\.jwt\.claims/i);
+    expect(sql).toMatch(/v_request_role\s+<>\s+'service_role'/i);
+    expect(sql).toMatch(/public\.merchants\b/i);
+    expect(sql).toMatch(/public\.staff_members\b/i);
     expect(sql).toMatch(/RAISE\s+EXCEPTION\s+'reference_in_use'/i);
+    expect(sql).toMatch(/pg_advisory_xact_lock/i);
+    expect(sql).toMatch(/hashtextextended\(v_reference,\s*0\)/i);
     expect(sql).toMatch(/COALESCE\(p_metadata,\s*'\{\}'::jsonb\)/i);
     expect(sql).toMatch(/payment_status\s*=\s*v_order_payment_status/i);
     expect(sql).toMatch(/o\.payment_status\s+NOT\s+IN/i);
@@ -205,11 +213,11 @@ describe('create_payment_transaction migration contract', () => {
     expect(sql).not.toMatch(
       /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*TO\s+anon/i
     );
-    expect(sql).not.toMatch(
-      /GRANT\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*TO\s+authenticated/i
+    expect(sql).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*jsonb[\s\S]*TO[\s\S]*\bauthenticated\b/i
     );
     expect(sql).toMatch(
-      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*jsonb[\s\S]*TO\s+service_role/i
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_payment_transaction[\s\S]*jsonb[\s\S]*TO[\s\S]*\bservice_role\b/i
     );
   });
 });

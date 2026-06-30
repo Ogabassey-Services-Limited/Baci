@@ -79,6 +79,31 @@ export const CREDIT_DIRECT_CONFIG = {
   maxAmount: 5000000, // Alias for easier access
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isWebhookProduct(value: unknown): value is CreditDirectWebhookProduct {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const amount = value.productAmount;
+  const isAmountShapeValid =
+    (typeof amount === 'number' && Number.isFinite(amount)) ||
+    (typeof amount === 'string' && amount.trim().length > 0);
+
+  return (
+    isNonEmptyString(value.productName) &&
+    isAmountShapeValid &&
+    isNonEmptyString(value.productId)
+  );
+}
+
 // ============================================================================
 // Transaction Signing
 // ============================================================================
@@ -264,19 +289,42 @@ export function verifyWebhookSignature({
 export function parseWebhookPayload(
   payload: unknown
 ): CreditDirectWebhookPayload | null {
-  if (!payload || typeof payload !== 'object') {
+  if (!isRecord(payload)) {
     return null;
   }
 
-  const p = payload as Record<string, unknown>;
+  const p = payload;
 
   // Validate required fields
   if (
-    !p.checkoutTransactionId ||
-    !p.eventType ||
-    !p.timeStamp ||
-    !p.checkoutCustomer
+    !isNonEmptyString(p.checkoutTransactionId) ||
+    !isNonEmptyString(p.eventType) ||
+    !isNonEmptyString(p.timeStamp) ||
+    !isRecord(p.checkoutCustomer)
   ) {
+    return null;
+  }
+
+  const checkoutCustomer = p.checkoutCustomer;
+  if (
+    typeof checkoutCustomer.firstName !== 'string' ||
+    typeof checkoutCustomer.lastName !== 'string'
+  ) {
+    return null;
+  }
+
+  if (
+    !(
+      p.metaData === null ||
+      p.metaData === undefined ||
+      typeof p.metaData === 'string'
+    )
+  ) {
+    return null;
+  }
+
+  const products = p.products;
+  if (!Array.isArray(products) || !products.every(isWebhookProduct)) {
     return null;
   }
 
@@ -289,7 +337,17 @@ export function parseWebhookPayload(
     return null;
   }
 
-  return payload as CreditDirectWebhookPayload;
+  return {
+    checkoutCustomer: {
+      firstName: checkoutCustomer.firstName,
+      lastName: checkoutCustomer.lastName,
+    },
+    checkoutTransactionId: p.checkoutTransactionId,
+    eventType: p.eventType as CreditDirectWebhookEvent,
+    metaData: p.metaData ?? null,
+    products,
+    timeStamp: p.timeStamp,
+  };
 }
 
 // ============================================================================

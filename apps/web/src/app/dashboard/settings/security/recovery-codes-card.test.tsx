@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGenerate, mockAcknowledge, mockToast } = vi.hoisted(() => ({
@@ -60,13 +61,14 @@ describe('RecoveryCodesCard', () => {
   });
 
   it('acknowledges the displayed code set and updates the count', async () => {
+    const user = userEvent.setup();
     render(<RecoveryCodesCard initialCount={0} />);
-    fireEvent.click(
+    await user.click(
       screen.getByRole('button', { name: /generate recovery codes/i })
     );
     await screen.findByText('AAAA-AAAA');
 
-    fireEvent.click(screen.getByRole('button', { name: /saved these/i }));
+    await user.click(screen.getByRole('button', { name: /saved these/i }));
 
     await waitFor(() => {
       expect(mockAcknowledge).toHaveBeenCalledWith('cs-1');

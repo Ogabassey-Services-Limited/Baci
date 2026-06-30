@@ -241,20 +241,17 @@ export async function POST(request: NextRequest) {
         ? parsedNotes.creditDirectSignedAmount
         : null;
 
-    if (
+    const customerPaymentAlreadyApproved =
       payload.eventType === 'Checkout_Customer_Payment_Completed' &&
       (order.payment_status === 'bnpl_approved' ||
-        order.payment_status === 'paid')
-    ) {
+        order.payment_status === 'paid');
+
+    if (customerPaymentAlreadyApproved) {
       logger.info({
         message:
-          'Credit Direct customer payment webhook already processed for order',
+          'Credit Direct customer payment webhook already approved; retrying inventory confirmation',
         orderId: order.id,
         transactionId: payload.checkoutTransactionId,
-      });
-      return NextResponse.json({
-        received: true,
-        message: 'Already processed',
       });
     }
 
@@ -277,30 +274,48 @@ export async function POST(request: NextRequest) {
     // Handle based on event type
     switch (payload.eventType) {
       case 'Checkout_Customer_Payment_Completed': {
-        // Customer has completed the BNPL checkout process
-        // Update order status to indicate BNPL approval
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            payment_status: 'bnpl_approved',
-            notes: JSON.stringify({
-              ...parsedNotes,
-              creditDirectTransactionId: payload.checkoutTransactionId,
-              creditDirectCustomer: payload.checkoutCustomer,
-              bnplApprovedAt: payload.timeStamp,
-            }),
-          })
-          .eq('id', order.id);
+        if (!customerPaymentAlreadyApproved) {
+          // Customer has completed the BNPL checkout process.
+          const { data: updatedOrder, error: updateError } = await supabase
+            .from('orders')
+            .update({
+              payment_status: 'bnpl_approved',
+              notes: JSON.stringify({
+                ...parsedNotes,
+                creditDirectTransactionId: payload.checkoutTransactionId,
+                creditDirectCustomer: payload.checkoutCustomer,
+                bnplApprovedAt: payload.timeStamp,
+              }),
+            })
+            .eq('id', order.id)
+            .in('payment_status', ['pending', 'bnpl_pending'])
+            .select('id')
+            .maybeSingle();
 
-        if (updateError) {
-          logger.error({
-            message: 'Failed to update order for customer payment completion',
-            error: updateError,
-          });
-          return NextResponse.json(
-            { error: 'Failed to update order' },
-            { status: 500 }
-          );
+          if (updateError) {
+            logger.error({
+              message: 'Failed to update order for customer payment completion',
+              error: updateError,
+            });
+            return NextResponse.json(
+              { error: 'Failed to update order' },
+              { status: 500 }
+            );
+          }
+
+          if (!updatedOrder) {
+            logger.warn({
+              message:
+                'Credit Direct customer payment update skipped because order status is no longer eligible',
+              orderId: order.id,
+              currentPaymentStatus: order.payment_status,
+              transactionId: payload.checkoutTransactionId,
+            });
+            return NextResponse.json({
+              received: true,
+              warning: 'Order status no longer eligible',
+            });
+          }
         }
 
         try {

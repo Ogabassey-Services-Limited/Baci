@@ -39,6 +39,13 @@ DECLARE
   v_existing_merchant_id uuid;
   v_gateway text := lower(trim(COALESCE(p_gateway, '')));
   v_order_payment_status text;
+  v_reference text := trim(COALESCE(p_reference, ''));
+  v_request_role text := COALESCE(
+    NULLIF(current_setting('request.jwt.claim.role', true), ''),
+    NULLIF((NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'), ''),
+    ''
+  );
+  v_request_user_id uuid := auth.uid();
 BEGIN
   IF p_order_id IS NULL THEN
     RAISE EXCEPTION 'order_id_required';
@@ -48,7 +55,7 @@ BEGIN
     RAISE EXCEPTION 'merchant_id_required';
   END IF;
 
-  IF p_reference IS NULL OR trim(p_reference) = '' THEN
+  IF v_reference = '' THEN
     RAISE EXCEPTION 'reference_required';
   END IF;
 
@@ -70,6 +77,28 @@ BEGIN
     RAISE EXCEPTION 'merchant_mismatch';
   END IF;
 
+  IF v_request_role <> 'service_role' THEN
+    IF v_request_user_id IS NULL THEN
+      RAISE EXCEPTION 'authenticated_user_required';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.merchants m
+      WHERE m.id = p_merchant_id
+        AND m.user_id = v_request_user_id
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.staff_members sm
+      WHERE sm.merchant_id = p_merchant_id
+        AND sm.user_id = v_request_user_id
+        AND sm.status = 'active'
+    ) THEN
+      RAISE EXCEPTION 'unauthorized_merchant';
+    END IF;
+  END IF;
+
   IF lower(trim(v_order_email)) <> lower(trim(p_customer_email)) THEN
     RAISE EXCEPTION 'email_mismatch';
   END IF;
@@ -86,10 +115,12 @@ BEGIN
   -- Idempotency: return existing transaction if reference already used, but
   -- still repair the order status for older BNPL initializations that were
   -- stored as generic pending.
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_reference, 0));
+
   SELECT t.id, t.order_id, t.merchant_id
     INTO v_existing_id, v_existing_order_id, v_existing_merchant_id
   FROM public.transactions t
-  WHERE t.gateway_reference = p_reference
+  WHERE t.gateway_reference = v_reference
   LIMIT 1;
 
   IF v_existing_id IS NOT NULL THEN
@@ -137,7 +168,7 @@ BEGIN
     COALESCE(p_currency, 'NGN'),
     'pending',
     v_gateway,
-    p_reference,
+    v_reference,
     p_platform_fee,
     p_merchant_amount,
     'Payment for order ' || p_order_id::text,
@@ -184,7 +215,7 @@ COMMENT ON FUNCTION public.create_payment_transaction(
   text,
   jsonb
 ) IS
-  'Creates a pending payment transaction with metadata and moves BNPL gateways into bnpl_pending while retaining generic pending for non-BNPL gateways.';
+  'Creates an authorized pending payment transaction with metadata and moves BNPL gateways into bnpl_pending while retaining generic pending for non-BNPL gateways.';
 
 REVOKE ALL ON FUNCTION public.create_payment_transaction(
   uuid,
@@ -213,7 +244,7 @@ GRANT EXECUTE ON FUNCTION public.create_payment_transaction(
   text,
   text,
   jsonb
-) TO service_role;
+) TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.mark_abandoned_orders(hours_threshold int DEFAULT 72)
 RETURNS void

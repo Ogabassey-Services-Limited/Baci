@@ -7,7 +7,6 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { calculatePlatformFee, generatePaymentAccount } from '@/lib/paystack';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 const nanoidUppercase = customAlphabet(
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
@@ -175,7 +174,7 @@ export async function POST(
     const amountInKobo = Math.round(Number(order.total) * 100);
     const fees = calculatePlatformFee(amountInKobo);
 
-    const { error: txnError } = await createAdminClient().rpc(
+    const { error: txnError } = await supabase.rpc(
       'create_payment_transaction',
       {
         p_merchant_id: merchantId,

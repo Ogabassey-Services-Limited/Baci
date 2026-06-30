@@ -75,6 +75,9 @@ const {
   calculatePlatformFee,
   calculateMerchantAmount,
 } = await import('@/lib/credit-direct');
+const actualCreditDirect = await vi.importActual<
+  typeof import('@/lib/credit-direct')
+>('@/lib/credit-direct');
 const { createServiceClient } = await import('@/lib/supabase/service');
 const { logger } = await import('@/lib/logger');
 const { ensurePaidOrderInventoryConfirmed } = await import(
@@ -297,8 +300,11 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           // Second from('orders') - order update
           const updateChain = { ...createMockSupabaseClient().from('orders') };
           updateChain.update = vi.fn().mockReturnValue(updateChain);
-          updateChain.eq = vi.fn().mockResolvedValue({
-            data: null,
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.in = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: { id: 'order_abc' },
             error: null,
           });
           return updateChain;
@@ -505,7 +511,12 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
         const updateChain = { ...createMockSupabaseClient().from(table) };
         updateChain.update = updateSpy.mockReturnValue(updateChain);
-        updateChain.eq = vi.fn().mockResolvedValue({ data: null, error: null });
+        updateChain.eq = vi.fn().mockReturnValue(updateChain);
+        updateChain.in = vi.fn().mockReturnValue(updateChain);
+        updateChain.select = vi.fn().mockReturnValue(updateChain);
+        updateChain.maybeSingle = vi
+          .fn()
+          .mockResolvedValue({ data: { id: 'order_abc' }, error: null });
         return updateChain;
       });
 
@@ -556,7 +567,12 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
         const updateChain = { ...createMockSupabaseClient().from(table) };
         updateChain.update = updateSpy.mockReturnValue(updateChain);
-        updateChain.eq = vi.fn().mockResolvedValue({ data: null, error: null });
+        updateChain.eq = vi.fn().mockReturnValue(updateChain);
+        updateChain.in = vi.fn().mockReturnValue(updateChain);
+        updateChain.select = vi.fn().mockReturnValue(updateChain);
+        updateChain.maybeSingle = vi
+          .fn()
+          .mockResolvedValue({ data: { id: 'order_abc' }, error: null });
         return updateChain;
       });
 
@@ -711,10 +727,12 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           // Second from('orders') - order update
           const updateChain = { ...createMockSupabaseClient().from('orders') };
           updateChain.update = vi.fn().mockReturnValue(updateChain);
-          updateChain.eq = vi.fn().mockResolvedValue({
-            data: null,
-            error: null,
-          });
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.in = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'order_abc' }, error: null });
           return updateChain;
         }
         return createMockSupabaseClient().from(table);
@@ -734,7 +752,59 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
-    it('does not reprocess duplicate customer payment completed events', async () => {
+    it('skips inventory confirmation when the customer approval update matches no rows', async () => {
+      vi.mocked(parseWebhookPayload).mockReturnValue(customerPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = {
+            ...createMockSupabaseClient().from('orders'),
+          };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.in = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [mockOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+
+        const updateChain = { ...createMockSupabaseClient().from(table) };
+        updateChain.update = vi.fn().mockReturnValue(updateChain);
+        updateChain.eq = vi.fn().mockReturnValue(updateChain);
+        updateChain.in = vi.fn().mockReturnValue(updateChain);
+        updateChain.select = vi.fn().mockReturnValue(updateChain);
+        updateChain.maybeSingle = vi
+          .fn()
+          .mockResolvedValue({ data: null, error: null });
+        return updateChain;
+      });
+
+      const request = createMockRequest(customerPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        received: true,
+        warning: 'Order status no longer eligible',
+      });
+      expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith({
+        message:
+          'Credit Direct customer payment update skipped because order status is no longer eligible',
+        orderId: 'order_abc',
+        currentPaymentStatus: 'pending',
+        transactionId: 'txn_123456789',
+      });
+    });
+
+    it('retries inventory confirmation for duplicate customer payment completed events', async () => {
       vi.mocked(parseWebhookPayload).mockReturnValue(customerPaymentPayload);
 
       const supabaseMock = createMockSupabaseClient();
@@ -759,7 +829,12 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
         const updateChain = { ...createMockSupabaseClient().from(table) };
         updateChain.update = updateSpy.mockReturnValue(updateChain);
-        updateChain.eq = vi.fn().mockResolvedValue({ data: null, error: null });
+        updateChain.eq = vi.fn().mockReturnValue(updateChain);
+        updateChain.in = vi.fn().mockReturnValue(updateChain);
+        updateChain.select = vi.fn().mockReturnValue(updateChain);
+        updateChain.maybeSingle = vi
+          .fn()
+          .mockResolvedValue({ data: { id: 'order_abc' }, error: null });
         return updateChain;
       });
 
@@ -768,12 +843,16 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data).toEqual({ received: true, message: 'Already processed' });
+      expect(data).toEqual({ received: true });
       expect(updateSpy).not.toHaveBeenCalled();
-      expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+      expect(ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
+        supabaseMock,
+        'merchant_123',
+        'order_abc'
+      );
       expect(logger.info).toHaveBeenCalledWith({
         message:
-          'Credit Direct customer payment webhook already processed for order',
+          'Credit Direct customer payment webhook already approved; retrying inventory confirmation',
         orderId: 'order_abc',
         transactionId: 'txn_123456789',
       });
@@ -787,16 +866,13 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
       const mockChain = supabaseMock.from('orders');
 
-      let callCount = 0;
+      let inCallCount = 0;
       mockChain.select.mockReturnValue(mockChain);
-      mockChain.eq.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // eq() call for update
-          return Promise.resolve({
-            data: null,
-            error: { message: 'Update failed' },
-          });
+      mockChain.eq.mockReturnValue(mockChain);
+      mockChain.in.mockImplementation(() => {
+        inCallCount++;
+        if (inCallCount === 1) {
+          return mockChain;
         }
         return mockChain;
       });
@@ -806,6 +882,10 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
 
       mockChain.update.mockReturnValue(mockChain);
+      mockChain.maybeSingle.mockResolvedValue({
+        data: null,
+        error: { message: 'Update failed' },
+      });
 
       const request = createMockRequest(customerPaymentPayload);
       const response = await POST(request);
@@ -923,7 +1003,9 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           },
         ],
       };
-      vi.mocked(parseWebhookPayload).mockReturnValue(stringAmountPayload);
+      vi.mocked(parseWebhookPayload).mockImplementationOnce(
+        actualCreditDirect.parseWebhookPayload
+      );
 
       const supabaseMock = createMockSupabaseClient();
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
@@ -1018,7 +1100,9 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           },
         ],
       };
-      vi.mocked(parseWebhookPayload).mockReturnValue(invalidAmountPayload);
+      vi.mocked(parseWebhookPayload).mockImplementationOnce(
+        actualCreditDirect.parseWebhookPayload
+      );
 
       const supabaseMock = createMockSupabaseClient();
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);

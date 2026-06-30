@@ -1,8 +1,21 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
+export type NewOrderProductSheetEmptyStateController = Pick<
+  ReturnType<typeof useNewOrderController>,
+  | 'colors'
+  | 'isLoadingSelectedParentProduct'
+  | 'isPickingVariant'
+  | 'isProductsLoading'
+  | 'productSearch'
+  | 'productsError'
+  | 'refetchProducts'
+  | 'refetchSelectedParentProduct'
+  | 'selectedParentProductError'
+>;
+
 interface NewOrderProductSheetEmptyStateProps {
-  controller: ReturnType<typeof useNewOrderController>;
+  controller: NewOrderProductSheetEmptyStateController;
 }
 
 export function NewOrderProductSheetEmptyState({
@@ -110,7 +123,7 @@ function NewOrderRetryState({
   message,
   onRetry,
 }: {
-  colors: ReturnType<typeof useNewOrderController>['colors'];
+  colors: NewOrderProductSheetEmptyStateController['colors'];
   message: string;
   onRetry: () => void;
 }) {

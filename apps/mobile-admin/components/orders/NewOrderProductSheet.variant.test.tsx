@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ChangeEvent, ComponentProps, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { LIGHT_COLORS } from '@/constants/theme';
 import { NewOrderProductSheet } from './NewOrderProductSheet';
 
 vi.mock('expo-router', () => ({
@@ -157,18 +158,9 @@ type ProductSheetRow = ProductSheetController['selectableProductRows'][number];
 function makeController(
   overrides: Partial<ProductSheetController> = {}
 ): ProductSheetController {
-  return {
+  const controller: ProductSheetController = {
     closeProductModal: vi.fn(),
-    colors: {
-      background: '#ffffff',
-      border: '#e2e8f0',
-      card: '#ffffff',
-      cardHover: '#f1f5f9',
-      primary: '#2563eb',
-      text: '#0f172a',
-      textMuted: '#94a3b8',
-      textSecondary: '#64748b',
-    },
+    colors: LIGHT_COLORS,
     fetchMoreProducts: vi.fn(),
     formatPrice: (amount: number) => `₦${amount}`,
     handleAddProduct: vi.fn(),
@@ -189,7 +181,9 @@ function makeController(
     setProductSearch: vi.fn(),
     showProductModal: true,
     ...overrides,
-  } as unknown as ProductSheetController;
+  };
+
+  return controller;
 }
 
 const selectedParentProduct = {

@@ -144,13 +144,9 @@ function parseKlumpVerifiedTransactionResponse(
     'checkout_transaction_id',
     'checkoutTransactionId',
   ]);
-  const amount = readNumber(sources, [
-    'original_amount',
-    'originalAmount',
-    'amount',
-    'total_amount',
-    'totalAmount',
-  ]);
+  const amount =
+    readNumber(sources, ['original_amount', 'originalAmount']) ??
+    readNumber(sources, ['amount', 'total_amount', 'totalAmount']);
 
   if (!(transactionId && amount)) {
     return null;

@@ -186,6 +186,42 @@ describe('verifyKlumpWebhookTransaction', () => {
     expect(result).toEqual({ success: true });
   });
 
+  it('prefers data original_amount over nested transaction amount in verification responses', async () => {
+    const fetchSpy = vi.fn(async () =>
+      Response.json({
+        data: {
+          currency: 'NGN',
+          is_live: true,
+          original_amount: '687250.00',
+          status: 'successful',
+          transaction: {
+            amount: '694122.50',
+            id: 'klump-txn-123',
+            merchant_reference: 'BAC-ABCD12345678',
+          },
+        },
+        state: 'success',
+      })
+    );
+
+    const result = await verifyKlumpWebhookTransaction({
+      details: {
+        ...webhookDetails,
+        amount: 687250,
+      },
+      fetcher: fetchSpy,
+      reference: 'BAC-ABCD12345678',
+      secretKey: 'klump-secret',
+      transaction: {
+        amount: '687250',
+        currency: 'NGN',
+        merchant_amount: 687250,
+      },
+    });
+
+    expect(result).toEqual({ success: true });
+  });
+
   it('does not treat a successful Klump lookup as a paid transaction', async () => {
     const fetchSpy = vi.fn(async () =>
       Response.json({
