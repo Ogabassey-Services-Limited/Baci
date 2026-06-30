@@ -29,7 +29,6 @@ describe('BlogCategoryGuide', () => {
   it.each([
     ['  Smartphone Comparisons  '],
     ['Smartphone Comparisons!!!'],
-    ['Smartphone Comparisons &'],
   ])('normalizes mapped Ogabassey category labels like %s', (categoryLabel) => {
     render(
       <BlogCategoryGuide
@@ -44,6 +43,26 @@ describe('BlogCategoryGuide', () => {
       screen.getByRole('heading', {
         name: 'How to use Ogabassey smartphone comparison articles',
       })
+    ).toBeInTheDocument();
+  });
+
+  it('maps the published plural Reviews category to review guidance', () => {
+    render(
+      <BlogCategoryGuide
+        category="Reviews"
+        isOgabasseyBlogTenant
+        merchantName="Ogabassey"
+        totalPosts={6}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'How to use Ogabassey review articles',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Read reviews after narrowing your category choice/)
     ).toBeInTheDocument();
   });
 

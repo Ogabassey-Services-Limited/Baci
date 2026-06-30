@@ -104,6 +104,29 @@ describe('TemplateBlogRenderer', () => {
     ).toHaveLength(2);
   });
 
+  it('renders category guide copy after the template blog component', () => {
+    render(
+      <TemplateBlogRenderer
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        BlogComponent={BlogComponent}
+        basePath="/ogabassey"
+        blogPosts={[]}
+        categories={[]}
+        categoryGuide={<section>Ogabassey review guide</section>}
+      />
+    );
+
+    const templatePostCount = screen.getByTestId('post-count');
+    const guide = screen.getByText('Ogabassey review guide');
+
+    expect(guide).toBeInTheDocument();
+    expect(
+      templatePostCount.compareDocumentPosition(guide) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
   it('passes an undefined search query through to the template component', () => {
     render(
       <TemplateBlogRenderer

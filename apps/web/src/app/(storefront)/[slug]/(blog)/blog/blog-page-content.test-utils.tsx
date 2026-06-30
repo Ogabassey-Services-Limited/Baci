@@ -22,6 +22,7 @@ interface MockDefaultBlogUiProps {
     }>;
   };
   categories: string[];
+  categoryGuide?: React.ReactNode;
   merchant: { business_name: string };
   posts: Array<{ featured?: boolean; slug: string; title: string }>;
   totalPosts: number;
@@ -39,6 +40,7 @@ interface MockTemplateBlogRendererProps {
   basePath?: string;
   blogPosts?: MockDefaultBlogUiProps['posts'];
   categories?: Array<{ name: string; slug: string }>;
+  categoryGuide?: React.ReactNode;
   category?: string;
   itemListSchema?: MockDefaultBlogUiProps['itemListSchema'];
   searchQuery?: string;
@@ -53,6 +55,7 @@ const hoistedMocks = vi.hoisted(() => ({
           {JSON.stringify(props.itemListSchema)}
         </script>
       ) : null}
+      {props.categoryGuide}
       <div>{props.merchant.business_name} blog</div>
     </>
   )),
@@ -330,6 +333,7 @@ export function resetBlogPageContentMocks() {
           {JSON.stringify(props.itemListSchema)}
         </script>
       ) : null}
+      {props.categoryGuide}
       <div>{props.merchant.business_name} blog</div>
     </>
   ));

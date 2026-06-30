@@ -110,6 +110,11 @@ describe('DefaultBlogUi', () => {
         breadcrumbSchema={BREADCRUMB_SCHEMA}
         basePath="/ogabassey"
         categories={['Smartphones']}
+        categoryGuide={
+          <section>
+            <h2>About Smartphones articles from Ogabassey</h2>
+          </section>
+        }
         category="Smartphones"
         merchant={{
           id: 'merchant-1',
@@ -142,7 +147,7 @@ describe('DefaultBlogUi', () => {
     );
   });
 
-  it('does not render category guide copy for searched category listings', () => {
+  it('does not render category guide copy when no category guide is provided', () => {
     render(
       <DefaultBlogUi
         blogSchema={BLOG_SCHEMA}
@@ -168,20 +173,25 @@ describe('DefaultBlogUi', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('uses the stable OgaBassey tenant slug for category guide selection', () => {
+  it('renders provided category guide copy inside the listing main content', () => {
     render(
       <DefaultBlogUi
         blogSchema={BLOG_SCHEMA}
         breadcrumbSchema={BREADCRUMB_SCHEMA}
         basePath="/ogabassey"
         categories={['Smartphone Comparisons']}
+        categoryGuide={
+          <section>
+            <h2>How to use Ogabassey smartphone comparison articles</h2>
+          </section>
+        }
         category="Smartphone Comparisons"
         merchant={{
           id: 'merchant-1',
           business_name: 'Renamed Storefront',
         }}
         posts={[]}
-        slug="ogabassey"
+        slug="renamed-store"
         totalPosts={3}
       />
     );
