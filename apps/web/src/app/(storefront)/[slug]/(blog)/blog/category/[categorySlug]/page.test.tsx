@@ -86,7 +86,7 @@ describe('blog category page', () => {
     ).resolves.toEqual({});
   });
 
-  it('never subscribes to request category search params when building the shell', async () => {
+  it('never subscribes to request category search params when building the static shell', async () => {
     const searchParams = new Promise<{ page?: string; search?: string }>(() => {
       // Intentionally unresolved; the canonical category shell must not read
       // request searchParams at all (it renders canonical page 1).
@@ -104,6 +104,47 @@ describe('blog category page', () => {
 
     expect(thenSpy).not.toHaveBeenCalled();
     expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('does not resolve non-static category search params before the Suspense content boundary renders', async () => {
+    const searchParams = new Promise<{ page?: string; search?: string }>(() => {
+      // Intentionally unresolved; this route shell must pass it through
+      // without subscribing to it outside the Suspense boundary.
+    });
+    const thenSpy = vi.spyOn(searchParams, 'then');
+
+    await BlogCategoryPage({
+      params: Promise.resolve({
+        slug: 'dynamic-store',
+        categorySlug: 'smartphones',
+      }),
+      searchParams,
+    });
+    await Promise.resolve();
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('does not wrap static OgaBassey category hubs in Suspense', async () => {
+    const searchParams = new Promise<{ page?: string; search?: string }>(() => {
+      // Intentionally unresolved; static category hubs should pass this through
+      // to BlogPageContent without Suspense subscribing at the route shell.
+    });
+    const thenSpy = vi.spyOn(searchParams, 'then');
+
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'smartphones',
+        }),
+        searchParams,
+      })
+    );
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText('Ogabassey blog')).toBeInTheDocument();
   });
 
   it('shows the category fallback while non-static clean category content is resolving', async () => {
