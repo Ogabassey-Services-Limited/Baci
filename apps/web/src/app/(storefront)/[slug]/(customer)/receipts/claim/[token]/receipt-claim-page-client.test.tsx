@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readReceiptClaimAppDownloadToken } from '@/lib/import-notifications/receipt-claim-app-download-storage';
 import ReceiptClaimPageClient from './receipt-claim-page-client';
 
 const mockPush = vi.fn();
@@ -102,6 +103,7 @@ describe('ReceiptClaimPageClient', () => {
     mockFetchWithCsrf.mockResolvedValue(
       createJsonResponse({ redirectPath: '/receipts', success: true })
     );
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -272,8 +274,11 @@ describe('ReceiptClaimPageClient', () => {
       );
     });
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+      expect(mockPush).toHaveBeenCalledWith(
+        '/ogabassey/receipts?receiptClaimed=1'
+      );
     });
+    expect(readReceiptClaimAppDownloadToken()).toBe('claim-token');
   });
 
   it('keeps the redemption request active after showing the claiming state', async () => {
@@ -303,7 +308,9 @@ describe('ReceiptClaimPageClient', () => {
     );
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/ogabassey/receipts');
+      expect(mockPush).toHaveBeenCalledWith(
+        '/ogabassey/receipts?receiptClaimed=1'
+      );
     });
   });
 

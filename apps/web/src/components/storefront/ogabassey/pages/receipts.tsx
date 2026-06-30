@@ -16,11 +16,12 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { ReceiptClaimAppDownloadBanner } from './receipt-claim-app-download-banner';
 
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 
@@ -286,6 +287,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
 
   // Derive merchant receipt data from context during render
   const m = merchantContext?.merchant;
+  const shouldShowOgabasseyAppBanner = m?.slug === 'ogabassey';
   const merchantReceiptData: ReceiptMerchant | null = m
     ? {
         business_name: m.business_name || null,
@@ -417,6 +419,12 @@ export const OgabasseyV2Receipts: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {shouldShowOgabasseyAppBanner ? (
+          <Suspense fallback={null}>
+            <ReceiptClaimAppDownloadBanner />
+          </Suspense>
+        ) : null}
 
         {filteredReceipts.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">

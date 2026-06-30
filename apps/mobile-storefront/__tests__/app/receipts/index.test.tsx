@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import ReceiptsScreen from '@/app/receipts';
 import type { ReceiptListItem } from '@/types/receipt';
 
@@ -22,6 +22,8 @@ type ViewProps = {
 const mockRedirect = jest.fn(({ href }: { href: string }) => (
   <View testID="receipts-redirect" accessibilityLabel={href} />
 ));
+const mockReplace = jest.fn();
+let mockSearchParams: { receiptClaimed?: string } = {};
 const mockScreenShell = jest.fn();
 const mockReceiptsView = jest.fn<(props: ViewProps) => ReactNode>();
 const mockPrefetchQuery = jest.fn();
@@ -32,6 +34,8 @@ const mockUseReceipts = jest.fn();
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => mockRedirect({ href }),
+  router: { replace: (...args: Parameters<typeof mockReplace>) => mockReplace(...args) },
+  useLocalSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
@@ -121,6 +125,8 @@ describe('ReceiptsScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchParams = {};
+    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     mockReceiptsView.mockImplementation(() => <View testID="receipts-view" />);
     mockUseRequireAuth.mockReturnValue({
       isLoading: false,
@@ -180,6 +186,66 @@ describe('ReceiptsScreen', () => {
       screen.getByLabelText('/auth/login?returnTo=%2Freceipts')
     ).toBeOnTheScreen();
     expect(mockScreenShell).not.toHaveBeenCalled();
+  });
+
+  it('shows a receipt-ready prompt after returning from a claim', () => {
+    mockSearchParams = { receiptClaimed: '1' };
+
+    render(<ReceiptsScreen />);
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Receipts ready',
+      'Your imported receipts are now available in Ogabassey.',
+      [
+        {
+          onPress: expect.any(Function),
+          text: 'View receipts',
+        },
+      ],
+      { cancelable: false }
+    );
+
+    const actions = (Alert.alert as jest.Mock).mock.calls[0]?.[2] as Array<{
+      onPress?: () => void;
+    }>;
+    actions[0]?.onPress?.();
+    expect(mockReplace).toHaveBeenCalledWith('/receipts');
+  });
+
+  it('shows the receipt-ready prompt once when auth state bounces', () => {
+    mockSearchParams = { receiptClaimed: '1' };
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: true,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+
+    const { rerender } = render(<ReceiptsScreen />);
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+    rerender(<ReceiptsScreen />);
+
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: true,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+    rerender(<ReceiptsScreen />);
+
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: null,
+      user: { id: 'customer-1' },
+    });
+    rerender(<ReceiptsScreen />);
+
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
   });
 
   it('passes loading, error, and network state through to the view', () => {

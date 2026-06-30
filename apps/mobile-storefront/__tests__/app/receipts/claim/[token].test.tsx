@@ -178,7 +178,7 @@ describe('ReceiptClaimScreen', () => {
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ['receipts'],
       });
-      expect(mockReplace).toHaveBeenCalledWith('/receipts');
+      expect(mockReplace).toHaveBeenCalledWith('/receipts?receiptClaimed=1');
       expect(mockInvalidateQueries.mock.invocationCallOrder[0]).toBeLessThan(
         mockReplace.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
       );
@@ -197,7 +197,45 @@ describe('ReceiptClaimScreen', () => {
     render(<ReceiptClaimScreen />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/receipts?claimed=1');
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/receipts?claimed=1&receiptClaimed=1'
+      );
+    });
+  });
+
+  it('replaces an existing receipt claim marker in the redirect path', async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({
+        success: true,
+        redirectPath: '/receipts?receiptClaimed=0&claimed=1',
+      }),
+      ok: true,
+    });
+
+    render(<ReceiptClaimScreen />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/receipts?receiptClaimed=1&claimed=1'
+      );
+    });
+  });
+
+  it('preserves redirect URL fragments when marking the receipt claim success', async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({
+        success: true,
+        redirectPath: '/receipts#latest',
+      }),
+      ok: true,
+    });
+
+    render(<ReceiptClaimScreen />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/receipts?receiptClaimed=1#latest'
+      );
     });
   });
 
@@ -210,7 +248,7 @@ describe('ReceiptClaimScreen', () => {
     render(<ReceiptClaimScreen />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/receipts');
+      expect(mockReplace).toHaveBeenCalledWith('/receipts?receiptClaimed=1');
     });
   });
 
@@ -248,6 +286,6 @@ describe('ReceiptClaimScreen', () => {
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
-    expect(mockReplace).toHaveBeenCalledWith('/receipts');
+    expect(mockReplace).toHaveBeenCalledWith('/receipts?receiptClaimed=1');
   });
 });
