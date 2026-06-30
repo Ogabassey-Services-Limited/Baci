@@ -14,6 +14,7 @@ export interface VtuTokenReceiptData extends MerchantRegistrationInfo {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
   providerLabel: string;
   customerIdentifier: string | null;
+  address?: string | null;
   voucherPin: string | null;
   phone_number?: string | null;
   merchantName: string;
@@ -43,6 +44,7 @@ export function generateVtuTokenReceiptEmail(
   const customerIdentifier = data.customerIdentifier
     ? escapeHtmlAttribute(data.customerIdentifier)
     : null;
+  const address = data.address ? escapeHtmlAttribute(data.address) : null;
   const contactPhone = data.phone_number
     ? escapeHtmlAttribute(data.phone_number)
     : null;
@@ -140,6 +142,7 @@ export function generateVtuTokenReceiptEmail(
           value: customerIdentifier,
         }
       : null,
+    address ? { label: 'Address', value: address } : null,
     contactPhone ? { label: 'Contact Phone', value: contactPhone } : null,
     { label: 'Reference Number', value: reference },
   ].filter((item): item is { label: string; value: string } => item !== null);

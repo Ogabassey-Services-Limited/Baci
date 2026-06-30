@@ -46,6 +46,7 @@ export function generateVtuTokenReceiptText(data: VtuTokenReceiptData): string {
   const customerIdentifier = data.customerIdentifier
     ? stripHtmlTags(data.customerIdentifier)
     : null;
+  const address = data.address ? stripHtmlTags(data.address) : null;
   const contactPhone = data.phone_number
     ? stripHtmlTags(data.phone_number)
     : null;
@@ -68,7 +69,7 @@ ${tokenLine}
 TRANSACTION DETAILS:
 - Biller/Service: ${providerLabel}
 - Product: ${typeLabel}
-${customerIdentifier ? `- ${customerIdLabel}: ${customerIdentifier}\n` : ''}${contactPhone ? `- Contact Phone: ${contactPhone}\n` : ''}- Total Amount: ${formatEmailMoney(data.amount, data.currency)}
+${customerIdentifier ? `- ${customerIdLabel}: ${customerIdentifier}\n` : ''}${address ? `- Address: ${address}\n` : ''}${contactPhone ? `- Contact Phone: ${contactPhone}\n` : ''}- Total Amount: ${formatEmailMoney(data.amount, data.currency)}
 - Reference Number: ${reference}
 
 If you have any questions, please contact ${merchantName} directly.

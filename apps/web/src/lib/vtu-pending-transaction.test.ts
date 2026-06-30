@@ -351,6 +351,44 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('writes the client-supplied customerAddress to metadata for Kuda-routed bills', async () => {
+    // Kuda non-telco path: no Monnify validation runs, so the client-supplied
+    // address is the only source and must still be persisted to metadata.
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'kuda' as const,
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'KUD-ELE-EKED-001',
+        customerIdentifier: '43901766923',
+        customerName: 'JANE METER-OWNER',
+        customerAddress: '5 Marina Road, Lagos',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ address: '5 Marina Road, Lagos' }),
+      })
+    );
+  });
+
   it('persists Monnify checkout provider fields in transaction metadata', async () => {
     mockGetMonnifyBillerProducts.mockResolvedValueOnce([
       {
@@ -510,6 +548,68 @@ describe('preparePendingVtuTransaction', () => {
           provider: 'monnify',
           validationReference: 'VAL-123',
           requireValidationRef: true,
+        }),
+      })
+    );
+  });
+
+  it('prefers the server-validated name and address over client-supplied fields', async () => {
+    mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+      {
+        amount: null,
+        billerCode: 'IKEDC',
+        categoryCode: 'ELECTRICITY',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: 100_000,
+        minAmount: 100,
+        name: 'Ikeja Prepaid',
+        productCode: 'IKEDC_PREPAID',
+      },
+    ]);
+    mockVerifyMonnifyBillCustomer.mockResolvedValueOnce({
+      verified: true,
+      message: 'success',
+      customerName: 'Meter Owner',
+      address: '5 Server-Validated Street',
+      requireValidationRef: true,
+      validationReference: 'VAL-123',
+    });
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'monnify' as const,
+        billerCode: 'IKEDC',
+        productCode: 'IKEDC_PREPAID',
+        customerIdentifier: '43901766923',
+        // Client sends the buyer's own name/address (e.g. web checkout) — the
+        // authoritative validate-customer result must win for both fields.
+        customerName: 'Buyer Profile Name',
+        customerAddress: 'Client-Supplied Address',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_name: 'Meter Owner',
+        metadata: expect.objectContaining({
+          address: '5 Server-Validated Street',
         }),
       })
     );

@@ -30,6 +30,7 @@ export interface UtilityPurchaseResult {
   cashback?: CashbackInfo;
   status?: UtilityPurchaseStatus;
   voucherPin?: string;
+  address?: string | null;
 }
 
 export const VALID_UTILITY_TYPES = [
@@ -47,6 +48,7 @@ interface BaseRouteRepeatParams {
   repeatBillItemIdentifier?: string;
   repeatCustomerIdentifier?: string;
   repeatCustomerName?: string;
+  repeatCustomerAddress?: string;
   repeatDataPlanCode?: string;
   repeatNetworkProvider?: string;
   repeatPhoneNumber?: string;

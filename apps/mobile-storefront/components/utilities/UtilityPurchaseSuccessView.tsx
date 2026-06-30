@@ -60,6 +60,7 @@ export function UtilityPurchaseSuccessView({
       <PurchaseSuccess
         type={type}
         amount={data.amount}
+        address={data.address}
         customerIdentifier={data.customerIdentifier}
         txReference={data.reference}
         cashback={data.cashback ?? null}

@@ -6,6 +6,7 @@ import type {
   UtilityRepeatRouteParams,
   UtilityRouteType,
 } from '@/lib/utility-repeat.types';
+
 export type {
   UtilityRepeatDefaults,
   UtilityRepeatRecipient,
@@ -125,6 +126,9 @@ function getDefaults(
     ...(transaction.customer_name && {
       customerName: transaction.customer_name,
     }),
+    ...(transaction.address && {
+      address: transaction.address,
+    }),
     ...(transaction.phone_number && {
       phoneNumber: transaction.phone_number,
     }),
@@ -153,6 +157,9 @@ function getRouteParams(
     }),
     ...(defaults.customerName && {
       repeatCustomerName: defaults.customerName,
+    }),
+    ...(defaults.address && {
+      repeatCustomerAddress: defaults.address,
     }),
     ...(defaults.dataPlanCode && { repeatDataPlanCode: defaults.dataPlanCode }),
     ...(defaults.networkProvider && {

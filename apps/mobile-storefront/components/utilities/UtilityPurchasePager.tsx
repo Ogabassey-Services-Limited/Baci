@@ -109,6 +109,7 @@ export function UtilityPurchasePager({
               quickRepeat.repeatDefaults.customerIdentifier
             }
             initialCustomerName={quickRepeat.repeatDefaults.customerName}
+            initialCustomerAddress={quickRepeat.repeatDefaults.address}
             isRepeatPaymentReady={
               currentType === 'tv' ? quickRepeat.isRepeatPaymentReady : false
             }
@@ -134,6 +135,7 @@ export function UtilityPurchasePager({
               quickRepeat.repeatDefaults.customerIdentifier
             }
             initialCustomerName={quickRepeat.repeatDefaults.customerName}
+            initialCustomerAddress={quickRepeat.repeatDefaults.address}
             isRepeatPaymentReady={
               currentType === 'power' ? quickRepeat.isRepeatPaymentReady : false
             }
@@ -159,6 +161,7 @@ export function UtilityPurchasePager({
               quickRepeat.repeatDefaults.customerIdentifier
             }
             initialCustomerName={quickRepeat.repeatDefaults.customerName}
+            initialCustomerAddress={quickRepeat.repeatDefaults.address}
             isRepeatPaymentReady={
               currentType === 'gaming'
                 ? quickRepeat.isRepeatPaymentReady

@@ -1,11 +1,11 @@
-import {
-  NETWORK_PROVIDERS,
-  type NetworkProviderId,
-} from '@/constants/network-providers';
 import type {
   RawRouteRepeatParams,
   UtilityPurchaseResult,
 } from '@/components/utilities/utility-purchase.types';
+import {
+  NETWORK_PROVIDERS,
+  type NetworkProviderId,
+} from '@/constants/network-providers';
 
 export interface UtilityRouteParams extends RawRouteRepeatParams {
   type: string;
@@ -39,6 +39,7 @@ const UTILITY_ROUTE_PARAM_KEYS = [
   'repeatBillItemIdentifier',
   'repeatCustomerIdentifier',
   'repeatCustomerName',
+  'repeatCustomerAddress',
   'repeatDataPlanCode',
   'repeatNetworkProvider',
   'repeatPhoneNumber',

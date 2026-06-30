@@ -27,6 +27,7 @@ type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 interface PurchaseSuccessProps {
   type: string;
   amount?: number;
+  address?: string | null;
   phoneNumber?: string;
   customerIdentifier?: string;
   txReference: string | null;
@@ -161,6 +162,7 @@ function getPurchasePresentation(status: PurchaseStatus): {
 export function PurchaseSuccess({
   type,
   amount,
+  address,
   phoneNumber,
   customerIdentifier,
   txReference,
@@ -248,6 +250,7 @@ export function PurchaseSuccess({
 
       {presentation.canShareReceipt && receiptStatus ? (
         <ReceiptShareButton
+          address={address ?? undefined}
           amount={amount}
           colors={colors}
           identifier={identifier}

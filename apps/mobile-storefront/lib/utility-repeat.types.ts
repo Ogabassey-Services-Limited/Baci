@@ -6,6 +6,7 @@ export interface UtilityRepeatRouteParams {
   repeatBillItemIdentifier?: string;
   repeatCustomerIdentifier?: string;
   repeatCustomerName?: string;
+  repeatCustomerAddress?: string;
   repeatDataPlanCode?: string;
   repeatNetworkProvider?: string;
   repeatPhoneNumber?: string;
@@ -19,6 +20,7 @@ export interface UtilityRepeatDefaults {
   billItemIdentifier?: string;
   customerIdentifier?: string;
   customerName?: string;
+  address?: string;
   dataPlanCode?: string;
   isVerified?: boolean;
   networkProvider?: string;
