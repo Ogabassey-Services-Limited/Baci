@@ -51,3 +51,29 @@ export function InsuranceValueRow({
     </View>
   );
 }
+
+/** Claim status row — renders nothing for a blank/placeholder claim label. */
+export function InsuranceClaimRow({
+  colors,
+  claimLabel,
+}: {
+  colors: OrderDetailsInsuranceCardColors;
+  claimLabel: string;
+}) {
+  if (!claimLabel) return null;
+  return (
+    <View style={styles.insuranceRow}>
+      <Text style={[styles.insuranceLabel, { color: colors.textSecondary }]}>
+        Claim
+      </Text>
+      <Text
+        style={[
+          styles.insuranceValue,
+          { color: colors.text, textTransform: 'capitalize' },
+        ]}
+      >
+        {claimLabel}
+      </Text>
+    </View>
+  );
+}

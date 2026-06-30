@@ -3,7 +3,12 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { resolveInsuranceCardActions } from './OrderDetailsInsuranceCard.actions';
 import {
+  resolveDisplayClaimLabel,
+  resolvePolicyStatusColors,
+} from './OrderDetailsInsuranceCard.presenters';
+import {
   InsuranceCardHeader,
+  InsuranceClaimRow,
   InsuranceValueRow,
 } from './OrderDetailsInsuranceCard.primitives';
 import { INSURANCE_COLORS, styles } from './OrderDetailsInsuranceCard.styles';
@@ -61,14 +66,7 @@ export function OrderDetailsInsuranceCard({
     );
   }
 
-  const policyStatusToken = insurancePolicy.status?.trim().toLowerCase();
-  const policyColors =
-    policyStatusToken === 'active'
-      ? INSURANCE_COLORS.active
-      : policyStatusToken === 'pending'
-        ? INSURANCE_COLORS.pending
-        : // expired / cancelled / other terminal states
-          INSURANCE_COLORS.inactive;
+  const policyColors = resolvePolicyStatusColors(insurancePolicy.status);
   const certificateUrl = insurancePolicy.certificate_url;
   // Pre-loss inspection ("Activate Protection") gates claims and can only
   // happen after delivery: show nothing actionable until delivered, then
@@ -104,19 +102,10 @@ export function OrderDetailsInsuranceCard({
     onFileClaimFallback?.();
   };
 
-  // Suppress bare placeholder claim states (the DB default `pending`, or `none`)
-  // so internal tokens never surface to customers; real stages/statuses render.
-  const claimStageLabel = insurancePolicy.claim_stage?.trim();
-  const claimStatusToken = insurancePolicy.claim_status?.trim().toLowerCase();
-  const hasRealClaimStatus =
-    !!claimStatusToken &&
-    claimStatusToken !== 'none' &&
-    claimStatusToken !== 'pending';
-  const claimLabel = (
-    claimStageLabel ||
-    (hasRealClaimStatus ? insurancePolicy.claim_status?.trim() : '') ||
-    ''
-  ).replace(/_/g, ' ');
+  const claimLabel = resolveDisplayClaimLabel(
+    insurancePolicy.claim_stage,
+    insurancePolicy.claim_status
+  );
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -165,23 +154,7 @@ export function OrderDetailsInsuranceCard({
             </Text>
           </View>
         </View>
-        {claimLabel && (
-          <View style={styles.insuranceRow}>
-            <Text
-              style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-            >
-              Claim
-            </Text>
-            <Text
-              style={[
-                styles.insuranceValue,
-                { color: colors.text, textTransform: 'capitalize' },
-              ]}
-            >
-              {claimLabel}
-            </Text>
-          </View>
-        )}
+        <InsuranceClaimRow colors={colors} claimLabel={claimLabel} />
         {insurancePolicy.claim_progress && (
           <Text
             style={[styles.insuranceProvider, { color: colors.textSecondary }]}
