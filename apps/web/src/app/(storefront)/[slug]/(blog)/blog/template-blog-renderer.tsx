@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import type { JsonLdScriptData } from '@/lib/json-ld-types';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
@@ -12,6 +12,7 @@ interface TemplateBlogRendererProps {
   basePath: string;
   blogPosts: BlogPostData[];
   categories: NonNullable<TemplateBlogPageProps['categories']>;
+  categoryGuide?: ReactNode;
   category?: string;
   searchQuery?: string;
 }
@@ -25,6 +26,7 @@ export function TemplateBlogRenderer({
   basePath,
   blogPosts,
   categories,
+  categoryGuide,
   category,
   searchQuery,
 }: TemplateBlogRendererProps) {
@@ -41,6 +43,9 @@ export function TemplateBlogRenderer({
         category={category}
         searchQuery={searchQuery}
       />
+      {categoryGuide && (
+        <div className="container mx-auto px-4 py-8">{categoryGuide}</div>
+      )}
     </>
   );
 }

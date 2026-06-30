@@ -106,6 +106,27 @@ describe('blog category page', () => {
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
+  it('does not wrap static OgaBassey category hubs in Suspense', async () => {
+    const searchParams = new Promise<{ page?: string; search?: string }>(() => {
+      // Intentionally unresolved; static category hubs should pass this through
+      // to BlogPageContent without Suspense subscribing at the route shell.
+    });
+    const thenSpy = vi.spyOn(searchParams, 'then');
+
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'smartphones',
+        }),
+        searchParams,
+      })
+    );
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText('Ogabassey blog')).toBeInTheDocument();
+  });
+
   it('shows the category fallback while non-static clean category content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
