@@ -71,8 +71,10 @@ export async function bookGiglShipment(
         body: JSON.stringify({
           SenderDetails: {
             SenderLocation: {
-              Latitude: request.sender.latitude ?? 6.5244,
-              Longitude: request.sender.longitude ?? 3.3792,
+              Latitude:
+                request.sender.latitude ?? senderStation?.Latitude ?? 6.5244,
+              Longitude:
+                request.sender.longitude ?? senderStation?.Longitude ?? 3.3792,
             },
             SenderName: request.sender.name,
             SenderPhoneNumber: request.sender.phone,

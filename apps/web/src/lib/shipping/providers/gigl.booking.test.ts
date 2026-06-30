@@ -1,4 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.hoisted(() => {
+  process.env.GIGL_BASE_URL =
+    'https://dev-thirdpartynode.theagilitysystems.com';
+  process.env.GIGL_EMAIL = 'test@example.com';
+  process.env.GIGL_PASSWORD = 'test-password';
+});
+
+import { GiglApiClient } from './gigl.auth';
+import { bookGiglShipment } from './gigl.booking';
+import { GiglStationsService } from './gigl.stations';
 import {
   baseUrl,
   bookingRequest,
@@ -8,12 +19,26 @@ import {
   stationsResponse,
 } from './gigl.test-helpers';
 
+function buildBookingHarness() {
+  const log = vi.fn();
+  const safeFetch = (
+    url: string,
+    options?: RequestInit & { timeout?: number }
+  ) => fetch(url, options);
+  const apiClient = new GiglApiClient({ safeFetch, log });
+  const stationsService = new GiglStationsService(apiClient);
+
+  return {
+    bookShipment: (request: typeof bookingRequest) =>
+      bookGiglShipment(apiClient, stationsService, { safeFetch, log }, request),
+  };
+}
+
 describe('GiglProvider booking requests', () => {
   beforeEach(() => {
     process.env.GIGL_BASE_URL = baseUrl;
     process.env.GIGL_EMAIL = 'test@example.com';
     process.env.GIGL_PASSWORD = 'test-password';
-    vi.resetModules();
   });
 
   afterEach(() => {
@@ -32,8 +57,7 @@ describe('GiglProvider booking requests', () => {
       .mockResolvedValueOnce(jsonResponse(stationsResponse))
       .mockResolvedValueOnce(jsonResponse(bookingResponse));
 
-    const { GiglProvider } = await import('./gigl');
-    const provider = new GiglProvider();
+    const provider = buildBookingHarness();
 
     const result = await provider.bookShipment(bookingRequest);
 
@@ -71,8 +95,7 @@ describe('GiglProvider booking requests', () => {
       .mockResolvedValueOnce(jsonResponse(stationsResponse))
       .mockResolvedValueOnce(jsonResponse(bookingResponse));
 
-    const { GiglProvider } = await import('./gigl');
-    const provider = new GiglProvider();
+    const provider = buildBookingHarness();
 
     await provider.bookShipment({
       ...bookingRequest,
@@ -85,6 +108,50 @@ describe('GiglProvider booking requests', () => {
     expect(bookingPayload.ShipmentDetails.VehicleType).toBe(2);
   });
 
+  it('uses the resolved sender station coordinates when sender coordinates are missing', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const [lagosStation, ...otherStations] = stationsResponse.data.data;
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...stationsResponse,
+          data: {
+            ...stationsResponse.data,
+            data: [
+              {
+                ...lagosStation,
+                Latitude: 6.6001,
+                Longitude: 3.5001,
+              },
+              ...otherStations,
+            ],
+          },
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse(bookingResponse));
+
+    const provider = buildBookingHarness();
+
+    await provider.bookShipment({
+      ...bookingRequest,
+      sender: {
+        ...bookingRequest.sender,
+        latitude: undefined,
+        longitude: undefined,
+      },
+    });
+
+    const bookingPayload = JSON.parse(
+      String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
+    );
+    expect(bookingPayload.SenderDetails.SenderLocation).toEqual({
+      Latitude: 6.6001,
+      Longitude: 3.5001,
+    });
+  });
+
   it('recomputes heavy legacy bookings with the van vehicle type', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -93,8 +160,7 @@ describe('GiglProvider booking requests', () => {
       .mockResolvedValueOnce(jsonResponse(stationsResponse))
       .mockResolvedValueOnce(jsonResponse(bookingResponse));
 
-    const { GiglProvider } = await import('./gigl');
-    const provider = new GiglProvider();
+    const provider = buildBookingHarness();
 
     await provider.bookShipment({
       ...bookingRequest,
@@ -115,8 +181,7 @@ describe('GiglProvider booking requests', () => {
       .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
       .mockResolvedValueOnce(jsonResponse(stationsResponse));
 
-    const { GiglProvider } = await import('./gigl');
-    const provider = new GiglProvider();
+    const provider = buildBookingHarness();
 
     await expect(
       provider.bookShipment({

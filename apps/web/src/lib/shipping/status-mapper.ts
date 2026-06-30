@@ -69,7 +69,10 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
 
 export function mapGiglStatus(status: string): NormalizedShipmentStatus {
   const normalized = status.trim();
-  const screamingSnake = normalized.replace(/[\s-]+/g, '_').toUpperCase();
+  const screamingSnake = normalized
+    .replace(/[^a-z0-9]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
   return (
     GIGL_STATUS_MAP[normalized] || GIGL_STATUS_MAP[screamingSnake] || 'pending'
   );

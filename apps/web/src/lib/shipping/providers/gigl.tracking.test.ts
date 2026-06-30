@@ -64,7 +64,11 @@ describe('GiglProvider tracking requests', () => {
       status: 'delivered',
       carrierName: 'GIG Logistics',
     });
+    expect(tracking.actualDelivery).toEqual(
+      new Date('2026-06-27T08:00:00.000Z')
+    );
     expect(tracking.events[0]).toMatchObject({
+      status: 'delivered',
       description: 'Delivered to receiver',
       location: 'Port Harcourt',
       rawStatus: 'Shipment delivered',
@@ -117,6 +121,73 @@ describe('GiglProvider tracking requests', () => {
       'Shipment delivered',
       'Shipment in transit',
     ]);
+  });
+
+  it('rejects non-OK tracking responses', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponse))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Service unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.trackShipment('GIGL123')).rejects.toThrow(
+      'Failed to track GIGL shipment'
+    );
+  });
+
+  it('rejects unsuccessful tracking envelopes', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            status: 503,
+            message: 'Provider unavailable',
+            data: null,
+          },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.trackShipment('GIGL123')).rejects.toThrow(
+      'Invalid GIGL tracking response'
+    );
+  });
+
+  it('rejects empty tracking results', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponse))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            status: 200,
+            data: [],
+          },
+        })
+      );
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.trackShipment('GIGL123')).rejects.toThrow(
+      'Shipment not found'
+    );
   });
 
   it('refreshes tracking tokens rejected inside successful envelopes', async () => {

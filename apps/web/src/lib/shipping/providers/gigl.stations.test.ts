@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   baseUrl,
+  failedStationsEnvelope,
   jsonResponse,
   loginResponseWithoutCustomerType,
   stationsResponse,
@@ -43,6 +44,25 @@ describe('GIGL station lookup', () => {
       ])
     );
     await expect(provider.getLocations()).resolves.toHaveLength(2);
+    await expect(provider.getLocations('GH')).resolves.toHaveLength(2);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects failed station envelopes without poisoning the success path', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockResolvedValueOnce(jsonResponse(failedStationsEnvelope))
+      .mockResolvedValueOnce(jsonResponse(stationsResponse));
+
+    const { GiglProvider } = await import('./gigl');
+    const provider = new GiglProvider();
+
+    await expect(provider.getLocations()).rejects.toThrow(
+      'Invalid GIGL stations response'
+    );
+    await expect(provider.getLocations()).resolves.toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

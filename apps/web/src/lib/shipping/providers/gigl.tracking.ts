@@ -41,7 +41,7 @@ export async function trackGiglShipment(
   const shipment = trackingData[0];
   const events: TrackingEvent[] = (shipment.MobileShipmentTrackings || []).map(
     (tracking) => ({
-      status: tracking.Status,
+      status: mapGiglStatus(tracking.Status),
       description: tracking.ScanStatusReason || tracking.Status,
       location: tracking.DepartureServiceCentre?.Name,
       timestamp: new Date(tracking.DateTime),
@@ -55,12 +55,15 @@ export async function trackGiglShipment(
   const status = latestEvent
     ? mapGiglStatus(latestEvent.rawStatus || '')
     : 'pending';
+  const actualDelivery =
+    status === 'delivered' && latestEvent ? latestEvent.timestamp : undefined;
 
   return {
     provider: 'GIGL',
     trackingNumber,
     status,
     carrierName: 'GIG Logistics',
+    actualDelivery,
     events: sortedEvents,
     isStationPickup: shipment.PickupOptions === PickupOptions.ServiceCentre,
   };

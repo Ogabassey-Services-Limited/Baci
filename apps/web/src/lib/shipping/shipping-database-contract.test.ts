@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+const currentDir = dirname(fileURLToPath(import.meta.url));
 const baselineMigration = readFileSync(
   resolve(
-    process.cwd(),
-    '../../supabase/migrations/20260418000000_baseline.sql'
+    currentDir,
+    '../../../../../supabase/migrations/20260418000000_baseline.sql'
   ),
   'utf8'
 );

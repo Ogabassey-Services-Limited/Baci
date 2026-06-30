@@ -194,4 +194,17 @@ describe('POST /api/shipping/book', () => {
       })
     );
   });
+
+  it('returns 403 without booking when the merchant cannot fulfill orders', async () => {
+    mockHasPermission.mockReturnValue(false);
+    const { POST } = await import('./route');
+
+    const response = await POST(buildBookingRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Forbidden' });
+    expect(mockBookShipment).not.toHaveBeenCalled();
+    expect(shipmentInsertPayloads).toEqual([]);
+  });
 });
