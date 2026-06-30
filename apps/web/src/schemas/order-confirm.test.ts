@@ -83,6 +83,21 @@ describe('deviceInsuranceDetailsSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts an optional itemId and rejects a blank one', () => {
+    const withItem = deviceInsuranceDetailsSchema.safeParse({
+      ...valid,
+      itemId: 'item-2',
+    });
+    expect(withItem.success).toBe(true);
+    if (withItem.success) {
+      expect(withItem.data.itemId).toBe('item-2');
+    }
+    // present-but-blank is rejected (min(1) after trim).
+    expect(
+      deviceInsuranceDetailsSchema.safeParse({ ...valid, itemId: '  ' }).success
+    ).toBe(false);
+  });
 });
 
 describe('confirmOrderBodySchema', () => {

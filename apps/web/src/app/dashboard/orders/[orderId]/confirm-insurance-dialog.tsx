@@ -154,6 +154,9 @@ export default function ConfirmInsuranceDialog({
         // Insurance fields
         imei,
         serialNumber,
+        // Bind to the same item these details describe so the service insures
+        // this SKU, not whichever order_items row the DB returns first.
+        itemId: assuranceItems[0]?.id,
         deviceColor: 'Black', // Default color, TODO: extract from product variant
         deviceModel: assuranceItems[0]?.name || 'Unknown Device',
         deviceMake: 'Generic', // TODO: Extract from product name

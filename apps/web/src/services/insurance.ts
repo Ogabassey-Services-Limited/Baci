@@ -27,6 +27,10 @@ export interface DeviceInsuranceDetails {
     about: string; // URL
   };
   customerPhoto?: string;
+  // The order item the merchant entered these device details for. Binds the
+  // policy to a deterministic SKU instead of whichever order_items row the DB
+  // returns first.
+  itemId?: string;
   // Real policyholder KYC — collected at confirmation so we stop sending
   // hardcoded placeholder values to the insurer.
   gender: 'Male' | 'Female';
@@ -87,10 +91,21 @@ export async function purchaseOrderInsurance(
     throw new Error(`Order not found: ${orderError?.message}`);
   }
 
-  // 2. Filter for items that need assurance
-  const insuredItems = typedOrder.order_items.filter(
-    (item: DatabaseOrderItem) => item.has_assurance
-  );
+  // 2. Filter for items that need assurance, then bind to a DETERMINISTIC item:
+  // the merchant-selected `itemId` first, otherwise a stable order by id. The
+  // embedded order_items fetch has no inherent ordering, so without this the
+  // policy could be purchased for a different SKU than the device details the
+  // merchant entered (and the intended item wrongly flagged as uninsured).
+  const selectedItemId = deviceDetails.itemId;
+  const insuredItems = typedOrder.order_items
+    .filter((item: DatabaseOrderItem) => item.has_assurance)
+    .sort((a, b) => {
+      if (selectedItemId) {
+        if (a.id === selectedItemId) return -1;
+        if (b.id === selectedItemId) return 1;
+      }
+      return a.id.localeCompare(b.id);
+    });
 
   if (insuredItems.length === 0) {
     return {

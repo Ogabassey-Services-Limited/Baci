@@ -58,6 +58,9 @@ export const deviceInsuranceDetailsSchema = z.object({
     about: z.url(),
   }),
   customerPhoto: z.url().optional(),
+  // Order item these details belong to, so the policy is bound to the intended
+  // SKU rather than an arbitrarily-ordered order_items row.
+  itemId: z.string().trim().min(1).optional(),
   // Real policyholder KYC is required for insurance — no placeholder data may
   // reach the insurer.
   gender: z.enum(['Male', 'Female']),

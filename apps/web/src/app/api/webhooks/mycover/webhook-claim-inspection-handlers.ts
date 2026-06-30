@@ -99,11 +99,11 @@ export async function handleClaimUpdate(
     claim_stage: stage,
     updated_at: new Date().toISOString(),
   };
+  // Only write progress/comment when the payload carries them — a claim.updated
+  // that omits these must NOT wipe previously-stored details (matches
+  // syncClaimsStatus and the documented webhook contract).
   if (claimProgress !== undefined) updateData.claim_progress = claimProgress;
-  // Always (re)write the comment from the current payload so a stale decline /
-  // rejection reason from an earlier event can't linger next to a now-approved
-  // claim. A payload without a comment clears it.
-  updateData.claim_comment = claimComment ?? null;
+  if (claimComment !== undefined) updateData.claim_comment = claimComment;
   const { claim_link: claimLink } = getHostedFlowLinks(data);
   if (claimLink) updateData.claim_link = claimLink;
   // Claim webhooks may carry the claim's primary id as `data.id` when

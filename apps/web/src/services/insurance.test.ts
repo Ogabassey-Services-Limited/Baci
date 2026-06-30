@@ -240,6 +240,27 @@ describe('purchaseOrderInsurance', () => {
   });
 
   describe('multi-unit / multi-item handling', () => {
+    it('insures the merchant-selected item (deviceDetails.itemId), not the DB-first row', async () => {
+      orderSupabaseMock(mockOrderWithInsurance);
+
+      const result = await purchaseOrderInsurance(VALID_ORDER_ID, {
+        ...mockDeviceDetails,
+        itemId: 'item-2',
+      });
+
+      // item-2 (MacBook, 1,200,000) is insured even though item-1 is listed
+      // first; item-1 is the one flagged as an uninsured extra.
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
+        expect.objectContaining({ value: 1200000 })
+      );
+      expect(result.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ success: true, itemId: 'item-2' }),
+          expect.objectContaining({ success: false, itemId: 'item-1' }),
+        ])
+      );
+    });
+
     it('flags uninsured extra units when an assured line has quantity > 1', async () => {
       orderSupabaseMock({
         ...mockOrderWithInsurance,

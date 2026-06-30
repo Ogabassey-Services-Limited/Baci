@@ -136,6 +136,8 @@ describe('ConfirmInsuranceDialog', () => {
         },
         gender: 'Male',
         imei: '123456789012345',
+        // Binds the policy to the assured item these details describe.
+        itemId: 'item-1',
         serialNumber: 'SN-123',
       })
     );

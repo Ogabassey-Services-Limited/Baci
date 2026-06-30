@@ -123,7 +123,7 @@ describe('MyCover claim and inspection webhook handlers', () => {
     });
   });
 
-  it('clears a stale claim comment when the new payload omits one', async () => {
+  it('does not wipe an omitted claim comment on a status-only update', async () => {
     const { supabase, calls } = makeUpdateCapture({
       data: { id: 'pol-row-1' },
       error: null,
@@ -134,12 +134,9 @@ describe('MyCover claim and inspection webhook handlers', () => {
       data: { policy_id: 'pol-1', essential: { status: 'Approved' } },
     });
 
-    // Explicitly nulled, not left untouched, so an earlier decline reason can't
-    // render next to the approved claim.
-    expect(calls.update).toMatchObject({
-      claim_status: 'approved',
-      claim_comment: null,
-    });
+    // Omitted comment is preserved (not set to null), matching syncClaimsStatus.
+    expect(calls.update).not.toHaveProperty('claim_comment');
+    expect(calls.update).toMatchObject({ claim_status: 'approved' });
   });
 
   it('falls back to data.id for claim_id when claim_id is absent', async () => {
