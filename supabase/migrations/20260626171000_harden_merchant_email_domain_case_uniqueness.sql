@@ -16,6 +16,13 @@ begin
 end;
 $$;
 
+-- The original `merchant_email_domains` table shipped this uniqueness as a
+-- UNIQUE *constraint* on prod (drift vs the committed `create unique index`),
+-- so a bare `drop index` fails with 2BP01 ("constraint requires it"). Drop the
+-- constraint first (which removes its backing index); on a fresh replay where
+-- it is a bare index the drop-constraint is a no-op and the drop-index applies.
+alter table public.merchant_email_domains
+  drop constraint if exists merchant_email_domains_domain_key;
 drop index if exists public.merchant_email_domains_domain_key;
 
 update public.merchant_email_domains
