@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import '@/app/(storefront)/storefront-home-critical.css';
-import '@/app/(storefront)/storefront-full.css';
 import { OgabasseyStaticHomePageContent } from '@/app/(storefront)/ogabassey/ogabassey-static-home-page-content';
 import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import {
@@ -18,7 +17,6 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { StorefrontPageContent } from '../storefront-page-content';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
 
@@ -34,6 +32,16 @@ function getOgabasseyHomePathPrefix(slug: string): string {
   return slug.toLowerCase() === OGABASSEY_DOMAIN_IDENTIFIER
     ? ''
     : `/${OGABASSEY_TEMPLATE_ID}`;
+}
+
+async function renderGenericStorefrontHomePage(
+  params: Promise<{ slug: string }>
+) {
+  const { GenericStorefrontHomePage } = await import(
+    './generic-storefront-home-page'
+  );
+
+  return <GenericStorefrontHomePage params={params} />;
 }
 
 function buildOgabasseyStaticHomeMetadata(): Metadata {
@@ -224,6 +232,6 @@ export default async function StorefrontPage({
       />
     </>
   ) : (
-    <StorefrontPageContent params={Promise.resolve({ slug })} />
+    renderGenericStorefrontHomePage(params)
   );
 }

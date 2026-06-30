@@ -5,6 +5,7 @@ import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense, use } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
+import { OgabasseyHomeShellFallback } from '@/app/(storefront)/ogabassey/ogabassey-home-shell-fallback';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -304,6 +305,14 @@ function resolveFallbackAppearanceForSlug(slug: string): StorefrontAppearance {
     : DEFAULT_STOREFRONT_APPEARANCE;
 }
 
+function getDefaultLoadingFallback(appearance: StorefrontAppearance) {
+  return appearance.variant === 'ogabassey' ? (
+    <OgabasseyHomeShellFallback />
+  ) : (
+    <ShellChromeLoading />
+  );
+}
+
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -381,7 +390,9 @@ function StorefrontLayoutShell(props: {
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
   // routes that intentionally need no static visual shell.
   const fallbackContent =
-    loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
+    loadingFallback === undefined
+      ? getDefaultLoadingFallback(fallbackAppearance)
+      : loadingFallback;
   const staticLoadingFallback = fallbackContent ? (
     <StorefrontThemeFrame appearance={fallbackAppearance} scopeDocument={false}>
       {fallbackContent}

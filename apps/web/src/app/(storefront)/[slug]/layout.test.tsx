@@ -16,6 +16,13 @@ const mockIsValidMerchantIdentifier = vi.hoisted(() =>
   vi.fn<(value: string) => boolean>(() => true)
 );
 const mockWebMcp = vi.hoisted(() => vi.fn(() => null));
+const mockOgabasseyHomeShellFallback = vi.hoisted(() =>
+  vi.fn(() => (
+    <div data-testid="ogabassey-home-shell-fallback">
+      OgaBassey home shell fallback
+    </div>
+  ))
+);
 const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
   vi.fn(
     ({
@@ -42,6 +49,10 @@ vi.mock('./storefront-shell-snapshot', () => ({
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
   OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
+}));
+
+vi.mock('@/app/(storefront)/ogabassey/ogabassey-home-shell-fallback', () => ({
+  OgabasseyHomeShellFallback: () => mockOgabasseyHomeShellFallback(),
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -201,6 +212,7 @@ describe('storefront layout', () => {
     mockIsValidMerchantIdentifier.mockReset();
     mockIsValidMerchantIdentifier.mockReturnValue(true);
     mockWebMcp.mockClear();
+    mockOgabasseyHomeShellFallback.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderAppearances.length = 0;
@@ -351,6 +363,7 @@ describe('storefront layout', () => {
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })
     ).not.toBeInTheDocument();
+    expect(mockOgabasseyHomeShellFallback).not.toHaveBeenCalled();
 
     await act(async () => {
       deferredParams.resolve({ slug: 'generic-store' });
@@ -358,6 +371,7 @@ describe('storefront layout', () => {
     });
 
     await screen.findByRole('status', { name: /loading storefront chrome/i });
+    expect(mockOgabasseyHomeShellFallback).not.toHaveBeenCalled();
 
     expect(themeProviderAppearances).toEqual([
       { mode: 'light', variant: 'default' },
@@ -402,7 +416,7 @@ describe('storefront layout', () => {
       await Promise.resolve();
     });
 
-    await screen.findByRole('status', { name: /loading storefront chrome/i });
+    await screen.findByTestId('ogabassey-home-shell-fallback');
 
     expect(themeProviderAppearances).toEqual([
       { mode: 'system', variant: 'ogabassey' },
@@ -415,8 +429,9 @@ describe('storefront layout', () => {
     expect(staticShell).toHaveClass('storefront-variant-ogabassey');
     expect(staticShell).toHaveClass('storefront-mode-system');
     expect(
-      screen.getByRole('status', { name: /loading storefront chrome/i })
+      screen.getByTestId('ogabassey-home-shell-fallback')
     ).toBeInTheDocument();
+    expect(mockOgabasseyHomeShellFallback).toHaveBeenCalledOnce();
 
     unmount();
   });
@@ -449,6 +464,7 @@ describe('storefront layout', () => {
     ]);
     expect(themeProviderDocumentScopes).toEqual([false]);
     expect(screen.getByText('Loading route shell')).toBeInTheDocument();
+    expect(mockOgabasseyHomeShellFallback).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })
     ).not.toBeInTheDocument();

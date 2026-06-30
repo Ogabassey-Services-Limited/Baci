@@ -58,18 +58,19 @@ describe('OgaBassey dynamic homepage routing', () => {
     mockStorefrontPageContent.mockClear();
   });
 
-  it('loads the home CSS contracts from the dynamic route leaf', () => {
+  it('keeps the broad storefront stylesheet out of the OgaBassey route import', () => {
     expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
-    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
+    expect(mockFullStorefrontCssImport).not.toHaveBeenCalled();
   });
 
-  it('renders other storefronts through the shared page content path', async () => {
+  it('renders other storefronts through the shared page content path with full storefront CSS', async () => {
     render(
       await StorefrontPage({
         params: Promise.resolve({ slug: 'another-shop' }),
       })
     );
 
+    expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
     expect(
       screen.getByText('Shared storefront page content')
     ).toBeInTheDocument();
