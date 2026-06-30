@@ -37,6 +37,7 @@ export function useBillFormController({
   initialBillItemIdentifier,
   initialCustomerIdentifier,
   initialCustomerName,
+  initialCustomerAddress,
   isRepeatPaymentReady = false,
   type,
   onSuccess,
@@ -57,7 +58,7 @@ export function useBillFormController({
   >(initialCustomerName ?? null);
   const [verifiedCustomerAddress, setVerifiedCustomerAddress] = useState<
     string | null
-  >(null);
+  >(initialCustomerAddress ?? null);
   const [verifiedValidationReference, setVerifiedValidationReference] =
     useState<string | null>(null);
   const [verifiedRequireValidationRef, setVerifiedRequireValidationRef] =

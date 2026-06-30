@@ -389,9 +389,11 @@ describe('createBillFormPurchaseHandler', () => {
         amount: 1000,
         reference: 'WAL-ADDR',
       });
+      const onSuccess = jest.fn();
       const handlePurchase = createValidHandler({
         amount: '1000',
         numericAmount: 1000,
+        onSuccess,
         verifiedCustomerName: 'JANE METER-OWNER',
         verifiedCustomerAddress: '12 Marina Road, Lagos',
         payment: {
@@ -413,9 +415,14 @@ describe('createBillFormPurchaseHandler', () => {
 
       await handlePurchase();
 
+      // Sent to the API…
       expect(mockChargeWalletForVtu.mock.calls[0]?.[0]).toMatchObject({
         customerAddress: '12 Marina Road, Lagos',
       });
+      // …and attached to the success result for the immediate in-app receipt.
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ address: '12 Marina Road, Lagos' })
+      );
     });
 
     it('keeps the idempotency key on a 5xx server error (server may have persisted state)', async () => {

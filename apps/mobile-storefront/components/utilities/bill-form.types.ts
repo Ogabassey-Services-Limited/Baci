@@ -27,6 +27,11 @@ export interface BillFormResultData {
    */
   readonly voucherPin?: string;
   readonly cashback?: Cashback;
+  /**
+   * Verified meter/customer address (electricity), so the immediate in-app
+   * receipt can show it without waiting for a history reload.
+   */
+  readonly address?: string | null;
 }
 
 export interface BillFormProps {
@@ -46,6 +51,11 @@ export interface BillFormProps {
    * verified state is restored from history.
    */
   initialCustomerName?: string;
+  /**
+   * Verified meter address from the previous successful purchase. Seeds the
+   * verified-address state so a repeated bill re-attaches the meter address.
+   */
+  initialCustomerAddress?: string;
   isRepeatPaymentReady?: boolean;
   recentRecipients?: UtilityRepeatRecipient[];
   onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;

@@ -2,9 +2,9 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
-import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
+import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import {
   buildReceiptMessage,
   buildUtilityReceiptHtml,
@@ -23,6 +23,7 @@ export type UtilityReceiptType =
 
 interface ReceiptShareButtonProps {
   amount?: number;
+  address?: string | null;
   colors: typeof Colors.light;
   identifier: string;
   status: 'processing' | 'successful';
@@ -35,6 +36,7 @@ interface ReceiptShareButtonProps {
 
 export default function ReceiptShareButton({
   amount,
+  address,
   colors,
   identifier,
   status,
@@ -57,6 +59,7 @@ export default function ReceiptShareButton({
     const isAirtimeLike = type === 'airtime' || type === 'data';
     setReceiptData({
       amount,
+      address: address ?? undefined,
       customerIdentifier: identifier,
       customerName: customerName ?? undefined,
       // No reliable purchase timestamp on the success screen — omit rather than
