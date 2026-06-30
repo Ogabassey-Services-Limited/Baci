@@ -135,6 +135,32 @@ describe('compare index discovery', () => {
     });
   });
 
+  it('can stop category discovery after the total link limit is satisfied', async () => {
+    const categories = Array.from({ length: 6 }, (_, index) => ({
+      name: `Category ${index}`,
+      slug: `category-${index}`,
+    }));
+    const getCategoryPageData = vi.fn(async () => ({
+      isCollection: false,
+      isInactiveCategory: false,
+      products: makeProducts(),
+    }));
+
+    const sections = await buildCompareIndexSections({
+      categories,
+      concurrency: 2,
+      getCategoryPageData,
+      linksPerCategoryLimit: 1,
+      stopWhenTotalLinkLimitReached: true,
+      storeUrl: 'https://store.test',
+      totalLinkLimit: 1,
+    });
+
+    expect(getCategoryPageData).toHaveBeenCalledTimes(2);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.links).toHaveLength(1);
+  });
+
   it('enforces the configured product cap even when category data returns extra rows', async () => {
     mockBuildCompareDiscoveryLinks.mockImplementation(
       ({

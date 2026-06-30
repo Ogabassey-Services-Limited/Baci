@@ -39,6 +39,7 @@ interface BuildCompareIndexSectionsInput {
   pathPrefix?: string;
   productLimit?: number;
   storeUrl: string;
+  stopWhenTotalLinkLimitReached?: boolean;
   totalLinkLimit?: number;
 }
 
@@ -90,6 +91,70 @@ function capCompareIndexSections(
   return cappedSections;
 }
 
+function countSectionLinks(sections: CompareIndexSection[]) {
+  return sections.reduce((total, section) => total + section.links.length, 0);
+}
+
+async function buildCompareIndexSection(input: {
+  category: ReturnType<typeof buildCanonicalCompareCategories>[number];
+  getCategoryPageData: BuildCompareIndexSectionsInput['getCategoryPageData'];
+  linksPerCategoryLimit: number;
+  pathPrefix: string;
+  productLimit: number;
+  storeUrl: string;
+}) {
+  const { category } = input;
+  const { categorySlug } = category;
+  let categoryData: CompareIndexCategoryPageData | null | undefined;
+
+  try {
+    categoryData = await input.getCategoryPageData(
+      categorySlug,
+      0,
+      input.productLimit
+    );
+  } catch {
+    return null;
+  }
+
+  if (
+    !categoryData ||
+    categoryData.isCollection ||
+    categoryData.isInactiveCategory
+  ) {
+    return null;
+  }
+
+  const products = (categoryData.products ?? [])
+    .filter(isRawDbProductRecord)
+    .slice(0, input.productLimit)
+    .map((product) => normalizeCompareProduct(product, categorySlug));
+  const categoryName =
+    categoryData.fallbackName || category.name || categorySlug;
+  const links = buildCompareDiscoveryLinks({
+    storeUrl: input.storeUrl,
+    categorySlug,
+    categoryName,
+    includeBrandCompareLinks: false,
+    products,
+  })
+    .slice(0, input.linksPerCategoryLimit)
+    .map((link) => ({
+      href: toRequestRelativeHref(link.href, input.storeUrl, input.pathPrefix),
+      label: link.label,
+    }));
+
+  if (links.length === 0) {
+    return null;
+  }
+
+  return {
+    categoryName,
+    categorySlug,
+    links,
+  } satisfies CompareIndexSection;
+}
+
 export async function buildCompareIndexSections({
   categories,
   categoryLimit = COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT,
@@ -99,67 +164,72 @@ export async function buildCompareIndexSections({
   pathPrefix = '',
   productLimit = COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT,
   storeUrl,
+  stopWhenTotalLinkLimitReached = false,
   totalLinkLimit = COMPARE_INDEX_TOTAL_LINK_LIMIT,
 }: BuildCompareIndexSectionsInput) {
   const canonicalCategories = buildCanonicalCompareCategories(categories).slice(
     0,
     categoryLimit
   );
+  const sectionInput = {
+    getCategoryPageData,
+    linksPerCategoryLimit,
+    pathPrefix,
+    productLimit,
+    storeUrl,
+  };
+
+  if (stopWhenTotalLinkLimitReached) {
+    const populatedSections: CompareIndexSection[] = [];
+    const batchSize = Math.min(
+      Math.max(1, concurrency),
+      canonicalCategories.length
+    );
+
+    for (
+      let index = 0;
+      index < canonicalCategories.length &&
+      countSectionLinks(populatedSections) < totalLinkLimit;
+      index += batchSize
+    ) {
+      const batch = canonicalCategories.slice(index, index + batchSize);
+      const batchSections = await Promise.all(
+        batch.map((category) =>
+          buildCompareIndexSection({
+            ...sectionInput,
+            category,
+          })
+        )
+      );
+
+      populatedSections.push(
+        ...batchSections.filter(
+          (section): section is CompareIndexSection => section !== null
+        )
+      );
+    }
+
+    return capCompareIndexSections(
+      populatedSections.sort(sortCompareSections),
+      totalLinkLimit
+    );
+  }
+
   const sections = await mapWithConcurrency(
     canonicalCategories,
     concurrency,
-    async (category) => {
-      const { categorySlug } = category;
-      let categoryData: CompareIndexCategoryPageData | null | undefined;
-
-      try {
-        categoryData = await getCategoryPageData(categorySlug, 0, productLimit);
-      } catch {
-        return null;
-      }
-
-      if (
-        !categoryData ||
-        categoryData.isCollection ||
-        categoryData.isInactiveCategory
-      ) {
-        return null;
-      }
-
-      const products = (categoryData.products ?? [])
-        .filter(isRawDbProductRecord)
-        .slice(0, productLimit)
-        .map((product) => normalizeCompareProduct(product, categorySlug));
-      const categoryName =
-        categoryData.fallbackName || category.name || categorySlug;
-      const links = buildCompareDiscoveryLinks({
-        storeUrl,
-        categorySlug,
-        categoryName,
-        includeBrandCompareLinks: false,
-        products,
+    async (category) =>
+      buildCompareIndexSection({
+        ...sectionInput,
+        category,
       })
-        .slice(0, linksPerCategoryLimit)
-        .map((link) => ({
-          href: toRequestRelativeHref(link.href, storeUrl, pathPrefix),
-          label: link.label,
-        }));
-
-      if (links.length === 0) {
-        return null;
-      }
-
-      return {
-        categoryName,
-        categorySlug,
-        links,
-      } satisfies CompareIndexSection;
-    }
+  );
+  const populatedSections = sections.filter(
+    (section): section is CompareIndexSection => section !== null
   );
 
-  const populatedSections = sections
-    .filter((section): section is CompareIndexSection => section !== null)
-    .sort(sortCompareSections);
-
-  return capCompareIndexSections(populatedSections, totalLinkLimit);
+  return capCompareIndexSections(
+    populatedSections.sort(sortCompareSections),
+    totalLinkLimit
+  );
 }

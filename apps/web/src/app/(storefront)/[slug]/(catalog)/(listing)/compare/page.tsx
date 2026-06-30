@@ -99,6 +99,7 @@ export async function generateMetadata({
       ),
     linksPerCategoryLimit: 1,
     storeUrl,
+    stopWhenTotalLinkLimitReached: true,
     totalLinkLimit: 1,
   });
   const hasCompareSections = sections.length > 0;
