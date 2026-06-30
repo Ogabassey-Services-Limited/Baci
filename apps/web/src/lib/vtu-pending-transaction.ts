@@ -768,6 +768,11 @@ export async function preparePendingVtuTransaction({
     input.customerName?.trim() ||
     monnifyTelcoFields?.customerName ||
     null;
+  // Same authoritative-validation precedence as the name, evaluated once.
+  const resolvedCustomerAddress =
+    monnifyBillPaymentValidation?.address?.trim() ||
+    input.customerAddress?.trim() ||
+    null;
   const monnifyValidationReference =
     monnifyTelcoFields?.validationReference ??
     input.validationReference ??
@@ -835,15 +840,11 @@ export async function preparePendingVtuTransaction({
           : {}),
         originalPhoneNumber: input.phoneNumber,
         customerPhone: normalizedCustomerPhone ?? null,
-        // Meter/customer address shown on the receipt. Prefer the server-side
-        // validate-customer result (authoritative) over the client-supplied
-        // field; only present for bills where the provider returns it.
-        ...((monnifyBillPaymentValidation?.address?.trim() ||
-          input.customerAddress?.trim()) && {
-          address:
-            monnifyBillPaymentValidation?.address?.trim() ||
-            input.customerAddress?.trim(),
-        }),
+        // Meter/customer address shown on the receipt — server-validated value
+        // preferred, client field as fallback; only set when one is present.
+        ...(resolvedCustomerAddress
+          ? { address: resolvedCustomerAddress }
+          : {}),
         originalMerchantCommission: commissions.merchantEarning,
         customerCashbackEnabled,
         customerCashbackRate,

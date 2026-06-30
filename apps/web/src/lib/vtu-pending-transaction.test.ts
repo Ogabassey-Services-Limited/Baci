@@ -351,6 +351,44 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('writes the client-supplied customerAddress to metadata for Kuda-routed bills', async () => {
+    // Kuda non-telco path: no Monnify validation runs, so the client-supplied
+    // address is the only source and must still be persisted to metadata.
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'kuda' as const,
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'KUD-ELE-EKED-001',
+        customerIdentifier: '43901766923',
+        customerName: 'JANE METER-OWNER',
+        customerAddress: '5 Marina Road, Lagos',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ address: '5 Marina Road, Lagos' }),
+      })
+    );
+  });
+
   it('persists Monnify checkout provider fields in transaction metadata', async () => {
     mockGetMonnifyBillerProducts.mockResolvedValueOnce([
       {

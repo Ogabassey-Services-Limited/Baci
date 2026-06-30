@@ -41,6 +41,7 @@ export const RouteRepeatParamsSchema = z.object({
   repeatBillItemIdentifier: trimmedOptionalString,
   repeatCustomerIdentifier: trimmedOptionalString,
   repeatCustomerName: trimmedOptionalString,
+  repeatCustomerAddress: trimmedOptionalString,
   repeatDataPlanCode: trimmedOptionalString,
   repeatNetworkProvider: trimmedOptionalString,
   repeatPhoneNumber: repeatPhoneNumberSchema,

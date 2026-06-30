@@ -105,7 +105,7 @@ describe('useQuickRepeat', () => {
     unmount();
   });
 
-  it('forwards a verified meter-owner name from the route into repeat defaults', () => {
+  it('forwards a verified meter-owner name and address from the route into repeat defaults', () => {
     const { result, unmount } = renderHook(() =>
       useQuickRepeat({
         currentType: 'power',
@@ -115,6 +115,7 @@ describe('useQuickRepeat', () => {
         repeatBillItemIdentifier: 'KUD-ELE-EKED-001',
         repeatCustomerIdentifier: '43901766923',
         repeatCustomerName: 'JANE CUSTOMER',
+        repeatCustomerAddress: '5 Marina Road, Lagos',
         repeatVerified: true,
         routeType: 'power',
       })
@@ -123,6 +124,7 @@ describe('useQuickRepeat', () => {
     expect(result.current.repeatDefaults).toMatchObject({
       customerIdentifier: '43901766923',
       customerName: 'JANE CUSTOMER',
+      address: '5 Marina Road, Lagos',
     });
     unmount();
   });
