@@ -247,6 +247,79 @@ function prependBasePath(pathname: string, basePath = ''): string {
   return `${normalizedBasePath}${pathname}`;
 }
 
+const MAX_INTERNAL_STOREFRONT_HREF_LENGTH = 2000;
+const ENCODED_UNSAFE_INTERNAL_HREF_CHARACTER_REGEX =
+  /%(?:0[0-9a-f]|1[0-9a-f]|3c|3e|60|7f)/i;
+const MALFORMED_PERCENT_ESCAPE_REGEX = /%(?![0-9a-f]{2})/i;
+const UNSAFE_INTERNAL_HREF_CHARACTER_REGEX = /[<>`]/;
+const UNSAFE_ROOT_RELATIVE_FALLBACK_HREF_REGEX = /["']/;
+
+function hasControlCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (codePoint <= 0x1f || codePoint === 0x7f) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasUnsafeDecodedInternalHrefCharacters(value: string): boolean {
+  return (
+    hasControlCharacter(value) ||
+    UNSAFE_INTERNAL_HREF_CHARACTER_REGEX.test(value)
+  );
+}
+
+function hasUnsafeEncodedInternalHrefCharacters(value: string): boolean {
+  return ENCODED_UNSAFE_INTERNAL_HREF_CHARACTER_REGEX.test(value);
+}
+
+function hasMalformedPercentEncoding(value: string): boolean {
+  return MALFORMED_PERCENT_ESCAPE_REGEX.test(value);
+}
+
+function hasUnsafeInternalPathCharacters(pathname: string): boolean {
+  if (hasUnsafeEncodedInternalHrefCharacters(pathname)) {
+    return true;
+  }
+
+  if (hasMalformedPercentEncoding(pathname)) {
+    return true;
+  }
+
+  try {
+    return hasUnsafeDecodedInternalHrefCharacters(decodeURIComponent(pathname));
+  } catch {
+    return true;
+  }
+}
+
+function hasUnsafeInternalSearchParams(searchParams: URLSearchParams): boolean {
+  for (const [key, value] of searchParams.entries()) {
+    if (
+      hasUnsafeDecodedInternalHrefCharacters(key) ||
+      hasUnsafeDecodedInternalHrefCharacters(value)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasUnsafeRootRelativeFallbackHref(href: string): boolean {
+  return (
+    hasUnsafeInternalPathCharacters(href) ||
+    UNSAFE_ROOT_RELATIVE_FALLBACK_HREF_REGEX.test(href)
+  );
+}
+
+function neutralizeOversizedInternalHref(href: string): string {
+  return href.length > MAX_INTERNAL_STOREFRONT_HREF_LENGTH ? '#' : href;
+}
+
 function buildNormalizedInternalHref(
   pathname: string,
   searchParams: URLSearchParams,
@@ -254,13 +327,21 @@ function buildNormalizedInternalHref(
   merchantIdentifier: string | null,
   basePath = ''
 ): string {
+  if (
+    hasUnsafeInternalPathCharacters(pathname) ||
+    hasUnsafeInternalSearchParams(searchParams)
+  ) {
+    return '#';
+  }
+
   const normalizedPath = prependBasePath(
     normalizeInternalStorefrontPath(pathname, merchantIdentifier),
     basePath
   );
   const normalizedSearch = searchParams.toString();
+  const normalizedHref = `${normalizedPath}${normalizedSearch ? `?${normalizedSearch}` : ''}${hash}`;
 
-  return `${normalizedPath}${normalizedSearch ? `?${normalizedSearch}` : ''}${hash}`;
+  return neutralizeOversizedInternalHref(normalizedHref);
 }
 
 function normalizeRootRelativeStorefrontHref(
@@ -280,9 +361,15 @@ function normalizeRootRelativeStorefrontHref(
       basePath
     );
   } catch {
-    return prependBasePath(
-      normalizeInternalStorefrontPath(href, merchantIdentifier),
-      basePath
+    if (hasUnsafeRootRelativeFallbackHref(href)) {
+      return '#';
+    }
+
+    return neutralizeOversizedInternalHref(
+      prependBasePath(
+        normalizeInternalStorefrontPath(href, merchantIdentifier),
+        basePath
+      )
     );
   }
 }

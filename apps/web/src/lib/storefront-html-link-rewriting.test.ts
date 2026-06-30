@@ -63,6 +63,19 @@ describe('rewriteHtmlStorefrontHrefs', () => {
     ).toBe('<a>link</a>');
   });
 
+  it('neutralizes malformed internal hrefs that swallowed article body text', () => {
+    const html =
+      '<p><a href="/smartphones%3Eogabassey%20smartphones%3C/a%3E%20catalog%20and%20compare%20live%20stock">Broken link</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('<p><a href="#">Broken link</a></p>');
+  });
+
   it('leaves external and non-http href values unchanged', () => {
     const html =
       '<p><a href="https://example.com/phones/iphone">External</a> <a href="mailto:hello@example.com">Mail</a> <a href="tel:+2348000000000">Call</a></p>';

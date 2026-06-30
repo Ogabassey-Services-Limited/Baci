@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
+const NativeURL = URL;
+
 describe('normalizeStorefrontContentHref', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('returns early for empty strings', () => {
     expect(normalizeStorefrontContentHref('', {})).toBe('');
   });
@@ -152,6 +158,139 @@ describe('normalizeStorefrontContentHref', () => {
         merchantSlug: 'ogabassey',
       })
     ).toBe('/products');
+  });
+
+  it('neutralizes encoded markup in root-relative internal paths', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        '/smartphones%3Eogabassey%20smartphones%3C/a%3E%20catalog%20and%20compare%20live%20stock',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('#');
+  });
+
+  it('neutralizes raw markup in absolute internal URLs', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        'https://ogabassey.com/tablets>Tablets</a> category. This is text',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('#');
+  });
+
+  it('preserves encoded spaces in valid internal product URLs', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        'https://ogabassey.com/smart%20watches/watch%20pro%20%2B%20gps',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/smart%20watches/watch%20pro%20%2B%20gps');
+  });
+
+  it('rejects encoded markup even when another malformed percent escape is present', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        '/phones%3Eogabassey%20phones%3C/a%3E%20save%2010%%20today',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('#');
+
+    expect(
+      normalizeStorefrontContentHref('/smartphones%3Eogabassey%FF', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('#');
+  });
+
+  it('neutralizes captured markup in internal query parameters', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        '/smartphones?label=%3Eogabassey%20smartphones%3C/a%3E%20catalog%20and%20compare',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('#');
+  });
+
+  it('preserves safe query parameters with encoded spaces and quotes', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        '/smartphones?label=watch%20pro&q=%22student%20deal%22&ref=blog',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/smartphones?label=watch+pro&q=%22student+deal%22&ref=blog');
+  });
+
+  it('neutralizes oversized internal hrefs', () => {
+    expect(
+      normalizeStorefrontContentHref(`/smartphones?label=${'a'.repeat(2100)}`, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('#');
+  });
+
+  it('neutralizes unsafe root-relative hrefs when URL parsing fails', () => {
+    class ThrowingRootRelativeURL extends NativeURL {
+      constructor(url: string | URL, base?: string | URL) {
+        if (base === 'https://storefront.invalid') {
+          throw new TypeError('forced root-relative parser failure');
+        }
+        super(url, base);
+      }
+    }
+
+    vi.stubGlobal('URL', ThrowingRootRelativeURL);
+
+    expect(
+      normalizeStorefrontContentHref('/smartphones>captured', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('#');
+
+    expect(
+      normalizeStorefrontContentHref("/smartphones'injection", {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('#');
+
+    expect(
+      normalizeStorefrontContentHref('/smart%20watches/watch%20pro', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/smart%20watches/watch%20pro');
   });
 
   it('leaves external URLs unchanged', () => {

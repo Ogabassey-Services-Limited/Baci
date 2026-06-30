@@ -431,6 +431,24 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).not.toContain('nofollow');
   });
 
+  it('neutralizes malformed legacy hrefs before they remain oversized links', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><a href="/smartphones%3Eogabassey%20smartphones%3C/a%3E%20catalog%20and%20compare%20live%20stock">Ogabassey smartphones</a></p>',
+      {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('href="#"');
+    expect(result.legacyHtml).toContain('>Ogabassey smartphones</a>');
+    expect(result.legacyHtml).not.toContain('/smartphones%3Eogabassey');
+    expect(result.legacyHtml).not.toContain('catalog%20and%20compare');
+    expect(result.legacyHtml).not.toContain('catalog and compare live stock');
+  });
+
   it('renders markdown into sanitized legacy HTML', async () => {
     const result = await resolveBlogPostContent('## Markdown title');
 
