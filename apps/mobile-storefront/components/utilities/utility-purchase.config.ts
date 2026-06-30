@@ -29,6 +29,7 @@ export function getRouteRepeatDefaults(
     billItemIdentifier: params.repeatBillItemIdentifier,
     customerIdentifier: params.repeatCustomerIdentifier,
     customerName: params.repeatCustomerName,
+    address: params.repeatCustomerAddress,
     dataPlanCode: params.repeatDataPlanCode,
     isVerified:
       params.repeatVerified === true ||

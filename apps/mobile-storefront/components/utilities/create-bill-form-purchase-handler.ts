@@ -114,6 +114,9 @@ export function createBillFormPurchaseHandler({
         verifiedCustomerName,
         verifiedCustomerAddress,
       });
+      // Attach the verified meter address to every success result (API omits it).
+      const emitSuccess: typeof onSuccess = (r) =>
+        onSuccess(customerAddress ? { ...r, address: customerAddress } : r);
       // Kuda-display + Monnify-fulfillment routing (folded items vend via Monnify).
       const {
         provider: selectedProvider,
@@ -167,7 +170,7 @@ export function createBillFormPurchaseHandler({
           // server-side. Keep the key so a retry hits the route's
           // dedupe row instead of creating a second VTU transaction.
           if (result.status === 'processing') {
-            onSuccess({
+            emitSuccess({
               amount: result.amount ?? numericAmount,
               customerIdentifier: customerId,
               reference: result.reference,
@@ -178,7 +181,7 @@ export function createBillFormPurchaseHandler({
           // Terminal success — rotate the key so the next user-initiated
           // submit gets a fresh dedupe slot.
           payment.resetWalletIdempotencyKey();
-          onSuccess({
+          emitSuccess({
             amount: result.amount ?? numericAmount,
             cashback: result.cashback,
             customerIdentifier: customerId,
@@ -227,7 +230,7 @@ export function createBillFormPurchaseHandler({
               gateway: confirmationGateway,
               reference: result.reference,
             });
-            onSuccess({
+            emitSuccess({
               amount: confirmed.amount ?? numericAmount,
               cashback: confirmed.cashback,
               customerIdentifier: customerId,
@@ -237,7 +240,7 @@ export function createBillFormPurchaseHandler({
             });
           } catch (error) {
             if (error instanceof VtuPaymentStillProcessingError) {
-              onSuccess({
+              emitSuccess({
                 amount: error.amount ?? numericAmount,
                 customerIdentifier: error.customerIdentifier ?? customerId,
                 reference: error.reference,
@@ -249,7 +252,7 @@ export function createBillFormPurchaseHandler({
           }
           return;
         }
-        onSuccess({
+        emitSuccess({
           amount: result.amount,
           cashback: result.cashback,
           customerIdentifier: customerId,

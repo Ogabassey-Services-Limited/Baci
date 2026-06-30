@@ -50,6 +50,26 @@ describe('ReceiptShareButton', () => {
     expect(html).toContain('₦1,000');
   });
 
+  it('renders the meter address on the receipt when provided', () => {
+    render(
+      <ReceiptShareButton
+        address="5 Marina Road, Lagos"
+        amount={2000}
+        colors={Colors.light}
+        identifier="43901766923"
+        status="successful"
+        txReference="VTU-PWR-1"
+        type="power"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('View utility receipt'));
+
+    const html = String(screen.getByTestId('receipt-preview').props.children);
+    expect(html).toContain('Address');
+    expect(html).toContain('5 Marina Road, Lagos');
+  });
+
   it('is disabled and does not open the preview without a transaction reference', () => {
     render(
       <ReceiptShareButton

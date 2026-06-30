@@ -35,6 +35,7 @@ describe('utilityRepeatHelpers', () => {
       created_at: '2026-04-28T12:00:00.000Z',
       customer_identifier: '43901766923',
       customer_name: 'Jane Customer',
+      address: '5 Marina Road, Lagos',
       network_provider: null,
       request_reference: 'ref-123',
       status: 'successful',
@@ -47,9 +48,28 @@ describe('utilityRepeatHelpers', () => {
       repeatBillItemIdentifier: 'KUD-ELE-EKED-002',
       repeatCustomerIdentifier: '43901766923',
       repeatCustomerName: 'Jane Customer',
+      repeatCustomerAddress: '5 Marina Road, Lagos',
       repeatVerified: '1',
       type: 'power',
     });
+  });
+
+  it('omits the repeat customer address when the history row lacks one', () => {
+    const params = utilityRepeatHelpers.getRouteParams({
+      id: 'tx-no-address',
+      amount: 2500,
+      biller_item_code: 'KUD-ELE-EKED-002',
+      biller_name: 'EKEDC NG',
+      created_at: '2026-04-28T12:00:00.000Z',
+      customer_identifier: '43901766923',
+      customer_name: 'Jane Customer',
+      network_provider: null,
+      request_reference: 'ref-no-address',
+      status: 'successful',
+      type: 'electricity',
+    });
+
+    expect(params).not.toHaveProperty('repeatCustomerAddress');
   });
 
   it('omits the repeat customer name when the history row lacks one', () => {

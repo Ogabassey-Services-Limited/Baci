@@ -32,6 +32,48 @@ describe('VTU token receipt email', () => {
     expect(html).not.toContain('javascript:alert(1)');
   });
 
+  it('renders the meter address (escaped) in HTML and text when provided', () => {
+    const data = {
+      transactionId: 'tx-addr',
+      reference: 'REF-1',
+      customerName: 'Meter Owner',
+      amount: 2000,
+      type: 'electricity' as const,
+      providerLabel: 'EKEDC',
+      customerIdentifier: '43901766923',
+      address: '5 Marina Rd <script>x()</script>',
+      voucherPin: '1234-5678',
+      merchantName: 'Shop',
+      merchantUrl: 'https://shop.example.com',
+    };
+
+    const html = generateVtuTokenReceiptEmail(data);
+    const text = generateVtuTokenReceiptText(data);
+
+    expect(html).toContain('Address');
+    expect(html).toContain('5 Marina Rd &lt;script&gt;x()&lt;/script&gt;');
+    expect(html).not.toContain('<script>x()');
+    expect(text).toContain('- Address: 5 Marina Rd');
+    expect(text).not.toContain('<script>');
+  });
+
+  it('omits the address row when no address is supplied', () => {
+    const html = generateVtuTokenReceiptEmail({
+      transactionId: 'tx-noaddr',
+      reference: 'REF-2',
+      customerName: 'Meter Owner',
+      amount: 2000,
+      type: 'electricity',
+      providerLabel: 'EKEDC',
+      customerIdentifier: '43901766923',
+      voucherPin: '1234-5678',
+      merchantName: 'Shop',
+      merchantUrl: 'https://shop.example.com',
+    });
+
+    expect(html).not.toContain('Address');
+  });
+
   it('does not label token-based receipts without a PIN as directly active', () => {
     const payload = {
       transactionId: 'tx-1',
