@@ -25,6 +25,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
     setPartialAmount,
     setPaymentMethod,
     setPaymentStatus,
+    shadows,
     total,
   } = controller;
 
@@ -56,11 +57,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                   styles.toggleOption,
                   isSelected && {
                     backgroundColor: colors.background,
-                    elevation: 2,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 1,
+                    ...shadows.sm,
                   },
                 ]}
               >
