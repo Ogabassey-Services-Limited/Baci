@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProduct } from '@/lib/normalize-product';
+import {
+  isRawDbProductRecord,
+  normalizeProduct,
+} from '@/lib/normalize-product';
 
 describe('normalizeProduct', () => {
   const baseRawProduct = {
@@ -198,5 +201,16 @@ describe('normalizeProduct', () => {
 
     expect(result.category).toBe('Smartphones');
     expect(result.category_slug).toBe('smartphones');
+  });
+
+  it('narrows unknown values to raw product records', () => {
+    expect(isRawDbProductRecord(baseRawProduct)).toBe(true);
+    expect(isRawDbProductRecord(null)).toBe(false);
+    expect(isRawDbProductRecord({ name: 'Missing id', price: 1000 })).toBe(
+      false
+    );
+    expect(isRawDbProductRecord({ id: 'p-1', name: 'Missing price' })).toBe(
+      false
+    );
   });
 });

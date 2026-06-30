@@ -84,6 +84,7 @@ export function buildCategorySupportLinks(input: {
   storeUrl: string;
   categorySlug: string;
   categoryName: string;
+  includeBrandCompareLink?: boolean;
   products: CommercialSupportProduct[];
 }): CommercialSupportLink[] {
   const links: CommercialSupportLink[] = [];
@@ -99,16 +100,18 @@ export function buildCategorySupportLinks(input: {
     });
   }
 
-  const brandCandidate = buildBrandCompareCandidate({
-    categorySlug: input.categorySlug,
-    products: input.products,
-  });
-
-  if (brandCandidate?.isIndexable) {
-    links.push({
-      href: `${input.storeUrl}/${input.categorySlug}/compare/${buildCanonicalBrandCompareSlug(brandCandidate.leftBrand, brandCandidate.rightBrand)}`,
-      label: `${brandCandidate.leftBrand} vs ${brandCandidate.rightBrand}`,
+  if (input.includeBrandCompareLink ?? true) {
+    const brandCandidate = buildBrandCompareCandidate({
+      categorySlug: input.categorySlug,
+      products: input.products,
     });
+
+    if (brandCandidate?.isIndexable) {
+      links.push({
+        href: `${input.storeUrl}/${input.categorySlug}/compare/${buildCanonicalBrandCompareSlug(brandCandidate.leftBrand, brandCandidate.rightBrand)}`,
+        label: `${brandCandidate.leftBrand} vs ${brandCandidate.rightBrand}`,
+      });
+    }
   }
 
   const priceBandLink = buildFirstEligiblePriceBandLink({
@@ -129,6 +132,7 @@ export function buildProductSupportLinks(input: {
   categorySlug: string;
   currentProductSlug: string;
   currentProductPrice: number;
+  includeBrandCompareLink?: boolean;
   products: CommercialSupportProduct[];
 }): CommercialSupportLink[] {
   const links: CommercialSupportLink[] = [];
@@ -159,23 +163,25 @@ export function buildProductSupportLinks(input: {
     });
   }
 
-  const brandCandidate = buildBrandCompareCandidate({
-    categorySlug: input.categorySlug,
-    products: input.products,
-  });
-  const currentBrandKey = generateSlug(currentProduct.brand || '');
-
-  if (
-    brandCandidate?.isIndexable &&
-    currentBrandKey &&
-    [brandCandidate.leftBrand, brandCandidate.rightBrand]
-      .map((brand) => generateSlug(brand))
-      .includes(currentBrandKey)
-  ) {
-    links.push({
-      href: `${input.storeUrl}/${input.categorySlug}/compare/${buildCanonicalBrandCompareSlug(brandCandidate.leftBrand, brandCandidate.rightBrand)}`,
-      label: `${brandCandidate.leftBrand} vs ${brandCandidate.rightBrand}`,
+  if (input.includeBrandCompareLink ?? true) {
+    const brandCandidate = buildBrandCompareCandidate({
+      categorySlug: input.categorySlug,
+      products: input.products,
     });
+    const currentBrandKey = generateSlug(currentProduct.brand || '');
+
+    if (
+      brandCandidate?.isIndexable &&
+      currentBrandKey &&
+      [brandCandidate.leftBrand, brandCandidate.rightBrand]
+        .map((brand) => generateSlug(brand))
+        .includes(currentBrandKey)
+    ) {
+      links.push({
+        href: `${input.storeUrl}/${input.categorySlug}/compare/${buildCanonicalBrandCompareSlug(brandCandidate.leftBrand, brandCandidate.rightBrand)}`,
+        label: `${brandCandidate.leftBrand} vs ${brandCandidate.rightBrand}`,
+      });
+    }
   }
 
   const priceBandCandidate = getCuratedPriceBands(input.categorySlug)

@@ -4,6 +4,7 @@ import {
   buildProductSupportLinks,
   type CommercialSupportLink,
 } from '@/lib/storefront-compare/build-commercial-support-links';
+import { PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT } from '@/lib/storefront-compare/build-compare-discovery-links';
 import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-eligibility';
 import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
@@ -71,6 +72,14 @@ function buildCategoryHubLink(
     href: `${input.storeUrl}/${input.categorySlug}`,
     label: `Shop more ${input.categoryName}`,
   };
+}
+
+function getBoundedProductSupportInventory(
+  input: BuildProductSemanticModelInput
+) {
+  return input.inventory
+    .filter((product) => product.category_slug === input.categorySlug)
+    .slice(0, PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT);
 }
 
 function dedupeLinks(links: CommercialSupportLink[]) {
@@ -263,7 +272,8 @@ export function buildProductSemanticModel(
       categorySlug: input.categorySlug,
       currentProductSlug: input.currentProduct.slug,
       currentProductPrice: input.currentProduct.price,
-      products: input.inventory,
+      includeBrandCompareLink: false,
+      products: getBoundedProductSupportInventory(input),
     }),
   ]).filter((link) => link.href !== currentProductHref);
   return {

@@ -8,9 +8,24 @@ describe('OGABASSEY_INTERNAL_LINK_EQUITY_GROUPS', () => {
     );
     const hrefs = links.map((link) => link.href);
 
-    expect(links).toHaveLength(88);
+    expect(links).toHaveLength(99);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     expect(hrefs.every((href) => href.startsWith('/'))).toBe(true);
     expect(hrefs.some((href) => href.startsWith('http'))).toBe(false);
+    expect(hrefs).toEqual(
+      expect.arrayContaining([
+        '/compare',
+        '/accessories',
+        '/audio',
+        '/earbuds',
+        '/laptops',
+        '/lg-tvs',
+        '/portable-gaming',
+        '/repair',
+        '/repairs',
+        '/samsung-tvs',
+        '/smartphones',
+      ])
+    );
   });
 });

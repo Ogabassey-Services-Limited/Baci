@@ -127,6 +127,13 @@ describe('ProductsPageContent internal link equity', () => {
     expect(
       screen.getByRole('link', { name: 'iPhone XR 128GB' })
     ).toHaveAttribute('href', '/smartphones/iphone-xr-3gb-128gb');
+    expect(
+      screen.getByRole('link', { name: 'Compare products' })
+    ).toHaveAttribute('href', '/compare');
+    expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
+      'href',
+      '/laptops'
+    );
   });
 
   it('does not render the shortcuts for other merchants', async () => {

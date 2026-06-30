@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT } from '@/lib/storefront-compare/build-compare-discovery-links';
 import { buildProductSemanticModel } from './build-product-semantic-model';
 import type {
   BuildProductSemanticModelInput,
@@ -158,6 +159,40 @@ describe('buildProductSemanticModel', () => {
         kind: 'best-in-nigeria',
       },
     ]);
+  });
+
+  it('does not emit PDP compare links for products outside discovery approval bounds', () => {
+    const inventory = Array.from(
+      { length: PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT + 1 },
+      (_, index) =>
+        makeCandidate({
+          slug: `phone-${index}`,
+          name: `Phone ${index}`,
+          brand: index % 2 === 0 ? 'Apple' : 'Samsung',
+          price: 300_000 + index,
+          product_key_specs: {
+            chipset: `Chip ${index}`,
+            ram_gb: 8 + index,
+            storage_gb: 128 + index,
+          },
+        })
+    );
+    const currentProduct = inventory.at(-1);
+
+    if (!currentProduct) {
+      throw new Error('Expected generated current product');
+    }
+
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory,
+      })
+    );
+
+    expect(
+      model.supportLinks.some((link) => link.href.includes('/compare/'))
+    ).toBe(false);
   });
 
   it('formats semantic card prices with the storefront country currency', () => {
