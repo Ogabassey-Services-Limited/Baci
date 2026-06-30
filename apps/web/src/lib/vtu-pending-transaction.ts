@@ -128,6 +128,7 @@ interface MonnifyTelcoCheckoutFields {
 
 interface MonnifyValidationFields {
   customerName?: string;
+  address?: string;
   requireValidationRef?: boolean;
   validationReference?: string;
 }
@@ -209,6 +210,7 @@ async function validateMonnifyBillPaymentBeforeCharge({
 
   return {
     customerName: verification.customerName,
+    address: verification.address,
     requireValidationRef: verification.requireValidationRef,
     validationReference: verification.validationReference,
   };
@@ -757,10 +759,14 @@ export async function preparePendingVtuTransaction({
     monnifyTelcoFields?.productCode ?? input.productCode;
   const monnifyCustomerIdentifier =
     monnifyTelcoFields?.customerIdentifier ?? input.customerIdentifier;
+  // The server-side validate-customer result is the authoritative customer-of-
+  // record (meter/account holder), so it wins over a client-supplied name. This
+  // keeps the persisted name aligned with the persisted address and prevents web
+  // checkout (which sends the buyer's profile name) from mislabelling the bill.
   const monnifyCustomerName =
+    monnifyBillPaymentValidation?.customerName?.trim() ||
     input.customerName?.trim() ||
     monnifyTelcoFields?.customerName ||
-    monnifyBillPaymentValidation?.customerName ||
     null;
   const monnifyValidationReference =
     monnifyTelcoFields?.validationReference ??
@@ -829,11 +835,15 @@ export async function preparePendingVtuTransaction({
           : {}),
         originalPhoneNumber: input.phoneNumber,
         customerPhone: normalizedCustomerPhone ?? null,
-        // Meter/customer address from verify (validate-customer), shown on the
-        // receipt. Only present for bills where the provider returns it.
-        ...(input.customerAddress?.trim()
-          ? { address: input.customerAddress.trim() }
-          : {}),
+        // Meter/customer address shown on the receipt. Prefer the server-side
+        // validate-customer result (authoritative) over the client-supplied
+        // field; only present for bills where the provider returns it.
+        ...((monnifyBillPaymentValidation?.address?.trim() ||
+          input.customerAddress?.trim()) && {
+          address:
+            monnifyBillPaymentValidation?.address?.trim() ||
+            input.customerAddress?.trim(),
+        }),
         originalMerchantCommission: commissions.merchantEarning,
         customerCashbackEnabled,
         customerCashbackRate,

@@ -515,6 +515,68 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('prefers the server-validated name and address over client-supplied fields', async () => {
+    mockGetMonnifyBillerProducts.mockResolvedValueOnce([
+      {
+        amount: null,
+        billerCode: 'IKEDC',
+        categoryCode: 'ELECTRICITY',
+        fee: null,
+        isAmountFixed: false,
+        maxAmount: 100_000,
+        minAmount: 100,
+        name: 'Ikeja Prepaid',
+        productCode: 'IKEDC_PREPAID',
+      },
+    ]);
+    mockVerifyMonnifyBillCustomer.mockResolvedValueOnce({
+      verified: true,
+      message: 'success',
+      customerName: 'Meter Owner',
+      address: '5 Server-Validated Street',
+      requireValidationRef: true,
+      validationReference: 'VAL-123',
+    });
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        provider: 'monnify' as const,
+        billerCode: 'IKEDC',
+        productCode: 'IKEDC_PREPAID',
+        customerIdentifier: '43901766923',
+        // Client sends the buyer's own name/address (e.g. web checkout) — the
+        // authoritative validate-customer result must win for both fields.
+        customerName: 'Buyer Profile Name',
+        customerAddress: 'Client-Supplied Address',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_name: 'Meter Owner',
+        metadata: expect.objectContaining({
+          address: '5 Server-Validated Street',
+        }),
+      })
+    );
+  });
+
   it('stores the real buyer phone on non-telco VTU rows and keeps the meter as customer_identifier', async () => {
     const { insert, supabase } = createMockSupabase();
 
