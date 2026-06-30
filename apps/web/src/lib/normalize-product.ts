@@ -18,48 +18,10 @@ import {
 } from '@/lib/storefront-agent-availability';
 import { PLACEHOLDER_IMAGE } from './image-utils';
 import { normalizeProductKeySpecs } from './product-key-specs-normalize';
+import type { ProductKeySpecsRecord, RawDbProduct } from './raw-db-product';
 
-type ProductKeySpecValue = string | number | boolean | undefined;
-
-export type ProductKeySpecsRecord = Record<string, ProductKeySpecValue>;
-
-/**
- * Raw product data as it comes from Supabase DB
- */
-export interface RawDbProduct {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string | null;
-  images?: (string | { url?: string; alt?: string; order?: number })[];
-  categories?:
-    | { id?: string; name: string; slug: string }
-    | { id?: string; name: string; slug: string }[]
-    | null;
-  // Support for Many-to-Many relation (preferred over single category_id)
-  product_categories?: {
-    categories: { id?: string; name: string; slug: string } | null;
-  }[];
-  category?: string; // Legacy TEXT field
-  category_id?: string;
-  brand?: string;
-  price: number;
-  compare_at_price?: number;
-  condition?: string;
-  stock?: number | string | null;
-  stock_quantity?: number | string | null;
-  manage_stock?: boolean | null;
-  low_stock_threshold?: number | string | null;
-  rating?: number;
-  product_key_specs?: unknown;
-  merchant_id?: string;
-  status?: string;
-  has_condition_offers?: boolean;
-  available_conditions?: string[] | null;
-  variant_model?: 'legacy' | 'sku_matrix' | null;
-  // Allow additional fields
-  [key: string]: unknown;
-}
+export type { ProductKeySpecsRecord, RawDbProduct } from './raw-db-product';
+export { isRawDbProductRecord } from './raw-db-product';
 
 interface JoinedCategory {
   id?: string;

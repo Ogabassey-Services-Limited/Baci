@@ -176,6 +176,7 @@ describe('products index page', () => {
         slug: 'smartphones',
         description: null,
         image_url: null,
+        is_active: true,
         parent_id: null,
       },
     ]);

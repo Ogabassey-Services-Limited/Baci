@@ -5,10 +5,12 @@ import {
   getCachedFeatureSettings,
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
+import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
+import { isRawDbProductRecord, type RawDbProduct } from '@/lib/raw-db-product';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { buildCategorySupportLinks } from '@/lib/storefront-compare/build-commercial-support-links';
+import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
   resolveMerchantContextIdentifier,
   resolveRouteIdentifier,
@@ -36,6 +38,9 @@ const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // Sitemap spec caps a single file at 50,000 URLs. Leave headroom so the
 // products child sitemap stays comfortably under the limit.
 const SITEMAP_MAX_PRODUCT_URLS = 45_000;
+export const SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS = 45_000;
+const SITEMAP_COMMERCIAL_SUPPORT_PRODUCTS_PER_CATEGORY_LIMIT = 150;
+export const SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY = 4;
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
   storeUrl: string;
@@ -359,59 +364,125 @@ export async function getCategorySitemapEntries({
   }));
 }
 
+function isCategoryWithSlug(category: unknown): category is { slug: string } {
+  return (
+    typeof category === 'object' &&
+    category !== null &&
+    'slug' in category &&
+    typeof category.slug === 'string'
+  );
+}
+
+function getRawProductCategorySlug(
+  product: RawDbProduct,
+  fallbackSlug: string
+) {
+  const rawDirectCategories: unknown[] = Array.isArray(product.categories)
+    ? product.categories
+    : product.categories
+      ? [product.categories]
+      : [];
+  const directCategories = rawDirectCategories.filter(isCategoryWithSlug);
+  const rawProductCategories: unknown[] =
+    product.product_categories?.map((entry) => entry.categories) ?? [];
+  const productCategories = rawProductCategories.filter(isCategoryWithSlug);
+  const activeCategorySlug = [...directCategories, ...productCategories].find(
+    (category) => category.slug === fallbackSlug
+  )?.slug;
+  const joinedCategorySlug =
+    directCategories[0]?.slug || productCategories[0]?.slug;
+  const categorySlug =
+    activeCategorySlug ||
+    joinedCategorySlug ||
+    fallbackSlug ||
+    product.category_slug;
+
+  return categorySlug;
+}
+
 export async function getCommercialSupportSitemapEntries(
   context: StorefrontSitemapContext
 ): Promise<MetadataRoute.Sitemap> {
   const categoryEntries = await getCategorySitemapEntries(context);
-  const commercialEntries = await Promise.all(
-    categoryEntries.map(async (entry) => {
-      const categorySlug = entry.url.replace(`${context.storeUrl}/`, '');
-      const categoryData = await getCachedCategoryPageData(
-        context.merchant.id,
-        categorySlug,
-        context.merchant.slug
-      );
+  const commercialEntries: MetadataRoute.Sitemap = [];
+  const seenCommercialUrls = new Set<string>();
 
-      if (!categoryData || categoryData.isCollection) {
-        return [];
+  for (
+    let index = 0;
+    index < categoryEntries.length &&
+    commercialEntries.length < SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS;
+    index += SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY
+  ) {
+    const categoryBatch = categoryEntries.slice(
+      index,
+      index + SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY
+    );
+    const batchEntries = await Promise.all(
+      categoryBatch.map(async (entry) => {
+        const categorySlug = entry.url.replace(`${context.storeUrl}/`, '');
+        const categoryData = await getCachedCategoryPageData(
+          context.merchant.id,
+          categorySlug,
+          context.merchant.slug,
+          0,
+          SITEMAP_COMMERCIAL_SUPPORT_PRODUCTS_PER_CATEGORY_LIMIT
+        );
+
+        if (!categoryData || categoryData.isCollection) {
+          return [];
+        }
+
+        const products = (categoryData.products ?? [])
+          .filter(isRawDbProductRecord)
+          .map((product) => ({
+            slug: product.slug || product.id,
+            name: product.name,
+            brand: product.brand,
+            price: product.price,
+            category_slug: getRawProductCategorySlug(product, categorySlug),
+            product_key_specs: normalizeProductKeySpecs(
+              product.product_key_specs
+            ),
+          }));
+        const links = buildCommercialSupportDiscoveryLinks({
+          storeUrl: context.storeUrl,
+          categorySlug,
+          categoryName: categoryData.fallbackName || categorySlug,
+          includeBrandCompareLinks: false,
+          products,
+        });
+
+        return links.map((link) => ({
+          url: link.href,
+          lastModified:
+            entry.lastModified instanceof Date ? entry.lastModified : undefined,
+          changeFrequency: 'weekly' as const,
+          priority: 0.6,
+        }));
+      })
+    );
+
+    for (const entries of batchEntries) {
+      for (const entry of entries) {
+        if (commercialEntries.length >= SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS) {
+          break;
+        }
+
+        if (seenCommercialUrls.has(entry.url)) {
+          continue;
+        }
+
+        seenCommercialUrls.add(entry.url);
+        commercialEntries.push(entry);
       }
 
-      const links = buildCategorySupportLinks({
-        storeUrl: context.storeUrl,
-        categorySlug,
-        categoryName: categoryData.fallbackName || categorySlug,
-        products: (categoryData.products ?? []).map((product) => {
-          const candidate = product as {
-            slug: string;
-            name: string;
-            brand?: string | null;
-            price: number;
-            category_slug?: string | null;
-            product_key_specs?: Record<string, unknown> | null;
-          };
+      if (commercialEntries.length >= SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS) {
+        break;
+      }
+    }
+  }
 
-          return {
-            slug: candidate.slug,
-            name: candidate.name,
-            brand: candidate.brand,
-            price: candidate.price,
-            category_slug: candidate.category_slug,
-            product_key_specs: candidate.product_key_specs,
-          };
-        }),
-      });
-
-      return links.map((link) => ({
-        url: link.href,
-        lastModified:
-          entry.lastModified instanceof Date ? entry.lastModified : undefined,
-        changeFrequency: 'weekly' as const,
-        priority: 0.6,
-      }));
-    })
-  );
-
-  return commercialEntries.flat();
+  return commercialEntries;
 }
 
 /**

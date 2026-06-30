@@ -2066,6 +2066,7 @@ export async function getCachedCategories(merchantId: string) {
         slug,
         description,
         image_url,
+        is_active,
         parent_id
       `)
     .eq('merchant_id', merchantId)

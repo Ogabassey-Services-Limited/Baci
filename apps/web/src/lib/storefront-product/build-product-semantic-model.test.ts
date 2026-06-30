@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT } from '@/lib/storefront-compare/build-compare-discovery-links';
 import { buildProductSemanticModel } from './build-product-semantic-model';
 import type {
   BuildProductSemanticModelInput,
@@ -158,6 +159,158 @@ describe('buildProductSemanticModel', () => {
         kind: 'best-in-nigeria',
       },
     ]);
+  });
+
+  it('does not emit PDP compare links for products outside discovery approval bounds', () => {
+    const inventory = Array.from(
+      { length: PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT + 1 },
+      (_, index) =>
+        makeCandidate({
+          slug: `phone-${index}`,
+          name: `Phone ${index}`,
+          brand: `Brand ${index % 5}`,
+          price: 300_000 + index,
+          product_key_specs: {
+            chipset: `Chip ${index}`,
+            ram_gb: 8 + index,
+            storage_gb: 128 + index,
+          },
+        })
+    );
+    const currentProduct = inventory.at(-1);
+
+    if (!currentProduct) {
+      throw new Error('Expected generated current product');
+    }
+
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory,
+      })
+    );
+
+    expect(
+      model.supportLinks.some((link) => link.href.includes('/compare/'))
+    ).toBe(false);
+    expect(model.supportLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: 'https://ogabassey.com/smartphones/best-under/under-500k',
+        }),
+      ])
+    );
+    expect(model.alternatives?.cards.length).toBeGreaterThan(0);
+    expect(
+      model.alternatives?.cards.some((card) =>
+        card.secondaryHref?.includes('/compare/')
+      )
+    ).toBe(false);
+  });
+
+  it('only emits semantic card compare CTAs for curated compare pairs', () => {
+    const discoveryFirstProduct = makeCandidate({
+      slug: 'discovery-first-phone',
+      name: 'Discovery First Phone',
+      brand: 'OnePlus',
+      price: 530_000,
+      stock: 1,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Gen 2',
+        ram_gb: 8,
+        storage_gb: 128,
+      },
+    });
+    const currentProduct = makeCandidate({
+      slug: 'target-phone',
+      name: 'Target Phone',
+      brand: 'Samsung',
+      price: 500_000,
+      stock: 5,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Gen 3',
+        ram_gb: 12,
+        storage_gb: 512,
+      },
+    });
+    const semanticFirstProduct = makeCandidate({
+      slug: 'semantic-first-phone',
+      name: 'Semantic First Phone',
+      brand: 'Google',
+      price: 501_000,
+      stock: 12,
+      product_key_specs: {
+        chipset: 'Tensor G5',
+        ram_gb: 16,
+        storage_gb: 1024,
+      },
+    });
+
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory: [
+          discoveryFirstProduct,
+          currentProduct,
+          semanticFirstProduct,
+        ],
+      })
+    );
+    const semanticFirstCard = model.alternatives?.cards.find(
+      (card) => card.title === 'Semantic First Phone'
+    );
+    const discoveryFirstCard = model.alternatives?.cards.find(
+      (card) => card.title === 'Discovery First Phone'
+    );
+
+    expect(model.alternatives?.cards[0]?.title).toBe('Semantic First Phone');
+    expect(semanticFirstCard?.secondaryHref).toBeUndefined();
+    expect(discoveryFirstCard?.secondaryHref).toBe(
+      'https://ogabassey.com/smartphones/compare/discovery-first-phone-vs-target-phone'
+    );
+  });
+
+  it('keeps PDP support links when category inventory rows omit category_slug', () => {
+    const currentProduct = makeCandidate({
+      slug: 'iphone-17-pro-max',
+      name: 'iPhone 17 Pro Max',
+      brand: 'Apple',
+      category_slug: undefined,
+      price: 495_000,
+      product_key_specs: {
+        chipset: 'A19 Pro',
+        ram_gb: 8,
+        storage_gb: 256,
+      },
+    });
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory: [
+          currentProduct,
+          makeCandidate({
+            slug: 'samsung-galaxy-z-trifold',
+            name: 'Samsung Galaxy Z TriFold',
+            brand: 'Samsung',
+            category_slug: undefined,
+            price: 480_000,
+            product_key_specs: {
+              chipset: 'Snapdragon 8 Elite',
+              ram_gb: 16,
+              storage_gb: 512,
+            },
+          }),
+        ],
+      })
+    );
+
+    expect(model.supportLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      ])
+    );
   });
 
   it('formats semantic card prices with the storefront country currency', () => {

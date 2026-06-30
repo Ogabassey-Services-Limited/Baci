@@ -10,6 +10,7 @@ const runtimeRouteManifest = [
   '(home)/page.tsx',
   '(home)/loading.tsx',
   '(catalog)/loading.tsx',
+  '(catalog)/(listing)/compare/page.tsx',
   '(catalog)/(listing)/products/page.tsx',
   '(catalog)/(listing)/search/page.tsx',
   '(catalog)/(listing)/[category]/page.tsx',
@@ -130,6 +131,13 @@ const firstPaintOwnershipManifest = [
     pagePath: '(blog)/blog/[postSlug]/page.tsx',
     loadingPath: '(blog)/blog/[postSlug]/loading.tsx',
     label: 'Loading blog post',
+    renderStrategy: 'lazy-module',
+  },
+  {
+    routePath: '/compare',
+    pagePath: '(catalog)/(listing)/compare/page.tsx',
+    loadingPath: '(catalog)/loading.tsx',
+    label: 'Loading product listing',
     renderStrategy: 'lazy-module',
   },
   {

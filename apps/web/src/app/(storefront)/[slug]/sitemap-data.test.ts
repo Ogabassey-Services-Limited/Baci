@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StorefrontSitemapContext } from './sitemap-data';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
@@ -9,12 +9,13 @@ let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
-const mockBuildCategorySupportLinks = vi.fn();
+const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
 const mockQueryResults = new Map<
   string,
   { data: unknown; error: Error | null }
 >();
 const mockSelectCalls: string[] = [];
+let sitemapData: typeof import('./sitemap-data');
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -25,9 +26,9 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedFeatureSettings(...args),
 }));
 
-vi.mock('@/lib/storefront-compare/build-commercial-support-links', () => ({
-  buildCategorySupportLinks: (...args: unknown[]) =>
-    mockBuildCategorySupportLinks(...args),
+vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
+  buildCommercialSupportDiscoveryLinks: (...args: unknown[]) =>
+    mockBuildCommercialSupportDiscoveryLinks(...args),
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -135,6 +136,10 @@ function mockCategoriesQuery(data: unknown, error: Error | null = null) {
 }
 
 describe('sitemap-data', () => {
+  beforeAll(async () => {
+    sitemapData = await import('./sitemap-data');
+  }, 60_000);
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders = new Map();
@@ -149,8 +154,8 @@ describe('sitemap-data', () => {
     mockGetCachedFeatureSettings.mockReset();
     // Default to blog enabled; individual tests can override.
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
-    mockBuildCategorySupportLinks.mockReset();
-    mockBuildCategorySupportLinks.mockReturnValue([]);
+    mockBuildCommercialSupportDiscoveryLinks.mockReset();
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([]);
   });
 
   it('resolves storefront context from a custom domain header', async () => {
@@ -160,7 +165,7 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
@@ -175,7 +180,7 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers,
@@ -193,7 +198,7 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers,
@@ -211,7 +216,7 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers,
@@ -229,7 +234,7 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers,
@@ -248,7 +253,7 @@ describe('sitemap-data', () => {
         id: 'merchant-1',
         slug: 'ogabassey',
       });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers,
@@ -265,7 +270,7 @@ describe('sitemap-data', () => {
       id: 'merchant-sitemap',
       slug: 'sitemap',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
 
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers,
@@ -276,8 +281,8 @@ describe('sitemap-data', () => {
     expect(context?.merchant.slug).toBe('sitemap');
   });
 
-  it('returns static sitemap entries for the storefront root and faq', async () => {
-    const { getStaticSitemapEntries } = await import('./sitemap-data');
+  it('returns static sitemap entries for the storefront root and faq', () => {
+    const { getStaticSitemapEntries } = sitemapData;
     const entries = getStaticSitemapEntries({
       merchant: {
         id: 'merchant-1',
@@ -301,8 +306,8 @@ describe('sitemap-data', () => {
     ]);
   });
 
-  it('omits lastmod from static entries when the merchant has no updated_at', async () => {
-    const { getStaticSitemapEntries } = await import('./sitemap-data');
+  it('omits lastmod from static entries when the merchant has no updated_at', () => {
+    const { getStaticSitemapEntries } = sitemapData;
     const entries = getStaticSitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
       storeUrl: 'https://ogabassey.com',
@@ -315,7 +320,7 @@ describe('sitemap-data', () => {
   });
 
   it('adds publishable trust policy URLs to the static sitemap entries', async () => {
-    const { getNamedSitemapEntries } = await import('./sitemap-data');
+    const { getNamedSitemapEntries } = sitemapData;
     const context = {
       merchant: {
         id: 'merchant-1',
@@ -371,7 +376,7 @@ describe('sitemap-data', () => {
       },
     ]);
     const { resolveStorefrontSitemapContext, getProductSitemapEntries } =
-      await import('./sitemap-data');
+      sitemapData;
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -409,7 +414,7 @@ describe('sitemap-data', () => {
     );
 
     const { resolveStorefrontSitemapContext, getProductSitemapEntries } =
-      await import('./sitemap-data');
+      sitemapData;
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -446,7 +451,7 @@ describe('sitemap-data', () => {
       },
     ]);
     const { resolveStorefrontSitemapContext, getProductSitemapEntries } =
-      await import('./sitemap-data');
+      sitemapData;
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -463,7 +468,7 @@ describe('sitemap-data', () => {
 
   it('does not select missing products.category_slug directly', async () => {
     mockProductsQuery([]);
-    const { getProductSitemapEntries } = await import('./sitemap-data');
+    const { getProductSitemapEntries } = sitemapData;
 
     await getProductSitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
@@ -489,7 +494,7 @@ describe('sitemap-data', () => {
       custom_domain: 'ogabassey.com',
     });
     const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
-      await import('./sitemap-data');
+      sitemapData;
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -519,7 +524,7 @@ describe('sitemap-data', () => {
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
 
     const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
-      await import('./sitemap-data');
+      sitemapData;
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -544,7 +549,7 @@ describe('sitemap-data', () => {
     mockGetCachedFeatureSettings.mockRejectedValue(
       new Error('feature settings unavailable')
     );
-    const { getSitemapIndexLinks } = await import('./sitemap-data');
+    const { getSitemapIndexLinks } = sitemapData;
 
     try {
       const links = await getSitemapIndexLinks({
@@ -566,7 +571,7 @@ describe('sitemap-data', () => {
   });
 
   it('serializes sitemap XML responses with image namespace when needed', async () => {
-    const { createSitemapResponse } = await import('./sitemap-data');
+    const { createSitemapResponse } = sitemapData;
     const response = createSitemapResponse([
       {
         url: 'https://ogabassey.com/smartphones/iphone-15',
@@ -601,6 +606,7 @@ describe('sitemap-data', () => {
       fallbackName: 'Smartphones',
       products: [
         {
+          id: 'iphone-17-pro-max',
           slug: 'iphone-17-pro-max',
           name: 'iPhone 17 Pro Max',
           brand: 'Apple',
@@ -613,6 +619,7 @@ describe('sitemap-data', () => {
           },
         },
         {
+          id: 'samsung-galaxy-z-trifold',
           slug: 'samsung-galaxy-z-trifold',
           name: 'Samsung Galaxy Z TriFold',
           brand: 'Samsung',
@@ -626,14 +633,14 @@ describe('sitemap-data', () => {
         },
       ],
     });
-    mockBuildCategorySupportLinks.mockReturnValue([
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([
       {
         href: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
         label: 'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold',
       },
     ]);
     const { resolveStorefrontSitemapContext, getNamedSitemapEntries } =
-      await import('./sitemap-data');
+      sitemapData;
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -656,12 +663,399 @@ describe('sitemap-data', () => {
     ).toBe(true);
   });
 
+  it('passes the active related category to commercial support discovery links', async () => {
+    mockCategoriesQuery([
+      { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
+    ]);
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: [
+        {
+          id: 'iphone-17-pro-max',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          category_slug: 'phones',
+          product_categories: [
+            { categories: { slug: 'smartphones', name: 'Smartphones' } },
+          ],
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockImplementation(
+      ({
+        products,
+      }: {
+        products: Array<{ category_slug: string; slug: string }>;
+      }) =>
+        products.map((product) => ({
+          href: `https://ogabassey.com/${product.category_slug}/compare/${product.slug}-vs-anchor`,
+          label: `${product.slug} vs Anchor`,
+        }))
+    );
+    const { getCommercialSupportSitemapEntries } = sitemapData;
+
+    const entries = await getCommercialSupportSitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: (table: string) => ({
+          select: () => ({ eq: createEq(table) }),
+        }),
+      },
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-anchor',
+      }),
+    ]);
+  });
+
+  it('keeps child-category products out of parent-category compare sitemap URLs', async () => {
+    mockCategoriesQuery([
+      { slug: 'electronics', updated_at: '2026-01-01T00:00:00Z' },
+    ]);
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Electronics',
+      products: [
+        {
+          id: 'iphone-17-pro-max',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          categories: { slug: 'smartphones', name: 'Smartphones' },
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockImplementation(
+      ({
+        products,
+      }: {
+        products: Array<{ category_slug: string; slug: string }>;
+      }) =>
+        products.map((product) => ({
+          href: `https://ogabassey.com/${product.category_slug}/compare/${product.slug}-vs-anchor`,
+          label: `${product.slug} vs Anchor`,
+        }))
+    );
+    const {
+      getCommercialSupportSitemapEntries,
+      resolveStorefrontSitemapContext,
+    } = sitemapData;
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const context = await resolveStorefrontSitemapContext(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getCommercialSupportSitemapEntries(context);
+
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-anchor',
+        }),
+      ])
+    );
+    expect(entries.map((entry) => entry.url)).not.toContain(
+      'https://ogabassey.com/electronics/compare/iphone-17-pro-max-vs-anchor'
+    );
+  });
+
+  it('falls back to the active category for commercial support products without relation slugs', async () => {
+    mockCategoriesQuery([
+      { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
+    ]);
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: [
+        {
+          id: 'iphone-17-pro-max',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          category_slug: 'phones',
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([
+      {
+        href: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-galaxy-s25',
+        label: 'iPhone 17 Pro Max vs Galaxy S25',
+      },
+    ]);
+    const {
+      getCommercialSupportSitemapEntries,
+      resolveStorefrontSitemapContext,
+    } = sitemapData;
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const context = await resolveStorefrontSitemapContext(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getCommercialSupportSitemapEntries(context);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-galaxy-s25',
+      }),
+    ]);
+  });
+
+  it('loads commercial-support sitemap categories in bounded concurrent batches', async () => {
+    const { SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY } = sitemapData;
+    mockCategoriesQuery(
+      Array.from(
+        { length: SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY + 1 },
+        (_, index) => ({
+          slug: `category-${index}`,
+          updated_at: '2026-01-01T00:00:00Z',
+        })
+      )
+    );
+    let activeLoads = 0;
+    let maxActiveLoads = 0;
+    mockGetCachedCategoryPageData.mockImplementation(async () => {
+      activeLoads += 1;
+      maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+      await Promise.resolve();
+      activeLoads -= 1;
+
+      return {
+        isCollection: false,
+        fallbackName: 'Category',
+        products: [
+          {
+            id: 'iphone-17-pro-max',
+            slug: 'iphone-17-pro-max',
+            name: 'iPhone 17 Pro Max',
+            brand: 'Apple',
+            price: 495000,
+            category_slug: 'smartphones',
+            product_key_specs: {
+              chipset: 'A19 Pro',
+              ram_gb: 8,
+              storage_gb: 256,
+            },
+          },
+        ],
+      };
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockImplementation(
+      ({ categorySlug }: { categorySlug: string }) => [
+        {
+          href: `https://ogabassey.com/${categorySlug}/compare/a-vs-b`,
+          label: 'A vs B',
+        },
+      ]
+    );
+    const {
+      getCommercialSupportSitemapEntries,
+      resolveStorefrontSitemapContext,
+    } = sitemapData;
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const context = await resolveStorefrontSitemapContext(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getCommercialSupportSitemapEntries(context);
+
+    expect(entries).toHaveLength(
+      SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY + 1
+    );
+    expect(maxActiveLoads).toBe(
+      SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY
+    );
+  });
+
+  it('caps commercial-support sitemap entries and stops before later batches', async () => {
+    const { SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY } = sitemapData;
+    mockCategoriesQuery(
+      Array.from(
+        { length: SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY + 1 },
+        (_, index) => ({
+          slug: `category-${index}`,
+          updated_at: '2026-01-01T00:00:00Z',
+        })
+      )
+    );
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: [
+        {
+          id: 'iphone-17-pro-max',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+    });
+    const {
+      getCommercialSupportSitemapEntries,
+      resolveStorefrontSitemapContext,
+      SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS,
+    } = sitemapData;
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([]);
+    mockBuildCommercialSupportDiscoveryLinks.mockImplementation(
+      ({ categorySlug }: { categorySlug: string }) =>
+        categorySlug === 'category-0'
+          ? Array.from(
+              { length: SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS + 5 },
+              (_, index) => ({
+                href: `https://ogabassey.com/category-0/compare/a-${index}-vs-b-${index}`,
+                label: `A ${index} vs B ${index}`,
+              })
+            )
+          : []
+    );
+    const context = await resolveStorefrontSitemapContext(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getCommercialSupportSitemapEntries(context);
+
+    expect(entries).toHaveLength(SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS);
+    expect(entries.at(-1)?.url).toBe(
+      `https://ogabassey.com/category-0/compare/a-${SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS - 1}-vs-b-${SITEMAP_MAX_COMMERCIAL_SUPPORT_URLS - 1}`
+    );
+    expect(mockGetCachedCategoryPageData).toHaveBeenCalledTimes(
+      SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY
+    );
+    expect(mockBuildCommercialSupportDiscoveryLinks).toHaveBeenCalledTimes(
+      SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY
+    );
+  });
+
+  it('deduplicates commercial-support URLs across category batches', async () => {
+    const { SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY } = sitemapData;
+    mockCategoriesQuery(
+      Array.from(
+        { length: SITEMAP_COMMERCIAL_SUPPORT_CATEGORY_CONCURRENCY + 1 },
+        (_, index) => ({
+          slug: `category-${index}`,
+          updated_at: '2026-01-01T00:00:00Z',
+        })
+      )
+    );
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: [
+        {
+          id: 'iphone-17-pro-max',
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+    });
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([
+      {
+        href: 'https://ogabassey.com/smartphones/compare/a-vs-b',
+        label: 'A vs B',
+      },
+    ]);
+    const {
+      getCommercialSupportSitemapEntries,
+      resolveStorefrontSitemapContext,
+    } = sitemapData;
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const context = await resolveStorefrontSitemapContext(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getCommercialSupportSitemapEntries(context);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/compare/a-vs-b',
+      }),
+    ]);
+  });
+
   it('resolves slug from request host when headersList is empty and override is undefined', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'hhjjk',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
     const emptyHeaders = new Headers();
     const req = new Request('https://hhjjk.usebaci.com/sitemap.xml');
 
@@ -681,7 +1075,7 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
     const emptyHeaders = new Headers();
     const req = new Request('https://ogabassey.com/sitemap.xml', {
       headers: {
@@ -710,7 +1104,7 @@ describe('sitemap-data', () => {
       }
       return Promise.resolve(null);
     });
-    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+    const { resolveStorefrontSitemapContext } = sitemapData;
     const emptyHeaders = new Headers();
     const req = new Request('https://www.ogabassey.com/sitemap.xml');
 
@@ -734,9 +1128,7 @@ describe('sitemap-data', () => {
 
     try {
       mockGetMerchantByIdentifier.mockResolvedValue(null);
-      const { resolveStorefrontSitemapContext } = await import(
-        './sitemap-data'
-      );
+      const { resolveStorefrontSitemapContext } = sitemapData;
       const emptyHeaders = new Headers();
       const req = new Request('https://invalid.usebaci.com/sitemap.xml', {
         headers: {
@@ -765,8 +1157,8 @@ describe('sitemap-data', () => {
     }
   });
 
-  it('serializes a sitemap index with sitemap loc entries', async () => {
-    const { serializeSitemapIndex } = await import('./sitemap-data');
+  it('serializes a sitemap index with sitemap loc entries', () => {
+    const { serializeSitemapIndex } = sitemapData;
     const xml = serializeSitemapIndex([
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
@@ -785,7 +1177,7 @@ describe('sitemap-data', () => {
   });
 
   it('creates a cacheable XML response for the sitemap index', async () => {
-    const { createSitemapIndexResponse } = await import('./sitemap-data');
+    const { createSitemapIndexResponse } = sitemapData;
     const response = createSitemapIndexResponse([
       'https://ogabassey.com/sitemap/static.xml',
     ]);
@@ -801,7 +1193,7 @@ describe('sitemap-data', () => {
 
   it('omits lastmod from category entries when updated_at is missing', async () => {
     mockCategoriesQuery([{ slug: 'smartphones', updated_at: null }]);
-    const { getCategorySitemapEntries } = await import('./sitemap-data');
+    const { getCategorySitemapEntries } = sitemapData;
 
     const entries = await getCategorySitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
@@ -826,15 +1218,17 @@ describe('sitemap-data', () => {
       fallbackName: 'Smartphones',
       products: [],
     });
-    mockBuildCategorySupportLinks.mockReturnValue([
+    mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([
       {
         href: 'https://ogabassey.com/smartphones/compare/a-vs-b',
         label: 'A vs B',
       },
+      {
+        href: 'https://ogabassey.com/smartphones/compare/a-vs-c',
+        label: 'A vs C',
+      },
     ]);
-    const { getCommercialSupportSitemapEntries } = await import(
-      './sitemap-data'
-    );
+    const { getCommercialSupportSitemapEntries } = sitemapData;
 
     const entries = await getCommercialSupportSitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
@@ -850,20 +1244,23 @@ describe('sitemap-data', () => {
       expect.objectContaining({
         url: 'https://ogabassey.com/smartphones/compare/a-vs-b',
       }),
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/compare/a-vs-c',
+      }),
     ]);
     expect(entries[0]?.lastModified).toBeUndefined();
   });
 
-  it('creates sitemap unavailable response with 503, no-store, and retry-after', async () => {
-    const { createSitemapUnavailableResponse } = await import('./sitemap-data');
+  it('creates sitemap unavailable response with 503, no-store, and retry-after', () => {
+    const { createSitemapUnavailableResponse } = sitemapData;
     const response = createSitemapUnavailableResponse();
     expect(response.status).toBe(503);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('retry-after')).toBe('300');
   });
 
-  it('creates sitemap not-found response with 404 and no retry header', async () => {
-    const { createSitemapNotFoundResponse } = await import('./sitemap-data');
+  it('creates sitemap not-found response with 404 and no retry header', () => {
+    const { createSitemapNotFoundResponse } = sitemapData;
     const response = createSitemapNotFoundResponse();
     expect(response.status).toBe(404);
     expect(response.headers.get('cache-control')).toBe('no-store');
@@ -874,9 +1271,7 @@ describe('sitemap-data', () => {
     mockGetMerchantByIdentifier.mockRejectedValueOnce(
       new Error('Database timeout')
     );
-    const { resolveStorefrontSitemapContextResult } = await import(
-      './sitemap-data'
-    );
+    const { resolveStorefrontSitemapContextResult } = sitemapData;
 
     const result = await resolveStorefrontSitemapContextResult(
       mockHeaders as unknown as Headers,
@@ -889,9 +1284,7 @@ describe('sitemap-data', () => {
 
   it('distinguishes missing storefront sitemaps from transient lookup failures', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce(null);
-    const { resolveStorefrontSitemapContextResult } = await import(
-      './sitemap-data'
-    );
+    const { resolveStorefrontSitemapContextResult } = sitemapData;
 
     const result = await resolveStorefrontSitemapContextResult(
       mockHeaders as unknown as Headers,
