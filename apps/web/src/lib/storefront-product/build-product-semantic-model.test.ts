@@ -195,6 +195,49 @@ describe('buildProductSemanticModel', () => {
     ).toBe(false);
   });
 
+  it('keeps PDP support links when category inventory rows omit category_slug', () => {
+    const currentProduct = makeCandidate({
+      slug: 'iphone-17-pro-max',
+      name: 'iPhone 17 Pro Max',
+      brand: 'Apple',
+      category_slug: undefined,
+      price: 495_000,
+      product_key_specs: {
+        chipset: 'A19 Pro',
+        ram_gb: 8,
+        storage_gb: 256,
+      },
+    });
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory: [
+          currentProduct,
+          makeCandidate({
+            slug: 'samsung-galaxy-z-trifold',
+            name: 'Samsung Galaxy Z TriFold',
+            brand: 'Samsung',
+            category_slug: undefined,
+            price: 480_000,
+            product_key_specs: {
+              chipset: 'Snapdragon 8 Elite',
+              ram_gb: 16,
+              storage_gb: 512,
+            },
+          }),
+        ],
+      })
+    );
+
+    expect(model.supportLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: 'https://ogabassey.com/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+        }),
+      ])
+    );
+  });
+
   it('formats semantic card prices with the storefront country currency', () => {
     const currentProduct = makeCandidate({
       slug: 'kurta-set',

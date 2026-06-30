@@ -78,8 +78,15 @@ function getBoundedProductSupportInventory(
   input: BuildProductSemanticModelInput
 ) {
   return input.inventory
-    .filter((product) => product.category_slug === input.categorySlug)
-    .slice(0, PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT);
+    .filter(
+      (product) =>
+        (product.category_slug ?? input.categorySlug) === input.categorySlug
+    )
+    .slice(0, PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT)
+    .map((product) => ({
+      ...product,
+      category_slug: product.category_slug ?? input.categorySlug,
+    }));
 }
 
 function dedupeLinks(links: CommercialSupportLink[]) {

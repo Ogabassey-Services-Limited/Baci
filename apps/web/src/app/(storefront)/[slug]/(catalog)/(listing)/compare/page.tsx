@@ -23,6 +23,7 @@ import { ComparePageContent } from './compare-page-content';
 
 interface CompareIndexPageProps {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const COMPARE_CATEGORY_SLUG = 'compare';
@@ -34,13 +35,16 @@ function hasCompareCategory(categories: { slug: string | null | undefined }[]) {
   );
 }
 
-function buildCompareCategoryPageProps(slug: string) {
+function buildCompareCategoryPageProps(
+  slug: string,
+  searchParams: CompareIndexPageProps['searchParams'] = Promise.resolve({})
+) {
   return {
     params: Promise.resolve({
       slug,
       category: COMPARE_CATEGORY_SLUG,
     }),
-    searchParams: Promise.resolve({}),
+    searchParams,
   };
 }
 
@@ -67,6 +71,7 @@ function buildCompareNotFoundMetadata(): Metadata {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: CompareIndexPageProps): Promise<Metadata> {
   const { slug } = await params;
 
@@ -84,7 +89,9 @@ export async function generateMetadata({
   const categories = await getCachedCategories(merchant.id);
 
   if (hasCompareCategory(categories)) {
-    return generateCategoryMetadata(buildCompareCategoryPageProps(slug));
+    return generateCategoryMetadata(
+      buildCompareCategoryPageProps(slug, searchParams)
+    );
   }
 
   const sections = await buildCompareIndexSections({
@@ -151,7 +158,11 @@ async function CompareIndexRuntime(props: CompareIndexPageProps) {
     const categories = await getCachedCategories(merchant.id);
 
     if (hasCompareCategory(categories)) {
-      return <CategoryPageRoute {...buildCompareCategoryPageProps(slug)} />;
+      return (
+        <CategoryPageRoute
+          {...buildCompareCategoryPageProps(slug, props.searchParams)}
+        />
+      );
     }
   }
 

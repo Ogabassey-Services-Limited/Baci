@@ -213,8 +213,13 @@ describe('compare index page', () => {
       },
     ]);
 
+    const searchParams = Promise.resolve({
+      page: '2',
+      sort: 'price-asc',
+    });
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams,
     });
 
     expect(metadata.title).toBe('Compare category metadata');
@@ -229,7 +234,10 @@ describe('compare index page', () => {
       slug: 'ogabassey',
       category: 'compare',
     });
-    await expect(categoryProps.searchParams).resolves.toEqual({});
+    await expect(categoryProps.searchParams).resolves.toEqual({
+      page: '2',
+      sort: 'price-asc',
+    });
     expect(getCachedCategoryPageData).not.toHaveBeenCalled();
   });
 
