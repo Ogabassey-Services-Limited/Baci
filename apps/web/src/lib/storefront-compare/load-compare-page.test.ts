@@ -6,7 +6,6 @@ const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
-
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
