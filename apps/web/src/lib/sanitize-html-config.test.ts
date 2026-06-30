@@ -48,4 +48,15 @@ describe('sanitize HTML config', () => {
       '<a href="https://example.com" rel="nofollow ugc noopener noreferrer">Example</a>'
     );
   });
+
+  it('strips nofollow from internal links when requested', () => {
+    const sanitized = sanitizeLib(
+      '<a href="/smartphones/samsung-galaxy-a57" rel="nofollow ugc">Galaxy A57</a> <a href="https://example.com" rel="nofollow">Source</a>',
+      createSanitizeHtmlOptions({ stripInternalLinkNofollow: true })
+    );
+
+    expect(sanitized).toBe(
+      '<a href="/smartphones/samsung-galaxy-a57" rel="ugc noopener noreferrer">Galaxy A57</a> <a href="https://example.com" rel="nofollow noopener noreferrer">Source</a>'
+    );
+  });
 });
