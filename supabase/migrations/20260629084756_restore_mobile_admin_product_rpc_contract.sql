@@ -36,6 +36,7 @@ DECLARE
   v_existing_anchor_id uuid;
   v_inventory_tracking_policy text;
   v_reassign_anchor_to_variant_id uuid;
+  v_reassign_anchor_variant jsonb;
   v_updated_product_id uuid;
   v_synced_variant_count integer;
   v_result jsonb;
@@ -128,7 +129,24 @@ BEGIN
         ''
       )::uuid;
 
-      IF v_reassign_anchor_to_variant_id IS NULL OR NOT EXISTS (
+      IF v_reassign_anchor_to_variant_id IS NULL THEN
+        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+      END IF;
+
+      IF EXISTS (
+        SELECT 1
+        FROM public.product_variants
+        WHERE id = v_reassign_anchor_to_variant_id
+          AND (
+            product_id IS DISTINCT FROM v_product_id
+            OR merchant_id IS DISTINCT FROM p_merchant_id
+            OR is_inventory_anchor IS DISTINCT FROM false
+          )
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+      END IF;
+
+      IF NOT EXISTS (
         SELECT 1
         FROM public.product_variants
         WHERE id = v_reassign_anchor_to_variant_id
@@ -136,43 +154,56 @@ BEGIN
           AND merchant_id = p_merchant_id
           AND is_inventory_anchor = false
       ) THEN
-        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+        SELECT element.raw
+        INTO v_reassign_anchor_variant
+        FROM jsonb_array_elements(p_variants) AS element(raw)
+        WHERE NULLIF(element.raw->>'id', '') = v_reassign_anchor_to_variant_id::text
+        LIMIT 1;
+
+        IF v_reassign_anchor_variant IS NULL THEN
+          RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+        END IF;
+
+        INSERT INTO public.product_variants (
+          id,
+          product_id,
+          merchant_id,
+          attributes,
+          condition,
+          cost_price,
+          images,
+          price_override,
+          primary_image,
+          sku,
+          stock_quantity,
+          is_inventory_anchor,
+          updated_at
+        ) VALUES (
+          v_reassign_anchor_to_variant_id,
+          v_product_id,
+          p_merchant_id,
+          CASE
+            WHEN v_reassign_anchor_variant ? 'attributes'
+              AND jsonb_typeof(v_reassign_anchor_variant->'attributes') = 'object'
+            THEN v_reassign_anchor_variant->'attributes'
+            ELSE '{}'::jsonb
+          END,
+          NULLIF(v_reassign_anchor_variant->>'condition', ''),
+          NULLIF(v_reassign_anchor_variant->>'cost_price', '')::numeric,
+          CASE
+            WHEN v_reassign_anchor_variant ? 'images'
+              AND jsonb_typeof(v_reassign_anchor_variant->'images') = 'array'
+            THEN v_reassign_anchor_variant->'images'
+            ELSE '[]'::jsonb
+          END,
+          NULLIF(v_reassign_anchor_variant->>'price_override', '')::numeric,
+          NULLIF(v_reassign_anchor_variant->>'primary_image', ''),
+          NULLIF(v_reassign_anchor_variant->>'sku', ''),
+          COALESCE(NULLIF(v_reassign_anchor_variant->>'stock_quantity', '')::integer, 0),
+          false,
+          now()
+        );
       END IF;
-
-      PERFORM 1
-      FROM public.variant_inventory
-      WHERE variant_id = v_existing_anchor_id
-      FOR UPDATE;
-
-      IF EXISTS (
-        SELECT 1
-        FROM public.variant_inventory
-        WHERE variant_id = v_existing_anchor_id
-          AND status = 'reserved'
-      ) THEN
-        RAISE EXCEPTION 'serialized_inventory_reserved_units_exist' USING ERRCODE = '23514';
-      END IF;
-
-      UPDATE public.variant_inventory
-      SET variant_id = v_reassign_anchor_to_variant_id,
-          updated_at = now()
-      WHERE variant_id = v_existing_anchor_id;
-
-      PERFORM private.record_variant_inventory_event(
-        NULL,
-        p_merchant_id,
-        v_product_id,
-        v_reassign_anchor_to_variant_id,
-        'branch_transferred',
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        auth.uid(),
-        'mobile_admin',
-        jsonb_build_object('anchorReassignedFrom', v_existing_anchor_id)
-      );
     END IF;
 
     UPDATE public.products
@@ -180,12 +211,6 @@ BEGIN
         updated_at = now()
     WHERE id = v_product_id
       AND merchant_id = p_merchant_id;
-
-    DELETE FROM public.product_variants
-    WHERE id = v_existing_anchor_id
-      AND product_id = v_product_id
-      AND merchant_id = p_merchant_id
-      AND is_inventory_anchor = true;
   END IF;
 
   IF p_product_id IS NULL THEN
@@ -358,6 +383,75 @@ BEGIN
       p_merchant_id,
       CASE WHEN v_has_variants IS TRUE THEN p_variants ELSE '[]'::jsonb END
     );
+  END IF;
+
+  IF p_product_id IS NOT NULL
+     AND v_has_variants IS TRUE
+     AND v_existing_anchor_id IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1
+      FROM public.variant_inventory
+      WHERE variant_id = v_existing_anchor_id
+    ) THEN
+      IF v_reassign_anchor_to_variant_id IS NULL THEN
+        v_reassign_anchor_to_variant_id := NULLIF(
+          v_product_payload->>'reassign_anchor_to_variant_id',
+          ''
+        )::uuid;
+      END IF;
+
+      IF v_reassign_anchor_to_variant_id IS NULL OR NOT EXISTS (
+        SELECT 1
+        FROM public.product_variants
+        WHERE id = v_reassign_anchor_to_variant_id
+          AND product_id = v_product_id
+          AND merchant_id = p_merchant_id
+          AND is_inventory_anchor = false
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+      END IF;
+
+      PERFORM 1
+      FROM public.variant_inventory
+      WHERE variant_id = v_existing_anchor_id
+      FOR UPDATE;
+
+      IF EXISTS (
+        SELECT 1
+        FROM public.variant_inventory
+        WHERE variant_id = v_existing_anchor_id
+          AND status = 'reserved'
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reserved_units_exist' USING ERRCODE = '23514';
+      END IF;
+
+      UPDATE public.variant_inventory
+      SET variant_id = v_reassign_anchor_to_variant_id,
+          updated_at = now()
+      WHERE variant_id = v_existing_anchor_id;
+
+      PERFORM private.record_variant_inventory_event(
+        NULL,
+        p_merchant_id,
+        v_product_id,
+        v_reassign_anchor_to_variant_id,
+        'branch_transferred',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        auth.uid(),
+        'mobile_admin',
+        jsonb_build_object('anchorReassignedFrom', v_existing_anchor_id)
+      );
+    END IF;
+
+    DELETE FROM public.product_variants
+    WHERE id = v_existing_anchor_id
+      AND product_id = v_product_id
+      AND merchant_id = p_merchant_id
+      AND is_inventory_anchor = true;
   END IF;
 
   IF v_has_variants IS NOT TRUE

@@ -31,10 +31,21 @@ const variantSyncMatch = migrationSql.match(
 );
 const variantSyncSql = variantSyncMatch?.[0] ?? '';
 
-const hiddenAnchorConversionSql =
-  migrationSql.match(
-    /IF\s+p_product_id\s+IS\s+NOT\s+NULL[\s\S]*?v_existing_anchor_id\s+IS\s+NOT\s+NULL\s+THEN[\s\S]*?DELETE\s+FROM\s+public\.product_variants[\s\S]*?is_inventory_anchor\s*=\s*true;\s*END\s+IF;/i
-  )?.[0] ?? '';
+const variantSyncIndex = migrationSql.indexOf(
+  'v_synced_variant_count := public.sync_product_variants_for_product'
+);
+const anchorTargetPreparationIndex = migrationSql.indexOf(
+  'INTO v_reassign_anchor_variant'
+);
+const anchorPointerClearIndex = migrationSql.indexOf(
+  'inventory_anchor_variant_id = NULL'
+);
+const anchorTransferIndex = migrationSql.indexOf(
+  'UPDATE public.variant_inventory'
+);
+const hiddenAnchorDeleteIndex = migrationSql.indexOf(
+  'DELETE FROM public.product_variants\n    WHERE id = v_existing_anchor_id'
+);
 
 describe('mobile admin product RPC migration contract', () => {
   it('restores the public argument names used by the mobile app', () => {
@@ -76,6 +87,7 @@ describe('mobile admin product RPC migration contract', () => {
     expect(productInsertSql).toMatch(/INSERT\s+INTO\s+public\.products/i);
     expect(productPersistenceSql).toMatch(/compare_at_price/i);
     expect(productPersistenceSql).toMatch(/inventory_tracking_policy/i);
+    expect(migrationSql).not.toMatch(/\blow_stock_threshol\b/i);
   });
 
   it('preserves existing update-only invariants before saving product fields', () => {
@@ -122,9 +134,36 @@ describe('mobile admin product RPC migration contract', () => {
     );
   });
 
-  it('clears or transfers hidden anchors before converting simple products to variants', () => {
-    expect(hiddenAnchorConversionSql).toMatch(
-      /serialized_inventory_reassignment_required[\s\S]*PERFORM\s+1[\s\S]*FROM\s+public\.variant_inventory[\s\S]*FOR\s+UPDATE[\s\S]*serialized_inventory_reserved_units_exist[\s\S]*UPDATE\s+public\.variant_inventory[\s\S]*UPDATE\s+public\.products[\s\S]*inventory_anchor_variant_id\s*=\s*NULL[\s\S]*DELETE\s+FROM\s+public\.product_variants/i
+  it('prepares conversion targets before variant sync and transfers hidden anchors after', () => {
+    expect(anchorTargetPreparationIndex).toBeGreaterThan(-1);
+    expect(anchorPointerClearIndex).toBeGreaterThan(-1);
+    expect(variantSyncIndex).toBeGreaterThan(-1);
+    expect(anchorTransferIndex).toBeGreaterThan(-1);
+    expect(hiddenAnchorDeleteIndex).toBeGreaterThan(-1);
+    expect(anchorTargetPreparationIndex).toBeLessThan(variantSyncIndex);
+    expect(anchorPointerClearIndex).toBeLessThan(variantSyncIndex);
+    expect(anchorTransferIndex).toBeGreaterThan(variantSyncIndex);
+    expect(hiddenAnchorDeleteIndex).toBeGreaterThan(anchorTransferIndex);
+    const anchorPreparationSql = migrationSql.slice(
+      anchorTargetPreparationIndex,
+      variantSyncIndex
+    );
+    expect(anchorPreparationSql).toContain(
+      'FROM jsonb_array_elements(p_variants) AS element(raw)'
+    );
+    expect(anchorPreparationSql).toContain(
+      "WHERE NULLIF(element.raw->>'id', '') = v_reassign_anchor_to_variant_id::text"
+    );
+    expect(anchorPreparationSql).toMatch(
+      /INSERT\s+INTO\s+public\.product_variants/i
+    );
+    expect(anchorPreparationSql).toContain('v_reassign_anchor_to_variant_id');
+    expect(anchorPreparationSql).toContain('v_reassign_anchor_variant');
+    expect(anchorPreparationSql).toContain('is_inventory_anchor');
+    expect(
+      migrationSql.slice(variantSyncIndex, hiddenAnchorDeleteIndex)
+    ).toMatch(
+      /serialized_inventory_reassignment_required[\s\S]*PERFORM\s+1[\s\S]*FROM\s+public\.variant_inventory[\s\S]*FOR\s+UPDATE[\s\S]*serialized_inventory_reserved_units_exist[\s\S]*UPDATE\s+public\.variant_inventory/i
     );
     expect(migrationSql).toMatch(
       /IF\s+v_has_variants\s+IS\s+NOT\s+TRUE[\s\S]*v_inventory_tracking_policy\s+IN\s+\('serialized_strict',\s+'serialized_then_unlimited'\)[\s\S]*PERFORM\s+private\.ensure_product_inventory_anchor_variant\(\s*p_merchant_id,\s*v_product_id\s*\)/i
