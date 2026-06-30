@@ -1462,6 +1462,10 @@ async function notifyVtuCustomerSuccess({
       const customerName = customer.first_name
         ? `${customer.first_name} ${customer.last_name || ''}`.trim()
         : 'Customer';
+      // Meter/customer address persisted at checkout (electricity), so the
+      // emailed receipt matches the in-app/history receipt.
+      const receiptAddress =
+        typeof metadata.address === 'string' ? metadata.address : null;
 
       const emailHtml = generateVtuTokenReceiptEmail({
         transactionId: row.id,
@@ -1471,6 +1475,7 @@ async function notifyVtuCustomerSuccess({
         type: row.type,
         providerLabel: provider,
         customerIdentifier: row.customer_identifier ?? null,
+        address: receiptAddress,
         voucherPin: voucherPin ?? null,
         phone_number: row.phone_number ?? null,
         merchantName,
@@ -1486,6 +1491,7 @@ async function notifyVtuCustomerSuccess({
         type: row.type,
         providerLabel: provider,
         customerIdentifier: row.customer_identifier ?? null,
+        address: receiptAddress,
         voucherPin: voucherPin ?? null,
         phone_number: row.phone_number ?? null,
         merchantName,
