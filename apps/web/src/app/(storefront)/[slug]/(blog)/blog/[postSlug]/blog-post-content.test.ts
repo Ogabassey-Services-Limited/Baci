@@ -165,6 +165,58 @@ describe('resolveBlogPostContent', () => {
     expect(JSON.stringify(result.renderedContent)).not.toContain('nofollow');
   });
 
+  it('removes the rel attribute from TipTap links when nofollow is the only token', async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.apple.com/newsroom/',
+                    rel: 'nofollow',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.apple.com/newsroom/',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('parses leading TipTap JSON when legacy HTML was appended after it', async () => {
     const structuredContent = {
       type: 'doc',

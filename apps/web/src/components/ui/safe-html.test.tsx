@@ -85,6 +85,21 @@ describe('SafeHtml', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
+  it('forwards nofollow stripping to the sanitizer without leaking the option to the DOM', () => {
+    const { container } = render(
+      <SafeHtml
+        html='<a href="https://example.com" rel="nofollow">Source</a>'
+        stripNofollowFromLinks
+      />
+    );
+
+    const link = screen.getByRole('link', { name: 'Source' });
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(container.firstElementChild).not.toHaveAttribute(
+      'stripNofollowFromLinks'
+    );
+  });
+
   it('handles empty string', () => {
     const { container } = render(<SafeHtml html="" />);
     expect(container.firstChild).toBeEmptyDOMElement();

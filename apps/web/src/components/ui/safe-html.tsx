@@ -30,6 +30,7 @@ export function SafeHtml({
   headingLevelOffset,
   normalizeHeadingHierarchy,
   normalizeSeoAnchors,
+  stripNofollowFromLinks,
   trustedPriorityImageSources,
   ...rest
 }: SafeHtmlProps) {
@@ -49,6 +50,7 @@ export function SafeHtml({
       __html: sanitizeHtml(html, {
         ...headingOptions,
         normalizeSeoAnchors,
+        stripNofollowFromLinks,
         trustedPriorityImageSources,
       }),
     },

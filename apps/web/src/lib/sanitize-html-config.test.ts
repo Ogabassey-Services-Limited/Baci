@@ -59,4 +59,15 @@ describe('sanitize HTML config', () => {
       '<a href="/smartphones/samsung-galaxy-a57" rel="ugc noopener noreferrer">Galaxy A57</a> <a href="https://example.com" rel="sponsored noopener noreferrer">Source</a>'
     );
   });
+
+  it('does not leave an empty rel when nofollow is the only existing token', () => {
+    const sanitized = sanitizeLib(
+      '<a href="https://example.com" rel="nofollow">Source</a>',
+      createSanitizeHtmlOptions({ stripNofollowFromLinks: true })
+    );
+
+    expect(sanitized).toBe(
+      '<a href="https://example.com" rel="noopener noreferrer">Source</a>'
+    );
+  });
 });
