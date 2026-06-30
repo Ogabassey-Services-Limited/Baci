@@ -3342,7 +3342,7 @@ export const CheckoutPage: React.FC = () => {
                             <div className="flex items-start gap-3">
                               <Plane size={20} className="text-gray-500 mt-0.5" />
                               <p className="text-sm text-gray-600">
-                                Delivery to your nearest airport. Choose delivery to your location or pickup at the airport.
+                                Delivery to your doorstep is available. Choose delivery to your location or pickup at the airport.
                               </p>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3368,7 +3368,7 @@ export const CheckoutPage: React.FC = () => {
                                 </div>
                                 <div className="flex-1">
                                   <p className="font-bold text-gray-900 text-sm">Airport Delivery</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Delivered to your address</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Delivery to your doorstep</p>
                                 </div>
                                 <span className="font-bold text-gray-900">₦25,000</span>
                               </label>

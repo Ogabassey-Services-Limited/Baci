@@ -110,7 +110,7 @@ export function CheckoutReviewStep({
         ) : null}
         {deliveryMethod === 'airport' ? (
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {'Est. 24\u201348 working hours'}
+            {'Delivery to your doorstep \u2022 Est. 24\u201348 working hours'}
           </Text>
         ) : null}
       </View>

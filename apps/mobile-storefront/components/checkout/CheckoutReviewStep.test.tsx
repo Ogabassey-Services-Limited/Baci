@@ -85,4 +85,19 @@ describe('CheckoutReviewStep', () => {
     expect(screen.getByText('Generate Invoice')).toBeOnTheScreen();
     expect(screen.queryByText(/VAT/)).toBeNull();
   });
+
+  it('clarifies airport delivery goes to the doorstep on review', () => {
+    render(
+      <CheckoutReviewStep
+        {...baseProps}
+        deliveryMethod="airport"
+        selectedQuote={undefined}
+      />
+    );
+
+    expect(screen.getByText('Airport Delivery')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Delivery to your doorstep • Est. 24–48 working hours')
+    ).toBeOnTheScreen();
+  });
 });

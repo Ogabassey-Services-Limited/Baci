@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DeliveryMethodCard } from './DeliveryMethodCard';
 
@@ -35,6 +36,7 @@ describe('DeliveryMethodCard', () => {
     render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
     expect(screen.getByText('Door delivery')).toBeTruthy();
     expect(screen.getByText('Airport Delivery (Outside Lagos)')).toBeTruthy();
+    expect(screen.getByText('Delivery to your doorstep')).toBeTruthy();
     expect(screen.queryByText('Pick Up Station')).toBeNull();
   });
 
@@ -84,6 +86,7 @@ describe('DeliveryMethodCard', () => {
       />
     );
     expect(screen.getByText('Airport Delivery')).toBeTruthy();
+    expect(screen.getByText('Delivery to your doorstep')).toBeTruthy();
     expect(screen.getAllByText(/24-48 working hours/i).length).toBeGreaterThan(
       0
     );

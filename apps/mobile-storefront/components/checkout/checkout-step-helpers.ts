@@ -1,8 +1,8 @@
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
+import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/PickupStationCard';
 import type {
   DeliveryMethod,
   ShippingQuote,
@@ -10,7 +10,8 @@ import type {
 
 export const AIRPORT_DELIVERY_FEE = 25000;
 const DEFAULT_CARRIER = 'Topship';
-const AIRPORT_DELIVERY_ESTIMATE = 'Est Delivery within 24-48 working hours';
+const AIRPORT_DELIVERY_ESTIMATE =
+  'Delivery to your doorstep • Est Delivery within 24-48 working hours';
 
 export function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
   if (

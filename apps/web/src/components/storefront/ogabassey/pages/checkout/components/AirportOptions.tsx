@@ -15,8 +15,8 @@ export function AirportOptions({ airportType, setAirportType }: AirportOptionsPr
       <div className="flex items-start gap-3">
         <Plane size={20} className="text-store-background-text/50 mt-0.5" />
         <p className="text-sm text-store-background-text/60">
-          Delivery to your nearest airport. Choose delivery to your location or
-          pickup at the airport.
+          Delivery to your doorstep is available. Choose delivery to your
+          location or pickup at the airport.
         </p>
       </div>
       <fieldset className="m-0 grid min-w-0 grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2">
@@ -24,7 +24,7 @@ export function AirportOptions({ airportType, setAirportType }: AirportOptionsPr
         <AirportOption
           type="delivery"
           label="Airport Delivery"
-          description="Delivered to your address"
+          description="Delivery to your doorstep"
           price={AIRPORT_DELIVERY_CONFIG.delivery.priceLabel}
           airportType={airportType}
           setAirportType={setAirportType}

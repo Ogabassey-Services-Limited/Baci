@@ -46,7 +46,7 @@ describe('checkout-step-helpers', () => {
 
   it('returns delivery summaries by method and quote data', () => {
     expect(getDeliveryMethodSummary('airport', baseQuote)).toBe(
-      'Est Delivery within 24-48 working hours'
+      'Delivery to your doorstep • Est Delivery within 24-48 working hours'
     );
     expect(getDeliveryMethodSummary('pickup_station', baseQuote)).toBe(
       PICKUP_STATION_ADDRESS_LINES.join(', ')

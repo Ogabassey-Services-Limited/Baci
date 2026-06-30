@@ -15,6 +15,12 @@ describe('AirportOptions', () => {
       screen.getByRole('group', { name: /airport delivery preference/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /airport delivery/i })).toBeChecked();
+    expect(
+      screen.getByText(
+        'Delivery to your doorstep is available. Choose delivery to your location or pickup at the airport.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Delivery to your doorstep')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: /airport pickup/i }));
 
