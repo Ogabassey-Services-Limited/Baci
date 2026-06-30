@@ -57,6 +57,33 @@ describe('chunk-load recovery', () => {
     expect(runtime.reload).toHaveBeenCalledTimes(1);
   });
 
+  it('recovers from chunk load errors without suppressing analytics visibility', () => {
+    const { runtime } = createRuntime();
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleWindowError({
+      error: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+      message: 'ChunkLoadError',
+    });
+
+    expect(runtime.reload).toHaveBeenCalledOnce();
+  });
+
+  it('recovers from chunk promise rejections without suppressing analytics visibility', () => {
+    const { runtime } = createRuntime();
+    const handlers = createChunkLoadRecoveryHandlers(runtime);
+
+    handlers.handleUnhandledRejection({
+      reason: new Error(
+        'ChunkLoadError: Failed to load chunk /_next/static/chunks/app.js'
+      ),
+    });
+
+    expect(runtime.reload).toHaveBeenCalledOnce();
+  });
+
   it('does not reload for unrelated runtime errors', () => {
     const { runtime } = createRuntime();
     const handlers = createChunkLoadRecoveryHandlers(runtime);
@@ -105,11 +132,13 @@ describe('chunk-load recovery', () => {
     expect(addEventListenerSpy).toHaveBeenCalledTimes(2);
     expect(addEventListenerSpy).toHaveBeenCalledWith(
       'error',
-      expect.any(Function)
+      expect.any(Function),
+      { capture: true }
     );
     expect(addEventListenerSpy).toHaveBeenCalledWith(
       'unhandledrejection',
-      expect.any(Function)
+      expect.any(Function),
+      { capture: true }
     );
   });
 

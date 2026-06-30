@@ -201,9 +201,12 @@ export function initializeChunkLoadRecovery(): void {
     reload: () => window.location.reload(),
   });
 
-  window.addEventListener('error', handlers.handleWindowError);
+  window.addEventListener('error', handlers.handleWindowError, {
+    capture: true,
+  });
   window.addEventListener(
     'unhandledrejection',
-    handlers.handleUnhandledRejection
+    handlers.handleUnhandledRejection,
+    { capture: true }
   );
 }

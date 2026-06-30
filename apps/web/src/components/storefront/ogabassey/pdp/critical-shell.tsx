@@ -19,6 +19,7 @@ interface OgabasseyPdpCriticalShellProps {
 const PRICE_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
   currency: 'NGN',
   maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
   style: 'currency',
 });
 

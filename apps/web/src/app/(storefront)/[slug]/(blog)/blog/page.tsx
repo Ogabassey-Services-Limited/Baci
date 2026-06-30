@@ -26,16 +26,19 @@ export async function generateMetadata({
   });
 }
 
+function isStaticBlogTenant(slug: string): boolean {
+  return OGABASSEY_BLOG_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
+}
+
 export default async function BlogPage(props: BlogPageProps) {
   const { slug } = await props.params;
   const content = (
     <BlogPageContent {...props} params={Promise.resolve({ slug })} />
   );
 
-  // Keep the canonical listing content in the root blog HTML. The deploy smoke
-  // check and HTML-only crawlers extract post anchors directly from this page;
-  // author/category routes own the PPR shell fallback instead.
-  if (OGABASSEY_BLOG_STATIC_TENANTS.some((staticSlug) => staticSlug === slug)) {
+  if (isStaticBlogTenant(slug)) {
     return content;
   }
 

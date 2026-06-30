@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { isValidElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildListingResult,
@@ -38,18 +39,38 @@ describe('blog page shell', () => {
     expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
   });
 
-  it('renders monitored OgaBassey listing content directly so raw HTML keeps post anchors', async () => {
-    render(
-      await BlogPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({}),
-      })
-    );
+  it('renders monitored OgaBassey listing content outside Suspense for crawlable static HTML', async () => {
+    const ui = await BlogPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(isValidElement(ui)).toBe(true);
+    expect(ui.type).not.toBe(Suspense);
+
+    render(ui);
 
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
   });
 
-  it('shows the blog listing fallback while a non-static tenant listing is resolving', async () => {
+  it('does not subscribe to listing search params before rendering the route shell', async () => {
+    const thenSpy = vi.fn(() => {
+      throw new Error('search params resolved before content render');
+    });
+    const searchParams = Object.defineProperty({}, 'then', {
+      value: thenSpy,
+    }) as Promise<Record<string, never>>;
+
+    await BlogPage({
+      params: Promise.resolve({ slug: 'ogabassey.com' }),
+      searchParams,
+    });
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('shows the blog listing fallback while dynamic tenant content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Intentionally never resolves so Suspense fallback remains visible.
@@ -58,7 +79,7 @@ describe('blog page shell', () => {
 
     render(
       await BlogPage({
-        params: Promise.resolve({ slug: 'test-store' }),
+        params: Promise.resolve({ slug: 'dynamic-store' }),
         searchParams: Promise.resolve({}),
       })
     );

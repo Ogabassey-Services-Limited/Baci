@@ -124,6 +124,55 @@ const TOPSHIP_CATEGORIES: Record<string, string> = {
 
 const TOPSHIP_DEFAULT_PICKUP_CHARGE_KOBO = 200000;
 const TOPSHIP_VAT_RATE = 0.075;
+const TOPSHIP_WEIGHT_BUCKETS_KG = [1, 2, 5, 10, 20, 50] as const;
+
+function normalizeTopshipQuoteLocation(value: string | undefined): string {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue.toLowerCase() : 'unknown';
+}
+
+function getTopshipQuoteWeightBucket(totalWeight: number): string {
+  const normalizedWeight = Number.isFinite(totalWeight)
+    ? Math.max(0, totalWeight)
+    : 0;
+  const bucket = TOPSHIP_WEIGHT_BUCKETS_KG.find(
+    (maxWeight) => normalizedWeight <= maxWeight
+  );
+
+  return bucket ? `lte_${bucket}kg` : 'gt_50kg';
+}
+
+function getTopshipQuoteItemCategories(request: QuoteRequest): string[] {
+  return [
+    ...new Set(
+      request.items
+        .map((item) => item.category?.trim().toLowerCase())
+        .filter((category): category is string => Boolean(category))
+    ),
+  ].slice(0, 5);
+}
+
+function getTopshipQuoteDiagnostics(
+  request: QuoteRequest,
+  totalWeight: number,
+  result?: unknown
+): Record<string, unknown> {
+  const responseRecord =
+    typeof result === 'object' && result !== null
+      ? (result as Record<string, unknown>)
+      : null;
+
+  return {
+    senderCity: normalizeTopshipQuoteLocation(request.sender?.city),
+    senderCountryCode: request.sender?.countryCode || 'NG',
+    receiverCity: normalizeTopshipQuoteLocation(request.receiver.city),
+    receiverState: normalizeTopshipQuoteLocation(request.receiver.state),
+    receiverCountryCode: request.receiver.countryCode || 'NG',
+    weightBucket: getTopshipQuoteWeightBucket(totalWeight),
+    itemCategories: getTopshipQuoteItemCategories(request),
+    responseStatus: responseRecord?.status,
+  };
+}
 
 // =============================================================================
 // TOPSHIP PROVIDER IMPLEMENTATION
@@ -705,7 +754,11 @@ export class TopshipProvider extends BaseShippingProvider {
       }
 
       if (rates.length === 0) {
-        this.log('warn', 'No Topship quotes returned');
+        this.log(
+          'warn',
+          'No Topship quotes returned',
+          getTopshipQuoteDiagnostics(request, totalWeight, result)
+        );
         return [];
       }
 

@@ -173,4 +173,81 @@ describe('TopshipProvider', () => {
       },
     });
   });
+
+  it('logs non-PII diagnostics when Topship returns no quote rates', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ status: true, data: [], message: 'no rate' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+    );
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const { TopshipProvider } = await import('./topship');
+    const provider = new TopshipProvider();
+
+    await expect(
+      provider.getQuotes({
+        sessionId: 'quote-session-1',
+        shipmentType: 'domestic',
+        sender: {
+          name: 'Sender Name',
+          phone: '08012345678',
+          address: '12 Private Street',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        receiver: {
+          name: 'Receiver Name',
+          phone: '08087654321',
+          address: '1 Private Crescent',
+          city: 'Abuja',
+          state: 'FCT',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        items: [
+          {
+            name: 'Phone',
+            quantity: 2,
+            weight: 0.8,
+            value: 500_000,
+            category: 'Smartphones',
+          },
+        ],
+      })
+    ).resolves.toEqual([]);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Shipping]',
+      expect.objectContaining({
+        itemCategories: ['smartphones'],
+        message: 'No Topship quotes returned',
+        provider: 'TOPSHIP',
+        receiverCity: 'abuja',
+        receiverCountryCode: 'NG',
+        receiverState: 'fct',
+        responseStatus: true,
+        senderCity: 'lagos',
+        senderCountryCode: 'NG',
+        weightBucket: 'lte_2kg',
+      })
+    );
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('Private Street');
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('08012345678');
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain(
+      'Private Crescent'
+    );
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('08087654321');
+  });
 });

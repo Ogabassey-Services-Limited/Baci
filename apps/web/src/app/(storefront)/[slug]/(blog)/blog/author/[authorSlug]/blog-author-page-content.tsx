@@ -13,11 +13,15 @@ import { sanitizeSchemaUrl } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from '../../blog-search-params';
 import { BlogAuthorPagination } from './blog-author-pagination';
 
 interface BlogAuthorPageContentProps {
   params: Promise<{ slug: string; authorSlug: string }>;
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
 
 function labelForProfileUrl(url: string): string {
@@ -38,7 +42,9 @@ export async function BlogAuthorPageContent({
   searchParams,
 }: BlogAuthorPageContentProps) {
   const { slug, authorSlug } = await params;
-  const requestedPage = parseBlogListingPage((await searchParams)?.page);
+  const requestedPage = parseBlogListingPage(
+    toSingleBlogSearchParam((await searchParams)?.page)
+  );
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);

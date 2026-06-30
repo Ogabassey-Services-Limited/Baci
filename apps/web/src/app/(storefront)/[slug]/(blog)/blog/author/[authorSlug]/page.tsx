@@ -9,11 +9,15 @@ import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from '../../blog-search-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 interface AuthorPageProps {
   params: Promise<{ slug: string; authorSlug: string }>;
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
 
 const AUTHOR_NOT_FOUND_METADATA: Metadata = {
@@ -35,40 +39,14 @@ export function generateStaticParams(): Array<{
   );
 }
 
-async function assertAuthorRouteBeforeShell({
-  params,
-}: Pick<AuthorPageProps, 'params'>) {
-  const { slug, authorSlug } = await params;
-  const normalizedAuthorSlug = authorSlug.toLowerCase();
-
-  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
-  if (profile) {
-    return { slug, authorSlug: normalizedAuthorSlug };
-  }
-
-  const fallbackOutcome = await resolveBlogCatchAllOutcome({
-    params: Promise.resolve({
-      slug,
-      catchAll: ['author', normalizedAuthorSlug],
-    }),
-  });
-
-  if (fallbackOutcome.type === 'redirect') {
-    if (fallbackOutcome.status === 308) {
-      permanentRedirect(asRoute(fallbackOutcome.url));
-    }
-    redirect(asRoute(fallbackOutcome.url));
-  }
-
-  notFound();
-}
-
 export async function generateMetadata({
   params,
   searchParams,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
-  const page = parseBlogListingPage((await searchParams)?.page);
+  const page = parseBlogListingPage(
+    toSingleBlogSearchParam((await searchParams)?.page)
+  );
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
@@ -125,21 +103,59 @@ export async function generateMetadata({
   };
 }
 
+function isStaticAuthorTenant(slug: string): boolean {
+  return OGABASSEY_AUTHOR_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
+}
+
+async function assertNonStaticAuthorRouteBeforeShell({
+  slug,
+  authorSlug,
+}: {
+  slug: string;
+  authorSlug: string;
+}): Promise<void> {
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
+  if (profile) {
+    return;
+  }
+
+  const fallbackOutcome = await resolveBlogCatchAllOutcome({
+    params: Promise.resolve({
+      slug,
+      catchAll: ['author', normalizedAuthorSlug],
+    }),
+  });
+
+  if (fallbackOutcome.type === 'redirect') {
+    if (fallbackOutcome.status === 308) {
+      permanentRedirect(asRoute(fallbackOutcome.url));
+    }
+    redirect(asRoute(fallbackOutcome.url));
+  }
+
+  notFound();
+}
+
 export default async function BlogAuthorPage({
   params,
   searchParams,
 }: AuthorPageProps) {
-  // Resolve only static slug-shape and legacy catch-all outcomes before the
-  // shell. Request-query/data validation stays behind Suspense so Cache
-  // Components can keep a static shell for this route.
-  const resolvedParams = await assertAuthorRouteBeforeShell({ params });
-
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogAuthorPageContent
-        params={Promise.resolve(resolvedParams)}
-        searchParams={searchParams}
-      />
-    </Suspense>
+  const resolvedParams = await params;
+  const content = (
+    <BlogAuthorPageContent
+      params={Promise.resolve(resolvedParams)}
+      searchParams={searchParams}
+    />
   );
+
+  if (isStaticAuthorTenant(resolvedParams.slug)) {
+    return content;
+  }
+
+  await assertNonStaticAuthorRouteBeforeShell(resolvedParams);
+
+  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

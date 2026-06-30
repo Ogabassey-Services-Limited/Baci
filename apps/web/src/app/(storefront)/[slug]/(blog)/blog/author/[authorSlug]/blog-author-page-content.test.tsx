@@ -85,10 +85,6 @@ vi.mock('@/lib/store-url', () => ({
       : `https://${merchant.slug}.usebaci.com`,
 }));
 
-vi.mock('@/lib/validation', () => ({
-  isDomainIdentifier: (value: string) => value.includes('.'),
-}));
-
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 const authorData = {

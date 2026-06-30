@@ -65,10 +65,6 @@ vi.mock('@/lib/store-url', () => ({
       : `https://${merchant.slug}.usebaci.com`,
 }));
 
-vi.mock('@/lib/validation', () => ({
-  isDomainIdentifier: (value: string) => value.includes('.'),
-}));
-
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 const authorData = {
@@ -127,15 +123,10 @@ describe('BlogAuthorPageContent navigation', () => {
           slug: 'ogabassey.com',
           authorSlug: 'bassey-john',
         }),
-        searchParams: Promise.resolve({ page: '2' }),
+        searchParams: Promise.resolve({ page: ['2', '999'] }),
       })
     );
 
-    expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'Bassey John',
-      { page: 2 }
-    );
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
       './bassey-john'

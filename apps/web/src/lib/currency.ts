@@ -178,6 +178,61 @@ export function getCurrencyConfig(
 
 const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
 const MAX_CACHE_SIZE = 100;
+const MIN_FRACTION_DIGITS = 0;
+const MAX_FRACTION_DIGITS = 20;
+
+function normalizeFractionDigits(
+  value: number | undefined
+): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return Math.min(
+    MAX_FRACTION_DIGITS,
+    Math.max(MIN_FRACTION_DIGITS, Math.trunc(value))
+  );
+}
+
+function normalizeNumberFormatOptions(
+  options?: Partial<Intl.NumberFormatOptions>
+): Partial<Intl.NumberFormatOptions> | undefined {
+  if (!options) {
+    return undefined;
+  }
+
+  const normalizedOptions: Partial<Intl.NumberFormatOptions> = { ...options };
+  const minimumFractionDigits = normalizeFractionDigits(
+    options.minimumFractionDigits
+  );
+  const maximumFractionDigits = normalizeFractionDigits(
+    options.maximumFractionDigits
+  );
+
+  delete normalizedOptions.minimumFractionDigits;
+  delete normalizedOptions.maximumFractionDigits;
+
+  if (minimumFractionDigits !== undefined) {
+    normalizedOptions.minimumFractionDigits = minimumFractionDigits;
+  }
+
+  if (maximumFractionDigits !== undefined) {
+    const effectiveMinimumFractionDigits =
+      minimumFractionDigits ?? Math.min(2, maximumFractionDigits);
+    normalizedOptions.minimumFractionDigits = effectiveMinimumFractionDigits;
+    normalizedOptions.maximumFractionDigits = Math.max(
+      maximumFractionDigits,
+      effectiveMinimumFractionDigits
+    );
+  } else if (minimumFractionDigits !== undefined) {
+    normalizedOptions.maximumFractionDigits = Math.max(
+      2,
+      minimumFractionDigits
+    );
+  }
+
+  return normalizedOptions;
+}
 
 /**
  * Optimized currency formatter using a pre-calculated config
@@ -188,19 +243,24 @@ export function formatCurrencyWithConfig(
   config: CurrencyConfig,
   options?: Partial<Intl.NumberFormatOptions>
 ): string {
+  const normalizedOptions = normalizeNumberFormatOptions(options);
+
   try {
     let cacheKey: string;
 
     // Optimized: check for reference equality first for COMPACT_OPTIONS to skip JSON.stringify
     if (options === COMPACT_OPTIONS) {
       cacheKey = `${config.locale}:${config.code}:compact`;
-    } else if (!options || Object.keys(options).length === 0) {
+    } else if (
+      !normalizedOptions ||
+      Object.keys(normalizedOptions).length === 0
+    ) {
       cacheKey = `${config.locale}:${config.code}`;
     } else {
       cacheKey = JSON.stringify({
         locale: config.locale,
         currency: config.code,
-        ...options,
+        ...normalizedOptions,
       });
     }
 
@@ -213,7 +273,7 @@ export function formatCurrencyWithConfig(
         currencyDisplay: 'symbol',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-        ...options,
+        ...normalizedOptions,
       });
 
       // LRU eviction: remove least-recently-used entry when cache is full
@@ -233,7 +293,7 @@ export function formatCurrencyWithConfig(
     return formatter.format(amount);
   } catch {
     // Fallback for unsupported locales
-    const digits = options?.maximumFractionDigits ?? 2;
+    const digits = normalizedOptions?.maximumFractionDigits ?? 2;
     return `${config.symbol}${amount.toFixed(digits)}`;
   }
 }
