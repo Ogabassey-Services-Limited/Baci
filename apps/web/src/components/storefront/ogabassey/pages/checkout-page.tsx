@@ -3367,10 +3367,10 @@ export const CheckoutPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <p className="font-bold text-gray-900 text-sm">Airport Delivery</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Delivery to your doorstep</p>
+                                  <p className="font-bold text-store-background-text text-sm">Airport Delivery</p>
+                                  <p className="text-xs text-store-background-text/55 mt-0.5">Delivery to your doorstep</p>
                                 </div>
-                                <span className="font-bold text-gray-900">₦25,000</span>
+                                <span className="font-bold text-store-background-text">₦25,000</span>
                               </label>
                               <label
                                 className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
@@ -3393,10 +3393,10 @@ export const CheckoutPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <p className="font-bold text-gray-900 text-sm">Airport Pickup</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Collect at the airport</p>
+                                  <p className="font-bold text-store-background-text text-sm">Airport Pickup</p>
+                                  <p className="text-xs text-store-background-text/55 mt-0.5">Collect at the airport</p>
                                 </div>
-                                <span className="font-bold text-gray-900">₦20,000</span>
+                                <span className="font-bold text-store-background-text">₦20,000</span>
                               </label>
                             </div>
                           </div>
