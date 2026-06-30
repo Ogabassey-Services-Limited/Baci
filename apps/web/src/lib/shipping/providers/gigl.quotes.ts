@@ -81,37 +81,37 @@ async function getQuotesWithinTimeout(
       (sum, item) => sum + item.value * item.quantity,
       0
     );
-    const homeDeliveryQuote = await fetchGiglQuote(
-      apiClient,
-      io,
-      tokenData,
-      request,
-      senderStation,
-      receiverStation,
-      PickupOptions.HomeDelivery,
-      totalWeight,
-      totalValue,
-      signal
+    const quoteResults = await Promise.all(
+      [PickupOptions.HomeDelivery, PickupOptions.ServiceCentre].map(
+        (pickupOption) =>
+          fetchGiglQuote(
+            apiClient,
+            io,
+            tokenData,
+            request,
+            senderStation,
+            receiverStation,
+            pickupOption,
+            totalWeight,
+            totalValue,
+            signal
+          ).catch((error) => {
+            if (signal.aborted || isGiglAbortError(error)) {
+              io.log('warn', 'GIGL quote option timed out', {
+                timeoutMs: GIGL_QUOTE_TIMEOUT_MS,
+                pickupOption,
+              });
+              return null;
+            }
+
+            throw error;
+          })
+      )
     );
 
-    if (homeDeliveryQuote) {
-      return [homeDeliveryQuote];
-    }
-
-    const stationPickupQuote = await fetchGiglQuote(
-      apiClient,
-      io,
-      tokenData,
-      request,
-      senderStation,
-      receiverStation,
-      PickupOptions.ServiceCentre,
-      totalWeight,
-      totalValue,
-      signal
+    return quoteResults.filter(
+      (quote): quote is ShippingQuote => quote !== null
     );
-
-    return stationPickupQuote ? [stationPickupQuote] : [];
   } catch (error) {
     if (signal.aborted || isGiglAbortError(error)) {
       io.log('warn', 'GIGL quote timed out', {

@@ -90,13 +90,14 @@ describe('GiglProvider quote requests', () => {
     const fetchMock = mockGiglFetchSequence(
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
       jsonResponse(priceResponse)
     );
 
     const provider = buildQuoteHarness();
     const quotes = await provider.getQuotes(quoteRequest);
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(2);
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
       serviceTier: 'Standard',
@@ -105,9 +106,18 @@ describe('GiglProvider quote requests', () => {
       currency: 'NGN',
       providerRateId: 'GIGL_30_0_1',
     });
+    expect(quotes[1]).toMatchObject({
+      provider: 'GIGL',
+      serviceTier: 'Station Pickup',
+      providerRateId: 'GIGL_30_1_1',
+      isStationPickup: true,
+      stationId: 30,
+      stationName: 'PORT HARCOURT',
+    });
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       `${baseUrl}/login`,
       `${baseUrl}/localstations/get`,
+      `${baseUrl}/price`,
       `${baseUrl}/price`,
     ]);
 
@@ -124,12 +134,17 @@ describe('GiglProvider quote requests', () => {
     });
     expect(pricePayload.ShipmentItems[0]).not.toHaveProperty('ItemType');
     expect(pricePayload).not.toHaveProperty('ShipmentType');
+    const stationPickupPayload = JSON.parse(
+      String(fetchMock.mock.calls[3]?.[1]?.body ?? '{}')
+    );
+    expect(stationPickupPayload.PickUpOptions).toBe(1);
   });
 
   it('falls back to UserChannelType when CustomerType is absent', async () => {
     const fetchMock = mockGiglFetchSequence(
       jsonResponse(loginResponseWithoutCustomerType),
       jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
       jsonResponse(priceResponse)
     );
 
@@ -137,7 +152,7 @@ describe('GiglProvider quote requests', () => {
 
     const quotes = await provider.getQuotes(quoteRequest);
 
-    expect(quotes).toHaveLength(1);
+    expect(quotes).toHaveLength(2);
     const pricePayload = JSON.parse(
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
     );
@@ -148,6 +163,7 @@ describe('GiglProvider quote requests', () => {
     const fetchMock = mockGiglFetchSequence(
       jsonResponse(loginResponseWithoutCustomerType),
       jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
       jsonResponse(priceResponse)
     );
 
@@ -158,7 +174,10 @@ describe('GiglProvider quote requests', () => {
       items: [{ ...quoteRequest.items[0], weight: 31 }],
     });
 
-    expect(quotes[0]?.providerRateId).toBe('GIGL_30_0_2');
+    expect(quotes.map((quote) => quote.providerRateId)).toEqual([
+      'GIGL_30_0_2',
+      'GIGL_30_1_2',
+    ]);
     const pricePayload = JSON.parse(
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
     );
@@ -170,13 +189,14 @@ describe('GiglProvider quote requests', () => {
       jsonResponse(loginResponseWithoutCustomerType),
       jsonResponse(failedStationsEnvelope),
       jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
       jsonResponse(priceResponse)
     );
 
     const provider = buildQuoteHarness();
 
     await expect(provider.getQuotes(quoteRequest)).resolves.toEqual([]);
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(2);
   });
 
   it('skips GIGL quotes when the sender station cannot be resolved', async () => {
@@ -211,7 +231,10 @@ describe('GiglProvider quote requests', () => {
         success: true,
         data: { message: 'Success', status: 200, data: { GrandTotal: 'x' } },
       }),
-      jsonResponse({ success: true, data: {} })
+      jsonResponse({
+        success: true,
+        data: { message: 'Success', status: 200, data: { GrandTotal: 'x' } },
+      })
     );
 
     const provider = buildQuoteHarness();

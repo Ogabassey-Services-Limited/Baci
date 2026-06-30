@@ -94,17 +94,22 @@ describe('GiglProvider quote token handling', () => {
         success: true,
         data: { message: 'Token expired', status: 401, data: null },
       }),
+      jsonResponse(priceResponse),
       jsonResponse(loginResponseWithToken('new-token')),
       jsonResponse(priceResponse)
     );
 
     const provider = buildQuoteHarness();
 
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(2);
 
     const oldPriceHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
-    const newPriceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
+    const stationPriceHeaders = new Headers(
+      fetchMock.mock.calls[3]?.[1]?.headers
+    );
+    const newPriceHeaders = new Headers(fetchMock.mock.calls[5]?.[1]?.headers);
     expect(oldPriceHeaders.get('access-token')).toBe('old-token');
+    expect(stationPriceHeaders.get('access-token')).toBe('old-token');
     expect(newPriceHeaders.get('access-token')).toBe('new-token');
   });
 
@@ -117,12 +122,13 @@ describe('GiglProvider quote token handling', () => {
       }),
       jsonResponse(loginResponseWithToken('new-token')),
       jsonResponse(stationsResponse),
+      jsonResponse(priceResponse),
       jsonResponse(priceResponse)
     );
 
     const provider = buildQuoteHarness();
 
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(2);
 
     const oldStationHeaders = new Headers(
       fetchMock.mock.calls[1]?.[1]?.headers
@@ -131,9 +137,13 @@ describe('GiglProvider quote token handling', () => {
       fetchMock.mock.calls[3]?.[1]?.headers
     );
     const priceHeaders = new Headers(fetchMock.mock.calls[4]?.[1]?.headers);
+    const stationPriceHeaders = new Headers(
+      fetchMock.mock.calls[5]?.[1]?.headers
+    );
     expect(oldStationHeaders.get('access-token')).toBe('old-token');
     expect(newStationHeaders.get('access-token')).toBe('new-token');
     expect(priceHeaders.get('access-token')).toBe('new-token');
+    expect(stationPriceHeaders.get('access-token')).toBe('new-token');
   });
 
   it('uses the original quote signal during stale-token refresh', async () => {
@@ -146,6 +156,7 @@ describe('GiglProvider quote token handling', () => {
       jsonResponse(loginResponseWithToken('old-token')),
       jsonResponse(stationsResponse),
       () => unauthorizedResponse,
+      jsonResponse(priceResponse),
       abortingFetchResponse
     );
 
@@ -162,7 +173,7 @@ describe('GiglProvider quote token handling', () => {
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(GIGL_QUOTE_TIMEOUT_MS);
 
-    await expect(quotePromise).resolves.toEqual([]);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await expect(quotePromise).resolves.toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });

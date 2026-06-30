@@ -3340,8 +3340,8 @@ export const CheckoutPage: React.FC = () => {
                         {deliveryMethod === 'airport' && (
                           <div className="mt-4 space-y-3 animate-in fade-in">
                             <div className="flex items-start gap-3">
-                              <Plane size={20} className="text-gray-500 mt-0.5" />
-                              <p className="text-sm text-gray-600">
+                              <Plane size={20} className="text-store-background-text/50 mt-0.5" />
+                              <p className="text-sm text-store-background-text/60">
                                 Delivery to your doorstep is available. Choose delivery to your location or pickup at the airport.
                               </p>
                             </div>

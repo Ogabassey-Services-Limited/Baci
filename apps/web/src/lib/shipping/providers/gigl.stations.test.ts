@@ -103,6 +103,50 @@ describe('GIGL station lookup', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('upgrades the shared station cache fill to a longer caller timeout without sharing its abort signal', async () => {
+    let resolveShortStations: (response: Response) => void = () => undefined;
+    const shortStationsResponse = new Promise<Response>((resolve) => {
+      resolveShortStations = resolve;
+    });
+    const stationFetchOptions: Array<RequestInit & { timeout?: number }> = [];
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(loginResponseWithoutCustomerType))
+      .mockImplementationOnce((_url, init) => {
+        stationFetchOptions.push(init as RequestInit & { timeout?: number });
+        return shortStationsResponse;
+      })
+      .mockImplementationOnce((_url, init) => {
+        stationFetchOptions.push(init as RequestInit & { timeout?: number });
+        return jsonResponse(stationsResponse);
+      });
+
+    const { GiglApiClient } = await import('./gigl.auth');
+    const { GiglStationsService } = await import('./gigl.stations');
+    const safeFetch = (
+      url: string,
+      options?: RequestInit & { timeout?: number }
+    ) => fetch(url, options);
+    const provider = new GiglStationsService(
+      new GiglApiClient({ safeFetch, log: vi.fn() })
+    );
+    const controller = new AbortController();
+    const shortStations = provider.getStations(5000);
+    const longStations = provider.getStations(10_000, controller.signal);
+
+    await expect(longStations).resolves.toHaveLength(2);
+    resolveShortStations(jsonResponse(stationsResponse));
+    await expect(shortStations).resolves.toHaveLength(2);
+    expect(stationFetchOptions.map((options) => options.timeout)).toEqual([
+      5000, 10_000,
+    ]);
+    expect(stationFetchOptions.map((options) => options.signal)).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('times out cold station fetches without waiting for the provider default', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn();

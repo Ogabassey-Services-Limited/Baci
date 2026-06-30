@@ -16,6 +16,7 @@ export class GiglStationsService {
   private stationsCache: GiglStation[] | null = null;
   private stationsCacheExpiry = 0;
   private stationsRequest: Promise<GiglStation[]> | null = null;
+  private stationsRequestTimeout = 0;
 
   constructor(private readonly apiClient: GiglApiClient) {}
 
@@ -39,12 +40,15 @@ export class GiglStationsService {
       return Promise.resolve(this.stationsCache);
     }
 
-    if (!this.stationsRequest) {
-      this.stationsRequest = this.fetchStations(
-        GIGL_STATIONS_TIMEOUT_MS
-      ).finally(() => {
-        this.stationsRequest = null;
+    if (!this.stationsRequest || this.stationsRequestTimeout < timeout) {
+      const stationsRequest = this.fetchStations(timeout).finally(() => {
+        if (this.stationsRequest === stationsRequest) {
+          this.stationsRequest = null;
+          this.stationsRequestTimeout = 0;
+        }
       });
+      this.stationsRequest = stationsRequest;
+      this.stationsRequestTimeout = timeout;
       void this.stationsRequest.catch(() => undefined);
     }
 
