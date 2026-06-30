@@ -16,13 +16,6 @@ const mockIsValidMerchantIdentifier = vi.hoisted(() =>
   vi.fn<(value: string) => boolean>(() => true)
 );
 const mockWebMcp = vi.hoisted(() => vi.fn(() => null));
-const mockOgabasseyHomeShellFallback = vi.hoisted(() =>
-  vi.fn(() => (
-    <div data-testid="ogabassey-home-shell-fallback">
-      OgaBassey home shell fallback
-    </div>
-  ))
-);
 const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
   vi.fn(
     ({
@@ -49,10 +42,6 @@ vi.mock('./storefront-shell-snapshot', () => ({
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
   OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
-}));
-
-vi.mock('@/app/(storefront)/ogabassey/ogabassey-home-shell-fallback', () => ({
-  OgabasseyHomeShellFallback: () => mockOgabasseyHomeShellFallback(),
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -212,7 +201,6 @@ describe('storefront layout', () => {
     mockIsValidMerchantIdentifier.mockReset();
     mockIsValidMerchantIdentifier.mockReturnValue(true);
     mockWebMcp.mockClear();
-    mockOgabasseyHomeShellFallback.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderAppearances.length = 0;
@@ -363,7 +351,6 @@ describe('storefront layout', () => {
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })
     ).not.toBeInTheDocument();
-    expect(mockOgabasseyHomeShellFallback).not.toHaveBeenCalled();
 
     await act(async () => {
       deferredParams.resolve({ slug: 'generic-store' });
@@ -371,7 +358,6 @@ describe('storefront layout', () => {
     });
 
     await screen.findByRole('status', { name: /loading storefront chrome/i });
-    expect(mockOgabasseyHomeShellFallback).not.toHaveBeenCalled();
 
     expect(themeProviderAppearances).toEqual([
       { mode: 'light', variant: 'default' },
@@ -398,7 +384,7 @@ describe('storefront layout', () => {
     unmount();
   });
 
-  it('derives OgaBassey static fallback appearance from params before tenant data resolves', async () => {
+  it('uses the neutral static fallback with OgaBassey appearance before tenant data resolves', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
@@ -416,7 +402,7 @@ describe('storefront layout', () => {
       await Promise.resolve();
     });
 
-    await screen.findByTestId('ogabassey-home-shell-fallback');
+    await screen.findByRole('status', { name: /loading storefront chrome/i });
 
     expect(themeProviderAppearances).toEqual([
       { mode: 'system', variant: 'ogabassey' },
@@ -429,9 +415,8 @@ describe('storefront layout', () => {
     expect(staticShell).toHaveClass('storefront-variant-ogabassey');
     expect(staticShell).toHaveClass('storefront-mode-system');
     expect(
-      screen.getByTestId('ogabassey-home-shell-fallback')
+      screen.getByRole('status', { name: /loading storefront chrome/i })
     ).toBeInTheDocument();
-    expect(mockOgabasseyHomeShellFallback).toHaveBeenCalledOnce();
 
     unmount();
   });
@@ -464,7 +449,6 @@ describe('storefront layout', () => {
     ]);
     expect(themeProviderDocumentScopes).toEqual([false]);
     expect(screen.getByText('Loading route shell')).toBeInTheDocument();
-    expect(mockOgabasseyHomeShellFallback).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })
     ).not.toBeInTheDocument();
@@ -626,7 +610,7 @@ describe('storefront layout metadata', () => {
     expect(metadata.alternates).toBeNull();
   });
 
-  it('uses the merchant domain as metadataBase for custom domains without request-binding metadata', async () => {
+  it('uses the merchant domain as metadataBase and keeps the OgaBassey app banner on Oga routes', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       baseMerchant as unknown as Awaited<
         ReturnType<typeof getRequestScopedMerchant>
@@ -639,6 +623,28 @@ describe('storefront layout metadata', () => {
 
     expect(mockConnection).not.toHaveBeenCalled();
     expect(metadata.metadataBase?.toString()).toBe('https://ogabassey.com/');
+    expect(metadata.other).toEqual({
+      'apple-itunes-app': 'app-id=6472735367',
+    });
+  });
+
+  it('does not leak the OgaBassey app banner onto generic storefronts', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      business_name: 'Template Test Store',
+      slug: 'template-test-store',
+      custom_domain: null,
+      site_title: 'Template Test Store',
+      template_id: 'ogabassey',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'template-test-store' }),
+    });
+
+    expect(metadata.metadataBase?.toString()).toBe(
+      'https://template-test-store.usebaci.com/'
+    );
     expect(metadata.other).toBeUndefined();
   });
 

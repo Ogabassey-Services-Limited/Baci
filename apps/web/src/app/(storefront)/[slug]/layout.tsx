@@ -5,7 +5,6 @@ import { connection } from 'next/server';
 import type React from 'react';
 import { Suspense, use } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
-import { OgabasseyHomeShellFallback } from '@/app/(storefront)/ogabassey/ogabassey-home-shell-fallback';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -17,13 +16,13 @@ import {
 } from '@/components/storefront/storefront-appearance';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { WebMcpStorefrontTools } from '@/components/storefront/webmcp-storefront-tools';
-import { MOBILE_APPS } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
+import { mergeStorefrontSmartAppBannerOther } from '@/lib/storefront-smart-app-banner-metadata';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { getStorefrontSeoDescription } from './seo-helpers';
 import {
@@ -163,6 +162,8 @@ export async function generateMetadata({
     metadataBase = undefined;
   }
 
+  const other = mergeStorefrontSmartAppBannerOther(slug);
+
   return {
     metadataBase,
     description,
@@ -182,13 +183,7 @@ export async function generateMetadata({
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },
     // Apple Smart App Banner — prompts iOS Safari users to open/install the app
-    ...(MOBILE_APPS.storefront.iosAppId
-      ? {
-          other: {
-            'apple-itunes-app': `app-id=${MOBILE_APPS.storefront.iosAppId}`,
-          },
-        }
-      : {}),
+    ...(other ? { other } : {}),
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
   };
@@ -305,14 +300,6 @@ function resolveFallbackAppearanceForSlug(slug: string): StorefrontAppearance {
     : DEFAULT_STOREFRONT_APPEARANCE;
 }
 
-function getDefaultLoadingFallback(appearance: StorefrontAppearance) {
-  return appearance.variant === 'ogabassey' ? (
-    <OgabasseyHomeShellFallback />
-  ) : (
-    <ShellChromeLoading />
-  );
-}
-
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -390,9 +377,7 @@ function StorefrontLayoutShell(props: {
   // Undefined uses the shared ShellChromeLoading; explicit null opts out for
   // routes that intentionally need no static visual shell.
   const fallbackContent =
-    loadingFallback === undefined
-      ? getDefaultLoadingFallback(fallbackAppearance)
-      : loadingFallback;
+    loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
   const staticLoadingFallback = fallbackContent ? (
     <StorefrontThemeFrame appearance={fallbackAppearance} scopeDocument={false}>
       {fallbackContent}

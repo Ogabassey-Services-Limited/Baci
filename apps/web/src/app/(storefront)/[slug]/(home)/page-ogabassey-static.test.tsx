@@ -49,40 +49,48 @@ vi.mock('../storefront-page-content', () => ({
   StorefrontPageContent: () => mockStorefrontPageContent(),
 }));
 
-const { default: StorefrontPage } = await import('./page');
+async function renderStorefrontPage(slug: string) {
+  const { default: StorefrontPage } = await import('./page');
+
+  render(
+    await StorefrontPage({
+      params: Promise.resolve({ slug }),
+    })
+  );
+}
 
 describe('OgaBassey dynamic homepage routing', () => {
   beforeEach(() => {
+    vi.resetModules();
+    mockCriticalHomeCssImport.mockClear();
+    mockFullStorefrontCssImport.mockClear();
     mockOgabasseyStaticHomePageContent.mockClear();
     mockOgabasseyStaticResourceHints.mockClear();
     mockStorefrontPageContent.mockClear();
   });
 
-  it('keeps the broad storefront stylesheet out of the OgaBassey route import', () => {
-    expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
+  it('keeps route-specific stylesheets out of the shared route import', async () => {
+    await import('./page');
+
+    expect(mockCriticalHomeCssImport).not.toHaveBeenCalled();
     expect(mockFullStorefrontCssImport).not.toHaveBeenCalled();
   });
 
   it('renders other storefronts through the shared page content path with full storefront CSS', async () => {
-    render(
-      await StorefrontPage({
-        params: Promise.resolve({ slug: 'another-shop' }),
-      })
-    );
+    await renderStorefrontPage('another-shop');
 
     expect(mockFullStorefrontCssImport).toHaveBeenCalledOnce();
+    expect(mockCriticalHomeCssImport).not.toHaveBeenCalled();
     expect(
       screen.getByText('Shared storefront page content')
     ).toBeInTheDocument();
   });
 
   it('renders the path homepage with the OgaBassey static shell', async () => {
-    render(
-      await StorefrontPage({
-        params: Promise.resolve({ slug: 'ogabassey' }),
-      })
-    );
+    await renderStorefrontPage('ogabassey');
 
+    expect(mockCriticalHomeCssImport).toHaveBeenCalledOnce();
+    expect(mockFullStorefrontCssImport).not.toHaveBeenCalled();
     expect(mockOgabasseyStaticResourceHints).toHaveBeenCalledOnce();
     expect(mockOgabasseyStaticHomePageContent).toHaveBeenCalledWith({
       pathPrefix: '/ogabassey',
@@ -94,11 +102,7 @@ describe('OgaBassey dynamic homepage routing', () => {
   });
 
   it('renders the custom-domain local homepage with root-relative links', async () => {
-    render(
-      await StorefrontPage({
-        params: Promise.resolve({ slug: 'ogabassey.com' }),
-      })
-    );
+    await renderStorefrontPage('ogabassey.com');
 
     expect(mockOgabasseyStaticHomePageContent).toHaveBeenCalledWith({
       pathPrefix: '',

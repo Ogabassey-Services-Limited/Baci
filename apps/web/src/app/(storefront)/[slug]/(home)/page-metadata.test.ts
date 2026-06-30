@@ -111,4 +111,21 @@ describe('storefront homepage metadata', () => {
       },
     });
   });
+
+  it('does not leak OgaBassey utility keywords into generic storefront metadata', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      business_name: 'Ada Fashion',
+      custom_domain: 'ada-fashion.example.com',
+      site_title: 'Ada Fashion',
+      slug: 'ada-fashion',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ada-fashion' }),
+    });
+
+    expect(metadata.title).toBe('Ada Fashion');
+    expect(metadata.keywords).toBeUndefined();
+  });
 });
