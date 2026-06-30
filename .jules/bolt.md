@@ -49,7 +49,7 @@
 ## 2024-06-14 - Optimize Location Picker FlatLists
 **Learning:** In the mobile-storefront app, dynamically heighted list items inside modals can cause UI thread asynchronous measurement cycles when rendered by FlatList, leading to slow rendering of pickers like City and State.
 **Action:** Always fix the height of simple picker row items (e.g., changing `minHeight` to `height` in stylesheets) and implement explicit `getItemLayout` on the corresponding `FlatList` to bypass runtime measurements and dramatically speed up rendering.
-## 2026-06-30 — Convert Sequential DB Queries to Promise.all in Cart Validation
+## 2024-06-30 — Convert Sequential DB Queries to Promise.all in Cart Validation
 **Learning:** Sequential Supabase `.from()` and `.rpc()` queries in API routes (like cart validation) create unnecessary blocking round trips.
 **Action:** Group independent queries using `Promise.all()` to execute them concurrently, reducing total network latency. Use `Promise.resolve` for conditional queries.
 **Measurement:** Code inspection shows a reduction of one full round-trip delay on the hot cart validation path.
