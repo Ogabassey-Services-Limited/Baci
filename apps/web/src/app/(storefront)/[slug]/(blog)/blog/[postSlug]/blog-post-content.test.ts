@@ -46,6 +46,177 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toBe('');
   });
 
+  it('normalizes internal TipTap links before structured rendering', async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Shop the Galaxy A57',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://ogabassey.com/smartphones/samsung-galaxy-a57?srsltid=tracking',
+                    target: '_blank',
+                    rel: 'noopener noreferrer nofollow',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await resolveBlogPostContent(content, {
+      baseUrl: 'https://ogabassey.com',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Shop the Galaxy A57',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: '/smartphones/samsung-galaxy-a57',
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(result.renderedContent)).not.toContain('nofollow');
+    expect(JSON.stringify(content)).toContain('nofollow');
+  });
+
+  it('strips nofollow from external TipTap source links without removing safe rel tokens', async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Samsung source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.samsung.com/ng/support/specs',
+                    target: '_blank',
+                    rel: 'nofollow ugc noopener noreferrer',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await resolveBlogPostContent(content, {
+      baseUrl: 'https://ogabassey.com',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Samsung source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.samsung.com/ng/support/specs',
+                    target: '_blank',
+                    rel: 'ugc noopener noreferrer',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(result.renderedContent)).not.toContain('nofollow');
+  });
+
+  it('removes the rel attribute from TipTap links when nofollow is the only token', async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.apple.com/newsroom/',
+                    rel: 'nofollow',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Source',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'https://www.apple.com/newsroom/',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('parses leading TipTap JSON when legacy HTML was appended after it', async () => {
     const structuredContent = {
       type: 'doc',
@@ -76,7 +247,30 @@ describe('resolveBlogPostContent', () => {
     const result = await resolveBlogPostContent(content);
 
     expect(result.isJson).toBe(true);
-    expect(result.renderedContent).toEqual(structuredContent);
+    expect(result.renderedContent).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Shop the MacBook lineup',
+              marks: [
+                {
+                  type: 'link',
+                  attrs: {
+                    href: 'http://ogabassey.com',
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
     expect(result.legacyHtml).toBe('');
   });
 
@@ -221,7 +415,7 @@ describe('resolveBlogPostContent', () => {
 
   it('normalizes legacy internal storefront links inside html content', async () => {
     const result = await resolveBlogPostContent(
-      '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?srsltid=test">iPhone</a> <a href="https://www.ogabassey.com/category/product/615">Old product</a></p>',
+      '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?srsltid=test" rel="nofollow ugc">iPhone</a> <a href="https://www.ogabassey.com/category/product/615">Old product</a></p>',
       {
         basePath: '',
         baseUrl: 'https://ogabassey.com',
@@ -234,6 +428,7 @@ describe('resolveBlogPostContent', () => {
       'href="/smartphones/iphone-13-pro-6gb-256gb"'
     );
     expect(result.legacyHtml).toContain('href="/products"');
+    expect(result.legacyHtml).not.toContain('nofollow');
   });
 
   it('renders markdown into sanitized legacy HTML', async () => {

@@ -13,6 +13,7 @@ export type SanitizeHtmlHeadingOptions =
 
 export type SanitizeHtmlOptions = SanitizeHtmlHeadingOptions & {
   normalizeSeoAnchors?: boolean;
+  stripNofollowFromLinks?: boolean;
   trustedPriorityImageSources?: readonly string[];
 };
 
@@ -104,12 +105,25 @@ function isSerializedAttributeLeakHref(href: string | undefined): boolean {
     );
 }
 
-function sanitizeAnchorTag(_tagName: string, attribs: sanitizeLib.Attributes) {
+function sanitizeAnchorTag(
+  _tagName: string,
+  attribs: sanitizeLib.Attributes,
+  options: Pick<SanitizeHtmlOptions, 'stripNofollowFromLinks'>
+) {
   const relTokens = new Set(
     typeof attribs.rel === 'string'
       ? attribs.rel.split(/\s+/).filter(Boolean)
       : []
   );
+
+  if (options.stripNofollowFromLinks) {
+    for (const token of Array.from(relTokens)) {
+      if (token.toLowerCase() === 'nofollow') {
+        relTokens.delete(token);
+      }
+    }
+  }
+
   relTokens.add('noopener');
   relTokens.add('noreferrer');
 
@@ -140,7 +154,7 @@ export function createSanitizeHtmlOptions(
     options.trustedPriorityImageSources
   );
   const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
-    a: sanitizeAnchorTag,
+    a: (tagName, attribs) => sanitizeAnchorTag(tagName, attribs, options),
     img: (_tagName, attribs) => {
       const nextAttribs = { ...attribs };
       const normalizedImageSource =
