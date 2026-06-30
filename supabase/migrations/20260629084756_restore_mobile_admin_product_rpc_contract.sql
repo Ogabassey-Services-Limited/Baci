@@ -30,8 +30,14 @@ DECLARE
     to_jsonb(v_variant_model),
     true
   );
+  v_has_variants boolean;
+  v_existing_has_variants boolean;
   v_existing_inventory_tracking_policy text;
+  v_existing_anchor_id uuid;
+  v_inventory_tracking_policy text;
+  v_reassign_anchor_to_variant_id uuid;
   v_updated_product_id uuid;
+  v_synced_variant_count integer;
   v_result jsonb;
 BEGIN
   IF p_merchant_id IS NULL THEN
@@ -56,10 +62,16 @@ BEGIN
   END IF;
 
   IF p_product_id IS NULL THEN
+    v_has_variants := COALESCE(NULLIF(v_product_payload->>'has_variants', '')::boolean, false);
+
     PERFORM private.enforce_mobile_admin_product_limit(p_merchant_id, v_product_id);
+    v_inventory_tracking_policy := COALESCE(
+      NULLIF(v_product_payload->>'inventory_tracking_policy', ''),
+      'off'
+    );
   ELSE
-    SELECT p.inventory_tracking_policy
-    INTO v_existing_inventory_tracking_policy
+    SELECT p.has_variants, p.inventory_tracking_policy, p.inventory_anchor_variant_id
+    INTO v_existing_has_variants, v_existing_inventory_tracking_policy, v_existing_anchor_id
     FROM public.products AS p
     WHERE p.id = p_product_id
       AND p.merchant_id = p_merchant_id
@@ -77,15 +89,283 @@ BEGIN
         true
       );
     END IF;
+
+    v_has_variants := CASE
+      WHEN v_product_payload ? 'has_variants' THEN COALESCE(NULLIF(v_product_payload->>'has_variants', '')::boolean, false)
+      ELSE COALESCE(v_existing_has_variants, false)
+    END;
+
+    v_inventory_tracking_policy := COALESCE(
+      NULLIF(v_product_payload->>'inventory_tracking_policy', ''),
+      v_existing_inventory_tracking_policy,
+      'off'
+    );
   END IF;
 
-  PERFORM private.save_mobile_admin_product_with_variants(
-    p_merchant_id,
-    v_product_id,
-    v_product_payload,
-    p_variants,
-    NULL
-  );
+  IF v_inventory_tracking_policy NOT IN ('off', 'serialized_strict', 'serialized_then_unlimited') THEN
+    RAISE EXCEPTION 'invalid_inventory_tracking_policy' USING ERRCODE = '22023';
+  END IF;
+
+  IF v_inventory_tracking_policy IN ('serialized_strict', 'serialized_then_unlimited')
+     AND EXISTS (
+       SELECT 1
+       FROM public.product_offers
+       WHERE product_id = v_product_id
+     ) THEN
+    RAISE EXCEPTION 'legacy_product_offers_must_be_migrated' USING ERRCODE = '23514';
+  END IF;
+
+  IF p_product_id IS NOT NULL
+     AND v_has_variants IS TRUE
+     AND v_existing_anchor_id IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1
+      FROM public.variant_inventory
+      WHERE variant_id = v_existing_anchor_id
+    ) THEN
+      v_reassign_anchor_to_variant_id := NULLIF(
+        v_product_payload->>'reassign_anchor_to_variant_id',
+        ''
+      )::uuid;
+
+      IF v_reassign_anchor_to_variant_id IS NULL OR NOT EXISTS (
+        SELECT 1
+        FROM public.product_variants
+        WHERE id = v_reassign_anchor_to_variant_id
+          AND product_id = v_product_id
+          AND merchant_id = p_merchant_id
+          AND is_inventory_anchor = false
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+      END IF;
+
+      PERFORM 1
+      FROM public.variant_inventory
+      WHERE variant_id = v_existing_anchor_id
+      FOR UPDATE;
+
+      IF EXISTS (
+        SELECT 1
+        FROM public.variant_inventory
+        WHERE variant_id = v_existing_anchor_id
+          AND status = 'reserved'
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reserved_units_exist' USING ERRCODE = '23514';
+      END IF;
+
+      UPDATE public.variant_inventory
+      SET variant_id = v_reassign_anchor_to_variant_id,
+          updated_at = now()
+      WHERE variant_id = v_existing_anchor_id;
+
+      PERFORM private.record_variant_inventory_event(
+        NULL,
+        p_merchant_id,
+        v_product_id,
+        v_reassign_anchor_to_variant_id,
+        'branch_transferred',
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        auth.uid(),
+        'mobile_admin',
+        jsonb_build_object('anchorReassignedFrom', v_existing_anchor_id)
+      );
+    END IF;
+
+    UPDATE public.products
+    SET inventory_anchor_variant_id = NULL,
+        updated_at = now()
+    WHERE id = v_product_id
+      AND merchant_id = p_merchant_id;
+
+    DELETE FROM public.product_variants
+    WHERE id = v_existing_anchor_id
+      AND product_id = v_product_id
+      AND merchant_id = p_merchant_id
+      AND is_inventory_anchor = true;
+  END IF;
+
+  IF p_product_id IS NULL THEN
+    INSERT INTO public.products (
+      id,
+      merchant_id,
+      name,
+      description,
+      price,
+      compare_at_price,
+      cost_price,
+      stock_quantity,
+      stock,
+      sku,
+      slug,
+      images,
+      status,
+      category_id,
+      brand,
+      fulfillment_details,
+      color,
+      condition,
+      variant_attributes,
+      has_variants,
+      manage_stock,
+      low_stock_threshold,
+      variant_model,
+      migration_status,
+      inventory_tracking_policy,
+      updated_at
+    ) VALUES (
+      v_product_id,
+      p_merchant_id,
+      v_product_payload->>'name',
+      v_product_payload->>'description',
+      NULLIF(v_product_payload->>'price', '')::numeric,
+      NULLIF(v_product_payload->>'compare_at_price', '')::numeric,
+      NULLIF(v_product_payload->>'cost_price', '')::numeric,
+      CASE
+        WHEN v_has_variants IS TRUE THEN 0
+        WHEN v_product_payload ? 'stock_quantity' THEN NULLIF(v_product_payload->>'stock_quantity', '')::integer
+        ELSE 0
+      END,
+      CASE
+        WHEN v_has_variants IS TRUE THEN 0
+        WHEN v_product_payload ? 'stock' THEN NULLIF(v_product_payload->>'stock', '')::integer
+        WHEN v_product_payload ? 'stock_quantity' THEN NULLIF(v_product_payload->>'stock_quantity', '')::integer
+        ELSE 0
+      END,
+      v_product_payload->>'sku',
+      NULLIF(v_product_payload->>'slug', ''),
+      COALESCE(v_product_payload->'images', '[]'::jsonb),
+      COALESCE(NULLIF(v_product_payload->>'status', ''), 'draft'),
+      NULLIF(v_product_payload->>'category_id', '')::uuid,
+      v_product_payload->>'brand',
+      COALESCE(v_product_payload->'fulfillment_details', '[]'::jsonb),
+      v_product_payload->>'color',
+      v_product_payload->>'condition',
+      COALESCE(v_product_payload->'variant_attributes', '{}'::jsonb),
+      v_has_variants,
+      COALESCE(NULLIF(v_product_payload->>'manage_stock', '')::boolean, true),
+      NULLIF(v_product_payload->>'low_stock_threshold', '')::integer,
+      v_variant_model,
+      CASE WHEN v_variant_model = 'sku_matrix' THEN 'migrated' ELSE 'pending' END,
+      v_inventory_tracking_policy,
+      now()
+    )
+    RETURNING id INTO v_updated_product_id;
+  ELSE
+    UPDATE public.products
+    SET
+      name = CASE
+        WHEN v_product_payload ? 'name' THEN v_product_payload->>'name'
+        ELSE products.name
+      END,
+      description = CASE
+        WHEN v_product_payload ? 'description' THEN v_product_payload->>'description'
+        ELSE products.description
+      END,
+      price = CASE
+        WHEN v_product_payload ? 'price' THEN NULLIF(v_product_payload->>'price', '')::numeric
+        ELSE products.price
+      END,
+      compare_at_price = CASE
+        WHEN v_product_payload ? 'compare_at_price' THEN NULLIF(v_product_payload->>'compare_at_price', '')::numeric
+        ELSE products.compare_at_price
+      END,
+      cost_price = CASE
+        WHEN v_product_payload ? 'cost_price' THEN NULLIF(v_product_payload->>'cost_price', '')::numeric
+        ELSE products.cost_price
+      END,
+      stock_quantity = CASE
+        WHEN v_has_variants IS TRUE THEN products.stock_quantity
+        WHEN v_product_payload ? 'stock_quantity' THEN NULLIF(v_product_payload->>'stock_quantity', '')::integer
+        ELSE products.stock_quantity
+      END,
+      stock = CASE
+        WHEN v_has_variants IS TRUE THEN products.stock
+        WHEN v_product_payload ? 'stock' THEN NULLIF(v_product_payload->>'stock', '')::integer
+        WHEN v_product_payload ? 'stock_quantity' THEN NULLIF(v_product_payload->>'stock_quantity', '')::integer
+        ELSE products.stock
+      END,
+      sku = CASE
+        WHEN v_product_payload ? 'sku' THEN v_product_payload->>'sku'
+        ELSE products.sku
+      END,
+      slug = CASE
+        WHEN v_product_payload ? 'slug' THEN NULLIF(v_product_payload->>'slug', '')
+        ELSE products.slug
+      END,
+      images = CASE
+        WHEN v_product_payload ? 'images' THEN COALESCE(v_product_payload->'images', '[]'::jsonb)
+        ELSE products.images
+      END,
+      status = CASE
+        WHEN v_product_payload ? 'status' THEN COALESCE(NULLIF(v_product_payload->>'status', ''), products.status)
+        ELSE products.status
+      END,
+      category_id = CASE
+        WHEN v_product_payload ? 'category_id' THEN NULLIF(v_product_payload->>'category_id', '')::uuid
+        ELSE products.category_id
+      END,
+      brand = CASE
+        WHEN v_product_payload ? 'brand' THEN v_product_payload->>'brand'
+        ELSE products.brand
+      END,
+      fulfillment_details = CASE
+        WHEN v_product_payload ? 'fulfillment_details' THEN COALESCE(v_product_payload->'fulfillment_details', '[]'::jsonb)
+        ELSE products.fulfillment_details
+      END,
+      color = CASE
+        WHEN v_product_payload ? 'color' THEN v_product_payload->>'color'
+        ELSE products.color
+      END,
+      condition = CASE
+        WHEN v_product_payload ? 'condition' THEN v_product_payload->>'condition'
+        ELSE products.condition
+      END,
+      variant_attributes = CASE
+        WHEN v_product_payload ? 'variant_attributes' THEN COALESCE(v_product_payload->'variant_attributes', '{}'::jsonb)
+        ELSE products.variant_attributes
+      END,
+      has_variants = CASE
+        WHEN v_product_payload ? 'has_variants' THEN v_has_variants
+        ELSE products.has_variants
+      END,
+      manage_stock = CASE
+        WHEN v_product_payload ? 'manage_stock' THEN NULLIF(v_product_payload->>'manage_stock', '')::boolean
+        ELSE products.manage_stock
+      END,
+      low_stock_threshold = CASE
+        WHEN v_product_payload ? 'low_stock_threshold' THEN NULLIF(v_product_payload->>'low_stock_threshold', '')::integer
+        ELSE products.low_stock_threshold
+      END,
+      variant_model = v_variant_model,
+      migration_status = CASE
+        WHEN v_variant_model = 'sku_matrix' THEN 'migrated'
+        ELSE products.migration_status
+      END,
+      inventory_tracking_policy = v_inventory_tracking_policy,
+      updated_at = now()
+    WHERE products.id = v_product_id
+      AND products.merchant_id = p_merchant_id
+    RETURNING products.id INTO v_updated_product_id;
+  END IF;
+
+  IF p_product_id IS NULL OR v_product_payload ? 'has_variants' THEN
+    v_synced_variant_count := public.sync_product_variants_for_product(
+      v_product_id,
+      p_merchant_id,
+      CASE WHEN v_has_variants IS TRUE THEN p_variants ELSE '[]'::jsonb END
+    );
+  END IF;
+
+  IF v_has_variants IS NOT TRUE
+     AND v_inventory_tracking_policy IN ('serialized_strict', 'serialized_then_unlimited') THEN
+    PERFORM private.ensure_product_inventory_anchor_variant(p_merchant_id, v_product_id);
+  END IF;
+
+  PERFORM private.sync_serialized_stock(p_merchant_id, v_product_id);
 
   UPDATE public.products
   SET
