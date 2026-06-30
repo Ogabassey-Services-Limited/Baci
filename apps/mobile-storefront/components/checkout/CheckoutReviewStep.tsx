@@ -22,6 +22,23 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   payforme: 'Pay for Me',
 };
 
+function getReviewAddressText(
+  address: ShippingAddressInput,
+  deliveryMethod: DeliveryMethod
+) {
+  if (deliveryMethod === 'pickup_station') {
+    return PICKUP_STATION_ADDRESS_LINES.join('\n');
+  }
+
+  if (deliveryMethod === 'airport') {
+    return [address.address, `${address.city}, ${address.state}`]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  return address.address;
+}
+
 type CheckoutReviewStepProps = {
   address: ShippingAddressInput;
   assuranceFee: number;
@@ -128,11 +145,7 @@ export function CheckoutReviewStep({
           {address.phone}
         </Text>
         <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-          {deliveryMethod === 'pickup_station'
-            ? PICKUP_STATION_ADDRESS_LINES.join('\n')
-            : deliveryMethod === 'airport'
-              ? `${address.city}, ${address.state}`
-              : address.address}
+          {getReviewAddressText(address, deliveryMethod)}
         </Text>
       </View>
 
