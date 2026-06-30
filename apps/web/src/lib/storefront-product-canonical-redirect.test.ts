@@ -4,8 +4,34 @@ import {
   getStorefrontProductCanonicalRedirectResult,
 } from './storefront-product-canonical-redirect';
 
-const originalVercelUrl = process.env.VERCEL_URL;
+const ORIGINAL_INTERNAL_BASE_ENV = {
+  NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  NODE_ENV: process.env.NODE_ENV,
+  VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  VERCEL_URL: process.env.VERCEL_URL,
+};
 const SECRET = 'test-secret';
+
+function restoreInternalBaseEnv() {
+  vi.unstubAllEnvs();
+  for (const [key, value] of Object.entries(ORIGINAL_INTERNAL_BASE_ENV)) {
+    if (key === 'NODE_ENV') continue;
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+}
+
+function clearConfiguredInternalBaseEnv() {
+  delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  delete process.env.VERCEL_URL;
+  vi.stubEnv('NODE_ENV', 'test');
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -16,16 +42,12 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe('getStorefrontProductCanonicalRedirectPath', () => {
   beforeEach(() => {
+    clearConfiguredInternalBaseEnv();
     process.env.VERCEL_URL = 'baci-platform.vercel.app';
   });
 
   afterEach(() => {
-    if (originalVercelUrl === undefined) {
-      delete process.env.VERCEL_URL;
-      return;
-    }
-
-    process.env.VERCEL_URL = originalVercelUrl;
+    restoreInternalBaseEnv();
   });
 
   it('returns a safe canonical redirect path from the internal endpoint', async () => {
@@ -149,8 +171,35 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     ).resolves.toBeNull();
   });
 
+  it('uses the production root domain fallback for canonical preflight redirects', async () => {
+    clearConfiguredInternalBaseEnv();
+    vi.stubEnv('NODE_ENV', 'production');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ hasError: false, redirectPath: '/earbuds/airpods-pro' })
+    );
+
+    await expect(
+      getStorefrontProductCanonicalRedirectPath({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'audio',
+        productSlug: 'airpods-pro',
+        secret: SECRET,
+        fetchImpl,
+      })
+    ).resolves.toBe('/earbuds/airpods-pro');
+
+    expect(String(fetchImpl.mock.calls[0][0])).toBe(
+      'https://usebaci.com/api/internal/product-canonical/ogabassey.com?category=audio&slug=airpods-pro'
+    );
+    expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({
+      Authorization: `Bearer ${SECRET}`,
+    });
+  });
+
   it('does not send the secret when there is no trusted internal base URL', async () => {
-    process.env.VERCEL_URL = '';
+    clearConfiguredInternalBaseEnv();
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({ hasError: false })
     );

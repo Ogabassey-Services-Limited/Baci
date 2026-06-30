@@ -39,23 +39,62 @@ function isLoopbackOrigin(origin: string): boolean {
   }
 }
 
+function normalizeTrustedInternalBaseUrl(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const candidate = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const url = new URL(candidate);
+    if (url.username || url.password) return null;
+    if (url.protocol !== 'https:' && !isLoopbackOrigin(url.origin)) {
+      return null;
+    }
+
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function getConfiguredTrustedInternalBaseUrl() {
+  return (
+    normalizeTrustedInternalBaseUrl(process.env.VERCEL_URL) ||
+    normalizeTrustedInternalBaseUrl(
+      process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ) ||
+    normalizeTrustedInternalBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
+    // Last-resort production fallback: keep preflight calls on the platform
+    // root when Vercel's deployment URL envs are unavailable.
+    (process.env.NODE_ENV === 'production'
+      ? normalizeTrustedInternalBaseUrl(
+          process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+        )
+      : null)
+  );
+}
+
 /**
  * Resolve the trusted base URL for the internal membership hop, or `null` when
  * there is no trusted target. The route resolves the merchant from the
  * `identifier` PATH param (not the Host header), so the call is host-agnostic —
- * we prefer the platform deployment host (`VERCEL_URL`).
+ * we prefer the platform deployment host (`VERCEL_URL`) or a configured platform
+ * origin. Request-derived custom domains are never trusted for bearer-token
+ * internal calls.
  *
  * SECURITY: the caller sends `Authorization: Bearer ${INTERNAL_API_SECRET}`, and
  * `origin` is derived from the (spoofable) request Host. We therefore send the
- * secret ONLY to the platform host, or to a loopback origin in local dev — never
- * to a request-derived custom domain. Any other origin returns `null`, so the
- * caller fails open without ever leaking the secret off-platform.
+ * secret ONLY to configured platform hosts, or to a loopback origin in local
+ * dev — never to a request-derived custom domain. Any other origin returns
+ * `null`, so the caller fails open without leaking the secret off-platform.
  */
 export function resolveInternalBaseUrl(origin: string): string | null {
-  const platformHost = process.env.VERCEL_URL;
-  if (platformHost) {
-    return `https://${platformHost}`;
-  }
+  const configuredBaseUrl = getConfiguredTrustedInternalBaseUrl();
+  if (configuredBaseUrl) return configuredBaseUrl;
+
   return isLoopbackOrigin(origin) ? origin : null;
 }
 

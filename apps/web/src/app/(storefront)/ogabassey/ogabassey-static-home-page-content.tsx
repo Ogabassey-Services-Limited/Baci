@@ -2,9 +2,9 @@ import { Suspense } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import {
   OGABASSEY_DESCRIPTION,
+  OGABASSEY_HOME_URL,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
-  OGABASSEY_URL,
 } from '@/config/ogabassey';
 import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
@@ -22,11 +22,11 @@ const ogabasseyStaticHomepageSchema = {
   '@type': 'WebPage',
   name: OGABASSEY_TITLE,
   description: OGABASSEY_DESCRIPTION,
-  url: OGABASSEY_URL,
+  url: OGABASSEY_HOME_URL,
   isPartOf: {
     '@type': 'WebSite',
     name: 'OgaBassey',
-    url: OGABASSEY_URL,
+    url: OGABASSEY_HOME_URL,
   },
   primaryImageOfPage: {
     '@type': 'ImageObject',

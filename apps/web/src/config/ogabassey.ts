@@ -2,6 +2,7 @@ import { DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 export const OGABASSEY_DOMAIN = 'ogabassey.com';
 export const OGABASSEY_URL = `https://${OGABASSEY_DOMAIN}`;
+export const OGABASSEY_HOME_URL = `${OGABASSEY_URL}/`;
 export const OGABASSEY_TITLE = 'OgaBassey - Official Online Store';
 export const OGABASSEY_DESCRIPTION =
   'Shop OgaBassey for phones, laptops, gaming consoles, accessories, subscriptions, airtime, data, and flexible payment options in Nigeria.';
