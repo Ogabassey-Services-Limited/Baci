@@ -10,6 +10,7 @@ vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
 const {
   buildCompareIndexSections,
   COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT,
+  COMPARE_INDEX_CATEGORY_SCAN_LIMIT,
   COMPARE_INDEX_DISCOVERY_CONCURRENCY,
   COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT,
 } = await import('./compare-index-discovery');
@@ -225,6 +226,38 @@ describe('compare index discovery', () => {
         ],
       },
     ]);
+  });
+
+  it('caps raw category scans when no categories can publish links', async () => {
+    mockBuildCompareDiscoveryLinks.mockReturnValue([]);
+    const categories = Array.from(
+      { length: COMPARE_INDEX_CATEGORY_SCAN_LIMIT + 5 },
+      (_, index) => ({
+        name: `Empty ${index}`,
+        slug: `empty-${index}`,
+      })
+    );
+    const getCategoryPageData = vi.fn(async () => ({
+      isCollection: false,
+      isInactiveCategory: false,
+      products: makeProducts(),
+    }));
+
+    const sections = await buildCompareIndexSections({
+      categories,
+      categoryScanLimit: 5,
+      concurrency: 2,
+      getCategoryPageData,
+      storeUrl: 'https://store.test',
+    });
+
+    expect(sections).toEqual([]);
+    expect(getCategoryPageData).toHaveBeenCalledTimes(5);
+    expect(getCategoryPageData).not.toHaveBeenCalledWith(
+      'empty-5',
+      0,
+      COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT
+    );
   });
 
   it('enforces the configured product cap even when category data returns extra rows', async () => {

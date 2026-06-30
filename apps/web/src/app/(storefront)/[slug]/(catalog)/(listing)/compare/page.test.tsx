@@ -201,6 +201,24 @@ describe('compare index page', () => {
     });
   });
 
+  it('returns noindex metadata for parameterized compare hub URLs', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({
+        brand: 'Apple',
+        search: 'iphone',
+      }),
+    });
+
+    expect(metadata.alternates).toMatchObject({
+      canonical: 'https://ogabassey.com/compare',
+    });
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+
   it('delegates metadata to the category page when the merchant owns a compare category', async () => {
     vi.mocked(getCachedCategories).mockResolvedValueOnce([
       ...categories,

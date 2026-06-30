@@ -54,6 +54,13 @@ function buildCompareCategoryPageProps(
   };
 }
 
+async function hasCompareHubSearchParams(
+  searchParams: CompareIndexPageProps['searchParams']
+) {
+  const resolvedSearchParams = await (searchParams ?? Promise.resolve({}));
+  return Object.keys(resolvedSearchParams).length > 0;
+}
+
 function buildCompareNotFoundMetadata(): Metadata {
   const title = 'Compare products page not found';
   const description = 'This compare products page is unavailable or has moved.';
@@ -115,6 +122,7 @@ export async function generateMetadata({
     totalLinkLimit: 1,
   });
   const hasCompareSections = sections.length > 0;
+  const hasQueryParams = await hasCompareHubSearchParams(searchParams);
   const title = `Compare products | ${merchant.business_name}`;
   const description = generateMetaDescription(
     `Compare ${merchant.business_name} products by category, specs, pricing, condition, warranty, and buying fit.`,
@@ -131,9 +139,10 @@ export async function generateMetadata({
     alternates: {
       canonical: `${storeUrl}/compare`,
     },
-    robots: hasCompareSections
-      ? getIndexableRobotsMetadata()
-      : { index: false, follow: true },
+    robots:
+      hasCompareSections && !hasQueryParams
+        ? getIndexableRobotsMetadata()
+        : { index: false, follow: true },
     openGraph: {
       title,
       description,

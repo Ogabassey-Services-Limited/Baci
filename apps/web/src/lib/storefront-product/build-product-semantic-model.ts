@@ -4,7 +4,10 @@ import {
   buildProductSupportLinks,
   type CommercialSupportLink,
 } from '@/lib/storefront-compare/build-commercial-support-links';
-import { PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT } from '@/lib/storefront-compare/build-compare-discovery-links';
+import {
+  buildCompareDiscoveryLinks,
+  PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT,
+} from '@/lib/storefront-compare/build-compare-discovery-links';
 import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-eligibility';
 import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
@@ -103,18 +106,20 @@ function dedupeLinks(links: CommercialSupportLink[]) {
 }
 
 function buildDirectCompareCta(input: {
-  approvedCompareProductSlugs: ReadonlySet<string>;
+  approvedCompareSlugs: ReadonlySet<string>;
   storeUrl: string;
   categorySlug: string;
   currentProduct: ProductSemanticCandidate;
   candidate: ProductSemanticCandidate;
 }) {
-  // Compare route approval uses this same bounded window; if either side falls
-  // outside it, the URL becomes a non-indexable legacy fallback.
-  if (
-    !input.approvedCompareProductSlugs.has(input.currentProduct.slug) ||
-    !input.approvedCompareProductSlugs.has(input.candidate.slug)
-  ) {
+  const compareSlug = buildCanonicalProductCompareSlug(
+    input.currentProduct.slug,
+    input.candidate.slug
+  );
+
+  // Compare route approval uses this exact curated slug set; other eligible
+  // pairs become non-indexable legacy fallbacks.
+  if (!input.approvedCompareSlugs.has(compareSlug)) {
     return {};
   }
 
@@ -129,7 +134,7 @@ function buildDirectCompareCta(input: {
   }
 
   return {
-    secondaryHref: `${input.storeUrl}/${input.categorySlug}/compare/${buildCanonicalProductCompareSlug(input.currentProduct.slug, input.candidate.slug)}`,
+    secondaryHref: `${input.storeUrl}/${input.categorySlug}/compare/${compareSlug}`,
     secondaryLabel: `Compare with ${input.candidate.name}`,
   };
 }
@@ -148,7 +153,7 @@ export const MAX_SEMANTIC_SECTION_CARDS = 6;
 function buildSectionCards(
   input: BuildProductSemanticModelInput,
   products: ProductSemanticCandidate[],
-  approvedCompareProductSlugs: ReadonlySet<string>
+  approvedCompareSlugs: ReadonlySet<string>
 ) {
   return products.slice(0, MAX_SEMANTIC_SECTION_CARDS).map(
     (product) =>
@@ -157,7 +162,7 @@ function buildSectionCards(
         description: buildCardDescription(product, input.countryCode),
         href: buildProductHref(input.storeUrl, product),
         ...buildDirectCompareCta({
-          approvedCompareProductSlugs,
+          approvedCompareSlugs,
           storeUrl: input.storeUrl,
           categorySlug: input.categorySlug,
           currentProduct: input.currentProduct,
@@ -171,9 +176,9 @@ function buildSection(
   input: BuildProductSemanticModelInput,
   heading: string,
   products: ProductSemanticCandidate[],
-  approvedCompareProductSlugs: ReadonlySet<string>
+  approvedCompareSlugs: ReadonlySet<string>
 ): ProductSemanticSection | null {
-  const cards = buildSectionCards(input, products, approvedCompareProductSlugs);
+  const cards = buildSectionCards(input, products, approvedCompareSlugs);
   return cards.length > 0 ? { heading, cards } : null;
 }
 
@@ -211,7 +216,7 @@ function findContainingBand(input: BuildProductSemanticModelInput) {
 
 function buildAlternativesSection(
   input: BuildProductSemanticModelInput,
-  approvedCompareProductSlugs: ReadonlySet<string>
+  approvedCompareSlugs: ReadonlySet<string>
 ) {
   return buildSection(
     input,
@@ -223,13 +228,13 @@ function buildAlternativesSection(
           product.category_slug === input.categorySlug
       )
       .sort(rankAlternatives(input.currentProduct)),
-    approvedCompareProductSlugs
+    approvedCompareSlugs
   );
 }
 
 function buildSameBrandSection(
   input: BuildProductSemanticModelInput,
-  approvedCompareProductSlugs: ReadonlySet<string>
+  approvedCompareSlugs: ReadonlySet<string>
 ) {
   const currentBrand = input.currentProduct.brand?.trim();
 
@@ -248,7 +253,7 @@ function buildSameBrandSection(
           product.brand?.trim() === currentBrand
       )
       .sort(rankAlternatives(input.currentProduct)),
-    approvedCompareProductSlugs
+    approvedCompareSlugs
   );
 }
 
@@ -280,13 +285,13 @@ function buildSamePriceCandidates(input: BuildProductSemanticModelInput) {
 
 function buildSamePriceSection(
   input: BuildProductSemanticModelInput,
-  approvedCompareProductSlugs: ReadonlySet<string>
+  approvedCompareSlugs: ReadonlySet<string>
 ) {
   return buildSection(
     input,
     getSupportCopy(input.categorySlug).samePriceHeading,
     buildSamePriceCandidates(input),
-    approvedCompareProductSlugs
+    approvedCompareSlugs
   );
 }
 
@@ -298,8 +303,14 @@ export function buildProductSemanticModel(
     input.currentProduct
   );
   const compareSupportInventory = getBoundedProductSupportInventory(input);
-  const approvedCompareProductSlugs = new Set(
-    compareSupportInventory.map((product) => product.slug)
+  const approvedCompareSlugs = new Set(
+    buildCompareDiscoveryLinks({
+      storeUrl: input.storeUrl,
+      categorySlug: input.categorySlug,
+      categoryName: input.categoryName,
+      includeBrandCompareLinks: false,
+      products: compareSupportInventory,
+    }).map((link) => link.canonicalSlug)
   );
   const supportLinks = dedupeLinks([
     buildCategoryHubLink(input),
@@ -317,8 +328,8 @@ export function buildProductSemanticModel(
     trustBullets: buildProductTrustBullets(input),
     supportLinks,
     guideLinks: buildProductGuideLinks(input),
-    alternatives: buildAlternativesSection(input, approvedCompareProductSlugs),
-    sameBrand: buildSameBrandSection(input, approvedCompareProductSlugs),
-    samePrice: buildSamePriceSection(input, approvedCompareProductSlugs),
+    alternatives: buildAlternativesSection(input, approvedCompareSlugs),
+    sameBrand: buildSameBrandSection(input, approvedCompareSlugs),
+    samePrice: buildSamePriceSection(input, approvedCompareSlugs),
   };
 }

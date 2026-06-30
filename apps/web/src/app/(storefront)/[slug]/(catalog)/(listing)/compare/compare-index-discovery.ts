@@ -9,6 +9,7 @@ import {
 } from './compare-page-content-helpers';
 
 export const COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT = 20;
+export const COMPARE_INDEX_CATEGORY_SCAN_LIMIT = 80;
 export const COMPARE_INDEX_DISCOVERY_CONCURRENCY = 3;
 export const COMPARE_INDEX_PRODUCTS_PER_CATEGORY_LIMIT = 80;
 export const COMPARE_INDEX_LINKS_PER_CATEGORY_LIMIT = 80;
@@ -29,6 +30,7 @@ interface CompareIndexCategoryPageData {
 interface BuildCompareIndexSectionsInput {
   categories: CompareIndexCategory[];
   categoryLimit?: number;
+  categoryScanLimit?: number;
   concurrency?: number;
   getCategoryPageData: (
     categorySlug: string,
@@ -135,6 +137,7 @@ async function buildCompareIndexSection(input: {
 export async function buildCompareIndexSections({
   categories,
   categoryLimit = COMPARE_INDEX_CATEGORY_DISCOVERY_LIMIT,
+  categoryScanLimit = COMPARE_INDEX_CATEGORY_SCAN_LIMIT,
   concurrency = COMPARE_INDEX_DISCOVERY_CONCURRENCY,
   getCategoryPageData,
   linksPerCategoryLimit = COMPARE_INDEX_LINKS_PER_CATEGORY_LIMIT,
@@ -143,7 +146,10 @@ export async function buildCompareIndexSections({
   storeUrl,
   totalLinkLimit = COMPARE_INDEX_TOTAL_LINK_LIMIT,
 }: BuildCompareIndexSectionsInput) {
-  const canonicalCategories = buildCanonicalCompareCategories(categories);
+  const canonicalCategories = buildCanonicalCompareCategories(categories).slice(
+    0,
+    Math.max(0, categoryScanLimit)
+  );
   const sectionInput = {
     getCategoryPageData,
     linksPerCategoryLimit,

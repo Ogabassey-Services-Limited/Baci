@@ -201,6 +201,68 @@ describe('buildProductSemanticModel', () => {
     ).toBe(false);
   });
 
+  it('only emits semantic card compare CTAs for curated compare pairs', () => {
+    const discoveryFirstProduct = makeCandidate({
+      slug: 'discovery-first-phone',
+      name: 'Discovery First Phone',
+      brand: 'OnePlus',
+      price: 530_000,
+      stock: 1,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Gen 2',
+        ram_gb: 8,
+        storage_gb: 128,
+      },
+    });
+    const currentProduct = makeCandidate({
+      slug: 'target-phone',
+      name: 'Target Phone',
+      brand: 'Samsung',
+      price: 500_000,
+      stock: 5,
+      product_key_specs: {
+        chipset: 'Snapdragon 8 Gen 3',
+        ram_gb: 12,
+        storage_gb: 512,
+      },
+    });
+    const semanticFirstProduct = makeCandidate({
+      slug: 'semantic-first-phone',
+      name: 'Semantic First Phone',
+      brand: 'Google',
+      price: 501_000,
+      stock: 12,
+      product_key_specs: {
+        chipset: 'Tensor G5',
+        ram_gb: 16,
+        storage_gb: 1024,
+      },
+    });
+
+    const model = buildProductSemanticModel(
+      makeInput({
+        currentProduct,
+        inventory: [
+          discoveryFirstProduct,
+          currentProduct,
+          semanticFirstProduct,
+        ],
+      })
+    );
+    const semanticFirstCard = model.alternatives?.cards.find(
+      (card) => card.title === 'Semantic First Phone'
+    );
+    const discoveryFirstCard = model.alternatives?.cards.find(
+      (card) => card.title === 'Discovery First Phone'
+    );
+
+    expect(model.alternatives?.cards[0]?.title).toBe('Semantic First Phone');
+    expect(semanticFirstCard?.secondaryHref).toBeUndefined();
+    expect(discoveryFirstCard?.secondaryHref).toBe(
+      'https://ogabassey.com/smartphones/compare/discovery-first-phone-vs-target-phone'
+    );
+  });
+
   it('keeps PDP support links when category inventory rows omit category_slug', () => {
     const currentProduct = makeCandidate({
       slug: 'iphone-17-pro-max',
