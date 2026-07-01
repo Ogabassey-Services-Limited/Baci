@@ -203,9 +203,17 @@ export function PurchaseSuccess({
         {messageText}
       </Text>
 
-      <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
-        Ogabassey Never Disappoints!
-      </Text>
+      {presentation.canShareReceipt ? (
+        <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
+          Ogabassey Never Disappoints!
+        </Text>
+      ) : txReference ? (
+        // Failed/error/cancelled: keep the transaction reference visible so the
+        // buyer can quote it to support (the cheerful slogan would be wrong here).
+        <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
+          Ref: {txReference}
+        </Text>
+      ) : null}
 
       {presentation.isProcessing ? (
         <View

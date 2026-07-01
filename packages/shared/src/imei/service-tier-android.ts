@@ -14,7 +14,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'phone-portrait-outline',
     brandScopes: ['samsung'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   samsungPro: {
     providerServiceId: '1',
@@ -29,7 +29,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'phone-portrait-outline',
     brandScopes: ['samsung'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   knoxGuard: {
     providerServiceId: '82',
@@ -45,7 +45,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'shield-checkmark-outline',
     brandScopes: ['samsung'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   miLock: {
     providerServiceId: '206',
@@ -60,7 +60,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'lock-closed-outline',
     brandScopes: ['xiaomi'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   miLostPro: {
     providerServiceId: '58',
@@ -76,7 +76,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'shield-checkmark-outline',
     brandScopes: ['xiaomi'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   pixel: {
     providerServiceId: '42',
@@ -91,7 +91,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'phone-portrait-outline',
     brandScopes: ['google'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   oppoRealme: {
     providerServiceId: '39',
@@ -106,7 +106,7 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'phone-portrait-outline',
     brandScopes: ['oppo'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
   transsion: {
     providerServiceId: '45',
@@ -121,6 +121,6 @@ export const ANDROID_IMEI_SERVICE_TIERS = {
     icon: 'phone-portrait-outline',
     brandScopes: ['tecno'],
     deviceCategories: ['smartphone'],
-    identifier: 'both',
+    identifier: 'imei',
   },
 } as const satisfies Record<string, ImeiServiceTierDefinition>;
