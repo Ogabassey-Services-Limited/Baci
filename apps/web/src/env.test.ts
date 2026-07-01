@@ -216,6 +216,31 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('reads INTERNAL_API_SECRET from runtime process env', async () => {
+    const { getInternalApiSecret } = await loadEnvModule();
+
+    vi.stubEnv('INTERNAL_API_SECRET', 'runtime-internal-secret');
+
+    expect(getInternalApiSecret()).toBe('runtime-internal-secret');
+  });
+
+  it('returns undefined when INTERNAL_API_SECRET is unset', async () => {
+    vi.stubEnv('INTERNAL_API_SECRET', undefined);
+    const { getInternalApiSecret } = await loadEnvModule();
+
+    expect(process.env.INTERNAL_API_SECRET).toBeUndefined();
+    expect(getInternalApiSecret()).toBeUndefined();
+  });
+
+  it('falls back to parsed INTERNAL_API_SECRET when runtime env is blank', async () => {
+    vi.stubEnv('INTERNAL_API_SECRET', 'parsed-internal-secret');
+    const { getInternalApiSecret } = await loadEnvModule();
+
+    vi.stubEnv('INTERNAL_API_SECRET', '   ');
+
+    expect(getInternalApiSecret()).toBe('parsed-internal-secret');
+  });
+
   it('normalizes blank mobile release env values instead of exposing them', async () => {
     vi.stubEnv('APP_STORE_CONNECT_BUNDLE_ID', '   ');
     vi.stubEnv('APP_STORE_CONNECT_ADMIN_BUNDLE_ID', '   ');
