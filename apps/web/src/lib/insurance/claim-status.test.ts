@@ -29,6 +29,15 @@ describe('normalizeClaimStatus', () => {
     expect(normalizeClaimStatus('Disapproved')).toBe('declined');
     expect(normalizeClaimStatus('Offer accepted')).toBe('offer_accepted');
     expect(normalizeClaimStatus('Paid')).toBe('paid');
+    expect(normalizeClaimStatus('Payment settled')).toBe('paid');
+  });
+
+  it('treats "Payment Initiated" as non-terminal (payout not yet settled)', () => {
+    // Same failure mode the syncClaimsStatus payment_status fix prevents, but via
+    // the webhook path: an in-flight payout must not close the claim CTA.
+    const token = normalizeClaimStatus('Payment Initiated');
+    expect(token).toBe('approved');
+    expect(isTerminalClaimStatus(token)).toBe(false);
   });
 
   it('falls back to the event name when status is missing', () => {

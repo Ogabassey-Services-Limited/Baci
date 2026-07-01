@@ -28,11 +28,15 @@ export function normalizeClaimStatus(
   const s = (raw ?? '').toLowerCase().trim();
 
   if (s) {
-    if (
-      s.includes('paid') ||
-      s.includes('settled') ||
-      s.includes('payment initiated')
-    ) {
+    // "Payment Initiated" means the payout has started but NOT settled — it is
+    // NOT terminal, so it must be checked before the paid branch (which would
+    // otherwise be reached only via 'settled'/'paid'). Treat it as approved
+    // (claim granted, payout processing) so the storefront still offers the
+    // claim, matching syncClaimsStatus not treating it as paid.
+    if (s.includes('payment initiated')) {
+      return 'approved';
+    }
+    if (s.includes('paid') || s.includes('settled')) {
       return 'paid';
     }
     // "Disapproved"/"Declined" must be checked before "approved" because
