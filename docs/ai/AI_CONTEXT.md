@@ -12,7 +12,7 @@
 - **Framework:** Next.js 15.0.0 (App Router)
 - **Language:** TypeScript 5.5.4 (strict mode)
 - **Styling:** Tailwind CSS 3.4.7 + shadcn/ui
-- **AI Engine:** Google Genkit 1.20.0 with Gemini 2.5 Flash models
+- **AI Engine:** Vercel AI SDK with Gemini 2.5 Flash models
 - **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
 - **Database:** Supabase (PostgreSQL)
 - **Authentication:** Supabase Auth
@@ -135,7 +135,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 | `/src/app/dashboard/layout.tsx` | Dashboard layout with sidebar | - | Sidebar component |
 | `/src/app/page.tsx` | Landing page | - | UI components |
 
-### AI Flows (Genkit)
+### AI Flows
 
 | File | Purpose | Input | Output |
 |------|---------|-------|--------|
@@ -149,7 +149,6 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 |------|---------|
 | `/tailwind.config.ts` | Tailwind CSS configuration (colors, fonts, plugins) |
 | `/src/app/globals.css` | CSS variables for theming (lines 6-70) |
-| `/src/ai/genkit.ts` | Genkit initialization and model configuration |
 | `/docs/blueprint.md` | 2100+ line comprehensive architecture documentation |
 | `/docs/adr/001-business-type-journey-architecture.md` | Architecture decision record for business type system |
 
@@ -303,8 +302,7 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-Use Genkit Dev UI: `npm run genkit:dev`
-1. Navigate to http://localhost:4000
+1. Verify tests in `apps/web/src/ai/flows`
 2. Test each flow individually with sample inputs
 3. Verify output schemas match TypeScript types
 4. Test error handling with invalid inputs
@@ -335,7 +333,6 @@ const form = useForm<FormValues>({
 ```
 
 ### AI Flow Pattern
-All Genkit flows follow this pattern:
 ```typescript
 // 1. Define input/output schemas
 const InputSchema = z.object({ /* input fields */ });
@@ -346,7 +343,6 @@ export async function flowName(input: Input): Promise<Output> {
   return flow(input);
 }
 
-// 3. Define Genkit flow
 const flow = ai.defineFlow({
   name: 'flowName',
   inputSchema: InputSchema,
@@ -410,7 +406,6 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### External Docs
 - **Next.js 15:** https://nextjs.org/docs
-- **Genkit:** https://firebase.google.com/docs/genkit
 - **Tailwind CSS:** https://tailwindcss.com/docs
 - **Radix UI:** https://www.radix-ui.com/primitives/docs/overview/introduction
 - **React Hook Form:** https://react-hook-form.com/get-started
@@ -419,8 +414,6 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 ### Commands
 ```bash
 npm run dev              # Start Next.js dev server on port 9002
-npm run genkit:dev       # Start Genkit Dev UI on port 4000
-npm run genkit:watch     # Genkit with hot reload
 npm run build            # Production build
 npm run typecheck        # TypeScript type checking
 npm run lint             # ESLint
