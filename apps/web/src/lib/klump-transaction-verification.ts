@@ -1,9 +1,12 @@
-import type { KlumpWebhookDetails } from '@/lib/klump-webhook';
 import {
-  amountsMatch,
-  currenciesMatch,
+  asRecord,
   type JsonRecord,
-} from '@/lib/klump-webhook';
+  readBoolean,
+  readNonNegativeNumber,
+  readString,
+} from '@/lib/klump-parse-helpers';
+import type { KlumpWebhookDetails } from '@/lib/klump-webhook';
+import { amountsMatch, currenciesMatch } from '@/lib/klump-webhook';
 
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
@@ -36,9 +39,12 @@ export function getKlumpExpectedPaymentAmount(
   transaction: Pick<KlumpTransactionRecord, 'amount' | 'merchant_amount'>
 ) {
   const merchantAmount = transaction.merchant_amount;
+  const parsedMerchantAmount = Number(merchantAmount);
   if (
     merchantAmount != null &&
-    !(typeof merchantAmount === 'string' && merchantAmount.trim() === '')
+    !(typeof merchantAmount === 'string' && merchantAmount.trim() === '') &&
+    Number.isFinite(parsedMerchantAmount) &&
+    parsedMerchantAmount >= 0
   ) {
     return merchantAmount;
   }
@@ -46,55 +52,25 @@ export function getKlumpExpectedPaymentAmount(
   return transaction.amount;
 }
 
-function asRecord(value: unknown): JsonRecord {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : {};
-}
-
-function readString(sources: readonly JsonRecord[], keys: readonly string[]) {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
-    }
+function isSuccessfulKlumpVerification(sources: readonly JsonRecord[]) {
+  const explicitSuccess = readBoolean(sources, [
+    'is_successful',
+    'isSuccessful',
+  ]);
+  if (explicitSuccess === true) {
+    return true;
   }
 
-  return null;
-}
-
-function readNumber(sources: readonly JsonRecord[], keys: readonly string[]) {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      const parsed =
-        typeof value === 'number'
-          ? value
-          : typeof value === 'string'
-            ? Number(value)
-            : Number.NaN;
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return parsed;
-      }
-    }
+  const status = readString(sources, [
+    'status',
+    'payment_status',
+    'transaction_status',
+  ]);
+  if (KLUMP_SUCCESS_STATUSES.has(status?.toLowerCase() ?? '')) {
+    return true;
   }
 
-  return null;
-}
-
-function readBoolean(sources: readonly JsonRecord[], keys: readonly string[]) {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      if (typeof value === 'boolean') {
-        return value;
-      }
-    }
-  }
-
-  return null;
+  return false;
 }
 
 function parseKlumpVerifiedTransactionResponse(
@@ -110,7 +86,7 @@ function parseKlumpVerifiedTransactionResponse(
     'transaction_status',
   ]);
 
-  if (!KLUMP_SUCCESS_STATUSES.has(status?.toLowerCase() ?? '')) {
+  if (!isSuccessfulKlumpVerification(sources)) {
     return null;
   }
 
@@ -121,9 +97,11 @@ function parseKlumpVerifiedTransactionResponse(
     'checkout_transaction_id',
     'checkoutTransactionId',
   ]);
-  const amount = readNumber(sources, ['amount', 'total_amount', 'totalAmount']);
+  const amount =
+    readNonNegativeNumber(sources, ['original_amount', 'originalAmount']) ??
+    readNonNegativeNumber(sources, ['amount', 'total_amount', 'totalAmount']);
 
-  if (!(transactionId && amount)) {
+  if (!(transactionId && amount != null)) {
     return null;
   }
 

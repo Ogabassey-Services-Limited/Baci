@@ -1,8 +1,15 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { getKlumpWebhookSecret as getConfiguredKlumpWebhookSecret } from '@/env';
+import {
+  asRecord,
+  type JsonRecord,
+  readBoolean,
+  readNumber,
+  readString,
+} from '@/lib/klump-parse-helpers';
 
-export type JsonRecord = Record<string, unknown>;
+export type { JsonRecord };
 
 export interface KlumpWebhookDetails {
   amount: number;
@@ -100,57 +107,6 @@ export function verifyKlumpWebhookSignature({
   }
 }
 
-function asRecord(value: unknown): JsonRecord {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : {};
-}
-
-function readString(sources: readonly JsonRecord[], keys: readonly string[]) {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
-    }
-  }
-
-  return null;
-}
-
-function readNumber(sources: readonly JsonRecord[], keys: readonly string[]) {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      const parsed =
-        typeof value === 'number'
-          ? value
-          : typeof value === 'string'
-            ? Number(value)
-            : Number.NaN;
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return parsed;
-      }
-    }
-  }
-
-  return null;
-}
-
-function readBoolean(sources: readonly JsonRecord[], keys: readonly string[]) {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      if (typeof value === 'boolean') {
-        return value;
-      }
-    }
-  }
-
-  return null;
-}
-
 function isSuccessfulKlumpEvent(payload: JsonRecord, sources: JsonRecord[]) {
   const event = readString([payload], ['event'])?.toLowerCase() ?? null;
   if (event) {
@@ -191,7 +147,9 @@ function extractKlumpDetails(payload: JsonRecord): KlumpWebhookDetails | null {
     'checkout_transaction_id',
     'checkoutTransactionId',
   ]);
-  const amount = readNumber(sources, ['amount', 'total_amount', 'totalAmount']);
+  const amount =
+    readNumber(sources, ['original_amount', 'originalAmount']) ??
+    readNumber(sources, ['amount', 'total_amount', 'totalAmount']);
 
   if (!(merchantReference && transactionId && amount)) {
     return null;

@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ChangeEvent, ReactNode } from 'react';
+import type { ChangeEvent, ComponentProps, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { LIGHT_COLORS } from '@/constants/theme';
 import { NewOrderProductSheet } from './NewOrderProductSheet';
 
 vi.mock('expo-router', () => ({
@@ -12,6 +12,10 @@ vi.mock('expo-router', () => ({
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   default: () => null,
   __esModule: true,
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 8, right: 0, bottom: 12, left: 0 }),
 }));
 
 vi.mock('@/components/ui/AppPageSheet', () => ({
@@ -48,6 +52,8 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    useColorScheme: () => 'light',
+    StatusBar: () => null,
     ActivityIndicator: () =>
       React.createElement('div', { role: 'progressbar' }, 'loading'),
     FlatList: ({
@@ -144,38 +150,40 @@ vi.mock('react-native', async () => {
   };
 });
 
-type ProductSheetController = ReturnType<typeof useNewOrderController>;
+type ProductSheetController = ComponentProps<
+  typeof NewOrderProductSheet
+>['controller'];
 type ProductSheetRow = ProductSheetController['selectableProductRows'][number];
 
 function makeController(
   overrides: Partial<ProductSheetController> = {}
-): ReturnType<typeof useNewOrderController> {
-  return {
+): ProductSheetController {
+  const controller: ProductSheetController = {
     closeProductModal: vi.fn(),
-    colors: {
-      border: '#e2e8f0',
-      card: '#ffffff',
-      cardHover: '#f1f5f9',
-      primary: '#2563eb',
-      text: '#0f172a',
-      textMuted: '#94a3b8',
-      textSecondary: '#64748b',
-    },
+    colors: LIGHT_COLORS,
     fetchMoreProducts: vi.fn(),
     formatPrice: (amount: number) => `₦${amount}`,
     handleAddProduct: vi.fn(),
     handleSelectProduct: vi.fn(),
     hasMoreProducts: true,
     isFetchingMoreProducts: false,
+    isLoadingSelectedParentProduct: false,
     isPickingVariant: true,
+    isProductsLoading: false,
     productSearch: '',
+    productsError: null,
+    refetchProducts: vi.fn(),
+    refetchSelectedParentProduct: vi.fn(),
     resetProductPickerState: vi.fn(),
     selectableProductRows: [],
     selectedParentProduct: null,
+    selectedParentProductError: null,
     setProductSearch: vi.fn(),
     showProductModal: true,
     ...overrides,
-  } as ReturnType<typeof useNewOrderController>;
+  };
+
+  return controller;
 }
 
 const selectedParentProduct = {

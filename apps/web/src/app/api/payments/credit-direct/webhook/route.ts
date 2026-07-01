@@ -19,10 +19,49 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { escapeHtmlText } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
 
 function readNoteString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function readProductAmount(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const amount = Number(value.trim());
+    return Number.isFinite(amount) ? amount : null;
+  }
+
+  return null;
+}
+
+function getWebhookProductsTotal(
+  products: CreditDirectWebhookPayload['products']
+) {
+  let total = 0;
+
+  for (const product of products) {
+    const amount = readProductAmount(product.productAmount);
+    if (amount === null) {
+      return null;
+    }
+    total += amount;
+  }
+
+  return total;
+}
+
+function formatCreditDirectProductAmount(value: unknown) {
+  const amount = readProductAmount(value);
+  if (amount === null) {
+    return escapeHtmlText(String(value ?? ''));
+  }
+
+  return escapeHtmlText(amount.toLocaleString());
 }
 
 /**
@@ -202,6 +241,20 @@ export async function POST(request: NextRequest) {
         ? parsedNotes.creditDirectSignedAmount
         : null;
 
+    const customerPaymentAlreadyApproved =
+      payload.eventType === 'Checkout_Customer_Payment_Completed' &&
+      (order.payment_status === 'bnpl_approved' ||
+        order.payment_status === 'paid');
+
+    if (customerPaymentAlreadyApproved) {
+      logger.info({
+        message:
+          'Credit Direct customer payment webhook already approved; retrying inventory confirmation',
+        orderId: order.id,
+        transactionId: payload.checkoutTransactionId,
+      });
+    }
+
     // Idempotency: If order is already paid, skip processing (webhook retry)
     if (
       order.payment_status === 'paid' &&
@@ -221,30 +274,48 @@ export async function POST(request: NextRequest) {
     // Handle based on event type
     switch (payload.eventType) {
       case 'Checkout_Customer_Payment_Completed': {
-        // Customer has completed the BNPL checkout process
-        // Update order status to indicate BNPL approval
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            payment_status: 'bnpl_approved',
-            notes: JSON.stringify({
-              ...parsedNotes,
-              creditDirectTransactionId: payload.checkoutTransactionId,
-              creditDirectCustomer: payload.checkoutCustomer,
-              bnplApprovedAt: payload.timeStamp,
-            }),
-          })
-          .eq('id', order.id);
+        if (!customerPaymentAlreadyApproved) {
+          // Customer has completed the BNPL checkout process.
+          const { data: updatedOrder, error: updateError } = await supabase
+            .from('orders')
+            .update({
+              payment_status: 'bnpl_approved',
+              notes: JSON.stringify({
+                ...parsedNotes,
+                creditDirectTransactionId: payload.checkoutTransactionId,
+                creditDirectCustomer: payload.checkoutCustomer,
+                bnplApprovedAt: payload.timeStamp,
+              }),
+            })
+            .eq('id', order.id)
+            .in('payment_status', ['pending', 'bnpl_pending'])
+            .select('id')
+            .maybeSingle();
 
-        if (updateError) {
-          logger.error({
-            message: 'Failed to update order for customer payment completion',
-            error: updateError,
-          });
-          return NextResponse.json(
-            { error: 'Failed to update order' },
-            { status: 500 }
-          );
+          if (updateError) {
+            logger.error({
+              message: 'Failed to update order for customer payment completion',
+              error: updateError,
+            });
+            return NextResponse.json(
+              { error: 'Failed to update order' },
+              { status: 500 }
+            );
+          }
+
+          if (!updatedOrder) {
+            logger.warn({
+              message:
+                'Credit Direct customer payment update skipped because order status is no longer eligible',
+              orderId: order.id,
+              currentPaymentStatus: order.payment_status,
+              transactionId: payload.checkoutTransactionId,
+            });
+            return NextResponse.json({
+              received: true,
+              warning: 'Order status no longer eligible',
+            });
+          }
         }
 
         try {
@@ -283,11 +354,19 @@ export async function POST(request: NextRequest) {
       case 'Checkout_Merchant_Payment_Completed': {
         // Credit Direct has paid the merchant in full
         // Mark order as fully paid and create transaction record
-        const webhookTotal = payload.products.reduce(
-          (sum, product) => sum + product.productAmount,
-          0
-        );
+        const webhookTotal = getWebhookProductsTotal(payload.products);
         const expectedAmount = signedAmount ?? (Number(order.total) || 0);
+        if (webhookTotal === null) {
+          logger.error({
+            message: 'Invalid Credit Direct webhook product amount',
+            orderId: order.id,
+            transactionId: payload.checkoutTransactionId,
+          });
+          return NextResponse.json(
+            { error: 'Invalid payment amount' },
+            { status: 400 }
+          );
+        }
         if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
           logger.error({
             message: 'Invalid expected amount for Credit Direct payment',
@@ -572,6 +651,15 @@ async function sendOrderConfirmationEmail(
 ) {
   // Import email sending function
   const { sendEmail } = await import('@/lib/zeptomail');
+  const greetingName = escapeHtmlText(
+    payload.checkoutCustomer.firstName || order.customer_name || 'there'
+  );
+  const productItems = payload.products
+    .map(
+      (product) =>
+        `<li>${escapeHtmlText(product.productName)} - ₦${formatCreditDirectProductAmount(product.productAmount)}</li>`
+    )
+    .join('');
 
   const emailResult = await sendEmail({
     to: order.customer_email,
@@ -580,7 +668,7 @@ async function sendOrderConfirmationEmail(
     htmlContent: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #333;">Order Confirmed!</h1>
-        <p>Hi ${payload.checkoutCustomer.firstName || order.customer_name || 'there'},</p>
+        <p>Hi ${greetingName},</p>
         <p>Great news! Your order has been confirmed and is being processed.</p>
 
         <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -590,7 +678,7 @@ async function sendOrderConfirmationEmail(
 
         <h3>Items Purchased:</h3>
         <ul>
-          ${payload.products.map((p) => `<li>${p.productName} - ₦${p.productAmount.toLocaleString()}</li>`).join('')}
+          ${productItems}
         </ul>
 
         <p>We'll send you another email when your order ships.</p>

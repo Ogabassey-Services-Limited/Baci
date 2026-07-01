@@ -5,6 +5,7 @@ import {
   getPublicKey,
   getWebhookSecret,
   normalizeCreditDirectEnvValue,
+  parseWebhookPayload,
   verifyWebhookSignature,
 } from '@/lib/credit-direct';
 
@@ -181,5 +182,110 @@ describe('Credit Direct environment helpers', () => {
   it('normalizes blank values to an empty string', () => {
     expect(normalizeCreditDirectEnvValue('   ')).toBe('');
     expect(normalizeCreditDirectEnvValue('')).toBe('');
+  });
+});
+
+describe('parseWebhookPayload', () => {
+  const validPayload = {
+    checkoutCustomer: {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    },
+    checkoutTransactionId: 'txn_123',
+    eventType: 'Checkout_Merchant_Payment_Completed',
+    metaData: 'order_123',
+    products: [
+      {
+        productName: 'Phone',
+        productAmount: '30000',
+        productId: 'prod_123',
+      },
+    ],
+    timeStamp: '2026-06-30T09:00:00Z',
+  } as const;
+  const parsedValidPayload = {
+    ...validPayload,
+    products: [
+      {
+        ...validPayload.products[0],
+        productAmount: 30000,
+      },
+    ],
+  };
+
+  it('accepts webhook payloads with string product amounts', () => {
+    expect(parseWebhookPayload(validPayload)).toEqual(parsedValidPayload);
+  });
+
+  it('accepts webhook payloads when metadata is omitted', () => {
+    const payloadWithoutMetadata = {
+      checkoutCustomer: validPayload.checkoutCustomer,
+      checkoutTransactionId: validPayload.checkoutTransactionId,
+      eventType: validPayload.eventType,
+      products: validPayload.products,
+      timeStamp: validPayload.timeStamp,
+    };
+
+    expect(parseWebhookPayload(payloadWithoutMetadata)).toEqual({
+      ...payloadWithoutMetadata,
+      products: parsedValidPayload.products,
+      metaData: null,
+    });
+  });
+
+  it('rejects non-numeric string amounts at the schema boundary', () => {
+    const payload = {
+      ...validPayload,
+      products: [
+        {
+          productName: 'Phone',
+          productAmount: 'not-a-number',
+          productId: 'prod_123',
+        },
+      ],
+    };
+
+    expect(parseWebhookPayload(payload)).toBe(null);
+  });
+
+  it('rejects missing or non-array products', () => {
+    expect(parseWebhookPayload({ ...validPayload, products: undefined })).toBe(
+      null
+    );
+    expect(parseWebhookPayload({ ...validPayload, products: null })).toBe(null);
+    expect(parseWebhookPayload({ ...validPayload, products: {} })).toBe(null);
+  });
+
+  it('rejects malformed product items', () => {
+    expect(
+      parseWebhookPayload({
+        ...validPayload,
+        products: [{ productName: 'Phone', productAmount: 30000 }],
+      })
+    ).toBe(null);
+    expect(
+      parseWebhookPayload({
+        ...validPayload,
+        products: [
+          {
+            productName: '',
+            productAmount: 30000,
+            productId: 'prod_123',
+          },
+        ],
+      })
+    ).toBe(null);
+    expect(
+      parseWebhookPayload({
+        ...validPayload,
+        products: [
+          {
+            productName: 'Phone',
+            productAmount: '',
+            productId: 'prod_123',
+          },
+        ],
+      })
+    ).toBe(null);
   });
 });

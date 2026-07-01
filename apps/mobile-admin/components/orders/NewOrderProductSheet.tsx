@@ -16,13 +16,36 @@ import {
 } from '@/lib/order-product-picker';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 import { buildVariantOptionGroups } from '@/lib/product-variant-option-selector';
-import { NewOrderProductSheetEmptyState } from './NewOrderProductSheetEmptyState';
+import {
+  NewOrderProductSheetEmptyState,
+  type NewOrderProductSheetEmptyStateController,
+} from './NewOrderProductSheetEmptyState';
 import { MODAL_FLATLIST_PROPS } from './new-order.shared';
 import { styles } from './new-order.styles';
 import { ProductVariantOptionSelector } from './ProductVariantOptionSelector';
 
+export type NewOrderProductSheetController =
+  NewOrderProductSheetEmptyStateController &
+    Pick<
+      ReturnType<typeof useNewOrderController>,
+      | 'closeProductModal'
+      | 'fetchMoreProducts'
+      | 'formatPrice'
+      | 'handleAddProduct'
+      | 'handleSelectProduct'
+      | 'hasMoreProducts'
+      | 'isFetchingMoreProducts'
+      | 'isPickingVariant'
+      | 'productSearch'
+      | 'resetProductPickerState'
+      | 'selectableProductRows'
+      | 'selectedParentProduct'
+      | 'setProductSearch'
+      | 'showProductModal'
+    >;
+
 interface NewOrderProductSheetProps {
-  controller: ReturnType<typeof useNewOrderController>;
+  controller: NewOrderProductSheetController;
 }
 
 export function NewOrderProductSheet({
@@ -47,16 +70,18 @@ export function NewOrderProductSheet({
   } = controller;
   const structuredVariantRows: AdminProductVariant[] =
     isPickingVariant && selectedParentProduct
-      ? selectableProductRows.map((row): AdminProductVariant => ({
-          ...row,
-          cost_price: null,
-          images: row.images ?? [],
-          parent_product_id:
-            row.parent_product_id ?? selectedParentProduct.id ?? null,
-          primary_image: row.images?.[0] ?? null,
-          source: 'structured',
-          stock_quantity: 0,
-        }))
+      ? selectableProductRows.map(
+          (row): AdminProductVariant => ({
+            ...row,
+            cost_price: null,
+            images: row.images ?? [],
+            parent_product_id:
+              row.parent_product_id ?? selectedParentProduct.id ?? null,
+            primary_image: row.images?.[0] ?? null,
+            source: 'structured',
+            stock_quantity: 0,
+          })
+        )
       : [];
   const variantOptionGroups =
     structuredVariantRows.length > 0

@@ -463,6 +463,56 @@ describe('POST /api/payments/klump/webhook', () => {
     );
   });
 
+  it('uses Klump original_amount when customer charged amount includes Klump fees', async () => {
+    const payload = {
+      ...successfulPayload,
+      data: {
+        ...successfulPayload.data,
+        amount: '694122.50',
+        id: 'klump-txn-with-fee',
+        original_amount: '687250.00',
+        status: 'successful',
+      },
+    };
+    mocks.createAdminClient.mockReturnValue(
+      createSupabaseMock({
+        merchantAmount: 687250,
+        transactionAmount: '687250',
+      })
+    );
+    mocks.fetch.mockResolvedValue(
+      Response.json({
+        data: {
+          amount: '694122.50',
+          currency: 'NGN',
+          id: 'klump-txn-with-fee',
+          is_live: true,
+          merchant_reference: 'BAC-ABCD12345678',
+          original_amount: '687250.00',
+          status: 'successful',
+        },
+        state: 'success',
+      })
+    );
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      message: 'Klump payment processed successfully',
+      success: true,
+    });
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_gross_amount: 687250,
+      })
+    );
+  });
+
   it('preserves an explicit zero platform fee when recording settlement', async () => {
     mocks.createAdminClient.mockReturnValue(
       createSupabaseMock({
