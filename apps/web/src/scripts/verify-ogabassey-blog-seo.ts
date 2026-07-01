@@ -1,6 +1,20 @@
 import http from 'node:http';
 import https from 'node:https';
 import { pathToFileURL } from 'node:url';
+import {
+  containsAllText,
+  expectedRouteTextForRoute,
+  extractCanonicalHref,
+  extractMetaContent,
+  extractTitle,
+  hasBlogLinks,
+  hasJsonLd,
+  isCanonicalForRoute,
+  normalizeResponseHeaders,
+  routePath,
+} from './verify-ogabassey-blog-seo-html';
+
+export * from './verify-ogabassey-blog-seo-html';
 
 export interface VerifierResponse {
   headers: Headers;
@@ -33,11 +47,6 @@ export interface VerifyRouteResult {
   vary: string;
 }
 
-interface ExpectedRouteText {
-  description: string[];
-  title: string[];
-}
-
 export const DEFAULT_BLOG_ROUTES = [
   '/blog',
   '/blog/category/smartphones',
@@ -51,13 +60,17 @@ export const DEFAULT_USER_AGENTS: Record<string, string> = {
 };
 
 const DEFAULT_MAX_HTML_BYTES = 450_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 
 export function parseMaxHtmlBytes(raw: string | undefined): number {
   if (raw === undefined || raw === '') {
     return DEFAULT_MAX_HTML_BYTES;
   }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  // Strict: reject partial parses like "120000px" or decimals like "1.5" that
+  // Number.parseInt would otherwise coerce to a truthy integer.
+  const trimmed = raw.trim();
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!/^\d+$/.test(trimmed) || parsed <= 0) {
     throw new Error(
       `OGABASSEY_VERIFY_MAX_HTML_BYTES must be a positive integer, got: ${raw}`
     );
@@ -78,120 +91,14 @@ export function buildVerifierConfig(
   };
 }
 
-export function routePath(route: string, pathPrefix = ''): string {
-  if (!pathPrefix) {
-    return route;
-  }
-  return `${pathPrefix.replace(/\/$/, '')}${route}`;
-}
-
-export function extractTitle(html: string): string {
-  return html.match(/<title>(.*?)<\/title>/is)?.[1]?.trim() ?? '';
-}
-
-export function extractMetaContent(html: string, name: string): string {
-  const tagPattern = /<meta\b[^>]*>/gi;
-  for (const [tag] of html.matchAll(tagPattern)) {
-    const nameMatch = tag.match(/\bname=["']([^"']+)["']/i);
-    if (nameMatch?.[1]?.toLowerCase() !== name.toLowerCase()) {
-      continue;
-    }
-    return tag.match(/\bcontent=["']([^"']*)["']/i)?.[1]?.trim() ?? '';
-  }
-  return '';
-}
-
-export function hasDescription(html: string): boolean {
-  return extractMetaContent(html, 'description').length >= 30;
-}
-
-export function extractCanonicalHref(html: string): string {
-  const tag = html.match(/<link[^>]+rel=["']canonical["'][^>]*>/i)?.[0];
-  if (!tag) {
-    return '';
-  }
-  return tag.match(/\bhref=["']([^"']*)["']/i)?.[1]?.trim() ?? '';
-}
-
-// Validate the canonical points at the clean route path with no query string,
-// so a wrong self-canonical or a `?page=`/`?search=` canonical fails the check
-// (not just a missing tag).
-export function isCanonicalForRoute(canonicalHref: string, route: string): boolean {
-  if (!canonicalHref || canonicalHref.includes('?')) {
-    return false;
-  }
-  let canonicalPath: string;
-  try {
-    canonicalPath = new URL(canonicalHref).pathname;
-  } catch {
-    canonicalPath = canonicalHref;
-  }
-  return canonicalPath.replace(/\/$/, '') === route.replace(/\/$/, '');
-}
-
-export function hasJsonLd(html: string): boolean {
-  return /<script[^>]+type=["']application\/ld\+json["'][^>]*>/i.test(html);
-}
-
-export function hasBlogLinks(html: string): boolean {
-  return /href=["'][^"']*\/blog\//i.test(html);
-}
-
-export function titleCaseRouteSegment(segment: string): string {
-  return segment
-    .split('-')
-    .filter(Boolean)
-    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
-    .join(' ');
-}
-
-export function expectedRouteTextForRoute(route: string): ExpectedRouteText {
-  const normalizedRoute = route.replace(/\/$/, '');
-  if (normalizedRoute.startsWith('/blog/category/')) {
-    const categoryLabel = titleCaseRouteSegment(
-      normalizedRoute.split('/').at(-1) ?? ''
-    );
-    return { description: [categoryLabel], title: [categoryLabel] };
-  }
-  if (normalizedRoute.startsWith('/blog/author/')) {
-    const authorName = titleCaseRouteSegment(
-      normalizedRoute.split('/').at(-1) ?? ''
-    );
-    return { description: [authorName], title: [authorName] };
-  }
-  return { description: ['Ogabassey'], title: ['Blog'] };
-}
-
-export function containsAllText(value: string, needles: string[]): boolean {
-  const normalizedValue = value.toLowerCase();
-  return needles.every((needle) =>
-    normalizedValue.includes(needle.toLowerCase())
-  );
-}
-
 export function headerValue(response: VerifierResponse, name: string): string {
   return response.headers.get(name) ?? '';
 }
 
-export function normalizeResponseHeaders(
-  rawHeaders: NodeJS.Dict<string | string[]>
-): Headers {
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(rawHeaders)) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        headers.append(name, item);
-      }
-    } else if (value !== undefined) {
-      headers.set(name, String(value));
-    }
-  }
-  return headers;
-}
-
 export function fetchVerifierResponseWithNode(
   url: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS
 ): Promise<VerifierResponse> {
   return new Promise<VerifierResponse>((resolve, reject) => {
     const parsedUrl = new URL(url);
@@ -209,6 +116,12 @@ export function fetchVerifierResponseWithNode(
       });
     });
 
+    // Bound the request so `verify:blog-seo` can never hang indefinitely.
+    request.setTimeout(timeoutMs, () => {
+      request.destroy(
+        new Error(`request to ${url} timed out after ${timeoutMs}ms`)
+      );
+    });
     request.on('error', reject);
     request.end();
   });
@@ -219,7 +132,12 @@ export async function fetchVerifierResponse(
   {
     fetchImpl,
     headers,
-  }: { fetchImpl?: VerifierFetch; headers: Record<string, string> }
+    timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  }: {
+    fetchImpl?: VerifierFetch;
+    headers: Record<string, string>;
+    timeoutMs?: number;
+  }
 ): Promise<VerifierResponse> {
   if (fetchImpl) {
     return fetchImpl(url, { headers });
@@ -229,10 +147,10 @@ export async function fetchVerifierResponse(
   // Local custom-domain verification therefore needs the lower-level
   // http/https adapter when OGABASSEY_VERIFY_HOST is set.
   if (headers.Host) {
-    return fetchVerifierResponseWithNode(url, headers);
+    return fetchVerifierResponseWithNode(url, headers, timeoutMs);
   }
 
-  return fetch(url, { headers });
+  return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
 }
 
 function assert(condition: boolean, message: string): void {
@@ -268,10 +186,14 @@ export async function verifyRoute({
     headers.Host = hostHeader;
   }
 
+  const expectedCanonicalHost = hostHeader || new URL(origin).host;
+
   const startedAt = now();
   const response = await fetchVerifierResponse(url, { fetchImpl, headers });
   const firstByteMs = Math.round(now() - startedAt);
   const html = await response.text();
+  // Measure the real UTF-8 payload, not UTF-16 code units (html.length).
+  const htmlByteLength = Buffer.byteLength(html, 'utf8');
   const title = extractTitle(html);
   const description = extractMetaContent(html, 'description');
   const expectedRouteText = expectedRouteTextForRoute(route);
@@ -304,8 +226,8 @@ export async function verifyRoute({
     `${uaName} ${route}: missing canonical`
   );
   assert(
-    isCanonicalForRoute(canonicalHref, route),
-    `${uaName} ${route}: canonical must point at the clean ${route} URL with no query, got ${canonicalHref}`
+    isCanonicalForRoute(canonicalHref, route, expectedCanonicalHost),
+    `${uaName} ${route}: canonical must point at the clean ${route} URL on ${expectedCanonicalHost} with no query, got ${canonicalHref}`
   );
   assert(hasJsonLd(html), `${uaName} ${route}: missing JSON-LD`);
   assert(hasBlogLinks(html), `${uaName} ${route}: missing crawlable blog links`);
@@ -314,12 +236,12 @@ export async function verifyRoute({
     `${uaName} ${route}: contains NEXT_STATIC_GEN_BAILOUT`
   );
   assert(
-    html.length <= maxCanonicalHtmlBytes,
-    `${uaName} ${route}: HTML exceeds ${maxCanonicalHtmlBytes} bytes`
+    htmlByteLength <= maxCanonicalHtmlBytes,
+    `${uaName} ${route}: HTML exceeds ${maxCanonicalHtmlBytes} bytes (${htmlByteLength})`
   );
 
   return {
-    bytes: html.length,
+    bytes: htmlByteLength,
     firstByteMs,
     metadataBucket,
     route,

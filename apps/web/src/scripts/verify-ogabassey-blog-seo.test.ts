@@ -2,13 +2,9 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  expectedRouteTextForRoute,
-  extractMetaContent,
   fetchVerifierResponse,
-  hasDescription,
-  isCanonicalForRoute,
+  fetchVerifierResponseWithNode,
   parseMaxHtmlBytes,
-  routePath,
   runVerifier,
   verifyRoute,
   type VerifierResponse,
@@ -56,27 +52,6 @@ async function withServer(
 }
 
 describe('verify-ogabassey-blog-seo', () => {
-  it('prefixes paths for local path-mode storefront verification', () => {
-    expect(routePath('/blog', '/ogabassey.com')).toBe('/ogabassey.com/blog');
-    expect(routePath('/blog', '/ogabassey.com/')).toBe('/ogabassey.com/blog');
-  });
-
-  it('reads description meta content regardless of attribute order', () => {
-    expect(extractMetaContent(VALID_HTML, 'description')).toContain('Ogabassey');
-    expect(hasDescription(VALID_HTML)).toBe(true);
-  });
-
-  it('derives route-specific text expectations for author and category pages', () => {
-    expect(expectedRouteTextForRoute('/blog/category/smartphones')).toEqual({
-      description: ['Smartphones'],
-      title: ['Smartphones'],
-    });
-    expect(expectedRouteTextForRoute('/blog/author/bassey-john')).toEqual({
-      description: ['Bassey John'],
-      title: ['Bassey John'],
-    });
-  });
-
   it('sends custom Host through the Node request adapter', async () => {
     await withServer(
       (request, response) => {
@@ -220,17 +195,71 @@ describe('verify-ogabassey-blog-seo', () => {
     ).rejects.toThrow('canonical must point at the clean /blog URL');
   });
 
-  it('validates canonical href against the clean route path', () => {
-    expect(
-      isCanonicalForRoute('https://ogabassey.com/blog', '/blog')
-    ).toBe(true);
-    expect(
-      isCanonicalForRoute('https://ogabassey.com/blog?page=2', '/blog')
-    ).toBe(false);
-    expect(
-      isCanonicalForRoute('https://ogabassey.com/blog', '/blog/author/x')
-    ).toBe(false);
-    expect(isCanonicalForRoute('', '/blog')).toBe(false);
+  it('fails when the canonical points at the wrong host', async () => {
+    const fetchImpl = vi.fn(async () =>
+      htmlResponse(
+        VALID_HTML.replace(
+          'href="https://ogabassey.com/blog"',
+          'href="https://evil.example.com/blog"'
+        )
+      )
+    );
+
+    await expect(
+      verifyRoute({
+        fetchImpl,
+        hostHeader: 'ogabassey.com',
+        maxCanonicalHtmlBytes: 450000,
+        origin: 'http://127.0.0.1:3000',
+        pathPrefix: '',
+        route: '/blog',
+        uaName: 'googlebot',
+        userAgent: 'Googlebot/2.1',
+      })
+    ).rejects.toThrow('canonical must point at the clean /blog URL');
+  });
+
+  it('reports the real UTF-8 byte length, not UTF-16 code units', async () => {
+    // "€" is 1 UTF-16 code unit but 3 UTF-8 bytes; multibyte content must be
+    // measured as bytes for the size budget check.
+    const multibyteHtml = VALID_HTML.replace(
+      'Best phones',
+      `Best phones ${'€'.repeat(500)}`
+    );
+    const fetchImpl = vi.fn(async () => htmlResponse(multibyteHtml));
+
+    const result = await verifyRoute({
+      fetchImpl,
+      hostHeader: '',
+      maxCanonicalHtmlBytes: 450000,
+      now: () => 100,
+      origin: 'https://ogabassey.com',
+      pathPrefix: '',
+      route: '/blog',
+      uaName: 'browser',
+      userAgent: 'Mozilla/5.0',
+    });
+
+    expect(result.bytes).toBe(Buffer.byteLength(multibyteHtml, 'utf8'));
+    // UTF-8 byte count exceeds the UTF-16 code-unit length for multibyte HTML.
+    expect(result.bytes).toBeGreaterThan(multibyteHtml.length);
+  });
+
+  it('rejects when the Node request adapter exceeds the timeout', async () => {
+    await withServer(
+      () => {
+        // Never send a response so the request must time out.
+      },
+      async (origin) => {
+        await expect(
+          fetchVerifierResponseWithNode(
+            origin,
+            { Host: 'ogabassey.com', 'user-agent': 'Googlebot/2.1' },
+            50
+          )
+        ).rejects.toThrow('timed out');
+      }
+    );
   });
 
   it('parses OGABASSEY_VERIFY_MAX_HTML_BYTES and rejects invalid values', () => {
@@ -241,5 +270,10 @@ describe('verify-ogabassey-blog-seo', () => {
       'must be a positive integer'
     );
     expect(() => parseMaxHtmlBytes('0')).toThrow('must be a positive integer');
+    // Strict: partial parses and decimals are rejected.
+    expect(() => parseMaxHtmlBytes('120000px')).toThrow(
+      'must be a positive integer'
+    );
+    expect(() => parseMaxHtmlBytes('1.5')).toThrow('must be a positive integer');
   });
 });
