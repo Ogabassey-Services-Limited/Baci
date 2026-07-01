@@ -6,6 +6,8 @@ import {
   extractMetaContent,
   fetchVerifierResponse,
   hasDescription,
+  isCanonicalForRoute,
+  parseMaxHtmlBytes,
   routePath,
   runVerifier,
   verifyRoute,
@@ -163,10 +165,15 @@ describe('verify-ogabassey-blog-seo', () => {
         ? VALID_HTML.replace(
             'Blog | Ogabassey',
             'Bassey John | Ogabassey'
-          ).replace(
-            'Read expert buying guides, product comparisons, and tech updates from Ogabassey.',
-            'Bassey John: Read articles by Bassey John from Ogabassey.'
           )
+            .replace(
+              'Read expert buying guides, product comparisons, and tech updates from Ogabassey.',
+              'Bassey John: Read articles by Bassey John from Ogabassey.'
+            )
+            .replace(
+              'href="https://ogabassey.com/blog"',
+              'href="https://ogabassey.com/blog/author/bassey-john"'
+            )
         : VALID_HTML;
 
       return htmlResponse(routeHtml);
@@ -187,5 +194,52 @@ describe('verify-ogabassey-blog-seo', () => {
 
     expect(results).toHaveLength(4);
     expect(logger).toHaveBeenCalledTimes(4);
+  });
+
+  it('fails when the canonical points at a query-string URL instead of the clean route', async () => {
+    const fetchImpl = vi.fn(async () =>
+      htmlResponse(
+        VALID_HTML.replace(
+          'href="https://ogabassey.com/blog"',
+          'href="https://ogabassey.com/blog?page=2"'
+        )
+      )
+    );
+
+    await expect(
+      verifyRoute({
+        fetchImpl,
+        hostHeader: '',
+        maxCanonicalHtmlBytes: 450000,
+        origin: 'https://ogabassey.com',
+        pathPrefix: '',
+        route: '/blog',
+        uaName: 'browser',
+        userAgent: 'Mozilla/5.0',
+      })
+    ).rejects.toThrow('canonical must point at the clean /blog URL');
+  });
+
+  it('validates canonical href against the clean route path', () => {
+    expect(
+      isCanonicalForRoute('https://ogabassey.com/blog', '/blog')
+    ).toBe(true);
+    expect(
+      isCanonicalForRoute('https://ogabassey.com/blog?page=2', '/blog')
+    ).toBe(false);
+    expect(
+      isCanonicalForRoute('https://ogabassey.com/blog', '/blog/author/x')
+    ).toBe(false);
+    expect(isCanonicalForRoute('', '/blog')).toBe(false);
+  });
+
+  it('parses OGABASSEY_VERIFY_MAX_HTML_BYTES and rejects invalid values', () => {
+    expect(parseMaxHtmlBytes(undefined)).toBe(450_000);
+    expect(parseMaxHtmlBytes('')).toBe(450_000);
+    expect(parseMaxHtmlBytes('120000')).toBe(120_000);
+    expect(() => parseMaxHtmlBytes('not-a-number')).toThrow(
+      'must be a positive integer'
+    );
+    expect(() => parseMaxHtmlBytes('0')).toThrow('must be a positive integer');
   });
 });

@@ -186,6 +186,24 @@ describe('blog author page metadata', () => {
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 
+  it('forwards request search params to non-static author content so ?page pagination works', async () => {
+    const requestSearchParams = Promise.resolve({ page: '2' });
+
+    render(
+      await BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'dynamic-store',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: requestSearchParams,
+      })
+    );
+
+    expect(mockBlogAuthorPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({ searchParams: requestSearchParams })
+    );
+  });
+
   it('shows the author fallback while dynamic author content is resolving', async () => {
     mockBlogAuthorPageContent.mockImplementation(() => {
       throw new Promise(() => {

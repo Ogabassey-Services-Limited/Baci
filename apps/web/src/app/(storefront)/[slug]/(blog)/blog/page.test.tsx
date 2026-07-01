@@ -90,6 +90,23 @@ describe('blog page shell', () => {
       screen.getByRole('status', { name: 'Loading blog posts' })
     ).toBeInTheDocument();
   });
+
+  it('forwards request search params to non-static tenant content so pagination/search keep working', async () => {
+    const requestSearchParams = Promise.resolve({ page: '2' });
+
+    render(
+      await BlogPage({
+        params: Promise.resolve({ slug: 'dynamic-store' }),
+        searchParams: requestSearchParams,
+      })
+    );
+
+    // Non-static tenants render dynamically behind Suspense; the request
+    // searchParams must reach the content so page/search/category still drive it.
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({ searchParams: requestSearchParams })
+    );
+  });
 });
 
 describe('blog page metadata', () => {

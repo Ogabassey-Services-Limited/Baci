@@ -16,9 +16,10 @@ const OGABASSEY_BLOG_STATIC_TENANTS = [OGABASSEY_DOMAIN, 'ogabassey'] as const;
 //   the generic `Ogabassey` title observed for Googlebot.
 // - Canonical /blog content is public and cached via getCachedBlogListing(),
 //   so page-1 content can land in the initial HTML for crawlers.
-// - Query/search/pagination variants canonicalize to /blog and move to the
-//   runtime path (follow-up PR); they must not poison the canonical shell.
-//   A request renders exactly one visible listing payload: canonical page 1.
+// - Only the static tenant forces canonical page 1 (EMPTY_BLOG_SEARCH_PARAMS)
+//   so its shell stays static. Non-static tenants render dynamically behind
+//   Suspense and never needed a static shell, so they keep the request
+//   searchParams and their pagination/search/category behavior.
 const EMPTY_BLOG_SEARCH_PARAMS: BlogPageProps['searchParams'] = Promise.resolve(
   {}
 );
@@ -44,16 +45,20 @@ function isStaticBlogTenant(slug: string): boolean {
   );
 }
 
-export default async function BlogPage({ params }: BlogPageProps) {
+export default async function BlogPage({
+  params,
+  searchParams,
+}: BlogPageProps) {
   const { slug } = await params;
+  const isStaticTenant = isStaticBlogTenant(slug);
   const content = (
     <BlogPageContent
       params={Promise.resolve({ slug })}
-      searchParams={EMPTY_BLOG_SEARCH_PARAMS}
+      searchParams={isStaticTenant ? EMPTY_BLOG_SEARCH_PARAMS : searchParams}
     />
   );
 
-  if (isStaticBlogTenant(slug)) {
+  if (isStaticTenant) {
     return content;
   }
 

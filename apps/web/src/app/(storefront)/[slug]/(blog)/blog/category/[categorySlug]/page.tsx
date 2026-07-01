@@ -23,11 +23,12 @@ interface BlogCategoryPageProps {
   }>;
 }
 
-// Cache Components invariant: the canonical clean-category shell and its
-// metadata must NOT await request searchParams. Paginated/search category
-// variants canonicalize to the clean hub URL and move to the runtime path
-// (follow-up PR). Canonical category pages render page 1 from cached data so
-// their article/category links land in the initial HTML for crawlers.
+// Cache Components invariant: generateMetadata must NOT await request
+// searchParams. The static tenant renders canonical page 1
+// (EMPTY_CATEGORY_SEARCH_PARAMS) directly so its article/category links land in
+// the initial HTML for crawlers. Non-static tenants render dynamically behind
+// Suspense and keep the request searchParams so paginated/search category
+// variants still work.
 const EMPTY_CATEGORY_SEARCH_PARAMS: NonNullable<
   BlogCategoryPageProps['searchParams']
 > = Promise.resolve({});
@@ -107,6 +108,7 @@ function isStaticCategoryTenant(slug: string): boolean {
 
 export default async function BlogCategoryPage({
   params,
+  searchParams,
 }: BlogCategoryPageProps) {
   // Deterministic, cache-safe hub validation before any streaming so unknown
   // clean categories return a real 404 (not a streamed 200).
@@ -116,19 +118,24 @@ export default async function BlogCategoryPage({
     notFound();
   }
 
+  const isStaticTenant = isStaticCategoryTenant(slug);
   const content = (
     <BlogPageContent
       categoryOverride={hub.categoryLabel}
       isCleanCategoryRoute
       itemListSchemaUrl={hub.canonicalUrl}
       params={Promise.resolve({ slug })}
-      searchParams={EMPTY_CATEGORY_SEARCH_PARAMS}
+      searchParams={
+        isStaticTenant
+          ? EMPTY_CATEGORY_SEARCH_PARAMS
+          : (searchParams ?? EMPTY_CATEGORY_SEARCH_PARAMS)
+      }
     />
   );
 
   // Static OgaBassey category hubs render crawlable canonical content directly;
-  // other tenants keep the explicit fallback for CWV.
-  if (isStaticCategoryTenant(slug)) {
+  // other tenants keep the explicit fallback for CWV and their query state.
+  if (isStaticTenant) {
     return content;
   }
 

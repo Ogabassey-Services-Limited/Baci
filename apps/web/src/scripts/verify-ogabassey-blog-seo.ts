@@ -50,15 +50,27 @@ export const DEFAULT_USER_AGENTS: Record<string, string> = {
   googlebot: 'Googlebot/2.1 (+http://www.google.com/bot.html)',
 };
 
+const DEFAULT_MAX_HTML_BYTES = 450_000;
+
+export function parseMaxHtmlBytes(raw: string | undefined): number {
+  if (raw === undefined || raw === '') {
+    return DEFAULT_MAX_HTML_BYTES;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `OGABASSEY_VERIFY_MAX_HTML_BYTES must be a positive integer, got: ${raw}`
+    );
+  }
+  return parsed;
+}
+
 export function buildVerifierConfig(
   env: NodeJS.ProcessEnv = process.env
 ): VerifierConfig {
   return {
     hostHeader: env.OGABASSEY_VERIFY_HOST || '',
-    maxCanonicalHtmlBytes: Number.parseInt(
-      env.OGABASSEY_VERIFY_MAX_HTML_BYTES || '450000',
-      10
-    ),
+    maxCanonicalHtmlBytes: parseMaxHtmlBytes(env.OGABASSEY_VERIFY_MAX_HTML_BYTES),
     origin: env.OGABASSEY_VERIFY_ORIGIN || 'https://ogabassey.com',
     pathPrefix: env.OGABASSEY_VERIFY_PATH_PREFIX || '',
     routes: DEFAULT_BLOG_ROUTES,
@@ -93,8 +105,28 @@ export function hasDescription(html: string): boolean {
   return extractMetaContent(html, 'description').length >= 30;
 }
 
-export function hasCanonical(html: string): boolean {
-  return /<link[^>]+rel=["']canonical["'][^>]*>/i.test(html);
+export function extractCanonicalHref(html: string): string {
+  const tag = html.match(/<link[^>]+rel=["']canonical["'][^>]*>/i)?.[0];
+  if (!tag) {
+    return '';
+  }
+  return tag.match(/\bhref=["']([^"']*)["']/i)?.[1]?.trim() ?? '';
+}
+
+// Validate the canonical points at the clean route path with no query string,
+// so a wrong self-canonical or a `?page=`/`?search=` canonical fails the check
+// (not just a missing tag).
+export function isCanonicalForRoute(canonicalHref: string, route: string): boolean {
+  if (!canonicalHref || canonicalHref.includes('?')) {
+    return false;
+  }
+  let canonicalPath: string;
+  try {
+    canonicalPath = new URL(canonicalHref).pathname;
+  } catch {
+    canonicalPath = canonicalHref;
+  }
+  return canonicalPath.replace(/\/$/, '') === route.replace(/\/$/, '');
 }
 
 export function hasJsonLd(html: string): boolean {
@@ -266,7 +298,15 @@ export async function verifyRoute({
     containsAllText(description, expectedRouteText.description),
     `${uaName} ${route}: missing route-specific description text`
   );
-  assert(hasCanonical(html), `${uaName} ${route}: missing canonical`);
+  const canonicalHref = extractCanonicalHref(html);
+  assert(
+    Boolean(canonicalHref),
+    `${uaName} ${route}: missing canonical`
+  );
+  assert(
+    isCanonicalForRoute(canonicalHref, route),
+    `${uaName} ${route}: canonical must point at the clean ${route} URL with no query, got ${canonicalHref}`
+  );
   assert(hasJsonLd(html), `${uaName} ${route}: missing JSON-LD`);
   assert(hasBlogLinks(html), `${uaName} ${route}: missing crawlable blog links`);
   assert(

@@ -130,6 +130,24 @@ describe('blog category page', () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
+  it('forwards request search params to non-static category content so pagination/search work', async () => {
+    const requestSearchParams = Promise.resolve({ page: '2' });
+
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'dynamic-store',
+          categorySlug: 'smartphones',
+        }),
+        searchParams: requestSearchParams,
+      })
+    );
+
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({ searchParams: requestSearchParams })
+    );
+  });
+
   it('generates static params for public OgaBassey category hubs', async () => {
     const params = await generateStaticParams();
 

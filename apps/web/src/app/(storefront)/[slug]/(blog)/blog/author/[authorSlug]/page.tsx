@@ -16,12 +16,12 @@ interface AuthorPageProps {
   searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
 
-// Cache Components invariant: the canonical author shell and its metadata must
-// NOT await request searchParams. Pagination (?page=N) canonicalizes to the
-// clean author URL and moves to the runtime path (follow-up PR); reading it
-// here would prevent a static shell and force metadata to stream (which
-// htmlLimitedBots withholds from DOM bots). Canonical author pages render
-// page 1 from cached data.
+// Cache Components invariant: generateMetadata must NOT await request
+// searchParams (reading it would prevent a static shell and force metadata to
+// stream, which htmlLimitedBots withholds from DOM bots). The static tenant
+// also renders canonical page 1 (EMPTY_AUTHOR_SEARCH_PARAMS) so its shell stays
+// static. Non-static author tenants render dynamically behind Suspense and keep
+// the request searchParams so ?page pagination/last-page redirects still work.
 const EMPTY_AUTHOR_SEARCH_PARAMS: NonNullable<AuthorPageProps['searchParams']> =
   Promise.resolve({});
 
@@ -135,16 +135,20 @@ async function assertNonStaticAuthorRouteBeforeShell({
   notFound();
 }
 
-export default async function BlogAuthorPage({ params }: AuthorPageProps) {
+export default async function BlogAuthorPage({
+  params,
+  searchParams,
+}: AuthorPageProps) {
   const resolvedParams = await params;
+  const isStaticTenant = isStaticAuthorTenant(resolvedParams.slug);
   const content = (
     <BlogAuthorPageContent
       params={Promise.resolve(resolvedParams)}
-      searchParams={EMPTY_AUTHOR_SEARCH_PARAMS}
+      searchParams={isStaticTenant ? EMPTY_AUTHOR_SEARCH_PARAMS : searchParams}
     />
   );
 
-  if (isStaticAuthorTenant(resolvedParams.slug)) {
+  if (isStaticTenant) {
     return content;
   }
 
