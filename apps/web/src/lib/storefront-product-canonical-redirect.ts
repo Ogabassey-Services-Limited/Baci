@@ -1,5 +1,5 @@
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
-import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
+import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
 interface ProductCanonicalRedirectOptions {
   /** Public request origin, used only as a trusted-base fallback in local dev. */
@@ -24,12 +24,26 @@ export type StorefrontProductCanonicalRedirectResult =
 export async function getStorefrontProductCanonicalRedirectResult(
   opts: ProductCanonicalRedirectOptions
 ): Promise<StorefrontProductCanonicalRedirectResult> {
+  const failOpenContext = {
+    surface: 'product-canonical' as const,
+    identifier: opts.identifier,
+    slug: opts.productSlug,
+  };
+
   if (!opts.secret) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-secret',
+    });
     return { kind: 'unknown' };
   }
 
-  const baseUrl = resolveInternalBaseUrl(opts.origin);
+  const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
   if (!baseUrl) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-base-url',
+    });
     return { kind: 'unknown' };
   }
 
@@ -43,20 +57,34 @@ export async function getStorefrontProductCanonicalRedirectResult(
 
     const response = await (opts.fetchImpl ?? fetch)(url, {
       headers: { Authorization: `Bearer ${opts.secret}` },
+      redirect: 'manual',
       signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
     });
-
-    if (!response.ok) {
+    const json = await storefrontInternalPreflight.readJsonResponse(
+      response,
+      failOpenContext
+    );
+    if (json === null || typeof json !== 'object') {
+      if (json !== null) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'parse',
+        });
+      }
       return { kind: 'unknown' };
     }
 
-    const body = (await response.json()) as {
+    const body = json as {
       hasError?: boolean;
       matchedProduct?: boolean;
       redirectPath?: unknown;
     };
 
     if (body?.hasError !== false) {
+      storefrontInternalPreflight.warnFailOpen({
+        ...failOpenContext,
+        reason: 'has-error',
+      });
       return { kind: 'unknown' };
     }
 
@@ -65,10 +93,22 @@ export async function getStorefrontProductCanonicalRedirectResult(
       return { kind: 'redirect', redirectPath };
     }
 
+    if (body.redirectPath != null && !redirectPath) {
+      storefrontInternalPreflight.warnFailOpen({
+        ...failOpenContext,
+        reason: 'unsafe-redirect',
+      });
+      return { kind: 'unknown' };
+    }
+
     return body.matchedProduct === true
       ? { kind: 'checked-no-redirect' }
       : { kind: 'unknown' };
-  } catch {
+  } catch (error) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: storefrontInternalPreflight.getFetchErrorReason(error),
+    });
     return { kind: 'unknown' };
   }
 }

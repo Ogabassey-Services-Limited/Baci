@@ -8,6 +8,7 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NODE_ENV: process.env.NODE_ENV,
+  VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
@@ -28,6 +29,7 @@ function restoreInternalBaseEnv() {
 function clearConfiguredInternalBaseEnv() {
   delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
   delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_ENV;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
   delete process.env.VERCEL_URL;
   vi.stubEnv('NODE_ENV', 'test');
@@ -43,11 +45,14 @@ function jsonResponse(body: unknown, status = 200) {
 describe('getStorefrontProductCanonicalRedirectPath', () => {
   beforeEach(() => {
     clearConfiguredInternalBaseEnv();
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     process.env.VERCEL_URL = 'baci-platform.vercel.app';
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     restoreInternalBaseEnv();
+    vi.restoreAllMocks();
   });
 
   it('returns a safe canonical redirect path from the internal endpoint', async () => {
@@ -68,7 +73,7 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0];
     expect(String(url)).toBe(
-      'https://baci-platform.vercel.app/api/internal/product-canonical/ogabassey.com?category=apple&slug=iphone-15-128gb'
+      'https://usebaci.com/api/internal/product-canonical/ogabassey.com?category=apple&slug=iphone-15-128gb'
     );
     expect((init as RequestInit).headers).toEqual({
       Authorization: `Bearer ${SECRET}`,
@@ -115,6 +120,52 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
         fetchImpl,
       })
     ).resolves.toEqual({ kind: 'unknown' });
+  });
+
+  it('returns unknown when deployment protection returns a redirect or HTML', async () => {
+    const redirectFetch = vi.fn<typeof fetch>(
+      async () =>
+        new Response('<!doctype html>', {
+          headers: { 'Content-Type': 'text/html' },
+          status: 302,
+        })
+    );
+    const htmlFetch = vi.fn<typeof fetch>(
+      async () =>
+        new Response('<!doctype html>', {
+          headers: { 'Content-Type': 'text/html' },
+          status: 200,
+        })
+    );
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'smartphones',
+        productSlug: 'missing-product',
+        secret: SECRET,
+        fetchImpl: redirectFetch,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+    expect(redirectFetch.mock.calls[0][1]).toMatchObject({
+      redirect: 'manual',
+    });
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        category: 'smartphones',
+        productSlug: 'missing-product',
+        secret: SECRET,
+        fetchImpl: htmlFetch,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'non-json', status: 200 })
+    );
   });
 
   it('fails open when the endpoint reports no redirect or an error', async () => {

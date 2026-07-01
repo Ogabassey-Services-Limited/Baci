@@ -9,6 +9,7 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NODE_ENV: process.env.NODE_ENV,
+  VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
@@ -28,27 +29,38 @@ function restoreInternalBaseEnv() {
 function clearConfiguredInternalBaseEnv() {
   delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
   delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_ENV;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
   delete process.env.VERCEL_URL;
   vi.stubEnv('NODE_ENV', 'test');
 }
 
 function jsonResponse(body: unknown, ok = true): Response {
-  return {
-    ok,
-    json: () => Promise.resolve(body),
-  } as unknown as Response;
+  return new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json' },
+    status: ok ? 200 : 500,
+  });
+}
+
+function htmlResponse(status = 200): Response {
+  return new Response('<!doctype html><title>SSO</title>', {
+    headers: { 'Content-Type': 'text/html' },
+    status,
+  });
 }
 
 describe('resolveStorefrontBlogPostStatus', () => {
   beforeEach(() => {
     clearConfiguredInternalBaseEnv();
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     process.env.VERCEL_URL = 'baci-test.vercel.app';
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
+    vi.restoreAllMocks();
   });
 
   it('returns missing only when the internal endpoint reports an error-free absent post', async () => {
@@ -67,7 +79,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
     expect(result).toEqual({ kind: 'missing' });
     const [calledUrl, init] = fetchImpl.mock.calls[0];
     const url = new URL(String(calledUrl));
-    expect(url.origin).toBe('https://baci-test.vercel.app');
+    expect(url.origin).toBe('https://usebaci.com');
     expect(url.pathname).toBe('/api/internal/blog-post-status/ogabassey.com');
     expect(url.searchParams.get('slug')).toBe('missing-post');
     expect((init as RequestInit).headers).toEqual({
@@ -188,6 +200,43 @@ describe('resolveStorefrontBlogPostStatus', () => {
         fetchImpl: fetchImpl as unknown as typeof fetch,
       })
     ).resolves.toEqual({ kind: 'present-or-unknown' });
+  });
+
+  it('fails open when the internal endpoint redirects to deployment protection', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse(302));
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: 'internal-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'redirect', status: 302 })
+    );
+  });
+
+  it('fails open when the internal endpoint returns HTML with a 200 status', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse(200));
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: 'internal-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'non-json', status: 200 })
+    );
   });
 
   it('fails open when the internal endpoint request throws', async () => {

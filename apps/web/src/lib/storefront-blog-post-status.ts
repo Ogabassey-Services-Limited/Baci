@@ -1,7 +1,7 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
-import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
+import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
 const blogPostStatusResponseSchema = z.object({
   hasError: z.boolean(),
@@ -30,12 +30,26 @@ export type StorefrontBlogPostStatusResolution =
 export async function resolveStorefrontBlogPostStatus(
   opts: BlogPostStatusOptions
 ): Promise<StorefrontBlogPostStatusResolution> {
+  const failOpenContext = {
+    surface: 'blog-post-status' as const,
+    identifier: opts.identifier,
+    slug: opts.postSlug,
+  };
+
   if (!opts.secret) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-secret',
+    });
     return { kind: 'present-or-unknown' };
   }
 
-  const baseUrl = resolveInternalBaseUrl(opts.origin);
+  const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
   if (!baseUrl) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-base-url',
+    });
     return { kind: 'present-or-unknown' };
   }
 
@@ -50,28 +64,46 @@ export async function resolveStorefrontBlogPostStatus(
     try {
       const response = await (opts.fetchImpl ?? fetch)(url, {
         headers: { Authorization: `Bearer ${opts.secret}` },
+        redirect: 'manual',
         signal: timeout.signal,
       });
-
-      if (!response.ok) {
+      const json = await storefrontInternalPreflight.readJsonResponse(
+        response,
+        failOpenContext
+      );
+      if (json === null) {
         return { kind: 'present-or-unknown' };
       }
 
-      const bodyResult = blogPostStatusResponseSchema.safeParse(
-        await response.json()
-      );
+      const bodyResult = blogPostStatusResponseSchema.safeParse(json);
       if (!bodyResult.success) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'parse',
+        });
         return { kind: 'present-or-unknown' };
       }
       const body = bodyResult.data;
 
       if (body.hasError !== false) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'has-error',
+        });
         return { kind: 'present-or-unknown' };
       }
 
       const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
       if (redirectPath) {
         return { kind: 'redirect', redirectPath };
+      }
+
+      if (body.redirectPath != null && !redirectPath) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'unsafe-redirect',
+        });
+        return { kind: 'present-or-unknown' };
       }
 
       if (body.present === false) {
@@ -82,7 +114,11 @@ export async function resolveStorefrontBlogPostStatus(
     } finally {
       timeout.clear();
     }
-  } catch {
+  } catch (error) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: storefrontInternalPreflight.getFetchErrorReason(error),
+    });
     return { kind: 'present-or-unknown' };
   }
 }

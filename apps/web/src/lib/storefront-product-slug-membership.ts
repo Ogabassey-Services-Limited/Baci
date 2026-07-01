@@ -1,6 +1,7 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
+import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
 const slugSetResponseSchema = z.object({
   hasError: z.boolean(),
@@ -11,9 +12,9 @@ const slugSetResponseSchema = z.object({
 interface SlugMissingOptions {
   /**
    * Public request origin, e.g. `https://ogabassey.com` — used as the fallback
-   * fetch base only. When the platform host (`VERCEL_URL`) is available the
-   * internal call routes through it instead, so a custom domain does not pay an
-   * extra DNS/TLS handshake on every PDP navigation.
+   * fetch base only. Production calls use the configured public platform root,
+   * never Vercel's generated deployment host, because protected generated URLs
+   * can SSO-wall middleware self-fetches.
    */
   origin: string;
   /** Storefront slug or custom domain the proxy has (resolved by the route). */
@@ -33,79 +34,6 @@ export type StorefrontProductSlugResolution =
   | { kind: 'present-or-unknown' }
   | { kind: 'redirect'; redirectPath: string };
 
-function isLoopbackOrigin(origin: string): boolean {
-  try {
-    const { hostname } = new URL(origin);
-    return (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '[::1]' ||
-      hostname === '::1'
-    );
-  } catch {
-    return false;
-  }
-}
-
-function normalizeTrustedInternalBaseUrl(value: string | undefined) {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-
-  const candidate = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
-
-  try {
-    const url = new URL(candidate);
-    if (url.username || url.password) return null;
-    if (url.protocol !== 'https:' && !isLoopbackOrigin(url.origin)) {
-      return null;
-    }
-
-    return url.origin;
-  } catch {
-    return null;
-  }
-}
-
-function getConfiguredTrustedInternalBaseUrl() {
-  return (
-    normalizeTrustedInternalBaseUrl(process.env.VERCEL_URL) ||
-    normalizeTrustedInternalBaseUrl(
-      process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ) ||
-    normalizeTrustedInternalBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
-    // Last-resort production fallback: keep preflight calls on the platform
-    // root when Vercel's deployment URL envs are unavailable.
-    (process.env.NODE_ENV === 'production'
-      ? normalizeTrustedInternalBaseUrl(
-          process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
-        )
-      : null)
-  );
-}
-
-/**
- * Resolve the trusted base URL for the internal membership hop, or `null` when
- * there is no trusted target. The route resolves the merchant from the
- * `identifier` PATH param (not the Host header), so the call is host-agnostic —
- * we prefer the platform deployment host (`VERCEL_URL`) or a configured platform
- * origin. Request-derived custom domains are never trusted for bearer-token
- * internal calls.
- *
- * SECURITY: the caller sends `Authorization: Bearer ${INTERNAL_API_SECRET}`, and
- * `origin` is derived from the (spoofable) request Host. We therefore send the
- * secret ONLY to configured platform hosts, or to a loopback origin in local
- * dev — never to a request-derived custom domain. Any other origin returns
- * `null`, so the caller fails open without leaking the secret off-platform.
- */
-export function resolveInternalBaseUrl(origin: string): string | null {
-  const configuredBaseUrl = getConfiguredTrustedInternalBaseUrl();
-  if (configuredBaseUrl) return configuredBaseUrl;
-
-  return isLoopbackOrigin(origin) ? origin : null;
-}
-
 /**
  * Resolves a storefront PDP slug for the proxy: missing slugs become real hard
  * 404s, archived aliases become real 308s, and every uncertain/live case falls
@@ -124,13 +52,27 @@ export function resolveInternalBaseUrl(origin: string): string | null {
 export async function resolveStorefrontProductSlugResolution(
   opts: SlugMissingOptions
 ): Promise<StorefrontProductSlugResolution> {
+  const failOpenContext = {
+    surface: 'product-slug' as const,
+    identifier: opts.identifier,
+    slug: opts.productSlug,
+  };
+
   if (!opts.secret) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-secret',
+    });
     return { kind: 'present-or-unknown' };
   }
 
   // No trusted base → fail open WITHOUT sending the secret to an untrusted host.
-  const baseUrl = resolveInternalBaseUrl(opts.origin);
+  const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
   if (!baseUrl) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-base-url',
+    });
     return { kind: 'present-or-unknown' };
   }
 
@@ -145,26 +87,46 @@ export async function resolveStorefrontProductSlugResolution(
     try {
       const response = await (opts.fetchImpl ?? fetch)(url, {
         headers: { Authorization: `Bearer ${opts.secret}` },
+        redirect: 'manual',
         signal: timeout.signal,
       });
-
-      if (!response.ok) {
+      const json = await storefrontInternalPreflight.readJsonResponse(
+        response,
+        failOpenContext
+      );
+      if (json === null) {
         return { kind: 'present-or-unknown' };
       }
 
-      const bodyResult = slugSetResponseSchema.safeParse(await response.json());
+      const bodyResult = slugSetResponseSchema.safeParse(json);
       if (!bodyResult.success) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'parse',
+        });
         return { kind: 'present-or-unknown' };
       }
       const body = bodyResult.data;
 
       if (body.hasError !== false) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'has-error',
+        });
         return { kind: 'present-or-unknown' };
       }
 
       const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
       if (body.present === true && redirectPath) {
         return { kind: 'redirect', redirectPath };
+      }
+
+      if (body.redirectPath != null && !redirectPath) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'unsafe-redirect',
+        });
+        return { kind: 'present-or-unknown' };
       }
 
       // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
@@ -177,7 +139,11 @@ export async function resolveStorefrontProductSlugResolution(
     } finally {
       timeout.clear();
     }
-  } catch {
+  } catch (error) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: storefrontInternalPreflight.getFetchErrorReason(error),
+    });
     return { kind: 'present-or-unknown' };
   }
 }

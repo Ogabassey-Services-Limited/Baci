@@ -18,6 +18,7 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NODE_ENV: process.env.NODE_ENV,
+  VERCEL_ENV: process.env.VERCEL_ENV,
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
@@ -37,16 +38,24 @@ function restoreInternalBaseEnv() {
 function clearConfiguredInternalBaseEnv() {
   delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
   delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_ENV;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
   delete process.env.VERCEL_URL;
   vi.stubEnv('NODE_ENV', 'test');
 }
 
 function jsonResponse(body: unknown, ok = true): Response {
-  return {
-    ok,
-    json: () => Promise.resolve(body),
-  } as unknown as Response;
+  return new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json' },
+    status: ok ? 200 : 500,
+  });
+}
+
+function htmlResponse(status = 200): Response {
+  return new Response('<!doctype html><title>SSO</title>', {
+    headers: { 'Content-Type': 'text/html' },
+    status,
+  });
 }
 
 describe('isStorefrontProductSlugMissing', () => {
@@ -54,12 +63,15 @@ describe('isStorefrontProductSlugMissing', () => {
     // Production-like by default so the fetch path is exercised; tests that
     // need the no-platform-host behavior delete it explicitly.
     clearConfiguredInternalBaseEnv();
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     process.env.VERCEL_URL = 'baci-test.vercel.app';
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
+    vi.restoreAllMocks();
   });
 
   it('returns true only when the route reports the slug error-free absent', async () => {
@@ -99,7 +111,8 @@ describe('isStorefrontProductSlugMissing', () => {
     expect(result).toBe(false);
   });
 
-  it('routes through the platform host (VERCEL_URL) when set, not the custom domain', async () => {
+  it('routes through the public platform root even when VERCEL_URL is set', async () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     process.env.VERCEL_URL = 'baci-abc123.vercel.app';
     const fetchImpl = vi
       .fn()
@@ -112,29 +125,28 @@ describe('isStorefrontProductSlugMissing', () => {
     });
 
     const url = new URL(String(fetchImpl.mock.calls[0][0]));
-    expect(url.host).toBe('baci-abc123.vercel.app');
+    expect(url.host).toBe('usebaci.com');
   });
 
-  it('uses VERCEL_PROJECT_PRODUCTION_URL when VERCEL_URL is unavailable', async () => {
-    delete process.env.VERCEL_URL;
-    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'usebaci.com';
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+  it('does not trust generated Vercel deployment URLs for bearer internal calls', async () => {
+    clearConfiguredInternalBaseEnv();
+    process.env.VERCEL_URL = 'baci-abc123.vercel.app';
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'baci-prod.vercel.app';
+    const fetchImpl = vi.fn();
 
-    await isStorefrontProductSlugMissing({
+    const result = await isStorefrontProductSlugMissing({
       ...BASE,
       productSlug: 'totally-made-up',
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    const url = new URL(String(fetchImpl.mock.calls[0][0]));
-    expect(url.origin).toBe('https://usebaci.com');
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('uses NEXT_PUBLIC_SITE_URL as a configured platform origin', async () => {
+  it('uses NEXT_PUBLIC_ROOT_DOMAIN as the configured platform origin', async () => {
     delete process.env.VERCEL_URL;
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://usebaci.com';
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
@@ -152,7 +164,7 @@ describe('isStorefrontProductSlugMissing', () => {
   it('uses the configured root domain fallback only in production', async () => {
     clearConfiguredInternalBaseEnv();
     vi.stubEnv('NODE_ENV', 'production');
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    vi.stubEnv('VERCEL_ENV', 'production');
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
@@ -165,6 +177,22 @@ describe('isStorefrontProductSlugMissing', () => {
 
     const url = new URL(String(fetchImpl.mock.calls[0][0]));
     expect(url.origin).toBe('https://usebaci.com');
+  });
+
+  it('does not use the production root fallback on Vercel preview deployments', async () => {
+    clearConfiguredInternalBaseEnv();
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    const fetchImpl = vi.fn();
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: 'totally-made-up',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('uses a loopback origin when VERCEL_URL is unset (local dev)', async () => {
@@ -231,6 +259,39 @@ describe('isStorefrontProductSlugMissing', () => {
     expect(result).toBe(false);
   });
 
+  it('fails open on redirects instead of following an SSO wall', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse(302));
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: 'totally-made-up',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
+    expect(fetchImpl.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'redirect', status: 302 })
+    );
+  });
+
+  it('fails open on non-JSON success responses instead of parsing HTML', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(htmlResponse(200));
+
+    const result = await isStorefrontProductSlugMissing({
+      ...BASE,
+      productSlug: 'totally-made-up',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toBe(false);
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'non-json', status: 200 })
+    );
+  });
+
   it('fails open on hasError', async () => {
     const fetchImpl = vi
       .fn()
@@ -275,12 +336,15 @@ describe('isStorefrontProductSlugMissing', () => {
 describe('resolveStorefrontProductSlugResolution', () => {
   beforeEach(() => {
     clearConfiguredInternalBaseEnv();
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     process.env.VERCEL_URL = 'baci-test.vercel.app';
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
+    vi.restoreAllMocks();
   });
 
   it('returns redirect for a safe internal redirectPath from the route', async () => {
