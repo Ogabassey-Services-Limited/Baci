@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { BRAND } from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { resolveInsuranceCardActions } from './OrderDetailsInsuranceCard.actions';
 import {
@@ -207,7 +208,8 @@ export function OrderDetailsInsuranceCard({
           <TouchableOpacity
             style={[
               styles.fileClaimButton,
-              { backgroundColor: INSURANCE_COLORS.active.foreground },
+              // Primary CTA uses the merchant brand color, not a status green.
+              { backgroundColor: BRAND.primary },
             ]}
             onPress={() => {
               if (inspectionActionUrl) {
@@ -258,7 +260,8 @@ export function OrderDetailsInsuranceCard({
           <TouchableOpacity
             style={[
               styles.fileClaimButton,
-              { backgroundColor: INSURANCE_COLORS.active.foreground },
+              // Primary CTA uses the merchant brand color, not a status green.
+              { backgroundColor: BRAND.primary },
             ]}
             onPress={handleFileClaimPress}
             accessibilityRole="button"
