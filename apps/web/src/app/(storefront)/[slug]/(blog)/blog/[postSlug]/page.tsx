@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cacheLife, cacheTag } from 'next/cache';
 import { draftMode } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
@@ -121,6 +122,11 @@ export async function generateMetadata({
     if (!metadataLookupFailed) {
       const { isEnabled: isDraftPreview } = await draftMode();
       if (!isDraftPreview) {
+        // Cache Components can stream the parent storefront shell before this
+        // child page resolves. Force this missing/retired-slug branch to wait
+        // for a request so notFound()/permanentRedirect() can set status.
+        await connection();
+
         let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> =
           null;
         try {
@@ -230,6 +236,12 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: PageProps) {
   const resolvedParams = await params;
+
+  // Blog post existence controls HTTP status. Under Cache Components, route
+  // segment configs are disabled, so connection() is the documented request
+  // boundary that prevents the parent PPR shell from turning 404/redirect
+  // decisions into cached 200 not-found pages.
+  await connection();
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
   let redirectLookupError: unknown = null;
   try {

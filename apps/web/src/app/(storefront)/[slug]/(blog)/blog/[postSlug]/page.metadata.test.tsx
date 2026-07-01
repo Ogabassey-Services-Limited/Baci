@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   liveBlogPost,
   mockBuildStoreUrl,
+  mockConnection,
   mockDraftMode,
   mockGetBlogPostRedirect,
   mockGetBlogPostTextPreview,
@@ -197,6 +198,7 @@ describe('storefront blog post metadata', () => {
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockDraftMode).toHaveBeenCalledOnce();
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       'https://ogabassey.com/blog/canonical-post'
@@ -212,6 +214,7 @@ describe('storefront blog post metadata', () => {
       'NEXT_NOT_FOUND'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockDraftMode).toHaveBeenCalledOnce();
     expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
       'ogabassey.com',
