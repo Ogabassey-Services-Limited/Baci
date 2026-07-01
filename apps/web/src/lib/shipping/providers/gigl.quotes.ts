@@ -210,6 +210,9 @@ async function fetchGiglQuote(
       'price'
     );
     const isStationPickup = pickupOption === PickupOptions.ServiceCentre;
+    const stationPickupDisplayName = receiverStation.Address
+      ? `GIG Logistics - Pickup at ${receiverStation.StationName} (${receiverStation.Address})`
+      : `GIG Logistics - Pickup at ${receiverStation.StationName}`;
 
     return {
       id: io.generateQuoteId(),
@@ -217,7 +220,7 @@ async function fetchGiglQuote(
       serviceTier: isStationPickup ? 'Station Pickup' : 'Standard',
       carrierName: 'GIG Logistics',
       displayName: isStationPickup
-        ? 'GIG Logistics - Station Pickup'
+        ? stationPickupDisplayName
         : 'GIG Logistics - Home Delivery',
       estimatedDays: 3,
       minDays: 2,

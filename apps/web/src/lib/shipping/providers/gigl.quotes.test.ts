@@ -151,6 +151,8 @@ describe('GiglProvider quote requests', () => {
     expect(quotes[0]).toMatchObject({
       provider: 'GIGL',
       serviceTier: 'Station Pickup',
+      displayName:
+        'GIG Logistics - Pickup at PORT HARCOURT (Port Harcourt station)',
       providerRateId: 'GIGL_30_1_1',
       isStationPickup: true,
       stationId: 30,
