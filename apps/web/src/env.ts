@@ -1316,7 +1316,10 @@ export const getAppStoreConnectWebhookSecret = (
 export const getInternalApiSecret = () => {
   if (typeof window !== 'undefined')
     throw new Error('INTERNAL_API_SECRET cannot be accessed on the client');
-  return env?.INTERNAL_API_SECRET;
+  return getRuntimeEnvValue(
+    process.env.INTERNAL_API_SECRET,
+    env?.INTERNAL_API_SECRET
+  );
 };
 
 export const getImportJobWorkerBatchSize = () =>
