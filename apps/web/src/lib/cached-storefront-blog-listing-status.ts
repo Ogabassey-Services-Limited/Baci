@@ -4,8 +4,13 @@ import {
   findBlogCategoryLabelBySlug,
   getBlogCategorySlug,
 } from '@/app/(storefront)/[slug]/(blog)/blog/blog-category-routing';
+import { buildBlogListingRouteHref } from '@/app/(storefront)/[slug]/(blog)/blog/blog-listing-route';
 import { getBlogAuthorBySlug } from '@/lib/blog-authors';
-import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
+import {
+  getCachedBlogAuthor,
+  getCachedBlogListing,
+  getMerchantSafe,
+} from '@/lib/cached-data';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 
 /**
@@ -90,18 +95,17 @@ async function resolveListingPage(
   if (!data || page <= data.totalPages) {
     return NOOP;
   }
-  if (category) {
-    const knownLabel = findBlogCategoryLabelBySlug(
-      data.categories,
-      getBlogCategorySlug(category)
-    );
-    const href = knownLabel
-      ? buildBlogCategoryHref('', knownLabel, data.categories)
-      : '/blog';
-    const cleanBase = href.includes('?') ? '/blog' : href;
-    return redirectBody(withPage(cleanBase, data.totalPages), false);
-  }
-  return redirectBody(withPage('/blog', data.totalPages), false);
+  // Match the route's own clamp target: paginated (and query-category) listings
+  // stay on the /blog?...&page=<last> query URL — only page 1 canonicalizes to a
+  // clean category hub (handled by the category-query intent).
+  return redirectBody(
+    buildBlogListingRouteHref({
+      storeBasePath: '',
+      page: data.totalPages,
+      ...(category ? { category } : {}),
+    }),
+    false
+  );
 }
 
 async function resolveCategoryPage(
@@ -125,8 +129,14 @@ async function resolveCategoryPage(
   if (!categoryData || page <= categoryData.totalPages) {
     return NOOP;
   }
+  // The clean category route paginates via the /blog?category=<label>&page=<n>
+  // query URL (buildBlogListingRouteHref), so clamp to that, not the clean hub.
   return redirectBody(
-    withPage(`/blog/category/${categorySlug}`, categoryData.totalPages),
+    buildBlogListingRouteHref({
+      storeBasePath: '',
+      category: label,
+      page: categoryData.totalPages,
+    }),
     false
   );
 }
@@ -136,7 +146,10 @@ async function resolveAuthor(
   authorSlug: string,
   page: number
 ): Promise<BlogListingStatusBody> {
-  const profile = getBlogAuthorBySlug(authorSlug, lookupKey);
+  // The canonical author URL is lowercase (the route normalizes it), so match
+  // both the profile lookup and the redirect target to that.
+  const normalizedAuthorSlug = authorSlug.toLowerCase();
+  const profile = getBlogAuthorBySlug(normalizedAuthorSlug, lookupKey);
   if (!profile) {
     // Unknown author is already resolved before the shell in the route.
     return NOOP;
@@ -153,7 +166,7 @@ async function resolveAuthor(
   }
   if (page > data.totalPages) {
     return redirectBody(
-      withPage(`/blog/author/${authorSlug}`, data.totalPages),
+      withPage(`/blog/author/${normalizedAuthorSlug}`, data.totalPages),
       false
     );
   }
@@ -179,6 +192,13 @@ export async function getCachedStorefrontBlogListingStatus(
   }
 
   try {
+    // Unpublished storefronts render the StoreNotPublished shell, so never leak
+    // a hard redirect/404 from the preflight (mirrors the blog-post preflight).
+    const merchant = await getMerchantSafe(lookupKey);
+    if (!merchant?.is_published) {
+      return NOOP;
+    }
+
     switch (intent.kind) {
       case 'category-query':
         return await resolveCategoryQuery(lookupKey, intent.category);

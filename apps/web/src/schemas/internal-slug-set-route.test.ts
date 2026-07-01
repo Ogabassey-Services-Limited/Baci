@@ -155,4 +155,19 @@ describe('internalBlogListingStatusQuerySchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects page values above the route cap (10_000)', () => {
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({
+        kind: 'listing-page',
+        page: '10000',
+      }).success
+    ).toBe(true);
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({
+        kind: 'listing-page',
+        page: '10001',
+      }).success
+    ).toBe(false);
+  });
 });

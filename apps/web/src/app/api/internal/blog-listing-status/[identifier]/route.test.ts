@@ -98,6 +98,16 @@ describe('GET /api/internal/blog-listing-status/[identifier]', () => {
     );
   });
 
+  it('returns 400 for a page above the route cap (10_000)', async () => {
+    const response = await GET(
+      buildRequest('kind=listing-page&page=100000'),
+      context()
+    );
+
+    expect(response.status).toBe(400);
+    expect(getCachedStorefrontBlogListingStatus).not.toHaveBeenCalled();
+  });
+
   it('defaults author page to 1 and forwards the intent', async () => {
     await GET(buildRequest('kind=author&authorSlug=bassey-john'), context());
 

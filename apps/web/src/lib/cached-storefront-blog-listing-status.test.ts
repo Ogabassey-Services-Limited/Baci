@@ -4,10 +4,12 @@ const {
   mockGetCachedBlogListing,
   mockGetCachedBlogAuthor,
   mockGetBlogAuthorBySlug,
+  mockGetMerchantSafe,
 } = vi.hoisted(() => ({
   mockGetCachedBlogListing: vi.fn(),
   mockGetCachedBlogAuthor: vi.fn(),
   mockGetBlogAuthorBySlug: vi.fn(),
+  mockGetMerchantSafe: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({
@@ -19,6 +21,7 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: (...args: unknown[]) =>
     mockGetCachedBlogListing(...args),
   getCachedBlogAuthor: (...args: unknown[]) => mockGetCachedBlogAuthor(...args),
+  getMerchantSafe: (...args: unknown[]) => mockGetMerchantSafe(...args),
 }));
 
 vi.mock('@/lib/blog-authors', () => ({
@@ -48,7 +51,23 @@ function listing(
 describe('getCachedStorefrontBlogListingStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetMerchantSafe.mockResolvedValue({ id: 'm1', is_published: true });
     mockGetCachedBlogListing.mockResolvedValue(listing());
+  });
+
+  it('fails open (no-op) for an unpublished storefront with blog data', async () => {
+    mockGetMerchantSafe.mockResolvedValue({ id: 'm1', is_published: false });
+    const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
+      kind: 'category-query',
+      category: 'Smartphones',
+    });
+    expect(result).toEqual({
+      hasError: false,
+      redirectPath: null,
+      permanent: false,
+      notFound: false,
+    });
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
   });
 
   it('redirects a known ?category= to the clean category route', async () => {
@@ -105,14 +124,25 @@ describe('getCachedStorefrontBlogListingStatus', () => {
     expect(result.redirectPath).toBeNull();
   });
 
-  it('clamps out-of-range clean-category pagination', async () => {
+  it('clamps out-of-range clean-category pagination to the category query URL', async () => {
     mockGetCachedBlogListing.mockResolvedValue(listing({ totalPages: 2 }));
     const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
       kind: 'category-page',
       categorySlug: 'smartphones',
       page: 99,
     });
-    expect(result.redirectPath).toBe('/blog/category/smartphones?page=2');
+    // The clean category route paginates via the query URL, not the clean hub.
+    expect(result.redirectPath).toBe('/blog?category=Smartphones&page=2');
+  });
+
+  it('clamps out-of-range query-category pagination to the category query URL', async () => {
+    mockGetCachedBlogListing.mockResolvedValue(listing({ totalPages: 2 }));
+    const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
+      kind: 'listing-page',
+      page: 99,
+      category: 'Smartphones',
+    });
+    expect(result.redirectPath).toBe('/blog?category=Smartphones&page=2');
   });
 
   it('returns notFound for a known author with no published posts', async () => {
@@ -146,6 +176,24 @@ describe('getCachedStorefrontBlogListingStatus', () => {
       page: 99,
     });
     expect(result.redirectPath).toBe('/blog/author/bassey-john?page=2');
+  });
+
+  it('normalizes a mixed-case author slug in the clamp redirect', async () => {
+    mockGetBlogAuthorBySlug.mockReturnValue({
+      name: 'Bassey John',
+      sameAs: [],
+    });
+    mockGetCachedBlogAuthor.mockResolvedValue({ totalPages: 2 });
+    const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
+      kind: 'author',
+      authorSlug: 'Bassey-John',
+      page: 99,
+    });
+    expect(result.redirectPath).toBe('/blog/author/bassey-john?page=2');
+    expect(mockGetBlogAuthorBySlug).toHaveBeenCalledWith(
+      'bassey-john',
+      'ogabassey.com'
+    );
   });
 
   it('leaves an unknown author for the route to resolve', async () => {

@@ -1838,12 +1838,19 @@ async function resolveStorefrontBlogPostHardStatus(
   );
 }
 
+// Mirror the route's parseBlogListingPage cap so the preflight never issues a
+// larger Supabase offset than the route itself would.
+const MAX_BLOG_LISTING_PAGE = 10_000;
+
 function parseBlogListingPageParam(value: string | null): number | null {
   if (!value) {
     return null;
   }
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+  return Math.min(parsed, MAX_BLOG_LISTING_PAGE);
 }
 
 function buildBlogListingIntent(
@@ -1854,14 +1861,20 @@ function buildBlogListingIntent(
     return null;
   }
 
+  // Search variants stay noindex and are left for the route to render — a hard
+  // redirect that rebuilds/drops the search term would be wrong, so skip the
+  // preflight entirely whenever ?search= is present.
+  if (searchParams.get('search')?.trim()) {
+    return null;
+  }
+
   const category = searchParams.get('category')?.trim() || undefined;
-  const search = searchParams.get('search')?.trim() || undefined;
   const page = parseBlogListingPageParam(searchParams.get('page'));
 
   if (contentSegments.length === 1) {
-    // /blog — canonicalize a known ?category= (page 1, no search), else clamp
-    // out-of-range ?page=.
-    if (category && !search && (page ?? 1) === 1) {
+    // /blog — canonicalize a known ?category= (page 1), else clamp out-of-range
+    // ?page= (the category, when present, stays on the query URL).
+    if (category && (page ?? 1) === 1) {
       return { kind: 'category-query', category };
     }
     if (page && page > 1) {
@@ -1941,11 +1954,23 @@ async function resolveStorefrontBlogListingHardStatus(
 
   if (resolution.kind === 'redirect') {
     // redirectPath may carry its own query (e.g. /blog?page=3); split it so the
-    // originating ?category=/?page= params are replaced, not appended.
+    // originating ?category=/?page= filters are replaced, not appended.
     const target = new URL(resolution.redirectPath, request.nextUrl.origin);
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `${publicPathPrefix}${target.pathname}`;
     redirectUrl.search = target.search;
+    // Preserve non-filter params (utm_*, ref, etc.) that the resolver target
+    // drops — matching the in-route redirect's param-preservation rule.
+    for (const [key, value] of request.nextUrl.searchParams) {
+      if (
+        key !== 'category' &&
+        key !== 'page' &&
+        key !== 'search' &&
+        !redirectUrl.searchParams.has(key)
+      ) {
+        redirectUrl.searchParams.append(key, value);
+      }
+    }
     return NextResponse.redirect(redirectUrl, resolution.status);
   }
 

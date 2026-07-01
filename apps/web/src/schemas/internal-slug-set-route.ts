@@ -25,7 +25,9 @@ export const internalProductCanonicalRedirectQuerySchema = z.object({
 });
 
 const listingStatusText = z.string().trim().min(1).max(255);
-const listingStatusPage = z.coerce.number().int().min(1).max(100_000);
+// Mirror the route's parseBlogListingPage cap (MAX_BLOG_LISTING_PAGE = 10_000)
+// so the preflight can never request a larger Supabase offset than the route.
+const listingStatusPage = z.coerce.number().int().min(1).max(10_000);
 
 /**
  * Query params for blog **listing** hard-status resolution — a discriminated

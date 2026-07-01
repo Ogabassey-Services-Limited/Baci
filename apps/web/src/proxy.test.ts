@@ -1344,7 +1344,7 @@ describe('Middleware Proxy', () => {
     });
 
     it('308-redirects a known ?category= to the clean category route', async () => {
-      blogListingMock.mockResolvedValue({
+      blogListingMock.mockResolvedValueOnce({
         kind: 'redirect',
         redirectPath: '/blog/category/smartphones',
         status: 308,
@@ -1371,7 +1371,7 @@ describe('Middleware Proxy', () => {
     });
 
     it('307-redirects out-of-range ?page= to the clamped page', async () => {
-      blogListingMock.mockResolvedValue({
+      blogListingMock.mockResolvedValueOnce({
         kind: 'redirect',
         redirectPath: '/blog?page=3',
         status: 307,
@@ -1393,7 +1393,7 @@ describe('Middleware Proxy', () => {
     });
 
     it('returns a hard 404 for a known author with no published posts', async () => {
-      blogListingMock.mockResolvedValue({ kind: 'notFound' });
+      blogListingMock.mockResolvedValueOnce({ kind: 'notFound' });
       const req = new NextRequest(
         'https://ogabassey.com/blog/author/bassey-john'
       );
@@ -1420,6 +1420,65 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).not.toBe(404);
       expect(blogListingMock).not.toHaveBeenCalled();
+    });
+
+    it('does not preflight when ?search= is present (noindex, left to the route)', async () => {
+      const req = new NextRequest(
+        'https://ogabassey.com/blog?search=iphone&page=99'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(blogListingMock).not.toHaveBeenCalled();
+    });
+
+    it('sends a query-category page clamp as a listing-page intent with category', async () => {
+      const req = new NextRequest(
+        'https://ogabassey.com/blog?category=Smartphones&page=99'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      await proxy(req);
+
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: { kind: 'listing-page', page: 99, category: 'Smartphones' },
+        })
+      );
+    });
+
+    it('clamps ?page= above the route cap to 10000 in the intent', async () => {
+      const req = new NextRequest('https://ogabassey.com/blog?page=100000');
+      req.headers.set('host', 'ogabassey.com');
+
+      await proxy(req);
+
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: { kind: 'listing-page', page: 10000 },
+        })
+      );
+    });
+
+    it('preserves non-filter params (utm_*) on the preflight redirect', async () => {
+      blogListingMock.mockResolvedValueOnce({
+        kind: 'redirect',
+        redirectPath: '/blog/category/smartphones',
+        status: 308,
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog?category=Smartphones&utm_source=newsletter'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/blog/category/smartphones?utm_source=newsletter'
+      );
     });
   });
 
