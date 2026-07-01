@@ -114,6 +114,17 @@ describe('Notifications API: /api/notifications/[id]', () => {
       expect(json).toEqual({ error: 'Unauthorized' });
     });
 
+    it('returns 404 when merchant context is not found', async () => {
+      vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(null);
+
+      const req = new NextRequest('http://localhost/api/notifications/123');
+      const res = await GET(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'Merchant not found' });
+    });
+
     it('returns 403 when user lacks permissions', async () => {
       vi.mocked(hasPermission).mockReturnValueOnce(false);
 
@@ -206,6 +217,20 @@ describe('Notifications API: /api/notifications/[id]', () => {
       const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
 
       expect(res.status).toBe(401);
+    });
+
+    it('returns 404 when merchant context is not found', async () => {
+      vi.mocked(getMerchantForApiRequest).mockResolvedValueOnce(null);
+
+      const req = new NextRequest('http://localhost/api/notifications/123', {
+        method: 'PATCH',
+        body: JSON.stringify({ read: true }),
+      });
+      const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'Merchant not found' });
     });
 
     it('returns 403 when user lacks permissions', async () => {
