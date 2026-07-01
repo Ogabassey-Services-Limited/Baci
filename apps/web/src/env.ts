@@ -1314,7 +1314,7 @@ export const getAppStoreConnectWebhookSecret = (
     : env?.APP_STORE_CONNECT_WEBHOOK_SECRET;
 
 export const getInternalApiSecret = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error('INTERNAL_API_SECRET cannot be accessed on the client');
   return getRuntimeEnvValue(
     process.env.INTERNAL_API_SECRET,

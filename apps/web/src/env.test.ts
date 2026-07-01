@@ -225,9 +225,10 @@ describe('env validation', () => {
   });
 
   it('returns undefined when INTERNAL_API_SECRET is unset', async () => {
-    vi.stubEnv('INTERNAL_API_SECRET', '');
+    vi.stubEnv('INTERNAL_API_SECRET', undefined);
     const { getInternalApiSecret } = await loadEnvModule();
 
+    expect(process.env.INTERNAL_API_SECRET).toBeUndefined();
     expect(getInternalApiSecret()).toBeUndefined();
   });
 
