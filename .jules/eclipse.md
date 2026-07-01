@@ -25,3 +25,9 @@
 **Learning:** Hardcoded white (#FFF) icons inside FABs with primary backgrounds fail to use the design system properly. `textOnPrimary` is the correct semantic token for content placed on a primary background in the mobile admin app.
 **Action:** Always replace hardcoded #FFF or #FFFFFF with `colors.textOnPrimary` when the element is sitting on a `colors.primary` background.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+
+## 2026-07-01 — Full shadow token spreads for selected native controls
+**Learning:** React Native shadow styling uses multiple platform-specific fields (`shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`, and Android `elevation`), so copying only one field from a theme token leaves the rest hardcoded or stale.
+**Action:** Spread the semantic `shadows.sm`/`shadows.md` token object for selected-state controls instead of mixing a token color with raw shadow dimensions.
+**Source:** React Native shadow props docs and `apps/mobile-admin/constants/theme.ts`, verified 2026-07-01.
+

@@ -174,7 +174,7 @@ describe('NewOrderFooterBar', () => {
       paymentStatus: 'paid',
       shadows: {
         ...makeController().shadows,
-        md: { ...makeController().shadows.md, shadowColor: '#123456' },
+        sm: { ...makeController().shadows.sm, shadowColor: '#123456' },
       },
     });
 

@@ -23,6 +23,12 @@ describe('useIndustryTheme', () => {
     expect(result.current.layout.hero).toBe('split');
   });
 
+  it('returns specific theme for fashion merchants', () => {
+    const { result } = renderHook(() => useIndustryTheme('FASHION'));
+    expect(result.current.id).toBe('fashion');
+    expect(result.current.vibe).toBe('Editorial');
+  });
+
   it('returns specific theme for another valid businessType', () => {
     const { result } = renderHook(() => useIndustryTheme('HAIR_EXTENSIONS'));
     expect(result.current.id).toBe('hair-extensions');

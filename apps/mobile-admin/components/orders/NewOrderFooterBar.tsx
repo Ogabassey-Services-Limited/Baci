@@ -63,11 +63,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                   styles.toggleOption,
                   isSelected && {
                     backgroundColor: colors.background,
-                    elevation: 2,
-                    shadowColor: shadows.md.shadowColor,
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 1,
+                    ...shadows.sm,
                   },
                 ]}
               >
