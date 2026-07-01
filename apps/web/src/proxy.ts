@@ -272,6 +272,7 @@ const BLOG_STATUS_PREFLIGHT_EXCLUDED_SLUGS = new Set([
   'sitemap.xml',
   'twitter-image',
 ]);
+const DRAFT_MODE_COOKIE_NAMES = ['__prerender_bypass', '__next_preview_data'];
 
 // UUID-shaped product URL segment — resolved by the PDP route's id lookup, so
 // the crawl-budget slug-set check (which holds slugs, not ids) must skip it.
@@ -1768,6 +1769,13 @@ async function resolveStorefrontBlogPostHardStatus(
   }
   const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
   if (fetchDest && fetchDest !== 'document') {
+    return null;
+  }
+  if (
+    DRAFT_MODE_COOKIE_NAMES.some((cookieName) =>
+      request.cookies.has(cookieName)
+    )
+  ) {
     return null;
   }
 

@@ -1419,6 +1419,24 @@ describe('Middleware Proxy', () => {
       expect(rscRes.status).not.toBe(404);
       expect(blogStatusMock).not.toHaveBeenCalled();
     });
+
+    it('does not hard-404 draft-mode blog previews before the page can render drafts', async () => {
+      blogStatusMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest('https://ogabassey.com/blog/draft-post', {
+        headers: {
+          cookie: '__prerender_bypass=preview-token',
+          host: 'ogabassey.com',
+        },
+      });
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/blog/draft-post'
+      );
+      expect(blogStatusMock).not.toHaveBeenCalled();
+    });
   });
 
   it('does not treat root checkout as a merchant slug redirect candidate', async () => {

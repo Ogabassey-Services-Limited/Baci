@@ -1,5 +1,12 @@
+import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
+
+const blogPostStatusResponseSchema = z.object({
+  hasError: z.boolean(),
+  present: z.boolean(),
+  redirectPath: z.string().nullable().optional(),
+});
 
 interface BlogPostStatusOptions {
   /** Public request origin, used only as a trusted-base fallback in local dev. */
@@ -47,13 +54,15 @@ export async function resolveStorefrontBlogPostStatus(
       return { kind: 'present-or-unknown' };
     }
 
-    const body = (await response.json()) as {
-      hasError?: boolean;
-      present?: boolean;
-      redirectPath?: unknown;
-    };
+    const bodyResult = blogPostStatusResponseSchema.safeParse(
+      await response.json()
+    );
+    if (!bodyResult.success) {
+      return { kind: 'present-or-unknown' };
+    }
+    const body = bodyResult.data;
 
-    if (body?.hasError !== false) {
+    if (body.hasError !== false) {
       return { kind: 'present-or-unknown' };
     }
 

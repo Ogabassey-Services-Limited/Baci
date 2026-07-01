@@ -115,6 +115,26 @@ describe('resolveStorefrontBlogPostStatus', () => {
     ).resolves.toEqual({ kind: 'present-or-unknown' });
   });
 
+  it('fails open when the internal endpoint returns an invalid response body', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        hasError: 'false',
+        present: false,
+        redirectPath: null,
+      })
+    );
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: 'internal-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+  });
+
   it('fails open without calling the endpoint when the internal secret is missing', async () => {
     const fetchImpl = vi.fn();
 
