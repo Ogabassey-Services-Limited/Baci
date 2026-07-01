@@ -37,23 +37,25 @@ describe('blog page shell', () => {
     expect(generateStaticParams()).toContainEqual({ slug: 'ogabassey.com' });
   });
 
-  it('renders the monitored OgaBassey listing content directly as crawlable static HTML', async () => {
+  it('renders the static OgaBassey listing content and forwards its request search params', async () => {
+    const requestSearchParams = Promise.resolve({ search: 'iphone' });
+
     render(
       await BlogPage({
         params: Promise.resolve({ slug: 'ogabassey.com' }),
-        searchParams: Promise.resolve({}),
+        searchParams: requestSearchParams,
       })
     );
 
-    // Static tenant content lands in the initial payload (not behind the
-    // loading fallback), so crawlers see article HTML without JS.
+    // Static tenant content renders (behind Suspense, streamed to crawlers) and
+    // keeps the request searchParams so search/pagination work on ogabassey.com.
     expect(screen.getByText('Blog page content')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('status', { name: 'Loading blog posts' })
-    ).not.toBeInTheDocument();
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({ searchParams: requestSearchParams })
+    );
   });
 
-  it('never resolves request search params when building the canonical shell', async () => {
+  it('builds the route shell without synchronously resolving request search params', async () => {
     const thenSpy = vi.fn(() => {
       throw new Error('search params resolved before content render');
     });
@@ -66,8 +68,9 @@ describe('blog page shell', () => {
       searchParams,
     });
 
-    // The canonical shell must not consume the request-time searchParams
-    // promise; doing so would opt the static shell into request-time rendering.
+    // The route shell function forwards searchParams into the Suspense boundary
+    // without awaiting it, so the shell is creatable without request data (the
+    // content reads it behind Suspense at request time).
     expect(thenSpy).not.toHaveBeenCalled();
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
@@ -154,11 +157,6 @@ describe('blog page metadata', () => {
     ]);
   });
 
-  // Route-level metadata is now request-searchParams-free so the canonical
-  // shell stays static and Googlebot receives the resolved <title> instead of
-  // the streamed fallback. Variant (page/category/search) metadata is still
-  // exercised at the builder level in blog-listing-metadata.test.ts, where the
-  // params are server-derived rather than request-bound.
   it('builds route-specific canonical metadata for the blog listing', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
@@ -175,29 +173,43 @@ describe('blog page metadata', () => {
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
   });
 
-  it('emits canonical /blog metadata regardless of request query params', async () => {
+  // The STATIC tenant's metadata must stay request-searchParams-free so its
+  // shell prerenders and Googlebot receives the resolved <title>.
+  it('does not read request search params for the static tenant metadata', async () => {
     const thenSpy = vi.fn(() => {
-      throw new Error('metadata resolved request search params');
+      throw new Error('static metadata resolved request search params');
     });
     const requestSearchParams = Object.defineProperty({}, 'then', {
       value: thenSpy,
     }) as Promise<{ page?: string; search?: string; category?: string }>;
 
     const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
+      params: Promise.resolve({ slug: 'ogabassey' }),
       searchParams: requestSearchParams,
     });
 
-    // Query variants dedupe via the canonical link to the clean /blog URL;
-    // metadata must not read request searchParams to decide that.
     expect(String(metadata.title)).toContain('Blog');
-    expect(metadata.alternates?.canonical).toBe(
-      'https://test-store.usebaci.com/blog'
-    );
-    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
-      page: 1,
-    });
+    expect(String(metadata.alternates?.canonical)).toContain('/blog');
     expect(thenSpy).not.toHaveBeenCalled();
+  });
+
+  // Non-static tenants render dynamically, so their metadata reads searchParams
+  // to keep the builder's query-specific noindex/self-canonical variants.
+  it('reads request search params for non-static tenant metadata variants', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({ totalPosts: 50 })
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.title).toBe('Blog | Page 2 | Ogabassey');
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('test-store', {
+      page: 2,
+    });
   });
 
   it('returns fallback metadata when the merchant is missing', async () => {

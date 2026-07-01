@@ -186,7 +186,12 @@ export async function verifyRoute({
     headers.Host = hostHeader;
   }
 
-  const expectedCanonicalHost = hostHeader || new URL(origin).host;
+  // The canonical reflects the public URL, which in path-prefix mode includes
+  // the prefix (e.g. /ogabassey.com/blog). In that local mode the dev host may
+  // differ (localhost vs 127.0.0.1), so only enforce the host in host-header /
+  // live modes.
+  const expectedRoutePath = routePath(route, pathPrefix);
+  const expectedCanonicalHost = hostHeader || (pathPrefix ? '' : new URL(origin).host);
 
   const startedAt = now();
   const response = await fetchVerifierResponse(url, { fetchImpl, headers });
@@ -226,8 +231,8 @@ export async function verifyRoute({
     `${uaName} ${route}: missing canonical`
   );
   assert(
-    isCanonicalForRoute(canonicalHref, route, expectedCanonicalHost),
-    `${uaName} ${route}: canonical must point at the clean ${route} URL on ${expectedCanonicalHost} with no query, got ${canonicalHref}`
+    isCanonicalForRoute(canonicalHref, expectedRoutePath, expectedCanonicalHost),
+    `${uaName} ${route}: canonical must point at the clean ${expectedRoutePath} URL${expectedCanonicalHost ? ` on ${expectedCanonicalHost}` : ''} with no query, got ${canonicalHref}`
   );
   assert(hasJsonLd(html), `${uaName} ${route}: missing JSON-LD`);
   assert(hasBlogLinks(html), `${uaName} ${route}: missing crawlable blog links`);

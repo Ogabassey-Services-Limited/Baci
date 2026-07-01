@@ -8,7 +8,11 @@ import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
-import type { BlogSearchParamValue } from '../../blog-search-params';
+import { parseBlogListingPage } from '../../blog-listing-page-params';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from '../../blog-search-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 interface AuthorPageProps {
@@ -16,14 +20,12 @@ interface AuthorPageProps {
   searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
 
-// Cache Components invariant: generateMetadata must NOT await request
-// searchParams (reading it would prevent a static shell and force metadata to
-// stream, which htmlLimitedBots withholds from DOM bots). The static tenant
-// also renders canonical page 1 (EMPTY_AUTHOR_SEARCH_PARAMS) so its shell stays
-// static. Non-static author tenants render dynamically behind Suspense and keep
-// the request searchParams so ?page pagination/last-page redirects still work.
-const EMPTY_AUTHOR_SEARCH_PARAMS: NonNullable<AuthorPageProps['searchParams']> =
-  Promise.resolve({});
+// Cache Components invariant: generateMetadata stays request-searchParams-free
+// for the STATIC tenant so its metadata prerenders (streamed metadata is
+// withheld from DOM bots by htmlLimitedBots). Non-static author pages read
+// ?page for page-scoped noindex variants. The author content reads searchParams
+// and renders behind Suspense for all tenants, so pagination keeps working; the
+// Suspense fallback is the prerenderable static shell.
 
 const AUTHOR_NOT_FOUND_METADATA: Metadata = {
   title: 'Author Not Found',
@@ -46,6 +48,7 @@ export function generateStaticParams(): Array<{
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
   const normalizedAuthorSlug = authorSlug.toLowerCase();
@@ -55,14 +58,22 @@ export async function generateMetadata({
     return AUTHOR_NOT_FOUND_METADATA;
   }
 
-  const data = await getCachedBlogAuthor(slug, profile.name, { page: 1 });
+  // Static tenant metadata stays request-searchParams-free (prerenderable);
+  // non-static author pages read ?page for page-scoped noindex variants.
+  const page = isStaticAuthorTenant(slug)
+    ? 1
+    : parseBlogListingPage(toSingleBlogSearchParam((await searchParams)?.page));
+
+  const data = await getCachedBlogAuthor(slug, profile.name, { page });
   if (!data) {
     return AUTHOR_NOT_FOUND_METADATA;
   }
 
   const { merchant, author } = data;
   const baseUrl = buildStoreUrl(merchant);
-  const canonicalUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+  const authorBaseUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
+  const canonicalUrl =
+    page > 1 ? `${authorBaseUrl}?page=${page}` : authorBaseUrl;
   const roleLine = author.title
     ? `${author.title} at ${merchant.business_name}`
     : `Writer at ${merchant.business_name}`;
@@ -90,12 +101,15 @@ export async function generateMetadata({
       ...(author.imageUrl ? { images: [author.imageUrl] } : {}),
     },
     alternates: { canonical: canonicalUrl },
-    robots: {
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
+    robots:
+      page > 1
+        ? { index: false, follow: true }
+        : {
+            index: true,
+            follow: true,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+          },
   };
 }
 
@@ -105,7 +119,10 @@ function isStaticAuthorTenant(slug: string): boolean {
   );
 }
 
-async function assertNonStaticAuthorRouteBeforeShell({
+// Unknown-author status decisions (404/308) must resolve before any streaming
+// so we never emit a soft-404. Known authors fall through. Runs for every
+// tenant, including the static OgaBassey one.
+async function assertAuthorRouteStatusBeforeShell({
   slug,
   authorSlug,
 }: {
@@ -140,19 +157,15 @@ export default async function BlogAuthorPage({
   searchParams,
 }: AuthorPageProps) {
   const resolvedParams = await params;
-  const isStaticTenant = isStaticAuthorTenant(resolvedParams.slug);
-  const content = (
-    <BlogAuthorPageContent
-      params={Promise.resolve(resolvedParams)}
-      searchParams={isStaticTenant ? EMPTY_AUTHOR_SEARCH_PARAMS : searchParams}
-    />
+
+  await assertAuthorRouteStatusBeforeShell(resolvedParams);
+
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogAuthorPageContent
+        params={Promise.resolve(resolvedParams)}
+        searchParams={searchParams}
+      />
+    </Suspense>
   );
-
-  if (isStaticTenant) {
-    return content;
-  }
-
-  await assertNonStaticAuthorRouteBeforeShell(resolvedParams);
-
-  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

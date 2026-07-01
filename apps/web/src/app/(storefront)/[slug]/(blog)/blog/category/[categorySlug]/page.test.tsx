@@ -237,6 +237,30 @@ describe('blog category page', () => {
     expect(thenSpy).not.toHaveBeenCalled();
   });
 
+  it('reads ?page for non-static category metadata (noindex page variant)', async () => {
+    mockGetCachedBlogListing.mockResolvedValue({
+      ...buildListingResult({
+        merchant: { ...merchant, custom_domain: 'ogabassey.com' },
+        totalPosts: 50,
+      }),
+      categories: ['Smartphones', 'Laptops'],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'another-store',
+        categorySlug: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('another-store', {
+      category: 'Smartphones',
+      page: 2,
+    });
+  });
+
   it('returns noindex metadata for unknown category slugs', async () => {
     mockResolveBlogCategoryHub.mockResolvedValueOnce(null);
 

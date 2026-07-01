@@ -12,8 +12,12 @@ import {
   getCollidingBlogCategorySlugs,
 } from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
+import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogPageContent } from '../../blog-page-content';
-import type { BlogSearchParamValue } from '../../blog-search-params';
+import {
+  type BlogSearchParamValue,
+  toSingleBlogSearchParam,
+} from '../../blog-search-params';
 
 interface BlogCategoryPageProps {
   params: Promise<{ slug: string; categorySlug: string }>;
@@ -23,15 +27,12 @@ interface BlogCategoryPageProps {
   }>;
 }
 
-// Cache Components invariant: generateMetadata must NOT await request
-// searchParams. The static tenant renders canonical page 1
-// (EMPTY_CATEGORY_SEARCH_PARAMS) directly so its article/category links land in
-// the initial HTML for crawlers. Non-static tenants render dynamically behind
-// Suspense and keep the request searchParams so paginated/search category
-// variants still work.
-const EMPTY_CATEGORY_SEARCH_PARAMS: NonNullable<
-  BlogCategoryPageProps['searchParams']
-> = Promise.resolve({});
+// Cache Components invariant: generateMetadata stays request-searchParams-free
+// for the STATIC tenant so its metadata prerenders (streamed metadata is
+// withheld from DOM bots by htmlLimitedBots). Non-static category pages read
+// ?page/?search for noindex/self-scoped variants. The listing content reads
+// searchParams and renders behind Suspense for all tenants, so paginated/search
+// category variants keep working; the Suspense fallback is the static shell.
 
 const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   title: 'Blog Category Not Found',
@@ -85,6 +86,7 @@ export async function generateStaticParams(): Promise<
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: BlogCategoryPageProps): Promise<Metadata> {
   const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
@@ -92,11 +94,28 @@ export async function generateMetadata({
     return CATEGORY_NOT_FOUND_METADATA;
   }
 
+  // Static tenant metadata stays request-searchParams-free (prerenderable);
+  // non-static category pages read ?page/?search for noindex/self-scoped
+  // variants that buildBlogListingMetadata already produces.
+  if (isStaticCategoryTenant(slug)) {
+    return buildBlogListingMetadata({
+      slug,
+      searchParams: { category: hub.categoryLabel },
+      canonicalUrl: hub.canonicalUrl,
+      indexable: true,
+    });
+  }
+
+  const resolvedSearchParams = await searchParams;
+  const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
+  const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
+  const currentPage = parseBlogListingPage(page);
+
   return buildBlogListingMetadata({
     slug,
-    searchParams: { category: hub.categoryLabel },
-    canonicalUrl: hub.canonicalUrl,
-    indexable: true,
+    searchParams: { category: hub.categoryLabel, page, search },
+    canonicalUrl: !search && currentPage === 1 ? hub.canonicalUrl : undefined,
+    indexable: currentPage === 1,
   });
 }
 
@@ -118,26 +137,15 @@ export default async function BlogCategoryPage({
     notFound();
   }
 
-  const isStaticTenant = isStaticCategoryTenant(slug);
-  const content = (
-    <BlogPageContent
-      categoryOverride={hub.categoryLabel}
-      isCleanCategoryRoute
-      itemListSchemaUrl={hub.canonicalUrl}
-      params={Promise.resolve({ slug })}
-      searchParams={
-        isStaticTenant
-          ? EMPTY_CATEGORY_SEARCH_PARAMS
-          : (searchParams ?? EMPTY_CATEGORY_SEARCH_PARAMS)
-      }
-    />
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent
+        categoryOverride={hub.categoryLabel}
+        isCleanCategoryRoute
+        itemListSchemaUrl={hub.canonicalUrl}
+        params={Promise.resolve({ slug })}
+        searchParams={searchParams ?? Promise.resolve({})}
+      />
+    </Suspense>
   );
-
-  // Static OgaBassey category hubs render crawlable canonical content directly;
-  // other tenants keep the explicit fallback for CWV and their query state.
-  if (isStaticTenant) {
-    return content;
-  }
-
-  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

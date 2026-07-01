@@ -330,6 +330,26 @@ describe('blog author page metadata', () => {
     expect(thenSpy).not.toHaveBeenCalled();
   });
 
+  it('reads ?page for non-static author metadata (page-scoped noindex variant)', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'another-store',
+        authorSlug: 'bassey-john',
+      }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/blog/author/bassey-john?page=2'
+    );
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
+      'another-store',
+      'Bassey John',
+      { page: 2 }
+    );
+  });
+
   it('returns noindex metadata when a known author has no published posts', async () => {
     mockGetCachedBlogAuthor.mockResolvedValueOnce(null);
 
