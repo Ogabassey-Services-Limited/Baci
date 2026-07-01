@@ -361,6 +361,33 @@ describe('purchaseOrderInsurance', () => {
         expect.objectContaining({ premium_amount: 25000 })
       );
     });
+
+    it('reports failure (not success) when the local policy insert fails', async () => {
+      const spy = vi
+        .fn()
+        .mockResolvedValue({ data: null, error: { message: 'insert failed' } });
+      orderSupabaseMock(mockOrderWithInsurance, spy);
+
+      const result = await purchaseOrderInsurance(
+        VALID_ORDER_ID,
+        mockDeviceDetails
+      );
+
+      // The policy was purchased at MyCover but not persisted locally, so it
+      // must surface as a failure needing reconciliation — never as an active
+      // policy the merchant can rely on.
+      expect(result.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            success: false,
+            error: expect.stringContaining('could not be saved locally'),
+          }),
+        ])
+      );
+      expect(result.results).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ success: true })])
+      );
+    });
   });
 
   describe('Error Handling', () => {

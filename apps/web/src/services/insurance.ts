@@ -235,10 +235,25 @@ export async function purchaseOrderInsurance(
         });
 
       if (dbError) {
+        // The policy exists at MyCover but we failed to persist it locally, so
+        // the app can no longer reference it for claim/activation flows. Report
+        // FAILURE (not success) — otherwise the dashboard tells the merchant
+        // coverage is active while the record is lost. Log identifiers so the
+        // orphaned policy can be reconciled manually.
         logger.error({
           message: 'Failed to save policy to DB',
           error: dbError,
+          orderId: typedOrder.id,
+          itemId: item.id,
+          policyNumber: policy.policy_number,
         });
+        results.push({
+          success: false,
+          error:
+            'Policy was purchased but could not be saved locally. Manual reconciliation is required.',
+          itemId: item.id,
+        });
+        continue;
       }
 
       results.push({
