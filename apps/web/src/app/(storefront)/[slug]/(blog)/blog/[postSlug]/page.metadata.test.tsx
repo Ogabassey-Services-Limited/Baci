@@ -47,6 +47,9 @@ describe('storefront blog post metadata', () => {
       'https://ogabassey.com/blog/apple-studio-display-review'
     );
     expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetCachedBlogPost.mock.invocationCallOrder[0]
+    );
   });
 
   it('uses the cached blog query when metadata is already available', async () => {
