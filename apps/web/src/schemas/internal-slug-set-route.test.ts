@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  internalBlogPostStatusQuerySchema,
   internalProductCanonicalRedirectQuerySchema,
   internalSlugSetParamsSchema,
   internalSlugSetQuerySchema,
@@ -52,6 +53,24 @@ describe('internalSlugSetQuerySchema', () => {
     expect(internalSlugSetQuerySchema.safeParse({ slug: '  ' }).success).toBe(
       false
     );
+  });
+});
+
+describe('internalBlogPostStatusQuerySchema', () => {
+  it('accepts and trims a blog post slug', () => {
+    const result = internalBlogPostStatusQuerySchema.safeParse({
+      slug: ' retired-post ',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ slug: 'retired-post' });
+  });
+
+  it('rejects missing or blank blog post slugs', () => {
+    expect(internalBlogPostStatusQuerySchema.safeParse({}).success).toBe(false);
+    expect(
+      internalBlogPostStatusQuerySchema.safeParse({ slug: '   ' }).success
+    ).toBe(false);
   });
 });
 
