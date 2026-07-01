@@ -8,6 +8,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -68,6 +69,12 @@ vi.mock('@/lib/storefront-product-canonical-redirect', () => ({
     .mockResolvedValue({ kind: 'unknown' }),
 }));
 
+vi.mock('@/lib/storefront-blog-post-status', () => ({
+  resolveStorefrontBlogPostStatus: vi
+    .fn()
+    .mockResolvedValue({ kind: 'present-or-unknown' }),
+}));
+
 // Mock rate limit
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn().mockReturnValue({
@@ -125,6 +132,9 @@ describe('Middleware Proxy', () => {
     });
     vi.mocked(getStorefrontProductCanonicalRedirectResult).mockResolvedValue({
       kind: 'unknown',
+    });
+    vi.mocked(resolveStorefrontBlogPostStatus).mockResolvedValue({
+      kind: 'present-or-unknown',
     });
   });
 
@@ -1316,6 +1326,135 @@ describe('Middleware Proxy', () => {
       await proxy(req);
 
       expect(checkRateLimit).toHaveBeenCalled();
+    });
+  });
+
+  describe('crawl-budget blog post hard status', () => {
+    const blogStatusMock = vi.mocked(resolveStorefrontBlogPostStatus);
+
+    it('returns a hard 404 for confirmed-missing custom-domain blog posts before the App Router streams', async () => {
+      blogStatusMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog/totally-missing-post'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('user-agent', 'Googlebot/2.1');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(res.headers.get('Cache-Control')).toContain('no-store');
+      expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
+      expect(blogStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          postSlug: 'totally-missing-post',
+          secret: 'test-internal-secret',
+        })
+      );
+    });
+
+    it('308-redirects retired custom-domain blog posts before storefront rewrite', async () => {
+      blogStatusMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/blog/canonical-post',
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog/retired-post?utm_source=email'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/blog/canonical-post?utm_source=email'
+      );
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    });
+
+    it('keeps root-domain merchant prefixes when redirecting retired blog posts', async () => {
+      blogStatusMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/blog/canonical-post',
+      });
+      const req = new NextRequest(
+        'https://usebaci.com/merchant-demo/blog/retired-post'
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://usebaci.com/merchant-demo/blog/canonical-post'
+      );
+      expect(blogStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'merchant-demo',
+          postSlug: 'retired-post',
+        })
+      );
+    });
+
+    it('keeps root-domain merchant prefixes in missing blog post recovery links', async () => {
+      blogStatusMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://usebaci.com/merchant-demo/blog/missing-post'
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(await res.text()).toContain('href="/merchant-demo"');
+      expect(blogStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'merchant-demo',
+          postSlug: 'missing-post',
+        })
+      );
+    });
+
+    it('does not run the blog status check for sitemap or RSC requests', async () => {
+      blogStatusMock.mockResolvedValue({ kind: 'missing' });
+      const sitemapReq = new NextRequest(
+        'https://ogabassey.com/blog/sitemap.xml'
+      );
+      sitemapReq.headers.set('host', 'ogabassey.com');
+
+      const sitemapRes = await proxy(sitemapReq);
+      expect(sitemapRes.status).not.toBe(404);
+      expect(blogStatusMock).not.toHaveBeenCalled();
+
+      const rscReq = new NextRequest(
+        'https://ogabassey.com/blog/totally-missing-post'
+      );
+      rscReq.headers.set('host', 'ogabassey.com');
+      rscReq.headers.set('RSC', '1');
+
+      const rscRes = await proxy(rscReq);
+      expect(rscRes.status).not.toBe(404);
+      expect(blogStatusMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 draft-mode blog previews before the page can render drafts', async () => {
+      blogStatusMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest('https://ogabassey.com/blog/draft-post', {
+        headers: {
+          cookie: '__prerender_bypass=preview-token',
+          host: 'ogabassey.com',
+        },
+      });
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toContain(
+        '/blog/draft-post'
+      );
+      expect(blogStatusMock).not.toHaveBeenCalled();
     });
   });
 

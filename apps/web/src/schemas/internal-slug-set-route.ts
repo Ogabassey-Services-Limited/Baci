@@ -13,6 +13,11 @@ export const internalSlugSetQuerySchema = z.object({
   slug: z.string().trim().min(1).max(255),
 });
 
+/** Query params for blog post status resolution. */
+export const internalBlogPostStatusQuerySchema = z.object({
+  slug: z.string().trim().min(1).max(255),
+});
+
 /** Query params for product canonical redirect resolution. */
 export const internalProductCanonicalRedirectQuerySchema = z.object({
   category: z.string().trim().min(1).max(255),

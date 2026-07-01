@@ -38,6 +38,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -76,6 +77,7 @@ const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
 const DEFAULT_POSTHOG_RELAY_PATH = '/baci-relay';
+const HARD_STATUS_HOME_PATH_PATTERN = /^\/(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/;
 const RESERVED_POSTHOG_RELAY_PATH_PREFIXES = [
   '/api',
   '/_next',
@@ -263,6 +265,15 @@ const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS = new Set(['best-under', 'compare']);
 const PDP_HTML_CACHE_CONTROL = 'no-cache, no-store, max-age=0, must-revalidate';
 const NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL =
   'private, no-store, max-age=0, must-revalidate';
+const BLOG_STATUS_PREFLIGHT_EXCLUDED_SLUGS = new Set([
+  'feed.xml',
+  'news-sitemap.xml',
+  'opengraph-image',
+  'rss.xml',
+  'sitemap.xml',
+  'twitter-image',
+]);
+const DRAFT_MODE_COOKIE_NAMES = ['__prerender_bypass', '__next_preview_data'];
 
 // UUID-shaped product URL segment — resolved by the PDP route's id lookup, so
 // the crawl-budget slug-set check (which holds slugs, not ids) must skip it.
@@ -1496,10 +1507,14 @@ function buildHardStatusStorefrontResponse(
   request: NextRequest,
   pathname: string,
   userAgent: string,
-  hostname: string | undefined
+  hostname: string | undefined,
+  homePath = '/'
 ): NextResponse {
   const title = status === 410 ? 'Page gone' : 'Page not found';
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="/">Go to the homepage</a>.</p></main></body></html>`;
+  const safeHomePath = HARD_STATUS_HOME_PATH_PATTERN.test(homePath)
+    ? homePath
+    : '/';
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="${safeHomePath}">Go to the homepage</a>.</p></main></body></html>`;
 
   // HEAD must not carry a body (RFC 9110 §9.3.2); the noindex signal travels in
   // the X-Robots-Tag header below so a HEAD crawl still sees it.
@@ -1737,6 +1752,88 @@ async function resolveStorefrontPdpCanonicalRedirect(
     response: NextResponse.redirect(redirectUrl, 308),
     skipHardNotFound: true,
   };
+}
+
+async function resolveStorefrontBlogPostHardStatus(
+  request: NextRequest,
+  pathname: string,
+  hostname: string | undefined,
+  userAgent: string,
+  identifier: string,
+  publicPathPrefix = ''
+): Promise<NextResponse | null> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null;
+  }
+  if (
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-state-tree')
+  ) {
+    return null;
+  }
+  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
+  if (fetchDest && fetchDest !== 'document') {
+    return null;
+  }
+  if (
+    DRAFT_MODE_COOKIE_NAMES.some((cookieName) =>
+      request.cookies.has(cookieName)
+    )
+  ) {
+    return null;
+  }
+
+  const routeType = getRouteType(pathname);
+  if (routeType !== 'storefront') {
+    return null;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  if (contentSegments.length !== 2) {
+    return null;
+  }
+
+  const firstSegment = safeDecodeSegment(contentSegments[0]).toLowerCase();
+  const postSlug = safeDecodeSegment(contentSegments[1]);
+  const normalizedPostSlug = postSlug.toLowerCase();
+  if (
+    firstSegment !== 'blog' ||
+    !postSlug ||
+    BLOG_STATUS_PREFLIGHT_EXCLUDED_SLUGS.has(normalizedPostSlug)
+  ) {
+    return null;
+  }
+
+  const resolution = await resolveStorefrontBlogPostStatus({
+    origin: request.nextUrl.origin,
+    identifier,
+    postSlug,
+    secret: getInternalApiSecret(),
+  });
+
+  if (resolution.kind === 'redirect') {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `${publicPathPrefix}${resolution.redirectPath}`;
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
+  if (resolution.kind !== 'missing') {
+    return null;
+  }
+
+  return buildHardStatusStorefrontResponse(
+    404,
+    request,
+    pathname,
+    userAgent,
+    hostname,
+    publicPathPrefix || '/'
+  );
 }
 
 function buildStrictCspResponse(
@@ -2772,6 +2869,17 @@ export async function proxy(request: NextRequest) {
         // Slug lookup failed — fall through to standard domain rewrite
       }
 
+      const blogPostHardStatus = await resolveStorefrontBlogPostHardStatus(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        domainMerchantSlug ?? domain
+      );
+      if (blogPostHardStatus) {
+        return blogPostHardStatus;
+      }
+
       const pdpCanonicalRedirect = await resolveStorefrontPdpCanonicalRedirect(
         request,
         pathname,
@@ -2969,6 +3077,18 @@ export async function proxy(request: NextRequest) {
       });
     }
 
+    const subdomainBlogPostHardStatus =
+      await resolveStorefrontBlogPostHardStatus(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        subdomain as string
+      );
+    if (subdomainBlogPostHardStatus) {
+      return subdomainBlogPostHardStatus;
+    }
+
     const subdomainPdpCanonicalRedirect =
       await resolveStorefrontPdpCanonicalRedirect(
         request,
@@ -3109,6 +3229,18 @@ export async function proxy(request: NextRequest) {
       isValidSubdomain(slug) &&
       !RESERVED_SUBDOMAINS.has(slug)
     ) {
+      const rootBlogPostHardStatus = await resolveStorefrontBlogPostHardStatus(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        slug,
+        `/${slug}`
+      );
+      if (rootBlogPostHardStatus) {
+        return rootBlogPostHardStatus;
+      }
+
       const rootPdpCanonicalRedirect =
         await resolveStorefrontPdpCanonicalRedirect(
           request,
