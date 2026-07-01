@@ -4,7 +4,6 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 const dateRangePickerStyles = StyleSheet.create({
   overlay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
     flex: 1,
     justifyContent: 'center',
     padding: SPACING.md,

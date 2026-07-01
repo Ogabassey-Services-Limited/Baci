@@ -78,7 +78,13 @@ export default function DateRangePicker({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable
+        style={[
+          styles.overlay,
+          { backgroundColor: colors.backdrop ?? 'rgba(0,0,0,0.5)' },
+        ]}
+        onPress={onClose}
+      >
         <Pressable
           style={[
             styles.container,

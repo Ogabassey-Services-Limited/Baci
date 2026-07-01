@@ -10,3 +10,9 @@
 **Learning:** Hardcoded `#eee` for image thumbnail placeholders fails to adapt to dark mode (appearing overly bright) and violates the rule against color literals.
 **Action:** Remove from `StyleSheet.create` and apply `colors.border` (or `colors.background`) via dynamic inline styles `style={[styles.thumbnail, { backgroundColor: colors.border }]}`.
 **Source:** apps/mobile-admin/constants/theme.ts / WCAG SC 1.4.3
+
+## 2024-07-01 — DateRangePicker modal overlay
+
+**Learning:** Modal and sheet overlays should use the `backdrop` token instead of hardcoding `rgba(0,0,0,0.5)`. This ensures consistency across components and adapts to the theme system.
+**Action:** Always check the theme tokens (`colors.backdrop`) before hardcoding semi-transparent dark backgrounds for overlays.
+**Source:** apps/mobile-admin/constants/theme.ts
