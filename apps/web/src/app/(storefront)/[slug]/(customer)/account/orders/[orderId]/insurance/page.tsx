@@ -113,7 +113,12 @@ async function fetchPolicyForOrder(
         .select(
           'id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, claim_stage, claim_progress, claim_comment, certificate_url, provider_name, claim_link, inspection_link, inspection_status'
         )
-        .eq('order_id', scopedOrderId),
+        .eq('order_id', scopedOrderId)
+        // Deterministically pick the most recent policy — an order can
+        // accumulate multiple rows (e.g. a voided policy alongside a new one),
+        // and `policies[0]` would otherwise depend on default DB ordering.
+        .order('created_at', { ascending: false })
+        .limit(1),
     ]);
 
     if (customerError) {

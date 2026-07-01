@@ -31,6 +31,8 @@ function createQuery(table: string, result: { data: unknown; error: unknown }) {
       return chain;
     }),
     maybeSingle: vi.fn(() => Promise.resolve(result)),
+    order: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
     select: vi.fn(() => chain),
     // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are awaitable, and this mock intentionally mirrors that contract.
     then: (
