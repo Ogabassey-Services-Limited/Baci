@@ -1398,6 +1398,25 @@ describe('Middleware Proxy', () => {
       );
     });
 
+    it('keeps root-domain merchant prefixes in missing blog post recovery links', async () => {
+      blogStatusMock.mockResolvedValue({ kind: 'missing' });
+      const req = new NextRequest(
+        'https://usebaci.com/merchant-demo/blog/missing-post'
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(await res.text()).toContain('href="/merchant-demo"');
+      expect(blogStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'merchant-demo',
+          postSlug: 'missing-post',
+        })
+      );
+    });
+
     it('does not run the blog status check for sitemap or RSC requests', async () => {
       blogStatusMock.mockResolvedValue({ kind: 'missing' });
       const sitemapReq = new NextRequest(

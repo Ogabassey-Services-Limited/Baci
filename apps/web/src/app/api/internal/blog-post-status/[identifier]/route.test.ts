@@ -41,8 +41,19 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
     expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
   });
 
-  it('returns 400 for invalid route or query parameters', async () => {
-    const response = await GET(buildRequest(''), context('bad identifier'));
+  it('returns 400 for an invalid slug query parameter', async () => {
+    const response = await GET(buildRequest(''), context());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid input',
+      code: 'invalid_input',
+    });
+    expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for an invalid route identifier parameter', async () => {
+    const response = await GET(buildRequest('valid-post'), context('   '));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({

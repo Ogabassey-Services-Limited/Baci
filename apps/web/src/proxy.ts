@@ -77,6 +77,7 @@ const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
 const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const CANONICAL_STOREFRONT_TERMS_PATH = '/terms';
 const DEFAULT_POSTHOG_RELAY_PATH = '/baci-relay';
+const HARD_STATUS_HOME_PATH_PATTERN = /^\/(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/;
 const RESERVED_POSTHOG_RELAY_PATH_PREFIXES = [
   '/api',
   '/_next',
@@ -1506,10 +1507,14 @@ function buildHardStatusStorefrontResponse(
   request: NextRequest,
   pathname: string,
   userAgent: string,
-  hostname: string | undefined
+  hostname: string | undefined,
+  homePath = '/'
 ): NextResponse {
   const title = status === 410 ? 'Page gone' : 'Page not found';
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="/">Go to the homepage</a>.</p></main></body></html>`;
+  const safeHomePath = HARD_STATUS_HOME_PATH_PATTERN.test(homePath)
+    ? homePath
+    : '/';
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="robots" content="noindex, follow"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,-apple-system,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center"><main><h1>${title}</h1><p>The page you’re looking for isn’t here. <a href="${safeHomePath}">Go to the homepage</a>.</p></main></body></html>`;
 
   // HEAD must not carry a body (RFC 9110 §9.3.2); the noindex signal travels in
   // the X-Robots-Tag header below so a HEAD crawl still sees it.
@@ -1826,7 +1831,8 @@ async function resolveStorefrontBlogPostHardStatus(
     request,
     pathname,
     userAgent,
-    hostname
+    hostname,
+    publicPathPrefix || '/'
   );
 }
 
