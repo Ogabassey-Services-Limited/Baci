@@ -139,6 +139,17 @@ describe('Notifications API: /api/notifications/[id]', () => {
       expect(json).toEqual({ error: 'Notification not found' });
     });
 
+    it('returns 500 when an unexpected exception is thrown', async () => {
+      mockSupabase.single.mockRejectedValueOnce(new Error('Unexpected DB Error'));
+
+      const req = new NextRequest('http://localhost/api/notifications/123');
+      const res = await GET(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'Failed to fetch notification' });
+    });
+
     it('returns 200 and notification data on success', async () => {
       const mockNotification = { id: '123', title: 'Test Notif' };
       mockSupabase.single.mockResolvedValueOnce({
@@ -216,6 +227,18 @@ describe('Notifications API: /api/notifications/[id]', () => {
       expect(json).toEqual({ error: 'No fields to update' });
     });
 
+    it('returns 400 when invalid types are provided', async () => {
+      const req = new NextRequest('http://localhost/api/notifications/123', {
+        method: 'PATCH',
+        body: JSON.stringify({ read: 'not-a-boolean' }),
+      });
+      const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'No fields to update' });
+    });
+
     it('returns 200 and updates read status successfully', async () => {
       const mockUpdated = { id: '123', read_at: '2023-01-01T00:00:00.000Z' };
 
@@ -237,6 +260,42 @@ describe('Notifications API: /api/notifications/[id]', () => {
       expect(mockSupabase.update).toHaveBeenCalled();
       expect(mockSupabase.update.mock.calls[0][0]).toHaveProperty('read_at');
       expect(mockSupabase.eq).toHaveBeenCalledWith('id', '123');
+      expect(mockSupabase.eq).toHaveBeenCalledWith(
+        'merchant_id',
+        mockMerchantId
+      );
+    });
+
+    it('returns 200 and updates dismissed status successfully', async () => {
+      const mockUpdated = {
+        id: '123',
+        dismissed_at: '2023-01-01T00:00:00.000Z',
+      };
+
+      mockSupabase.single.mockResolvedValueOnce({
+        data: mockUpdated,
+        error: null,
+      });
+
+      const req = new NextRequest('http://localhost/api/notifications/123', {
+        method: 'PATCH',
+        body: JSON.stringify({ dismissed: true }),
+      });
+      const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json).toEqual({ ...mockUpdated, unread_count: 5 });
+
+      expect(mockSupabase.update).toHaveBeenCalled();
+      expect(mockSupabase.update.mock.calls[0][0]).toHaveProperty(
+        'dismissed_at'
+      );
+      expect(mockSupabase.eq).toHaveBeenCalledWith('id', '123');
+      expect(mockSupabase.eq).toHaveBeenCalledWith(
+        'merchant_id',
+        mockMerchantId
+      );
     });
 
     it('returns 500 when database update fails', async () => {
