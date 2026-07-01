@@ -513,7 +513,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     setupRecordPaymentSupabase({
       merchant: mockMerchant,
       order: null,
-      orderError: { message: 'Order not found' },
+      orderError: { code: 'PGRST116', message: 'Order not found' },
     });
 
     const request = createRequest({
@@ -530,6 +530,46 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(404);
     expect(data).toEqual({ error: 'Order not found' });
+  });
+
+  it('returns 500 when order lookup fails', async () => {
+    // Arrange
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: null,
+      orderError: { code: '57014', message: 'statement timeout' },
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Failed to fetch order' });
   });
 
   it('returns 500 when transaction insert fails', async () => {

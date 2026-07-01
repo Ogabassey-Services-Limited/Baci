@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { POST } from './route';
@@ -36,10 +36,7 @@ describe('POST /api/wallet/withdraw', () => {
   it('returns 403 when CSRF is invalid', async () => {
     vi.mocked(checkCsrfProtection).mockResolvedValue({
       valid: false,
-      response: NextResponse.json(
-        { error: 'CSRF validation failed' },
-        { status: 403 }
-      ),
+      response: undefined,
     });
 
     const request = new NextRequest(

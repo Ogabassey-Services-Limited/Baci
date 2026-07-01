@@ -8,7 +8,7 @@ import type { z } from 'zod';
 import { ThemedInput } from '@/components/themed/themed-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
-import { formatCurrencyWithConfig } from '@/lib/currency';
+import { formatCurrencyWithConfig, getCurrencyConfig } from '@/lib/currency';
 import {
   type JumiaPriceFormValues,
   jumiaPriceSchema,
@@ -30,11 +30,7 @@ interface JumiaPriceFormProps {
   basePrice: number;
 }
 
-const JUMIA_PRICE_CURRENCY_CONFIG = {
-  code: 'NGN',
-  symbol: '₦',
-  locale: 'en-NG',
-};
+const JUMIA_PRICE_CURRENCY_CONFIG = getCurrencyConfig('NG', 'NGN');
 
 function formatJumiaPrice(amount: number) {
   return formatCurrencyWithConfig(amount, JUMIA_PRICE_CURRENCY_CONFIG);

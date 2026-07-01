@@ -50,7 +50,11 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
               <Pressable
                 accessibilityLabel={`Payment status: ${status === 'partially_paid' ? 'Partial' : status}`}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: isSelected }}
+                accessibilityState={{
+                  checked: isSelected,
+                  disabled: isSubmitting,
+                }}
+                disabled={isSubmitting}
                 key={status}
                 onPress={() => {
                   setPaymentStatus(status);
@@ -59,7 +63,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                   }
                 }}
                 style={({ pressed }) => [
-                  pressed && { opacity: 0.7 },
+                  !isSubmitting && pressed && { opacity: 0.7 },
                   styles.toggleOption,
                   isSelected && {
                     backgroundColor: colors.background,
@@ -109,12 +113,16 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
               <Pressable
                 accessibilityLabel={`Payment method: ${method.label}`}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: paymentMethod === method.id }}
+                accessibilityState={{
+                  checked: paymentMethod === method.id,
+                  disabled: isSubmitting,
+                }}
+                disabled={isSubmitting}
                 key={method.id}
                 onPress={() => setPaymentMethod(method.id)}
                 style={({ pressed }) => [
                   {
-                    opacity: pressed ? 0.7 : 1,
+                    opacity: !isSubmitting && pressed ? 0.7 : 1,
                     alignItems: 'center',
                     backgroundColor:
                       paymentMethod === method.id
@@ -176,6 +184,8 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
             Amount Paid
           </Text>
           <TextInput
+            accessibilityState={{ disabled: isSubmitting }}
+            editable={!isSubmitting}
             keyboardType="numeric"
             onChangeText={setPartialAmount}
             placeholder="Enter amount..."

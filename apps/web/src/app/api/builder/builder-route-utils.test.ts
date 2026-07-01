@@ -13,6 +13,20 @@ vi.mock('@/lib/builder-defaults', () => ({
   generateDefaultConfig: mockGenerateDefaultConfig,
 }));
 
+function createPageConfigMutationQuery(result: {
+  data: unknown;
+  error: unknown;
+}) {
+  const query = {
+    eq: vi.fn(),
+    select: vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue(result),
+    }),
+  };
+  query.eq.mockReturnValue(query);
+  return query;
+}
+
 describe('builder-route-utils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -326,6 +340,13 @@ describe('builder-route-utils', () => {
   });
 
   it('updates an existing builder draft when the revision matches', async () => {
+    const updateQuery = createPageConfigMutationQuery({
+      data: {
+        id: 'config-1',
+        updated_at: '2026-03-20T18:05:00.000Z',
+      },
+      error: null,
+    });
     const mockSupabase = {
       from: vi.fn((table: string) => {
         if (table !== 'page_configs') {
@@ -346,23 +367,7 @@ describe('builder-route-utils', () => {
               }),
             }),
           }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  select: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: {
-                        id: 'config-1',
-                        updated_at: '2026-03-20T18:05:00.000Z',
-                      },
-                      error: null,
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
+          update: vi.fn().mockReturnValue(updateQuery),
         };
       }),
     };
@@ -376,10 +381,28 @@ describe('builder-route-utils', () => {
 
     expect(result.response).toBeUndefined();
     expect(result.lastUpdated).toBe('2026-03-20T18:05:00.000Z');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(1, 'id', 'config-1');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(
+      2,
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(
+      3,
+      'updated_at',
+      '2026-03-20T18:00:00.000Z'
+    );
   });
 
   it('publishes the current draft when the revision matches', async () => {
     let insertHistoryCalled = false;
+    const updateQuery = createPageConfigMutationQuery({
+      data: {
+        id: 'config-1',
+        updated_at: '2026-03-20T18:12:00.000Z',
+      },
+      error: null,
+    });
 
     const mockSupabase = {
       from: vi.fn((table: string) => {
@@ -411,23 +434,7 @@ describe('builder-route-utils', () => {
                 }),
               }),
             }),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    select: vi.fn().mockReturnValue({
-                      maybeSingle: vi.fn().mockResolvedValue({
-                        data: {
-                          id: 'config-1',
-                          updated_at: '2026-03-20T18:12:00.000Z',
-                        },
-                        error: null,
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
+            update: vi.fn().mockReturnValue(updateQuery),
           };
         }
 
@@ -456,10 +463,25 @@ describe('builder-route-utils', () => {
     expect(insertHistoryCalled).toBe(true);
     expect(result.response).toBeUndefined();
     expect(result.lastUpdated).toBe('2026-03-20T18:12:00.000Z');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(1, 'id', 'config-1');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(
+      2,
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(
+      3,
+      'updated_at',
+      '2026-03-20T18:10:00.000Z'
+    );
   });
 
   it('does not write history when publish loses the compare-and-swap race', async () => {
     let insertHistoryCalled = false;
+    const updateQuery = createPageConfigMutationQuery({
+      data: null,
+      error: null,
+    });
 
     const mockSupabase = {
       from: vi.fn((table: string) => {
@@ -491,20 +513,7 @@ describe('builder-route-utils', () => {
                 }),
               }),
             }),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    select: vi.fn().mockReturnValue({
-                      maybeSingle: vi.fn().mockResolvedValue({
-                        data: null,
-                        error: null,
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
+            update: vi.fn().mockReturnValue(updateQuery),
           };
         }
 
@@ -532,6 +541,17 @@ describe('builder-route-utils', () => {
 
     expect(result.response?.status).toBe(409);
     expect(insertHistoryCalled).toBe(false);
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(1, 'id', 'config-1');
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(
+      2,
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(
+      3,
+      'updated_at',
+      '2026-03-20T18:10:00.000Z'
+    );
   });
 
   it('respects read-only builder access even when the payload is otherwise healthy', async () => {

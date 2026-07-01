@@ -151,7 +151,20 @@ export async function POST(
       );
     }
 
-    if (orderError || !order) {
+    if (orderError && orderError.code !== 'PGRST116') {
+      logger.error({
+        message: 'RecordPayment order lookup error',
+        error: orderError,
+        orderId: id,
+        merchantId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch order' },
+        { status: 500 }
+      );
+    }
+
+    if (!order) {
       logger.error({
         message: 'RecordPayment order not found',
         error: orderError,

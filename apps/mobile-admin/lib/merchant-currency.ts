@@ -19,7 +19,9 @@ function getSupportedMerchantCurrencyCodes(): Set<string> | null {
   }
 
   try {
-    supportedMerchantCurrencyCodes = new Set(Intl.supportedValuesOf('currency'));
+    supportedMerchantCurrencyCodes = new Set(
+      Intl.supportedValuesOf('currency')
+    );
   } catch {
     supportedMerchantCurrencyCodes = null;
   }
@@ -57,15 +59,7 @@ export function normalizeMerchantCurrency(
     return undefined;
   }
 
-  try {
-    new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: normalizedCurrency,
-    });
-    if (validCurrencyCache.size > 50) validCurrencyCache.clear();
-    validCurrencyCache.add(normalizedCurrency);
-    return normalizedCurrency;
-  } catch {
-    return undefined;
-  }
+  if (validCurrencyCache.size > 50) validCurrencyCache.clear();
+  validCurrencyCache.add(normalizedCurrency);
+  return normalizedCurrency;
 }

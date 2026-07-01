@@ -72,16 +72,21 @@ vi.mock('react-native', async () => {
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      accessibilityState,
+      editable,
       onChangeText,
       placeholder,
       value,
     }: {
+      accessibilityState?: { disabled?: boolean };
+      editable?: boolean;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
         'aria-label': placeholder,
+        disabled: editable === false || accessibilityState?.disabled,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
         value: value ?? '',
@@ -223,7 +228,11 @@ describe('NewOrderFooterBar', () => {
   });
 
   it('shows saving state and disables interactions when isSubmitting is true', () => {
-    const controller = makeController({ isSubmitting: true });
+    const controller = makeController({
+      isSubmitting: true,
+      partialAmount: '4000',
+      paymentStatus: 'partially_paid',
+    });
     render(<NewOrderFooterBar controller={controller} />);
 
     const saveButton = screen.getByRole('button', { name: 'Saving order' });
@@ -231,5 +240,14 @@ describe('NewOrderFooterBar', () => {
     expect(saveButton).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByText('Saving...')).toBeInTheDocument();
     expect(screen.getByText('Loading...')).toBeInTheDocument(); // matches ActivityIndicator mock
+    expect(
+      screen.getByRole('button', { name: 'Payment status: paid' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Payment method: Cash' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('textbox', { name: 'Enter amount...' })
+    ).toBeDisabled();
   });
 });
