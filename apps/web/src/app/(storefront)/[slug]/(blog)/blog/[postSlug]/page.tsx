@@ -102,6 +102,11 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
+
+  // This must run before any cached/blog lookup. On Vercel with Cache
+  // Components, even a cached lookup can suspend and let the parent shell
+  // commit a 200 response before notFound()/permanentRedirect() runs.
+  await connection();
   let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
   let metadataLookupFailed = false;
   try {
@@ -122,11 +127,6 @@ export async function generateMetadata({
     if (!metadataLookupFailed) {
       const { isEnabled: isDraftPreview } = await draftMode();
       if (!isDraftPreview) {
-        // Cache Components can stream the parent storefront shell before this
-        // child page resolves. Force this missing/retired-slug branch to wait
-        // for a request so notFound()/permanentRedirect() can set status.
-        await connection();
-
         let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> =
           null;
         try {
@@ -237,9 +237,11 @@ export async function generateMetadata({
 export default async function BlogPostPage({ params }: PageProps) {
   const resolvedParams = await params;
 
-  // Blog post existence controls HTTP status. Under Cache Components, route
-  // segment configs are disabled, so connection() is only used on branches that
-  // actually need a request-time redirect/404. Valid posts remain cacheable.
+  // Blog post existence controls HTTP status. Under Cache Components, this
+  // boundary must run before any cached/blog lookup. Live Vercel verification
+  // showed conditional boundaries after lookups still return 200 not-found
+  // shells because the parent PPR shell can stream before the decision.
+  await connection();
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
   let redirectLookupError: unknown = null;
   try {
@@ -257,7 +259,6 @@ export default async function BlogPostPage({ params }: PageProps) {
   }
 
   if (redirectedPost) {
-    await connection();
     permanentRedirect(
       asRoute(
         buildCanonicalBlogPostUrl(
@@ -285,8 +286,6 @@ export default async function BlogPostPage({ params }: PageProps) {
       throw error;
     }
     if (!hasPublicPost) {
-      await connection();
-
       if (redirectLookupError) {
         try {
           redirectedPost = await getBlogPostRedirect(
