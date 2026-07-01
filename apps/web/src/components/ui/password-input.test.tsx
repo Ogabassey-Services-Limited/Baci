@@ -7,6 +7,8 @@ describe('PasswordInput', () => {
     render(<PasswordInput placeholder="Enter password" />);
     const input = screen.getByPlaceholderText('Enter password');
     expect(input).toHaveAttribute('type', 'password');
+    const toggleButton = screen.getByLabelText('Show password');
+    expect(toggleButton).toBeInTheDocument();
   });
 
   it('toggles password visibility on click', () => {
@@ -18,11 +20,13 @@ describe('PasswordInput', () => {
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'text');
     expect(toggleButton).toHaveAttribute('aria-pressed', 'true');
+    expect(toggleButton).toHaveAttribute('aria-label', 'Show password');
 
     // Click to hide password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'password');
     expect(toggleButton).toHaveAttribute('aria-pressed', 'false');
+    expect(toggleButton).toHaveAttribute('aria-label', 'Show password');
   });
 
   it('is accessible via keyboard (tabIndex is not -1)', () => {
