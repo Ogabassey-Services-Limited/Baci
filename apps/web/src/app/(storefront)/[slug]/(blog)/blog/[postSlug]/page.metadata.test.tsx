@@ -3,9 +3,11 @@ import {
   liveBlogPost,
   mockBuildStoreUrl,
   mockDraftMode,
+  mockGetBlogPostRedirect,
   mockGetBlogPostTextPreview,
   mockGetCachedBlogPost,
   mockNotFound,
+  mockPermanentRedirect,
   resetBlogPostPageMocks,
 } from './page.test-utils';
 
@@ -173,9 +175,72 @@ describe('storefront blog post metadata', () => {
 
     const metadata = await generateBlogPostMetadata('draft-only-post');
 
-    expect(mockDraftMode).not.toHaveBeenCalled();
+    expect(mockDraftMode).toHaveBeenCalledOnce();
+    expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
+  });
+
+  it('permanently redirects retired slugs from metadata before streaming starts', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      },
+      targetSlug: 'canonical-post',
+    });
+
+    await expect(generateBlogPostMetadata('retired-post')).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
+    );
+
+    expect(mockDraftMode).toHaveBeenCalledOnce();
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      'https://ogabassey.com/blog/canonical-post'
+    );
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('hard-404s missing public slugs from metadata before the parent shell streams', async () => {
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValue(null);
+
+    await expect(generateBlogPostMetadata('missing-post')).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    );
+
+    expect(mockDraftMode).toHaveBeenCalledOnce();
+    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'missing-post'
+    );
+    expect(mockNotFound).toHaveBeenCalledOnce();
+  });
+
+  it('keeps noindex fallback metadata when redirect lookup fails', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const redirectError = new Error('Redirect lookup failed');
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockRejectedValue(redirectError);
+
+    const metadata = await generateBlogPostMetadata('retired-post');
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Blog redirect lookup failed in metadata',
+      expect.objectContaining({
+        slug: 'ogabassey.com',
+        postSlug: 'retired-post',
+        error: redirectError,
+      })
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {

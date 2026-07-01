@@ -102,6 +102,7 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
   let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
+  let metadataLookupFailed = false;
   try {
     // Public metadata must remain cacheable; draft previews are rendered by
     // the request-time content subtree and deliberately receive noindex data.
@@ -113,9 +114,44 @@ export async function generateMetadata({
       error,
     });
     data = null;
+    metadataLookupFailed = true;
   }
 
   if (!data) {
+    if (!metadataLookupFailed) {
+      const { isEnabled: isDraftPreview } = await draftMode();
+      if (!isDraftPreview) {
+        let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> =
+          null;
+        try {
+          redirectedPost = await getBlogPostRedirect(slug, postSlug);
+        } catch (error) {
+          console.error('Blog redirect lookup failed in metadata', {
+            slug,
+            postSlug,
+            error,
+          });
+          return {
+            title: 'Blog Post',
+            robots: { index: false, follow: false },
+          };
+        }
+
+        if (redirectedPost) {
+          permanentRedirect(
+            asRoute(
+              buildCanonicalBlogPostUrl(
+                redirectedPost.merchant,
+                redirectedPost.targetSlug
+              )
+            )
+          );
+        }
+
+        notFound();
+      }
+    }
+
     return {
       title: 'Blog Post',
       robots: { index: false, follow: false },
