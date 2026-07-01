@@ -282,9 +282,9 @@ export function ContactStep({
                         aria-pressed={isPasswordVisible}
                       >
                         {isPasswordVisible ? (
-                          <EyeOff size={18} />
+                          <EyeOff aria-hidden="true" size={18} />
                         ) : (
-                          <Eye size={18} />
+                          <Eye aria-hidden="true" size={18} />
                         )}
                       </button>
                     </div>

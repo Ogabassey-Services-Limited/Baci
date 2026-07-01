@@ -1,4 +1,5 @@
 import type { PaymentStatus, ShippingStatus } from '@baci/shared';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -32,6 +33,13 @@ interface EmailOrderItem {
   name: string;
   quantity: number;
   price: number;
+}
+
+interface RecordPaymentTransactionRow {
+  amount: number | string | null;
+  gateway: string | null;
+  gateway_reference: string | null;
+  status: string | null;
 }
 
 export async function POST(
@@ -178,13 +186,19 @@ export async function POST(
     // pending/processing rows so we can guard against shadowing a real
     // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
     // Direct, Juicyway) with a parallel manual transaction. The order was
-    // tenant-scoped above, so key this read by order_id instead of the
-    // denormalized transactions.merchant_id column.
-    const { data: relevantTxns, error: txError } = await supabase
-      .from('transactions')
-      .select('amount, gateway, gateway_reference, status')
-      .eq('order_id', id)
-      .in('status', ['completed', 'pending', 'processing']);
+    // tenant-scoped above, so read through an order-scoped RPC instead of
+    // the denormalized transactions.merchant_id RLS predicate, which can
+    // drift independently of the verified order row.
+    const { data: relevantTxns, error: txError } = (await supabase.rpc(
+      'get_record_payment_order_transactions',
+      {
+        p_merchant_id: merchantId,
+        p_order_id: id,
+      }
+    )) as {
+      data: RecordPaymentTransactionRow[] | null;
+      error: PostgrestError | null;
+    };
 
     if (txError) {
       logger.error({
@@ -214,6 +228,7 @@ export async function POST(
     ]);
     const pendingProcessorTxn = relevantTxns?.find(
       (t) =>
+        t.gateway !== null &&
         PENDING_PROCESSOR_GATEWAYS.has(t.gateway) &&
         (t.status === 'pending' || t.status === 'processing')
     );

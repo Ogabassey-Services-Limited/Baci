@@ -91,6 +91,7 @@ const mockSupabaseClient = {
     getUser: vi.fn(),
   },
   from: vi.fn(),
+  rpc: vi.fn(),
 };
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -125,9 +126,8 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
   triggerPurchaseConversion: vi.fn(),
 }));
 
-// Δ-36 (A3): the route now does a SINGLE `transactions` SELECT covering
-// completed + pending + processing rows, then filters in TS. The chain
-// shape is `.eq().in()` after the tenant-scoped order read succeeds; rows with
+// Δ-36 (A3): the route now reads completed + pending + processing rows through
+// an order-scoped RPC after the tenant-scoped order read succeeds; rows with
 // completed semantics carry an explicit `status: 'completed'` field so the
 // TS-side filter keeps them.
 describe('POST /api/orders/[id]/record-payment', () => {
@@ -160,6 +160,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       update: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
     });
+    mockSupabaseClient.rpc.mockResolvedValue({ data: [], error: null });
 
     // Default: authenticated merchant (auth runs before body parsing)
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -260,10 +261,24 @@ describe('POST /api/orders/[id]/record-payment', () => {
       if (table === 'transactions') return transactionQuery;
       throw new Error(`Unexpected table ${table}`);
     });
+    const rpc = vi.fn().mockResolvedValue({
+      data: fixture.transactions ?? [],
+      error: fixture.transactionsError ?? null,
+    });
 
     mockSupabaseClient.from = from;
+    mockSupabaseClient.rpc = rpc;
 
-    return { from, merchantQuery, orderQuery, transactionQuery };
+    return { from, merchantQuery, orderQuery, rpc, transactionQuery };
+  };
+
+  const setupRecordPaymentTransactionRpc = (
+    transactions: unknown[],
+    error: unknown = null
+  ) => {
+    const rpc = vi.fn().mockResolvedValue({ data: transactions, error });
+    mockSupabaseClient.rpc = rpc;
+    return rpc;
   };
 
   it('returns 400 when amount is missing', async () => {
@@ -973,7 +988,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    const { orderQuery, transactionQuery } = setupRecordPaymentSupabase({
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
       merchant: mockMerchant,
       order: mockOrder,
       transactions: [
@@ -1012,12 +1027,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     expect(orderQuery.eq).toHaveBeenCalledWith('id', mockOrderId);
     expect(orderQuery.eq).toHaveBeenCalledWith('merchant_id', mockMerchantId);
-    expect(transactionQuery.eq).toHaveBeenCalledTimes(1);
-    expect(transactionQuery.eq).toHaveBeenCalledWith('order_id', mockOrderId);
-    expect(transactionQuery.eq).not.toHaveBeenCalledWith(
-      'merchant_id',
-      mockMerchantId
-    );
+    expect(rpc).toHaveBeenCalledWith('get_record_payment_order_transactions', {
+      p_merchant_id: mockMerchantId,
+      p_order_id: mockOrderId,
+    });
   });
 
   it('does not update shipping_status if already shipped', async () => {
@@ -1283,6 +1296,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 5000,
+        gateway_reference: 'REF-DUPE-409',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 5000,
@@ -1378,6 +1399,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 8000,
+        gateway_reference: 'REF-PREV',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 5000, // Trying to pay 5000 when only 2000 remains
@@ -1460,6 +1489,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 0,
+        gateway: 'paystack',
+        gateway_reference: 'paystack-pending-ref',
+        status: 'pending',
+      },
+    ]);
 
     const request = createRequest({
       amount: 10000,
@@ -1716,6 +1753,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 10000,
+        gateway_reference: 'REF-FULL',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 1000,
@@ -1796,29 +1841,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const transactionsQuery = {
-      in: vi.fn().mockResolvedValue({
-        data: [
-          {
-            amount: 5000,
-            gateway_reference: 'REF-DUPE-1',
-            gateway: 'manual',
-            status: 'completed',
-          },
-        ],
-        error: null,
-      }),
-    };
-
     mockFrom.mockImplementation((table: string) => {
-      if (table === 'transactions') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: transactionsQuery.in,
-        };
-      }
-
       if (table === 'merchants') {
         return {
           select: vi.fn().mockReturnThis(),
@@ -1845,6 +1868,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
 
     mockSupabaseClient.from = mockFrom;
+    setupRecordPaymentTransactionRpc([
+      {
+        amount: 5000,
+        gateway_reference: 'REF-DUPE-1',
+        gateway: 'manual',
+        status: 'completed',
+      },
+    ]);
 
     const request = createRequest({
       amount: 5000,
@@ -1862,6 +1893,13 @@ describe('POST /api/orders/[id]/record-payment', () => {
       error: 'Duplicate payment reference',
       code: 'DUPLICATE_REFERENCE',
     });
-    expect(mockFrom).toHaveBeenCalledTimes(3);
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      'get_record_payment_order_transactions',
+      {
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      }
+    );
+    expect(mockFrom).toHaveBeenCalledTimes(2);
   });
 });

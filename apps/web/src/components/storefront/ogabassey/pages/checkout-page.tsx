@@ -3098,7 +3098,11 @@ export const CheckoutPage: React.FC = () => {
                                 aria-label="Show password"
                                 aria-pressed={isPasswordVisible}
                               >
-                                {isPasswordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                                {isPasswordVisible ? (
+                                  <EyeOff aria-hidden="true" size={18} />
+                                ) : (
+                                  <Eye aria-hidden="true" size={18} />
+                                )}
                               </button>
                             </div>
                             {contactValidationAttempted && createAccount && accountPassword.length < 6 && (
