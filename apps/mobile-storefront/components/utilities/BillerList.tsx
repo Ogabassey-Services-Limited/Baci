@@ -1,3 +1,4 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
 import {
   ActivityIndicator,
   Image,
@@ -106,6 +107,27 @@ export function BillerList({
           {emptyMessage}
         </Text>
       </View>
+    );
+  }
+
+  // Entry state with beneficiaries: the grid is hidden behind a single tappable
+  // "Other providers" row so the beneficiary list owns the screen.
+  if (isCollapsed && !selectedBiller) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Show other providers"
+        onPress={onChangeSelection}
+        style={[
+          styles.otherProvidersRow,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.otherProvidersText, { color: colors.text }]}>
+          Other providers
+        </Text>
+        <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+      </Pressable>
     );
   }
 
@@ -295,5 +317,20 @@ const styles = StyleSheet.create({
   selectedName: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  otherProvidersRow: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  otherProvidersText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

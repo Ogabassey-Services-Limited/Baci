@@ -27,7 +27,7 @@ import type {
   UtilityPurchaseResult,
   ValidUtilityType,
 } from '@/components/utilities/utility-purchase.types';
-import Colors from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { walletKeys } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
 import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
@@ -236,6 +236,7 @@ export default function UtilityPurchaseScreen() {
         dividerColor={colors.border}
         iconBackgroundColor={colors.card}
         iconColor={colors.text}
+        historyIconColor={BRAND.secondary}
         topInset={insets.top}
         surfaceColor={colors.background}
       />

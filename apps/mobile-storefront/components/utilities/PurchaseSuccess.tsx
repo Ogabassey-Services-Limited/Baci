@@ -203,11 +203,9 @@ export function PurchaseSuccess({
         {messageText}
       </Text>
 
-      {txReference && (
-        <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
-          Ref: {txReference}
-        </Text>
-      )}
+      <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
+        Ogabassey Never Disappoints!
+      </Text>
 
       {presentation.isProcessing ? (
         <View

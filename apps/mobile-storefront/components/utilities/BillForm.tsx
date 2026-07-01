@@ -7,6 +7,7 @@ import { BillPaymentFooter } from './BillPaymentFooter';
 import { BillPaymentSection } from './BillPaymentSection';
 import type { BillFormProps } from './bill-form.types';
 import { billFormStyles as styles } from './bill-form-styles';
+import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { useBillFormController } from './use-bill-form-controller';
 
 export function BillForm(props: BillFormProps) {
@@ -49,6 +50,16 @@ export function BillForm(props: BillFormProps) {
     verify,
   } = useBillFormController(props);
 
+  // Returning users repeat far more than they add new meters, so when there are
+  // beneficiaries the full provider grid collapses behind an "Other providers"
+  // row. First-timers (no beneficiaries) still get the grid expanded by default.
+  const hasBeneficiaries = (props.recentRecipients?.length ?? 0) > 0;
+
+  // Show providers in a predictable A–Z order regardless of API ordering.
+  const sortedBillers = [...(billersQuery.data ?? [])].sort((a, b) =>
+    a.billerName.localeCompare(b.billerName, undefined, { sensitivity: 'base' })
+  );
+
   return (
     <>
       <ScrollView
@@ -61,12 +72,25 @@ export function BillForm(props: BillFormProps) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
+        {!selectedBiller &&
+        hasBeneficiaries &&
+        props.onSelectRecentRecipient ? (
+          <RecentUtilityRecipients
+            colors={colors}
+            recipients={props.recentRecipients ?? []}
+            onSelect={props.onSelectRecentRecipient}
+            label="Pay again"
+          />
+        ) : null}
+
         <BillerList
-          billers={billersQuery.data ?? []}
+          billers={sortedBillers}
           selectedBillerId={selectedBiller?.billerId ?? null}
           onSelect={handleBillerSelect}
           isLoading={billersQuery.isLoading}
-          isCollapsed={!!selectedBiller && !isProviderPickerExpanded}
+          isCollapsed={
+            (!!selectedBiller || hasBeneficiaries) && !isProviderPickerExpanded
+          }
           onChangeSelection={() => {
             setRepeatPaymentActive(false);
             setProviderPickerExpanded(true);
