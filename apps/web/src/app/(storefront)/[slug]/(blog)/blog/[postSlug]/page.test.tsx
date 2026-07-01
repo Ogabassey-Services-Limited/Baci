@@ -80,6 +80,7 @@ describe('storefront blog post page', () => {
       'NEXT_NOT_FOUND'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockDraftMode).toHaveBeenCalledOnce();
     expect(mockBlogPostExistenceMaybeSingle).toHaveBeenCalledOnce();
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
@@ -94,6 +95,7 @@ describe('storefront blog post page', () => {
       'NEXT_NOT_FOUND'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockBlogPostExistenceMaybeSingle).not.toHaveBeenCalled();
     expect(mockNotFound).toHaveBeenCalledOnce();
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
@@ -242,6 +244,7 @@ describe('storefront blog post page', () => {
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
       'ogabassey.com',
       'retired-post'

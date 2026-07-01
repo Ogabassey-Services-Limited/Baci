@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   liveBlogPost,
   mockBuildStoreUrl,
+  mockConnection,
   mockDraftMode,
   mockGetBlogPostRedirect,
   mockGetBlogPostTextPreview,
@@ -45,6 +46,7 @@ describe('storefront blog post metadata', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/apple-studio-display-review'
     );
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('uses the cached blog query when metadata is already available', async () => {
@@ -197,6 +199,7 @@ describe('storefront blog post metadata', () => {
       'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockDraftMode).toHaveBeenCalledOnce();
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       'https://ogabassey.com/blog/canonical-post'
@@ -212,6 +215,7 @@ describe('storefront blog post metadata', () => {
       'NEXT_NOT_FOUND'
     );
 
+    expect(mockConnection).toHaveBeenCalledOnce();
     expect(mockDraftMode).toHaveBeenCalledOnce();
     expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
       'ogabassey.com',
