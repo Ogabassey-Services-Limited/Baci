@@ -176,14 +176,20 @@ async function resolveAuthor(
 /**
  * Resolve the hard status for a blog listing/category/author request. Reuses
  * the same cached, RLS-safe data the routes render from, so it never double-
- * fetches uncached data. Fails open (`hasError`) on any throw.
+ * fetches uncached data.
+ *
+ * Uses the same `merchant` cache profile as the underlying listing/author data
+ * so a warm instance never serves a stale clamp longer than the route would.
+ * It does NOT catch transient throws: a Supabase timeout must propagate to the
+ * endpoint's no-store handler (which fails open) rather than caching a
+ * fail-open verdict here — mirroring the blog-post preflight.
  */
 export async function getCachedStorefrontBlogListingStatus(
   identifier: string,
   intent: BlogListingStatusIntent
 ): Promise<BlogListingStatusBody> {
   'use cache';
-  cacheLife('blog');
+  cacheLife('merchant');
 
   const lookupKey = identifier.trim().toLowerCase();
   cacheTag('blog-posts', `blog-listing-status-${lookupKey}`);
@@ -191,35 +197,27 @@ export async function getCachedStorefrontBlogListingStatus(
     return FAIL_OPEN;
   }
 
-  try {
-    // Unpublished storefronts render the StoreNotPublished shell, so never leak
-    // a hard redirect/404 from the preflight (mirrors the blog-post preflight).
-    const merchant = await getMerchantSafe(lookupKey);
-    if (!merchant?.is_published) {
-      return NOOP;
-    }
+  // Unpublished storefronts render the StoreNotPublished shell, so never leak a
+  // hard redirect/404 from the preflight (mirrors the blog-post preflight).
+  const merchant = await getMerchantSafe(lookupKey);
+  if (!merchant?.is_published) {
+    return NOOP;
+  }
 
-    switch (intent.kind) {
-      case 'category-query':
-        return await resolveCategoryQuery(lookupKey, intent.category);
-      case 'listing-page':
-        return await resolveListingPage(
-          lookupKey,
-          intent.page,
-          intent.category
-        );
-      case 'category-page':
-        return await resolveCategoryPage(
-          lookupKey,
-          intent.categorySlug,
-          intent.page
-        );
-      case 'author':
-        return await resolveAuthor(lookupKey, intent.authorSlug, intent.page);
-      default:
-        return NOOP;
-    }
-  } catch {
-    return FAIL_OPEN;
+  switch (intent.kind) {
+    case 'category-query':
+      return await resolveCategoryQuery(lookupKey, intent.category);
+    case 'listing-page':
+      return await resolveListingPage(lookupKey, intent.page, intent.category);
+    case 'category-page':
+      return await resolveCategoryPage(
+        lookupKey,
+        intent.categorySlug,
+        intent.page
+      );
+    case 'author':
+      return await resolveAuthor(lookupKey, intent.authorSlug, intent.page);
+    default:
+      return NOOP;
   }
 }

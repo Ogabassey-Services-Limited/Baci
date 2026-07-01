@@ -211,18 +211,16 @@ describe('getCachedStorefrontBlogListingStatus', () => {
     });
   });
 
-  it('fails open when a data lookup throws', async () => {
+  it('propagates data-lookup errors instead of caching a fail-open verdict', async () => {
+    // The cached resolver must NOT swallow transient throws — the endpoint's
+    // no-store handler fails open, so a Supabase timeout is never cached.
     mockGetCachedBlogListing.mockRejectedValue(new Error('db down'));
-    const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
-      kind: 'listing-page',
-      page: 99,
-    });
-    expect(result).toEqual({
-      hasError: true,
-      redirectPath: null,
-      permanent: false,
-      notFound: false,
-    });
+    await expect(
+      getCachedStorefrontBlogListingStatus('ogabassey.com', {
+        kind: 'listing-page',
+        page: 99,
+      })
+    ).rejects.toThrow('db down');
   });
 
   it('fails open for an empty identifier', async () => {

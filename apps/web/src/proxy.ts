@@ -1861,17 +1861,18 @@ function buildBlogListingIntent(
     return null;
   }
 
-  // Search variants stay noindex and are left for the route to render — a hard
-  // redirect that rebuilds/drops the search term would be wrong, so skip the
-  // preflight entirely whenever ?search= is present.
-  if (searchParams.get('search')?.trim()) {
-    return null;
-  }
-
   const category = searchParams.get('category')?.trim() || undefined;
+  // Search variants of the listing/category routes stay noindex and are left
+  // for the route to render — a hard redirect that rebuilds/drops the search
+  // term would be wrong. The author route ignores ?search=, so its hard-status
+  // checks still run (handled per-branch below).
+  const hasSearch = Boolean(searchParams.get('search')?.trim());
   const page = parseBlogListingPageParam(searchParams.get('page'));
 
   if (contentSegments.length === 1) {
+    if (hasSearch) {
+      return null;
+    }
     // /blog — canonicalize a known ?category= (page 1), else clamp out-of-range
     // ?page= (the category, when present, stays on the query URL).
     if (category && (page ?? 1) === 1) {
@@ -1886,10 +1887,12 @@ function buildBlogListingIntent(
   if (contentSegments.length === 3) {
     const second = safeDecodeSegment(contentSegments[1]).toLowerCase();
     const third = safeDecodeSegment(contentSegments[2]);
-    if (second === 'category' && third && page && page > 1) {
+    if (second === 'category' && third && !hasSearch && page && page > 1) {
       return { kind: 'category-page', categorySlug: third, page };
     }
     if (second === 'author' && third) {
+      // Author pages ignore ?search=, so the no-posts 404 / page clamp still
+      // runs even with a stray search param.
       return { kind: 'author', authorSlug: third, page: page ?? 1 };
     }
   }

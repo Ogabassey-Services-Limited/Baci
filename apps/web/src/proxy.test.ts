@@ -1422,7 +1422,7 @@ describe('Middleware Proxy', () => {
       expect(blogListingMock).not.toHaveBeenCalled();
     });
 
-    it('does not preflight when ?search= is present (noindex, left to the route)', async () => {
+    it('does not preflight listing/category routes when ?search= is present', async () => {
       const req = new NextRequest(
         'https://ogabassey.com/blog?search=iphone&page=99'
       );
@@ -1432,6 +1432,24 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).not.toBe(404);
       expect(blogListingMock).not.toHaveBeenCalled();
+    });
+
+    it('still runs the author preflight even with a stray ?search= param', async () => {
+      blogListingMock.mockResolvedValueOnce({ kind: 'notFound' });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog/author/bassey-john?search=iphone'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('user-agent', 'Googlebot/2.1');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: { kind: 'author', authorSlug: 'bassey-john', page: 1 },
+        })
+      );
     });
 
     it('sends a query-category page clamp as a listing-page intent with category', async () => {
