@@ -38,7 +38,7 @@ describe('Credit Direct schemas', () => {
     }
   });
 
-  it('accepts numeric and non-empty string product amounts at the webhook boundary', () => {
+  it('accepts positive numeric product amounts at the webhook boundary', () => {
     expect(
       creditDirectWebhookProductSchema.safeParse({
         productName: 'Phone',
@@ -46,13 +46,54 @@ describe('Credit Direct schemas', () => {
         productId: 'prod_123',
       }).success
     ).toBe(true);
+    const stringAmountResult = creditDirectWebhookProductSchema.safeParse({
+      productName: 'Phone',
+      productAmount: '30000',
+      productId: 'prod_123',
+    });
+
+    expect(stringAmountResult.success).toBe(true);
+    if (stringAmountResult.success) {
+      expect(stringAmountResult.data.productAmount).toBe(30000);
+    }
+  });
+
+  it('rejects invalid product amounts at the webhook boundary', () => {
+    expect(
+      creditDirectWebhookProductSchema.safeParse({
+        productName: 'Phone',
+        productAmount: 100.123,
+        productId: 'prod_123',
+      }).success
+    ).toBe(false);
     expect(
       creditDirectWebhookProductSchema.safeParse({
         productName: 'Phone',
         productAmount: 'not-a-number',
         productId: 'prod_123',
       }).success
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      creditDirectWebhookProductSchema.safeParse({
+        productName: 'Phone',
+        productAmount: '0',
+        productId: 'prod_123',
+      }).success
+    ).toBe(false);
+    expect(
+      creditDirectWebhookProductSchema.safeParse({
+        productName: 'Phone',
+        productAmount: '-100',
+        productId: 'prod_123',
+      }).success
+    ).toBe(false);
+    expect(
+      creditDirectWebhookProductSchema.safeParse({
+        productName: 'Phone',
+        productAmount: '100.123',
+        productId: 'prod_123',
+      }).success
+    ).toBe(false);
   });
 
   it('rejects missing, null, or non-array products before route processing', () => {

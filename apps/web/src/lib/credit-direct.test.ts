@@ -203,9 +203,18 @@ describe('parseWebhookPayload', () => {
     ],
     timeStamp: '2026-06-30T09:00:00Z',
   } as const;
+  const parsedValidPayload = {
+    ...validPayload,
+    products: [
+      {
+        ...validPayload.products[0],
+        productAmount: 30000,
+      },
+    ],
+  };
 
   it('accepts webhook payloads with string product amounts', () => {
-    expect(parseWebhookPayload(validPayload)).toEqual(validPayload);
+    expect(parseWebhookPayload(validPayload)).toEqual(parsedValidPayload);
   });
 
   it('accepts webhook payloads when metadata is omitted', () => {
@@ -219,11 +228,12 @@ describe('parseWebhookPayload', () => {
 
     expect(parseWebhookPayload(payloadWithoutMetadata)).toEqual({
       ...payloadWithoutMetadata,
+      products: parsedValidPayload.products,
       metaData: null,
     });
   });
 
-  it('leaves non-empty string amounts to route-level numeric validation', () => {
+  it('rejects non-numeric string amounts at the schema boundary', () => {
     const payload = {
       ...validPayload,
       products: [
@@ -235,7 +245,7 @@ describe('parseWebhookPayload', () => {
       ],
     };
 
-    expect(parseWebhookPayload(payload)).toEqual(payload);
+    expect(parseWebhookPayload(payload)).toBe(null);
   });
 
   it('rejects missing or non-array products', () => {

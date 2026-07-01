@@ -22,7 +22,7 @@ export interface CreditDirectProduct {
 
 export interface CreditDirectWebhookProduct {
   productName: string;
-  productAmount: number | string;
+  productAmount: number;
   productId: string;
 }
 

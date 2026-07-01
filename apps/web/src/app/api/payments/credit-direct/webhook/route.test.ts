@@ -1089,7 +1089,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       expect(emailHtml).not.toContain('onerror=');
     });
 
-    it('returns 400 when webhook product amount is not numeric', async () => {
+    it('returns 400 when webhook product amount fails parser validation', async () => {
       const invalidAmountPayload = {
         ...merchantPaymentPayload,
         products: [
@@ -1120,12 +1120,8 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data).toEqual({ error: 'Invalid payment amount' });
-      expect(logger.error).toHaveBeenCalledWith({
-        message: 'Invalid Credit Direct webhook product amount',
-        orderId: 'order_abc',
-        transactionId: 'txn_123456789',
-      });
+      expect(data).toEqual({ error: 'Invalid payload structure' });
+      expect(createServiceClient).not.toHaveBeenCalled();
     });
 
     it('suppresses paid side effects and files reconciliation when the order was clamped as cancelled', async () => {

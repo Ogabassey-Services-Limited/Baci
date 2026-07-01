@@ -20,11 +20,29 @@ const transaction = {
 };
 
 describe('verifyKlumpWebhookTransaction', () => {
-  it('ignores zero merchant_amount when selecting the expected amount', () => {
+  it('preserves explicit zero merchant_amount when selecting the expected amount', () => {
     expect(
       getKlumpExpectedPaymentAmount({
         amount: '50000',
         merchant_amount: 0,
+      })
+    ).toBe(0);
+  });
+
+  it('falls back to amount when merchant_amount is an empty string', () => {
+    expect(
+      getKlumpExpectedPaymentAmount({
+        amount: '50000',
+        merchant_amount: '',
+      })
+    ).toBe('50000');
+  });
+
+  it('falls back to amount when merchant_amount is negative', () => {
+    expect(
+      getKlumpExpectedPaymentAmount({
+        amount: '50000',
+        merchant_amount: -1,
       })
     ).toBe('50000');
   });
@@ -146,6 +164,38 @@ describe('verifyKlumpWebhookTransaction', () => {
         amount: '58088.5',
         currency: 'NGN',
         merchant_amount: 58089,
+      },
+    });
+
+    expect(result).toEqual({ success: true });
+  });
+
+  it('verifies a provider response with explicit zero amount', async () => {
+    const fetchSpy = vi.fn(async () =>
+      Response.json({
+        data: {
+          amount: 0,
+          currency: 'NGN',
+          id: 'klump-txn-123',
+          is_live: true,
+          merchant_reference: 'BAC-ABCD12345678',
+          status: 'successful',
+        },
+      })
+    );
+
+    const result = await verifyKlumpWebhookTransaction({
+      details: {
+        ...webhookDetails,
+        amount: 0,
+      },
+      fetcher: fetchSpy,
+      reference: 'BAC-ABCD12345678',
+      secretKey: 'klump-secret',
+      transaction: {
+        amount: '50000',
+        currency: 'NGN',
+        merchant_amount: 0,
       },
     });
 
