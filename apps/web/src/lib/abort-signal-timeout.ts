@@ -6,11 +6,10 @@ export interface AbortSignalTimeoutHandle {
 export function createAbortSignalTimeout(
   timeoutMs: number
 ): AbortSignalTimeoutHandle {
-  const nativeTimeout = AbortSignal.timeout;
-  if (typeof nativeTimeout === 'function') {
+  if (typeof AbortSignal.timeout === 'function') {
     return {
       clear: () => undefined,
-      signal: nativeTimeout(timeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
     };
   }
 
