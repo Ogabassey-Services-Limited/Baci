@@ -109,9 +109,12 @@ async function getQuotesWithinTimeout(
       )
     );
 
-    return quoteResults.filter(
-      (quote): quote is ShippingQuote => quote !== null
-    );
+    const [homeDeliveryQuote, stationPickupQuote] = quoteResults;
+    if (homeDeliveryQuote) {
+      return [homeDeliveryQuote];
+    }
+
+    return stationPickupQuote ? [stationPickupQuote] : [];
   } catch (error) {
     if (signal.aborted || isGiglAbortError(error)) {
       io.log('warn', 'GIGL quote timed out', {

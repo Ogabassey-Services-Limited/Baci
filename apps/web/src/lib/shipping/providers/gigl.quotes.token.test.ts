@@ -101,7 +101,7 @@ describe('GiglProvider quote token handling', () => {
 
     const provider = buildQuoteHarness();
 
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(2);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
 
     const oldPriceHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
     const stationPriceHeaders = new Headers(
@@ -128,7 +128,7 @@ describe('GiglProvider quote token handling', () => {
 
     const provider = buildQuoteHarness();
 
-    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(2);
+    await expect(provider.getQuotes(quoteRequest)).resolves.toHaveLength(1);
 
     const oldStationHeaders = new Headers(
       fetchMock.mock.calls[1]?.[1]?.headers
