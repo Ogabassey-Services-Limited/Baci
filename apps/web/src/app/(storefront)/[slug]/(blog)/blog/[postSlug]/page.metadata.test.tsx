@@ -158,6 +158,7 @@ describe('storefront blog post metadata', () => {
     );
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    consoleErrorSpy.mockRestore();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Error fetching cached public blog metadata',
       expect.objectContaining({
@@ -166,7 +167,7 @@ describe('storefront blog post metadata', () => {
         error: expect.any(Error),
       })
     );
-    consoleErrorSpy.mockRestore();
+
   });
 
   it('returns noindex fallback metadata when only draft content may exist', async () => {
@@ -232,6 +233,7 @@ describe('storefront blog post metadata', () => {
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockNotFound).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Blog redirect lookup failed in metadata',
       expect.objectContaining({
@@ -240,7 +242,7 @@ describe('storefront blog post metadata', () => {
         error: redirectError,
       })
     );
-    consoleErrorSpy.mockRestore();
+
   });
 
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
