@@ -8,6 +8,7 @@ import {
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
@@ -73,6 +74,12 @@ vi.mock('@/lib/storefront-blog-post-status', () => ({
   resolveStorefrontBlogPostStatus: vi
     .fn()
     .mockResolvedValue({ kind: 'present-or-unknown' }),
+}));
+
+vi.mock('@/lib/storefront-blog-listing-status', () => ({
+  resolveStorefrontBlogListingStatus: vi
+    .fn()
+    .mockResolvedValue({ kind: 'noop' }),
 }));
 
 // Mock rate limit
@@ -1326,6 +1333,93 @@ describe('Middleware Proxy', () => {
       await proxy(req);
 
       expect(checkRateLimit).toHaveBeenCalled();
+    });
+  });
+
+  describe('crawl-budget blog listing hard status', () => {
+    const blogListingMock = vi.mocked(resolveStorefrontBlogListingStatus);
+
+    beforeEach(() => {
+      blogListingMock.mockResolvedValue({ kind: 'noop' });
+    });
+
+    it('308-redirects a known ?category= to the clean category route', async () => {
+      blogListingMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/blog/category/smartphones',
+        status: 308,
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog?category=Smartphones'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/blog/category/smartphones'
+      );
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          intent: { kind: 'category-query', category: 'Smartphones' },
+          secret: 'test-internal-secret',
+        })
+      );
+    });
+
+    it('307-redirects out-of-range ?page= to the clamped page', async () => {
+      blogListingMock.mockResolvedValue({
+        kind: 'redirect',
+        redirectPath: '/blog?page=3',
+        status: 307,
+      });
+      const req = new NextRequest('https://ogabassey.com/blog?page=99');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get('location')).toBe(
+        'https://ogabassey.com/blog?page=3'
+      );
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: { kind: 'listing-page', page: 99 },
+        })
+      );
+    });
+
+    it('returns a hard 404 for a known author with no published posts', async () => {
+      blogListingMock.mockResolvedValue({ kind: 'notFound' });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog/author/bassey-john'
+      );
+      req.headers.set('host', 'ogabassey.com');
+      req.headers.set('user-agent', 'Googlebot/2.1');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: { kind: 'author', authorSlug: 'bassey-john', page: 1 },
+        })
+      );
+    });
+
+    it('does not preflight a plain /blog request with no actionable query', async () => {
+      const req = new NextRequest('https://ogabassey.com/blog');
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(blogListingMock).not.toHaveBeenCalled();
     });
   });
 

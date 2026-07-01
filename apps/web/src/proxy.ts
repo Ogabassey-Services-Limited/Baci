@@ -32,12 +32,14 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
+import type { BlogListingStatusIntent } from '@/lib/cached-storefront-blog-listing-status';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
@@ -1836,6 +1838,131 @@ async function resolveStorefrontBlogPostHardStatus(
   );
 }
 
+function parseBlogListingPageParam(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+}
+
+function buildBlogListingIntent(
+  contentSegments: string[],
+  searchParams: URLSearchParams
+): BlogListingStatusIntent | null {
+  if (safeDecodeSegment(contentSegments[0]).toLowerCase() !== 'blog') {
+    return null;
+  }
+
+  const category = searchParams.get('category')?.trim() || undefined;
+  const search = searchParams.get('search')?.trim() || undefined;
+  const page = parseBlogListingPageParam(searchParams.get('page'));
+
+  if (contentSegments.length === 1) {
+    // /blog — canonicalize a known ?category= (page 1, no search), else clamp
+    // out-of-range ?page=.
+    if (category && !search && (page ?? 1) === 1) {
+      return { kind: 'category-query', category };
+    }
+    if (page && page > 1) {
+      return { kind: 'listing-page', page, ...(category ? { category } : {}) };
+    }
+    return null;
+  }
+
+  if (contentSegments.length === 3) {
+    const second = safeDecodeSegment(contentSegments[1]).toLowerCase();
+    const third = safeDecodeSegment(contentSegments[2]);
+    if (second === 'category' && third && page && page > 1) {
+      return { kind: 'category-page', categorySlug: third, page };
+    }
+    if (second === 'author' && third) {
+      return { kind: 'author', authorSlug: third, page: page ?? 1 };
+    }
+  }
+
+  return null;
+}
+
+async function resolveStorefrontBlogListingHardStatus(
+  request: NextRequest,
+  pathname: string,
+  hostname: string | undefined,
+  userAgent: string,
+  identifier: string,
+  publicPathPrefix = ''
+): Promise<NextResponse | null> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null;
+  }
+  if (
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-state-tree')
+  ) {
+    return null;
+  }
+  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
+  if (fetchDest && fetchDest !== 'document') {
+    return null;
+  }
+  if (
+    DRAFT_MODE_COOKIE_NAMES.some((cookieName) =>
+      request.cookies.has(cookieName)
+    )
+  ) {
+    return null;
+  }
+
+  const routeType = getRouteType(pathname);
+  if (routeType !== 'storefront') {
+    return null;
+  }
+
+  const contentSegments = getStorefrontContentSegments(
+    pathname,
+    hostname,
+    routeType
+  );
+  const intent = buildBlogListingIntent(
+    contentSegments,
+    request.nextUrl.searchParams
+  );
+  if (!intent) {
+    return null;
+  }
+
+  const resolution = await resolveStorefrontBlogListingStatus({
+    origin: request.nextUrl.origin,
+    identifier,
+    intent,
+    secret: getInternalApiSecret(),
+  });
+
+  if (resolution.kind === 'redirect') {
+    // redirectPath may carry its own query (e.g. /blog?page=3); split it so the
+    // originating ?category=/?page= params are replaced, not appended.
+    const target = new URL(resolution.redirectPath, request.nextUrl.origin);
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `${publicPathPrefix}${target.pathname}`;
+    redirectUrl.search = target.search;
+    return NextResponse.redirect(redirectUrl, resolution.status);
+  }
+
+  if (resolution.kind === 'notFound') {
+    return buildHardStatusStorefrontResponse(
+      404,
+      request,
+      pathname,
+      userAgent,
+      hostname,
+      publicPathPrefix || '/'
+    );
+  }
+
+  return null;
+}
+
 function buildStrictCspResponse(
   request: NextRequest,
   routeType: 'admin' | 'auth',
@@ -2880,6 +3007,18 @@ export async function proxy(request: NextRequest) {
         return blogPostHardStatus;
       }
 
+      const blogListingHardStatus =
+        await resolveStorefrontBlogListingHardStatus(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          domainMerchantSlug ?? domain
+        );
+      if (blogListingHardStatus) {
+        return blogListingHardStatus;
+      }
+
       const pdpCanonicalRedirect = await resolveStorefrontPdpCanonicalRedirect(
         request,
         pathname,
@@ -3089,6 +3228,18 @@ export async function proxy(request: NextRequest) {
       return subdomainBlogPostHardStatus;
     }
 
+    const subdomainBlogListingHardStatus =
+      await resolveStorefrontBlogListingHardStatus(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        subdomain as string
+      );
+    if (subdomainBlogListingHardStatus) {
+      return subdomainBlogListingHardStatus;
+    }
+
     const subdomainPdpCanonicalRedirect =
       await resolveStorefrontPdpCanonicalRedirect(
         request,
@@ -3239,6 +3390,19 @@ export async function proxy(request: NextRequest) {
       );
       if (rootBlogPostHardStatus) {
         return rootBlogPostHardStatus;
+      }
+
+      const rootBlogListingHardStatus =
+        await resolveStorefrontBlogListingHardStatus(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          slug,
+          `/${slug}`
+        );
+      if (rootBlogListingHardStatus) {
+        return rootBlogListingHardStatus;
       }
 
       const rootPdpCanonicalRedirect =

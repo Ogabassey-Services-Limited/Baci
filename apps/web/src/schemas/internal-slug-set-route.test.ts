@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  internalBlogListingStatusQuerySchema,
   internalBlogPostStatusQuerySchema,
   internalProductCanonicalRedirectQuerySchema,
   internalSlugSetParamsSchema,
@@ -110,6 +111,48 @@ describe('internalProductCanonicalRedirectQuerySchema', () => {
     ).toBe(false);
     expect(
       internalProductCanonicalRedirectQuerySchema.safeParse({}).success
+    ).toBe(false);
+  });
+});
+
+describe('internalBlogListingStatusQuerySchema', () => {
+  it('parses each intent kind and coerces page', () => {
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({
+        kind: 'category-query',
+        category: 'Smartphones',
+      }).data
+    ).toEqual({ kind: 'category-query', category: 'Smartphones' });
+
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({
+        kind: 'listing-page',
+        page: '99',
+      }).data
+    ).toEqual({ kind: 'listing-page', page: 99 });
+
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({
+        kind: 'author',
+        authorSlug: 'bassey-john',
+      }).data
+    ).toEqual({ kind: 'author', authorSlug: 'bassey-john', page: 1 });
+  });
+
+  it('rejects unknown kinds and missing required fields', () => {
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({ kind: 'bogus' }).success
+    ).toBe(false);
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({ kind: 'category-query' })
+        .success
+    ).toBe(false);
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({
+        kind: 'category-page',
+        categorySlug: 'smartphones',
+        page: '0',
+      }).success
     ).toBe(false);
   });
 });
