@@ -202,6 +202,8 @@ describe('Notifications API: /api/notifications/[id]', () => {
       const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
 
       expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'CSRF validation failed' });
     });
 
     it('returns 401 when unauthenticated', async () => {
@@ -217,6 +219,8 @@ describe('Notifications API: /api/notifications/[id]', () => {
       const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
 
       expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'Unauthorized' });
     });
 
     it('returns 404 when merchant context is not found', async () => {
