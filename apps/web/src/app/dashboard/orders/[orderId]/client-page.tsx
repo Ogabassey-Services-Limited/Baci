@@ -50,8 +50,9 @@ import { getOrderSourceLabel } from '../order-source-display';
 import { OrderSourceIcon } from '../order-source-icon';
 import { StatusBadge } from '../status-badge';
 import ConfirmInsuranceDialog, {
-  type ConfirmInsurancePayload,
+  type ConfirmOrderPayload,
 } from './confirm-insurance-dialog';
+import { summarizeInsuranceConfirmation } from './insurance-confirmation-summary';
 
 // Type definitions
 interface OrderDetailsClientPageProps {
@@ -78,15 +79,21 @@ function fromDbShippingStatus(status: string): ShippingStatus {
 
 interface ConfirmOrderResponse {
   error?: string;
+  insuranceError?: string;
   insurance?: {
     success?: boolean;
-    results: Array<{ policyNumber: string }>;
+    results?: Array<{
+      success?: boolean;
+      policyNumber?: string;
+      error?: string;
+      itemId?: string;
+    }>;
   };
 }
 
 async function confirmOrderRequest(
   orderId: string,
-  data: ConfirmInsurancePayload
+  data: ConfirmOrderPayload
 ): Promise<ConfirmOrderResponse> {
   const response = await fetchWithCsrf(`/api/orders/${orderId}/confirm`, {
     method: 'POST',
@@ -181,16 +188,13 @@ export default function OrderDetailsClientPage({
     }
   };
 
-  const handleConfirmationSubmit = async (data: ConfirmInsurancePayload) => {
+  const handleConfirmationSubmit = async (data: ConfirmOrderPayload) => {
     try {
       const result = await confirmOrderRequest(order.id, data);
 
-      toast({
-        title: 'Order Confirmed',
-        description: result.insurance?.success
-          ? `Policy Active: ${result.insurance.results[0].policyNumber}`
-          : 'Order processed successfully.',
-      });
+      // Surface item-level failures (incl. partial: one policy created + other
+      // paid items not insured) instead of masking them with the first policy.
+      toast(summarizeInsuranceConfirmation(result));
 
       // Update local state
       setOrder((prev) => ({

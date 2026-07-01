@@ -1,67 +1,189 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMyCoverWebhookSecret } from '@/env';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   type MyCoverWebhookPayload,
   myCoverWebhookSchema,
 } from '@/schemas/mycover-webhook';
+import {
+  handleClaimUpdate,
+  handleInspectionCompleted,
+} from './webhook-claim-inspection-handlers';
+import {
+  claimMyCoverWebhookEvent,
+  completeMyCoverWebhookEventClaim,
+  releaseMyCoverWebhookEventClaim,
+} from './webhook-event-claims';
+import {
+  handlePolicyExpired,
+  handlePolicyPurchased,
+  handlePolicyRenewed,
+  handlePolicyUpdated,
+} from './webhook-policy-handlers';
+import { verifyWebhookSignature } from './webhook-signature';
 
-type MyCoverPolicyLookup = {
-  column: 'mycover_policy_id' | 'mycover_purchase_id';
-  value: string;
-};
+async function parseVerifiedMyCoverPayload(
+  request: NextRequest,
+  webhookSecret: string
+): Promise<
+  | { payload: MyCoverWebhookPayload; rawBody: string }
+  | { response: NextResponse }
+> {
+  const rawBody = await request.text();
+  const signature = request.headers.get('x-mycoverai-signature');
+  const isValid = await verifyWebhookSignature(
+    rawBody,
+    signature,
+    webhookSecret
+  );
 
-type MyCoverUpdatedPolicy = {
-  id: string;
-};
-
-const MYCOVER_RENEWAL_DETAILS_URL = 'https://api.mycover.ai/v1/renewals';
-
-async function verifyWebhookSignature(
-  rawBody: string,
-  signature: string | null,
-  secret: string
-): Promise<boolean> {
-  if (!signature) {
-    console.warn('[MyCover Webhook] Missing signature header');
-    return false;
+  if (!isValid) {
+    return {
+      response: NextResponse.json(
+        { error: 'Invalid or missing webhook signature' },
+        { status: 401 }
+      ),
+    };
   }
+
+  // Parse payload after signature verification.
+  let jsonPayload: unknown;
+  try {
+    jsonPayload = JSON.parse(rawBody);
+  } catch {
+    console.warn('[MyCover Webhook] Invalid JSON payload');
+    return {
+      response: NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  const parseResult = myCoverWebhookSchema.safeParse(jsonPayload);
+  if (!parseResult.success) {
+    console.warn(
+      '[MyCover Webhook] Invalid payload structure:',
+      parseResult.error.format()
+    );
+    return {
+      response: NextResponse.json(
+        { error: 'Invalid payload structure' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  return { payload: parseResult.data, rawBody };
+}
+
+async function dispatchMyCoverEvent(
+  payload: MyCoverWebhookPayload,
+  myCoverWebhookSecret: string
+): Promise<NextResponse | null> {
+  const supabase = createServiceClient();
+  const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');
+
+  // MyCover documents `event_id` as the dedupe key. Claim it before any
+  // side effects so concurrent retries cannot both process the same event.
+  let eventClaimReceivedAt: string | null = null;
+
+  if (payload.event_id) {
+    const claimResult = await claimMyCoverWebhookEvent(supabase, payload);
+    if (claimResult.status === 'processed_duplicate') {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    if (claimResult.status === 'processing_duplicate') {
+      return NextResponse.json(
+        { error: 'Webhook event is still processing', retry: true },
+        { status: 409 }
+      );
+    }
+    eventClaimReceivedAt = claimResult.receivedAt;
+  }
+
+  let releaseClaimOnError = true;
 
   try {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const messageData = encoder.encode(rawBody);
+    // The top-level `status` is the operation outcome. Don't mutate state on a
+    // failed operation — acknowledge so MyCover stops retrying. Normalize case /
+    // whitespace so "Failed"/"FAILED" are also fail-closed.
+    if (payload.status?.trim().toLowerCase() === 'failed') {
+      console.log('[MyCover Webhook] Skipping failed-status event:', safeEvent);
+      if (payload.event_id) {
+        await completeMyCoverWebhookEventClaim(
+          supabase,
+          payload.event_id,
+          eventClaimReceivedAt
+        );
+      }
+      return NextResponse.json({ received: true, skipped: 'failed_status' });
+    }
 
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-512' },
-      false,
-      ['sign']
-    );
+    switch (payload.event) {
+      case 'purchase.successful':
+      case 'policy.purchased':
+      case 'policy.created':
+        await handlePolicyPurchased(supabase, payload.data, payload.event);
+        break;
+      case 'purchase.renewed':
+      case 'policy.renewed':
+      case 'renewal.successful':
+        await handlePolicyRenewed(
+          supabase,
+          payload.data,
+          payload.event,
+          myCoverWebhookSecret
+        );
+        break;
+      case 'policy.updated':
+        await handlePolicyUpdated(supabase, payload.data);
+        break;
+      case 'policy.expired':
+        await handlePolicyExpired(supabase, payload.data);
+        break;
+      case 'claim.submitted':
+      case 'claim.approved':
+      case 'claim.disapproved':
+      case 'claim.offer_sent':
+      case 'claim.offer_accepted':
+      case 'claim.offer_rejected':
+      case 'claim.paid':
+      case 'claim.updated':
+      case 'claim.rejected':
+        await handleClaimUpdate(supabase, payload);
+        break;
+      case 'inspection.completed':
+        await handleInspectionCompleted(supabase, payload.data);
+        break;
+      default:
+        console.log('[MyCover Webhook] Unhandled event:', safeEvent);
+    }
 
-    const signatureBuffer = await crypto.subtle.sign(
-      'HMAC',
-      cryptoKey,
-      messageData
-    );
-    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    return constantTimeEqual(signature, expectedSignature);
+    if (payload.event_id) {
+      releaseClaimOnError = false;
+      await completeMyCoverWebhookEventClaim(
+        supabase,
+        payload.event_id,
+        eventClaimReceivedAt
+      );
+    }
   } catch (error) {
-    console.error('[MyCover Webhook] Signature verification error:', error);
-    return false;
+    if (payload.event_id && releaseClaimOnError) {
+      await releaseMyCoverWebhookEventClaim(
+        supabase,
+        payload.event_id,
+        eventClaimReceivedAt
+      );
+    }
+    throw error;
   }
+
+  return null;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.text();
-
     let myCoverWebhookSecret: string;
     try {
       myCoverWebhookSecret = getMyCoverWebhookSecret();
@@ -76,84 +198,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const signature = request.headers.get('x-mycoverai-signature');
-    const isValid = await verifyWebhookSignature(
-      rawBody,
-      signature,
+    const parsed = await parseVerifiedMyCoverPayload(
+      request,
       myCoverWebhookSecret
     );
+    if ('response' in parsed) return parsed.response;
 
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid or missing webhook signature' },
-        { status: 401 }
-      );
-    }
-
-    // Parse payload after signature verification
-    // 2026 Best Practice: Return 400 for malformed JSON or schema failure (client error)
-    let jsonPayload: unknown;
-    try {
-      jsonPayload = JSON.parse(rawBody);
-    } catch {
-      console.warn('[MyCover Webhook] Invalid JSON payload');
-      return NextResponse.json(
-        { error: 'Invalid JSON payload' },
-        { status: 400 }
-      );
-    }
-
-    const parseResult = myCoverWebhookSchema.safeParse(jsonPayload);
-    if (!parseResult.success) {
-      console.warn(
-        '[MyCover Webhook] Invalid payload structure:',
-        parseResult.error.format()
-      );
-      return NextResponse.json(
-        { error: 'Invalid payload structure' },
-        { status: 400 }
-      );
-    }
-
-    const payload = parseResult.data;
-
-    // Log incoming webhook for debugging (sanitize to prevent log injection)
-    const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');
+    const safeEvent = String(parsed.payload.event || '').replace(/[\r\n]/g, '');
     console.log('[MyCover Webhook] Received:', safeEvent);
 
-    // Create admin Supabase client (2026 Best Practice: Use centralized factory)
-    const supabase = createServiceClient();
-
-    switch (payload.event) {
-      case 'policy.purchased':
-      case 'policy.created':
-      case 'purchase.successful':
-        await handlePolicyPurchased(supabase, payload.data, payload.event);
-        break;
-
-      case 'policy.renewed':
-      case 'renewal.successful':
-        await handlePolicyRenewed(
-          supabase,
-          payload.data,
-          payload.event,
-          myCoverWebhookSecret
-        );
-        break;
-
-      case 'policy.expired':
-        await handlePolicyExpired(supabase, payload.data);
-        break;
-
-      case 'claim.submitted':
-      case 'claim.approved':
-      case 'claim.rejected':
-        await handleClaimUpdate(supabase, payload);
-        break;
-
-      default:
-        console.log('[MyCover Webhook] Unhandled event:', safeEvent);
-    }
+    const dispatchResponse = await dispatchMyCoverEvent(
+      parsed.payload,
+      myCoverWebhookSecret
+    );
+    if (dispatchResponse) return dispatchResponse;
 
     return NextResponse.json({ received: true });
   } catch (error) {
@@ -162,281 +220,6 @@ export async function POST(request: NextRequest) {
       { error: 'Webhook processing failed' },
       { status: 500 }
     );
-  }
-}
-
-async function handlePolicyPurchased(
-  supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data'],
-  event: MyCoverWebhookPayload['event']
-) {
-  const lookup = getPolicyLookup(data, {
-    dataIdColumn:
-      event === 'purchase.successful'
-        ? 'mycover_purchase_id'
-        : 'mycover_policy_id',
-  });
-  if (!lookup) {
-    console.warn('[MyCover Webhook] Policy purchased without policy_id');
-    return;
-  }
-
-  const { data: updatedPolicy, error } = await supabase
-    .from('order_insurance_policies')
-    .update({
-      mycover_policy_number: data.policy_number,
-      policy_start_date: getPolicyStartDate(data),
-      policy_expiry_date: getPolicyExpiryDate(data),
-      certificate_url: data.certificate_url,
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    })
-    .eq(lookup.column, lookup.value)
-    .select('id')
-    .maybeSingle<MyCoverUpdatedPolicy>();
-
-  if (error) {
-    console.error('[MyCover Webhook] Failed to update policy:', error);
-    throw error;
-  }
-
-  if (!updatedPolicy) {
-    throw new Error('MyCover purchase webhook did not match a stored policy');
-  }
-
-  const safeIdentifier = lookup.value.replace(/[\r\n]/g, '');
-  console.log('[MyCover Webhook] Policy confirmed:', safeIdentifier);
-}
-
-function getPolicyId(data: MyCoverWebhookPayload['data']) {
-  return data.policy_id || data.id;
-}
-
-function getExplicitPolicyId(data: MyCoverWebhookPayload['data']) {
-  return data.policy_id || null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function readString(
-  sources: readonly Record<string, unknown>[],
-  keys: readonly string[]
-): string | null {
-  for (const source of sources) {
-    for (const key of keys) {
-      const value = source[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
-    }
-  }
-
-  return null;
-}
-
-function getLookupFromRenewalDetails(
-  response: unknown
-): MyCoverPolicyLookup | null {
-  const data = asRecord(asRecord(response).data);
-  const policy = asRecord(data.policy);
-  const purchase = asRecord(data.purchase);
-
-  const policyId =
-    readString([data], ['policy_id', 'mycover_policy_id']) ??
-    readString([policy], ['id', 'policy_id']);
-  if (policyId) {
-    return { column: 'mycover_policy_id', value: policyId };
-  }
-
-  const purchaseId =
-    readString([data], ['purchase_id', 'mycover_purchase_id']) ??
-    readString([purchase], ['id', 'purchase_id']);
-  if (purchaseId) {
-    return { column: 'mycover_purchase_id', value: purchaseId };
-  }
-
-  return null;
-}
-
-async function resolveRenewalPolicyLookup(
-  renewalId: string,
-  configuredSecret: string
-): Promise<MyCoverPolicyLookup | null> {
-  const secretKey =
-    process.env.MYCOVER_SECRET_KEY?.trim() || configuredSecret.trim();
-  if (!secretKey) return null;
-
-  const response = await fetch(
-    `${MYCOVER_RENEWAL_DETAILS_URL}/${encodeURIComponent(renewalId)}`,
-    {
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${secretKey}`,
-      },
-      signal: AbortSignal.timeout(10_000),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error('Failed to resolve MyCover renewal details');
-  }
-
-  return getLookupFromRenewalDetails(await response.json());
-}
-
-function getPolicyLookup(
-  data: MyCoverWebhookPayload['data'],
-  {
-    dataIdColumn = 'mycover_policy_id',
-  }: {
-    dataIdColumn?: MyCoverPolicyLookup['column'] | null;
-  } = {}
-): MyCoverPolicyLookup | null {
-  if (data.policy_id) {
-    return { column: 'mycover_policy_id', value: data.policy_id };
-  }
-
-  if (data.purchase_id) {
-    return { column: 'mycover_purchase_id', value: data.purchase_id };
-  }
-
-  if (!(data.id && dataIdColumn)) {
-    return null;
-  }
-
-  return {
-    column: dataIdColumn,
-    value: data.id,
-  };
-}
-
-function getPolicyStartDate(data: MyCoverWebhookPayload['data']) {
-  return data.start_date || data.policy_start_date;
-}
-
-function getPolicyExpiryDate(data: MyCoverWebhookPayload['data']) {
-  return data.expiration_date || data.policy_expiry_date;
-}
-
-async function handlePolicyRenewed(
-  supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data'],
-  event: MyCoverWebhookPayload['event'],
-  configuredSecret: string
-) {
-  let lookup = getPolicyLookup(data, {
-    dataIdColumn: event === 'renewal.successful' ? null : 'mycover_policy_id',
-  });
-  if (!lookup && event === 'renewal.successful' && data.id) {
-    lookup = await resolveRenewalPolicyLookup(data.id, configuredSecret);
-  }
-
-  if (!lookup) {
-    throw new Error(
-      'MyCover renewal webhook missing stored policy or purchase identifier'
-    );
-  }
-
-  const { data: updatedPolicy, error } = await supabase
-    .from('order_insurance_policies')
-    .update({
-      policy_expiry_date: getPolicyExpiryDate(data),
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    })
-    .eq(lookup.column, lookup.value)
-    .select('id')
-    .maybeSingle<MyCoverUpdatedPolicy>();
-
-  if (error) {
-    console.error('[MyCover Webhook] Failed to renew policy:', error);
-    throw error;
-  }
-
-  if (!updatedPolicy) {
-    throw new Error('MyCover renewal webhook did not match a stored policy');
-  }
-}
-
-async function handlePolicyExpired(
-  supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data']
-) {
-  const policyId = getPolicyId(data);
-  if (!policyId) return;
-
-  const { error } = await supabase
-    .from('order_insurance_policies')
-    .update({
-      status: 'expired',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('mycover_policy_id', policyId);
-
-  if (error) {
-    console.error('[MyCover Webhook] Failed to expire policy:', {
-      error,
-      policyId,
-    });
-    throw error;
-  }
-}
-
-async function handleClaimUpdate(
-  supabase: SupabaseClient,
-  payload: MyCoverWebhookPayload
-) {
-  const { event, data } = payload;
-  const policyId = getExplicitPolicyId(data);
-  if (!policyId) return;
-
-  let claimStatus: string;
-  switch (event) {
-    case 'claim.submitted':
-      claimStatus = 'pending';
-      break;
-    case 'claim.approved':
-      claimStatus = 'approved';
-      break;
-    case 'claim.rejected':
-      claimStatus = 'rejected';
-      break;
-    default:
-      claimStatus = 'unknown';
-  }
-
-  // 2026 Best Practice: Explicit conditional updates for clarity and type safety
-  const updateData: {
-    claim_status: string;
-    claim_id: string | undefined;
-    updated_at: string;
-    status?: string;
-  } = {
-    claim_status: claimStatus,
-    claim_id: data.claim_id,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (event === 'claim.approved') {
-    updateData.status = 'claimed';
-  }
-
-  const { error } = await supabase
-    .from('order_insurance_policies')
-    .update(updateData)
-    .eq('mycover_policy_id', policyId);
-
-  if (error) {
-    console.error('[MyCover Webhook] Failed to update claim:', {
-      claimId: data.claim_id,
-      error,
-      policyId,
-    });
-    throw error;
   }
 }
 

@@ -4,8 +4,9 @@
  */
 
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { shippingService } from '@/lib/shipping';
 import type {
   NormalizedShipmentStatus,
@@ -171,34 +172,34 @@ async function persistTrackingResult({
   supabase: SupabaseServerClient;
   trackingResult: TrackingResult;
 }) {
-  const { error: shipmentUpdateError } = await supabase
-    .from('shipments')
-    .update({
-      status: trackingResult.status,
-      current_location: trackingResult.events[0]?.location,
-      estimated_delivery_at: trackingResult.estimatedDelivery?.toISOString(),
-      delivered_at: trackingResult.actualDelivery?.toISOString(),
-      tracking_events: trackingResult.events,
-      last_tracked_at: new Date().toISOString(),
-    })
-    .eq('id', shipment.id);
+  const shippingStatus =
+    ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] || 'processing';
+  const delivered = shippingStatus === 'delivered';
+  const snapshot = buildTrackingSnapshot(trackingResult);
 
-  if (shipmentUpdateError) {
+  const { data: updatedShipment, error: shipmentUpdateError } = await supabase
+    .from('shipments')
+    .update(snapshot)
+    .eq('id', shipment.id)
+    .select('id')
+    .maybeSingle();
+
+  if (shipmentUpdateError || !updatedShipment) {
     console.error('Error updating shipment tracking snapshot:', {
-      error: shipmentUpdateError,
+      error: shipmentUpdateError ?? 'No shipment row updated',
       shipmentId: shipment.id,
     });
     // Customer tracking should return the live carrier result even when RLS
     // denies opportunistic snapshot persistence for the request-scoped client.
+    // Do not fall back to a customer-callable delivered RPC here: a signed-in
+    // customer can invoke granted RPCs directly, bypassing the carrier result
+    // that this route just verified.
     return;
   }
 
   const { error: orderUpdateError } = await supabase
     .from('orders')
-    .update({
-      shipping_status:
-        ORDER_STATUS_BY_SHIPMENT_STATUS[trackingResult.status] || 'processing',
-    })
+    .update({ shipping_status: shippingStatus })
     .eq('id', shipment.order_id);
 
   if (orderUpdateError) {
@@ -206,6 +207,40 @@ async function persistTrackingResult({
       error: orderUpdateError,
       orderId: shipment.order_id,
     });
+    // Same fail-closed rule as above: do not let a customer-scoped fallback
+    // transition an order to delivered when the normal order update is denied.
+    return;
+  }
+
+  if (delivered) {
+    // Best-effort push — don't block the tracking read on it. `after` runs the
+    // task once the response has been sent (falls back to fire-and-forget if
+    // unavailable), matching api/orders/[id]/route.ts.
+    const orderId = shipment.order_id;
+    try {
+      after(() => notifyDeliveredProtectionActivation(orderId));
+    } catch {
+      void notifyDeliveredProtectionActivation(orderId);
+    }
+  }
+}
+
+function buildTrackingSnapshot(trackingResult: TrackingResult) {
+  return {
+    status: trackingResult.status,
+    current_location: trackingResult.events[0]?.location,
+    estimated_delivery_at: trackingResult.estimatedDelivery?.toISOString(),
+    delivered_at: trackingResult.actualDelivery?.toISOString(),
+    tracking_events: trackingResult.events,
+    last_tracked_at: new Date().toISOString(),
+  };
+}
+
+async function notifyDeliveredProtectionActivation(orderId: string) {
+  try {
+    await maybeNotifyActivateProtection(orderId);
+  } catch (err) {
+    console.error('Failed to send activate-protection push:', err);
   }
 }
 

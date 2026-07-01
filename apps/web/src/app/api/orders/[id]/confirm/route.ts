@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -11,35 +10,19 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import {
+  confirmOrderBodySchema,
+  confirmOrderRouteParamsSchema,
+} from '@/schemas/order-confirm';
+import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
 } from '@/services/insurance';
-
-const deviceInsuranceDetailsSchema = z.object({
-  imei: z.string().trim().min(1).max(64),
-  serialNumber: z.string().trim().min(1).max(128),
-  deviceColor: z.string().trim().min(1).max(64),
-  deviceModel: z.string().trim().min(1).max(128),
-  deviceMake: z.string().trim().min(1).max(128),
-  deviceType: z.enum(['Phone', 'Laptop', 'Others']),
-  deviceValue: z.coerce.number().positive().finite(),
-  purchaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  devicePhotos: z.object({
-    about: z.url(),
-  }),
-  customerPhoto: z.url().optional(),
-});
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> } // Await params in newer Next.js
 ) {
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) return response as NextResponse;
-
-    const { id } = await params;
-
     // Auth check (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -55,21 +38,37 @@ export async function POST(
       );
     }
 
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
+
     const supabase = auth.supabase;
 
-    // Parse body for device details
-    const body = await request.json();
-    const shouldPurchaseInsurance =
-      body.imei !== undefined || body.devicePhotos !== undefined;
-    const deviceDetailsResult = shouldPurchaseInsurance
-      ? deviceInsuranceDetailsSchema.safeParse(body)
-      : null;
-    if (deviceDetailsResult && !deviceDetailsResult.success) {
+    const routeParams = confirmOrderRouteParamsSchema.safeParse(await params);
+    if (!routeParams.success) {
+      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+    }
+    const { id } = routeParams.data;
+
+    // Validate the entire request body before reading any property: a confirm
+    // carrying device fields must supply complete insurance KYC. Malformed JSON
+    // is a client error (400), not a server error.
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const bodyResult = confirmOrderBodySchema.safeParse(body);
+    if (!bodyResult.success) {
       return NextResponse.json(
         { error: 'Invalid insurance details' },
         { status: 400 }
       );
     }
+    const { deviceDetails } = bodyResult.data;
 
     // 1. Update Order Status
     const { data: updatedOrder, error: updateError } = await supabase
@@ -120,17 +119,20 @@ export async function POST(
     // External side effects must not run until cancellation clamps/null updates
     // have been excluded.
     let insuranceResult = null;
+    let insuranceError: string | null = null;
 
-    if (deviceDetailsResult?.success) {
-      const deviceDetails: DeviceInsuranceDetails = deviceDetailsResult.data;
+    if (deviceDetails) {
+      const details: DeviceInsuranceDetails = deviceDetails;
 
       try {
-        insuranceResult = await purchaseOrderInsurance(id, deviceDetails);
+        insuranceResult = await purchaseOrderInsurance(id, details, supabase);
       } catch (err: unknown) {
         logger.error({
           message: 'Insurance purchase error during confirm',
           error: err,
         });
+        insuranceError =
+          err instanceof Error ? err.message : 'Insurance purchase failed';
       }
     }
 
@@ -138,6 +140,7 @@ export async function POST(
       success: true,
       message: 'Order confirmed successfully',
       insurance: insuranceResult,
+      ...(insuranceError ? { insuranceError } : {}),
     });
   } catch (error: unknown) {
     logger.error({ message: 'Confirm Order API Error', error });

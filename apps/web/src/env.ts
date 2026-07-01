@@ -1275,6 +1275,12 @@ export const getMyCoverWebhookSecret = (): string => {
   return webhookSecret;
 };
 
+export const getMyCoverSecretKey = (): string | undefined => {
+  if (typeof window !== 'undefined')
+    throw new Error('MYCOVER_SECRET_KEY cannot be accessed on the client');
+  return process.env.MYCOVER_SECRET_KEY?.trim() || undefined;
+};
+
 export const getCronSecret = () => env?.CRON_SECRET;
 
 /**

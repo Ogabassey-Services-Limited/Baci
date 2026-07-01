@@ -5,6 +5,7 @@ vi.mock('server-only', () => ({}));
 
 const {
   mockAuthenticateApiRequest,
+  mockCheckCsrfProtection,
   mockGetMerchantIdForApiUser,
   mockPurchaseOrderInsurance,
   mockFrom,
@@ -15,6 +16,7 @@ const {
   const mockFrom = vi.fn();
   return {
     mockAuthenticateApiRequest: vi.fn(),
+    mockCheckCsrfProtection: vi.fn(),
     mockGetMerchantIdForApiUser: vi.fn(),
     mockPurchaseOrderInsurance: vi.fn(),
     mockFrom,
@@ -52,14 +54,12 @@ vi.mock('@/services/insurance', () => ({
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
 
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(() =>
-    Promise.resolve({ valid: true, response: null })
-  ),
+  checkCsrfProtection: mockCheckCsrfProtection,
 }));
 
 import { POST } from './route';
 
-const ORDER_ID = 'order-123';
+const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-123';
 
 function createRequest(body: Record<string, unknown> = {}) {
@@ -70,8 +70,8 @@ function createRequest(body: Record<string, unknown> = {}) {
   });
 }
 
-function createParams() {
-  return { params: Promise.resolve({ id: ORDER_ID }) };
+function createParams(id = ORDER_ID) {
+  return { params: Promise.resolve({ id }) };
 }
 
 function createInsuranceDetails(overrides: Record<string, unknown> = {}) {
@@ -85,6 +85,8 @@ function createInsuranceDetails(overrides: Record<string, unknown> = {}) {
     deviceValue: 1_200_000,
     purchaseDate: '2026-06-15',
     devicePhotos: { about: 'https://cdn.usebaci.com/orders/device.jpg' },
+    gender: 'Male',
+    dateOfBirth: '1995-04-12',
     ...overrides,
   };
 }
@@ -108,6 +110,24 @@ describe('POST /api/orders/[id]/confirm', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
     mockPurchaseOrderInsurance.mockResolvedValue({ policyId: 'policy-1' });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
+  });
+
+  it('returns 401 before CSRF validation when authentication fails', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: 'Unauthorized',
+      user: null,
+      supabase: null,
+    });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('confirms the order when the update advances shipping to processing', async () => {
@@ -136,8 +156,39 @@ describe('POST /api/orders/[id]/confirm', () => {
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
     expect(mockPurchaseOrderInsurance).toHaveBeenCalledWith(
       ORDER_ID,
-      expect.objectContaining({ imei: '123456789012345' })
+      expect.objectContaining({ imei: '123456789012345' }),
+      // The route reuses its already-authorized client (Bearer-safe).
+      expect.anything()
     );
+  });
+
+  it('surfaces insurance purchase failures after confirming the order', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return createOrdersTable({
+          id: ORDER_ID,
+          shipping_status: 'processing',
+          cancelled_at: null,
+        });
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mockPurchaseOrderInsurance.mockRejectedValueOnce(
+      new Error('MyCover wallet unavailable')
+    );
+
+    const response = await POST(
+      createRequest(createInsuranceDetails()),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      insurance: null,
+      insuranceError: 'MyCover wallet unavailable',
+    });
   });
 
   it('rejects invalid insurance details before updating the order', async () => {
@@ -153,6 +204,85 @@ describe('POST /api/orders/[id]/confirm', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Invalid insurance details' });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 (not 500) for a malformed JSON body', async () => {
+    const request = new NextRequest(
+      `https://usebaci.com/api/orders/${ORDER_ID}/confirm`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{ not valid json',
+      }
+    );
+
+    const response = await POST(request, createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid request body' });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid route ids before updating the order', async () => {
+    const response = await POST(
+      createRequest(createInsuranceDetails()),
+      createParams('not-a-valid-order-id')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid order id' });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with missing KYC (gender / date of birth)', async () => {
+    const {
+      gender: _g,
+      dateOfBirth: _d,
+      ...withoutKyc
+    } = createInsuranceDetails();
+
+    const response = await POST(createRequest(withoutKyc), createParams());
+
+    expect(response.status).toBe(400);
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with a future date of birth', async () => {
+    const response = await POST(
+      createRequest(createInsuranceDetails({ dateOfBirth: '3000-01-01' })),
+      createParams()
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with a normalized invalid calendar date', async () => {
+    const response = await POST(
+      createRequest(createInsuranceDetails({ dateOfBirth: '2025-02-31' })),
+      createParams()
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
+  });
+
+  it('rejects insurance details with today as date of birth', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const response = await POST(
+      createRequest(createInsuranceDetails({ dateOfBirth: today })),
+      createParams()
+    );
+
+    expect(response.status).toBe(400);
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockPurchaseOrderInsurance).not.toHaveBeenCalled();
   });

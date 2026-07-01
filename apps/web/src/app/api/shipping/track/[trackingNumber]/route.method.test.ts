@@ -6,14 +6,34 @@ const mockTrackShipment = vi.fn();
 const mockOrderStatusEq = vi.fn();
 const mockOrderStatusUpdate = vi.fn();
 const mockShipmentStatusEq = vi.fn();
+const mockShipmentStatusMaybeSingle = vi.fn();
+const mockShipmentStatusSelect = vi.fn();
 const mockShipmentStatusUpdate = vi.fn();
+const mockRpc = vi.fn();
+const mockAuthGetUser = vi.fn();
+const mockMaybeNotifyActivateProtection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => new Map()),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({ from: mockFrom })),
+  createClient: vi.fn(() => ({
+    auth: { getUser: mockAuthGetUser },
+    from: mockFrom,
+    rpc: mockRpc,
+  })),
+}));
+
+vi.mock('@/lib/supabase/admin', () => {
+  throw new Error(
+    'shipping tracking route must not import the service-role client'
+  );
+});
+
+vi.mock('@/lib/insurance/notify-activate-protection', () => ({
+  maybeNotifyActivateProtection: (...args: unknown[]) =>
+    mockMaybeNotifyActivateProtection(...args),
 }));
 
 vi.mock('@/lib/shipping', () => ({
@@ -44,7 +64,14 @@ function mockShipmentLookup(data: unknown) {
 
   mockOrderStatusEq.mockResolvedValue({ error: null });
   mockOrderStatusUpdate.mockReturnValue({ eq: mockOrderStatusEq });
-  mockShipmentStatusEq.mockResolvedValue({ error: null });
+  mockShipmentStatusMaybeSingle.mockResolvedValue({
+    data: { id: 'shipment-1' },
+    error: null,
+  });
+  mockShipmentStatusSelect.mockReturnValue({
+    maybeSingle: mockShipmentStatusMaybeSingle,
+  });
+  mockShipmentStatusEq.mockReturnValue({ select: mockShipmentStatusSelect });
   mockShipmentStatusUpdate.mockReturnValue({ eq: mockShipmentStatusEq });
 
   mockFrom.mockImplementation((table: string) => {
@@ -78,6 +105,12 @@ function mockShipmentLookup(data: unknown) {
 describe('/api/shipping/track/[trackingNumber] method boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    mockMaybeNotifyActivateProtection.mockResolvedValue(undefined);
+    mockRpc.mockResolvedValue({ data: true, error: null });
   });
 
   it('rejects GET so tracking refresh cannot be triggered by prefetch or forged navigation', async () => {
@@ -175,7 +208,8 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
       provider: 'dhl',
       receiver_address: { city: 'Ikeja', state: 'Lagos' },
     });
-    mockShipmentStatusEq.mockResolvedValueOnce({
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'shipment write failed' },
     });
     mockTrackShipment.mockResolvedValue({
@@ -200,6 +234,175 @@ describe('/api/shipping/track/[trackingNumber] method boundary', () => {
         trackingNumber: 'TRACK123',
       });
       expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('returns live delivered tracking without a customer-callable fallback when snapshot persistence is denied', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'shipment write denied by RLS' },
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [
+        {
+          description: 'Delivered',
+          location: 'Lagos',
+          status: 'delivered',
+          timestamp: new Date('2026-05-12T15:00:00Z'),
+        },
+      ],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ status: 'delivered' });
+      expect(mockOrderStatusUpdate).not.toHaveBeenCalled();
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('does not check customer auth when denied customer persistence cannot transition delivery', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'shipment write denied by RLS' },
+    });
+    mockAuthGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+
+      expect(response.status).toBe(200);
+      expect(mockAuthGetUser).not.toHaveBeenCalled();
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('does not use a delivered RPC when customer-scoped shipment update matches zero rows', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+
+      expect(response.status).toBe(200);
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('does not use a delivered RPC when order status persistence is denied', async () => {
+    mockShipmentLookup({
+      carrier_name: 'DHL',
+      estimated_delivery_days: 3,
+      id: 'shipment-1',
+      order_id: 'order-1',
+      provider: 'dhl',
+      receiver_address: { city: 'Ikeja', state: 'Lagos' },
+    });
+    // Shipment snapshot persists fine; the ORDER update is what RLS denies, so
+    // we exercise the order-update-denied branch (not the shipment one).
+    mockShipmentStatusMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'shipment-1' },
+      error: null,
+    });
+    mockOrderStatusEq.mockResolvedValueOnce({
+      error: { message: 'order write denied by RLS' },
+    });
+    mockTrackShipment.mockResolvedValue({
+      actualDelivery: new Date('2026-05-12T15:00:00Z'),
+      carrierName: 'DHL',
+      estimatedDelivery: new Date('2026-05-12T10:00:00Z'),
+      events: [],
+      provider: 'dhl',
+      status: 'delivered',
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const response = await makePostRequest();
+
+      expect(response.status).toBe(200);
+      // The order update was attempted, but its denial must fail closed: no
+      // delivered RPC fallback and no activation push.
+      expect(mockOrderStatusUpdate).toHaveBeenCalledWith({
+        shipping_status: 'delivered',
+      });
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockMaybeNotifyActivateProtection).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }

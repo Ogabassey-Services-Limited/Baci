@@ -295,6 +295,73 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
   });
 
+  it('includes the assurance premium in BT-109/BT-112 when stored tax totals are product-only', async () => {
+    const orderData = orderResult.data as Record<string, unknown>;
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock({
+        order: {
+          data: {
+            ...orderData,
+            subtotal: 103000,
+            shipping_fee: 0,
+            discount_amount: 0,
+            tax_amount: 0,
+            total: 103000,
+            // Storefront RPC stores these from SUM(line_extension) = product
+            // only (100,000), excluding the rolled-in 3,000 assurance premium.
+            tax_exclusive_amount: 100000,
+            tax_inclusive_amount: 100000,
+            merchants: {
+              ...(orderData.merchants as Record<string, unknown>),
+              vat_registration_status: 'not_registered',
+              vat_rate: 0,
+            },
+          },
+          error: null,
+        },
+        items: {
+          data: [
+            {
+              id: 'item-1',
+              line_id: 1,
+              name: 'iPhone 16',
+              item_description: null,
+              quantity: 1,
+              price: 100000,
+              unit_code: 'EA',
+              line_extension_amount: 100000,
+              vat_category_code: 'O',
+              vat_rate: 0,
+              vat_amount: 0,
+              sellers_item_id: null,
+              product_id: 'product-phone',
+              assurance_fee: 3000,
+            },
+          ],
+          error: null,
+        },
+      }) as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    const invoiceData = vi.mocked(generatePeppolInvoiceXml).mock
+      .calls[0]?.[0] as {
+      tax_exclusive_amount: number;
+      tax_inclusive_amount: number;
+      items: Array<{ name: string }>;
+    };
+    expect(
+      invoiceData.items.some((item) => item.name === 'Ogabassey Assurance')
+    ).toBe(true);
+    expect(invoiceData.tax_exclusive_amount).toBe(103000);
+    expect(invoiceData.tax_inclusive_amount).toBe(103000);
+  });
+
   it('generates the invoice with fallback branding when logo resolution fails', async () => {
     vi.mocked(resolveReceiptLogoDataUri).mockRejectedValueOnce(
       new Error('logo fetch failed')

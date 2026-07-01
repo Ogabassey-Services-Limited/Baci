@@ -5,6 +5,13 @@ import {
   type ReceiptMerchant,
   type ReceiptOrder,
 } from '@baci/shared';
+import {
+  buildAssuranceInvoiceLineItem,
+  buildAssuranceReceiptItem,
+  nextInvoiceLineId,
+  reconcileAssuranceTaxSubtotal,
+  sumAssuranceFees,
+} from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
   InvoiceLineItem,
@@ -289,6 +296,43 @@ export function buildStorefrontAccountDocumentBundle({
     alignSingleZeroTaxSubtotalWithDocumentTotal(taxSubtotals, preTaxTotal);
   }
 
+  // Ogabassey Assurance is rolled into order.subtotal but VAT-free and was never
+  // itemized — surface it as a single zero-rated line so the document reconciles.
+  const assuranceTotal = sumAssuranceFees(itemRows);
+
+  // Document tax-exclusive (BT-109) / tax-inclusive (BT-112) totals. For
+  // assurance orders, derive BT-109 from `subtotal` (which includes the VAT-free
+  // premium on BOTH order-creation paths) + shipping - discount, rather than the
+  // stored tax totals: storefront RPC orders persist tax_exclusive_amount as a
+  // product-only line sum that excludes the premium, so reusing it would leave
+  // the itemized assurance line + tax subtotal exceeding BT-109 by the premium.
+  const documentTaxExclusive =
+    assuranceTotal > 0
+      ? Number((subtotal + shippingFee - discountAmount).toFixed(2))
+      : resolveMoneyValue(order.tax_exclusive_amount, preTaxTotal);
+  const documentTaxInclusive =
+    assuranceTotal > 0
+      ? Number((documentTaxExclusive + taxAmount).toFixed(2))
+      : taxInclusiveAmount;
+
+  if (assuranceTotal > 0) {
+    invoiceItems.push(
+      buildAssuranceInvoiceLineItem(
+        nextInvoiceLineId(invoiceItems),
+        assuranceTotal
+      )
+    );
+    receiptOrder.items.push(buildAssuranceReceiptItem(assuranceTotal));
+    // VAT orders: add only the premium to an O subtotal (shipping/discount stay
+    // in their taxable category). Non-VAT orders: reconcile the O bucket up to
+    // BT-109 so Σ TaxableAmount === BT-109 (Peppol BR-CO-13).
+    reconcileAssuranceTaxSubtotal(
+      taxSubtotals,
+      documentTaxExclusive,
+      assuranceTotal
+    );
+  }
+
   const orderDetail: StorefrontOrder = {
     id: order.id,
     order_number: order.order_number,
@@ -376,12 +420,9 @@ export function buildStorefrontAccountDocumentBundle({
     items: invoiceItems,
     tax_subtotals: taxSubtotals,
     subtotal,
-    tax_exclusive_amount: resolveMoneyValue(
-      order.tax_exclusive_amount,
-      preTaxTotal
-    ),
+    tax_exclusive_amount: documentTaxExclusive,
     tax_amount: taxAmount,
-    tax_inclusive_amount: taxInclusiveAmount,
+    tax_inclusive_amount: documentTaxInclusive,
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,

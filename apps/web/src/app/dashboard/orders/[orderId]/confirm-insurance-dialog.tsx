@@ -26,10 +26,39 @@ export type ConfirmInsurancePayload = Omit<
   customerPhoto?: string;
 };
 
+export type ConfirmOrderPayload =
+  | ConfirmInsurancePayload
+  | Record<string, never>;
+
+/** `YYYY-MM-DD` from the LOCAL calendar (not UTC), so "today"/"yesterday"
+ * match the user's timezone rather than shifting across the date line. */
+function toLocalDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getMaxDateOfBirth() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toLocalDateOnly(yesterday);
+}
+
+function isValidPastDateOnly(value: string, maxDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value &&
+    value <= maxDate
+  );
+}
+
 interface ConfirmInsuranceDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: ConfirmInsurancePayload) => Promise<void>;
+  onConfirm: (data: ConfirmOrderPayload) => Promise<void>;
   orderItems: OrderDetailsItem[];
 }
 
@@ -47,6 +76,8 @@ export default function ConfirmInsuranceDialog({
   // Form State
   const [imei, setImei] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | ''>('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   // TODO: Make device color selectable from product variants
   // const [deviceColor, setDeviceColor] = useState('Black');
 
@@ -59,52 +90,85 @@ export default function ConfirmInsuranceDialog({
 
   // If no assurance items, this shouldn't really be open, but helpful for generic confirm
   const isAssuranceOrder = assuranceItems.length > 0;
+  const maxDateOfBirth = getMaxDateOfBirth();
 
   const handleConfirm = async () => {
+    if (!isAssuranceOrder) {
+      setLoading(true);
+      try {
+        await onConfirm({});
+        onClose();
+      } catch (error) {
+        console.error('Confirmation failed', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to confirm order. Please try again.',
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const aboutFile = aboutFiles[0];
+
+    // Validate required fields BEFORE any upload side-effect (no orphan uploads).
+    if (!imei || !serialNumber || !aboutFile || !gender || !dateOfBirth) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing Details',
+        description:
+          'IMEI, Serial Number, Device Photo, Gender and Date of Birth are required for insurance.',
+      });
+      return;
+    }
+    if (!isValidPastDateOnly(dateOfBirth, maxDateOfBirth)) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Date of Birth',
+        description:
+          'Enter a valid past date of birth before uploading the device photo.',
+      });
+      return;
+    }
+
     setLoading(true);
+    let objectUrl: string | null = null;
     try {
-      let devicePhotoUrl = '';
+      // Create a temporary object URL to pass to our upload helper
+      // (which expects a URI string and fetch-blobs it)
+      objectUrl = URL.createObjectURL(aboutFile);
+      const uploadedUrl = await uploadImage(objectUrl, 'images');
 
-      // Upload Logic
-      if (aboutFiles.length > 0) {
-        // Create a temporary object URL to pass to our upload helper
-        // (which expects a URI string and fetch-blobs it)
-        const objectUrl = URL.createObjectURL(aboutFiles[0]);
-        const uploadedUrl = await uploadImage(objectUrl, 'images');
-        URL.revokeObjectURL(objectUrl);
-
-        if (uploadedUrl) {
-          devicePhotoUrl = uploadedUrl;
-        }
+      if (!uploadedUrl) {
+        toast({
+          variant: 'destructive',
+          title: 'Upload Failed',
+          description: 'Could not upload the device photo. Please try again.',
+        });
+        return;
       }
 
-      // Basic validation for assurance orders
-      if (isAssuranceOrder) {
-        if (!imei || !serialNumber || !devicePhotoUrl) {
-          toast({
-            variant: 'destructive',
-            title: 'Missing Details',
-            description:
-              'IMEI, Serial Number, and Device Photo are required for insurance.',
-          });
-          setLoading(false);
-          return;
-        }
-      }
-
-      const payload = {
+      const payload: ConfirmInsurancePayload = {
         // Insurance fields
         imei,
         serialNumber,
+        // Bind to the same item these details describe so the service insures
+        // this SKU, not whichever order_items row the DB returns first.
+        itemId: assuranceItems[0]?.id,
         deviceColor: 'Black', // Default color, TODO: extract from product variant
         deviceModel: assuranceItems[0]?.name || 'Unknown Device',
         deviceMake: 'Generic', // TODO: Extract from product name
         deviceType: 'Phone' as const,
         deviceValue: assuranceItems[0]?.price || 0,
-        purchaseDate: new Date().toISOString().split('T')[0],
+        purchaseDate: toLocalDateOnly(new Date()),
         devicePhotos: {
-          about: devicePhotoUrl,
+          about: uploadedUrl,
         },
+        // Real policyholder KYC (no longer hardcoded server-side).
+        gender,
+        dateOfBirth,
         // Optional ID photo placeholder logic handled in service if missing
         customerPhoto: undefined,
       };
@@ -118,9 +182,10 @@ export default function ConfirmInsuranceDialog({
         title: 'Error',
         description: 'Failed to confirm order. Please try again.',
       });
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -155,6 +220,34 @@ export default function ConfirmInsuranceDialog({
                     placeholder="Enter Serial Number"
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender *</Label>
+                  <select
+                    id="gender"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={gender}
+                    onChange={(e) =>
+                      setGender(e.target.value as 'Male' | 'Female' | '')
+                    }
+                  >
+                    <option value="">Select…</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dob">Date of Birth *</Label>
+                  <Input
+                    id="dob"
+                    type="date"
+                    max={maxDateOfBirth}
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
                   />
                 </div>
               </div>

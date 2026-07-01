@@ -113,7 +113,8 @@ export function getStorefrontNotificationNavigationTarget(
   }
 
   switch (type) {
-    case 'order_update': {
+    case 'order_update':
+    case 'insurance_activation': {
       const orderId = readString(payload, 'orderId', 'order_id');
       return orderId
         ? { screen: 'order-details', params: { id: orderId } }

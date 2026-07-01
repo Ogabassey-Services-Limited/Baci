@@ -158,6 +158,99 @@ describe('myCoverWebhookSchema', () => {
       }
     });
 
+    it('parses top-level event_id and status', () => {
+      const payload = {
+        event_id: 'evt_abc',
+        event: 'purchase.successful',
+        status: 'processed',
+        data: { essential: { policy_id: 'pol-1' } },
+      };
+
+      const result = myCoverWebhookSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.event_id).toBe('evt_abc');
+        expect(result.data.status).toBe('processed');
+      }
+    });
+
+    it('rejects a non-string claim_link in data.sdk', () => {
+      const payload = {
+        event: 'purchase.successful',
+        data: { sdk: { claim_link: 123 } },
+      };
+
+      expect(myCoverWebhookSchema.safeParse(payload).success).toBe(false);
+    });
+
+    it('accepts hosted claim_link and inspection_link under data.sdk', () => {
+      const payload = {
+        event: 'purchase.successful',
+        data: {
+          policy_id: 'pol-123',
+          sdk: {
+            claim_link: 'https://mycover.ai/purchase?q=claim-token',
+            inspection_link: 'https://mycover.ai/purchase?q=inspection-token',
+          },
+        },
+      };
+
+      const result = myCoverWebhookSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.data.sdk?.claim_link).toBe(
+          'https://mycover.ai/purchase?q=claim-token'
+        );
+        expect(result.data.data.sdk?.inspection_link).toBe(
+          'https://mycover.ai/purchase?q=inspection-token'
+        );
+      }
+    });
+
+    it('accepts data.sdk with only a claim_link (inspection optional)', () => {
+      const payload = {
+        event: 'policy.updated',
+        data: {
+          policy_id: 'pol-123',
+          sdk: { claim_link: 'https://mycover.ai/purchase?q=claim-only' },
+        },
+      };
+
+      const result = myCoverWebhookSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.data.sdk?.claim_link).toBe(
+          'https://mycover.ai/purchase?q=claim-only'
+        );
+        expect(result.data.data.sdk?.inspection_link).toBeUndefined();
+      }
+    });
+
+    it('accepts inspection.completed payload with data.essential', () => {
+      const payload = {
+        event: 'inspection.completed',
+        data: {
+          essential: {
+            type: 'Gadget',
+            status: 'completed',
+            category: 'preloss',
+            policy_id: 'pol-abc',
+            is_approved: false,
+          },
+          meta: { category: 'preloss', policy_id: 'pol-abc' },
+        },
+      };
+
+      const result = myCoverWebhookSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.data.essential?.policy_id).toBe('pol-abc');
+        expect(result.data.data.essential?.category).toBe('preloss');
+        expect(result.data.data.meta?.category).toBe('preloss');
+        expect(result.data.data.essential?.status).toBe('completed');
+      }
+    });
+
     it('v2 fields are accessible on the parsed type (not stripped)', () => {
       const payload = {
         event: 'claim.updated',

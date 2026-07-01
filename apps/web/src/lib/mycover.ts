@@ -273,6 +273,136 @@ export class MyCoverClient {
       >(endpoint);
     return response.data;
   }
+
+  /** Product categories (v2) — for dynamic product discovery. */
+  async getProductCategories(): Promise<unknown> {
+    const response = await this.request<MyCoverResponse<unknown>>(
+      '/products/categories'
+    );
+    return response.data;
+  }
+
+  /** All customers on the integration (v2). */
+  async listCustomers(
+    params: Record<string, string | number> = {}
+  ): Promise<unknown> {
+    const endpoint = withQuery('/customers', params);
+    const response = await this.request<MyCoverResponse<unknown>>(endpoint);
+    return response.data;
+  }
+
+  /** A single customer's profile (v2). */
+  async getCustomerById(customerId: string): Promise<unknown> {
+    const response = await this.request<MyCoverResponse<unknown>>(
+      `/customers/${encodeURIComponent(customerId)}`
+    );
+    return response.data;
+  }
+
+  /** A customer's purchase history (v2). */
+  async getCustomerPurchases(customerId: string): Promise<unknown> {
+    const response = await this.request<MyCoverResponse<unknown>>(
+      `/customers/${encodeURIComponent(customerId)}/purchases`
+    );
+    return response.data;
+  }
+
+  /** A customer's policy history (v2). */
+  async getCustomerPolicies(customerId: string): Promise<unknown> {
+    const response = await this.request<MyCoverResponse<unknown>>(
+      `/customers/${encodeURIComponent(customerId)}/policies`
+    );
+    return response.data;
+  }
+
+  /** All purchases & renewals (Sales, v2). */
+  async listPurchases(
+    params: Record<string, string | number> = {}
+  ): Promise<unknown> {
+    const endpoint = withQuery('/purchases', params);
+    const response = await this.request<MyCoverResponse<unknown>>(endpoint);
+    return response.data;
+  }
+
+  /** A single purchase/renewal record (v2). */
+  async getPurchaseById(purchaseId: string): Promise<unknown> {
+    const response = await this.request<MyCoverResponse<unknown>>(
+      `/purchases/${encodeURIComponent(purchaseId)}`
+    );
+    return response.data;
+  }
+
+  /** Supported gender options (auxiliary, v2). */
+  async getGenders(): Promise<unknown> {
+    const response =
+      await this.request<MyCoverResponse<unknown>>('/utilities/genders');
+    return response.data;
+  }
+
+  /** Nigerian states & LGAs (auxiliary, v2). */
+  async getStates(): Promise<unknown> {
+    const response = await this.request<MyCoverResponse<unknown>>(
+      `/products/utility/${MYCOVER_STATES_UTILITY_ID}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Upload a file (e.g. device photo / claim evidence) and get an `upload_id`
+   * to attach to inspectable products (auxiliary, v2). Uses multipart, so it
+   * bypasses the JSON `request()` helper.
+   */
+  async uploadFile(
+    file: Blob,
+    filename = 'upload'
+  ): Promise<{ upload_id: string }> {
+    const form = new FormData();
+    form.append('file', file, filename);
+
+    let response: Response;
+    try {
+      response = await fetch(`${MYCOVER_BASE_URL}/utilities/files/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.secretKey}` },
+        body: form,
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'File upload failed';
+      throw new MyCoverError(message, 0, { cause: error });
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new MyCoverError(
+        error.responseText || `File upload failed (${response.status})`,
+        response.status,
+        error
+      );
+    }
+
+    const json = (await response.json()) as MyCoverResponse<{
+      upload_id: string;
+    }>;
+    return json.data;
+  }
+}
+
+const MYCOVER_STATES_UTILITY_ID = 'e55de863-7d98-4236-bd61-40328cd7f7fc';
+
+function withQuery(
+  path: string,
+  params: Record<string, string | number>
+): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      search.set(key, String(value));
+    }
+  }
+  const qs = search.toString();
+  return qs ? `${path}?${qs}` : path;
 }
 
 export class MyCoverError extends Error {

@@ -1,10 +1,11 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import { logger } from '@/lib/logger';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import {
@@ -48,6 +49,22 @@ function shouldReleaseBookingLock(
 
 function isPaidStatusUpdate(value: unknown): value is 'paid' | 'bnpl_approved' {
   return value === 'paid' || value === 'bnpl_approved';
+}
+
+function runAfterResponse(task: () => Promise<void>) {
+  const run = async () => {
+    try {
+      await task();
+    } catch (err) {
+      console.error('Deferred order side-effect failed:', err);
+    }
+  };
+
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
 }
 
 // GET /api/orders/[id] - Get a single order
@@ -464,16 +481,26 @@ export async function PATCH(
         .single();
 
       if (customer?.user_id) {
-        // Fire and forget - don't block the response
-        notifyOrderStatusChange(
-          customer.user_id,
-          id,
-          existingOrder.order_number,
-          shipping_status
-        ).catch((err) => {
-          console.error('Failed to send order status push notification:', err);
-        });
+        runAfterResponse(() =>
+          notifyOrderStatusChange(
+            customer.user_id,
+            id,
+            existingOrder.order_number,
+            shipping_status
+          )
+        );
       }
+    }
+
+    // On delivery, nudge the customer to activate any pending gadget cover.
+    // `completed` counts as delivered too (matching maybeNotifyActivateProtection
+    // and the customer policy APIs), so an API client that marks an order
+    // completed still queues the one-time reminder.
+    if (
+      (shipping_status === 'delivered' || shipping_status === 'completed') &&
+      shipping_status !== existingOrder.shipping_status
+    ) {
+      runAfterResponse(() => maybeNotifyActivateProtection(id));
     }
 
     return NextResponse.json({ order });

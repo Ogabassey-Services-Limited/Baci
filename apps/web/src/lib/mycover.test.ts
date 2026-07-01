@@ -415,3 +415,117 @@ describe('createMyCoverClient()', () => {
     expect(client).toBeInstanceOf(MyCoverClient);
   });
 });
+
+describe('MyCoverClient capability endpoints (v2)', () => {
+  const client = new MyCoverClient({ secretKey: 'test-secret-key' });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function urlOf(spy: ReturnType<typeof mockFetchJson>): string {
+    return spy.mock.calls[0][0] as string;
+  }
+
+  it('GET /products/categories', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.getProductCategories();
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/products/categories');
+  });
+
+  it('GET /customers/:id/policies', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.getCustomerPolicies('cust 1');
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/customers/cust%201/policies'
+    );
+  });
+
+  it('GET /customers with query params', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.listCustomers({ page: 2, limit: 25 });
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/customers?page=2&limit=25'
+    );
+  });
+
+  it('GET /customers/:id', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: { id: 'cust 1' } });
+    await client.getCustomerById('cust 1');
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/customers/cust%201');
+  });
+
+  it('GET /customers/:id/purchases', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.getCustomerPurchases('c1');
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/customers/c1/purchases'
+    );
+  });
+
+  it('GET /purchases with query params', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.listPurchases({ page: 2 });
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/purchases?page=2');
+  });
+
+  it('GET /purchases/:id', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: { id: 'purchase 1' } });
+    await client.getPurchaseById('purchase 1');
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/purchases/purchase%201'
+    );
+  });
+
+  it('GET /utilities/genders', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.getGenders();
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/utilities/genders');
+  });
+
+  it('GET states utility', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.getStates();
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/products/utility/e55de863-7d98-4236-bd61-40328cd7f7fc'
+    );
+  });
+
+  it('POST /utilities/files/upload returns the upload_id', async () => {
+    const spy = mockFetchJson({
+      responseCode: 1,
+      data: { upload_id: 'up_123' },
+    });
+    const result = await client.uploadFile(new Blob(['x']), 'about.png');
+    expect(urlOf(spy)).toBe(
+      'https://v2.api.mycover.ai/v2/utilities/files/upload'
+    );
+    expect(spy.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+    expect(result).toEqual({ upload_id: 'up_123' });
+  });
+
+  it('propagates non-2xx errors from a read endpoint', async () => {
+    mockFetchError({ responseText: 'Not found' }, 404);
+    await expect(client.getCustomerPolicies('c1')).rejects.toThrow();
+  });
+
+  it('throws when file upload fails', async () => {
+    mockFetchError({ responseText: 'Upload failed' }, 500);
+    await expect(
+      client.uploadFile(new Blob(['x']), 'about.png')
+    ).rejects.toThrow();
+  });
+
+  it('wraps file upload network failures as MyCoverError', async () => {
+    vi.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('timeout'));
+    await expect(
+      client.uploadFile(new Blob(['x']), 'about.png')
+    ).rejects.toMatchObject({ name: 'MyCoverError', status: 0 });
+  });
+
+  it('omits empty query params when listing purchases', async () => {
+    const spy = mockFetchJson({ responseCode: 1, data: [] });
+    await client.listPurchases({ page: 1, status: '' });
+    expect(urlOf(spy)).toBe('https://v2.api.mycover.ai/v2/purchases?page=1');
+  });
+});

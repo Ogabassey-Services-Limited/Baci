@@ -1,12 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
   getCronSecret: () => 'cron-secret',
-}));
-
-vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(),
 }));
 
 vi.mock('@/services/insurance', () => ({
@@ -14,7 +10,6 @@ vi.mock('@/services/insurance', () => ({
 }));
 
 import { POST } from '@/app/api/insurance/claims/sync/route';
-import { checkCsrfProtection } from '@/lib/csrf';
 import { syncClaimsStatus } from '@/services/insurance';
 
 function syncRequest(headers: Record<string, string> = {}) {
@@ -27,7 +22,6 @@ function syncRequest(headers: Record<string, string> = {}) {
 describe('POST /api/insurance/claims/sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
     vi.mocked(syncClaimsStatus).mockResolvedValue({
       success: true,
       updated: 2,
@@ -40,7 +34,6 @@ describe('POST /api/insurance/claims/sync', () => {
     );
 
     expect(response.status).toBe(401);
-    expect(checkCsrfProtection).not.toHaveBeenCalled();
     expect(syncClaimsStatus).not.toHaveBeenCalled();
   });
 
@@ -66,39 +59,21 @@ describe('POST /api/insurance/claims/sync', () => {
     expect(syncClaimsStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('returns 401 before CSRF validation when cron authentication is invalid', async () => {
-    vi.mocked(checkCsrfProtection).mockResolvedValue({
-      response: NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      ),
-      valid: false,
-    });
-
+  it('returns 401 before claim sync when cron authentication is invalid', async () => {
     const response = await POST(
       syncRequest({ authorization: 'Bearer wrong-secret' })
     );
 
     expect(response.status).toBe(401);
-    expect(checkCsrfProtection).not.toHaveBeenCalled();
     expect(syncClaimsStatus).not.toHaveBeenCalled();
   });
 
-  it('returns the CSRF failure response after cron authentication succeeds', async () => {
-    vi.mocked(checkCsrfProtection).mockResolvedValue({
-      response: NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      ),
-      valid: false,
-    });
-
+  it('does not require browser CSRF tokens after cron authentication succeeds', async () => {
     const response = await POST(
       syncRequest({ authorization: 'bearer cron-secret' })
     );
 
-    expect(response.status).toBe(403);
-    expect(checkCsrfProtection).toHaveBeenCalledTimes(1);
-    expect(syncClaimsStatus).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(syncClaimsStatus).toHaveBeenCalledTimes(1);
   });
 });

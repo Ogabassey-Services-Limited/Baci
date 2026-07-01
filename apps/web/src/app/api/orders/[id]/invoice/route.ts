@@ -9,6 +9,12 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
+import {
+  buildAssuranceInvoiceLineItem,
+  nextInvoiceLineId,
+  reconcileAssuranceTaxSubtotal,
+  sumAssuranceFees,
+} from '@/lib/insurance-assurance-line';
 import type {
   InvoiceData,
   InvoiceLineItem,
@@ -221,7 +227,7 @@ export async function GET(
     const { data: orderItems, error: itemsError } = await supabase
       .from('order_items')
       .select(
-        'id, line_id, name, item_description, quantity, price, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
+        'id, line_id, name, item_description, quantity, price, assurance_fee, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
       )
       .eq('order_id', orderId)
       .order('line_id', { ascending: true });
@@ -427,6 +433,53 @@ export async function GET(
       });
     }
 
+    // Ogabassey Assurance is rolled into order.subtotal but VAT-free and not
+    // itemized — surface it as a single zero-rated line so the invoice
+    // reconciles with the stored total.
+    const assuranceTotal = sumAssuranceFees(orderItems ?? []);
+
+    // Document tax-exclusive (BT-109) / tax-inclusive (BT-112) totals.
+    //
+    // For assurance orders we must derive BT-109 from `order.subtotal` (which
+    // includes the VAT-free assurance premium across BOTH order-creation paths)
+    // plus shipping minus discount — NOT from the stored `tax_exclusive_amount`.
+    // Storefront RPC orders store `tax_exclusive_amount = SUM(line_extension)`
+    // (product only, premium excluded), so reusing it would leave the itemized
+    // assurance line + tax subtotal exceeding BT-109 by the premium. Deriving
+    // from subtotal keeps lines, subtotals and totals consistent on both paths
+    // (it equals the stored value for the api/orders path).
+    const taxAmountValue = Number(order.tax_amount || 0);
+    const taxExclusiveValue =
+      assuranceTotal > 0
+        ? Number(
+            (
+              Number(order.subtotal || 0) +
+              Number(order.shipping_fee || 0) -
+              Number(order.discount_amount || 0)
+            ).toFixed(2)
+          )
+        : Number(order.tax_exclusive_amount || order.subtotal || 0);
+    const taxInclusiveValue =
+      assuranceTotal > 0
+        ? Number((taxExclusiveValue + taxAmountValue).toFixed(2))
+        : Number(
+            order.tax_inclusive_amount || (order.subtotal || 0) + taxAmountValue
+          );
+
+    if (assuranceTotal > 0) {
+      items.push(
+        buildAssuranceInvoiceLineItem(nextInvoiceLineId(items), assuranceTotal)
+      );
+      // VAT orders: add only the premium to an O subtotal (shipping/discount
+      // stay in their taxable category). Non-VAT orders: reconcile the O bucket
+      // up to BT-109 so Σ TaxableAmount === BT-109 (Peppol BR-CO-13).
+      reconcileAssuranceTaxSubtotal(
+        invoiceTaxSubtotals,
+        taxExclusiveValue,
+        assuranceTotal
+      );
+    }
+
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
       .select(
@@ -525,14 +578,9 @@ export async function GET(
 
       // Totals
       subtotal: Number(order.subtotal || 0),
-      tax_exclusive_amount: Number(
-        order.tax_exclusive_amount || order.subtotal || 0
-      ),
-      tax_amount: Number(order.tax_amount || 0),
-      tax_inclusive_amount: Number(
-        order.tax_inclusive_amount ||
-          (order.subtotal || 0) + (order.tax_amount || 0)
-      ),
+      tax_exclusive_amount: taxExclusiveValue,
+      tax_amount: taxAmountValue,
+      tax_inclusive_amount: taxInclusiveValue,
       shipping_fee: Number(order.shipping_fee || 0),
       discount_amount: Number(order.discount_amount || 0),
       total: Number(order.total || 0),

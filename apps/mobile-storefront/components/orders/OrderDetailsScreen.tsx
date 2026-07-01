@@ -1,12 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack } from 'expo-router';
-import {
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderDetailsActionsCard } from '@/components/orders/OrderDetailsActionsCard';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
@@ -44,6 +38,7 @@ import {
   canShowStorefrontRiderContact,
   isStorefrontReceiptAvailable,
 } from '@/lib/post-purchase-actions';
+import { createInsuranceFlowActions } from './insurance-flow-actions';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';
 import { formatOrderDetailsDate } from './order-details.helpers';
 
@@ -115,6 +110,11 @@ export function OrderDetailsScreen() {
         insurancePolicy?.premium_amount
       ),
     });
+  const {
+    openInsuranceCertificateUrl,
+    openInsuranceClaimFallback,
+    openInsuranceFlowUrl,
+  } = createInsuranceFlowActions(handleContactSupport);
 
   return (
     <>
@@ -178,10 +178,15 @@ export function OrderDetailsScreen() {
             colors={colors}
             hasAssuranceItems={order.items.some((item) => item.has_assurance)}
             insurancePolicy={insurancePolicy}
-            isPaid={order.payment_status === 'paid'}
-            onOpenCertificate={(certificateUrl) =>
-              Linking.openURL(certificateUrl)
+            isDelivered={
+              order.shipping_status === 'delivered' ||
+              order.shipping_status === 'completed'
             }
+            isPaid={order.payment_status === 'paid'}
+            onCompleteInspection={openInsuranceFlowUrl}
+            onFileClaim={openInsuranceFlowUrl}
+            onFileClaimFallback={openInsuranceClaimFallback}
+            onOpenCertificate={openInsuranceCertificateUrl}
           />
 
           <OrderDetailsShippingAddressCard

@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { mapProviderStatus } from '@/lib/shipping/status-mapper';
 
 // Create a service role client for webhooks (no cookies/auth needed)
@@ -16,6 +16,7 @@ function getServiceClient() {
 
 import crypto from 'node:crypto';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { maybeNotifyActivateProtection } from '@/lib/insurance/notify-activate-protection';
 import type {
   NormalizedShipmentStatus,
   ShippingProviderCode,
@@ -153,6 +154,22 @@ function parseWebhookPayload(
 
     default:
       return null;
+  }
+}
+
+function runAfterResponse(task: () => Promise<void>) {
+  const run = async () => {
+    try {
+      await task();
+    } catch (err) {
+      console.error('[Webhook] Deferred shipping side-effect failed:', err);
+    }
+  };
+
+  try {
+    after(run);
+  } catch {
+    void run();
   }
 }
 
@@ -348,14 +365,19 @@ export async function POST(
     if (customerUserId && order) {
       const orderStatusForNotification =
         orderStatusMap[normalizedStatus] || normalizedStatus;
-      notifyOrderStatusChange(
-        customerUserId,
-        shipment.order_id,
-        order.order_number,
-        orderStatusForNotification
-      ).catch((err) => {
-        console.error('[Webhook] Failed to send push notification:', err);
-      });
+      runAfterResponse(() =>
+        notifyOrderStatusChange(
+          customerUserId,
+          shipment.order_id,
+          order.order_number,
+          orderStatusForNotification
+        )
+      );
+    }
+
+    // On delivery, nudge the customer to activate any pending gadget cover.
+    if (normalizedStatus === 'delivered') {
+      runAfterResponse(() => maybeNotifyActivateProtection(shipment.order_id));
     }
 
     console.log('[Webhook] Processed webhook', {

@@ -113,6 +113,23 @@ describe('getStorefrontNotificationNavigationTarget', () => {
     ).toEqual({ screen: 'orders' });
   });
 
+  it('routes insurance activation payloads to the order details screen', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'insurance_activation',
+        orderId: 'order-789',
+      })
+    ).toEqual({ screen: 'order-details', params: { id: 'order-789' } });
+  });
+
+  it('falls back to orders list when insurance activation lacks an order id', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'insurance_activation',
+      })
+    ).toEqual({ screen: 'orders' });
+  });
+
   it('falls back to home when promotion has no slug', () => {
     expect(
       getStorefrontNotificationNavigationTarget({ type: 'promotion' })
