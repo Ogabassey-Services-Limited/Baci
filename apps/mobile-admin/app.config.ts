@@ -165,6 +165,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/admin' },
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/store' },
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/orders' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/invite' },
         ],
         category: ['BROWSABLE', 'DEFAULT'],
       },

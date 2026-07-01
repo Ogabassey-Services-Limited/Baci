@@ -23,6 +23,36 @@ function getPrimaryRouteSegment(url: URL): string {
   );
 }
 
+function getInviteRoutePath(url: URL): string | null {
+  if (
+    url.protocol !== `${BACI_ADMIN_SCHEME}:` &&
+    !['http:', 'https:'].includes(url.protocol)
+  ) {
+    return null;
+  }
+
+  if (
+    ['http:', 'https:'].includes(url.protocol) &&
+    !BACI_WEB_HOSTS.has(url.hostname.toLowerCase())
+  ) {
+    return null;
+  }
+
+  const segments =
+    url.protocol === `${BACI_ADMIN_SCHEME}:`
+      ? [url.hostname, ...url.pathname.split('/')]
+      : url.pathname.split('/');
+  const routeSegments = segments
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (routeSegments[0]?.toLowerCase() !== 'invite' || !routeSegments[1]) {
+    return null;
+  }
+
+  return `/${routeSegments.join('/')}${url.search}`;
+}
+
 function shouldLaunchRootApp(url: URL): boolean {
   if (url.protocol === `${BACI_ADMIN_SCHEME}:`) {
     const primaryRouteSegment = getPrimaryRouteSegment(url);
@@ -66,6 +96,11 @@ export function rewriteBaciDeepLinkPath(path: string): string {
 
   if (!url) {
     return path;
+  }
+
+  const inviteRoutePath = getInviteRoutePath(url);
+  if (inviteRoutePath) {
+    return inviteRoutePath;
   }
 
   return shouldLaunchRootApp(url) ? '/' : path;

@@ -48,6 +48,7 @@
         <data android:scheme="https" android:host="usebaci.com" android:pathPrefix="/admin"/>
         <data android:scheme="https" android:host="usebaci.com" android:pathPrefix="/store"/>
         <data android:scheme="https" android:host="usebaci.com" android:pathPrefix="/orders"/>
+        <data android:scheme="https" android:host="usebaci.com" android:pathPrefix="/invite"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>

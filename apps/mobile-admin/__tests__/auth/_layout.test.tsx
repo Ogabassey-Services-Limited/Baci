@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     isLoading: false,
   },
   segments: ['(auth)', 'login'] as string[],
+  pendingStaffInviteToken: null as string | null,
 }));
 
 vi.mock('react-native', async () => {
@@ -67,6 +68,11 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+vi.mock('@/lib/staff-invite-pending', () => ({
+  buildStaffInviteRoute: (token: string) => `/invite/${token}`,
+  getPendingStaffInviteToken: () => mocks.pendingStaffInviteToken,
+}));
+
 import AuthLayout from '../../app/(auth)/_layout';
 
 describe('AuthLayout', () => {
@@ -78,6 +84,7 @@ describe('AuthLayout', () => {
     mocks.merchant.merchant = null;
     mocks.merchant.error = null;
     mocks.merchant.isLoading = false;
+    mocks.pendingStaffInviteToken = null;
     mocks.segments = ['(auth)', 'login'];
   });
 
@@ -102,6 +109,18 @@ describe('AuthLayout', () => {
     render(<AuthLayout />);
 
     expect(screen.getByTestId('redirect').textContent).toBe('/(admin)/(tabs)');
+  });
+
+  it('redirects authenticated users to a pending staff invite before merchant routing', () => {
+    mocks.auth.isAuthenticated = true;
+    mocks.merchant.error = new Error('merchant fetch failed');
+    mocks.pendingStaffInviteToken = 'token-123';
+
+    render(<AuthLayout />);
+
+    expect(screen.getByTestId('redirect').textContent).toBe(
+      '/invite/token-123'
+    );
   });
 
   it('does not redirect away from the complete-profile screen', () => {

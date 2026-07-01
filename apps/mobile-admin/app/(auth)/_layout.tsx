@@ -4,6 +4,10 @@ import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  buildStaffInviteRoute,
+  getPendingStaffInviteToken,
+} from '@/lib/staff-invite-pending';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -44,6 +48,13 @@ export default function AuthLayout() {
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
+  }
+
+  if (isAuthenticated) {
+    const pendingStaffInviteToken = getPendingStaffInviteToken();
+    if (pendingStaffInviteToken) {
+      return <Redirect href={buildStaffInviteRoute(pendingStaffInviteToken)} />;
+    }
   }
 
   if (shouldResolveMerchantRedirect && merchantError) {
