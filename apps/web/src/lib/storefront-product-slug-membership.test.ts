@@ -4,6 +4,11 @@ import {
   resolveStorefrontProductSlugResolution,
 } from '@/lib/storefront-product-slug-membership';
 
+const originalAbortSignalTimeoutDescriptor = Object.getOwnPropertyDescriptor(
+  AbortSignal,
+  'timeout'
+);
+
 const BASE = {
   origin: 'https://ogabassey.com',
   identifier: 'ogabassey.com',
@@ -17,6 +22,23 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
+
+function restoreAbortSignalTimeout() {
+  if (originalAbortSignalTimeoutDescriptor) {
+    Object.defineProperty(
+      AbortSignal,
+      'timeout',
+      originalAbortSignalTimeoutDescriptor
+    );
+  }
+}
+
+function removeNativeAbortSignalTimeout() {
+  Object.defineProperty(AbortSignal, 'timeout', {
+    configurable: true,
+    value: undefined,
+  });
+}
 
 function restoreInternalBaseEnv() {
   vi.unstubAllEnvs();
@@ -54,6 +76,7 @@ describe('isStorefrontProductSlugMissing', () => {
   });
 
   afterEach(() => {
+    restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
   });
 
@@ -274,6 +297,7 @@ describe('resolveStorefrontProductSlugResolution', () => {
   });
 
   afterEach(() => {
+    restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
   });
 
@@ -350,5 +374,24 @@ describe('resolveStorefrontProductSlugResolution', () => {
     });
 
     expect(result).toEqual({ kind: 'missing' });
+  });
+
+  it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
+    removeNativeAbortSignalTimeout();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+
+    const result = await resolveStorefrontProductSlugResolution({
+      ...BASE,
+      productSlug: 'not-real',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(
+      AbortSignal
+    );
   });
 });

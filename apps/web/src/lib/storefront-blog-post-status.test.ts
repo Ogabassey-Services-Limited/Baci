@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveStorefrontBlogPostStatus } from './storefront-blog-post-status';
 
+const originalAbortSignalTimeoutDescriptor = Object.getOwnPropertyDescriptor(
+  AbortSignal,
+  'timeout'
+);
+
 const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
@@ -8,6 +13,23 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
+
+function restoreAbortSignalTimeout() {
+  if (originalAbortSignalTimeoutDescriptor) {
+    Object.defineProperty(
+      AbortSignal,
+      'timeout',
+      originalAbortSignalTimeoutDescriptor
+    );
+  }
+}
+
+function removeNativeAbortSignalTimeout() {
+  Object.defineProperty(AbortSignal, 'timeout', {
+    configurable: true,
+    value: undefined,
+  });
+}
 
 function restoreInternalBaseEnv() {
   vi.unstubAllEnvs();
@@ -43,6 +65,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
   });
 
   afterEach(() => {
+    restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
   });
 
@@ -68,6 +91,27 @@ describe('resolveStorefrontBlogPostStatus', () => {
     expect((init as RequestInit).headers).toEqual({
       Authorization: 'Bearer internal-secret',
     });
+  });
+
+  it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
+    removeNativeAbortSignalTimeout();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'ogabassey.com',
+      postSlug: 'missing-post',
+      secret: 'internal-secret',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(
+      AbortSignal
+    );
   });
 
   it('returns redirect only for safe internal blog redirect paths', async () => {
