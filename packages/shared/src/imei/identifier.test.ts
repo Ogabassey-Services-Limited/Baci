@@ -62,4 +62,11 @@ describe('normalizeDeviceIdentifier', () => {
       'C02XL0ABJGH5'
     );
   });
+
+  it('keeps uppercased alphanumerics (max 15) for both mode', () => {
+    expect(normalizeDeviceIdentifier('49-01 54abc', 'both')).toBe('490154ABC');
+    expect(
+      normalizeDeviceIdentifier('1234567890123456789', 'both')
+    ).toHaveLength(15);
+  });
 });

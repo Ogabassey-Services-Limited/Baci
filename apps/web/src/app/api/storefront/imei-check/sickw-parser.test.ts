@@ -184,4 +184,46 @@ describe('parseSickwResponse', () => {
     expect(result.verdictType).toBe('safe');
     expect(result.score).toBe(100);
   });
+
+  it('surfaces an active Knox Guard status as a caution verdict', () => {
+    const result = parseSickwResponse(
+      'Model Name: Galaxy S24<br>Knox Guard: Locked'
+    );
+
+    expect(result.knoxGuardStatus).toBe('Locked');
+    expect(result.verdictType).toBe('caution');
+    expect(result.verdict).toContain('Samsung Knox Guard');
+    expect(result.score).toBe(70);
+  });
+
+  it('resolves Knox Guard status from its provider field aliases', () => {
+    const result = parseSickwResponse({
+      'Model Name': 'Galaxy S24',
+      knoxguard: 'Active',
+    });
+
+    expect(result.knoxGuardStatus).toBe('Active');
+    expect(result.verdictType).toBe('caution');
+    expect(result.verdict).toContain('Samsung Knox Guard');
+  });
+
+  it('does not treat a cleared Knox Guard status as a risk token', () => {
+    const result = parseSickwResponse(
+      'Model Name: Galaxy S24<br>Knox Guard Status: Not active'
+    );
+
+    expect(result.knoxGuardStatus).toBe('Not active');
+    expect(result.verdictType).toBe('safe');
+    expect(result.score).toBe(100);
+  });
+
+  it('ranks a danger blacklist ahead of an active Knox Guard caution', () => {
+    const result = parseSickwResponse(
+      'Model Name: Galaxy S24<br>Blacklist Status: Blacklisted<br>Knox Guard: Locked'
+    );
+
+    expect(result.knoxGuardStatus).toBe('Locked');
+    expect(result.verdictType).toBe('danger');
+    expect(result.verdict).not.toContain('Samsung Knox Guard');
+  });
 });

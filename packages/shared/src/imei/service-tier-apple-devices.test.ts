@@ -32,10 +32,11 @@ describe('APPLE_DEVICE_IMEI_SERVICE_TIERS', () => {
     }
   });
 
-  it('scopes the Mac iCloud lock check to laptops only', () => {
-    expect(APPLE_DEVICE_IMEI_SERVICE_TIERS.macIcloud.deviceCategories).toEqual([
-      'laptop',
-    ]);
+  it('scopes the Mac iCloud lock check to serial-only laptops', () => {
+    const macIcloud = APPLE_DEVICE_IMEI_SERVICE_TIERS.macIcloud;
+    expect(macIcloud.deviceCategories).toEqual(['laptop']);
+    // Macs have no IMEI — accepting IMEI-shaped input would doom the lookup.
+    expect(macIcloud.identifier).toBe('serial');
   });
 
   it('keeps GSX premium available across all Apple device families', () => {

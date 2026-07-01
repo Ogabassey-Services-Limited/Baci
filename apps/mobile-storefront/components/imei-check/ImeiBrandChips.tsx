@@ -50,6 +50,9 @@ function BrandChip({
 }) {
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={label}
       style={[
         styles.brandFilterChip,
         {

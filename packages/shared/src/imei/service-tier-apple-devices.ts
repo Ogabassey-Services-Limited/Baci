@@ -55,7 +55,8 @@ export const APPLE_DEVICE_IMEI_SERVICE_TIERS = {
     icon: 'laptop-outline',
     brandScopes: ['apple'],
     deviceCategories: ['laptop'],
-    identifier: 'both',
+    // Laptop-only: MacBooks/iMacs have no IMEI, only a serial.
+    identifier: 'serial',
   },
   soldByCountry: {
     providerServiceId: '27',

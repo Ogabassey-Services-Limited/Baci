@@ -78,6 +78,9 @@ function TierCard({
 }) {
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={`${tier.name}, ${formatServicePrice(tier.price)}`}
       style={[
         styles.tierCard,
         {

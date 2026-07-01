@@ -101,9 +101,11 @@ export function getImeiResultStatusCards(
       label: 'Knox Guard',
     }),
     optionalStatusCard(result.gsxCoverage, {
+      // Neutral tint: gsxCoverage is raw Sickw text that can read
+      // "Expired"/"Out of Coverage", so a fixed success green would mislead.
       icon: 'shield-checkmark-outline',
       label: 'Coverage',
-      tint: colors.success,
+      tint: colors.textSecondary,
     }),
     optionalStatusCard(result.repairEligibility, {
       icon: 'build-outline',

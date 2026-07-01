@@ -64,37 +64,13 @@ export const PUBLIC_IMEI_SERVICE_TIERS = [
   'transsion',
 ] as const satisfies readonly ImeiServiceTierKey[];
 
-export const ALL_IMEI_SERVICE_TIERS = [
-  'full',
-  'activation',
-  'blacklist',
-  'blacklistPro',
-  'carrier',
-  'simLock',
-  'icloud',
-  'icloudPro',
-  'icloudCleanLost',
-  'carrierFmi',
-  'basic',
-  'appleBasic',
-  'serialInfo',
-  'macIcloud',
-  'soldByCountry',
-  'gsxPremium',
-  'gsxRepairs',
-  'repairEligibility',
-  'replacementHistory',
-  'demoUnit',
-  'mdm',
-  'samsung',
-  'samsungPro',
-  'knoxGuard',
-  'miLock',
-  'miLostPro',
-  'pixel',
-  'oppoRealme',
-  'transsion',
-] as const satisfies readonly ImeiServiceTierKey[];
+/**
+ * Every tier the selectors iterate. Derived from `PUBLIC_IMEI_SERVICE_TIERS`
+ * (the source of truth) so the two lists cannot drift: every purchasable tier is
+ * displayable and vice-versa. If a future tier is ever catalog-only (not public),
+ * split this back into its own explicit list.
+ */
+export const ALL_IMEI_SERVICE_TIERS = PUBLIC_IMEI_SERVICE_TIERS;
 
 /** Default identifier the input uses for each device category. */
 export const IMEI_IDENTIFIER_BY_DEVICE: Record<

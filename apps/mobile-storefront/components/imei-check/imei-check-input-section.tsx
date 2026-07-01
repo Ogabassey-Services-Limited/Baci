@@ -34,6 +34,14 @@ export function ImeiCheckInputSection({
         : 'Enter IMEI or serial';
   const isComplete = isValidDeviceIdentifier(imei, identifier);
   const countText = isImeiOnly ? `${imei.length}/15` : `${imei.length}`;
+  // Durable accessible name: the placeholder disappears once text is entered,
+  // so screen readers still need to know what this field is for.
+  const inputAccessibilityLabel =
+    identifier === 'serial'
+      ? 'Serial number'
+      : isImeiOnly
+        ? 'IMEI number'
+        : 'IMEI or serial number';
 
   return (
     <>
@@ -73,6 +81,7 @@ export function ImeiCheckInputSection({
             spaces are stripped, dropping digits. normalizeDeviceIdentifier caps
             the length after removing non-digits instead. */}
         <TextInput
+          accessibilityLabel={inputAccessibilityLabel}
           style={[styles.imeiInput, { color: colors.text }]}
           value={imei}
           onChangeText={onChangeImei}

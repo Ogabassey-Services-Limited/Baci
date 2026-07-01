@@ -71,4 +71,30 @@ describe('ImeiCheckInputSection', () => {
 
     expect(onClearImei).toHaveBeenCalledTimes(1);
   });
+
+  it('shows serial-mode placeholder, plain counter, and durable label', () => {
+    render(
+      <ImeiCheckInputSection
+        {...baseProps}
+        identifier="serial"
+        imei="C02XL0ABJGH5"
+      />
+    );
+
+    expect(screen.getByPlaceholderText('Enter serial number')).toBeTruthy();
+    // Serial mode has no 15-digit ceiling, so the counter is a plain length.
+    expect(screen.getByText('12')).toBeTruthy();
+    // The accessible name persists even after the placeholder is replaced.
+    expect(screen.getByLabelText('Serial number')).toBeTruthy();
+  });
+
+  it('shows both-mode placeholder, plain counter, and durable label', () => {
+    render(
+      <ImeiCheckInputSection {...baseProps} identifier="both" imei="ABC12345" />
+    );
+
+    expect(screen.getByPlaceholderText('Enter IMEI or serial')).toBeTruthy();
+    expect(screen.getByText('8')).toBeTruthy();
+    expect(screen.getByLabelText('IMEI or serial number')).toBeTruthy();
+  });
 });
