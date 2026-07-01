@@ -60,6 +60,23 @@ describe('IMEI service tiers', () => {
     }
   });
 
+  it('pins every Android tier to IMEI-only input (Sickw rejects serials)', () => {
+    const androidTiers = [
+      'samsung',
+      'samsungPro',
+      'knoxGuard',
+      'miLock',
+      'miLostPro',
+      'pixel',
+      'oppoRealme',
+      'transsion',
+    ] as const;
+
+    for (const tierKey of androidTiers) {
+      expect(IMEI_SERVICE_TIERS[tierKey].identifier).toBe('imei');
+    }
+  });
+
   it('prices new services on the shared ~₦16,350/$ markup curve', () => {
     // Spot-check a few new tiers stay within the existing markup band.
     for (const key of ['macIcloud', 'gsxPremium', 'knoxGuard'] as const) {

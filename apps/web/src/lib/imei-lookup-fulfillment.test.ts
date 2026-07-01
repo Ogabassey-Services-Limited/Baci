@@ -49,6 +49,41 @@ describe('requestSickwCheck', () => {
     });
   });
 
+  it('forwards the extended Knox Guard / GSX / repair fields onto the result', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        result: [
+          'Model Name: iPhone 15 Pro',
+          'Knox Guard: Locked',
+          'Part Number: MTP03LL/A',
+          'Repair Eligibility: Eligible',
+          'Coverage: AppleCare+ Active',
+          'Repair History: 1 repair',
+          'Replacement Status: Replaced by Apple',
+        ].join('\n'),
+        status: 'success',
+      })
+    );
+
+    const result = await requestSickwCheck(LOOKUP_ARGS);
+
+    expect(result).toMatchObject({
+      body: {
+        data: {
+          knoxGuardStatus: 'Locked',
+          partNumber: 'MTP03LL/A',
+          repairEligibility: 'Eligible',
+          gsxCoverage: 'AppleCare+ Active',
+          repairHistory: '1 repair',
+          replacementHistory: 'Replaced by Apple',
+        },
+        success: true,
+      },
+      ok: true,
+      status: 200,
+    });
+  });
+
   it('maps provider not-found messages to a refunded 404', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       Response.json({ message: 'IMEI not found', status: 'error' })
