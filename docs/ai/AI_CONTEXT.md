@@ -149,6 +149,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 |------|---------|
 | `/tailwind.config.ts` | Tailwind CSS configuration (colors, fonts, plugins) |
 | `/src/app/globals.css` | CSS variables for theming (lines 6-70) |
+| `/src/ai/genkit.ts` | Genkit initialization and model configuration |
 | `/docs/blueprint.md` | 2100+ line comprehensive architecture documentation |
 | `/docs/adr/001-business-type-journey-architecture.md` | Architecture decision record for business type system |
 
@@ -302,7 +303,7 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-1. Verify tests in `apps/web/src/ai/flows`
+
 2. Test each flow individually with sample inputs
 3. Verify output schemas match TypeScript types
 4. Test error handling with invalid inputs
@@ -333,26 +334,20 @@ const form = useForm<FormValues>({
 ```
 
 ### AI Flow Pattern
+
 ```typescript
-// 1. Define input/output schemas
-const InputSchema = z.object({ /* input fields */ });
-const OutputSchema = z.object({ /* output fields */ });
+// 1. Define prompt context
+const prompt = `System prompt...`;
 
-// 2. Create flow function
-export async function flowName(input: Input): Promise<Output> {
-  return flow(input);
+// 2. Generate content using Vercel AI SDK
+export async function generateContent(input: string) {
+  const { text } = await generateText({
+    model: activeTextModel,
+    prompt: `${prompt}\n\nInput: ${input}`,
+  });
+  return { description: text };
 }
-
-const flow = ai.defineFlow({
-  name: 'flowName',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema
-}, async (input) => {
-  // AI logic here
-  return output;
-});
 ```
-
 ### Component Pattern
 UI components follow this pattern:
 ```typescript
@@ -413,10 +408,10 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-npm run dev              # Start Next.js dev server on port 9002
-npm run build            # Production build
-npm run typecheck        # TypeScript type checking
-npm run lint             # ESLint
+pnpm run dev              # Start Next.js dev server on port 9002
+pnpm turbo build            # Production build
+pnpm turbo typecheck        # TypeScript type checking
+pnpm turbo lint             # Biome
 ```
 
 ---

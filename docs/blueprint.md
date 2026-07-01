@@ -359,10 +359,10 @@ User Navigates to /dashboard/products/add
 
 ```bash
 # Type check
-npm run typecheck
+pnpm turbo typecheck
 
 # Dev server
-npm run dev  # http://localhost:9002
+pnpm run dev  # http://localhost:9002
 
 ```
 
@@ -431,9 +431,9 @@ npm run dev  # http://localhost:9002
    ```
 
 3. **Test your changes:**
-   - Use Genkit Dev UI for AI flows
-   - Run `npm run typecheck` for type errors
-   - Test in browser: `npm run dev`
+   - Test AI flows in app
+   - Run `pnpm turbo typecheck` for type errors
+   - Test in browser: `pnpm run dev`
 
 4. **Ask the user:**
    - If documentation is unclear
