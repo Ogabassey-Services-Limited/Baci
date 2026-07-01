@@ -1,5 +1,6 @@
 import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { createAbortSignalTimeout } from './abort-signal-timeout';
 import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
 
 const blogPostStatusResponseSchema = z.object({
@@ -45,37 +46,42 @@ export async function resolveStorefrontBlogPostStatus(
     );
     url.searchParams.set('slug', opts.postSlug);
 
-    const response = await (opts.fetchImpl ?? fetch)(url, {
-      headers: { Authorization: `Bearer ${opts.secret}` },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
-    });
+    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
+    try {
+      const response = await (opts.fetchImpl ?? fetch)(url, {
+        headers: { Authorization: `Bearer ${opts.secret}` },
+        signal: timeout.signal,
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        return { kind: 'present-or-unknown' };
+      }
+
+      const bodyResult = blogPostStatusResponseSchema.safeParse(
+        await response.json()
+      );
+      if (!bodyResult.success) {
+        return { kind: 'present-or-unknown' };
+      }
+      const body = bodyResult.data;
+
+      if (body.hasError !== false) {
+        return { kind: 'present-or-unknown' };
+      }
+
+      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+      if (redirectPath) {
+        return { kind: 'redirect', redirectPath };
+      }
+
+      if (body.present === false) {
+        return { kind: 'missing' };
+      }
+
       return { kind: 'present-or-unknown' };
+    } finally {
+      timeout.clear();
     }
-
-    const bodyResult = blogPostStatusResponseSchema.safeParse(
-      await response.json()
-    );
-    if (!bodyResult.success) {
-      return { kind: 'present-or-unknown' };
-    }
-    const body = bodyResult.data;
-
-    if (body.hasError !== false) {
-      return { kind: 'present-or-unknown' };
-    }
-
-    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-    if (redirectPath) {
-      return { kind: 'redirect', redirectPath };
-    }
-
-    if (body.present === false) {
-      return { kind: 'missing' };
-    }
-
-    return { kind: 'present-or-unknown' };
   } catch {
     return { kind: 'present-or-unknown' };
   }
