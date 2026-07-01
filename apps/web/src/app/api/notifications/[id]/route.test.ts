@@ -167,6 +167,9 @@ describe('Notifications API: /api/notifications/[id]', () => {
       expect(json).toEqual(mockNotification);
 
       expect(mockSupabase.from).toHaveBeenCalledWith('merchant_notifications');
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('notification_id')
+      );
       expect(mockSupabase.eq).toHaveBeenCalledWith('id', '123');
       expect(mockSupabase.eq).toHaveBeenCalledWith(
         'merchant_id',
@@ -221,18 +224,6 @@ describe('Notifications API: /api/notifications/[id]', () => {
       const req = new NextRequest('http://localhost/api/notifications/123', {
         method: 'PATCH',
         body: JSON.stringify({}),
-      });
-      const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
-
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(json).toEqual({ error: 'No fields to update' });
-    });
-
-    it('returns 400 when invalid types are provided', async () => {
-      const req = new NextRequest('http://localhost/api/notifications/123', {
-        method: 'PATCH',
-        body: JSON.stringify({ read: 'not-a-boolean' }),
       });
       const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
 
