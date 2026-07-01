@@ -76,16 +76,25 @@ describe('Notifications API: /api/notifications/[id]', () => {
 
     mockIs2.mockResolvedValue({ count: 5, error: null });
 
-    vi.mocked(createClient).mockReturnValue(mockSupabase as any);
+    vi.mocked(createClient).mockReturnValue(
+      mockSupabase as unknown as ReturnType<typeof createClient>
+    );
 
     vi.mocked(getMerchantForApiRequest).mockResolvedValue({
       merchantId: mockMerchantId,
+      merchantSlug: 'test',
+      businessName: 'Test',
+      staffAccess: {},
       roles: ['owner'],
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof getMerchantForApiRequest>>);
 
-    vi.mocked(toUserAccess).mockReturnValue({ role: 'owner' } as any);
+    vi.mocked(toUserAccess).mockReturnValue({
+      role: 'owner',
+    } as unknown as ReturnType<typeof toUserAccess>);
 
-    vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true } as any);
+    vi.mocked(checkCsrfProtection).mockResolvedValue({
+      valid: true,
+    } as unknown as Awaited<ReturnType<typeof checkCsrfProtection>>);
 
     vi.mocked(hasPermission).mockReturnValue(true);
   });
@@ -157,7 +166,7 @@ describe('Notifications API: /api/notifications/[id]', () => {
     it('returns 403 when CSRF validation fails', async () => {
       vi.mocked(checkCsrfProtection).mockResolvedValueOnce({
         valid: false,
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof checkCsrfProtection>>);
 
       const req = new NextRequest('http://localhost/api/notifications/123', {
         method: 'PATCH',
