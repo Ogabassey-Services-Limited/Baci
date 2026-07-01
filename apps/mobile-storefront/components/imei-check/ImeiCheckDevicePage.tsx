@@ -67,6 +67,15 @@ export function ImeiCheckDevicePage({
   const displayedTierKeys =
     visibleTierKeys.length > 0 ? visibleTierKeys : [recommendedTier];
 
+  // Switch tiers; if the new tier expects a different identifier (IMEI vs
+  // serial) clear the input so stale, wrong-format text never reaches verify.
+  const applyTier = (nextTier: ImeiServiceTierKey) => {
+    if (IMEI_SERVICE_TIERS[nextTier].identifier !== identifier) {
+      setImei('');
+    }
+    setSelectedTier(nextTier);
+  };
+
   const handleBrandSelect = (brand: ImeiBrandFilter) => {
     setSelectedBrand(brand);
     const nextCanToggle = hasAdditionalPublicImeiServiceTierKeys(
@@ -83,7 +92,7 @@ export function ImeiCheckDevicePage({
       nextExpanded
     );
     if (!nextVisibleTiers.includes(selectedTier)) {
-      setSelectedTier(nextVisibleTiers[0] ?? recommendedTier);
+      applyTier(nextVisibleTiers[0] ?? recommendedTier);
     }
   };
 
@@ -97,7 +106,7 @@ export function ImeiCheckDevicePage({
       nextExpanded
     );
     if (!nextVisibleTiers.includes(selectedTier)) {
-      setSelectedTier(nextVisibleTiers[0] ?? recommendedTier);
+      applyTier(nextVisibleTiers[0] ?? recommendedTier);
     }
   };
 
@@ -124,7 +133,7 @@ export function ImeiCheckDevicePage({
       }
       onCheck={() => onVerify(selectedTier, imei)}
       onClearImei={() => setImei('')}
-      onTierSelect={setSelectedTier}
+      onTierSelect={applyTier}
       onTopUpWallet={onTopUpWallet}
       onToggleServices={handleToggleServices}
     />

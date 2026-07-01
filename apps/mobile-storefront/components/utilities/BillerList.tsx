@@ -111,8 +111,10 @@ export function BillerList({
   }
 
   // Entry state with beneficiaries: the grid is hidden behind a single tappable
-  // "Other providers" row so the beneficiary list owns the screen.
-  if (isCollapsed && !selectedBiller) {
+  // "Other providers" row so the beneficiary list owns the screen. Only expose
+  // the button when there's a handler to open the grid (mirrors the sibling
+  // collapsed path).
+  if (isCollapsed && !selectedBiller && onChangeSelection) {
     return (
       <Pressable
         accessibilityRole="button"

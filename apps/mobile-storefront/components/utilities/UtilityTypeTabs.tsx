@@ -38,7 +38,7 @@ const TAB_ICON_SIZE = 17;
 const LABEL_FONT_SIZE = 14;
 const TAB_SIDE_INSET = SPACING.md;
 const TAB_ITEM_GAP = SPACING.xs;
-const TAB_MIN_WIDTHS: Record<string, number> = {
+const TAB_MIN_WIDTHS: Record<UtilityType, number> = {
   airtime: 92,
   data: 78,
   tv: 74,

@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { ImeiCheckDevicePage } from './ImeiCheckDevicePage';
 
@@ -39,5 +39,44 @@ describe('ImeiCheckDevicePage', () => {
 
     // Brand chips are phone-only; Samsung must not appear on a Mac page.
     expect(screen.queryByText('Samsung')).toBeNull();
+  });
+
+  it('calls onVerify with the selected tier and normalized IMEI', () => {
+    const onVerify = jest.fn();
+    render(
+      <ImeiCheckDevicePage
+        {...baseProps}
+        device="smartphone"
+        onVerify={onVerify}
+      />
+    );
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    expect(onVerify).toHaveBeenCalledWith('full', '490154203237518');
+  });
+
+  it('renders the error banner when an error is present', () => {
+    render(
+      <ImeiCheckDevicePage
+        {...baseProps}
+        device="smartphone"
+        error="Lookup failed"
+      />
+    );
+
+    expect(screen.getByText('Lookup failed')).toBeTruthy();
+  });
+
+  it('replaces the CTA label with a spinner while a check is in flight', () => {
+    render(
+      <ImeiCheckDevicePage {...baseProps} device="smartphone" isLoading />
+    );
+
+    expect(screen.queryByText(/Verify Now/)).toBeNull();
   });
 });

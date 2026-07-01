@@ -1,9 +1,12 @@
 import type { ImeiServiceTierDefinition } from './service-tier-types';
 
 /**
- * Serial-based Apple services that unlock non-iPhone devices (iPad, Mac, Watch).
- * Sickw accepts an Apple serial in the same `imei` param, so these are gated by
- * our serial-input mode. Prices follow the catalog's blended ~₦16,350/$ markup.
+ * Serial-based Apple services. Most target the non-iPhone families (iPad, Mac,
+ * Watch), but a few (Serial Info, GSX Premium, Repair Eligibility, Replacement
+ * History) also apply to iPhones via their serial — hence `smartphone` in their
+ * `deviceCategories`. Sickw accepts an Apple serial in the same `imei` param, so
+ * these are gated by our serial-input mode. Prices follow the catalog's blended
+ * ~₦16,350/$ markup.
  */
 export const APPLE_DEVICE_IMEI_SERVICE_TIERS = {
   serialInfo: {
