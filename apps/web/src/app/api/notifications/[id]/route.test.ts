@@ -140,7 +140,9 @@ describe('Notifications API: /api/notifications/[id]', () => {
     });
 
     it('returns 500 when an unexpected exception is thrown', async () => {
-      mockSupabase.single.mockRejectedValueOnce(new Error('Unexpected DB Error'));
+      mockSupabase.single.mockRejectedValueOnce(
+        new Error('Unexpected DB Error')
+      );
 
       const req = new NextRequest('http://localhost/api/notifications/123');
       const res = await GET(req, { params: Promise.resolve({ id: '123' }) });
