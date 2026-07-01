@@ -34,6 +34,9 @@ const variantSyncSql = variantSyncMatch?.[0] ?? '';
 const variantSyncIndex = migrationSql.indexOf(
   'v_synced_variant_count := public.sync_product_variants_for_product'
 );
+const createVariantIdStripIndex = migrationSql.indexOf(
+  "jsonb_agg(element.raw - 'id' ORDER BY element.ordinal)"
+);
 const anchorTargetPreparationIndex = migrationSql.indexOf(
   'INTO v_reassign_anchor_variant'
 );
@@ -75,6 +78,17 @@ describe('mobile admin product RPC migration contract', () => {
     expect(migrationSql).toMatch(/'stock_quantity',\s*p\.stock_quantity/i);
     expect(migrationSql).toMatch(/'variant_model',\s*p\.variant_model/i);
     expect(migrationSql).toMatch(/INTO\s+v_result/i);
+  });
+
+  it('normalizes create variant IDs before using the existing-row sync helper', () => {
+    expect(createVariantIdStripIndex).toBeGreaterThan(-1);
+    expect(createVariantIdStripIndex).toBeLessThan(variantSyncIndex);
+    expect(migrationSql).toMatch(
+      /v_variants_for_sync\s+jsonb\s*:=\s+'\[\]'::jsonb/i
+    );
+    expect(migrationSql).toMatch(
+      /IF\s+p_product_id\s+IS\s+NULL\s+AND\s+v_has_variants\s+IS\s+TRUE\s+THEN[\s\S]*jsonb_agg\(element\.raw\s+-\s+'id'\s+ORDER\s+BY\s+element\.ordinal\)[\s\S]*FROM\s+jsonb_array_elements\(p_variants\)\s+WITH\s+ORDINALITY/i
+    );
   });
 
   it('persists products using current columns instead of the broken private helper', () => {
@@ -130,7 +144,7 @@ describe('mobile admin product RPC migration contract', () => {
 
   it('uses the scoped variant sync so costs and ownership checks stay intact', () => {
     expect(variantSyncSql).toMatch(
-      /public\.sync_product_variants_for_product\(\s*v_product_id,\s*p_merchant_id,\s*CASE\s+WHEN\s+v_has_variants\s+IS\s+TRUE\s+THEN\s+p_variants\s+ELSE\s+'\[\]'::jsonb\s+END\s*\)/i
+      /public\.sync_product_variants_for_product\(\s*v_product_id,\s*p_merchant_id,\s*v_variants_for_sync\s*\)/i
     );
   });
 
@@ -163,7 +177,12 @@ describe('mobile admin product RPC migration contract', () => {
     expect(
       migrationSql.slice(variantSyncIndex, hiddenAnchorDeleteIndex)
     ).toMatch(
-      /serialized_inventory_reassignment_required[\s\S]*PERFORM\s+1[\s\S]*FROM\s+public\.variant_inventory[\s\S]*FOR\s+UPDATE[\s\S]*serialized_inventory_reserved_units_exist[\s\S]*UPDATE\s+public\.variant_inventory/i
+      /SELECT\s+pv\.id[\s\S]*INTO\s+v_reassign_anchor_to_variant_id[\s\S]*ORDER\s+BY\s+pv\.created_at\s+NULLS\s+LAST,\s*pv\.id[\s\S]*serialized_inventory_reassignment_required[\s\S]*PERFORM\s+1[\s\S]*FROM\s+public\.variant_inventory[\s\S]*FOR\s+UPDATE[\s\S]*serialized_inventory_reserved_units_exist[\s\S]*FOR\s+v_moved_inventory_unit_id\s+IN[\s\S]*UPDATE\s+public\.variant_inventory[\s\S]*RETURNING\s+id[\s\S]*private\.record_variant_inventory_event\(\s*v_moved_inventory_unit_id/i
+    );
+    expect(
+      migrationSql.slice(anchorTransferIndex, hiddenAnchorDeleteIndex)
+    ).not.toMatch(
+      /private\.record_variant_inventory_event\(\s*NULL,\s*p_merchant_id,\s*v_product_id,\s*v_reassign_anchor_to_variant_id/i
     );
     expect(migrationSql).toMatch(
       /IF\s+v_has_variants\s+IS\s+NOT\s+TRUE[\s\S]*v_inventory_tracking_policy\s+IN\s+\('serialized_strict',\s+'serialized_then_unlimited'\)[\s\S]*PERFORM\s+private\.ensure_product_inventory_anchor_variant\(\s*p_merchant_id,\s*v_product_id\s*\)/i
