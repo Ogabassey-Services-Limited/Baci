@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  containsAllText,
   expectedRouteTextForRoute,
+  extractCanonicalHref,
   extractMetaContent,
+  extractTitle,
+  hasBlogLinks,
   hasDescription,
+  hasJsonLd,
   isCanonicalForRoute,
   normalizeResponseHeaders,
   routePath,
@@ -14,7 +19,9 @@ const HTML = `<!doctype html>
     <title>Blog | Ogabassey</title>
     <meta content="Read expert buying guides, product comparisons, and tech updates from Ogabassey." name="description">
     <link href="https://ogabassey.com/blog" rel="canonical">
+    <script type="application/ld+json">{"@context":"https://schema.org"}</script>
   </head>
+  <body><a href="/blog/best-phones">Best phones</a></body>
 </html>`;
 
 describe('verify-ogabassey-blog-seo-html', () => {
@@ -22,6 +29,44 @@ describe('verify-ogabassey-blog-seo-html', () => {
     expect(routePath('/blog', '/ogabassey.com')).toBe('/ogabassey.com/blog');
     expect(routePath('/blog', '/ogabassey.com/')).toBe('/ogabassey.com/blog');
     expect(routePath('/blog')).toBe('/blog');
+    // A slashless prefix is normalized to a leading-slash path.
+    expect(routePath('/blog', 'ogabassey.com')).toBe('/ogabassey.com/blog');
+  });
+
+  it('extracts the document title', () => {
+    expect(extractTitle(HTML)).toBe('Blog | Ogabassey');
+    expect(extractTitle('<html></html>')).toBe('');
+  });
+
+  it('extracts the canonical href', () => {
+    expect(extractCanonicalHref(HTML)).toBe('https://ogabassey.com/blog');
+    expect(extractCanonicalHref('<html></html>')).toBe('');
+  });
+
+  it('detects a JSON-LD script block', () => {
+    expect(hasJsonLd(HTML)).toBe(true);
+    expect(hasJsonLd('<html></html>')).toBe(false);
+  });
+
+  it('detects crawlable blog links, including relative author-page links', () => {
+    // Absolute link.
+    expect(hasBlogLinks(HTML)).toBe(true);
+    // Relative `../<post>` on an author page resolves to /blog/<post>.
+    const authorHtml = '<a href="../best-phones">Best phones</a>';
+    expect(hasBlogLinks(authorHtml, '/blog/author/bassey-john')).toBe(true);
+    // Path-prefix mode still resolves relative links under /blog/.
+    expect(hasBlogLinks(authorHtml, '/ogabassey.com/blog/author/bassey-john')).toBe(
+      true
+    );
+    // No blog links present.
+    expect(hasBlogLinks('<a href="/about">About</a>', '/blog')).toBe(false);
+  });
+
+  it('checks that all needles are present (case-insensitive)', () => {
+    expect(containsAllText('Smartphones Articles | Ogabassey', ['smartphones'])).toBe(
+      true
+    );
+    expect(containsAllText('Blog | Ogabassey', ['smartphones'])).toBe(false);
   });
 
   it('reads description meta content regardless of attribute order', () => {

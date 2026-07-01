@@ -10,7 +10,12 @@ export function routePath(route: string, pathPrefix = ''): string {
   if (!pathPrefix) {
     return route;
   }
-  return `${pathPrefix.replace(/\/$/, '')}${route}`;
+  // Normalize a slashless prefix (e.g. "ogabassey.com") to a leading-slash
+  // path so the value stays a valid, comparable pathname.
+  const normalizedPrefix = pathPrefix.startsWith('/')
+    ? pathPrefix
+    : `/${pathPrefix}`;
+  return `${normalizedPrefix.replace(/\/$/, '')}${route}`;
 }
 
 export function extractTitle(html: string): string {
@@ -72,8 +77,29 @@ export function hasJsonLd(html: string): boolean {
   return /<script[^>]+type=["']application\/ld\+json["'][^>]*>/i.test(html);
 }
 
-export function hasBlogLinks(html: string): boolean {
-  return /href=["'][^"']*\/blog\//i.test(html);
+// A crawlable blog link may be absolute (/blog/foo) or relative — the author
+// page renders `../<post-slug>` links that resolve to /blog/<post-slug>. Resolve
+// each href against the checked route so relative links aren't false negatives.
+export function hasBlogLinks(html: string, basePath = '/blog'): boolean {
+  const base = new URL(basePath, 'https://verify.local');
+  for (const match of html.matchAll(/href=["']([^"']+)["']/gi)) {
+    const href = match[1];
+    if (!href) {
+      continue;
+    }
+    try {
+      const resolved = new URL(href, base);
+      if (
+        resolved.pathname.includes('/blog/') &&
+        resolved.pathname !== base.pathname
+      ) {
+        return true;
+      }
+    } catch {
+      // Ignore unparseable hrefs (e.g. mailto:, javascript:).
+    }
+  }
+  return false;
 }
 
 export function titleCaseRouteSegment(segment: string): string {

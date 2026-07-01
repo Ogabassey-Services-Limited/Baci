@@ -235,7 +235,10 @@ export async function verifyRoute({
     `${uaName} ${route}: canonical must point at the clean ${expectedRoutePath} URL${expectedCanonicalHost ? ` on ${expectedCanonicalHost}` : ''} with no query, got ${canonicalHref}`
   );
   assert(hasJsonLd(html), `${uaName} ${route}: missing JSON-LD`);
-  assert(hasBlogLinks(html), `${uaName} ${route}: missing crawlable blog links`);
+  assert(
+    hasBlogLinks(html, expectedRoutePath),
+    `${uaName} ${route}: missing crawlable blog links`
+  );
   assert(
     !html.includes('NEXT_STATIC_GEN_BAILOUT'),
     `${uaName} ${route}: contains NEXT_STATIC_GEN_BAILOUT`
