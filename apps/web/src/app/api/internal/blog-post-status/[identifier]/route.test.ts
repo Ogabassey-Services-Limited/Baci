@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
+import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { createPublicClient } from '@/lib/supabase/anon';
 import { GET } from './route';
 
@@ -38,15 +39,17 @@ function createQuery(response: QueryResponse) {
 
 function mockSupabaseResponses(responses: QueryResponse[]) {
   const queries = responses.map(createQuery);
+  const pendingQueries = [...queries];
   vi.mocked(createPublicClient).mockReturnValue({
     from: vi.fn(() => {
-      const query = queries.shift();
+      const query = pendingQueries.shift();
       if (!query) {
         throw new Error('Unexpected Supabase query');
       }
       return query;
     }),
   } as unknown as ReturnType<typeof createPublicClient>);
+  return queries;
 }
 
 function buildRequest(slug = 'requested-post', auth = 'test-internal-secret') {
@@ -112,7 +115,7 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
   });
 
   it('returns a safe internal redirect path for retired blog slugs', async () => {
-    mockSupabaseResponses([
+    const queries = mockSupabaseResponses([
       { data: null, error: null },
       { data: { target_post_id: 'post-2' }, error: null },
       { data: { slug: 'canonical-post' }, error: null },
@@ -125,6 +128,28 @@ describe('GET /api/internal/blog-post-status/[identifier]', () => {
       hasError: false,
       present: true,
       redirectPath: '/blog/canonical-post',
+    });
+    expect(applyPublicBlogSqlFilters).toHaveBeenCalledTimes(2);
+    expect(queries[2].not).toHaveBeenCalledWith('title', 'is', null);
+    expect(queries[2].not).toHaveBeenCalledWith('slug', 'is', null);
+    expect(queries[2].neq).toHaveBeenCalledWith('title', '');
+    expect(queries[2].neq).toHaveBeenCalledWith('slug', '');
+  });
+
+  it('does not redirect retired slugs to the same post slug', async () => {
+    mockSupabaseResponses([
+      { data: null, error: null },
+      { data: { target_post_id: 'post-2' }, error: null },
+      { data: { slug: 'retired-post' }, error: null },
+    ]);
+
+    const response = await GET(buildRequest('retired-post'), context());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      hasError: false,
+      present: false,
+      redirectPath: null,
     });
   });
 

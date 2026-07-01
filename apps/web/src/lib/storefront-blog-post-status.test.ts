@@ -115,6 +115,65 @@ describe('resolveStorefrontBlogPostStatus', () => {
     ).resolves.toEqual({ kind: 'present-or-unknown' });
   });
 
+  it('fails open without calling the endpoint when the internal secret is missing', async () => {
+    const fetchImpl = vi.fn();
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: undefined,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('fails open when the internal endpoint returns a non-OK response', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({}, false));
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: 'internal-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+  });
+
+  it('fails open when the internal endpoint request throws', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('network failed'));
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: 'internal-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+  });
+
+  it('fails open when the internal endpoint request is aborted', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValue(new DOMException('timed out', 'AbortError'));
+
+    await expect(
+      resolveStorefrontBlogPostStatus({
+        origin: 'https://ogabassey.com',
+        identifier: 'ogabassey.com',
+        postSlug: 'post',
+        secret: 'internal-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ kind: 'present-or-unknown' });
+  });
+
   it('does not send the secret when there is no trusted internal base URL', async () => {
     clearConfiguredInternalBaseEnv();
     const fetchImpl = vi.fn();

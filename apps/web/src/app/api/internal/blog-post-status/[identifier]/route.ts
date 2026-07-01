@@ -120,20 +120,28 @@ export async function GET(
       return NextResponse.json(MISSING, { status: 200, headers: NO_STORE });
     }
 
-    const { data: targetPost, error: targetPostError } = await supabase
+    let targetPostQuery = supabase
       .from('blog_posts')
       .select('slug')
       .eq('merchant_id', merchant.id)
       .eq('id', targetPostId)
       .eq('status', 'published')
       .not('published_at', 'is', null)
-      .maybeSingle<BlogPostTargetRow>();
+      .not('title', 'is', null)
+      .not('slug', 'is', null)
+      .neq('title', '')
+      .neq('slug', '');
+
+    targetPostQuery = applyPublicBlogSqlFilters(targetPostQuery);
+
+    const { data: targetPost, error: targetPostError } =
+      await targetPostQuery.maybeSingle<BlogPostTargetRow>();
     if (targetPostError) {
       return NextResponse.json(FAIL_OPEN, { status: 200, headers: NO_STORE });
     }
 
     const targetSlug = normalizeBlogSlug(targetPost?.slug);
-    if (!targetSlug) {
+    if (!targetSlug || targetSlug === sourceSlug) {
       return NextResponse.json(MISSING, { status: 200, headers: NO_STORE });
     }
 

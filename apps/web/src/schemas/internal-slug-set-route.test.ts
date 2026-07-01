@@ -72,6 +72,13 @@ describe('internalBlogPostStatusQuerySchema', () => {
       internalBlogPostStatusQuerySchema.safeParse({ slug: '   ' }).success
     ).toBe(false);
   });
+
+  it('rejects over-long blog post slugs', () => {
+    expect(
+      internalBlogPostStatusQuerySchema.safeParse({ slug: 'a'.repeat(256) })
+        .success
+    ).toBe(false);
+  });
 });
 
 describe('internalProductCanonicalRedirectQuerySchema', () => {
