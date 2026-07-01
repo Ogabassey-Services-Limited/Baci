@@ -16,6 +16,7 @@ vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
       background: '#020617',
+      backdrop: 'rgba(15, 23, 42, 0.35)',
       border: '#334155',
       card: '#111827',
       primary: '#2563eb',
@@ -25,6 +26,7 @@ vi.mock('@/hooks/useTheme', () => ({
     },
     shadows: {
       lg: {},
+      sm: {},
     },
   }),
 }));

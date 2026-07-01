@@ -31,3 +31,7 @@
 **Action:** Spread the semantic `shadows.sm`/`shadows.md` token object for selected-state controls instead of mixing a token color with raw shadow dimensions.
 **Source:** React Native shadow props docs and `apps/mobile-admin/constants/theme.ts`, verified 2026-07-01.
 
+## 2026-07-01 — DateRangePicker overlay and mode shadows use theme tokens
+**Learning:** Modal overlays and selected segmented controls should not carry local hardcoded color/shadow literals when the mobile admin theme already exposes `colors.backdrop` and semantic shadow tokens.
+**Action:** Move DateRangePicker overlay color to `colors.backdrop` and spread `shadows.sm` for selected mode buttons.
+**Source:** React Native Pressable/Modal docs and `apps/mobile-admin/constants/theme.ts`, verified 2026-07-01.

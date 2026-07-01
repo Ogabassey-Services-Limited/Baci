@@ -10,3 +10,7 @@
 **Action:** Use `renderHook(() => useHook(...))` for hook test coverage, including no-argument fallback cases and representative valid keys.
 **Source:** React Testing Library `renderHook` API, verified 2026-07-01.
 
+## 2026-07-01 — Test-only folds must stay runtime-clean
+**Learning:** Coverage-only branches are safe to fold when they add isolated tests and do not import stale runtime changes from their source branches.
+**Action:** Cherry-pick only the intended test files for notification routes and performance hooks, then run those exact tests before closing the source PRs.
+**Source:** PRs #2892 and #2859, verified against current branch on 2026-07-01.

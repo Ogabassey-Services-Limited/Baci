@@ -1,13 +1,15 @@
 'use client';
 
-import { Calendar, ExternalLink, History, ShoppingCart, ShieldCheck } from 'lucide-react';
+import {
+  Calendar,
+  ExternalLink,
+  History,
+  ShieldCheck,
+  ShoppingCart,
+} from 'lucide-react';
 import type React from 'react';
+import { useCurrency } from '@/hooks/use-currency';
 import { EmptyState } from '../components/empty-state';
-
-const NGN_CURRENCY: Intl.NumberFormat = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-});
 
 // Interface matching the real order structure from the API
 export interface OrderItem {
@@ -38,10 +40,7 @@ export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
   onBuyAgain,
   onViewDetails,
 }) => {
-  // Helper to format currency
-  const formatCurrency = (amount: number) => {
-    return NGN_CURRENCY.format(amount);
-  };
+  const { formatCurrency } = useCurrency();
 
   // Helper to format date
   const formatDate = (dateString: string) => {

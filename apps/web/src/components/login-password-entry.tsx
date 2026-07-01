@@ -83,9 +83,15 @@ export function LoginPasswordEntry({
               aria-pressed={showPassword}
             >
               {showPassword ? (
-                <EyeOff className="size-4 text-muted-foreground" />
+                <EyeOff
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
               ) : (
-                <Eye className="size-4 text-muted-foreground" />
+                <Eye
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
               )}
             </Button>
           </div>
