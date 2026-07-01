@@ -3340,9 +3340,9 @@ export const CheckoutPage: React.FC = () => {
                         {deliveryMethod === 'airport' && (
                           <div className="mt-4 space-y-3 animate-in fade-in">
                             <div className="flex items-start gap-3">
-                              <Plane size={20} className="text-gray-500 mt-0.5" />
-                              <p className="text-sm text-gray-600">
-                                Delivery to your nearest airport. Choose delivery to your location or pickup at the airport.
+                              <Plane size={20} className="text-store-background-text/50 mt-0.5" />
+                              <p className="text-sm text-store-background-text/60">
+                                Delivery to your doorstep is available. Choose delivery to your location or pickup at the airport.
                               </p>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3367,10 +3367,10 @@ export const CheckoutPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <p className="font-bold text-gray-900 text-sm">Airport Delivery</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Delivered to your address</p>
+                                  <p className="font-bold text-store-background-text text-sm">Airport Delivery</p>
+                                  <p className="text-xs text-store-background-text/55 mt-0.5">Delivery to your doorstep</p>
                                 </div>
-                                <span className="font-bold text-gray-900">₦25,000</span>
+                                <span className="font-bold text-store-background-text">₦25,000</span>
                               </label>
                               <label
                                 className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
@@ -3393,10 +3393,10 @@ export const CheckoutPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <p className="font-bold text-gray-900 text-sm">Airport Pickup</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Collect at the airport</p>
+                                  <p className="font-bold text-store-background-text text-sm">Airport Pickup</p>
+                                  <p className="text-xs text-store-background-text/55 mt-0.5">Collect at the airport</p>
                                 </div>
-                                <span className="font-bold text-gray-900">₦20,000</span>
+                                <span className="font-bold text-store-background-text">₦20,000</span>
                               </label>
                             </div>
                           </div>

@@ -7,6 +7,7 @@ import type Colors from '@/constants/Colors';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 
+const AIRPORT_DOORSTEP_NOTE = 'Delivery to your doorstep';
 const DELIVERY_ESTIMATE = 'Est Delivery within 24-48 working hours';
 
 type ColorsScheme = (typeof Colors)['light'];
@@ -53,7 +54,7 @@ export function DeliveryMethodCard({
     options.push({
       id: 'airport',
       title: 'Airport Delivery (Outside Lagos)',
-      subtitle: DELIVERY_ESTIMATE,
+      subtitle: AIRPORT_DOORSTEP_NOTE,
       price: formatPrice(airportFee),
     });
   }
@@ -169,7 +170,7 @@ export function DeliveryMethodCard({
                         { color: colors.textSecondary },
                       ]}
                     >
-                      {DELIVERY_ESTIMATE}
+                      {AIRPORT_DOORSTEP_NOTE}. {DELIVERY_ESTIMATE}
                     </Text>
                   </View>
                 ) : null}

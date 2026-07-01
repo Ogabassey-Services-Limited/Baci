@@ -28,6 +28,7 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
 
   // Transit
   IN_TRANSIT: 'in_transit',
+  SHIPMENT_IN_TRANSIT: 'in_transit',
   InTransit: 'in_transit',
   Processing: 'in_transit',
   PROCESSING: 'in_transit',
@@ -45,6 +46,8 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
   // Delivered
   DELIVERED: 'delivered',
   Delivered: 'delivered',
+  SHIPMENT_DELIVERED: 'delivered',
+  'Shipment delivered': 'delivered',
   COMPLETED: 'delivered',
   Completed: 'delivered',
 
@@ -65,10 +68,13 @@ const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
 };
 
 export function mapGiglStatus(status: string): NormalizedShipmentStatus {
+  const normalized = status.trim();
+  const screamingSnake = normalized
+    .replace(/[^a-z0-9]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
   return (
-    GIGL_STATUS_MAP[status] ||
-    GIGL_STATUS_MAP[status.toUpperCase()] ||
-    'pending'
+    GIGL_STATUS_MAP[normalized] || GIGL_STATUS_MAP[screamingSnake] || 'pending'
   );
 }
 
