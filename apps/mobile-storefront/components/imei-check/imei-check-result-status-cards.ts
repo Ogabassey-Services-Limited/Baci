@@ -95,6 +95,36 @@ export function getImeiResultStatusCards(
       icon: 'briefcase-outline',
       label: 'MDM Status',
     }),
+    optionalStatusCard(result.knoxGuardStatus, {
+      cleanAware: true,
+      icon: 'lock-closed-outline',
+      label: 'Knox Guard',
+    }),
+    optionalStatusCard(result.gsxCoverage, {
+      icon: 'shield-checkmark-outline',
+      label: 'Coverage',
+      tint: colors.success,
+    }),
+    optionalStatusCard(result.repairEligibility, {
+      icon: 'build-outline',
+      label: 'Repair Eligibility',
+      tint: colors.textSecondary,
+    }),
+    optionalStatusCard(result.repairHistory, {
+      cleanAware: true,
+      icon: 'construct-outline',
+      label: 'Repair History',
+    }),
+    optionalStatusCard(result.replacementHistory, {
+      cleanAware: true,
+      icon: 'refresh-outline',
+      label: 'Replacement History',
+    }),
+    optionalStatusCard(result.partNumber, {
+      icon: 'pricetag-outline',
+      label: 'Part Number',
+      tint: colors.textSecondary,
+    }),
   ].filter((card): card is ImeiResultStatusCard => Boolean(card));
 }
 

@@ -1,31 +1,31 @@
 import {
-  getVisibleImeiServiceTierKeys,
+  IMEI_DEVICE_CATEGORIES,
   IMEI_SERVICE_TIERS,
-  type ImeiBrandFilter,
+  type ImeiDeviceCategory,
   type ImeiServiceTierKey,
-  PRIMARY_IMEI_SERVICE_TIERS,
+  isValidDeviceIdentifier,
 } from '@baci/shared/imei';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Crypto from 'expo-crypto';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Keyboard } from 'react-native';
-import { ImeiCheckFormView } from '@/components/imei-check/imei-check-form-view';
+import { Alert, Keyboard, Pressable, View } from 'react-native';
+import type PagerView from 'react-native-pager-view';
+import { ImeiCheckPager } from '@/components/imei-check/ImeiCheckPager';
+import { ImeiDeviceTabs } from '@/components/imei-check/ImeiDeviceTabs';
+import HeroCard from '@/components/imei-check/imei-check-hero-card';
 import { ImeiCheckResultView } from '@/components/imei-check/imei-check-result-view';
-import {
-  getPublicVisibleImeiServiceTierKeys,
-  hasAdditionalPublicImeiServiceTierKeys,
-  resolveImeiCheckFailure,
-} from '@/components/imei-check/resolve-imei-check-failure';
+import { resolveImeiCheckFailure } from '@/components/imei-check/resolve-imei-check-failure';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import { useWallet } from '@/hooks/use-wallet';
 import { createLogger } from '@/lib/logger';
 import { resolveStorefrontApiBaseUrl } from '@/lib/storefront-api-url';
 import {
   ImeiCheckApiResponseSchema,
   type ImeiResult,
-  isValidIMEI,
   parseApiResponse,
 } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -35,6 +35,10 @@ const API_BASE_URL = resolveStorefrontApiBaseUrl(
   process.env.EXPO_PUBLIC_STOREFRONT_API_URL,
   process.env.EXPO_PUBLIC_API_URL
 );
+
+const DEVICE_ORDER = IMEI_DEVICE_CATEGORIES.map(
+  (category) => category.id
+) as ImeiDeviceCategory[];
 
 const getImeiCheckNetworkErrorMessage = (err: unknown) =>
   err instanceof Error && err.name === 'AbortError'
@@ -51,89 +55,38 @@ const handleTopUpWallet = (amount: number): void => {
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [imei, setImei] = useState('');
-  const [selectedTier, setSelectedTier] = useState<ImeiServiceTierKey>('full');
-  const [selectedBrand, setSelectedBrand] = useState<ImeiBrandFilter>('all');
-  const [showAllServices, setShowAllServices] = useState(false);
+  const [selectedDevice, setSelectedDevice] =
+    useState<ImeiDeviceCategory>('smartphone');
+  const [visitedDevices, setVisitedDevices] = useState<
+    Record<ImeiDeviceCategory, boolean>
+  >({
+    smartphone: true,
+    tablet: false,
+    laptop: false,
+    watch: false,
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
+  const [resultTier, setResultTier] = useState<ImeiServiceTierKey>('full');
   const [error, setError] = useState<string | null>(null);
   const session = useAuthStore((state) => state.session);
   const walletQuery = useWallet();
+  const pagerRef = useRef<PagerView>(null);
   const activeIdempotencyRef = useRef<{
     imei: string;
     key: string;
     tier: ImeiServiceTierKey;
   } | null>(null);
-  const canToggleServices = hasAdditionalPublicImeiServiceTierKeys(
-    getVisibleImeiServiceTierKeys,
-    selectedBrand
-  );
-  const expandedViewEnabled = canToggleServices && showAllServices;
 
-  const currentTier = IMEI_SERVICE_TIERS[selectedTier];
-  const visibleTierKeys = getPublicVisibleImeiServiceTierKeys(
-    getVisibleImeiServiceTierKeys,
-    selectedBrand,
-    expandedViewEnabled
-  );
-  const displayedTierKeys =
-    visibleTierKeys.length > 0 ? visibleTierKeys : PRIMARY_IMEI_SERVICE_TIERS;
+  const walletBalance = walletQuery.data?.wallet.balance ?? 0;
 
-  const handleImeiChange = (text: string) => {
-    activeIdempotencyRef.current = null;
-    setImei(text.replace(/\D/g, '').slice(0, 15));
-  };
-
-  const handleBrandSelect = (brand: ImeiBrandFilter) => {
-    activeIdempotencyRef.current = null;
-    setSelectedBrand(brand);
-    const nextCanToggle = hasAdditionalPublicImeiServiceTierKeys(
-      getVisibleImeiServiceTierKeys,
-      brand
-    );
-    const nextExpanded = nextCanToggle && showAllServices;
-    if (!nextCanToggle && showAllServices) {
-      setShowAllServices(false);
-    }
-    const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
-      getVisibleImeiServiceTierKeys,
-      brand,
-      nextExpanded
-    );
-    if (!nextVisibleTiers.includes(selectedTier)) {
-      setSelectedTier('full');
-    }
-  };
-
-  const handleToggleServices = () => {
-    if (!canToggleServices) return;
-    const nextExpanded = !showAllServices;
-    setShowAllServices(nextExpanded);
-    const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
-      getVisibleImeiServiceTierKeys,
-      selectedBrand,
-      nextExpanded
-    );
-    if (!nextVisibleTiers.includes(selectedTier)) {
-      setSelectedTier('full');
-      activeIdempotencyRef.current = null;
-    }
-  };
-
-  const handleTierSelect = (tier: ImeiServiceTierKey) => {
-    activeIdempotencyRef.current = null;
-    setSelectedTier(tier);
-  };
-
-  const getIdempotencyKey = () => {
+  const getIdempotencyKey = (tier: ImeiServiceTierKey, imei: string) => {
     const active = activeIdempotencyRef.current;
-    if (active && active.imei === imei && active.tier === selectedTier) {
+    if (active && active.imei === imei && active.tier === tier) {
       return active.key;
     }
-
     const key = Crypto.randomUUID();
-    activeIdempotencyRef.current = { imei, key, tier: selectedTier };
+    activeIdempotencyRef.current = { imei, key, tier };
     return key;
   };
 
@@ -141,14 +94,42 @@ export default function ImeiCheckerScreen() {
     activeIdempotencyRef.current = null;
   };
 
-  const walletBalance = walletQuery.data?.wallet.balance ?? 0;
+  const handleDeviceTab = (device: ImeiDeviceCategory) => {
+    const index = DEVICE_ORDER.indexOf(device);
+    if (index < 0) return;
+    setSelectedDevice(device);
+    setVisitedDevices((prev) =>
+      prev[device] ? prev : { ...prev, [device]: true }
+    );
+    pagerRef.current?.setPage(index);
+  };
 
-  const handleCheck = async () => {
+  const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
+    const device = DEVICE_ORDER[event.nativeEvent.position];
+    if (!device) return;
+    setSelectedDevice(device);
+    setVisitedDevices((prev) =>
+      prev[device] ? prev : { ...prev, [device]: true }
+    );
+    setError(null);
+  };
+
+  const handleVerify = async (tier: ImeiServiceTierKey, imei: string) => {
     Keyboard.dismiss();
     if (isLoading) return;
 
-    if (!isValidIMEI(imei)) {
-      Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.');
+    const serviceTier = IMEI_SERVICE_TIERS[tier];
+    if (!isValidDeviceIdentifier(imei, serviceTier.identifier)) {
+      Alert.alert(
+        serviceTier.identifier === 'serial'
+          ? 'Invalid serial'
+          : 'Invalid number',
+        serviceTier.identifier === 'serial'
+          ? 'Please enter a valid device serial number.'
+          : serviceTier.identifier === 'imei'
+            ? 'Please enter a valid 15-digit IMEI number.'
+            : 'Please enter a valid IMEI or serial number.'
+      );
       return;
     }
 
@@ -156,16 +137,14 @@ export default function ImeiCheckerScreen() {
       setError('Loading wallet balance. Please wait a moment and try again.');
       return;
     }
-
     if (walletQuery.isError) {
       setError(
         'Wallet balance unavailable. Refresh your wallet and try again.'
       );
       return;
     }
-
-    if (walletBalance < currentTier.price) {
-      handleTopUpWallet(currentTier.price - walletBalance);
+    if (walletBalance < serviceTier.price) {
+      handleTopUpWallet(serviceTier.price - walletBalance);
       return;
     }
 
@@ -173,7 +152,7 @@ export default function ImeiCheckerScreen() {
     setError(null);
     setResult(null);
 
-    const idempotencyKey = getIdempotencyKey();
+    const idempotencyKey = getIdempotencyKey(tier, imei);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
@@ -189,7 +168,7 @@ export default function ImeiCheckerScreen() {
             'Content-Type': 'application/json',
             'Idempotency-Key': idempotencyKey,
           },
-          body: JSON.stringify({ imei, tier: selectedTier }),
+          body: JSON.stringify({ imei, tier }),
           signal: controller.signal,
         }
       );
@@ -197,7 +176,7 @@ export default function ImeiCheckerScreen() {
       const rawData = await response.json();
       if (!response.ok || rawData?.error) {
         const outcome = resolveImeiCheckFailure({
-          currentTierPrice: currentTier.price,
+          currentTierPrice: serviceTier.price,
           payload: rawData,
           responseStatus: response.status,
           walletBalance,
@@ -235,6 +214,7 @@ export default function ImeiCheckerScreen() {
       }
 
       clearIdempotencyKey();
+      setResultTier(tier);
       setResult(validated.data);
     };
 
@@ -253,47 +233,66 @@ export default function ImeiCheckerScreen() {
     clearIdempotencyKey();
     setResult(null);
     setError(null);
-    setImei('');
   };
 
   return (
     <StorefrontScreenShell
-      edges={['bottom', 'left', 'right']}
+      edges={['left', 'right']}
       style={{ backgroundColor: colors.background }}
     >
+      <Stack.Screen
+        options={{
+          title: 'IMEI Checker',
+          headerLeft: () => (
+            <Pressable
+              accessibilityHint="Returns to the previous screen"
+              accessibilityLabel="Back"
+              accessibilityRole="button"
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
+
       {result ? (
         <ImeiCheckResultView
           colors={colors}
-          currentTier={currentTier}
+          currentTier={IMEI_SERVICE_TIERS[resultTier]}
           result={result}
           onReset={handleReset}
         />
       ) : (
-        <ImeiCheckFormView
-          colors={colors}
-          currentTier={currentTier}
-          displayedTierKeys={displayedTierKeys}
-          error={error}
-          imei={imei}
-          isLoading={isLoading}
-          isWalletError={Boolean(walletQuery.isError)}
-          isWalletLoading={Boolean(walletQuery.isLoading)}
-          selectedBrand={selectedBrand}
-          selectedTier={selectedTier}
-          walletBalance={walletBalance}
-          canToggleServices={canToggleServices}
-          showAllServices={expandedViewEnabled}
-          onBrandSelect={handleBrandSelect}
-          onChangeImei={handleImeiChange}
-          onCheck={handleCheck}
-          onClearImei={() => {
-            clearIdempotencyKey();
-            setImei('');
-          }}
-          onTierSelect={handleTierSelect}
-          onTopUpWallet={handleTopUpWallet}
-          onToggleServices={handleToggleServices}
-        />
+        <AppKeyboardContainer style={{ flex: 1 }}>
+          <View
+            style={{
+              paddingHorizontal: SPACING.md,
+              paddingTop: SPACING.sm,
+            }}
+          >
+            <HeroCard colors={colors} />
+            <ImeiDeviceTabs
+              colors={colors}
+              selected={selectedDevice}
+              onSelect={handleDeviceTab}
+            />
+          </View>
+          <ImeiCheckPager
+            colors={colors}
+            error={error}
+            initialPage={DEVICE_ORDER.indexOf(selectedDevice)}
+            isLoading={isLoading}
+            isWalletError={Boolean(walletQuery.isError)}
+            isWalletLoading={Boolean(walletQuery.isLoading)}
+            pagerRef={pagerRef}
+            visitedDevices={visitedDevices}
+            walletBalance={walletBalance}
+            onPageSelected={handlePageSelected}
+            onVerify={handleVerify}
+            onTopUpWallet={handleTopUpWallet}
+          />
+        </AppKeyboardContainer>
       )}
     </StorefrontScreenShell>
   );

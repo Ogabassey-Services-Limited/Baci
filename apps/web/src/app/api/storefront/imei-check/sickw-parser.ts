@@ -21,6 +21,8 @@ const VERDICT_MESSAGES = {
     'INCOMPLETE DATA - Could not verify all device information. Proceed with caution.',
   mdmLocked:
     'CAUTION - Mobile Device Management appears active. Ask the seller to remove management before payment.',
+  knoxGuardLocked:
+    'CAUTION - Samsung Knox Guard appears active (often carrier-financed). Ask the seller to clear it before payment.',
   miAccountLocked:
     'CAUTION - Xiaomi account lock appears active. Ask the seller to remove the Mi account before payment.',
   miLost:
@@ -132,6 +134,32 @@ export function parseSickwResponse(
     data['mdm lock status'] ||
     data['management lock'] ||
     '';
+  const knoxGuardStatus =
+    data['knox guard'] ||
+    data['knox guard status'] ||
+    data.knoxguard ||
+    data['kg status'] ||
+    '';
+  const partNumber = data['part number'] || data['part no'] || '';
+  const repairEligibility =
+    data['repair eligibility'] ||
+    data['gsx repair eligibility'] ||
+    data['service eligibility'] ||
+    '';
+  const gsxCoverage =
+    data.coverage ||
+    data['warranty coverage'] ||
+    data['coverage status'] ||
+    data.applecare ||
+    '';
+  const repairHistory =
+    data['repair history'] || data.repairs || data.cases || '';
+  const replacementHistory =
+    data['replacement status'] ||
+    data.replacement ||
+    data.replaced ||
+    data['replacement history'] ||
+    '';
   const { miLockStatus, miLostStatus } = getXiaomiStatuses(data, device);
 
   const deviceType = inferDeviceType(device);
@@ -145,6 +173,12 @@ export function parseSickwResponse(
     'locked',
     'on',
   ]);
+  const hasKnoxGuardIssue = hasRiskToken(knoxGuardStatus, [
+    'active',
+    'enabled',
+    'locked',
+    'on',
+  ]);
   const hasMiLockIssue = hasXiaomiLockIssue(miLockStatus);
   const hasMiLostIssue = hasXiaomiLostIssue(miLostStatus);
 
@@ -153,6 +187,7 @@ export function parseSickwResponse(
   if (hasMiLostIssue) score -= SCORE_PENALTIES.MI_LOST;
   if (hasIcloudLockOn) score -= SCORE_PENALTIES.ICLOUD_LOCK;
   if (hasMdmIssue) score -= SCORE_PENALTIES.MDM_LOCK;
+  if (hasKnoxGuardIssue) score -= SCORE_PENALTIES.MDM_LOCK;
   if (hasMiLockIssue) score -= SCORE_PENALTIES.MI_LOCK;
   if (hasIcloudStatusIssue) score -= SCORE_PENALTIES.ICLOUD_STATUS;
   if (isSimLocked) score -= SCORE_PENALTIES.SIM_LOCK;
@@ -168,6 +203,7 @@ export function parseSickwResponse(
   const verdict = buildVerdict({
     hasIcloudLockOn,
     hasIcloudStatusIssue,
+    hasKnoxGuardIssue,
     hasMdmIssue,
     hasMiLockIssue,
     hasMiLostIssue,
@@ -193,8 +229,14 @@ export function parseSickwResponse(
     ...(refurbished && { refurbished }),
     ...(demoUnit && { demoUnit }),
     ...(mdmStatus && { mdmStatus }),
+    ...(knoxGuardStatus && { knoxGuardStatus }),
     ...(miLockStatus && { miLockStatus }),
     ...(miLostStatus && { miLostStatus }),
+    ...(partNumber && { partNumber }),
+    ...(repairEligibility && { repairEligibility }),
+    ...(gsxCoverage && { gsxCoverage }),
+    ...(repairHistory && { repairHistory }),
+    ...(replacementHistory && { replacementHistory }),
     deviceType,
     score: Math.max(0, score),
     verdict: verdict.text,
@@ -266,6 +308,7 @@ function hasRiskToken(value: string, tokens: readonly string[]): boolean {
 function buildVerdict({
   hasIcloudLockOn,
   hasIcloudStatusIssue,
+  hasKnoxGuardIssue,
   hasMdmIssue,
   hasMiLockIssue,
   hasMiLostIssue,
@@ -275,6 +318,7 @@ function buildVerdict({
 }: {
   hasIcloudLockOn: boolean;
   hasIcloudStatusIssue: boolean;
+  hasKnoxGuardIssue: boolean;
   hasMdmIssue: boolean;
   hasMiLockIssue: boolean;
   hasMiLostIssue: boolean;
@@ -303,6 +347,13 @@ function buildVerdict({
   if (hasMdmIssue) {
     return {
       text: VERDICT_MESSAGES.mdmLocked,
+      type: 'caution',
+    };
+  }
+
+  if (hasKnoxGuardIssue) {
+    return {
+      text: VERDICT_MESSAGES.knoxGuardLocked,
       type: 'caution',
     };
   }

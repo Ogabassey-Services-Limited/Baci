@@ -397,16 +397,18 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
   });
 
-  it('rejects hidden service tiers before customer resolution or persistence', async () => {
+  it('rejects unknown service tiers before customer resolution or persistence', async () => {
+    // The full catalog is now public (device-category expansion), so the tier
+    // gate only rejects keys that are not real service tiers at all.
     const { POST } = await importRoute();
 
     const response = await POST(
-      createRequest({ imei: VALID_IMEI, tier: 'blacklistPro' })
+      createRequest({ imei: VALID_IMEI, tier: 'not-a-real-tier' })
     );
     const body = (await response.json()) as { code: string };
 
     expect(response.status).toBe(400);
-    expect(body.code).toBe('IMEI_TIER_NOT_AVAILABLE');
+    expect(body.code).toBe('INVALID_REQUEST_BODY');
     expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
     expect(mocks.mockCreateAdminClient).not.toHaveBeenCalled();
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();

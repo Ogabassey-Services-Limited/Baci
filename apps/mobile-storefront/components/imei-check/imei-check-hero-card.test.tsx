@@ -11,10 +11,11 @@ jest.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 describe('HeroCard', () => {
-  it('renders the IMEI checker trust indicators', () => {
+  it('renders the heading and trust indicators without a redundant title', () => {
     render(<HeroCard colors={Colors.light} />);
 
-    expect(screen.getByText('IMEI Checker')).toBeTruthy();
+    expect(screen.getByText('Device verification')).toBeTruthy();
+    expect(screen.queryByText('IMEI Checker')).toBeNull();
     expect(screen.getByText('15-digit check')).toBeTruthy();
     expect(screen.getByText('Official status')).toBeTruthy();
     expect(screen.getByText('Instant report')).toBeTruthy();

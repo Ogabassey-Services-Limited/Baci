@@ -1,6 +1,7 @@
 import {
   IMEI_SERVICE_TIERS,
-  PRIMARY_IMEI_SERVICE_TIERS,
+  isValidDeviceIdentifier,
+  PUBLIC_IMEI_SERVICE_TIERS,
 } from '@baci/shared/imei';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
@@ -29,7 +30,6 @@ import {
   findLookupByIdempotencyKey,
   hashImei,
   isUniqueViolation,
-  isValidImeiChecksum,
   json,
   mapExistingLookup,
   mapExistingTerminalLookupWithoutImeiHash,
@@ -37,7 +37,7 @@ import {
 } from './route-helpers';
 
 const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<string>(
-  PRIMARY_IMEI_SERVICE_TIERS
+  PUBLIC_IMEI_SERVICE_TIERS
 );
 
 export async function POST(request: NextRequest) {
@@ -142,9 +142,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isValidImeiChecksum(bodyParse.data.imei)) {
+    const requestedIdentifier = IMEI_SERVICE_TIERS[requestedTier].identifier;
+    if (!isValidDeviceIdentifier(bodyParse.data.imei, requestedIdentifier)) {
       return json(
-        errorBody({ code: 'INVALID_IMEI', error: 'Invalid IMEI checksum' }),
+        errorBody({
+          code: 'INVALID_IMEI',
+          error:
+            requestedIdentifier === 'serial'
+              ? 'Invalid serial number'
+              : 'Invalid IMEI or serial number',
+        }),
         400
       );
     }

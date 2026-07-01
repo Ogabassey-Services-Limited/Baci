@@ -18,6 +18,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock('@/components/ui/AppKeyboardContainer', () => ({
@@ -30,11 +31,13 @@ const baseProps = {
   currentTier: IMEI_SERVICE_TIERS.full,
   displayedTierKeys: ['full', 'blacklist', 'carrier'] as const,
   error: null as string | null,
+  identifier: 'imei' as const,
   imei: '',
   isLoading: false,
   isWalletError: false,
   isWalletLoading: false,
-  selectedBrand: 'all' as const,
+  selectedBrand: 'apple' as const,
+  selectedDevice: 'smartphone' as const,
   selectedTier: 'full' as const,
   canToggleServices: true,
   showAllServices: false,
@@ -43,17 +46,16 @@ const baseProps = {
   onChangeImei: jest.fn(),
   onCheck: jest.fn(),
   onClearImei: jest.fn(),
+  onDeviceSelect: jest.fn(),
   onTierSelect: jest.fn(),
   onTopUpWallet: jest.fn(),
   onToggleServices: jest.fn(),
 };
 
 describe('ImeiCheckFormView', () => {
-  it('renders the hero card and verify CTA with the current tier price', () => {
+  it('renders the verify CTA with the current tier price', () => {
     render(<ImeiCheckFormView {...baseProps} />);
 
-    expect(screen.getByText('IMEI Checker')).toBeTruthy();
-    expect(screen.getByText('Device verification')).toBeTruthy();
     expect(screen.getByText('Verify Now - ₦1,500')).toBeTruthy();
   });
 
@@ -106,7 +108,7 @@ describe('ImeiCheckFormView', () => {
     expect(screen.queryByText('Verify Now - ₦1,500')).toBeNull();
   });
 
-  it('renders the top-up CTA and disables verify when wallet balance is short', () => {
+  it('turns the button into a top-up action when wallet balance is short', () => {
     const onCheck = jest.fn();
     const onTopUpWallet = jest.fn();
     render(
@@ -120,7 +122,7 @@ describe('ImeiCheckFormView', () => {
     );
 
     expect(screen.getByText('Top up to unlock')).toBeTruthy();
-    fireEvent.press(screen.getByText('Top up'));
+    fireEvent.press(screen.getByText('Top up to unlock'));
 
     expect(onTopUpWallet).toHaveBeenCalledTimes(1);
     expect(onTopUpWallet).toHaveBeenCalledWith(1000);

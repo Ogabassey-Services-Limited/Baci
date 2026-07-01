@@ -7,7 +7,7 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     tagline: 'Is it actually brand new?',
     description: 'Check whether an Apple device has been activated',
     detail:
-      'Checks if Apple says the device has been activated. Useful when a seller claims a phone is brand new.',
+      'Checks if Apple says the device has been activated. Useful when a seller claims a device is brand new.',
     price: 700,
     costUsd: 0.04,
     features: [
@@ -28,6 +28,8 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     ],
     icon: 'sparkles-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone', 'tablet', 'laptop', 'watch'],
+    identifier: 'both',
   },
   icloudPro: {
     providerServiceId: '66',
@@ -42,6 +44,8 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'icloud'],
     icon: 'lock-closed-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone', 'laptop'],
+    identifier: 'both',
   },
   appleBasic: {
     providerServiceId: '30',
@@ -55,11 +59,9 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber'],
     icon: 'information-circle-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone', 'tablet', 'laptop'],
+    identifier: 'both',
   },
-  // TODO(imei): Re-add the Apple `serialInfo` tier (provider id '26') once the
-  // storefront supports a serial-number input mode. The current input/validator
-  // (`parseImei`) only accepts 15-digit IMEIs, so a Serial Info selection would
-  // always fail validation. See PR #1557 (codex P2 review).
   demoUnit: {
     providerServiceId: '85',
     name: 'Demo Unit Check',
@@ -72,6 +74,8 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'demoUnit'],
     icon: 'storefront-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone', 'tablet', 'laptop', 'watch'],
+    identifier: 'both',
   },
   mdm: {
     providerServiceId: '81',
@@ -86,5 +90,7 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     checksIncluded: ['device', 'modelNumber', 'mdmStatus'],
     icon: 'briefcase-outline',
     brandScopes: ['apple'],
+    deviceCategories: ['smartphone', 'tablet', 'laptop', 'watch'],
+    identifier: 'both',
   },
 } as const satisfies Record<string, ImeiServiceTierDefinition>;

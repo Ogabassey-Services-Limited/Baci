@@ -1,7 +1,7 @@
 import {
-  PRIMARY_IMEI_SERVICE_TIERS,
   type ImeiBrandFilter,
   type ImeiServiceTierKey,
+  PUBLIC_IMEI_SERVICE_TIERS,
 } from '@baci/shared/imei';
 
 const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
@@ -159,7 +159,7 @@ export function resolveImeiCheckFailure(
 }
 
 const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
-  PRIMARY_IMEI_SERVICE_TIERS
+  PUBLIC_IMEI_SERVICE_TIERS
 );
 
 export function getPublicVisibleImeiServiceTierKeys(

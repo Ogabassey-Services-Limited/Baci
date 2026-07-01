@@ -5,7 +5,11 @@ import {
 import { z } from 'zod';
 
 export const imeiCheckSchema = z.object({
-  imei: z.string().regex(/^\d{15}$/, 'IMEI must be 15 digits'),
+  // Accepts an IMEI (15 digits) or an Apple serial (8–14 alphanumeric). The
+  // route enforces the exact rule for the selected tier's identifier type.
+  imei: z
+    .string()
+    .regex(/^[A-Za-z0-9]{8,15}$/, 'Enter a valid IMEI or serial number'),
   tier: z
     .string()
     .default('full')

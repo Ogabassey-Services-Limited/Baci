@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest';
+import { APPLE_DEVICE_IMEI_SERVICE_TIERS } from './service-tier-apple-devices';
+import { isImeiServiceTierKey } from './service-tiers';
+
+const tiers = Object.entries(APPLE_DEVICE_IMEI_SERVICE_TIERS);
+
+describe('APPLE_DEVICE_IMEI_SERVICE_TIERS', () => {
+  it('registers every device tier in the shared catalog', () => {
+    for (const [key] of tiers) {
+      expect(isImeiServiceTierKey(key)).toBe(true);
+    }
+  });
+
+  it('is Apple-scoped, device-tagged and priced on every tier', () => {
+    for (const [, tier] of tiers) {
+      expect(tier.brandScopes).toEqual(['apple']);
+      expect(tier.deviceCategories.length).toBeGreaterThan(0);
+      expect(['imei', 'serial', 'both']).toContain(tier.identifier);
+      expect(tier.price).toBeGreaterThan(0);
+      expect(tier.providerServiceId).not.toBe('');
+      expect(tier.checksIncluded.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('prices serial services on the shared ~₦16,350/$ markup curve', () => {
+    // Band is wide at the edges to absorb ₦100 rounding on sub-₦300 items
+    // (e.g. Serial Info: ₦200 / $0.01 rounds up to a 20,000 ratio).
+    for (const [, tier] of tiers) {
+      const ratio = tier.price / tier.costUsd;
+      expect(ratio).toBeGreaterThan(13_000);
+      expect(ratio).toBeLessThanOrEqual(20_000);
+    }
+  });
+
+  it('scopes the Mac iCloud lock check to laptops only', () => {
+    expect(APPLE_DEVICE_IMEI_SERVICE_TIERS.macIcloud.deviceCategories).toEqual([
+      'laptop',
+    ]);
+  });
+
+  it('keeps GSX premium available across all Apple device families', () => {
+    const gsx = APPLE_DEVICE_IMEI_SERVICE_TIERS.gsxPremium;
+    expect(gsx.identifier).toBe('serial');
+    for (const category of ['smartphone', 'tablet', 'laptop', 'watch']) {
+      expect(gsx.deviceCategories).toContain(category);
+    }
+  });
+});

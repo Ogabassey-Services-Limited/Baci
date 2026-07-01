@@ -1,3 +1,5 @@
+import type { ImeiIdentifierType } from '@baci/shared/imei';
+import { isValidDeviceIdentifier } from '@baci/shared/imei';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { BRAND, withAlpha } from '@/constants/Colors';
@@ -7,6 +9,7 @@ import type { ImeiCheckerColors } from './imei-check.types';
 interface ImeiCheckInputSectionProps {
   colors: ImeiCheckerColors;
   error: string | null;
+  identifier: ImeiIdentifierType;
   imei: string;
   onChangeImei: (value: string) => void;
   onCheck: () => void;
@@ -16,94 +19,25 @@ interface ImeiCheckInputSectionProps {
 export function ImeiCheckInputSection({
   colors,
   error,
+  identifier,
   imei,
   onChangeImei,
   onCheck,
   onClearImei,
 }: ImeiCheckInputSectionProps) {
+  const isImeiOnly = identifier === 'imei';
+  const placeholder =
+    identifier === 'serial'
+      ? 'Enter serial number'
+      : isImeiOnly
+        ? 'Enter 15-digit IMEI'
+        : 'Enter IMEI or serial';
+  const isComplete = isValidDeviceIdentifier(imei, identifier);
+  const countText = isImeiOnly ? `${imei.length}/15` : `${imei.length}`;
+
   return (
     <>
-      <View
-        style={[
-          styles.inputCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: imei.length === 15 ? BRAND.primary : colors.border,
-          },
-        ]}
-      >
-        <View style={styles.inputHeader}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>
-            Enter 15-digit IMEI
-          </Text>
-          <Text
-            style={[
-              styles.imeiCount,
-              {
-                color:
-                  imei.length === 15 ? BRAND.primary : colors.textSecondary,
-              },
-            ]}
-          >
-            {imei.length}/15 digits
-          </Text>
-        </View>
-        <View style={styles.inputWrapper}>
-          <View
-            style={[
-              styles.inputIcon,
-              { backgroundColor: withAlpha(BRAND.primary, 0.1) },
-            ]}
-          >
-            <Ionicons name="barcode-outline" size={18} color={BRAND.primary} />
-          </View>
-          <TextInput
-            style={[styles.imeiInput, { color: colors.text }]}
-            value={imei}
-            onChangeText={onChangeImei}
-            placeholder="Enter 15-digit IMEI"
-            placeholderTextColor={colors.textSecondary}
-            keyboardType="number-pad"
-            maxLength={15}
-            returnKeyType="go"
-            onSubmitEditing={onCheck}
-            autoComplete="off"
-          />
-          {imei.length > 0 && (
-            <Pressable
-              accessible={true}
-              accessibilityHint="Clears the IMEI input"
-              accessibilityLabel="Clear IMEI"
-              accessibilityRole="button"
-              onPress={onClearImei}
-            >
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-          )}
-        </View>
-        <View
-          style={[
-            styles.inputProgressTrack,
-            { backgroundColor: withAlpha(BRAND.primary, 0.1) },
-          ]}
-        >
-          <View
-            style={[
-              styles.inputProgressFill,
-              {
-                backgroundColor: BRAND.primary,
-                width: `${(imei.length / 15) * 100}%`,
-              },
-            ]}
-          />
-        </View>
-      </View>
-
-      {error && (
+      {error ? (
         <View
           style={[
             styles.errorContainer,
@@ -118,64 +52,64 @@ export function ImeiCheckInputSection({
             {error}
           </Text>
         </View>
-      )}
+      ) : null}
 
       <View
         style={[
-          styles.helpCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          styles.inputField,
+          {
+            backgroundColor: colors.background,
+            borderColor: isComplete ? BRAND.primary : colors.border,
+          },
         ]}
       >
-        <View style={styles.helpHeader}>
-          <Ionicons
-            name="information-circle-outline"
-            size={18}
-            color={BRAND.primary}
-          />
-          <Text style={[styles.helpTitle, { color: colors.text }]}>
-            How to find your IMEI
-          </Text>
-        </View>
-        <View style={styles.helpSteps}>
-          <HelpStep colors={colors} number="1" text="Dial" boldText="*#06#" />
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={colors.textSecondary}
-          />
-          <HelpStep colors={colors} number="2" text="Copy 15 digits" />
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={colors.textSecondary}
-          />
-          <HelpStep colors={colors} number="3" text="Paste above" />
-        </View>
+        <Ionicons
+          name="barcode-outline"
+          size={20}
+          color={isComplete ? BRAND.primary : colors.textSecondary}
+        />
+        {/* No maxLength on purpose: it truncates a pasted spaced IMEI (e.g.
+            "35 4442 067957 452") to 15 chars *including spaces* before the
+            spaces are stripped, dropping digits. normalizeDeviceIdentifier caps
+            the length after removing non-digits instead. */}
+        <TextInput
+          style={[styles.imeiInput, { color: colors.text }]}
+          value={imei}
+          onChangeText={onChangeImei}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+          keyboardType={isImeiOnly ? 'number-pad' : 'default'}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          returnKeyType="go"
+          onSubmitEditing={onCheck}
+          autoComplete="off"
+        />
+        <Text
+          style={[
+            styles.imeiCount,
+            { color: isComplete ? BRAND.primary : colors.textSecondary },
+          ]}
+        >
+          {countText}
+        </Text>
+        {imei.length > 0 && (
+          <Pressable
+            accessible={true}
+            accessibilityHint="Clears the input"
+            accessibilityLabel="Clear input"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={onClearImei}
+          >
+            <Ionicons
+              name="close-circle"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+        )}
       </View>
     </>
-  );
-}
-
-function HelpStep({
-  boldText,
-  colors,
-  number,
-  text,
-}: {
-  boldText?: string;
-  colors: ImeiCheckerColors;
-  number: string;
-  text: string;
-}) {
-  return (
-    <View style={styles.helpStep}>
-      <View style={styles.helpStepNumber}>
-        <Text style={styles.helpStepNumberText}>{number}</Text>
-      </View>
-      <Text style={[styles.helpStepText, { color: colors.text }]}>
-        {text}
-        {boldText ? <Text style={styles.helpBold}> {boldText}</Text> : null}
-      </Text>
-    </View>
   );
 }

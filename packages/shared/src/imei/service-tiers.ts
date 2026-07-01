@@ -1,8 +1,11 @@
 import { ANDROID_IMEI_SERVICE_TIERS } from './service-tier-android';
 import { APPLE_IMEI_SERVICE_TIERS } from './service-tier-apple';
+import { APPLE_DEVICE_IMEI_SERVICE_TIERS } from './service-tier-apple-devices';
 import { CORE_IMEI_SERVICE_TIERS } from './service-tier-core';
 import type {
   ImeiBrandFilter,
+  ImeiDeviceCategory,
+  ImeiIdentifierType,
   ImeiServiceBrandScope,
 } from './service-tier-types';
 
@@ -11,6 +14,7 @@ export * from './service-tier-types';
 export const IMEI_SERVICE_TIERS = {
   ...CORE_IMEI_SERVICE_TIERS,
   ...APPLE_IMEI_SERVICE_TIERS,
+  ...APPLE_DEVICE_IMEI_SERVICE_TIERS,
   ...ANDROID_IMEI_SERVICE_TIERS,
 } as const;
 
@@ -23,6 +27,43 @@ export const PRIMARY_IMEI_SERVICE_TIERS = [
   'carrier',
 ] as const satisfies readonly ImeiServiceTierKey[];
 
+/**
+ * Tiers that are live and purchasable. Single source of truth shared by the web
+ * route gate and the mobile display filter. Previously only the primary 4 were
+ * live; the device-category expansion turns on the full catalog.
+ */
+export const PUBLIC_IMEI_SERVICE_TIERS = [
+  'full',
+  'activation',
+  'blacklist',
+  'blacklistPro',
+  'carrier',
+  'simLock',
+  'icloud',
+  'icloudPro',
+  'icloudCleanLost',
+  'carrierFmi',
+  'basic',
+  'appleBasic',
+  'serialInfo',
+  'macIcloud',
+  'soldByCountry',
+  'gsxPremium',
+  'gsxRepairs',
+  'repairEligibility',
+  'replacementHistory',
+  'demoUnit',
+  'mdm',
+  'samsung',
+  'samsungPro',
+  'knoxGuard',
+  'miLock',
+  'miLostPro',
+  'pixel',
+  'oppoRealme',
+  'transsion',
+] as const satisfies readonly ImeiServiceTierKey[];
+
 export const ALL_IMEI_SERVICE_TIERS = [
   'full',
   'activation',
@@ -32,13 +73,22 @@ export const ALL_IMEI_SERVICE_TIERS = [
   'simLock',
   'icloud',
   'icloudPro',
+  'icloudCleanLost',
   'carrierFmi',
   'basic',
   'appleBasic',
+  'serialInfo',
+  'macIcloud',
+  'soldByCountry',
+  'gsxPremium',
+  'gsxRepairs',
+  'repairEligibility',
+  'replacementHistory',
   'demoUnit',
   'mdm',
   'samsung',
   'samsungPro',
+  'knoxGuard',
   'miLock',
   'miLostPro',
   'pixel',
@@ -46,12 +96,47 @@ export const ALL_IMEI_SERVICE_TIERS = [
   'transsion',
 ] as const satisfies readonly ImeiServiceTierKey[];
 
+/** Default identifier the input uses for each device category. */
+export const IMEI_IDENTIFIER_BY_DEVICE: Record<
+  ImeiDeviceCategory,
+  ImeiIdentifierType
+> = {
+  smartphone: 'imei',
+  tablet: 'both',
+  laptop: 'serial',
+  watch: 'serial',
+};
+
+/** Cards shown before the "show all services" toggle, per device. */
+const PRIMARY_TIERS_BY_DEVICE: Record<
+  ImeiDeviceCategory,
+  readonly ImeiServiceTierKey[]
+> = {
+  smartphone: ['full', 'activation', 'blacklist', 'carrier'],
+  tablet: ['activation', 'icloud', 'mdm', 'gsxPremium'],
+  laptop: ['macIcloud', 'activation', 'mdm', 'gsxPremium'],
+  watch: ['activation', 'repairEligibility', 'gsxPremium'],
+};
+
+/** The star-flagged default check per device. */
+export const RECOMMENDED_TIER_BY_DEVICE: Record<
+  ImeiDeviceCategory,
+  ImeiServiceTierKey
+> = {
+  smartphone: 'full',
+  tablet: 'activation',
+  laptop: 'macIcloud',
+  watch: 'activation',
+};
+
 export function isImeiServiceTierKey(
   value: unknown
 ): value is ImeiServiceTierKey {
+  // Object.keys (own enumerable only) rejects inherited keys like 'toString'
+  // and '__proto__' without needing Object.hasOwn (ES2022, not in shared's lib).
   return (
     typeof value === 'string' &&
-    Object.prototype.hasOwnProperty.call(IMEI_SERVICE_TIERS, value)
+    (Object.keys(IMEI_SERVICE_TIERS) as string[]).includes(value)
   );
 }
 
@@ -61,7 +146,16 @@ export function imeiTierMatchesBrand(
 ): boolean {
   const scopes: readonly ImeiServiceBrandScope[] =
     IMEI_SERVICE_TIERS[tierKey].brandScopes;
-  return brand === 'all' || scopes.includes('all') || scopes.includes(brand);
+  return scopes.includes('all') || scopes.includes(brand);
+}
+
+export function imeiTierMatchesDevice(
+  tierKey: ImeiServiceTierKey,
+  category: ImeiDeviceCategory
+): boolean {
+  const categories: readonly ImeiDeviceCategory[] =
+    IMEI_SERVICE_TIERS[tierKey].deviceCategories;
+  return categories.includes(category);
 }
 
 export function getVisibleImeiServiceTierKeys(
@@ -72,4 +166,40 @@ export function getVisibleImeiServiceTierKeys(
     ? ALL_IMEI_SERVICE_TIERS
     : PRIMARY_IMEI_SERVICE_TIERS;
   return baseTiers.filter((tierKey) => imeiTierMatchesBrand(tierKey, brand));
+}
+
+/**
+ * Device-aware tier selector: the checks valid for a given device category,
+ * further narrowed by brand (brand only meaningfully filters smartphones).
+ */
+export function getVisibleImeiServiceTierKeysForDevice(
+  category: ImeiDeviceCategory,
+  brand: ImeiBrandFilter,
+  expanded: boolean
+): ImeiServiceTierKey[] {
+  // The collapsed "primary" list is iPhone-forward, so it would hide almost
+  // every Samsung/Android check. When a specific non-Apple brand is picked the
+  // matching list is short, so show it in full instead of collapsing it.
+  const brandNarrowsToShortList =
+    category === 'smartphone' && brand !== 'apple';
+  const baseTiers =
+    expanded || brandNarrowsToShortList
+      ? ALL_IMEI_SERVICE_TIERS
+      : PRIMARY_TIERS_BY_DEVICE[category];
+  return baseTiers.filter(
+    (tierKey) =>
+      imeiTierMatchesDevice(tierKey, category) &&
+      imeiTierMatchesBrand(tierKey, brand)
+  );
+}
+
+/** True when expanding "show all services" would reveal extra checks. */
+export function hasAdditionalImeiServiceTierKeysForDevice(
+  category: ImeiDeviceCategory,
+  brand: ImeiBrandFilter
+): boolean {
+  return (
+    getVisibleImeiServiceTierKeysForDevice(category, brand, true).length >
+    getVisibleImeiServiceTierKeysForDevice(category, brand, false).length
+  );
 }

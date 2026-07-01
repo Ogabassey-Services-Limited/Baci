@@ -49,6 +49,7 @@ jest.mock('expo-image', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock('@/components/ui/AppKeyboardContainer', () => ({
@@ -99,25 +100,27 @@ describe('ImeiCheckerScreen', () => {
     expect(screen.getByText('Verify Now - ₦700')).toBeTruthy();
   });
 
-  it('hides the services toggle when no additional public tiers are available', () => {
+  it('exposes the full catalog: shows the toggle and Samsung checks', () => {
     render(<ImeiCheckerScreen />);
 
-    expect(screen.queryByText('Show all services')).toBeNull();
+    // The full catalog is public now, so the "show all services" toggle appears.
+    expect(screen.getByText('Show all services')).toBeTruthy();
+    // Selecting a non-Apple brand reveals its checks without needing "show all".
     fireEvent.press(screen.getByText('Samsung'));
 
-    expect(screen.queryByText('Samsung Info PRO')).toBeNull();
+    expect(screen.getByText('Samsung Info PRO')).toBeTruthy();
   });
 
   it('alerts the user and skips the request when an invalid IMEI is submitted', () => {
     render(<ImeiCheckerScreen />);
 
     const input = screen.getByPlaceholderText('Enter 15-digit IMEI');
-    // 15 digits, but the Luhn checksum is invalid so isValidIMEI() returns false.
+    // 15 digits, but the Luhn checksum is invalid so validation returns false.
     fireEvent.changeText(input, '123456789012345');
     fireEvent(input, 'submitEditing');
 
     expect(alertSpy).toHaveBeenCalledWith(
-      'Invalid IMEI',
+      'Invalid number',
       expect.stringContaining('valid 15-digit IMEI')
     );
   });

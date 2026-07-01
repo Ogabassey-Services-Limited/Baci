@@ -13,6 +13,7 @@ jest.mock('@react-native-vector-icons/ionicons', () => ({
 const baseProps = {
   colors: Colors.light,
   error: null as string | null,
+  identifier: 'imei' as const,
   imei: '',
   onChangeImei: jest.fn(),
   onCheck: jest.fn(),
@@ -20,18 +21,18 @@ const baseProps = {
 };
 
 describe('ImeiCheckInputSection', () => {
-  it('renders the labeled input and digit counter at zero by default', () => {
+  it('renders the placeholder input and digit counter at zero by default', () => {
     render(<ImeiCheckInputSection {...baseProps} />);
 
-    expect(screen.getByText('Enter 15-digit IMEI')).toBeTruthy();
-    expect(screen.getByText('0/15 digits')).toBeTruthy();
+    // The label is intentionally omitted — the placeholder is the only prompt.
+    expect(screen.getByText('0/15')).toBeTruthy();
     expect(screen.getByPlaceholderText('Enter 15-digit IMEI')).toBeTruthy();
   });
 
   it('updates the digit counter to reflect the current IMEI length', () => {
     render(<ImeiCheckInputSection {...baseProps} imei="123456789012345" />);
 
-    expect(screen.getByText('15/15 digits')).toBeTruthy();
+    expect(screen.getByText('15/15')).toBeTruthy();
   });
 
   it('forwards keystrokes to onChangeImei', () => {
@@ -56,15 +57,6 @@ describe('ImeiCheckInputSection', () => {
     expect(screen.getByText('That IMEI looks invalid.')).toBeTruthy();
   });
 
-  it('shows the help steps for finding the IMEI', () => {
-    render(<ImeiCheckInputSection {...baseProps} />);
-
-    expect(screen.getByText('How to find your IMEI')).toBeTruthy();
-    expect(screen.getByText('*#06#')).toBeTruthy();
-    expect(screen.getByText('Copy 15 digits')).toBeTruthy();
-    expect(screen.getByText('Paste above')).toBeTruthy();
-  });
-
   it('exposes an accessible clear action when an IMEI is present', () => {
     const onClearImei = jest.fn();
     render(
@@ -75,7 +67,7 @@ describe('ImeiCheckInputSection', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Clear IMEI'));
+    fireEvent.press(screen.getByLabelText('Clear input'));
 
     expect(onClearImei).toHaveBeenCalledTimes(1);
   });
