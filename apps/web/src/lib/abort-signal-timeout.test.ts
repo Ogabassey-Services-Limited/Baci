@@ -1,16 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
-
-const originalTimeoutDescriptor = Object.getOwnPropertyDescriptor(
-  AbortSignal,
-  'timeout'
-);
-
-function restoreAbortSignalTimeout() {
-  if (originalTimeoutDescriptor) {
-    Object.defineProperty(AbortSignal, 'timeout', originalTimeoutDescriptor);
-  }
-}
+import {
+  removeNativeAbortSignalTimeout,
+  restoreAbortSignalTimeout,
+} from './abort-signal-timeout.test-utils';
 
 describe('createAbortSignalTimeout', () => {
   afterEach(() => {
@@ -33,10 +26,7 @@ describe('createAbortSignalTimeout', () => {
 
   it('falls back to AbortController when native timeout is unavailable', () => {
     vi.useFakeTimers();
-    Object.defineProperty(AbortSignal, 'timeout', {
-      configurable: true,
-      value: undefined,
-    });
+    removeNativeAbortSignalTimeout();
 
     const handle = createAbortSignalTimeout(800);
 
@@ -49,10 +39,7 @@ describe('createAbortSignalTimeout', () => {
 
   it('clears the fallback timer', () => {
     vi.useFakeTimers();
-    Object.defineProperty(AbortSignal, 'timeout', {
-      configurable: true,
-      value: undefined,
-    });
+    removeNativeAbortSignalTimeout();
 
     const handle = createAbortSignalTimeout(800);
     handle.clear();

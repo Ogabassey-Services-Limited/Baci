@@ -1,4 +1,4 @@
-interface AbortSignalTimeoutHandle {
+export interface AbortSignalTimeoutHandle {
   clear: () => void;
   signal: AbortSignal;
 }

@@ -3,11 +3,10 @@ import {
   isStorefrontProductSlugMissing,
   resolveStorefrontProductSlugResolution,
 } from '@/lib/storefront-product-slug-membership';
-
-const originalAbortSignalTimeoutDescriptor = Object.getOwnPropertyDescriptor(
-  AbortSignal,
-  'timeout'
-);
+import {
+  removeNativeAbortSignalTimeout,
+  restoreAbortSignalTimeout,
+} from './abort-signal-timeout.test-utils';
 
 const BASE = {
   origin: 'https://ogabassey.com',
@@ -22,23 +21,6 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
-
-function restoreAbortSignalTimeout() {
-  if (originalAbortSignalTimeoutDescriptor) {
-    Object.defineProperty(
-      AbortSignal,
-      'timeout',
-      originalAbortSignalTimeoutDescriptor
-    );
-  }
-}
-
-function removeNativeAbortSignalTimeout() {
-  Object.defineProperty(AbortSignal, 'timeout', {
-    configurable: true,
-    value: undefined,
-  });
-}
 
 function restoreInternalBaseEnv() {
   vi.unstubAllEnvs();

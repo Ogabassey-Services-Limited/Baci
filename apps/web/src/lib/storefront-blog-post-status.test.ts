@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  removeNativeAbortSignalTimeout,
+  restoreAbortSignalTimeout,
+} from './abort-signal-timeout.test-utils';
 import { resolveStorefrontBlogPostStatus } from './storefront-blog-post-status';
-
-const originalAbortSignalTimeoutDescriptor = Object.getOwnPropertyDescriptor(
-  AbortSignal,
-  'timeout'
-);
 
 const ORIGINAL_INTERNAL_BASE_ENV = {
   NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
@@ -13,23 +12,6 @@ const ORIGINAL_INTERNAL_BASE_ENV = {
   VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   VERCEL_URL: process.env.VERCEL_URL,
 };
-
-function restoreAbortSignalTimeout() {
-  if (originalAbortSignalTimeoutDescriptor) {
-    Object.defineProperty(
-      AbortSignal,
-      'timeout',
-      originalAbortSignalTimeoutDescriptor
-    );
-  }
-}
-
-function removeNativeAbortSignalTimeout() {
-  Object.defineProperty(AbortSignal, 'timeout', {
-    configurable: true,
-    value: undefined,
-  });
-}
 
 function restoreInternalBaseEnv() {
   vi.unstubAllEnvs();
