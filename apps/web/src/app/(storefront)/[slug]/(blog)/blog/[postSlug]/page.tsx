@@ -238,10 +238,8 @@ export default async function BlogPostPage({ params }: PageProps) {
   const resolvedParams = await params;
 
   // Blog post existence controls HTTP status. Under Cache Components, route
-  // segment configs are disabled, so connection() is the documented request
-  // boundary that prevents the parent PPR shell from turning 404/redirect
-  // decisions into cached 200 not-found pages.
-  await connection();
+  // segment configs are disabled, so connection() is only used on branches that
+  // actually need a request-time redirect/404. Valid posts remain cacheable.
   let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
   let redirectLookupError: unknown = null;
   try {
@@ -259,6 +257,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   }
 
   if (redirectedPost) {
+    await connection();
     permanentRedirect(
       asRoute(
         buildCanonicalBlogPostUrl(
@@ -286,6 +285,8 @@ export default async function BlogPostPage({ params }: PageProps) {
       throw error;
     }
     if (!hasPublicPost) {
+      await connection();
+
       if (redirectLookupError) {
         try {
           redirectedPost = await getBlogPostRedirect(

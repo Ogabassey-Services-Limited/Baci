@@ -60,14 +60,14 @@ describe('storefront blog post page', () => {
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('renders streamed blog post content without a page-level metadata marker', async () => {
     render(await loadBlogPostPage('apple-studio-display-review'));
 
     expect(screen.getByText('Blog post page content')).toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('returns notFound for missing public blog post slugs outside draft mode', async () => {
