@@ -1,6 +1,14 @@
 -- =============================================
--- REGRESSION TEST: staff invite acceptance id ambiguity
+-- REGRESSION TEST: staff invite acceptance id ambiguity + email authorization
 --   Validates 20260701110000_fix_staff_invite_accept_ambiguity.sql.
+--
+--   Covers:
+--     1. accept_staff_invite succeeds without "column reference id is ambiguous".
+--     2. The on_staff_invite duplicate-email trigger is gone.
+--     3. SECURITY: acceptance is authorized against the caller's server-trusted
+--        email (auth.users / JWT claim), NOT the client-supplied p_email. A
+--        caller who spoofs p_email to the invited address is rejected with
+--        email_mismatch.
 --
 -- USAGE:
 --   psql $DATABASE_URL -f supabase/migrations/tests/staff_invite_accept_ambiguity.sql
@@ -14,7 +22,11 @@ DECLARE
   v_owner_id uuid := '8f0ed783-0000-4000-8000-000000000702';
   v_invitee_id uuid := '8f0ed783-0000-4000-8000-000000000703';
   v_staff_id uuid := '8f0ed783-0000-4000-8000-000000000704';
+  v_attacker_id uuid := '8f0ed783-0000-4000-8000-000000000705';
+  v_invite_email text := 'new-staff@example.com';
+  v_attacker_email text := format('staff-attacker-%s@example.com', txid_current());
   v_result record;
+  v_rejected boolean := false;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -57,11 +69,26 @@ BEGIN
       '{}'::jsonb
     ),
     (
+      -- The genuine invitee's verified email matches the invitation.
       v_invitee_id,
       '00000000-0000-0000-0000-000000000000',
       'authenticated',
       'authenticated',
-      format('staff-invitee-%s@example.com', txid_current()),
+      v_invite_email,
+      'test',
+      now(),
+      now(),
+      now(),
+      '{}'::jsonb,
+      '{}'::jsonb
+    ),
+    (
+      -- An attacker with a valid token but a different verified email.
+      v_attacker_id,
+      '00000000-0000-0000-0000-000000000000',
+      'authenticated',
+      'authenticated',
+      v_attacker_email,
       'test',
       now(),
       now(),
@@ -92,7 +119,7 @@ BEGIN
   VALUES (
     v_staff_id,
     v_merchant_id,
-    'new-staff@example.com',
+    v_invite_email,
     'New Staff',
     'sales_rep',
     'pending',
@@ -100,14 +127,55 @@ BEGIN
     now() + interval '7 days'
   );
 
+  -- ---------------------------------------------------------------------------
+  -- SECURITY: an attacker spoofs p_email to the invited address, but their
+  -- server-trusted email differs -> must be rejected, invite must stay pending.
+  -- ---------------------------------------------------------------------------
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', v_attacker_id::text, true);
+  PERFORM set_config('request.jwt.claim.email', v_attacker_email, true);
+
+  BEGIN
+    PERFORM public.accept_staff_invite(
+      'staff-invite-token-ambiguity',
+      v_invite_email
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM <> 'email_mismatch' THEN
+        RAISE EXCEPTION 'attacker accept raised unexpected error: %', SQLERRM;
+      END IF;
+      v_rejected := true;
+  END;
+
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'SECURITY: attacker accepted an invite by spoofing p_email';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.staff_members AS sm
+     WHERE sm.id = v_staff_id
+       AND sm.status = 'pending'
+       AND sm.invitation_token = 'staff-invite-token-ambiguity'
+       AND sm.user_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'SECURITY: rejected attacker attempt still mutated the invite';
+  END IF;
+
+  RAISE NOTICE 'OK: spoofed p_email rejected with email_mismatch';
+
+  -- ---------------------------------------------------------------------------
+  -- The genuine invitee accepts. Their verified email matches the invitation.
+  -- ---------------------------------------------------------------------------
   PERFORM set_config('request.jwt.claim.sub', v_invitee_id::text, true);
+  PERFORM set_config('request.jwt.claim.email', v_invite_email, true);
 
   SELECT *
     INTO v_result
     FROM public.accept_staff_invite(
       'staff-invite-token-ambiguity',
-      'new-staff@example.com'
+      v_invite_email
     );
 
   IF v_result.id IS DISTINCT FROM v_staff_id THEN
@@ -118,13 +186,14 @@ BEGIN
     RAISE EXCEPTION 'accepted invite returned wrong status: %', v_result.status;
   END IF;
 
-  IF EXISTS (
+  IF NOT EXISTS (
     SELECT 1
       FROM public.staff_members AS sm
      WHERE sm.id = v_staff_id
-       AND sm.invitation_token IS NOT NULL
+       AND sm.user_id = v_invitee_id
+       AND sm.invitation_token IS NULL
   ) THEN
-    RAISE EXCEPTION 'accepted invite did not clear invitation token';
+    RAISE EXCEPTION 'accepted invite did not link the invitee or clear the token';
   END IF;
 
   RAISE NOTICE 'OK: accept_staff_invite accepted without id ambiguity';

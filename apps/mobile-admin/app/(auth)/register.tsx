@@ -25,6 +25,10 @@ import {
   validatePassword,
 } from '@/lib/password-utils';
 import { getEmailError } from '@/lib/sanitize';
+import {
+  buildStaffInviteRoute,
+  getPendingStaffInviteToken,
+} from '@/lib/staff-invite-pending';
 
 export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
@@ -194,6 +198,15 @@ export default function RegisterScreen() {
       },
       {
         onSuccess: () => {
+          // A user who signed up from a staff invite link must land back on the
+          // invite acceptance route, not the merchant dashboard. Otherwise the
+          // saved invite is never accepted.
+          const pendingStaffInviteToken = getPendingStaffInviteToken();
+          if (pendingStaffInviteToken) {
+            router.replace(buildStaffInviteRoute(pendingStaffInviteToken));
+            return;
+          }
+
           // Navigate directly to dashboard — email confirmation is disabled,
           // so signup returns a session immediately and the merchant is ready.
           router.replace('/(admin)/(tabs)');
