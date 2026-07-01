@@ -36,7 +36,12 @@ describe('LoginPasswordEntry', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
     fireEvent.click(screen.getByRole('button', { name: /email me a code/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+
+    const showPasswordButton = screen.getByRole('button', {
+      name: 'Show password',
+    });
+    expect(showPasswordButton).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(showPasswordButton);
 
     expect(onForgotPassword).toHaveBeenCalledTimes(1);
     expect(onPasswordlessRequest).toHaveBeenCalledTimes(1);

@@ -17,7 +17,8 @@ const PasswordInput = ({ className, ...props }: InputProps) => {
         type="button"
         onClick={() => setShowPassword(!showPassword)}
         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent flex items-center justify-center transition-opacity opacity-70 hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
-        aria-label={showPassword ? 'Hide password' : 'Show password'}
+        aria-label="Show password"
+        aria-pressed={showPassword}
       >
         {showPassword ? (
           <EyeOff className="size-4 text-muted-foreground" aria-hidden="true" />
