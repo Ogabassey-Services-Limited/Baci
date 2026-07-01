@@ -1,4 +1,12 @@
+import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { createAbortSignalTimeout } from './abort-signal-timeout';
+
+const slugSetResponseSchema = z.object({
+  hasError: z.boolean(),
+  present: z.boolean().optional(),
+  redirectPath: z.unknown().optional(),
+});
 
 interface SlugMissingOptions {
   /**
@@ -133,37 +141,42 @@ export async function resolveStorefrontProductSlugResolution(
     );
     url.searchParams.set('slug', opts.productSlug);
 
-    const response = await (opts.fetchImpl ?? fetch)(url, {
-      headers: { Authorization: `Bearer ${opts.secret}` },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
-    });
+    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
+    try {
+      const response = await (opts.fetchImpl ?? fetch)(url, {
+        headers: { Authorization: `Bearer ${opts.secret}` },
+        signal: timeout.signal,
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        return { kind: 'present-or-unknown' };
+      }
+
+      const bodyResult = slugSetResponseSchema.safeParse(await response.json());
+      if (!bodyResult.success) {
+        return { kind: 'present-or-unknown' };
+      }
+      const body = bodyResult.data;
+
+      if (body.hasError !== false) {
+        return { kind: 'present-or-unknown' };
+      }
+
+      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+      if (body.present === true && redirectPath) {
+        return { kind: 'redirect', redirectPath };
+      }
+
+      // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
+      // shape (present true/undefined, malformed) falls through.
+      if (body.present === false) {
+        return { kind: 'missing' };
+      }
+
       return { kind: 'present-or-unknown' };
+    } finally {
+      timeout.clear();
     }
-
-    const body = (await response.json()) as {
-      hasError?: boolean;
-      present?: boolean;
-      redirectPath?: unknown;
-    };
-
-    if (body?.hasError !== false) {
-      return { kind: 'present-or-unknown' };
-    }
-
-    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-    if (body.present === true && redirectPath) {
-      return { kind: 'redirect', redirectPath };
-    }
-
-    // Hard-404 ONLY on an explicit, error-free "absent" verdict. Any other
-    // shape (present true/undefined, malformed) falls through.
-    if (body.present === false) {
-      return { kind: 'missing' };
-    }
-
-    return { kind: 'present-or-unknown' };
   } catch {
     return { kind: 'present-or-unknown' };
   }

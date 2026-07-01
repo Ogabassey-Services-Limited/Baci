@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  removeNativeAbortSignalTimeout,
+  restoreAbortSignalTimeout,
+} from './abort-signal-timeout.test-utils';
 import { resolveStorefrontBlogPostStatus } from './storefront-blog-post-status';
 
 const ORIGINAL_INTERNAL_BASE_ENV = {
@@ -43,6 +47,7 @@ describe('resolveStorefrontBlogPostStatus', () => {
   });
 
   afterEach(() => {
+    restoreAbortSignalTimeout();
     restoreInternalBaseEnv();
   });
 
@@ -68,6 +73,27 @@ describe('resolveStorefrontBlogPostStatus', () => {
     expect((init as RequestInit).headers).toEqual({
       Authorization: 'Bearer internal-secret',
     });
+  });
+
+  it('keeps fetching when native AbortSignal.timeout is unavailable', async () => {
+    removeNativeAbortSignalTimeout();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ hasError: false, present: false }));
+
+    const result = await resolveStorefrontBlogPostStatus({
+      origin: 'https://ogabassey.com',
+      identifier: 'ogabassey.com',
+      postSlug: 'missing-post',
+      secret: 'internal-secret',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'missing' });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect((fetchImpl.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(
+      AbortSignal
+    );
   });
 
   it('returns redirect only for safe internal blog redirect paths', async () => {
