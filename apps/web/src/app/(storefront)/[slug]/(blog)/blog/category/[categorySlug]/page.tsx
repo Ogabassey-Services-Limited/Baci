@@ -12,12 +12,8 @@ import {
   getCollidingBlogCategorySlugs,
 } from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
-import { parseBlogListingPage } from '../../blog-listing-page-params';
 import { BlogPageContent } from '../../blog-page-content';
-import {
-  type BlogSearchParamValue,
-  toSingleBlogSearchParam,
-} from '../../blog-search-params';
+import type { BlogSearchParamValue } from '../../blog-search-params';
 
 interface BlogCategoryPageProps {
   params: Promise<{ slug: string; categorySlug: string }>;
@@ -26,6 +22,15 @@ interface BlogCategoryPageProps {
     search?: BlogSearchParamValue;
   }>;
 }
+
+// Cache Components invariant: the canonical clean-category shell and its
+// metadata must NOT await request searchParams. Paginated/search category
+// variants canonicalize to the clean hub URL and move to the runtime path
+// (follow-up PR). Canonical category pages render page 1 from cached data so
+// their article/category links land in the initial HTML for crawlers.
+const EMPTY_CATEGORY_SEARCH_PARAMS: NonNullable<
+  BlogCategoryPageProps['searchParams']
+> = Promise.resolve({});
 
 const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   title: 'Blog Category Not Found',
@@ -79,55 +84,53 @@ export async function generateStaticParams(): Promise<
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: BlogCategoryPageProps): Promise<Metadata> {
-  const [{ slug, categorySlug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
     return CATEGORY_NOT_FOUND_METADATA;
   }
 
-  const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
-  const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
-  const currentPage = parseBlogListingPage(page);
-
   return buildBlogListingMetadata({
     slug,
-    searchParams: {
-      category: hub.categoryLabel,
-      page,
-      search,
-    },
-    canonicalUrl: !search && currentPage === 1 ? hub.canonicalUrl : undefined,
-    indexable: currentPage === 1,
+    searchParams: { category: hub.categoryLabel },
+    canonicalUrl: hub.canonicalUrl,
+    indexable: true,
   });
+}
+
+function isStaticCategoryTenant(slug: string): boolean {
+  return OGABASSEY_CATEGORY_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
 }
 
 export default async function BlogCategoryPage({
   params,
-  searchParams,
 }: BlogCategoryPageProps) {
-  // Resolve only the static category hub before the shell. Request-query/data
-  // validation stays behind Suspense so Cache Components can keep a static
-  // shell for category hubs.
+  // Deterministic, cache-safe hub validation before any streaming so unknown
+  // clean categories return a real 404 (not a streamed 200).
   const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
     notFound();
   }
 
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogPageContent
-        categoryOverride={hub.categoryLabel}
-        isCleanCategoryRoute
-        itemListSchemaUrl={hub.canonicalUrl}
-        params={Promise.resolve({ slug })}
-        searchParams={searchParams ?? Promise.resolve({})}
-      />
-    </Suspense>
+  const content = (
+    <BlogPageContent
+      categoryOverride={hub.categoryLabel}
+      isCleanCategoryRoute
+      itemListSchemaUrl={hub.canonicalUrl}
+      params={Promise.resolve({ slug })}
+      searchParams={EMPTY_CATEGORY_SEARCH_PARAMS}
+    />
   );
+
+  // Static OgaBassey category hubs render crawlable canonical content directly;
+  // other tenants keep the explicit fallback for CWV.
+  if (isStaticCategoryTenant(slug)) {
+    return content;
+  }
+
+  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

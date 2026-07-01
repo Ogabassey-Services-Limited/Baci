@@ -8,17 +8,22 @@ import { getCachedBlogAuthor } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { buildStoreUrl } from '@/lib/store-url';
 import { BlogListingFallback } from '../../BlogListingFallback';
-import { parseBlogListingPage } from '../../blog-listing-page-params';
-import {
-  type BlogSearchParamValue,
-  toSingleBlogSearchParam,
-} from '../../blog-search-params';
+import type { BlogSearchParamValue } from '../../blog-search-params';
 import { BlogAuthorPageContent } from './blog-author-page-content';
 
 interface AuthorPageProps {
   params: Promise<{ slug: string; authorSlug: string }>;
   searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
+
+// Cache Components invariant: the canonical author shell and its metadata must
+// NOT await request searchParams. Pagination (?page=N) canonicalizes to the
+// clean author URL and moves to the runtime path (follow-up PR); reading it
+// here would prevent a static shell and force metadata to stream (which
+// htmlLimitedBots withholds from DOM bots). Canonical author pages render
+// page 1 from cached data.
+const EMPTY_AUTHOR_SEARCH_PARAMS: NonNullable<AuthorPageProps['searchParams']> =
+  Promise.resolve({});
 
 const AUTHOR_NOT_FOUND_METADATA: Metadata = {
   title: 'Author Not Found',
@@ -41,12 +46,8 @@ export function generateStaticParams(): Array<{
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
-  const page = parseBlogListingPage(
-    toSingleBlogSearchParam((await searchParams)?.page)
-  );
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
@@ -54,16 +55,14 @@ export async function generateMetadata({
     return AUTHOR_NOT_FOUND_METADATA;
   }
 
-  const data = await getCachedBlogAuthor(slug, profile.name, { page });
+  const data = await getCachedBlogAuthor(slug, profile.name, { page: 1 });
   if (!data) {
     return AUTHOR_NOT_FOUND_METADATA;
   }
 
   const { merchant, author } = data;
   const baseUrl = buildStoreUrl(merchant);
-  const authorBaseUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
-  const canonicalUrl =
-    page > 1 ? `${authorBaseUrl}?page=${page}` : authorBaseUrl;
+  const canonicalUrl = `${baseUrl}/blog/author/${normalizedAuthorSlug}`;
   const roleLine = author.title
     ? `${author.title} at ${merchant.business_name}`
     : `Writer at ${merchant.business_name}`;
@@ -91,15 +90,12 @@ export async function generateMetadata({
       ...(author.imageUrl ? { images: [author.imageUrl] } : {}),
     },
     alternates: { canonical: canonicalUrl },
-    robots:
-      page > 1
-        ? { index: false, follow: true }
-        : {
-            index: true,
-            follow: true,
-            'max-image-preview': 'large',
-            'max-snippet': -1,
-          },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   };
 }
 
@@ -139,15 +135,12 @@ async function assertNonStaticAuthorRouteBeforeShell({
   notFound();
 }
 
-export default async function BlogAuthorPage({
-  params,
-  searchParams,
-}: AuthorPageProps) {
+export default async function BlogAuthorPage({ params }: AuthorPageProps) {
   const resolvedParams = await params;
   const content = (
     <BlogAuthorPageContent
       params={Promise.resolve(resolvedParams)}
-      searchParams={searchParams}
+      searchParams={EMPTY_AUTHOR_SEARCH_PARAMS}
     />
   );
 

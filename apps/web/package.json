@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:ci": "pnpm test && pnpm verify:quiz-assets",
     "verify:quiz-assets": "tsx src/scripts/verify-quiz-assets-cli.ts",
+    "verify:blog-seo": "tsx src/scripts/verify-ogabassey-blog-seo.ts",
     "knip": "knip --no-exit-code",
     "seo:pagespeed": "tsx tools/seo/run-pagespeed.cli.ts",
     "seo:readiness": "tsx tools/seo/run-search-console-readiness.cli.ts",

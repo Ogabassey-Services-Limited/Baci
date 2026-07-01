@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import { isValidElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -152,37 +151,38 @@ describe('blog author page metadata', () => {
     });
   });
 
-  it('renders known OgaBassey author content outside Suspense for crawlable static HTML', async () => {
-    const ui = await BlogAuthorPage({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        authorSlug: 'bassey-john',
-      }),
-      searchParams: Promise.resolve({}),
-    });
+  it('renders known OgaBassey author content directly as crawlable static HTML', async () => {
+    render(
+      await BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
 
-    expect(isValidElement(ui)).toBe(true);
-    expect(ui.type).not.toBe(Suspense);
-
-    render(ui);
-
+    // Static tenant author content lands in the initial payload (not behind
+    // the loading fallback), so crawlers see it without JS.
     expect(screen.getByText('Author page')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: 'Loading blog posts' })
+    ).not.toBeInTheDocument();
   });
 
-  it('wraps non-static author tenants in the route fallback shell', async () => {
-    const ui = await BlogAuthorPage({
-      params: Promise.resolve({
-        slug: 'dynamic-store',
-        authorSlug: 'bassey-john',
-      }),
-      searchParams: Promise.resolve({ page: '99' }),
-    });
+  it('renders known author content for a non-static tenant after the pre-shell status check', async () => {
+    render(
+      await BlogAuthorPage({
+        params: Promise.resolve({
+          slug: 'dynamic-store',
+          authorSlug: 'bassey-john',
+        }),
+        searchParams: Promise.resolve({ page: '99' }),
+      })
+    );
 
-    expect(isValidElement(ui)).toBe(true);
-    expect(ui.type).toBe(Suspense);
-
-    render(ui);
-
+    // Known author passes assertNonStaticAuthorRouteBeforeShell (no redirect/
+    // notFound) and renders inside the fallback-wrapped shell.
     expect(screen.getByText('Author page')).toBeInTheDocument();
   });
 
@@ -282,24 +282,34 @@ describe('blog author page metadata', () => {
     expect(mockResolveBlogCatchAllOutcome).not.toHaveBeenCalled();
   });
 
-  it('builds a page-scoped canonical for paginated author routes', async () => {
+  it('builds request-searchParams-free canonical author metadata (page 1)', async () => {
+    const thenSpy = vi.fn(() => {
+      throw new Error('author metadata resolved request search params');
+    });
+    const requestSearchParams = Object.defineProperty({}, 'then', {
+      value: thenSpy,
+    }) as Promise<{ page?: string }>;
+
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         authorSlug: 'bassey-john',
       }),
-      searchParams: Promise.resolve({ page: '2' }),
+      searchParams: requestSearchParams,
     });
 
+    // Canonical author metadata is always the clean page-1 URL and indexable;
+    // pagination dedupes via this canonical rather than a request-derived one.
     expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/blog/author/bassey-john?page=2'
+      'https://ogabassey.com/blog/author/bassey-john'
     );
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(mockGetCachedBlogAuthor).toHaveBeenCalledWith(
       'ogabassey.com',
       'Bassey John',
-      { page: 2 }
+      { page: 1 }
     );
+    expect(thenSpy).not.toHaveBeenCalled();
   });
 
   it('returns noindex metadata when a known author has no published posts', async () => {
