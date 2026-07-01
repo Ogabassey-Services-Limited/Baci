@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
@@ -7,6 +8,18 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { GET, PATCH } from './route';
+
+interface MockSupabaseClient {
+  auth: {
+    getUser: Mock;
+  };
+  from: Mock;
+  select: Mock;
+  eq: Mock;
+  single: Mock;
+  update: Mock;
+  is: Mock;
+}
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() =>
@@ -36,7 +49,7 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 describe('Notifications API: /api/notifications/[id]', () => {
-  let mockSupabase: any;
+  let mockSupabase: MockSupabaseClient;
   const mockUserId = 'user-123';
   const mockMerchantId = 'merchant-456';
 
@@ -63,16 +76,18 @@ describe('Notifications API: /api/notifications/[id]', () => {
 
     mockIs2.mockResolvedValue({ count: 5, error: null });
 
-    (createClient as any).mockReturnValue(mockSupabase);
+    vi.mocked(createClient).mockReturnValue(mockSupabase as any);
 
-    (getMerchantForApiRequest as any).mockResolvedValue({
+    vi.mocked(getMerchantForApiRequest).mockResolvedValue({
       merchantId: mockMerchantId,
       roles: ['owner'],
-    });
+    } as any);
 
-    (toUserAccess as any).mockReturnValue({ role: 'owner' });
+    vi.mocked(toUserAccess).mockReturnValue({ role: 'owner' } as any);
 
-    (checkCsrfProtection as any).mockResolvedValue({ valid: true });
+    vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true } as any);
+
+    vi.mocked(hasPermission).mockReturnValue(true);
   });
 
   describe('GET', () => {
@@ -88,6 +103,17 @@ describe('Notifications API: /api/notifications/[id]', () => {
       expect(res.status).toBe(401);
       const json = await res.json();
       expect(json).toEqual({ error: 'Unauthorized' });
+    });
+
+    it('returns 403 when user lacks permissions', async () => {
+      vi.mocked(hasPermission).mockReturnValueOnce(false);
+
+      const req = new NextRequest('http://localhost/api/notifications/123');
+      const res = await GET(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json).toEqual({ error: 'Permission denied' });
     });
 
     it('returns 404 when notification not found', async () => {
@@ -129,7 +155,9 @@ describe('Notifications API: /api/notifications/[id]', () => {
 
   describe('PATCH', () => {
     it('returns 403 when CSRF validation fails', async () => {
-      (checkCsrfProtection as any).mockResolvedValueOnce({ valid: false });
+      vi.mocked(checkCsrfProtection).mockResolvedValueOnce({
+        valid: false,
+      } as any);
 
       const req = new NextRequest('http://localhost/api/notifications/123', {
         method: 'PATCH',
@@ -153,6 +181,18 @@ describe('Notifications API: /api/notifications/[id]', () => {
       const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
 
       expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when user lacks permissions', async () => {
+      vi.mocked(hasPermission).mockReturnValueOnce(false);
+
+      const req = new NextRequest('http://localhost/api/notifications/123', {
+        method: 'PATCH',
+        body: JSON.stringify({ read: true }),
+      });
+      const res = await PATCH(req, { params: Promise.resolve({ id: '123' }) });
+
+      expect(res.status).toBe(403);
     });
 
     it('returns 400 when no fields provided to update', async () => {
