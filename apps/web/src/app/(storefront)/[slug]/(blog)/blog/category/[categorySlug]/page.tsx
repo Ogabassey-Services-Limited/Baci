@@ -27,6 +27,13 @@ interface BlogCategoryPageProps {
   }>;
 }
 
+// Cache Components invariant: generateMetadata stays request-searchParams-free
+// for the STATIC tenant so its metadata prerenders (streamed metadata is
+// withheld from DOM bots by htmlLimitedBots). Non-static category pages read
+// ?page/?search for noindex/self-scoped variants. The listing content reads
+// searchParams and renders behind Suspense for all tenants, so paginated/search
+// category variants keep working; the Suspense fallback is the static shell.
+
 const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   title: 'Blog Category Not Found',
   robots: { index: false, follow: false },
@@ -81,38 +88,49 @@ export async function generateMetadata({
   params,
   searchParams,
 }: BlogCategoryPageProps): Promise<Metadata> {
-  const [{ slug, categorySlug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {
     return CATEGORY_NOT_FOUND_METADATA;
   }
 
+  // Static tenant metadata stays request-searchParams-free (prerenderable);
+  // non-static category pages read ?page/?search for noindex/self-scoped
+  // variants that buildBlogListingMetadata already produces.
+  if (isStaticCategoryTenant(slug)) {
+    return buildBlogListingMetadata({
+      slug,
+      searchParams: { category: hub.categoryLabel },
+      canonicalUrl: hub.canonicalUrl,
+      indexable: true,
+    });
+  }
+
+  const resolvedSearchParams = await searchParams;
   const page = toSingleBlogSearchParam(resolvedSearchParams?.page);
   const search = toSingleBlogSearchParam(resolvedSearchParams?.search);
   const currentPage = parseBlogListingPage(page);
 
   return buildBlogListingMetadata({
     slug,
-    searchParams: {
-      category: hub.categoryLabel,
-      page,
-      search,
-    },
+    searchParams: { category: hub.categoryLabel, page, search },
     canonicalUrl: !search && currentPage === 1 ? hub.canonicalUrl : undefined,
     indexable: currentPage === 1,
   });
+}
+
+function isStaticCategoryTenant(slug: string): boolean {
+  return OGABASSEY_CATEGORY_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
 }
 
 export default async function BlogCategoryPage({
   params,
   searchParams,
 }: BlogCategoryPageProps) {
-  // Resolve only the static category hub before the shell. Request-query/data
-  // validation stays behind Suspense so Cache Components can keep a static
-  // shell for category hubs.
+  // Deterministic, cache-safe hub validation before any streaming so unknown
+  // clean categories return a real 404 (not a streamed 200).
   const { slug, categorySlug } = await params;
   const hub = await resolveBlogCategoryHub(slug, categorySlug);
   if (!hub) {

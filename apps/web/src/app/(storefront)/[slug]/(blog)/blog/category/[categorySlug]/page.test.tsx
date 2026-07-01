@@ -86,10 +86,10 @@ describe('blog category page', () => {
     ).resolves.toEqual({});
   });
 
-  it('does not resolve category search params before the Suspense content boundary renders', async () => {
+  it('never subscribes to request category search params when building the shell', async () => {
     const searchParams = new Promise<{ page?: string; search?: string }>(() => {
-      // Intentionally unresolved; this route shell must pass it through
-      // without subscribing to it outside the Suspense boundary.
+      // Intentionally unresolved; the canonical category shell must not read
+      // request searchParams at all (it renders canonical page 1).
     });
     const thenSpy = vi.spyOn(searchParams, 'then');
 
@@ -106,7 +106,7 @@ describe('blog category page', () => {
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
-  it('shows the category fallback while clean category content is resolving', async () => {
+  it('shows the category fallback while non-static clean category content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Intentionally never resolves so Suspense fallback remains visible.
@@ -116,7 +116,7 @@ describe('blog category page', () => {
     render(
       await BlogCategoryPage({
         params: Promise.resolve({
-          slug: 'ogabassey.com',
+          slug: 'dynamic-store',
           categorySlug: 'smartphones',
         }),
         searchParams: Promise.resolve({ page: '99' }),
@@ -128,6 +128,24 @@ describe('blog category page', () => {
     ).toBeInTheDocument();
     expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it('forwards request search params to non-static category content so pagination/search work', async () => {
+    const requestSearchParams = Promise.resolve({ page: '2' });
+
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'dynamic-store',
+          categorySlug: 'smartphones',
+        }),
+        searchParams: requestSearchParams,
+      })
+    );
+
+    expect(mockBlogPageContent).toHaveBeenCalledWith(
+      expect.objectContaining({ searchParams: requestSearchParams })
+    );
   });
 
   it('generates static params for public OgaBassey category hubs', async () => {
@@ -193,28 +211,36 @@ describe('blog category page', () => {
     );
   });
 
-  it('keeps searched category hubs noindex with search-scoped canonical data', async () => {
+  // Category metadata is now request-searchParams-free: paginated/search
+  // variants canonicalize to the clean hub via this same indexable metadata
+  // (the builder's own variant logic is covered in blog-listing-metadata.test).
+  it('emits indexable clean-category metadata regardless of request query params', async () => {
+    const thenSpy = vi.fn(() => {
+      throw new Error('category metadata resolved request search params');
+    });
+    const requestSearchParams = Object.defineProperty({}, 'then', {
+      value: thenSpy,
+    }) as Promise<{ page?: string; search?: string }>;
+
     const metadata = await generateMetadata({
       params: Promise.resolve({
         slug: 'ogabassey.com',
         categorySlug: 'smartphones',
       }),
-      searchParams: Promise.resolve({ search: 'iphone' }),
+      searchParams: requestSearchParams,
     });
 
-    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/blog?category=Smartphones&search=iphone'
+      'https://ogabassey.com/blog/category/smartphones'
     );
+    expect(thenSpy).not.toHaveBeenCalled();
   });
 
-  it('keeps paginated category hubs noindex with page-scoped canonical data', async () => {
+  it('reads ?page for non-static category metadata (noindex page variant)', async () => {
     mockGetCachedBlogListing.mockResolvedValue({
       ...buildListingResult({
-        merchant: {
-          ...merchant,
-          custom_domain: 'ogabassey.com',
-        },
+        merchant: { ...merchant, custom_domain: 'ogabassey.com' },
         totalPosts: 50,
       }),
       categories: ['Smartphones', 'Laptops'],
@@ -222,16 +248,17 @@ describe('blog category page', () => {
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
-        slug: 'ogabassey.com',
+        slug: 'another-store',
         categorySlug: 'smartphones',
       }),
       searchParams: Promise.resolve({ page: '2' }),
     });
 
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
-    expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/blog?category=Smartphones&page=2'
-    );
+    expect(mockGetCachedBlogListing).toHaveBeenCalledWith('another-store', {
+      category: 'Smartphones',
+      page: 2,
+    });
   });
 
   it('returns noindex metadata for unknown category slugs', async () => {

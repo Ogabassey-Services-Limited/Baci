@@ -20,6 +20,13 @@ interface AuthorPageProps {
   searchParams?: Promise<{ page?: BlogSearchParamValue }>;
 }
 
+// Cache Components invariant: generateMetadata stays request-searchParams-free
+// for the STATIC tenant so its metadata prerenders (streamed metadata is
+// withheld from DOM bots by htmlLimitedBots). Non-static author pages read
+// ?page for page-scoped noindex variants. The author content reads searchParams
+// and renders behind Suspense for all tenants, so pagination keeps working; the
+// Suspense fallback is the prerenderable static shell.
+
 const AUTHOR_NOT_FOUND_METADATA: Metadata = {
   title: 'Author Not Found',
   robots: { index: false, follow: false },
@@ -44,15 +51,18 @@ export async function generateMetadata({
   searchParams,
 }: AuthorPageProps): Promise<Metadata> {
   const { slug, authorSlug } = await params;
-  const page = parseBlogListingPage(
-    toSingleBlogSearchParam((await searchParams)?.page)
-  );
   const normalizedAuthorSlug = authorSlug.toLowerCase();
 
   const profile = getBlogAuthorBySlug(normalizedAuthorSlug, slug);
   if (!profile) {
     return AUTHOR_NOT_FOUND_METADATA;
   }
+
+  // Static tenant metadata stays request-searchParams-free (prerenderable);
+  // non-static author pages read ?page for page-scoped noindex variants.
+  const page = isStaticAuthorTenant(slug)
+    ? 1
+    : parseBlogListingPage(toSingleBlogSearchParam((await searchParams)?.page));
 
   const data = await getCachedBlogAuthor(slug, profile.name, { page });
   if (!data) {
@@ -109,7 +119,10 @@ function isStaticAuthorTenant(slug: string): boolean {
   );
 }
 
-async function assertNonStaticAuthorRouteBeforeShell({
+// Unknown-author status decisions (404/308) must resolve before any streaming
+// so we never emit a soft-404. Known authors fall through. Runs for every
+// tenant, including the static OgaBassey one.
+async function assertAuthorRouteStatusBeforeShell({
   slug,
   authorSlug,
 }: {
@@ -144,18 +157,15 @@ export default async function BlogAuthorPage({
   searchParams,
 }: AuthorPageProps) {
   const resolvedParams = await params;
-  const content = (
-    <BlogAuthorPageContent
-      params={Promise.resolve(resolvedParams)}
-      searchParams={searchParams}
-    />
+
+  await assertAuthorRouteStatusBeforeShell(resolvedParams);
+
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogAuthorPageContent
+        params={Promise.resolve(resolvedParams)}
+        searchParams={searchParams}
+      />
+    </Suspense>
   );
-
-  if (isStaticAuthorTenant(resolvedParams.slug)) {
-    return content;
-  }
-
-  await assertNonStaticAuthorRouteBeforeShell(resolvedParams);
-
-  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }
