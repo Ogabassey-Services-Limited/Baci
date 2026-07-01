@@ -8,6 +8,12 @@ export const OGABASSEY_BLOG_STATIC_TENANTS = [
   'ogabassey',
 ] as const;
 
+export function isOgabasseyBlogStaticTenant(slug: string): boolean {
+  return OGABASSEY_BLOG_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
+}
+
 export function getBlogCategorySlug(category: string): string {
   return generateSlug(category);
 }

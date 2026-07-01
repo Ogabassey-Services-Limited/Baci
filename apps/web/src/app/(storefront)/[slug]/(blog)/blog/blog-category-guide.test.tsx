@@ -86,6 +86,25 @@ describe('BlogCategoryGuide', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('uses plural generic copy for empty non-Ogabassey category archives', () => {
+    render(
+      <BlogCategoryGuide
+        category="News"
+        merchantName="Aisha Fashion"
+        totalPosts={0}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'About News articles from Aisha Fashion',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/There are 0 articles in this archive/)
+    ).toBeInTheDocument();
+  });
+
   it('falls back to generic copy for unmapped Ogabassey categories', () => {
     render(
       <BlogCategoryGuide

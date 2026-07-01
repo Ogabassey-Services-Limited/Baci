@@ -9,6 +9,7 @@ import {
   canUseCleanBlogCategorySlug,
   getBlogCategorySlug,
   getCollidingBlogCategorySlugs,
+  isOgabasseyBlogStaticTenant,
   OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
   OGABASSEY_BLOG_STATIC_TENANTS,
 } from '../../blog-category-routing';
@@ -99,7 +100,7 @@ export async function generateMetadata({
   // Static tenant metadata stays request-searchParams-free (prerenderable);
   // non-static category pages read ?page/?search for noindex/self-scoped
   // variants that buildBlogListingMetadata already produces.
-  if (isStaticCategoryTenant(slug)) {
+  if (isOgabasseyBlogStaticTenant(slug)) {
     return buildBlogListingMetadata({
       slug,
       searchParams: { category: hub.categoryLabel },
@@ -119,12 +120,6 @@ export async function generateMetadata({
     canonicalUrl: !search && currentPage === 1 ? hub.canonicalUrl : undefined,
     indexable: currentPage === 1,
   });
-}
-
-function isStaticCategoryTenant(slug: string): boolean {
-  return OGABASSEY_BLOG_STATIC_TENANTS.some(
-    (staticTenantSlug) => staticTenantSlug === slug
-  );
 }
 
 export default async function BlogCategoryPage({
@@ -149,7 +144,7 @@ export default async function BlogCategoryPage({
     />
   );
 
-  if (OGABASSEY_BLOG_STATIC_TENANTS.some((staticSlug) => staticSlug === slug)) {
+  if (isOgabasseyBlogStaticTenant(slug)) {
     return content;
   }
 

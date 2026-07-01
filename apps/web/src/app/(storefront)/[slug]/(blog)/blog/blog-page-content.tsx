@@ -19,7 +19,7 @@ import {
   buildBlogCategoryHref,
   findBlogCategoryLabelBySlug,
   getBlogCategorySlug,
-  OGABASSEY_BLOG_STATIC_TENANTS,
+  isOgabasseyBlogStaticTenant,
 } from './blog-category-routing';
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { preloadOgabasseyRootBlogListingHeroImage } from './blog-listing-hero-image-preload';
@@ -293,9 +293,7 @@ export async function BlogPageContent({
       url: `${baseUrl}/blog`,
     },
   ]);
-  const isOgabasseyBlogTenant = OGABASSEY_BLOG_STATIC_TENANTS.some(
-    (staticTenant) => staticTenant === slug
-  );
+  const isOgabasseyBlogTenant = isOgabasseyBlogStaticTenant(slug);
   const categoryGuide =
     category && !effectiveSearchQuery ? (
       <BlogCategoryGuide

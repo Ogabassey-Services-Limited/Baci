@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { BlogListingFallback } from './BlogListingFallback';
-import { OGABASSEY_BLOG_STATIC_TENANTS } from './blog-category-routing';
+import {
+  isOgabasseyBlogStaticTenant,
+  OGABASSEY_BLOG_STATIC_TENANTS,
+} from './blog-category-routing';
 import { buildBlogListingMetadata } from './blog-listing-metadata';
 import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 
@@ -17,12 +20,6 @@ import { BlogPageContent, type BlogPageProps } from './blog-page-content';
 //   "did not produce a static shell"), while page/search/category content
 //   streams — so pagination/search keep working, including on the static tenant.
 
-function isStaticBlogTenant(slug: string): boolean {
-  return OGABASSEY_BLOG_STATIC_TENANTS.some(
-    (staticTenantSlug) => staticTenantSlug === slug
-  );
-}
-
 export function generateStaticParams(): Array<{ slug: string }> {
   return OGABASSEY_BLOG_STATIC_TENANTS.map((slug) => ({ slug }));
 }
@@ -33,7 +30,7 @@ export async function generateMetadata({
 }: BlogPageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  if (isStaticBlogTenant(slug)) {
+  if (isOgabasseyBlogStaticTenant(slug)) {
     return buildBlogListingMetadata({ slug, searchParams: {} });
   }
 
