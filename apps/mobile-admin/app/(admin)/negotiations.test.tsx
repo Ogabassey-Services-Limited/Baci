@@ -92,7 +92,10 @@ vi.mock('@tanstack/react-query', () => {
     useQuery: (options: { queryKey: unknown[]; enabled?: boolean }) => {
       const enabled = options.enabled ?? true;
       if (options.queryKey[0] === 'negotiation_requests') {
-        const selectResult = mocks.selectResult ?? { data: negotiationRows, error: null };
+        const selectResult = mocks.selectResult ?? {
+          data: negotiationRows,
+          error: null,
+        };
         const dataRows = (selectResult.data ?? []) as Array<{
           cart_snapshot?: unknown;
           item_info?: { current_price?: number };
@@ -108,7 +111,7 @@ vi.mock('@tanstack/react-query', () => {
           data: enabled ? formattedData : [],
           isLoading: false,
           error: selectResult.error,
-          refetch: vi.fn().mockImplementation(async () => {
+          refetch: vi.fn().mockImplementation(() => {
             mocks.queryCalls.push({
               method: 'select',
               args: [
@@ -365,6 +368,39 @@ describe('NegotiationsScreen', () => {
     // Quantity-aware line total: 900,000 × 2 (currency symbol varies by ICU).
     expect(screen.getByText(/1,800,000/)).toBeInTheDocument();
     expect(screen.getByText('Hide items')).toBeInTheDocument();
+  });
+
+  it('shows selected variant details for a single-item offer', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-07-01T00:25:00.000Z',
+          customer_id: null,
+          evidence_url: null,
+          id: 'negotiation-variant-1',
+          item_info: {
+            name: 'iPhone 14 Pro Max',
+            current_price: 875_000,
+            variant_attributes: {
+              storage: '256GB',
+              color: 'Deep Purple',
+            },
+            condition: 'used',
+          },
+          offered_price: 820_000,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
+
+    render(<NegotiationsScreen />);
+
+    expect(await screen.findByText('iPhone 14 Pro Max')).toBeInTheDocument();
+    expect(
+      screen.getByText('Storage: 256GB · Color: Deep Purple · Condition: used')
+    ).toBeInTheDocument();
   });
 
   it('opens WhatsApp and a dialer for a customer with a phone number', async () => {

@@ -1,5 +1,6 @@
 import {
   buildCartSnapshot,
+  buildNegotiationSingleItemInfo,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
   normalizePhoneToE164,
   summarizeCartForItemInfo,
@@ -197,11 +198,17 @@ export function useNegotiationModalController({
         type,
         item_info:
           type === 'single' && itemInfo
-            ? {
-                id: itemInfo.id,
-                name: itemInfo.name,
-                current_price: itemInfo.currentPrice,
-              }
+            ? buildNegotiationSingleItemInfo({
+                itemId: itemInfo.id,
+                productName: itemInfo.name,
+                productBrand: itemInfo.brand,
+                currentPrice: itemInfo.currentPrice,
+                productSlug: itemInfo.productSlug,
+                variantId: itemInfo.variantId,
+                variantName: itemInfo.variantName,
+                variantAttributes: itemInfo.variantAttributes,
+                condition: itemInfo.condition,
+              })
             : totalItemInfo,
         cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
         offered_price: offerAmount,

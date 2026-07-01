@@ -11,6 +11,8 @@
  * source of truth for the persisted JSON shape.
  */
 
+import { isFiniteNumber } from './is-finite-number';
+
 /** A single normalized line item in a persisted cart snapshot. */
 export interface NegotiationCartLine {
   product_id: string;
@@ -26,13 +28,16 @@ export interface NegotiationCartLine {
 
 /** Shape the admin app reads to label a negotiation. */
 export interface NegotiationItemInfo {
+  id?: string;
   name: string;
   image?: string;
   current_price?: number;
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
+  product_slug?: string;
+  variant_id?: string;
+  variant_name?: string;
+  variant_attributes?: Record<string, string>;
+  brand?: string;
+  condition?: string;
 }
 
 function cleanString(value: unknown): string | undefined {

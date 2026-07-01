@@ -24,6 +24,11 @@ interface UIState {
     currentPrice: number;
     brand?: string;
     isNegotiable?: boolean;
+    productSlug?: string;
+    variantId?: string;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
+    condition?: string;
   } | null;
   openNegotiation: (context: {
     type: 'single' | 'total';
@@ -32,6 +37,11 @@ interface UIState {
     currentPrice: number;
     brand?: string;
     isNegotiable?: boolean;
+    productSlug?: string;
+    variantId?: string;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
+    condition?: string;
   }) => void;
   closeNegotiation: () => void;
 }

@@ -1,9 +1,3 @@
-import {
-  buildTelLink,
-  buildWhatsAppLink,
-  type NegotiationCartLine,
-  type NegotiationItemInfo,
-} from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,38 +6,26 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import {
+  NegotiationCard,
+  type NegotiationCardRequest,
+} from '@/components/negotiations/NegotiationCard';
+import {
+  openNegotiationEvidence,
+  openNegotiationExternalUrl,
+} from '@/components/negotiations/negotiation-evidence-actions';
+import { negotiationScreenStyles as styles } from '@/components/negotiations/negotiations-screen.styles';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency as formatPrice } from '@/utils/format';
 
-type NegotiationStatus = 'pending' | 'accepted' | 'rejected' | 'countered';
-
-interface NegotiationRequest {
-  id: string;
-  customer_id: string | null;
-  type: 'single' | 'total';
-  status: NegotiationStatus;
-  offered_price: number;
-  current_price: number | null;
-  item_info: NegotiationItemInfo | null;
-  cart_snapshot: NegotiationCartLine[] | null;
-  customer_phone: string | null;
-  created_at: string;
-  evidence_url?: string;
-}
-
-const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
-const EVIDENCE_SIGNED_URL_TTL_SECONDS = 60 * 60;
+type NegotiationRequest = NegotiationCardRequest;
 
 // Module-scope helpers keep try/throw out of the component body so React
 // Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
@@ -95,86 +77,6 @@ async function updateNegotiationStatus(
   if (!data || data.length === 0) {
     throw new Error('This request was already handled. Pull to refresh.');
   }
-}
-
-// Open a link in the OS handler (browser, dialer, WhatsApp). Best-effort: an
-// unsupported or malformed URL surfaces a friendly alert instead of throwing.
-async function openExternalUrl(url: string): Promise<void> {
-  try {
-    if (/^tel:/i.test(url)) {
-      await Linking.openURL(url);
-      return;
-    }
-
-    if (isRemoteUrl(url)) {
-      await Linking.openURL(url);
-      return;
-    }
-
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) {
-      Alert.alert('Cannot open link', url);
-      return;
-    }
-    await Linking.openURL(url);
-  } catch {
-    Alert.alert('Cannot open link', url);
-  }
-}
-
-function isRemoteUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value);
-}
-
-// Uploaded evidence is stored as `<merchantId>/<timestamp>-<rand>.<ext>` (see
-// uploadNegotiationEvidence). Match that exact shape — a first path segment with
-// no domain dot plus one image filename — so a scheme-less competitor image like
-// `www.example.com/image.png` is NOT mistaken for a private Storage object.
-const STORAGE_OBJECT_PATH =
-  /^[^/\s:.]+\/[^/\s]+\.(?:png|jpe?g|webp|heic|heif)$/i;
-
-function isStorageObjectPath(value: string): boolean {
-  return value.length <= 1024 && STORAGE_OBJECT_PATH.test(value);
-}
-
-// Customers attach evidence as a URL (competitor link), a durable Supabase
-// Storage object path, or legacy placeholder text. Storage paths are private, so
-// mint a fresh signed URL at view time; placeholders stay readable as text.
-async function openEvidence(evidenceUrl: string): Promise<void> {
-  if (isRemoteUrl(evidenceUrl)) {
-    await openExternalUrl(evidenceUrl);
-    return;
-  }
-
-  if (isStorageObjectPath(evidenceUrl)) {
-    try {
-      const { data, error } = await supabase.storage
-        .from(NEGOTIATION_EVIDENCE_BUCKET)
-        .createSignedUrl(evidenceUrl, EVIDENCE_SIGNED_URL_TTL_SECONDS);
-      if (error || !data?.signedUrl) {
-        throw error ?? new Error('Missing signed URL');
-      }
-      await openExternalUrl(data.signedUrl);
-    } catch {
-      // Signing failed (expired bucket policy, deleted object, …). Don't dead-end
-      // the merchant — show the raw value so they can still read what was sent.
-      Alert.alert('Customer evidence', evidenceUrl);
-    }
-    return;
-  }
-
-  Alert.alert('Customer evidence', evidenceUrl);
-}
-
-// Short WhatsApp/SMS opener referencing the offer so the merchant doesn't have
-// to retype context. Falls back to the item name or a generic cart label.
-function formatNegotiationStatus(status: NegotiationStatus): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-function buildFollowUpMessage(request: NegotiationRequest): string {
-  const item = request.item_info?.name ?? 'your cart';
-  return `Hi! About your negotiation offer on ${item} — `;
 }
 
 export default function NegotiationsScreen() {
@@ -242,6 +144,12 @@ export default function NegotiationsScreen() {
     },
   });
 
+  useEffect(() => {
+    if (fetchError) {
+      console.error('Failed to load negotiation requests:', fetchError);
+    }
+  }, [fetchError]);
+
   const handleAction = (id: string, status: 'accepted' | 'rejected') => {
     if (updateStatusMutation.isPending) return; // Prevent double-submit
     updateStatusMutation.mutate({ id, status });
@@ -285,248 +193,26 @@ export default function NegotiationsScreen() {
 
   const loading = isMerchantLoading || (!!merchant?.id && isRequestsLoading);
   const actionLoadingId = updateStatusMutation.isPending
-    ? updateStatusMutation.variables?.id ?? null
+    ? (updateStatusMutation.variables?.id ?? null)
     : null;
 
-  const renderItem = ({ item }: { item: NegotiationRequest }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-      <View style={styles.cardHeader}>
-        <View
-          style={[
-            styles.typeBadge,
-            {
-              backgroundColor:
-                item.type === 'total' ? palette.amber[100] : palette.red[50],
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.typeText,
-              {
-                color:
-                  item.type === 'total' ? palette.amber[700] : palette.red[700],
-              },
-            ]}
-          >
-            {item.type === 'total' ? 'Bulk Cart' : 'Single Item'}
-          </Text>
-        </View>
-        <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-      </View>
-
-      <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
-        {item.item_info?.name ?? 'Cart Negotiation'}
-      </Text>
-
-      <View style={[styles.priceRow, { backgroundColor: colors.backgroundLight }]}>
-        {item.current_price != null && (
-          <View>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Current</Text>
-            <Text style={[styles.oldPrice, { color: colors.textSecondary }]}>
-              {formatPrice(item.current_price)}
-            </Text>
-          </View>
-        )}
-        {item.current_price != null && (
-          <Ionicons name="arrow-forward" size={16} color={colors.textSecondary} />
-        )}
-        <View>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Offered</Text>
-          <Text style={[styles.newPrice, { color: colors.primary }]}>{formatPrice(item.offered_price)}</Text>
-        </View>
-        {item.current_price != null &&
-          item.current_price > 0 &&
-          item.offered_price < item.current_price && (
-            <View style={styles.savingsBadge}>
-              <Text style={styles.savingsText}>
-                -
-                {Math.round(
-                  (1 - item.offered_price / item.current_price) * 100
-                )}
-                %
-              </Text>
-            </View>
-          )}
-      </View>
-
-      {item.cart_snapshot && item.cart_snapshot.length > 0 ? (
-        <View style={styles.cartSection}>
-          <Pressable
-            style={styles.cartToggle}
-            onPress={() =>
-              setExpandedId((current) => (current === item.id ? null : item.id))
-            }
-            accessibilityRole="button"
-            accessibilityLabel={
-              expandedId === item.id
-                ? 'Hide cart items'
-                : `View ${item.cart_snapshot.length} cart items`
-            }
-          >
-            <Ionicons name="cart-outline" size={16} color={colors.textSecondary} />
-            <Text style={[styles.cartToggleText, { color: colors.textSecondary }]}>
-              {expandedId === item.id
-                ? 'Hide items'
-                : `View ${item.cart_snapshot.length} ${
-                    item.cart_snapshot.length === 1 ? 'item' : 'items'
-                  }`}
-            </Text>
-            <Ionicons
-              name={expandedId === item.id ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-
-          {expandedId === item.id ? (
-            <View style={[styles.cartItems, { borderTopColor: colors.border }]}>
-              {item.cart_snapshot.map((line, index) => (
-                <View
-                  key={`${line.product_id}-${line.variant_id ?? index}`}
-                  style={styles.cartLine}
-                >
-                  <Text style={[styles.cartLineQty, { color: colors.textSecondary }]}>{line.quantity}×</Text>
-                  <View style={styles.cartLineBody}>
-                    <Text style={[styles.cartLineName, { color: colors.text }]} numberOfLines={2}>
-                      {line.name}
-                    </Text>
-                    {line.variant_name || line.condition ? (
-                      <Text style={[styles.cartLineMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {[line.variant_name, line.condition]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.cartLinePrice, { color: colors.text }]}>
-                    {formatPrice(line.price * line.quantity)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      {item.evidence_url ? (
-        <Pressable
-          style={styles.evidenceButton}
-          onPress={() => void openEvidence(item.evidence_url as string)}
-          accessibilityRole="button"
-          accessibilityLabel="View customer evidence"
-        >
-          <Ionicons
-            name="image-outline"
-            size={16}
-            color={colors.primary}
-          />
-          <Text style={[styles.evidenceText, { color: colors.primary }]}>View customer evidence</Text>
-        </Pressable>
-      ) : null}
-
-      {item.customer_phone ? (
-        <View style={styles.contactRow}>
-          {buildTelLink(item.customer_phone) ? (
-            <Pressable
-              style={[styles.contactButton, styles.callButton, { borderColor: colors.border }]}
-              onPress={() =>
-                openExternalUrl(buildTelLink(item.customer_phone) as string)
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Call customer"
-            >
-              <Ionicons name="call" size={16} color={colors.text} />
-              <Text style={[styles.callButtonText, { color: colors.text }]}>Call</Text>
-            </Pressable>
-          ) : null}
-          {buildWhatsAppLink(
-            item.customer_phone,
-            buildFollowUpMessage(item)
-          ) ? (
-            <Pressable
-              style={[styles.contactButton, styles.whatsappButton]}
-              onPress={() =>
-                openExternalUrl(
-                  buildWhatsAppLink(
-                    item.customer_phone,
-                    buildFollowUpMessage(item)
-                  ) as string
-                )
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Message customer on WhatsApp"
-            >
-              <Ionicons name="logo-whatsapp" size={16} color={palette.white} />
-              <Text style={styles.whatsappButtonText}>WhatsApp</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-
-      {item.status === 'pending' ? (
-        <View style={styles.actionRow}>
-          <Pressable
-            style={[
-              styles.actionButton,
-              styles.rejectButton,
-              { borderColor: colors.border },
-              actionLoadingId === item.id && styles.disabledButton,
-            ]}
-            onPress={() => handleAction(item.id, 'rejected')}
-            disabled={actionLoadingId !== null}
-          >
-            {actionLoadingId === item.id ? (
-              <ActivityIndicator size="small" color={colors.textSecondary} />
-            ) : (
-              <Text style={[styles.rejectButtonText, { color: colors.textSecondary }]}>Reject</Text>
-            )}
-          </Pressable>
-          <Pressable
-            style={[
-              styles.actionButton,
-              styles.acceptButton,
-              { backgroundColor: colors.primary },
-              actionLoadingId === item.id && styles.disabledButton,
-            ]}
-            onPress={() => handleAction(item.id, 'accepted')}
-            disabled={actionLoadingId !== null}
-          >
-            {actionLoadingId === item.id ? (
-              <ActivityIndicator size="small" color={colors.textOnPrimary} />
-            ) : (
-              <Text style={[styles.acceptButtonText, { color: colors.textOnPrimary }]}>Accept Offer</Text>
-            )}
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.statusOutcomeRow}>
-          <Text style={[styles.statusOutcomeLabel, { color: colors.textSecondary }]}>Status</Text>
-          <View
-            style={[
-              styles.statusOutcomeBadge,
-              item.status === 'accepted' && { backgroundColor: colors.successLight },
-              item.status === 'rejected' && { backgroundColor: colors.errorLight },
-              item.status === 'countered' && { backgroundColor: colors.warningLight },
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusOutcomeText,
-                item.status === 'accepted' && { color: colors.success },
-                item.status === 'rejected' && { color: colors.error },
-                item.status === 'countered' && { color: colors.warning },
-              ]}
-            >
-              {formatNegotiationStatus(item.status)}
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
-  );
+  const renderItem = ({ item }: { item: NegotiationRequest }) => {
+    return (
+      <NegotiationCard
+        actionLoading={actionLoadingId === item.id}
+        actionsDisabled={actionLoadingId !== null}
+        colors={colors}
+        expanded={expandedId === item.id}
+        item={item}
+        onAction={handleAction}
+        onOpenEvidence={openNegotiationEvidence}
+        onOpenExternalUrl={openNegotiationExternalUrl}
+        onToggleCart={(id) =>
+          setExpandedId((current) => (current === id ? null : id))
+        }
+      />
+    );
+  };
 
   if (loading) {
     return (
@@ -537,11 +223,13 @@ export default function NegotiationsScreen() {
   }
 
   if (fetchError) {
-    const errorMessage = fetchError instanceof Error ? fetchError.message : 'Failed to load negotiations';
+    const errorMessage = 'Failed to load negotiations. Please try again.';
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Ionicons name="alert-circle" size={48} color={colors.error} />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>{errorMessage}</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          {errorMessage}
+        </Text>
         <Pressable
           style={styles.retryButton}
           onPress={() => {
@@ -549,7 +237,9 @@ export default function NegotiationsScreen() {
           }}
         >
           <Ionicons name="refresh" size={18} color={colors.primary} />
-          <Text style={[styles.retryText, { color: colors.primary }]}>Tap to retry</Text>
+          <Text style={[styles.retryText, { color: colors.primary }]}>
+            Tap to retry
+          </Text>
         </Pressable>
       </View>
     );
@@ -561,13 +251,10 @@ export default function NegotiationsScreen() {
         data={requests}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        extraData={expandedId}
+        extraData={`${expandedId ?? ''}:${actionLoadingId ?? ''}`}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -576,8 +263,12 @@ export default function NegotiationsScreen() {
               size={64}
               color={colors.border}
             />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Pending Negotiations</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              No Pending Negotiations
+            </Text>
+            <Text
+              style={[styles.emptySubtitle, { color: colors.textSecondary }]}
+            >
               All quiet for now. New requests will appear here instantly.
             </Text>
           </View>
@@ -586,278 +277,3 @@ export default function NegotiationsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: palette.gray[50],
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: SPACING.md,
-  },
-  card: {
-    backgroundColor: palette.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    ...SHADOWS.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  typeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  dateText: {
-    fontSize: 12,
-    color: palette.gray[400],
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: palette.gray[900],
-    marginBottom: SPACING.md,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.sm,
-    backgroundColor: palette.gray[50],
-    borderRadius: RADIUS.md,
-    marginBottom: SPACING.md,
-  },
-  label: {
-    fontSize: 10,
-    color: palette.gray[500],
-    marginBottom: 2,
-  },
-  oldPrice: {
-    fontSize: 14,
-    color: palette.gray[500],
-    textDecorationLine: 'line-through',
-  },
-  newPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: BRAND.primary,
-  },
-  savingsBadge: {
-    backgroundColor: palette.red[100],
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  savingsText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: palette.red[700],
-  },
-  cartSection: {
-    marginBottom: SPACING.md,
-  },
-  cartToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: SPACING.xs,
-  },
-  cartToggleText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.gray[600],
-  },
-  cartItems: {
-    marginTop: SPACING.xs,
-    borderTopWidth: 1,
-    borderTopColor: palette.gray[100],
-    paddingTop: SPACING.sm,
-    gap: SPACING.sm,
-  },
-  cartLine: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  cartLineQty: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: palette.gray[500],
-    minWidth: 28,
-  },
-  cartLineBody: {
-    flex: 1,
-  },
-  cartLineName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: palette.gray[900],
-  },
-  cartLineMeta: {
-    fontSize: 11,
-    color: palette.gray[500],
-    marginTop: 2,
-  },
-  cartLinePrice: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.gray[700],
-  },
-  evidenceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: SPACING.md,
-  },
-  evidenceText: {
-    fontSize: 12,
-    color: '#3B82F6',
-    fontWeight: '500',
-  },
-  contactRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: SPACING.md,
-  },
-  contactButton: {
-    flex: 1,
-    height: 40,
-    borderRadius: RADIUS.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  callButton: {
-    borderWidth: 1,
-    borderColor: palette.gray[200],
-  },
-  callButtonText: {
-    color: palette.gray[700],
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  whatsappButton: {
-    backgroundColor: '#25D366',
-  },
-  whatsappButtonText: {
-    color: palette.white,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statusOutcomeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  statusOutcomeLabel: {
-    color: palette.gray[500],
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  statusOutcomeBadge: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  statusAcceptedBadge: {
-    backgroundColor: palette.emerald[400],
-  },
-  statusRejectedBadge: {
-    backgroundColor: palette.red[50],
-  },
-  statusCounteredBadge: {
-    backgroundColor: palette.amber[100],
-  },
-  statusOutcomeText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  statusAcceptedText: {
-    color: palette.gray[950],
-  },
-  statusRejectedText: {
-    color: palette.red[700],
-  },
-  statusCounteredText: {
-    color: palette.amber[700],
-  },
-  actionButton: {
-    flex: 1,
-    height: 44,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rejectButton: {
-    borderWidth: 1,
-    borderColor: palette.gray[200],
-  },
-  rejectButtonText: {
-    color: palette.gray[600],
-    fontWeight: '600',
-  },
-  acceptButton: {
-    backgroundColor: BRAND.primary,
-  },
-  acceptButtonText: {
-    color: palette.white,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: palette.gray[900],
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: palette.gray[500],
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  retryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.primary,
-  },
-});

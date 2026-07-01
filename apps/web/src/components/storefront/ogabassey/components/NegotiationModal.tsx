@@ -2,6 +2,7 @@
 
 // Migrated from temp-source/components/NegotiationModal.tsx
 import {
+  buildNegotiationSingleItemInfo,
   buildCartSnapshot,
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   isProductNegotiable,
@@ -31,6 +32,11 @@ interface NegotiationModalProps {
   type: 'single' | 'total';
   itemId?: string;
   merchantId: string;
+  productSlug?: string;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  condition?: string;
   /** Cart lines to snapshot for whole-cart ("total") offers. */
   cart?: CartItem[];
 }
@@ -128,11 +134,17 @@ interface NegotiationRequestInput {
   merchantId: string;
   type: 'single' | 'total';
   itemId?: string;
+  productSlug?: string;
   productName: string;
+  productBrand?: string;
   currentPrice: number;
   offeredPrice: number;
   evidenceUrl?: string;
   customerPhone?: string | null;
+  variantId?: string;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
+  condition?: string;
   cart?: CartItem[];
 }
 
@@ -175,11 +187,7 @@ async function insertNegotiationRequest(
     type: request.type,
     item_info:
       request.type === 'single'
-        ? {
-            id: request.itemId,
-            name: request.productName,
-            current_price: request.currentPrice,
-          }
+        ? buildNegotiationSingleItemInfo(request)
         : totalItemInfo,
     cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
     offered_price: request.offeredPrice,
@@ -204,6 +212,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   type,
   itemId,
   merchantId,
+  productSlug,
+  variantId,
+  variantName,
+  variantAttributes,
+  condition,
   cart,
 }) => {
   const offerInputId = useId();
@@ -230,6 +243,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
+  const selectedVariantDetails = [
+    variantName?.trim(),
+    condition?.trim()
+      ? `Condition: ${condition.trim().replace(/_/g, ' ')}`
+      : null,
+  ].filter(Boolean);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const offerInputRef = useRef<HTMLInputElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -485,11 +504,17 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         merchantId,
         type,
         itemId,
+        productSlug,
         productName,
+        productBrand,
         currentPrice,
         offeredPrice: offerAmount,
         evidenceUrl,
         customerPhone: phone,
+        variantId,
+        variantName,
+        variantAttributes,
+        condition,
         cart,
       });
 
@@ -576,6 +601,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
             <p className="font-bold text-[hsl(var(--card-foreground))] line-clamp-1">
               {productName}
             </p>
+            {selectedVariantDetails.length > 0 ? (
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                {selectedVariantDetails.join(' · ')}
+              </p>
+            ) : null}
             <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
               Current Price:{' '}
               <span className="text-[hsl(var(--card-foreground))] font-semibold">

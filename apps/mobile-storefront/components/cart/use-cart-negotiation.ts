@@ -40,6 +40,11 @@ export function useCartNegotiation({
       currentPrice: priceToUse * item.quantity,
       brand: item.brand,
       isNegotiable: isProductNegotiable({ brand: item.brand, name: item.name }),
+      productSlug: item.slug,
+      variantId: item.variant_id,
+      variantName: item.variant_name,
+      variantAttributes: item.variant_attributes,
+      condition: item.condition,
     });
     setShowNegotiateWarning(false);
     setPendingNegotiateItem(null);

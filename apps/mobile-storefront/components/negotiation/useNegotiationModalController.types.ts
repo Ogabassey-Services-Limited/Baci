@@ -1,9 +1,15 @@
 import type { CartItem } from '@/stores/cart-store';
 
 export interface NegotiationItemInfo {
+  brand?: string;
+  condition?: string;
   currentPrice: number;
   id?: string;
   name: string;
+  productSlug?: string;
+  variantAttributes?: Record<string, string>;
+  variantId?: string;
+  variantName?: string;
 }
 
 export interface UseNegotiationModalControllerParams {

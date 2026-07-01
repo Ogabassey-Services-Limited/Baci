@@ -62,6 +62,7 @@ export function ProductDetailsPage({
     canPurchase,
     cartHref,
     currentOffer,
+    currentVariantDisplaySelection,
     deliveryEstimate,
     deliveryLocation,
     effectiveAxes,
@@ -107,6 +108,7 @@ export function ProductDetailsPage({
     setSelectedImage,
     showColorToast,
     validateAndAddToCart,
+    variantSelectionAttributes,
   } = useProductDetailsState(product);
 
   const [isDesktop, setIsDesktop] = useState(false);
@@ -374,6 +376,11 @@ export function ProductDetailsPage({
           type="single"
           itemId={String(productData.id)}
           merchantId={merchantId || ''}
+          productSlug={productData.slug}
+          variantId={currentVariantDisplaySelection?.variant.id}
+          variantName={currentVariantDisplaySelection?.variant.name}
+          variantAttributes={variantSelectionAttributes}
+          condition={selectedCondition}
         />
       ) : null}
     </div>

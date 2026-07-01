@@ -385,6 +385,82 @@ describe('NegotiationModal', () => {
     expect(insertPayload.session_id).not.toBe('web-session');
   });
 
+  it('persists selected variant details for single-product merchant review', async () => {
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        productBrand=" Apple "
+        productSlug=" iphone-14-pro-max "
+        variantId=" variant-256-purple "
+        variantName=" iPhone 14 Pro Max 256GB Deep Purple "
+        variantAttributes={{
+          ' color ': ' Deep Purple ',
+          storage: ' 256GB ',
+          empty: ' ',
+          ' ': 'ignored',
+        }}
+        condition=" used "
+      />
+    );
+
+    expect(
+      screen.getByText('iPhone 14 Pro Max 256GB Deep Purple · Condition: used')
+    ).toBeInTheDocument();
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].item_info).toMatchObject({
+      id: 'item-123',
+      name: 'Test Product',
+      current_price: 10_000,
+      product_slug: 'iphone-14-pro-max',
+      brand: 'Apple',
+      variant_id: 'variant-256-purple',
+      variant_name: 'iPhone 14 Pro Max 256GB Deep Purple',
+      condition: 'used',
+    });
+    expect(mockInsert.mock.calls[0][0].item_info.variant_attributes).toEqual({
+      color: 'Deep Purple',
+      storage: '256GB',
+    });
+  });
+
+  it('omits optional variant metadata when no selection details are provided', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].item_info).toEqual({
+      id: 'item-123',
+      name: 'Test Product',
+      current_price: 10_000,
+    });
+  });
+
   it('persists a normalized customer_phone when one is entered', async () => {
     render(<NegotiationModal {...defaultProps} />);
 
