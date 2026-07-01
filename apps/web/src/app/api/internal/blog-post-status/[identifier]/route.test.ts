@@ -1,56 +1,15 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
-import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
-import { createPublicClient } from '@/lib/supabase/anon';
+import { getCachedStorefrontBlogPostStatus } from '@/lib/cached-storefront-blog-post-status';
 import { GET } from './route';
 
 vi.mock('@/env', () => ({
   getInternalApiSecret: () => 'test-internal-secret',
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedFeatureSettings: vi.fn().mockResolvedValue({ blog_enabled: true }),
-  getMerchantSafe: vi.fn().mockResolvedValue({
-    id: 'merchant-1',
-    is_published: true,
-  }),
+vi.mock('@/lib/cached-storefront-blog-post-status', () => ({
+  getCachedStorefrontBlogPostStatus: vi.fn(),
 }));
-
-vi.mock('@/lib/public-blog-sql-filters', () => ({
-  applyPublicBlogSqlFilters: vi.fn((query) => query),
-}));
-
-vi.mock('@/lib/supabase/anon', () => ({
-  createPublicClient: vi.fn(),
-}));
-
-type QueryResponse = { data: unknown; error: unknown };
-
-function createQuery(response: QueryResponse) {
-  return {
-    eq: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue(response),
-    neq: vi.fn().mockReturnThis(),
-    not: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-  };
-}
-
-function mockSupabaseResponses(responses: QueryResponse[]) {
-  const queries = responses.map(createQuery);
-  const pendingQueries = [...queries];
-  vi.mocked(createPublicClient).mockReturnValue({
-    from: vi.fn(() => {
-      const query = pendingQueries.shift();
-      if (!query) {
-        throw new Error('Unexpected Supabase query');
-      }
-      return query;
-    }),
-  } as unknown as ReturnType<typeof createPublicClient>);
-  return queries;
-}
 
 function buildRequest(slug = 'requested-post', auth = 'test-internal-secret') {
   const request = new NextRequest(
@@ -67,113 +26,63 @@ function context(identifier = 'ogabassey') {
 describe('GET /api/internal/blog-post-status/[identifier]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getMerchantSafe).mockResolvedValue({
-      id: 'merchant-1',
-      is_published: true,
-    } as Awaited<ReturnType<typeof getMerchantSafe>>);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-    } as Awaited<ReturnType<typeof getCachedFeatureSettings>>);
-  });
-
-  it('rejects unauthenticated requests', async () => {
-    const response = await GET(buildRequest('post', 'wrong'), context());
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
-  });
-
-  it('reports a published post as present', async () => {
-    mockSupabaseResponses([
-      { data: { id: 'post-1', slug: 'requested-post' }, error: null },
-    ]);
-
-    const response = await GET(buildRequest(), context());
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValue({
       hasError: false,
       present: true,
       redirectPath: null,
     });
   });
 
-  it('reports a missing post as absent when no redirect exists', async () => {
-    mockSupabaseResponses([
-      { data: null, error: null },
-      { data: null, error: null },
-    ]);
+  it('rejects unauthenticated requests before resolving cached status', async () => {
+    const response = await GET(buildRequest('post', 'wrong'), context());
 
-    const response = await GET(buildRequest(), context());
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      hasError: false,
-      present: false,
-      redirectPath: null,
-    });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
   });
 
-  it('returns a safe internal redirect path for retired blog slugs', async () => {
-    const queries = mockSupabaseResponses([
-      { data: null, error: null },
-      { data: { target_post_id: 'post-2' }, error: null },
-      { data: { slug: 'canonical-post' }, error: null },
-    ]);
+  it('returns 400 for invalid route or query parameters', async () => {
+    const response = await GET(buildRequest(''), context('bad identifier'));
 
-    const response = await GET(buildRequest('retired-post'), context());
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid input',
+      code: 'invalid_input',
+    });
+    expect(getCachedStorefrontBlogPostStatus).not.toHaveBeenCalled();
+  });
+
+  it('returns the cached status response with no-store headers', async () => {
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockResolvedValueOnce({
+      hasError: false,
+      present: true,
+      redirectPath: '/blog/canonical-post',
+    });
+
+    const response = await GET(buildRequest('Retired-Post'), context());
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({
       hasError: false,
       present: true,
       redirectPath: '/blog/canonical-post',
     });
-    expect(applyPublicBlogSqlFilters).toHaveBeenCalledTimes(2);
-    expect(queries[2].not).toHaveBeenCalledWith('title', 'is', null);
-    expect(queries[2].not).toHaveBeenCalledWith('slug', 'is', null);
-    expect(queries[2].neq).toHaveBeenCalledWith('title', '');
-    expect(queries[2].neq).toHaveBeenCalledWith('slug', '');
+    expect(getCachedStorefrontBlogPostStatus).toHaveBeenCalledWith(
+      'ogabassey',
+      'Retired-Post'
+    );
   });
 
-  it('does not redirect retired slugs to the same post slug', async () => {
-    mockSupabaseResponses([
-      { data: null, error: null },
-      { data: { target_post_id: 'post-2' }, error: null },
-      { data: { slug: 'retired-post' }, error: null },
-    ]);
+  it('fails open when cached status resolution throws', async () => {
+    vi.mocked(getCachedStorefrontBlogPostStatus).mockRejectedValueOnce(
+      new Error('cache unavailable')
+    );
 
-    const response = await GET(buildRequest('retired-post'), context());
+    const response = await GET(buildRequest('post'), context());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      hasError: false,
-      present: false,
-      redirectPath: null,
-    });
-  });
-
-  it('fails open for unpublished stores and query errors', async () => {
-    vi.mocked(getMerchantSafe).mockResolvedValueOnce({
-      id: 'merchant-1',
-      is_published: false,
-    } as Awaited<ReturnType<typeof getMerchantSafe>>);
-
-    const unpublishedResponse = await GET(buildRequest(), context());
-    await expect(unpublishedResponse.json()).resolves.toEqual({
-      hasError: true,
-      present: false,
-      redirectPath: null,
-    });
-
-    vi.mocked(getMerchantSafe).mockResolvedValueOnce({
-      id: 'merchant-1',
-      is_published: true,
-    } as Awaited<ReturnType<typeof getMerchantSafe>>);
-    mockSupabaseResponses([{ data: null, error: { message: 'timeout' } }]);
-
-    const errorResponse = await GET(buildRequest(), context());
-    await expect(errorResponse.json()).resolves.toEqual({
       hasError: true,
       present: false,
       redirectPath: null,
