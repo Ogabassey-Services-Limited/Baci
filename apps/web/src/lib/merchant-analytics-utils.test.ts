@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type AnalyticsOrderItemRow,
+  type AnalyticsOrderItemUnitCostRow,
   buildTopEntities,
 } from '@/lib/merchant-analytics-utils';
 
@@ -10,11 +11,13 @@ function item(input: {
   productCostPrice?: number | null;
   productId?: string | null;
   quantity: number;
+  unitCosts?: AnalyticsOrderItemUnitCostRow[] | null;
   variantCostPrice?: number | null;
 }): AnalyticsOrderItemRow {
   return {
     cost_price: input.costPrice ?? null,
     name: 'iPhone 11 Pro',
+    order_item_unit_costs: input.unitCosts ?? null,
     orders: null,
     price: input.price,
     product_id: input.productId ?? 'product-1',
@@ -60,6 +63,45 @@ describe('merchant analytics utils', () => {
 
     expect(result.totalProfit).toBe(126);
     expect(result.totalUnitsSold).toBe(4);
+  });
+
+  it('uses recorded per-unit costs for profit, falling back for unrecorded units', () => {
+    // qty 2, product fallback cost 30; unit 0 recorded at 25. Line cost =
+    // 25 + (1 remaining * 30) = 55. Revenue 100 → profit 45.
+    const result = buildTopEntities([
+      item({
+        costPrice: null,
+        price: 50,
+        productCostPrice: 30,
+        quantity: 2,
+        unitCosts: [{ cost_price: 25, unit_index: 0 }],
+        variantCostPrice: null,
+      }),
+    ]);
+
+    expect(result.totalProfit).toBe(45);
+  });
+
+  it('ignores out-of-range and duplicate unit-cost rows', () => {
+    // qty 2, fallback 30. unit_index 5 is out of range (ignored) and the second
+    // unit_index 0 is a duplicate (ignored); only the first unit 0 (cost 30)
+    // counts, and the 1 remaining unit falls back to 30 → cost 60, profit 40.
+    const result = buildTopEntities([
+      item({
+        costPrice: null,
+        price: 50,
+        productCostPrice: 30,
+        quantity: 2,
+        unitCosts: [
+          { cost_price: 999, unit_index: 5 },
+          { cost_price: 30, unit_index: 0 },
+          { cost_price: 999, unit_index: 0 },
+        ],
+        variantCostPrice: null,
+      }),
+    ]);
+
+    expect(result.totalProfit).toBe(40);
   });
 
   it('returns empty summaries for an empty item list', () => {
