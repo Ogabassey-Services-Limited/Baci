@@ -297,6 +297,86 @@ BEGIN
           );
         END IF;
       END IF;
+
+      IF v_reassign_anchor_to_variant_id IS NULL THEN
+        SELECT p.default_variant_id
+        INTO v_reassign_anchor_to_variant_id
+        FROM public.products AS p
+        JOIN public.product_variants AS pv
+          ON pv.id = p.default_variant_id
+         AND pv.product_id = p.id
+         AND pv.merchant_id = p.merchant_id
+         AND pv.is_inventory_anchor = false
+        WHERE p.id = v_product_id
+          AND p.merchant_id = p_merchant_id;
+      END IF;
+
+      IF v_reassign_anchor_to_variant_id IS NULL THEN
+        SELECT candidate.id
+        INTO v_reassign_anchor_to_variant_id
+        FROM (
+          SELECT
+            pv.id,
+            pv.created_at,
+            count(*) OVER () AS candidate_count
+          FROM public.product_variants AS pv
+          WHERE pv.product_id = v_product_id
+            AND pv.merchant_id = p_merchant_id
+            AND pv.is_inventory_anchor = false
+        ) AS candidate
+        WHERE candidate.candidate_count = 1
+        ORDER BY candidate.created_at NULLS LAST, candidate.id
+        LIMIT 1;
+      END IF;
+
+      IF v_reassign_anchor_to_variant_id IS NULL OR NOT EXISTS (
+        SELECT 1
+        FROM public.product_variants
+        WHERE id = v_reassign_anchor_to_variant_id
+          AND product_id = v_product_id
+          AND merchant_id = p_merchant_id
+          AND is_inventory_anchor = false
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
+      END IF;
+
+      PERFORM 1
+      FROM public.variant_inventory
+      WHERE variant_id = v_existing_anchor_id
+      FOR UPDATE;
+
+      IF EXISTS (
+        SELECT 1
+        FROM public.variant_inventory
+        WHERE variant_id = v_existing_anchor_id
+          AND status = 'reserved'
+      ) THEN
+        RAISE EXCEPTION 'serialized_inventory_reserved_units_exist' USING ERRCODE = '23514';
+      END IF;
+
+      FOR v_moved_inventory_unit_id IN
+        UPDATE public.variant_inventory
+        SET variant_id = v_reassign_anchor_to_variant_id,
+            updated_at = now()
+        WHERE variant_id = v_existing_anchor_id
+        RETURNING id
+      LOOP
+        PERFORM private.record_variant_inventory_event(
+          v_moved_inventory_unit_id,
+          p_merchant_id,
+          v_product_id,
+          v_reassign_anchor_to_variant_id,
+          'branch_transferred',
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          auth.uid(),
+          'mobile_admin',
+          jsonb_build_object('anchorReassignedFrom', v_existing_anchor_id)
+        );
+      END LOOP;
     END IF;
 
     UPDATE public.products
@@ -304,6 +384,12 @@ BEGIN
         updated_at = now()
     WHERE id = v_product_id
       AND merchant_id = p_merchant_id;
+
+    DELETE FROM public.product_variants
+    WHERE id = v_existing_anchor_id
+      AND product_id = v_product_id
+      AND merchant_id = p_merchant_id
+      AND is_inventory_anchor = true;
   END IF;
 
   IF p_product_id IS NULL THEN
@@ -481,109 +567,6 @@ BEGIN
     );
   END IF;
 
-  IF p_product_id IS NOT NULL
-     AND v_has_variants IS TRUE
-     AND v_existing_anchor_id IS NOT NULL THEN
-    IF EXISTS (
-      SELECT 1
-      FROM public.variant_inventory
-      WHERE variant_id = v_existing_anchor_id
-    ) THEN
-      IF v_reassign_anchor_to_variant_id IS NULL THEN
-        v_reassign_anchor_to_variant_id := NULLIF(
-          v_product_payload->>'reassign_anchor_to_variant_id',
-          ''
-        )::uuid;
-      END IF;
-
-      IF v_reassign_anchor_to_variant_id IS NULL THEN
-        SELECT p.default_variant_id
-        INTO v_reassign_anchor_to_variant_id
-        FROM public.products AS p
-        JOIN public.product_variants AS pv
-          ON pv.id = p.default_variant_id
-         AND pv.product_id = p.id
-         AND pv.merchant_id = p.merchant_id
-         AND pv.is_inventory_anchor = false
-        WHERE p.id = v_product_id
-          AND p.merchant_id = p_merchant_id;
-      END IF;
-
-      IF v_reassign_anchor_to_variant_id IS NULL THEN
-        SELECT candidate.id
-        INTO v_reassign_anchor_to_variant_id
-        FROM (
-          SELECT
-            pv.id,
-            pv.created_at,
-            count(*) OVER () AS candidate_count
-          FROM public.product_variants AS pv
-          WHERE pv.product_id = v_product_id
-            AND pv.merchant_id = p_merchant_id
-            AND pv.is_inventory_anchor = false
-        ) AS candidate
-        WHERE candidate.candidate_count = 1
-        ORDER BY candidate.created_at NULLS LAST, candidate.id
-        LIMIT 1;
-      END IF;
-
-      IF v_reassign_anchor_to_variant_id IS NULL OR NOT EXISTS (
-        SELECT 1
-        FROM public.product_variants
-        WHERE id = v_reassign_anchor_to_variant_id
-          AND product_id = v_product_id
-          AND merchant_id = p_merchant_id
-          AND is_inventory_anchor = false
-      ) THEN
-        RAISE EXCEPTION 'serialized_inventory_reassignment_required' USING ERRCODE = '23514';
-      END IF;
-
-      PERFORM 1
-      FROM public.variant_inventory
-      WHERE variant_id = v_existing_anchor_id
-      FOR UPDATE;
-
-      IF EXISTS (
-        SELECT 1
-        FROM public.variant_inventory
-        WHERE variant_id = v_existing_anchor_id
-          AND status = 'reserved'
-      ) THEN
-        RAISE EXCEPTION 'serialized_inventory_reserved_units_exist' USING ERRCODE = '23514';
-      END IF;
-
-      FOR v_moved_inventory_unit_id IN
-        UPDATE public.variant_inventory
-        SET variant_id = v_reassign_anchor_to_variant_id,
-            updated_at = now()
-        WHERE variant_id = v_existing_anchor_id
-        RETURNING id
-      LOOP
-        PERFORM private.record_variant_inventory_event(
-          v_moved_inventory_unit_id,
-          p_merchant_id,
-          v_product_id,
-          v_reassign_anchor_to_variant_id,
-          'branch_transferred',
-          NULL,
-          NULL,
-          NULL,
-          NULL,
-          NULL,
-          auth.uid(),
-          'mobile_admin',
-          jsonb_build_object('anchorReassignedFrom', v_existing_anchor_id)
-        );
-      END LOOP;
-    END IF;
-
-    DELETE FROM public.product_variants
-    WHERE id = v_existing_anchor_id
-      AND product_id = v_product_id
-      AND merchant_id = p_merchant_id
-      AND is_inventory_anchor = true;
-  END IF;
-
   IF v_has_variants IS NOT TRUE
      AND v_inventory_tracking_policy IN ('serialized_strict', 'serialized_then_unlimited') THEN
     PERFORM private.ensure_product_inventory_anchor_variant(p_merchant_id, v_product_id);
@@ -602,6 +585,7 @@ BEGIN
       ELSE products.color
     END,
     condition = CASE
+      WHEN v_variant_model = 'sku_matrix' THEN products.condition
       WHEN v_product_payload ? 'condition' THEN v_product_payload->>'condition'
       ELSE products.condition
     END,
