@@ -476,6 +476,37 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Merchant not found' });
   });
 
+  it('returns 500 when merchant details lookup fails', async () => {
+    const mockMerchantError = { code: '57014', message: 'statement timeout' };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    setupRecordPaymentSupabase({
+      merchant: null,
+      merchantError: mockMerchantError,
+      order: {},
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Failed to fetch merchant details' });
+  });
+
   it('returns 404 when merchant details not found', async () => {
     // Arrange
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -487,7 +518,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     setupRecordPaymentSupabase({
       merchant: null,
-      merchantError: { message: 'Merchant not found' },
+      merchantError: { code: 'PGRST116', message: 'Merchant not found' },
       order: {},
     });
 

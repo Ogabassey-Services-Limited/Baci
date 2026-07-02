@@ -76,7 +76,7 @@ describe('CheckoutIdentityModal', () => {
   it('switches to sign-in tab and shows login form', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     expect(
       screen.getByPlaceholderText('name@example.com')
@@ -89,7 +89,7 @@ describe('CheckoutIdentityModal', () => {
   it('keeps the password visibility toggle name stable while pressed', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     const passwordInput = screen.getByLabelText('Password');
     const toggleButton = screen.getByRole('button', {
@@ -127,7 +127,7 @@ describe('CheckoutIdentityModal', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
     // Switch to sign-in tab
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     // Fill in credentials
     fireEvent.change(screen.getByPlaceholderText('name@example.com'), {
@@ -157,7 +157,7 @@ describe('CheckoutIdentityModal', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 
     // Switch to sign-in tab
-    fireEvent.click(screen.getByText('Sign In'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     // Fill in credentials
     fireEvent.change(screen.getByPlaceholderText('name@example.com'), {

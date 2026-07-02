@@ -101,6 +101,21 @@ describe('createNewOrderTotals', () => {
     expect(totals.formatPrice(5000)).toBe('₦5,000.00');
   });
 
+  it('uses a deterministic locale for supported currencies without an explicit locale map entry', () => {
+    const totals = createNewOrderTotals({
+      discount: 0,
+      isVatApplied: false,
+      merchantCurrency: 'EGP',
+      orderItems: [],
+      shippingFee: 0,
+      taxes: 0,
+    });
+
+    expect(totals.formatPrice(1500)).toBe(
+      formatCurrency(1500, undefined, 'EGP', 'en-US')
+    );
+  });
+
   it('falls back to NGN when merchantCurrency is invalid or unsupported', () => {
     for (const merchantCurrency of ['INVALID', 'ABC', 'ZZZ']) {
       const totals = createNewOrderTotals({

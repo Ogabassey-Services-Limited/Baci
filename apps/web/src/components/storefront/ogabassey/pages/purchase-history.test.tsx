@@ -70,4 +70,31 @@ describe('OgabasseyV2PurchaseHistory', () => {
     expect(mockFormatCurrency).toHaveBeenCalledWith(4500);
     expect(screen.getByText(/USD 4500/)).toBeInTheDocument();
   });
+
+  it('falls back to the storefront currency hook when order currency is unsupported', () => {
+    render(
+      <OgabasseyV2PurchaseHistory
+        orders={[
+          {
+            created_at: '2026-07-01T00:00:00.000Z',
+            currency: 'XXX',
+            id: 'order-1',
+            items: [
+              {
+                id: 'item-1',
+                name: 'iPhone 16 Pro',
+                price: 4500,
+                quantity: 2,
+              },
+            ],
+            order_number: 'BAC-1001',
+            total: 9000,
+          },
+        ]}
+      />
+    );
+
+    expect(mockFormatCurrency).toHaveBeenCalledWith(4500);
+    expect(screen.getByText(/USD 4500/)).toBeInTheDocument();
+  });
 });

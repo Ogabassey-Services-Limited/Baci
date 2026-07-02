@@ -160,10 +160,22 @@ export async function POST(
     const { data: merchant, error: merchantError } = merchantResult;
     const { data: order, error: orderError } = orderResult;
 
-    if (merchantError || !merchant) {
+    if (merchantError && merchantError.code !== 'PGRST116') {
       logger.error({
         message: 'RecordPayment merchant details error',
         error: merchantError,
+        merchantId,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch merchant details' },
+        { status: 500 }
+      );
+    }
+
+    if (!merchant) {
+      logger.error({
+        message: 'RecordPayment merchant not found',
         merchantId,
         orderId,
       });

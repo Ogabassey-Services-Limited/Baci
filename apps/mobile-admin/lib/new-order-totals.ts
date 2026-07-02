@@ -5,6 +5,8 @@ import {
   normalizeMerchantCurrency,
 } from './utils';
 
+const DEFAULT_ORDER_TOTAL_LOCALE = 'en-US';
+
 const ORDER_TOTAL_LOCALE_BY_CURRENCY: Record<string, string> = {
   CAD: 'en-CA',
   EUR: 'de-DE',
@@ -18,8 +20,8 @@ const ORDER_TOTAL_LOCALE_BY_CURRENCY: Record<string, string> = {
   ZAR: 'en-ZA',
 };
 
-function getOrderTotalLocale(currency: string): string | undefined {
-  return ORDER_TOTAL_LOCALE_BY_CURRENCY[currency];
+function getOrderTotalLocale(currency: string): string {
+  return ORDER_TOTAL_LOCALE_BY_CURRENCY[currency] ?? DEFAULT_ORDER_TOTAL_LOCALE;
 }
 
 export interface NewOrderTotalsParams {
