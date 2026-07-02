@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 
 const mockCheckCsrfProtection = vi.fn();
-const mockNotifyNegotiationResponse = vi.fn().mockResolvedValue(undefined);
+const mockNotifyNegotiationResponse = vi
+  .fn()
+  .mockResolvedValue({ sent: 1, failed: 0, errors: [] });
 const mockNotifyGuestNegotiationResponseByEmail = vi
   .fn()
   .mockResolvedValue(undefined);
@@ -137,6 +139,12 @@ async function setupAuth(options: {
 describe('POST /api/negotiations/resolve', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNotifyNegotiationResponse.mockResolvedValue({
+      sent: 1,
+      failed: 0,
+      errors: [],
+    });
+    mockNotifyGuestNegotiationResponseByEmail.mockResolvedValue(undefined);
     updateCalls.length = 0;
     updateQueue.length = 0;
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
@@ -444,5 +452,61 @@ describe('POST /api/negotiations/resolve', () => {
       null,
       null
     );
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
+  });
+
+  it('falls back to captured email when authenticated customer push reaches no devices', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+    mockNotifyNegotiationResponse.mockResolvedValueOnce({
+      sent: 0,
+      failed: 0,
+      errors: [],
+    });
+    mockSupabaseUpdates({
+      data: {
+        id: validBody.negotiationId,
+        merchant_id: 'merchant-123',
+        customer_id: 'customer-456',
+        customer_email: 'customer@example.com',
+        type: 'single',
+        item_info: { name: 'Product', product_slug: 'product-slug' },
+        offered_price: 5000,
+        status: 'accepted',
+      },
+      error: null,
+    });
+
+    const response = await POST(createRequest(validBody));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      status: 'accepted',
+      notified: true,
+      channel: 'email',
+    });
+    expect(mockNotifyNegotiationResponse).toHaveBeenCalledWith(
+      'customer-456',
+      'single',
+      'accepted',
+      validBody.negotiationId,
+      'Product',
+      5000,
+      'product-slug'
+    );
+    expect(mockNotifyGuestNegotiationResponseByEmail).toHaveBeenCalledWith({
+      acceptedPrice: 5000,
+      email: 'customer@example.com',
+      itemName: 'Product',
+      merchantId: 'merchant-123',
+      negotiationId: validBody.negotiationId,
+      negotiationType: 'single',
+      productSlug: 'product-slug',
+      status: 'accepted',
+    });
   });
 });

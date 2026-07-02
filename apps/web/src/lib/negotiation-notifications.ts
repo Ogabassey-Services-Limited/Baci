@@ -6,6 +6,7 @@
 
 import {
   formatCurrency,
+  type NotificationSendResult,
   notifyCustomer,
   notifyMerchant,
 } from '@/lib/expo-push';
@@ -69,7 +70,7 @@ export async function notifyNegotiationRequest(
  *
  * Handles both single-item and cart-level negotiations.
  */
-export async function notifyNegotiationResponse(
+export function notifyNegotiationResponse(
   userId: string,
   negotiationType: 'single' | 'total',
   status: 'accepted' | 'rejected',
@@ -77,7 +78,7 @@ export async function notifyNegotiationResponse(
   itemName?: string | null,
   offeredPrice?: number | null,
   productSlug?: string | null
-): Promise<void> {
+): Promise<NotificationSendResult> {
   const isAccepted = status === 'accepted';
   const title = isAccepted ? '✅ Offer Accepted!' : '❌ Offer Declined';
 
@@ -95,7 +96,7 @@ export async function notifyNegotiationResponse(
       : `Your offer for ${itemName} was declined. Try a new offer or buy at the listed price.`;
   }
 
-  await notifyCustomer(
+  return notifyCustomer(
     userId,
     title,
     body,

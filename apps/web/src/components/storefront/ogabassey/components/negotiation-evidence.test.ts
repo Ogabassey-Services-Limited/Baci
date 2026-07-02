@@ -65,7 +65,10 @@ describe('uploadNegotiationEvidenceFile', () => {
     expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
       'merchant-123/server-uploaded-proof.png',
       'upload-token',
-      file,
+      expect.objectContaining({
+        name: 'Promo Screenshot.PNG',
+        type: 'image/png',
+      }),
       { contentType: 'image/png', upsert: false }
     );
     expect(evidencePath).toBe('merchant-123/server-uploaded-proof.png');
@@ -156,9 +159,41 @@ describe('uploadNegotiationEvidenceFile', () => {
     expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
       'merchant-123/server-uploaded-proof.png',
       'upload-token',
-      file,
+      expect.objectContaining({
+        name: 'iphone-proof.HEIC',
+        type: 'image/heic',
+      }),
       { contentType: 'image/heic', upsert: false }
     );
+  });
+
+  it('uses the server-normalized content type for signed uploads', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => ({
+        contentType: 'image/jpeg',
+        evidencePath: 'merchant-123/server-uploaded-proof.jpg',
+        uploadToken: 'upload-token',
+      }),
+      ok: true,
+    });
+    const file = new File(['proof'], 'camera-proof.jpg', {
+      type: 'application/octet-stream',
+    });
+
+    await uploadNegotiationEvidenceFile({
+      file,
+      merchantId: 'merchant-123',
+    });
+
+    const [, , uploadedFile, options] = mockUploadToSignedUrl.mock.calls[0];
+    expect(uploadedFile).toEqual(
+      expect.objectContaining({
+        name: 'camera-proof.jpg',
+        type: 'image/jpeg',
+      })
+    );
+    expect(uploadedFile).not.toBe(file);
+    expect(options).toEqual({ contentType: 'image/jpeg', upsert: false });
   });
 
   it('surfaces API upload failures', async () => {

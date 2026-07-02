@@ -75,6 +75,17 @@ async function readEvidenceUploadResponse(response: Response) {
   };
 }
 
+function createSignedUploadFile(file: File, contentType: string): File {
+  if (file.type.trim().toLowerCase() === contentType) {
+    return file;
+  }
+
+  return new File([file], file.name, {
+    lastModified: file.lastModified,
+    type: contentType,
+  });
+}
+
 export async function uploadNegotiationEvidenceFile({
   file,
   merchantId,
@@ -101,11 +112,13 @@ export async function uploadNegotiationEvidenceFile({
   });
 
   const upload = await readEvidenceUploadResponse(response);
+  const uploadContentType = upload.contentType || contentType;
+  const uploadFile = createSignedUploadFile(file, uploadContentType);
   const supabase = createClient();
   const { error } = await supabase.storage
     .from(NEGOTIATION_EVIDENCE_BUCKET)
-    .uploadToSignedUrl(upload.evidencePath, upload.uploadToken, file, {
-      contentType: upload.contentType || contentType,
+    .uploadToSignedUrl(upload.evidencePath, upload.uploadToken, uploadFile, {
+      contentType: uploadContentType,
       upsert: false,
     });
 

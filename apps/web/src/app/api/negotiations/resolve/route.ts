@@ -45,11 +45,13 @@ async function notifyResolvedNegotiation({
   if (negotiationStatus !== 'accepted' && negotiationStatus !== 'rejected') {
     throw new Error('Negotiation has not been resolved yet');
   }
+  const resolvedStatus: 'accepted' | 'rejected' = negotiationStatus;
 
   const negotiationType = negotiation.type;
   if (negotiationType !== 'single' && negotiationType !== 'total') {
     throw new Error('Invalid negotiation type');
   }
+  const resolvedType: 'single' | 'total' = negotiationType;
 
   const itemName = negotiation.item_info?.name ?? null;
   const acceptedPrice =
@@ -58,33 +60,41 @@ async function notifyResolvedNegotiation({
       : null;
   const productSlug = negotiation.item_info?.product_slug ?? null;
 
+  async function notifyByEmail(email: string) {
+    await notifyGuestNegotiationResponseByEmail({
+      acceptedPrice,
+      email,
+      itemName,
+      merchantId: accessMerchantId,
+      negotiationId: negotiation.id,
+      negotiationType: resolvedType,
+      productSlug,
+      status: resolvedStatus,
+    });
+    return { notified: true, channel: 'email' };
+  }
+
   if (!negotiation.customer_id) {
     if (!negotiation.customer_email) {
       return { notified: false, reason: 'no_customer_email' };
     }
 
-    await notifyGuestNegotiationResponseByEmail({
-      acceptedPrice,
-      email: negotiation.customer_email,
-      itemName,
-      merchantId: accessMerchantId,
-      negotiationId: negotiation.id,
-      negotiationType,
-      productSlug,
-      status: negotiationStatus,
-    });
-    return { notified: true, channel: 'email' };
+    return notifyByEmail(negotiation.customer_email);
   }
 
-  await notifyNegotiationResponse(
+  const pushResult = await notifyNegotiationResponse(
     negotiation.customer_id,
-    negotiationType,
-    negotiationStatus,
+    resolvedType,
+    resolvedStatus,
     negotiation.id,
     itemName,
     acceptedPrice,
     productSlug
   );
+  if (pushResult.sent === 0 && negotiation.customer_email) {
+    return notifyByEmail(negotiation.customer_email);
+  }
+
   return { notified: true };
 }
 
