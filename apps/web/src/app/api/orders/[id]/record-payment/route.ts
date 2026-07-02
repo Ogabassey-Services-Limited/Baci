@@ -566,7 +566,6 @@ export async function POST(
     // Keeping status mutation inside the same DB transaction as the manual
     // payment insert prevents a slower partial-payment request from overwriting
     // a faster concurrent full-payment request after both RPCs return.
-    const isFullyPaid = newPaid >= orderTotal;
     const rpcPaymentStatus = manualPaymentResult.payment_status ?? null;
     const rpcShippingStatus = manualPaymentResult.shipping_status ?? null;
 
@@ -587,6 +586,7 @@ export async function POST(
       });
     }
 
+    const isFullyPaid = rpcPaymentStatus === 'paid';
     const updates: {
       payment_status?: PaymentStatus;
       shipping_status?: ShippingStatus;

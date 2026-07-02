@@ -917,6 +917,50 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
+  it('uses the RPC payment status instead of stale pre-lock totals for paid side effects', async () => {
+    const mockMerchant = createRecordPaymentMerchant();
+    const mockOrder = createRecordPaymentOrder();
+
+    setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPayment: {
+        new_paid: 10000,
+        payment_status: 'partially_paid',
+        remaining_balance: 5000,
+        shipping_status: 'processing',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-STALE-TOTAL',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      amount_paid: 10000,
+      new_balance: 5000,
+      updated_status: {
+        payment_status: 'partially_paid',
+        shipping_status: 'processing',
+      },
+    });
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining('Payment Receipt'),
+      })
+    );
+  });
+
   it('rolls back status, deletes the manual transaction, and returns 409 when paid-order inventory confirmation fails', async () => {
     const mockMerchant = {
       id: mockMerchantId,
