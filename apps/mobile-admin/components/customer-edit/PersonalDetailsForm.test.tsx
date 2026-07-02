@@ -88,9 +88,11 @@ describe('PersonalDetailsForm', () => {
           textMuted: '#94a3b8',
           textSecondary: '#cbd5e1',
         }}
+        companyName=""
         firstName="John"
         inputStyle={createInputStyle}
         lastName="Doe"
+        onCompanyNameChange={vi.fn()}
         onFirstNameChange={onFirstNameChange}
         onFocusField={onFocusField}
         onLastNameChange={onLastNameChange}
@@ -118,5 +120,44 @@ describe('PersonalDetailsForm', () => {
     expect(onFocusField).toHaveBeenCalledWith('firstName');
     expect(onFocusField).toHaveBeenCalledWith('lastName');
     expect(onFocusField).toHaveBeenCalledWith(null);
+  });
+
+  it('renders a company name field for company customers', () => {
+    const onCompanyNameChange = vi.fn();
+
+    render(
+      <PersonalDetailsForm
+        colors={{
+          background: '#020617',
+          backgroundLight: '#1e293b',
+          border: '#334155',
+          card: '#111827',
+          primary: '#3b82f6',
+          primaryLight: '#dbeafe',
+          text: '#f8fafc',
+          textMuted: '#94a3b8',
+          textSecondary: '#cbd5e1',
+        }}
+        companyName="Acme Ltd"
+        customerType="company"
+        firstName=""
+        inputStyle={createInputStyle}
+        lastName=""
+        onCompanyNameChange={onCompanyNameChange}
+        onFirstNameChange={vi.fn()}
+        onFocusField={vi.fn()}
+        onLastNameChange={vi.fn()}
+        shadows={{ md: {}, sm: {} }}
+      />
+    );
+
+    expect(screen.getByText('Company Details')).toBeTruthy();
+    expect(screen.getByText('Company Name')).toBeTruthy();
+    expect(screen.queryByText('First Name')).toBeNull();
+
+    fireEvent.change(screen.getByDisplayValue('Acme Ltd'), {
+      target: { value: 'Acme Inc' },
+    });
+    expect(onCompanyNameChange).toHaveBeenCalledWith('Acme Inc');
   });
 });

@@ -5,7 +5,6 @@
 
 import {
   buildCustomerAddressLine,
-  buildCustomerNameFields,
   buildCustomerRecordNameFields,
   CUSTOMER_ADMIN_COLUMNS,
 } from '@baci/shared';
@@ -185,6 +184,8 @@ export function useUpdateCustomer() {
     mutationKey: ['updateCustomer'],
     mutationFn: async (updates: {
       id: string;
+      customer_type?: 'individual' | 'company' | null;
+      company_name?: string | null;
       first_name?: string | null;
       last_name?: string | null;
       email: string;
@@ -194,7 +195,11 @@ export function useUpdateCustomer() {
       if (!merchant?.id) throw new Error('No merchant selected');
 
       const { id, ...customerData } = updates;
-      const nameFields = buildCustomerNameFields(customerData);
+      // Company-aware: recompute company_name/customer_type/full_name together so
+      // a company customer's name can be edited on mobile too (mirrors the web
+      // PATCH route). Callers must pass the stored customer_type so an untouched
+      // company isn't flipped to individual.
+      const nameFields = buildCustomerRecordNameFields(customerData);
 
       const { data, error } = await supabase
         .from('customers')

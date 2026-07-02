@@ -30,6 +30,7 @@ export default function CustomerEditScreen() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneModified, setPhoneModified] = useState(false);
@@ -48,6 +49,7 @@ export default function CustomerEditScreen() {
 
     setFirstName(fName ?? '');
     setLastName(lName ?? '');
+    setCompanyName(customer.company_name ?? '');
     setEmail(customer.email ?? '');
     setPhone(formatPhoneForInput(customer.phone ?? ''));
     setAddress(customer.address ?? '');
@@ -63,6 +65,10 @@ export default function CustomerEditScreen() {
     try {
       await updateCustomer.mutateAsync({
         id: id || '',
+        // Pass the stored customer_type so a company isn't flipped to individual;
+        // company_name is company-aware in useUpdateCustomer.
+        customer_type: customer?.customer_type,
+        company_name: sanitizeCustomerName(companyName.trim()) || null,
         first_name: sanitizeCustomerName(firstName.trim()) || null,
         last_name: sanitizeCustomerName(lastName.trim()) || null,
         email: sanitizeEmail(email.trim()),
@@ -139,11 +145,14 @@ export default function CustomerEditScreen() {
       />
       <PersonalDetailsForm
         colors={colors}
+        companyName={companyName}
+        customerType={customer?.customer_type}
         firstName={firstName}
         inputStyle={(fieldName) =>
           createInputStyle(fieldName, focusedField, colors)
         }
         lastName={lastName}
+        onCompanyNameChange={setCompanyName}
         onFirstNameChange={setFirstName}
         onFocusField={setFocusedField}
         onLastNameChange={setLastName}
