@@ -1,7 +1,5 @@
 import {
-  IMEI_DEVICE_CATEGORIES,
   IMEI_SERVICE_TIERS,
-  type ImeiDeviceCategory,
   type ImeiServiceTierKey,
   isValidDeviceIdentifier,
 } from '@baci/shared/imei';
@@ -10,12 +8,12 @@ import * as Crypto from 'expo-crypto';
 import { router, Stack } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Alert, Keyboard, Pressable, View } from 'react-native';
-import type PagerView from 'react-native-pager-view';
 import { ImeiCheckPager } from '@/components/imei-check/ImeiCheckPager';
 import { ImeiDeviceTabs } from '@/components/imei-check/ImeiDeviceTabs';
 import HeroCard from '@/components/imei-check/imei-check-hero-card';
 import { ImeiCheckResultView } from '@/components/imei-check/imei-check-result-view';
 import { resolveImeiCheckFailure } from '@/components/imei-check/resolve-imei-check-failure';
+import { useImeiDeviceNavigation } from '@/components/imei-check/use-imei-device-navigation';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -36,10 +34,6 @@ const API_BASE_URL = resolveStorefrontApiBaseUrl(
   process.env.EXPO_PUBLIC_API_URL
 );
 
-const DEVICE_ORDER = IMEI_DEVICE_CATEGORIES.map(
-  (category) => category.id
-) as ImeiDeviceCategory[];
-
 const getImeiCheckNetworkErrorMessage = (err: unknown) =>
   err instanceof Error && err.name === 'AbortError'
     ? 'Request timed out. Please check your connection and try again.'
@@ -55,23 +49,21 @@ const handleTopUpWallet = (amount: number): void => {
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [selectedDevice, setSelectedDevice] =
-    useState<ImeiDeviceCategory>('smartphone');
-  const [visitedDevices, setVisitedDevices] = useState<
-    Record<ImeiDeviceCategory, boolean>
-  >({
-    smartphone: true,
-    tablet: false,
-    laptop: false,
-    watch: false,
-  });
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
   const [resultTier, setResultTier] = useState<ImeiServiceTierKey>('full');
   const [error, setError] = useState<string | null>(null);
+  // Switching device (tab tap or swipe) clears any stale lookup error.
+  const {
+    deviceOrder,
+    handleDeviceTab,
+    handlePageSelected,
+    pagerRef,
+    selectedDevice,
+    visitedDevices,
+  } = useImeiDeviceNavigation(() => setError(null));
   const session = useAuthStore((state) => state.session);
   const walletQuery = useWallet();
-  const pagerRef = useRef<PagerView>(null);
   const activeIdempotencyRef = useRef<{
     imei: string;
     key: string;
@@ -92,26 +84,6 @@ export default function ImeiCheckerScreen() {
 
   const clearIdempotencyKey = () => {
     activeIdempotencyRef.current = null;
-  };
-
-  const handleDeviceTab = (device: ImeiDeviceCategory) => {
-    const index = DEVICE_ORDER.indexOf(device);
-    if (index < 0) return;
-    setSelectedDevice(device);
-    setVisitedDevices((prev) =>
-      prev[device] ? prev : { ...prev, [device]: true }
-    );
-    pagerRef.current?.setPage(index);
-  };
-
-  const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
-    const device = DEVICE_ORDER[event.nativeEvent.position];
-    if (!device) return;
-    setSelectedDevice(device);
-    setVisitedDevices((prev) =>
-      prev[device] ? prev : { ...prev, [device]: true }
-    );
-    setError(null);
   };
 
   const handleVerify = async (tier: ImeiServiceTierKey, imei: string) => {
@@ -281,7 +253,7 @@ export default function ImeiCheckerScreen() {
           <ImeiCheckPager
             colors={colors}
             error={error}
-            initialPage={DEVICE_ORDER.indexOf(selectedDevice)}
+            initialPage={deviceOrder.indexOf(selectedDevice)}
             isLoading={isLoading}
             isWalletError={Boolean(walletQuery.isError)}
             isWalletLoading={Boolean(walletQuery.isLoading)}
