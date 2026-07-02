@@ -26,6 +26,7 @@ function item(input: {
   price: number;
   productCostPrice?: number | null;
   quantity: number;
+  unitCosts?: AnalyticsOrderItemRow['order_item_unit_costs'];
   variantCostPrice?: number | null;
 }): AnalyticsOrderItemRow {
   return {
@@ -43,6 +44,7 @@ function item(input: {
       cost_price: input.productCostPrice ?? null,
     },
     quantity: input.quantity,
+    order_item_unit_costs: input.unitCosts ?? null,
   };
 }
 
@@ -81,6 +83,33 @@ describe('merchant analytics chart', () => {
       day: 'May 10',
       profit: 126,
       revenue: 200,
+    });
+  });
+
+  it('builds profit from per-unit costs when order item unit costs are present', () => {
+    const [point] = buildChartData(
+      [{ ...order, total: 300 }],
+      [
+        item({
+          costPrice: 40,
+          price: 100,
+          productCostPrice: 30,
+          quantity: 3,
+          unitCosts: [
+            { cost_price: 70, unit_index: 0 },
+            { cost_price: 30, unit_index: 2 },
+          ],
+          variantCostPrice: 20,
+        }),
+      ],
+      new Date('2026-05-10T00:00:00.000Z'),
+      new Date('2026-05-10T23:59:59.999Z')
+    );
+
+    expect(point).toMatchObject({
+      day: 'May 10',
+      profit: 160,
+      revenue: 300,
     });
   });
 
