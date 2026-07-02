@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildFulfillmentUnitIndex,
   buildSearchText,
   collectDetailValues,
   getSupplierNameFromMetadata,
@@ -36,5 +37,41 @@ describe('transaction-review-row-helpers', () => {
       })
     ).toBe('Primary Supplier');
     expect(getSupplierNameFromMetadata(null)).toBe('');
+  });
+
+  it('derives serialized inventory units from item fulfillment data', () => {
+    // Multi-unit serialized line: units live on the item, not order-level.
+    const byIndex = buildFulfillmentUnitIndex(
+      { items: [] },
+      {
+        inventoryUnits: [
+          { inventoryUnitId: 'u1', identifierType: 'imei', identifierValue: '111' },
+          { inventoryUnitId: 'u2', identifierType: 'serial', identifierValue: 'SN-2' },
+        ],
+      },
+      'item-1'
+    );
+
+    expect([...byIndex.keys()].sort()).toEqual([0, 1]);
+    expect(byIndex.get(0)?.imeiValues).toEqual(['111']);
+    expect(byIndex.get(1)?.serialValues).toEqual(['SN-2']);
+  });
+
+  it('lets order-level fulfillment units win over item inventory units', () => {
+    const byIndex = buildFulfillmentUnitIndex(
+      {
+        items: [
+          { orderItemId: 'item-1', unitIndex: 0, imei: '999' },
+        ],
+      },
+      {
+        inventoryUnits: [
+          { inventoryUnitId: 'u1', identifierType: 'imei', identifierValue: '111' },
+        ],
+      },
+      'item-1'
+    );
+
+    expect(byIndex.get(0)?.imeiValues).toEqual(['999']);
   });
 });

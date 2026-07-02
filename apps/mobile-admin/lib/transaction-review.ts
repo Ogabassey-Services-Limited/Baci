@@ -1,8 +1,8 @@
 import {
+  buildFulfillmentUnitIndex,
   buildSearchText,
   collectDetailValues,
   collectStrings,
-  getItemFulfillmentUnits,
   getJoinedProduct,
   getJoinedVariant,
   getSafeLegacyOrderDetails,
@@ -117,12 +117,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       const itemSupplierName = getTrimmedString(item.supplier_name);
       const supplierName =
         itemSupplierName || getSupplierNameFromMetadata(product?.metadata);
-      const itemFulfillmentUnits = getItemFulfillmentUnits(
+      const fulfillmentByIndex = buildFulfillmentUnitIndex(
         order.fulfillment_details,
+        item.fulfillment_data,
         item.id
-      );
-      const fulfillmentByIndex = new Map(
-        itemFulfillmentUnits.map((unit) => [unit.unitIndex, unit])
       );
       const unitCostByIndex = getUnitCostByIndex(item.order_item_unit_costs);
       const unitIndexes = resolveSplitUnitIndexes(

@@ -178,7 +178,7 @@ function getFulfillmentOrderItemId(item: Record<string, unknown>) {
   );
 }
 
-export function getItemFulfillmentUnits(
+function getItemFulfillmentUnits(
   fulfillmentDetails: unknown,
   orderItemId: string
 ): FulfillmentUnitDetails[] {
@@ -199,6 +199,72 @@ export function getItemFulfillmentUnits(
         unitIndex,
       };
     });
+}
+
+function getInventoryUnitsArray(
+  fulfillmentData: unknown
+): Record<string, unknown>[] {
+  const data = getObjectRecord(fulfillmentData);
+  const units = data?.inventoryUnits;
+  if (!Array.isArray(units)) {
+    return [];
+  }
+  return units
+    .map((unit) => getObjectRecord(unit))
+    .filter((unit): unit is Record<string, unknown> => unit != null);
+}
+
+/**
+ * Per-unit rows for serialized/claimed inventory, stored on
+ * order_items.fulfillment_data.inventoryUnits. These have no explicit index —
+ * position is the unit index. The reservation flow only mirrors single-unit
+ * orders to orders.fulfillment_details, so multi-unit serialized lines are only
+ * represented here.
+ */
+function getItemInventoryUnits(
+  fulfillmentData: unknown,
+  orderItemId: string
+): FulfillmentUnitDetails[] {
+  return getInventoryUnitsArray(fulfillmentData).map((unit, index) => {
+    const identifierType = getTrimmedString(unit.identifierType).toLowerCase();
+    const identifierValue = getTrimmedString(unit.identifierValue);
+    const id =
+      getTrimmedString(unit.inventoryUnitId) || `${orderItemId}:${index + 1}`;
+
+    return {
+      id,
+      imeiValues:
+        identifierType === 'imei' && identifierValue ? [identifierValue] : [],
+      searchTokens: collectStrings(unit),
+      serialValues:
+        identifierType === 'serial' && identifierValue ? [identifierValue] : [],
+      unitIndex: index,
+    };
+  });
+}
+
+/**
+ * Merge the order-level fulfillment units with the item-level serialized
+ * inventory units into a unitIndex→details map. Order-level records win when
+ * both are present so single-unit mirrors keep precedence, while multi-unit
+ * serialized lines (item-level only) still surface every unit.
+ */
+export function buildFulfillmentUnitIndex(
+  orderFulfillmentDetails: unknown,
+  itemFulfillmentData: unknown,
+  orderItemId: string
+): Map<number, FulfillmentUnitDetails> {
+  const byIndex = new Map<number, FulfillmentUnitDetails>();
+  for (const unit of getItemInventoryUnits(itemFulfillmentData, orderItemId)) {
+    byIndex.set(unit.unitIndex, unit);
+  }
+  for (const unit of getItemFulfillmentUnits(
+    orderFulfillmentDetails,
+    orderItemId
+  )) {
+    byIndex.set(unit.unitIndex, unit);
+  }
+  return byIndex;
 }
 
 export function getSafeLegacyOrderDetails(
