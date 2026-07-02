@@ -44,6 +44,7 @@ create policy "negotiation_evidence_owner_read"
       select (s.merchant_id)::text
       from public.staff_members s
       where s.user_id = (select auth.uid())
+        and s.status = 'active'
     )
   );
 
