@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   processFavicon: vi.fn(),
+  update: vi.fn(),
   updateEq: vi.fn(),
 }));
 
@@ -36,9 +37,10 @@ function buildRequest(formData?: FormData) {
 }
 
 function authedSupabase() {
+  mocks.update.mockReturnValue({ eq: mocks.updateEq });
   return {
     from: vi.fn(() => ({
-      update: vi.fn(() => ({ eq: mocks.updateEq })),
+      update: mocks.update,
     })),
   };
 }
@@ -124,6 +126,46 @@ describe('POST /api/merchant/favicon', () => {
       expect.anything()
     );
     expect(mocks.updateEq).toHaveBeenCalledWith('id', 'merchant-1');
+  });
+
+  it('clears the stored SVG favicon when a raster image is uploaded', async () => {
+    // processFavicon returns no svg_url for PNG/JPEG/WEBP uploads; the route
+    // must persist null so a previously stored SVG is not left in place.
+    const form = new FormData();
+    form.append(
+      'file',
+      new File([new Uint8Array([1, 2, 3])], 'icon.png', {
+        type: 'image/png',
+      })
+    );
+
+    await POST(buildRequest(form));
+
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ favicon_svg_url: null })
+    );
+  });
+
+  it('persists the SVG url when an SVG favicon is uploaded', async () => {
+    mocks.processFavicon.mockResolvedValue({
+      svg_url: 'https://cdn/icon.svg',
+      png_32_url: 'https://cdn/32.png',
+      png_192_url: 'https://cdn/192.png',
+      apple_touch_url: 'https://cdn/180.png',
+    });
+    const form = new FormData();
+    form.append(
+      'file',
+      new File([new Uint8Array([1, 2, 3])], 'icon.svg', {
+        type: 'image/svg+xml',
+      })
+    );
+
+    await POST(buildRequest(form));
+
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ favicon_svg_url: 'https://cdn/icon.svg' })
+    );
   });
 
   it('returns 400 with the real message when the image is invalid', async () => {

@@ -63,7 +63,10 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await auth.supabase
       .from('merchants')
       .update({
-        favicon_svg_url: result.svg_url,
+        // Raster uploads (PNG/JPEG/WEBP) produce no SVG variant, so explicitly
+        // clear any previously stored SVG — an undefined value would be omitted
+        // from the PATCH and leave the stale SVG favicon in place.
+        favicon_svg_url: result.svg_url ?? null,
         favicon_png_32_url: result.png_32_url,
         favicon_png_192_url: result.png_192_url,
         favicon_apple_touch_url: result.apple_touch_url,
