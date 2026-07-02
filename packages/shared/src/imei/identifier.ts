@@ -62,7 +62,10 @@ export function resolveInputIdentifier(
 
 /**
  * Normalize raw input for a given identifier type as the user types:
- * IMEI → digits only (max 15); serial → uppercase alphanumeric (max 14).
+ * IMEI → digits only (max 15); serial → uppercase alphanumeric (max 15). The
+ * serial cap is 15 (one past the 14-char max) so an over-length serial stays
+ * invalid rather than being silently shortened into a spurious valid value —
+ * see the inline comment below.
  */
 export function normalizeDeviceIdentifier(
   raw: string,
