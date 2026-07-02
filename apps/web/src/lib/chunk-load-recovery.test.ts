@@ -287,7 +287,7 @@ describe('chunk-load recovery', () => {
       )
     ).toEqual([
       expect.stringMatching(
-        /^baci:chunk-load-recovery:assets-[a-z0-9]+:\/checkout$/
+        /^baci:chunk-load-recovery:assets-[a-z0-9]+:localhost:3000:\/checkout$/
       ),
     ]);
   });
@@ -320,7 +320,7 @@ describe('chunk-load recovery', () => {
 
     expect(
       window.sessionStorage.getItem(
-        'baci:chunk-load-recovery:dpl:deploy-123:/checkout'
+        'baci:chunk-load-recovery:dpl:deploy-123:localhost:3000:/checkout'
       )
     ).toBe('1');
   });
@@ -360,7 +360,7 @@ describe('chunk-load recovery', () => {
     expect(keys.join(' ')).not.toContain('later-deploy');
     expect(keys).toContainEqual(
       expect.stringMatching(
-        /^baci:chunk-load-recovery:assets-[a-z0-9]+:\/checkout$/
+        /^baci:chunk-load-recovery:assets-[a-z0-9]+:localhost:3000:\/checkout$/
       )
     );
   });
@@ -393,7 +393,7 @@ describe('chunk-load recovery', () => {
 
     expect(
       window.sessionStorage.getItem(
-        'baci:chunk-load-recovery:next-global-deploy:/checkout'
+        'baci:chunk-load-recovery:next-global-deploy:localhost:3000:/checkout'
       )
     ).toBe('1');
   });

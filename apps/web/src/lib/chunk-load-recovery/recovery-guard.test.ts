@@ -164,4 +164,41 @@ describe('evaluateRecoveryGuard window.name fallback', () => {
       'skipped-storage-unavailable'
     );
   });
+
+  it('scopes fallback markers per host so merchants do not share attempts', () => {
+    let windowName = '';
+    const base = {
+      getSessionStorage: () => undefined,
+      getWindowName: () => windowName,
+      setWindowName: (value: string) => {
+        windowName = value;
+      },
+    };
+    const onHost = (host: string) => ({ ...base, getHost: () => host });
+
+    expect(
+      evaluateRecoveryGuard(
+        onHost('merchant-a.com'),
+        'deploy-1',
+        '/checkout',
+        true
+      )
+    ).toBe('reload');
+    expect(
+      evaluateRecoveryGuard(
+        onHost('merchant-b.com'),
+        'deploy-1',
+        '/checkout',
+        true
+      )
+    ).toBe('reload');
+    expect(
+      evaluateRecoveryGuard(
+        onHost('merchant-a.com'),
+        'deploy-1',
+        '/checkout',
+        true
+      )
+    ).toBe('skipped-already-attempted');
+  });
 });

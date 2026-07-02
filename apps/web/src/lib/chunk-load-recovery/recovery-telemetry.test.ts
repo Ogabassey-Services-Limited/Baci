@@ -94,6 +94,24 @@ describe('sendChunkRecoveryTelemetry', () => {
     expect(payload.properties.deployment_id_match).toBeNull();
   });
 
+  it('matches dpl-prefixed page deployment ids against raw asset dpls', async () => {
+    const sendBeacon = vi.fn().mockReturnValue(true);
+    Object.defineProperty(window.navigator, 'sendBeacon', {
+      configurable: true,
+      value: sendBeacon,
+    });
+
+    sendChunkRecoveryTelemetry({
+      ...baseTelemetry,
+      failedAssetDeploymentId: 'deploy-old',
+      pageDeploymentId: 'dpl:deploy-old',
+    });
+
+    const payload = await readBeaconPayload(sendBeacon);
+    expect(payload.properties.deployment_id_match).toBe(true);
+    expect(payload.properties.page_deployment_id).toBe('dpl:deploy-old');
+  });
+
   it('falls back to fetch keepalive when sendBeacon is unavailable', () => {
     Object.defineProperty(window.navigator, 'sendBeacon', {
       configurable: true,

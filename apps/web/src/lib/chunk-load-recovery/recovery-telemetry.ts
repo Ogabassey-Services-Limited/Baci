@@ -1,11 +1,7 @@
+import type { RecoveryGuardDecision } from '@/lib/chunk-load-recovery/recovery-guard';
 import { normalizePostHogProxyPath } from '@/lib/posthog/config';
 
-export type ChunkRecoveryAction =
-  | 'reload'
-  | 'skipped-already-attempted'
-  | 'skipped-session-cap'
-  | 'skipped-offline'
-  | 'skipped-storage-unavailable';
+export type ChunkRecoveryAction = RecoveryGuardDecision | 'skipped-offline';
 
 export type ChunkRecoveryTriggerSource =
   | 'window-error'
@@ -83,6 +79,13 @@ export function sendChunkRecoveryTelemetry(
     }
 
     const identity = readPersistedPostHogIdentity(projectToken);
+    // The asset-fingerprint tier of getPageDeploymentId prefixes with 'dpl:'
+    // while failed-asset ids come from the raw ?dpl= query — strip the prefix
+    // so same-deployment failures compare as a match.
+    const normalizedPageDeploymentId = telemetry.pageDeploymentId.replace(
+      /^dpl:/,
+      ''
+    );
     const payload = JSON.stringify({
       api_key: projectToken,
       event: 'chunk_load_recovery',
@@ -96,7 +99,7 @@ export function sendChunkRecoveryTelemetry(
         deployment_id_match:
           telemetry.failedAssetDeploymentId === null
             ? null
-            : telemetry.failedAssetDeploymentId === telemetry.pageDeploymentId,
+            : telemetry.failedAssetDeploymentId === normalizedPageDeploymentId,
         failed_asset_deployment_id: telemetry.failedAssetDeploymentId,
         failed_asset_url: telemetry.failedAssetUrl,
         page_deployment_id: telemetry.pageDeploymentId,

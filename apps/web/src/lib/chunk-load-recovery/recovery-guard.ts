@@ -17,15 +17,22 @@ export interface RecoveryGuardStorage {
 
 export interface RecoveryGuardRuntime {
   getSessionStorage: () => RecoveryGuardStorage | undefined;
+  getHost?: () => string;
   getWindowName?: () => string;
   setWindowName?: (value: string) => void;
 }
 
+// The host segment matters for the window.name fallback: unlike per-origin
+// sessionStorage, window.name survives cross-origin navigation in the same
+// tab, and every merchant storefront shares one platform deployment id — an
+// unscoped key would mark merchant B's path as already-attempted after a
+// recovery on merchant A.
 export function getRecoveryStorageKey(
   deploymentId: string,
-  pathname: string
+  pathname: string,
+  host = ''
 ): string {
-  return [RELOAD_STORAGE_KEY_PREFIX, deploymentId, pathname].join(':');
+  return [RELOAD_STORAGE_KEY_PREFIX, deploymentId, host, pathname].join(':');
 }
 
 function parseWindowNameKeys(windowName: string): string[] {
@@ -101,7 +108,9 @@ function evaluateWithWindowName(
  * key, at most once per key and capped per session. sessionStorage is the
  * primary guard; when it is unavailable (private browsing, embedded webviews)
  * the marker survives reloads inside `window.name` instead, so recovery
- * fails open for those users without ever allowing a reload loop. With
+ * fails open for those users without ever allowing a reload loop —
+ * mainstream browsers preserve `window.name` across same-origin reloads and
+ * reset it only on cross-origin navigation (Firefox 88+, Safari ITP). With
  * `commit` false this only peeks, letting error boundaries decide what to
  * render before the reload is committed in an effect.
  */
@@ -111,7 +120,13 @@ export function evaluateRecoveryGuard(
   pathname: string,
   commit: boolean
 ): RecoveryGuardDecision {
-  const storageKey = getRecoveryStorageKey(deploymentId, pathname);
+  let host = '';
+  try {
+    host = runtime.getHost?.() ?? '';
+  } catch {
+    // Key scoping falls back to deployment/path only.
+  }
+  const storageKey = getRecoveryStorageKey(deploymentId, pathname, host);
 
   try {
     const storage = runtime.getSessionStorage();

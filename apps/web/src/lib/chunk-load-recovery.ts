@@ -22,6 +22,7 @@ export interface ChunkLoadRecoveryRuntime {
   getPathname: () => string;
   getSessionStorage: () => RecoveryGuardStorage | undefined;
   reload: () => void;
+  getHost?: () => string;
   getWindowName?: () => string;
   setWindowName?: (value: string) => void;
   isOffline?: () => boolean;
@@ -120,6 +121,7 @@ function getBrowserRuntime(): ChunkLoadRecoveryRuntime | undefined {
     const initialDeploymentId = getPageDeploymentId();
     browserRuntime = {
       getDeploymentId: () => initialDeploymentId,
+      getHost: () => window.location.host,
       getPathname: () => window.location.pathname,
       getSessionStorage: () => window.sessionStorage,
       getWindowName: () => window.name,
