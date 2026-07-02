@@ -78,6 +78,56 @@ function toNegotiationCartLine(item: CartItem): Partial<NegotiationCartLine> {
   };
 }
 
+/**
+ * Derive the single-item negotiation props for a cart line so cart-origin
+ * single offers carry the same SKU details (variant id/attributes, condition,
+ * slug, brand) as PDP-origin offers — otherwise the admin card can't tell which
+ * variant was negotiated. Color/storage live in dedicated cart fields, so fold
+ * them into the attributes map (variant_name is intentionally omitted to avoid
+ * duplicating attributes in the merchant-facing label).
+ */
+export function deriveCartLineNegotiationProps(item: CartItem): {
+  itemId: string;
+  variantId?: string;
+  variantAttributes?: Record<string, string>;
+  condition?: string;
+  productSlug?: string;
+  productBrand?: string;
+} {
+  const variantAttributes: Record<string, string> = {
+    ...(item.variantAttributes ?? {}),
+  };
+  const seenValues = new Set(
+    Object.values(variantAttributes).map((value) => value.trim().toLowerCase())
+  );
+  for (const [label, value] of [
+    ['Color', item.selectedColor],
+    ['Secondary color', item.secondaryColor],
+    ['Storage', item.selectedStorage],
+  ] as const) {
+    const normalized = value?.trim().toLowerCase();
+    if (
+      value &&
+      normalized &&
+      !(label in variantAttributes) &&
+      !seenValues.has(normalized)
+    ) {
+      variantAttributes[label] = value;
+      seenValues.add(normalized);
+    }
+  }
+
+  return {
+    itemId: item.cartItemId,
+    variantId: item.variantId,
+    variantAttributes:
+      Object.keys(variantAttributes).length > 0 ? variantAttributes : undefined,
+    condition: item.condition,
+    productSlug: item.slug,
+    productBrand: item.brand,
+  };
+}
+
 type NegotiationStatus =
   | 'input'
   | 'processing'

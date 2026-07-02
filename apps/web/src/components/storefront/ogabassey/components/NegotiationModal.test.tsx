@@ -1,7 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CartItem } from '@/hooks/cart';
-import { NegotiationModal } from './NegotiationModal';
+import {
+  deriveCartLineNegotiationProps,
+  NegotiationModal,
+} from './NegotiationModal';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -764,5 +767,62 @@ describe('NegotiationModal', () => {
     render(<NegotiationModal {...defaultProps} />);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+});
+
+describe('deriveCartLineNegotiationProps', () => {
+  const baseItem = {
+    id: 'prod-1',
+    cartItemId: 'cart-line-1',
+    name: 'iPhone 15 Pro',
+    slug: 'iphone-15-pro',
+    brand: 'Apple',
+    quantity: 1,
+    price: 900_000,
+    variantId: 'variant-1',
+    variantAttributes: { RAM: '8GB' },
+    selectedColor: 'Silver',
+    selectedStorage: '256GB',
+    condition: 'used',
+  } as unknown as CartItem;
+
+  it('carries the cart line SKU details (folding color/storage into attributes)', () => {
+    const props = deriveCartLineNegotiationProps(baseItem);
+
+    expect(props).toMatchObject({
+      itemId: 'cart-line-1',
+      variantId: 'variant-1',
+      condition: 'used',
+      productSlug: 'iphone-15-pro',
+      productBrand: 'Apple',
+    });
+    expect(props.variantAttributes).toEqual({
+      RAM: '8GB',
+      Color: 'Silver',
+      Storage: '256GB',
+    });
+  });
+
+  it('does not duplicate a color already present in variant attributes', () => {
+    const props = deriveCartLineNegotiationProps({
+      ...baseItem,
+      variantAttributes: { Color: 'Silver' },
+      selectedColor: 'silver',
+      selectedStorage: undefined,
+    } as unknown as CartItem);
+
+    expect(props.variantAttributes).toEqual({ Color: 'Silver' });
+  });
+
+  it('omits variantAttributes when the line has no variant data', () => {
+    const props = deriveCartLineNegotiationProps({
+      ...baseItem,
+      variantAttributes: undefined,
+      selectedColor: undefined,
+      selectedStorage: undefined,
+      secondaryColor: undefined,
+    } as unknown as CartItem);
+
+    expect(props.variantAttributes).toBeUndefined();
   });
 });

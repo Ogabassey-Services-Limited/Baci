@@ -25,7 +25,10 @@ import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
-import { NegotiationModal } from '../components/NegotiationModal';
+import {
+  deriveCartLineNegotiationProps,
+  NegotiationModal,
+} from '../components/NegotiationModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
 import { CartEmptyState } from './cart-empty-state';
 
@@ -439,9 +442,11 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
           vatRate={negotiationVatRate}
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
-          itemId={negotiationState.item?.cartItemId}
           merchantId={merchantContext.merchant.id}
           cart={cart}
+          {...(negotiationState.type === 'single' && negotiationState.item
+            ? deriveCartLineNegotiationProps(negotiationState.item)
+            : {})}
         />
       )}
     </div>
