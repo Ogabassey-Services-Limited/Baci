@@ -7,9 +7,17 @@ import {
   getBlogCategorySlug,
   getCollidingBlogCategorySlugs,
   hasBlogCategorySlugCollision,
+  OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
+  OGABASSEY_BLOG_STATIC_TENANTS,
 } from './blog-category-routing';
 
 describe('blog category routing', () => {
+  it('shares the monitored OgaBassey blog tenants across listing and category routes', () => {
+    expect(OGABASSEY_BLOG_PRIMARY_STATIC_TENANT).toBe('ogabassey.com');
+    expect(OGABASSEY_BLOG_STATIC_TENANTS).toContain('ogabassey.com');
+    expect(OGABASSEY_BLOG_STATIC_TENANTS).toContain('ogabassey');
+  });
+
   it('generates clean lowercase category slugs', () => {
     expect(getBlogCategorySlug('Smartphones')).toBe('smartphones');
     expect(getBlogCategorySlug('Cases & Covers')).toBe('cases-covers');

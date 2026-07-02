@@ -86,7 +86,7 @@ describe('blog category page', () => {
     ).resolves.toEqual({});
   });
 
-  it('never subscribes to request category search params when building the shell', async () => {
+  it('never subscribes to request category search params when building the static shell', async () => {
     const searchParams = new Promise<{ page?: string; search?: string }>(() => {
       // Intentionally unresolved; the canonical category shell must not read
       // request searchParams at all (it renders canonical page 1).
@@ -104,6 +104,50 @@ describe('blog category page', () => {
 
     expect(thenSpy).not.toHaveBeenCalled();
     expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('does not resolve non-static category search params before the Suspense content boundary renders', async () => {
+    const searchParams = new Promise<{ page?: string; search?: string }>(() => {
+      // Intentionally unresolved; this route shell must pass it through
+      // without subscribing to it outside the Suspense boundary.
+    });
+    const thenSpy = vi.spyOn(searchParams, 'then');
+
+    await BlogCategoryPage({
+      params: Promise.resolve({
+        slug: 'dynamic-store',
+        categorySlug: 'smartphones',
+      }),
+      searchParams,
+    });
+    await Promise.resolve();
+
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
+  it('shows the category fallback while static OgaBassey category content is resolving', async () => {
+    mockBlogPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves so Suspense fallback remains visible.
+      });
+    });
+
+    render(
+      await BlogCategoryPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          categorySlug: 'smartphones',
+        }),
+        searchParams: Promise.resolve({ page: '99' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'Loading blog posts' })
+    ).toBeInTheDocument();
+    expect(mockGetCachedBlogListing).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it('shows the category fallback while non-static clean category content is resolving', async () => {
@@ -204,7 +248,9 @@ describe('blog category page', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe('Smartphones Articles | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'Smartphones Articles | Ogabassey',
+    });
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/category/smartphones'

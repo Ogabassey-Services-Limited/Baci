@@ -45,7 +45,7 @@ describe('storefront homepage metadata', () => {
     });
 
     expect(getRequestScopedMerchant).not.toHaveBeenCalled();
-    expect(metadata.title).toBe(OGABASSEY_TITLE);
+    expect(metadata.title).toEqual({ absolute: OGABASSEY_TITLE });
     expect(metadata.description).toBe(OGABASSEY_DESCRIPTION);
     expect(metadata.alternates).toEqual({
       canonical: OGABASSEY_URL,
@@ -125,7 +125,7 @@ describe('storefront homepage metadata', () => {
       params: Promise.resolve({ slug: 'ada-fashion' }),
     });
 
-    expect(metadata.title).toBe('Ada Fashion');
+    expect(metadata.title).toEqual({ absolute: 'Ada Fashion' });
     expect(metadata.keywords).toBeUndefined();
   });
 });

@@ -41,7 +41,9 @@ describe('blog listing metadata builder', () => {
       searchParams: { category: 'Smartphones' },
     });
 
-    expect(metadata.title).toBe('Smartphones Articles | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'Smartphones Articles | Ogabassey',
+    });
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/category/smartphones'
@@ -67,7 +69,9 @@ describe('blog listing metadata builder', () => {
       searchParams: { category: 'Unknown' },
     });
 
-    expect(metadata.title).toBe('Unknown Articles | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'Unknown Articles | Ogabassey',
+    });
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/blog');
   });

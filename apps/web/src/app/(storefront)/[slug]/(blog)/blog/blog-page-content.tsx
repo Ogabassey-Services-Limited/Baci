@@ -14,10 +14,12 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import type { BlogPostData, TemplateBlogPageProps } from '@/templates/registry';
 import { getTemplate } from '@/templates/registry';
+import { BlogCategoryGuide } from './blog-category-guide';
 import {
   buildBlogCategoryHref,
   findBlogCategoryLabelBySlug,
   getBlogCategorySlug,
+  isOgabasseyBlogStaticTenant,
 } from './blog-category-routing';
 import { BlogDiscoverySection } from './blog-discovery-section';
 import { preloadOgabasseyRootBlogListingHeroImage } from './blog-listing-hero-image-preload';
@@ -291,6 +293,16 @@ export async function BlogPageContent({
       url: `${baseUrl}/blog`,
     },
   ]);
+  const isOgabasseyBlogTenant = isOgabasseyBlogStaticTenant(slug);
+  const categoryGuide =
+    category && !effectiveSearchQuery ? (
+      <BlogCategoryGuide
+        category={category}
+        isOgabasseyBlogTenant={isOgabasseyBlogTenant}
+        merchantName={merchant.business_name}
+        totalPosts={totalPosts}
+      />
+    ) : undefined;
   const templateId = merchant.template_id;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
@@ -345,6 +357,7 @@ export async function BlogPageContent({
               basePath={templateBasePath}
               blogPosts={templateBlogUi.posts}
               categories={templateBlogUi.categories}
+              categoryGuide={categoryGuide}
               category={category}
               searchQuery={effectiveSearchQuery}
             />
@@ -377,6 +390,7 @@ export async function BlogPageContent({
         itemListSchema={itemListSchema}
         basePath={basePath}
         categories={publicCategories}
+        categoryGuide={categoryGuide}
         category={category}
         merchant={merchant}
         posts={posts}

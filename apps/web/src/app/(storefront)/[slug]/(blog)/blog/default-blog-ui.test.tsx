@@ -110,6 +110,11 @@ describe('DefaultBlogUi', () => {
         breadcrumbSchema={BREADCRUMB_SCHEMA}
         basePath="/ogabassey"
         categories={['Smartphones']}
+        categoryGuide={
+          <section>
+            <h2>About Smartphones articles from Ogabassey</h2>
+          </section>
+        }
         category="Smartphones"
         merchant={{
           id: 'merchant-1',
@@ -131,10 +136,71 @@ describe('DefaultBlogUi', () => {
         'Read articles and updates about smartphones from Ogabassey.'
       )
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'About Smartphones articles from Ogabassey',
+      })
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
       'href',
       '/ogabassey/blog/category/smartphones'
     );
+  });
+
+  it('does not render category guide copy when no category guide is provided', () => {
+    render(
+      <DefaultBlogUi
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        basePath="/ogabassey"
+        categories={['Smartphones']}
+        category="Smartphones"
+        merchant={{
+          id: 'merchant-1',
+          business_name: 'Ogabassey',
+        }}
+        posts={[]}
+        searchQuery="iphone"
+        slug="ogabassey"
+        totalPosts={0}
+      />
+    );
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'About Smartphones articles from Ogabassey',
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders provided category guide copy inside the listing main content', () => {
+    render(
+      <DefaultBlogUi
+        blogSchema={BLOG_SCHEMA}
+        breadcrumbSchema={BREADCRUMB_SCHEMA}
+        basePath="/ogabassey"
+        categories={['Smartphone Comparisons']}
+        categoryGuide={
+          <section>
+            <h2>How to use Ogabassey smartphone comparison articles</h2>
+          </section>
+        }
+        category="Smartphone Comparisons"
+        merchant={{
+          id: 'merchant-1',
+          business_name: 'Renamed Storefront',
+        }}
+        posts={[]}
+        slug="renamed-store"
+        totalPosts={3}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'How to use Ogabassey smartphone comparison articles',
+      })
+    ).toBeInTheDocument();
   });
 
   it('renders the Organization entity when an organizationSchema is provided', () => {

@@ -42,7 +42,9 @@ describe('storefront blog post metadata', () => {
       'apple-studio-display-review',
       false
     );
-    expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'The Great 5K Stall | Ogabassey',
+    });
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/apple-studio-display-review'
     );
@@ -65,7 +67,9 @@ describe('storefront blog post metadata', () => {
       'apple-studio-display-review',
       false
     );
-    expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'The Great 5K Stall | Ogabassey',
+    });
   });
 
   it('bounds long blog post title and description metadata', async () => {
@@ -82,8 +86,9 @@ describe('storefront blog post metadata', () => {
 
     const metadata = await generateBlogPostMetadata('best-phones-under-500000');
 
-    expect(String(metadata.title).length).toBeLessThanOrEqual(70);
-    expect(String(metadata.title)).toContain('Ogabassey');
+    const title = (metadata.title as { absolute: string }).absolute;
+    expect(title.length).toBeLessThanOrEqual(60);
+    expect(title).toContain('Ogabassey');
     expect(typeof metadata.description).toBe('string');
     if (typeof metadata.description !== 'string') {
       throw new TypeError('metadata.description must be a string');
@@ -129,7 +134,9 @@ describe('storefront blog post metadata', () => {
 
     const metadata = await generateBlogPostMetadata('studio-display-review');
 
-    expect(metadata.title).toBe('Studio Display Review | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'Studio Display Review | Ogabassey',
+    });
     expect(metadata.description).toBe(boundedDescription);
   });
 

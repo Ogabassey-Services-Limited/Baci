@@ -396,7 +396,9 @@ describe('products index page', () => {
       'max-snippet': -1,
       'max-video-preview': -1,
     });
-    expect(metadata.title).toBe('Products | Page 2 | Ogabassey');
+    expect(metadata.title).toEqual({
+      absolute: 'Products | Page 2 | Ogabassey',
+    });
     expect(metadata.description).toContain('Page 2 of 2');
     expect(metadata.openGraph?.description).toContain('Page 2 of 2');
     expect(metadata.twitter?.description).toContain('Page 2 of 2');

@@ -1,5 +1,6 @@
 import { Rss } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ interface DefaultBlogUiProps {
   itemListSchema?: JsonLdScriptData;
   basePath: string;
   categories: string[];
+  categoryGuide?: ReactNode;
   category?: string;
   merchant: {
     id: string;
@@ -50,6 +52,7 @@ export function DefaultBlogUi({
   itemListSchema,
   basePath,
   categories,
+  categoryGuide,
   category,
   merchant,
   posts,
@@ -151,6 +154,8 @@ export function DefaultBlogUi({
               ))}
             </nav>
           )}
+
+          {categoryGuide}
 
           <div className="mb-8 flex justify-center">
             <AdUnit placementKey="BLOG_SIDEBAR" />

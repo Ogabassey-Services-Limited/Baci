@@ -42,7 +42,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: page.metaTitle,
+    title: { absolute: page.metaTitle },
     description: page.metaDescription,
     alternates: {
       canonical: page.canonicalUrl,

@@ -1,5 +1,18 @@
+import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { asRoute } from '@/lib/routes';
 import { generateSlug } from '@/lib/seo-utils';
+
+export const OGABASSEY_BLOG_PRIMARY_STATIC_TENANT = OGABASSEY_DOMAIN;
+export const OGABASSEY_BLOG_STATIC_TENANTS = [
+  OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
+  'ogabassey',
+] as const;
+
+export function isOgabasseyBlogStaticTenant(slug: string): boolean {
+  return OGABASSEY_BLOG_STATIC_TENANTS.some(
+    (staticTenantSlug) => staticTenantSlug === slug
+  );
+}
 
 export function getBlogCategorySlug(category: string): string {
   return generateSlug(category);

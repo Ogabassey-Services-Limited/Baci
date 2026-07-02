@@ -52,7 +52,7 @@ export async function generateMetadata(
   const { page } = await loadIndexablePriceBandPage(props);
 
   return {
-    title: page.metaTitle,
+    title: { absolute: page.metaTitle },
     description: page.metaDescription,
     alternates: {
       canonical: page.canonicalUrl,

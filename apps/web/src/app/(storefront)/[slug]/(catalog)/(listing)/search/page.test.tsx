@@ -96,7 +96,7 @@ describe('storefront search page metadata', () => {
       searchParams: Promise.resolve({ q: '< >' }),
     });
 
-    expect(metadata.title).toBe('Search | Ogabassey');
+    expect(metadata.title).toEqual({ absolute: 'Search | Ogabassey' });
     expect(metadata.alternates).toMatchObject({
       canonical: 'https://shop.example.ng/search',
     });

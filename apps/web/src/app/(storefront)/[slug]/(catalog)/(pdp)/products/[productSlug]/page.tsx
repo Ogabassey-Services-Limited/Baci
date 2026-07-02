@@ -8,11 +8,11 @@ import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-ro
 import { getCachedLegacyProductRedirectTarget } from '@/lib/cached-data';
 import {
   generateMetaDescription,
-  generateMetaTitle,
   getIndexableRobotsMetadata,
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { normalizeSeoProductText } from '@/lib/storefront-product-slug-disambiguation';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
@@ -126,12 +126,13 @@ export async function generateMetadata(
     product,
     currency
   );
-  const metadataTitle = generateMetaTitle(metadataTitleSource, {
-    maxLength: 70,
-    suffix: merchantDisplayName,
-    fallback:
-      normalizeSeoProductText(product.name, product) || productCategoryName,
-  });
+  const { metadataTitle, title: metadataTitleText } =
+    buildStorefrontMetadataTitle({
+      title: metadataTitleSource,
+      suffix: merchantDisplayName,
+      fallback:
+        normalizeSeoProductText(product.name, product) || productCategoryName,
+    });
   const socialMedia = merchant.social_media as
     | Record<string, string>
     | undefined;
@@ -144,7 +145,7 @@ export async function generateMetadata(
     },
     robots: getIndexableRobotsMetadata(),
     openGraph: {
-      title: metadataTitle,
+      title: metadataTitleText,
       description: seoDescription,
       images: socialMetadata.openGraphImages,
       url: canonicalUrl,
@@ -153,7 +154,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: metadataTitle,
+      title: metadataTitleText,
       description: seoDescription,
       images: socialMetadata.twitterImages,
       ...(socialMedia?.twitter && {

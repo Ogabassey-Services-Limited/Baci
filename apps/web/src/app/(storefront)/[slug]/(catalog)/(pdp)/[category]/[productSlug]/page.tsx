@@ -59,7 +59,6 @@ import {
   buildStorefrontAcceptedPaymentMethods,
   generateBreadcrumbSchema,
   generateMetaDescription,
-  generateMetaTitle,
   generateProductSchema,
   generateSlug,
   getIndexableRobotsMetadata,
@@ -67,6 +66,7 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
 import { stripVolatileProductPriceSentences } from '@/lib/storefront-product-description';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { normalizeSeoProductText } from '@/lib/storefront-product-slug-disambiguation';
@@ -1043,12 +1043,13 @@ function buildCategoryProductMetadata({
   );
   const metadataTitleSource =
     normalizedProductMetaTitle || normalizedGeneratedTitle;
-  const metadataTitle = generateMetaTitle(metadataTitleSource, {
-    maxLength: 70,
-    suffix: merchantDisplayName,
-    fallback:
-      normalizeSeoProductText(product.name, product) || productCategoryName,
-  });
+  const { metadataTitle, title: metadataTitleText } =
+    buildStorefrontMetadataTitle({
+      title: metadataTitleSource,
+      suffix: merchantDisplayName,
+      fallback:
+        normalizeSeoProductText(product.name, product) || productCategoryName,
+    });
 
   const socialMedia = merchant?.social_media as
     | Record<string, string>
@@ -1063,7 +1064,7 @@ function buildCategoryProductMetadata({
     },
     robots: getIndexableRobotsMetadata(),
     openGraph: {
-      title: metadataTitle,
+      title: metadataTitleText,
       description: seoDescription,
       images: socialMetadata.openGraphImages,
       url: canonicalUrl,
@@ -1072,7 +1073,7 @@ function buildCategoryProductMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: metadataTitle,
+      title: metadataTitleText,
       description: seoDescription,
       images: socialMetadata.twitterImages,
       ...(socialMedia?.twitter && {

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { OGABASSEY_DOMAIN } from '@/config/ogabassey';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import { BlogListingFallback } from '../../BlogListingFallback';
@@ -10,6 +9,9 @@ import {
   canUseCleanBlogCategorySlug,
   getBlogCategorySlug,
   getCollidingBlogCategorySlugs,
+  isOgabasseyBlogStaticTenant,
+  OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
+  OGABASSEY_BLOG_STATIC_TENANTS,
 } from '../../blog-category-routing';
 import { buildBlogListingMetadata } from '../../blog-listing-metadata';
 import { parseBlogListingPage } from '../../blog-listing-page-params';
@@ -39,10 +41,6 @@ const CATEGORY_NOT_FOUND_METADATA: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const OGABASSEY_CATEGORY_STATIC_TENANTS = [
-  OGABASSEY_DOMAIN,
-  'ogabassey',
-] as const;
 const OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS = [
   'laptops',
   'smartphones',
@@ -68,7 +66,12 @@ export async function generateStaticParams(): Promise<
   let categorySlugs: string[] = [];
 
   try {
-    const listing = await getCachedBlogListing(OGABASSEY_DOMAIN, { page: 1 });
+    const listing = await getCachedBlogListing(
+      OGABASSEY_BLOG_PRIMARY_STATIC_TENANT,
+      {
+        page: 1,
+      }
+    );
     categorySlugs = getStaticCategorySlugs(listing?.categories ?? []);
   } catch {
     categorySlugs = [];
@@ -79,7 +82,7 @@ export async function generateStaticParams(): Promise<
       ? categorySlugs
       : [...OGABASSEY_CATEGORY_STATIC_FALLBACK_SLUGS];
 
-  return OGABASSEY_CATEGORY_STATIC_TENANTS.flatMap((slug) =>
+  return OGABASSEY_BLOG_STATIC_TENANTS.flatMap((slug) =>
     staticCategorySlugs.map((categorySlug) => ({ slug, categorySlug }))
   );
 }
@@ -97,7 +100,7 @@ export async function generateMetadata({
   // Static tenant metadata stays request-searchParams-free (prerenderable);
   // non-static category pages read ?page/?search for noindex/self-scoped
   // variants that buildBlogListingMetadata already produces.
-  if (isStaticCategoryTenant(slug)) {
+  if (isOgabasseyBlogStaticTenant(slug)) {
     return buildBlogListingMetadata({
       slug,
       searchParams: { category: hub.categoryLabel },
@@ -119,12 +122,6 @@ export async function generateMetadata({
   });
 }
 
-function isStaticCategoryTenant(slug: string): boolean {
-  return OGABASSEY_CATEGORY_STATIC_TENANTS.some(
-    (staticTenantSlug) => staticTenantSlug === slug
-  );
-}
-
 export default async function BlogCategoryPage({
   params,
   searchParams,
@@ -137,15 +134,15 @@ export default async function BlogCategoryPage({
     notFound();
   }
 
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogPageContent
-        categoryOverride={hub.categoryLabel}
-        isCleanCategoryRoute
-        itemListSchemaUrl={hub.canonicalUrl}
-        params={Promise.resolve({ slug })}
-        searchParams={searchParams ?? Promise.resolve({})}
-      />
-    </Suspense>
+  const content = (
+    <BlogPageContent
+      categoryOverride={hub.categoryLabel}
+      isCleanCategoryRoute
+      itemListSchemaUrl={hub.canonicalUrl}
+      params={Promise.resolve({ slug })}
+      searchParams={searchParams ?? Promise.resolve({})}
+    />
   );
+
+  return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }

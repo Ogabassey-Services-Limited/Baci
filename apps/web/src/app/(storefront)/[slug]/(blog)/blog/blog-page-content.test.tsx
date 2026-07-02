@@ -72,13 +72,16 @@ function renderTemplateRendererProbe() {
     }
 
     return (
-      <BlogComponent
-        categories={props.categories}
-        category={props.category}
-        posts={props.blogPosts}
-        searchQuery={props.searchQuery}
-        storeSlug={props.basePath}
-      />
+      <>
+        <BlogComponent
+          categories={props.categories}
+          category={props.category}
+          posts={props.blogPosts}
+          searchQuery={props.searchQuery}
+          storeSlug={props.basePath}
+        />
+        {props.categoryGuide}
+      </>
     );
   });
 }
@@ -248,6 +251,48 @@ describe('BlogPageContent', () => {
     ).toHaveAttribute(
       'href',
       'http://localhost:3000/ogabassey/blog/first-post'
+    );
+  });
+
+  it('passes crawlable category guide copy through the Ogabassey template blog path', async () => {
+    mockGetCachedBlogListing.mockResolvedValueOnce(
+      buildListingResult({
+        merchant: {
+          ...merchant,
+          custom_domain: 'ogabassey.com',
+          slug: 'ogabassey',
+          template_id: 'ogabassey',
+        },
+        totalPosts: 6,
+      })
+    );
+    mockGetTemplate.mockReturnValueOnce({
+      getComponents: async () => ({
+        Blog: TemplateLinkProbe,
+      }),
+    });
+    renderTemplateRendererProbe();
+
+    render(
+      await BlogPageContent({
+        categoryOverride: 'Reviews',
+        isCleanCategoryRoute: true,
+        itemListSchemaUrl: 'https://ogabassey.com/blog/category/reviews',
+        params: Promise.resolve({ slug: 'ogabassey.com' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'How to use Ogabassey review articles',
+      })
+    ).toBeInTheDocument();
+    expect(mockTemplateBlogRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'Reviews',
+        categoryGuide: expect.anything(),
+      })
     );
   });
 

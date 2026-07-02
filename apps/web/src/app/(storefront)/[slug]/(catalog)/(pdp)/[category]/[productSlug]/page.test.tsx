@@ -1072,7 +1072,9 @@ describe('[category]/[productSlug] page metadata', () => {
     });
 
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
-    expect(metadata.title).toBe('HP Laptop 14 Price | TestStore');
+    expect(metadata.title).toEqual({
+      absolute: 'HP Laptop 14 Price | TestStore',
+    });
     expect(metadata.description).toBe(
       'Shop the HP Laptop 14-ep0063nia with warranty and delivery.'
     );
@@ -1184,9 +1186,9 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe(
-      'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
-    );
+    expect(metadata.title).toEqual({
+      absolute: 'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore',
+    });
     expect(metadata.description).toBe(
       'Shop Samsung Galaxy Tab S9 Plus tablet at Ogabassey before checkout.'
     );
@@ -1228,9 +1230,9 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe(
-      'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore'
-    );
+    expect(metadata.title).toEqual({
+      absolute: 'Samsung Galaxy Tab S9 Plus Price in Nigeria | TestStore',
+    });
     expect(metadata.description).toBe('Shop Samsung Galaxy Tab S9 Plus.');
   });
 
@@ -1271,9 +1273,9 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe(
-      'PSN Gift Card £50 GBP Price in Nigeria | TestStore'
-    );
+    expect(metadata.title).toEqual({
+      absolute: 'PSN Gift Card £50 GBP Price in Nigeria | TestStore',
+    });
     expect(metadata.description).toBe(
       'PSN Gift Card £50 GBP at Ogabassey: £50 GBP value for PlayStation Store.'
     );
@@ -1808,7 +1810,9 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe('iPhone 13 Price in Nigeria | TestStore');
+    expect(metadata.title).toEqual({
+      absolute: 'iPhone 13 Price in Nigeria | TestStore',
+    });
     expect(metadata.description).toContain(
       'iPhone 13 price in Nigeria starts from ₦390,000 on TestStore'
     );
@@ -1848,7 +1852,7 @@ describe('[category]/[productSlug] page metadata', () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe('Pixel 10 Price | TestStore');
+    expect(metadata.title).toEqual({ absolute: 'Pixel 10 Price | TestStore' });
     expect(metadata.description).toContain('Pixel 10 price is');
     expect(metadata.description).not.toContain('in Nigeria');
   });
