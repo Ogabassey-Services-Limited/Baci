@@ -1,5 +1,6 @@
 // src/env.ts
 import z from 'zod';
+import { DEFAULT_ROOT_DOMAIN } from '@/lib/default-root-domain';
 import { normalizeEnvBoolean } from '@/lib/env-boolean';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
@@ -481,7 +482,7 @@ const clientSchema = z.object({
     .min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
 
   // App
-  NEXT_PUBLIC_ROOT_DOMAIN: z.string().default('usebaci.com'),
+  NEXT_PUBLIC_ROOT_DOMAIN: z.string().default(DEFAULT_ROOT_DOMAIN),
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
   NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN: z
     .string()

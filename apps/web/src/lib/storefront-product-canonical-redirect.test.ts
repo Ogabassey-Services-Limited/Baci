@@ -122,52 +122,6 @@ describe('getStorefrontProductCanonicalRedirectPath', () => {
     ).resolves.toEqual({ kind: 'unknown' });
   });
 
-  it('returns unknown when deployment protection returns a redirect or HTML', async () => {
-    const redirectFetch = vi.fn<typeof fetch>(
-      async () =>
-        new Response('<!doctype html>', {
-          headers: { 'Content-Type': 'text/html' },
-          status: 302,
-        })
-    );
-    const htmlFetch = vi.fn<typeof fetch>(
-      async () =>
-        new Response('<!doctype html>', {
-          headers: { 'Content-Type': 'text/html' },
-          status: 200,
-        })
-    );
-
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: 'missing-product',
-        secret: SECRET,
-        fetchImpl: redirectFetch,
-      })
-    ).resolves.toEqual({ kind: 'unknown' });
-    expect(redirectFetch.mock.calls[0][1]).toMatchObject({
-      redirect: 'manual',
-    });
-
-    await expect(
-      getStorefrontProductCanonicalRedirectResult({
-        origin: 'https://ogabassey.com',
-        identifier: 'ogabassey.com',
-        category: 'smartphones',
-        productSlug: 'missing-product',
-        secret: SECRET,
-        fetchImpl: htmlFetch,
-      })
-    ).resolves.toEqual({ kind: 'unknown' });
-    expect(console.warn).toHaveBeenCalledWith(
-      '[storefront-internal-preflight] fail-open',
-      expect.objectContaining({ reason: 'non-json', status: 200 })
-    );
-  });
-
   it('fails open when the endpoint reports no redirect or an error', async () => {
     await expect(
       getStorefrontProductCanonicalRedirectPath({

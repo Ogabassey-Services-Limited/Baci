@@ -1,3 +1,5 @@
+import { DEFAULT_ROOT_DOMAIN } from '@/lib/default-root-domain';
+
 export type StorefrontInternalPreflightFailOpenReason =
   | 'no-secret'
   | 'no-base-url'
@@ -69,7 +71,7 @@ function resolveBaseUrl(origin: string): string | null {
   const configuredRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
   const rootDomain =
     configuredRootDomain ||
-    (isProductionDeploymentEnvironment() ? 'usebaci.com' : undefined);
+    (isProductionDeploymentEnvironment() ? DEFAULT_ROOT_DOMAIN : undefined);
   const configuredBaseUrl = normalizeTrustedInternalBaseUrl(rootDomain);
 
   if (configuredBaseUrl) return configuredBaseUrl;

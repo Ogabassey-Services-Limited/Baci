@@ -1,5 +1,13 @@
+import z from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { createAbortSignalTimeout } from './abort-signal-timeout';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
+
+const productCanonicalRedirectResponseSchema = z.object({
+  hasError: z.boolean(),
+  matchedProduct: z.boolean().optional(),
+  redirectPath: z.unknown().optional(),
+});
 
 interface ProductCanonicalRedirectOptions {
   /** Public request origin, used only as a trusted-base fallback in local dev. */
@@ -55,55 +63,58 @@ export async function getStorefrontProductCanonicalRedirectResult(
     url.searchParams.set('category', opts.category);
     url.searchParams.set('slug', opts.productSlug);
 
-    const response = await (opts.fetchImpl ?? fetch)(url, {
-      headers: { Authorization: `Bearer ${opts.secret}` },
-      redirect: 'manual',
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
-    });
-    const json = await storefrontInternalPreflight.readJsonResponse(
-      response,
-      failOpenContext
-    );
-    if (json === null || typeof json !== 'object') {
-      if (json !== null) {
+    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
+    try {
+      const response = await (opts.fetchImpl ?? fetch)(url, {
+        headers: { Authorization: `Bearer ${opts.secret}` },
+        redirect: 'manual',
+        signal: timeout.signal,
+      });
+      const json = await storefrontInternalPreflight.readJsonResponse(
+        response,
+        failOpenContext
+      );
+      if (json === null) {
+        return { kind: 'unknown' };
+      }
+
+      const bodyResult = productCanonicalRedirectResponseSchema.safeParse(json);
+      if (!bodyResult.success) {
         storefrontInternalPreflight.warnFailOpen({
           ...failOpenContext,
           reason: 'parse',
         });
+        return { kind: 'unknown' };
       }
-      return { kind: 'unknown' };
+      const body = bodyResult.data;
+
+      if (body.hasError !== false) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'has-error',
+        });
+        return { kind: 'unknown' };
+      }
+
+      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+      if (redirectPath) {
+        return { kind: 'redirect', redirectPath };
+      }
+
+      if (body.redirectPath != null && !redirectPath) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'unsafe-redirect',
+        });
+        return { kind: 'unknown' };
+      }
+
+      return body.matchedProduct === true
+        ? { kind: 'checked-no-redirect' }
+        : { kind: 'unknown' };
+    } finally {
+      timeout.clear();
     }
-
-    const body = json as {
-      hasError?: boolean;
-      matchedProduct?: boolean;
-      redirectPath?: unknown;
-    };
-
-    if (body?.hasError !== false) {
-      storefrontInternalPreflight.warnFailOpen({
-        ...failOpenContext,
-        reason: 'has-error',
-      });
-      return { kind: 'unknown' };
-    }
-
-    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-    if (redirectPath) {
-      return { kind: 'redirect', redirectPath };
-    }
-
-    if (body.redirectPath != null && !redirectPath) {
-      storefrontInternalPreflight.warnFailOpen({
-        ...failOpenContext,
-        reason: 'unsafe-redirect',
-      });
-      return { kind: 'unknown' };
-    }
-
-    return body.matchedProduct === true
-      ? { kind: 'checked-no-redirect' }
-      : { kind: 'unknown' };
   } catch (error) {
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
