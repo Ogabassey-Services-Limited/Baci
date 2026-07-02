@@ -13,6 +13,7 @@ export type StorefrontInternalPreflightFailOpenReason =
   | 'fetch-error';
 
 type StorefrontInternalPreflightSurface =
+  | 'blog-listing-status'
   | 'blog-post-status'
   | 'product-canonical'
   | 'product-slug';

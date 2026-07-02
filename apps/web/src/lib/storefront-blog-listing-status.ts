@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
+import { createAbortSignalTimeout } from './abort-signal-timeout';
 import type { BlogListingStatusIntent } from './cached-storefront-blog-listing-status';
-import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
+import { storefrontInternalPreflight } from './storefront-internal-preflight';
 
 const blogListingStatusResponseSchema = z.object({
   hasError: z.boolean(),
@@ -54,15 +55,44 @@ function buildIntentQuery(intent: BlogListingStatusIntent): URLSearchParams {
   return query;
 }
 
+function getIntentLogSlug(intent: BlogListingStatusIntent): string {
+  switch (intent.kind) {
+    case 'category-query':
+      return intent.category;
+    case 'listing-page':
+      return intent.category
+        ? `${intent.category}:page-${intent.page}`
+        : `page-${intent.page}`;
+    case 'category-page':
+      return `${intent.categorySlug}:page-${intent.page}`;
+    case 'author':
+      return `${intent.authorSlug}:page-${intent.page}`;
+  }
+}
+
 export async function resolveStorefrontBlogListingStatus(
   opts: BlogListingStatusOptions
 ): Promise<StorefrontBlogListingStatusResolution> {
+  const failOpenContext = {
+    surface: 'blog-listing-status' as const,
+    identifier: opts.identifier,
+    slug: getIntentLogSlug(opts.intent),
+  };
+
   if (!opts.secret) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-secret',
+    });
     return { kind: 'noop' };
   }
 
-  const baseUrl = resolveInternalBaseUrl(opts.origin);
+  const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
   if (!baseUrl) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'no-base-url',
+    });
     return { kind: 'noop' };
   }
 
@@ -75,38 +105,61 @@ export async function resolveStorefrontBlogListingStatus(
       url.searchParams.set(key, value);
     }
 
-    const response = await (opts.fetchImpl ?? fetch)(url, {
-      headers: { Authorization: `Bearer ${opts.secret}` },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 800),
+    const timeout = createAbortSignalTimeout(opts.timeoutMs ?? 800);
+    try {
+      const response = await (opts.fetchImpl ?? fetch)(url, {
+        headers: { Authorization: `Bearer ${opts.secret}` },
+        redirect: 'manual',
+        signal: timeout.signal,
+      });
+      const json = await storefrontInternalPreflight.readJsonResponse(
+        response,
+        failOpenContext
+      );
+      if (json === null) {
+        return { kind: 'noop' };
+      }
+
+      const bodyResult = blogListingStatusResponseSchema.safeParse(json);
+      if (!bodyResult.success || bodyResult.data.hasError !== false) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: bodyResult.success ? 'has-error' : 'parse',
+        });
+        return { kind: 'noop' };
+      }
+      const body = bodyResult.data;
+
+      const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
+      if (redirectPath) {
+        return {
+          kind: 'redirect',
+          redirectPath,
+          status: body.permanent === true ? 308 : 307,
+        };
+      }
+
+      if (body.redirectPath != null && !redirectPath) {
+        storefrontInternalPreflight.warnFailOpen({
+          ...failOpenContext,
+          reason: 'unsafe-redirect',
+        });
+        return { kind: 'noop' };
+      }
+
+      if (body.notFound === true) {
+        return { kind: 'notFound' };
+      }
+
+      return { kind: 'noop' };
+    } finally {
+      timeout.clear();
+    }
+  } catch (error) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: storefrontInternalPreflight.getFetchErrorReason(error),
     });
-
-    if (!response.ok) {
-      return { kind: 'noop' };
-    }
-
-    const bodyResult = blogListingStatusResponseSchema.safeParse(
-      await response.json()
-    );
-    if (!bodyResult.success || bodyResult.data.hasError !== false) {
-      return { kind: 'noop' };
-    }
-    const body = bodyResult.data;
-
-    const redirectPath = toSafeInternalRedirectPath(body.redirectPath);
-    if (redirectPath) {
-      return {
-        kind: 'redirect',
-        redirectPath,
-        status: body.permanent === true ? 308 : 307,
-      };
-    }
-
-    if (body.notFound === true) {
-      return { kind: 'notFound' };
-    }
-
-    return { kind: 'noop' };
-  } catch {
     return { kind: 'noop' };
   }
 }
