@@ -116,6 +116,25 @@ describe('getCachedStorefrontBlogListingStatus', () => {
     expect(result.redirectPath).toBe('/blog?page=3');
   });
 
+  it('clamps to page 1 (never ?page=0) when the listing is empty', async () => {
+    mockGetCachedBlogListing.mockResolvedValue(listing({ totalPages: 0 }));
+    const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
+      kind: 'listing-page',
+      page: 2,
+    });
+    expect(result.redirectPath).toBe('/blog');
+  });
+
+  it('clamps an empty clean-category to page 1 (never ?page=0)', async () => {
+    mockGetCachedBlogListing.mockResolvedValue(listing({ totalPages: 0 }));
+    const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
+      kind: 'category-page',
+      categorySlug: 'smartphones',
+      page: 2,
+    });
+    expect(result.redirectPath).toBe('/blog?category=Smartphones');
+  });
+
   it('leaves in-range listing pagination alone', async () => {
     const result = await getCachedStorefrontBlogListingStatus('ogabassey.com', {
       kind: 'listing-page',

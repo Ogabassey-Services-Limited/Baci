@@ -1866,7 +1866,10 @@ function buildBlogListingIntent(
   contentSegments: string[],
   searchParams: URLSearchParams
 ): BlogListingStatusIntent | null {
-  if (safeDecodeSegment(contentSegments[0]).toLowerCase() !== 'blog') {
+  if (
+    !contentSegments.length ||
+    safeDecodeSegment(contentSegments[0]).toLowerCase() !== 'blog'
+  ) {
     return null;
   }
 

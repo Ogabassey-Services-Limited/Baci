@@ -101,7 +101,8 @@ async function resolveListingPage(
   return redirectBody(
     buildBlogListingRouteHref({
       storeBasePath: '',
-      page: data.totalPages,
+      // Never clamp below page 1 (an empty listing reports totalPages: 0).
+      page: Math.max(1, data.totalPages),
       ...(category ? { category } : {}),
     }),
     false
@@ -135,7 +136,8 @@ async function resolveCategoryPage(
     buildBlogListingRouteHref({
       storeBasePath: '',
       category: label,
-      page: categoryData.totalPages,
+      // Never clamp below page 1 (an empty category reports totalPages: 0).
+      page: Math.max(1, categoryData.totalPages),
     }),
     false
   );

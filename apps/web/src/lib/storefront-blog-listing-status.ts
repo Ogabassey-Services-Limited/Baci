@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import type { BlogListingStatusIntent } from './cached-storefront-blog-listing-status';
 import { resolveInternalBaseUrl } from './storefront-product-slug-membership';
