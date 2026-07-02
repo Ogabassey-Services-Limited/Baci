@@ -418,6 +418,16 @@ export async function POST(
       );
     }
 
+    if (manualPaymentResult?.error_code === 'INVALID_AMOUNT') {
+      logger.warn({
+        message: 'RecordPayment rejected by atomic insert: invalid amount',
+        amount: parsedAmount,
+        merchantId: merchant.id,
+        orderId,
+      });
+      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
     if (manualPaymentResult?.error_code === 'ORDER_ALREADY_PAID') {
       logger.warn({
         message:

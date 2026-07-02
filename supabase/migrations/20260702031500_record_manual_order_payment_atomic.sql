@@ -29,6 +29,10 @@ declare
   v_remaining_balance numeric := 0;
   v_transaction_id uuid;
 begin
+  if p_amount is null or p_amount <= 0 or p_amount = 'NaN'::numeric then
+    return jsonb_build_object('error_code', 'INVALID_AMOUNT');
+  end if;
+
   select
     o.id,
     o.merchant_id,
