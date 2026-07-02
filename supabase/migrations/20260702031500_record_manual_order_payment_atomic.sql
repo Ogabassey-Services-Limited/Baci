@@ -40,6 +40,7 @@ begin
   select
     o.id,
     o.merchant_id,
+    o.currency,
     coalesce(o.total, 0)::numeric as total,
     coalesce(o.wallet_amount_used, 0)::numeric as wallet_amount_used
   into v_order
@@ -140,7 +141,9 @@ begin
     p_order_id,
     'payment',
     p_amount,
-    coalesce(nullif(trim(p_currency), ''), 'NGN'),
+    -- Keep p_currency in the signature for route compatibility, but never
+    -- trust direct RPC callers to choose a currency different from the order.
+    coalesce(nullif(trim(v_order.currency), ''), 'NGN'),
     'completed',
     'manual',
     p_gateway_reference,

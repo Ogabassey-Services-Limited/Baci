@@ -14,7 +14,8 @@ returns table (
   amount numeric,
   gateway text,
   gateway_reference text,
-  status text
+  status text,
+  error_code text
 )
 language sql
 security definer
@@ -24,7 +25,8 @@ as $$
     t.amount,
     t.gateway,
     t.gateway_reference,
-    t.status
+    t.status,
+    null::text as error_code
   from public.transactions as t
   where t.order_id = p_order_id
     and t.status in ('completed', 'pending', 'processing')
