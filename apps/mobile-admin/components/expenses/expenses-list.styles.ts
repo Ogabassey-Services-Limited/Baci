@@ -101,4 +101,15 @@ export const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
+  sectionHeader: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    justifyContent: 'center',
+  },
+  sectionHeaderLabel: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 });

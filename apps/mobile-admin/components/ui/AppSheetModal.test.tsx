@@ -134,6 +134,24 @@ describe('AppSheetModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('dismisses when pressing the visible space above the sheet', () => {
+    const onClose = vi.fn();
+
+    render(
+      <AppSheetModal
+        accessibilityLabel="Dismissable sheet"
+        onClose={onClose}
+        visible={true}
+      >
+        <Text>Dismiss me</Text>
+      </AppSheetModal>
+    );
+
+    fireEvent.click(screen.getByTestId('app-sheet-dismiss-area'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('can disable backdrop dismissal', () => {
     const onClose = vi.fn();
 
@@ -149,6 +167,7 @@ describe('AppSheetModal', () => {
     );
 
     fireEvent.click(screen.getByTestId('app-sheet-backdrop'));
+    fireEvent.click(screen.getByTestId('app-sheet-dismiss-area'));
 
     expect(onClose).not.toHaveBeenCalled();
   });

@@ -1,7 +1,9 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import type { ReactNode } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   type StyleProp,
@@ -19,8 +21,11 @@ export interface AppPageSheetProps {
   closeLabel?: string;
   contentContainerStyle?: StyleProp<ViewStyle>;
   footer?: ReactNode;
+  floatingFooter?: ReactNode;
+  floatingFooterContainerStyle?: StyleProp<ViewStyle>;
   onClose: () => void;
   scrollEnabled?: boolean;
+  sheetContainerStyle?: StyleProp<ViewStyle>;
   title: string;
   trailingAccessory?: ReactNode;
   visible: boolean;
@@ -31,8 +36,11 @@ export function AppPageSheet({
   closeLabel = 'Close sheet',
   contentContainerStyle,
   footer,
+  floatingFooter,
+  floatingFooterContainerStyle,
   onClose,
   scrollEnabled = true,
+  sheetContainerStyle,
   title,
   trailingAccessory,
   visible,
@@ -42,7 +50,11 @@ export function AppPageSheet({
 
   const content = scrollEnabled ? (
     <ScrollView
-      contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+      contentContainerStyle={[
+        styles.scrollContent,
+        contentContainerStyle,
+        !footer && { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+      ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       style={styles.content}
@@ -52,7 +64,12 @@ export function AppPageSheet({
     </ScrollView>
   ) : (
     <View
-      style={[styles.content, styles.staticContent, contentContainerStyle]}
+      style={[
+        styles.content,
+        styles.staticContent,
+        contentContainerStyle,
+        !footer && { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+      ]}
       testID="app-page-sheet-static"
     >
       {children}
@@ -63,75 +80,146 @@ export function AppPageSheet({
     <Modal
       animationType="slide"
       onRequestClose={onClose}
-      presentationStyle="pageSheet"
+      transparent={true}
       visible={visible}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
+        {/* Backdrop (Tapping here closes the sheet) */}
+        <Pressable
+          accessibilityLabel="Close sheet backdrop"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Sheet container */}
         <View
           style={[
-            styles.header,
+            styles.sheetContainer,
             {
-              backgroundColor: colors.card,
-              borderBottomColor: colors.border,
-              paddingTop: Math.max(insets.top, SPACING.md),
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+              borderTopLeftRadius: RADIUS.xl,
+              borderTopRightRadius: RADIUS.xl,
+              paddingBottom: 0,
             },
+            sheetContainerStyle,
           ]}
+          testID="app-page-sheet-container"
         >
-          <View style={styles.headerSide}>
-            <Pressable
-              accessibilityLabel={closeLabel}
-              accessibilityRole="button"
-              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.headerButton,
-                { backgroundColor: colors.backgroundLight },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Ionicons name="close" size={20} color={colors.text} />
-            </Pressable>
+          {/* Handle */}
+          <View style={styles.handleContainer}>
+            <View
+              style={[styles.handle, { backgroundColor: colors.textMuted }]}
+            />
           </View>
-          <Text
-            accessibilityRole="header"
-            numberOfLines={1}
-            style={[styles.title, { color: colors.text }]}
-          >
-            {title}
-          </Text>
-          <View style={styles.headerSideRight}>{trailingAccessory}</View>
-        </View>
 
-        {content}
-
-        {footer ? (
+          {/* Header */}
           <View
             style={[
-              styles.footer,
+              styles.header,
               {
                 backgroundColor: colors.card,
-                borderTopColor: colors.border,
-                paddingBottom: Math.max(insets.bottom, SPACING.md),
+                borderBottomColor: colors.border,
+                paddingTop: SPACING.md,
+                paddingBottom: SPACING.md,
+                paddingHorizontal: SPACING.lg,
               },
             ]}
           >
-            {footer}
+            <View style={styles.headerSide}>
+              <Pressable
+                accessibilityLabel={closeLabel}
+                accessibilityRole="button"
+                hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+                onPress={onClose}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  { backgroundColor: colors.backgroundLight },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Ionicons name="close" size={20} color={colors.text} />
+              </Pressable>
+            </View>
+            <Text
+              accessibilityRole="header"
+              numberOfLines={1}
+              style={[styles.title, { color: colors.text }]}
+            >
+              {title}
+            </Text>
+            <View style={styles.headerSideRight}>{trailingAccessory}</View>
           </View>
-        ) : null}
-      </View>
+
+          {content}
+
+          {floatingFooter ? (
+            <View
+              pointerEvents="box-none"
+              style={[
+                styles.floatingFooter,
+                { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+                floatingFooterContainerStyle,
+              ]}
+              testID="app-page-sheet-floating-footer"
+            >
+              {floatingFooter}
+            </View>
+          ) : null}
+
+          {footer ? (
+            <View
+              style={[
+                styles.footer,
+                {
+                  backgroundColor: colors.card,
+                  borderTopColor: colors.border,
+                  paddingBottom: Math.max(insets.bottom, SPACING.md),
+                },
+              ]}
+            >
+              {footer}
+            </View>
+          ) : null}
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    width: '100%',
+    height: '92%',
+    borderTopWidth: 1,
+    overflow: 'hidden',
+  },
+  handleContainer: {
+    width: '100%',
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  handle: {
+    width: 46,
+    height: 6,
+    borderRadius: 3,
   },
   header: {
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
   },
@@ -175,5 +263,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  floatingFooter: {
+    bottom: 0,
+    left: 0,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    position: 'absolute',
+    right: 0,
   },
 });

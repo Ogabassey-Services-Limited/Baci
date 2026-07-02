@@ -21,6 +21,16 @@ describe('resolveBaseUrl extracted module', () => {
     ).toBe('http://localhost:3000');
   });
 
+  it('uses the configured API URL when Expo is served from a link-local host', () => {
+    expect(
+      resolveBaseUrl({
+        configuredBaseUrl: 'https://usebaci.com/',
+        hostUri: '169.254.64.234:8082',
+        isDev: true,
+      })
+    ).toBe('https://usebaci.com');
+  });
+
   it('falls back to production URL outside development', () => {
     expect(resolveBaseUrl({ configuredBaseUrl: undefined, isDev: false })).toBe(
       'https://usebaci.com'

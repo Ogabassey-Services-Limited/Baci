@@ -18,11 +18,10 @@ import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useMerchant } from '@/hooks/useMerchant';
+import { type Merchant, useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
-import { baciFeatureGates, type MobileFeatureGate } from '@/lib/feature-gates';
 
 interface MenuItem {
   id: string;
@@ -40,41 +39,44 @@ interface MenuSection {
   items: MenuItem[];
 }
 
+const PAID_PLAN_TIERS = new Set(['pro', 'business', 'enterprise']);
+const FULL_PRO_FEATURE = 'all_features';
+
+function merchantHasFullProAccess(merchant: Merchant | null): boolean {
+  if (!merchant) {
+    return false;
+  }
+
+  const premiumFeatures = Array.isArray(merchant.premium_features)
+    ? merchant.premium_features.map((feature) => feature.trim().toLowerCase())
+    : [];
+
+  if (premiumFeatures.includes(FULL_PRO_FEATURE)) {
+    return true;
+  }
+
+  if (!merchant.plan_tier || !PAID_PLAN_TIERS.has(merchant.plan_tier)) {
+    return false;
+  }
+
+  if (!merchant.plan_expires_at) {
+    return true;
+  }
+
+  const expiryTime = Date.parse(merchant.plan_expires_at);
+  return Number.isFinite(expiryTime) && expiryTime > Date.now();
+}
+
 export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { signOut } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
-  const { merchant } = useMerchant();
+  const { merchant, isLoading: isMerchantLoading } = useMerchant();
   const { unregisterPush } = usePushNotifications();
   const router = useRouter();
-  const hasProSubscription =
-    isPro || baciFeatureGates.hasFullProAccess(merchant);
-
-  const canAccessFeature = (feature: MobileFeatureGate) =>
-    isPro || baciFeatureGates.hasFeature(merchant, feature);
-
-  const proBadge = (feature: MobileFeatureGate) =>
-    canAccessFeature(feature) ? undefined : 'PRO';
-
-  const openFeature = (
-    feature: MobileFeatureGate,
-    label: string,
-    pathname: string
-  ) => {
-    if (canAccessFeature(feature)) {
-      router.push(pathname);
-      return;
-    }
-
-    Alert.alert('Baci Pro', `${label} is available on Baci Pro.`, [
-      { text: 'Not now', style: 'cancel' },
-      {
-        text: 'Upgrade',
-        onPress: () => router.push('/(admin)/subscribe'),
-      },
-    ]);
-  };
+  const hasProSubscription = isPro || merchantHasFullProAccess(merchant);
+  const isSubscriptionStatusLoading = !isPro && isMerchantLoading;
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -119,9 +121,7 @@ export default function MenuScreen() {
           icon: 'cart-outline',
           label: 'Marketplaces',
           description: 'Connect Jumia, Konga, etc.',
-          badge: proBadge('marketplace_sync'),
-          onPress: () =>
-            openFeature('marketplace_sync', 'Marketplaces', '/sales-channels'),
+          onPress: () => router.push('/sales-channels'),
         },
         {
           id: 'payments',
@@ -156,8 +156,7 @@ export default function MenuScreen() {
           icon: 'globe-outline',
           label: 'Domains',
           description: 'Custom domain settings',
-          badge: proBadge('custom_domain'),
-          onPress: () => openFeature('custom_domain', 'Domains', '/domains'),
+          onPress: () => router.push('/domains'),
         },
       ],
     },
@@ -183,13 +182,7 @@ export default function MenuScreen() {
           icon: 'rocket-outline',
           label: 'Growth & Marketing',
           description: 'Pixels, CAPI, Setup',
-          badge: proBadge('growth_integrations'),
-          onPress: () =>
-            openFeature(
-              'growth_integrations',
-              'Growth & Marketing',
-              '/analytics-config'
-            ),
+          onPress: () => router.push('/analytics-config'),
         },
         {
           id: 'expenses',
@@ -208,7 +201,7 @@ export default function MenuScreen() {
         {
           id: 'negotiations',
           icon: 'chatbubbles-outline',
-          label: 'Negotiation Requests',
+          label: 'Negotiations',
           description: 'Manage price negotiation requests',
           onPress: () => router.push('/(admin)/negotiations'),
         },
@@ -350,6 +343,7 @@ export default function MenuScreen() {
       >
         {/* Subscription Card */}
         <SubscriptionStatusCard
+          isLoading={isSubscriptionStatusLoading}
           isPro={hasProSubscription}
           customerInfo={customerInfo}
           colors={colors}

@@ -37,6 +37,16 @@ describe('resolveBaseUrl', () => {
     ).toBe('http://192.168.1.10:3000');
   });
 
+  it('preserves configured API origins when Expo is connected over a link-local host', () => {
+    expect(
+      resolveBaseUrl({
+        isDev: true,
+        configuredBaseUrl: 'https://usebaci.com/',
+        hostUri: '169.254.64.234:8082',
+      })
+    ).toBe('https://usebaci.com');
+  });
+
   it('derives an IPv4 dev origin from Expo hostUri', () => {
     expect(
       resolveBaseUrl({

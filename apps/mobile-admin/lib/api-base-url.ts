@@ -68,6 +68,10 @@ function isLikelyLocalDevUrl(url: string): boolean {
   }
 }
 
+function isLinkLocalHost(host: string): boolean {
+  return /^169\.254\.\d{1,3}\.\d{1,3}$/.test(host);
+}
+
 export function resolveBaseUrl(
   options: {
     isDev?: boolean;
@@ -87,6 +91,14 @@ export function resolveBaseUrl(
     if (hostUri) {
       const host = getHostFromHostUri(hostUri);
       const detectedLocalUrl = `http://${formatBaseUrlHost(host)}:3000`;
+
+      if (configuredBaseUrl && isLinkLocalHost(host)) {
+        return configuredBaseUrl.replace(/\/+$/, '');
+      }
+
+      if (fallbackConfiguredBaseUrl && isLinkLocalHost(host)) {
+        return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
+      }
 
       if (configuredBaseUrl && isLikelyLocalDevUrl(configuredBaseUrl)) {
         return configuredBaseUrl.replace(/\/+$/, '');

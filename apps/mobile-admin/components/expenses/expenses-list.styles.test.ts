@@ -1,0 +1,39 @@
+import { describe, expect, it } from 'vitest';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { styles } from './expenses-list.styles';
+
+describe('expenses-list styles', () => {
+  it('keeps expense rows and the floating action button touch friendly', () => {
+    expect(styles.expenseItem).toMatchObject({
+      alignItems: 'center',
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      flexDirection: 'row',
+      marginBottom: SPACING.md,
+      padding: SPACING.md,
+    });
+    expect(styles.fab).toMatchObject({
+      alignItems: 'center',
+      bottom: SPACING.xl,
+      height: 56,
+      justifyContent: 'center',
+      position: 'absolute',
+      right: SPACING.xl,
+      width: 56,
+    });
+  });
+
+  it('defines compact uppercase section headers for grouped expenses', () => {
+    expect(styles.sectionHeader).toMatchObject({
+      justifyContent: 'center',
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+    });
+    expect(styles.sectionHeaderLabel).toMatchObject({
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      fontSize: TYPOGRAPHY.size.xs,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    });
+  });
+});

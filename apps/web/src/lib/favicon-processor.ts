@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import sharp from 'sharp';
 import {
@@ -31,7 +32,11 @@ export interface FaviconUploadResult {
  */
 export async function processFavicon(
   file: File,
-  merchantId: string
+  merchantId: string,
+  // Optional pre-authenticated client. Web (cookie auth) omits it and falls
+  // back to the cookie-based server client; mobile (Bearer token) passes its
+  // scoped client so the favicons-bucket RLS upload runs as the right user.
+  client?: SupabaseClient
 ): Promise<FaviconUploadResult> {
   // Validate merchantId to prevent path traversal
   if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
@@ -49,8 +54,7 @@ export async function processFavicon(
   const isSvg = file.type === 'image/svg+xml';
   let buffer = Buffer.from(await file.arrayBuffer());
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = client ?? createClient(await cookies());
   const storagePaths = getFaviconStoragePaths(merchantId);
 
   const result: FaviconUploadResult = {

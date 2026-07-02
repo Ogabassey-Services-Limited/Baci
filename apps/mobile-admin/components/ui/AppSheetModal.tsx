@@ -73,6 +73,13 @@ export function AppSheetModal({
           keyboardVerticalOffset={keyboardVerticalOffset}
           scrollEnabled={scrollEnabled}
         >
+          <Pressable
+            accessibilityElementsHidden
+            accessible={false}
+            onPress={handleBackdropPress}
+            style={styles.dismissArea}
+            testID="app-sheet-dismiss-area"
+          />
           <View
             accessibilityLabel={accessibilityLabel}
             accessibilityViewIsModal={true}
@@ -110,6 +117,10 @@ const styles = StyleSheet.create({
   keyboardContent: {
     flexGrow: 1,
     justifyContent: 'flex-end',
+  },
+  dismissArea: {
+    flex: 1,
+    width: '100%',
   },
   attachedLayout: {
     width: '100%',

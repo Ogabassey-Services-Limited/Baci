@@ -17,6 +17,7 @@ import {
   type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -34,6 +35,10 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  type GroupedFailedOrderListItem,
+  groupFailedOrdersByDate,
+} from '@/lib/customers-failed-orders';
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -371,15 +376,37 @@ function CustomerItem({ item, currencySymbol, onPress }: CustomerItemProps) {
 }
 
 const customerKeyExtractor = (item: { id: string }) => item.id;
-const failedOrderKeyExtractor = (item: { id: string }) => item.id;
+
+type CustomerTab = 'failed' | 'people' | 'companies' | 'all';
+
+const CUSTOMER_TABS: Array<{
+  hint: string;
+  key: CustomerTab;
+  label: string;
+}> = [
+  {
+    hint: 'View customers with failed transactions',
+    key: 'failed',
+    label: 'Follow Up',
+  },
+  { hint: 'View individual customers', key: 'people', label: 'People' },
+  { hint: 'View company customers', key: 'companies', label: 'Companies' },
+  { hint: 'View all customers', key: 'all', label: 'All' },
+];
 
 export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
-  const [activeTab, setActiveTab] = React.useState<'all' | 'failed'>('failed');
+  const [activeTab, setActiveTab] = React.useState<CustomerTab>('failed');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const customerTypeFilter: 'individual' | 'company' | undefined =
+    activeTab === 'people'
+      ? 'individual'
+      : activeTab === 'companies'
+        ? 'company'
+        : undefined;
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Collapsible search bar animation
@@ -425,7 +452,10 @@ export default function CustomersScreen() {
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useCustomers({ search: debouncedSearchQuery });
+  } = useCustomers({
+    search: debouncedSearchQuery,
+    customerType: customerTypeFilter,
+  });
 
   const {
     data: failedOrders,
@@ -460,8 +490,11 @@ export default function CustomersScreen() {
     );
   })();
 
+  const { data: groupedFailedOrders, stickyHeaderIndices } =
+    groupFailedOrdersByDate(filteredFailedOrders);
+
   const handleLoadMore = () => {
-    if (activeTab === 'all' && hasNextPage && !isFetchingNextPage) {
+    if (activeTab !== 'failed' && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
   };
@@ -490,14 +523,6 @@ export default function CustomersScreen() {
       item={item}
       currencySymbol={currencySymbol}
       onPress={handleCustomerPress}
-    />
-  );
-
-  const renderFailedOrder = ({ item }: ListRenderItemInfo<FailedOrder>) => (
-    <FailedOrderItem
-      item={item}
-      currencySymbol={currencySymbol}
-      onPress={handleFailedOrderPress}
     />
   );
 
@@ -567,111 +592,105 @@ export default function CustomersScreen() {
         </View>
       </Animated.View>
       {/* Tabs */}
-      <View style={styles.tabContainer}>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === 'failed' && {
-              backgroundColor: colors.gold,
-              borderColor: colors.gold,
-            },
-          ]}
-          onPress={() => setActiveTab('failed')}
-          accessibilityLabel={`Follow Up${failedOrders?.length ? `: ${failedOrders.length} customers` : ''}${activeTab === 'failed' ? ', currently selected' : ''}`}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'failed' }}
-          accessibilityHint="View customers with failed transactions"
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'failed'
-                ? { color: isDark ? colors.background : colors.backgroundLight }
-                : { color: colors.textSecondary },
-            ]}
-          >
-            Follow Up {failedOrders?.length ? `(${failedOrders.length})` : ''}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === 'all' && {
-              backgroundColor: colors.gold,
-              borderColor: colors.gold,
-            },
-          ]}
-          onPress={() => setActiveTab('all')}
-          accessibilityLabel={`All Customers${activeTab === 'all' ? ', currently selected' : ''}`}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'all' }}
-          accessibilityHint="View all customers"
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'all'
-                ? { color: isDark ? colors.background : colors.backgroundLight }
-                : { color: colors.textSecondary },
-            ]}
-          >
-            All Customers
-          </Text>
-        </Pressable>
-      </View>
-      {activeTab === 'all' ? (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabContainer}
+      >
+        {CUSTOMER_TABS.map((tab) => {
+          const isSelected = activeTab === tab.key;
+          const count = tab.key === 'failed' ? failedOrders?.length : undefined;
+          const label = count ? `${tab.label} (${count})` : tab.label;
+
+          return (
+            <Pressable
+              accessibilityHint={tab.hint}
+              accessibilityLabel={`${tab.label}${count ? `: ${count} customers` : ''}${isSelected ? ', currently selected' : ''}`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isSelected }}
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={[
+                styles.tab,
+                isSelected && {
+                  backgroundColor: colors.gold,
+                  borderColor: colors.gold,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  isSelected
+                    ? {
+                        color: isDark
+                          ? colors.background
+                          : colors.backgroundLight,
+                      }
+                    : { color: colors.textSecondary },
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      {activeTab !== 'failed' ? (
         <>
-          {/* Stats Summary - Only for All Customers */}
-          <View style={styles.summaryRow}>
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
-            >
-              <Text style={[styles.summaryValue, { color: colors.text }]}>
-                {stats?.total ?? 0}
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+          {/* Stats Summary - Only for All Customers (global totals) */}
+          {activeTab === 'all' ? (
+            <View style={styles.summaryRow}>
+              <View
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: colors.card },
+                  shadows.sm,
+                ]}
               >
-                Total
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
-            >
-              <Text style={[styles.summaryValue, { color: colors.success }]}>
-                {stats?.newThisWeek ?? 0}
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  {stats?.total ?? 0}
+                </Text>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                >
+                  Total
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: colors.card },
+                  shadows.sm,
+                ]}
               >
-                New
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
-            >
-              <Text style={[styles.summaryValue, { color: colors.gold }]}>
-                {stats?.retentionRate ?? 0}%
-              </Text>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                <Text style={[styles.summaryValue, { color: colors.success }]}>
+                  {stats?.newThisWeek ?? 0}
+                </Text>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                >
+                  New
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: colors.card },
+                  shadows.sm,
+                ]}
               >
-                Returning
-              </Text>
+                <Text style={[styles.summaryValue, { color: colors.gold }]}>
+                  {stats?.retentionRate ?? 0}%
+                </Text>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                >
+                  Returning
+                </Text>
+              </View>
             </View>
-          </View>
+          ) : null}
 
           {/* Customers List */}
           <FlashList
@@ -722,10 +741,44 @@ export default function CustomersScreen() {
         </>
       ) : (
         /* Failed Transactions List */
-        <FlashList
-          data={filteredFailedOrders}
-          renderItem={renderFailedOrder}
-          keyExtractor={failedOrderKeyExtractor}
+        <FlashList<GroupedFailedOrderListItem>
+          data={groupedFailedOrders}
+          renderItem={({ item }) => {
+            if (item.type === 'header') {
+              return (
+                <View
+                  style={[
+                    styles.sectionHeader,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.sectionHeaderLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                </View>
+              );
+            }
+
+            return (
+              <FailedOrderItem
+                item={item.data}
+                currencySymbol={currencySymbol}
+                onPress={handleFailedOrderPress}
+              />
+            );
+          }}
+          keyExtractor={(item) => item.key}
+          getItemType={(item) => item.type}
+          stickyHeaderIndices={stickyHeaderIndices}
+          stickyHeaderConfig={{
+            zIndex: 10,
+            hideRelatedCell: true,
+          }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           contentContainerStyle={styles.listContent}
@@ -912,6 +965,17 @@ const styles = StyleSheet.create({
   lastOrder: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  sectionHeader: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    justifyContent: 'center',
+  },
+  sectionHeaderLabel: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   emptyContainer: {
     alignItems: 'center',

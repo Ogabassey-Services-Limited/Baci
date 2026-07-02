@@ -200,6 +200,10 @@ vi.mock('@/types/upload', () => ({
   createUploadFile: vi.fn(),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  BASE_URL: 'https://example.com',
+}));
+
 import HomeScreen from '../../../app/(admin)/(tabs)/index';
 
 describe('HomeScreen', () => {
@@ -228,10 +232,10 @@ describe('HomeScreen', () => {
     expect(screen.queryByText('New (all stores)')).toBeNull();
   });
 
-  it('navigates to negotiations when Negotiation Requests quick action is pressed', () => {
+  it('navigates to negotiations when Negotiations quick action is pressed', () => {
     render(<HomeScreen />);
 
-    const button = screen.getByRole('button', { name: 'Negotiation Requests' });
+    const button = screen.getByRole('button', { name: 'Negotiations' });
     fireEvent.click(button);
 
     expect(router.push).toHaveBeenCalledWith('/(admin)/negotiations');

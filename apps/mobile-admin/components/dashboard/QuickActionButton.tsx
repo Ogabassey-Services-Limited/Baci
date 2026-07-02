@@ -11,6 +11,7 @@ interface QuickActionButtonProps {
   onPress: () => void;
   iconColor?: string;
   backgroundColor?: string;
+  iconSize?: number;
 }
 
 export function QuickActionButton({
@@ -19,6 +20,7 @@ export function QuickActionButton({
   onPress,
   iconColor,
   backgroundColor,
+  iconSize = 24,
 }: QuickActionButtonProps) {
   const { colors, shadows } = useTheme();
   const finalIconColor = iconColor || colors.primary;
@@ -37,7 +39,7 @@ export function QuickActionButton({
       accessibilityLabel={label}
     >
       <View style={[styles.iconContainer, { backgroundColor: finalBgColor }]}>
-        <Ionicons name={icon} size={24} color={finalIconColor} />
+        <Ionicons name={icon} size={iconSize} color={finalIconColor} />
       </View>
       <Text style={[styles.label, { color: colors.text }]} numberOfLines={2}>
         {label}

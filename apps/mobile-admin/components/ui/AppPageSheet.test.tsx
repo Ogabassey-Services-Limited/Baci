@@ -37,6 +37,13 @@ vi.mock('react-native-safe-area-context', () => ({
 
 vi.mock('react-native', () => {
   return {
+    Platform: {
+      OS: 'ios',
+      select: (objs: Record<string, unknown>) => objs.ios || objs.default,
+    },
+    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
     StatusBar: () => null,
     Modal: ({
       children,
@@ -74,15 +81,29 @@ vi.mock('react-native', () => {
     ),
     View: ({
       children,
+      style,
       testID,
     }: {
       children?: React.ReactNode;
+      pointerEvents?: string;
+      style?: Record<string, unknown> | Record<string, unknown>[];
       testID?: string;
     }) => {
       if (testID === 'app-page-sheet-static') {
         renderState.staticRendered = true;
       }
-      return <div>{children}</div>;
+      const flattenedStyle = Array.isArray(style)
+        ? Object.assign({}, ...style)
+        : style;
+
+      return (
+        <div
+          data-height={String(flattenedStyle?.height ?? '')}
+          data-testid={testID}
+        >
+          {children}
+        </div>
+      );
     },
   };
 });
@@ -115,6 +136,43 @@ describe('AppPageSheet', () => {
     expect(renderState.scrollRendered).toBe(true);
   });
 
+  it('renders floating footer content separately from the solid footer', () => {
+    render(
+      <AppPageSheet
+        floatingFooter={<Text>Floating search</Text>}
+        footer={<Text>Solid action</Text>}
+        onClose={vi.fn()}
+        title="Receipt Preview"
+        visible={true}
+      >
+        <Text>Preview content</Text>
+      </AppPageSheet>
+    );
+
+    expect(
+      screen.getByTestId('app-page-sheet-floating-footer')
+    ).toHaveTextContent('Floating search');
+    expect(screen.getByText('Solid action')).toBeInTheDocument();
+  });
+
+  it('applies custom sheet container sizing', () => {
+    render(
+      <AppPageSheet
+        onClose={vi.fn()}
+        sheetContainerStyle={{ height: '92%' }}
+        title="Product Picker"
+        visible={true}
+      >
+        <Text>Picker content</Text>
+      </AppPageSheet>
+    );
+
+    expect(screen.getByTestId('app-page-sheet-container')).toHaveAttribute(
+      'data-height',
+      '92%'
+    );
+  });
+
   it('calls onClose from the shared close action', () => {
     const onClose = vi.fn();
 
@@ -125,6 +183,22 @@ describe('AppPageSheet', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Close sheet' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClose when backdrop overlay is tapped', () => {
+    const onClose = vi.fn();
+
+    render(
+      <AppPageSheet onClose={onClose} title="Customer Details" visible={true}>
+        <Text>Body</Text>
+      </AppPageSheet>
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close sheet backdrop' })
+    );
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
