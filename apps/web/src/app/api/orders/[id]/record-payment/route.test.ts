@@ -244,8 +244,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
       'insertTransaction' in fixture
         ? fixture.insertTransaction
         : { id: 'txn-123' };
-    const updateOrder =
-      'updateOrder' in fixture ? fixture.updateOrder : (fixture.order ?? null);
+    const hasExplicitUpdateOrder = 'updateOrder' in fixture;
+    const updateOrder = hasExplicitUpdateOrder
+      ? fixture.updateOrder
+      : (fixture.order ?? null);
 
     const merchantQuery = {
       eq: vi.fn().mockReturnThis(),
@@ -294,24 +296,28 @@ describe('POST /api/orders/[id]/record-payment', () => {
       if (table === 'transactions') return transactionQuery;
       throw new Error(`Unexpected table ${table}`);
     });
-    const defaultManualPayment = {
-      current_paid: null,
-      error_code: fixture.recordManualPaymentErrorCode ?? null,
-      new_paid: null,
-      remaining_balance: null,
-      total_paid_before: null,
-      transaction_id:
-        insertTransaction &&
-        typeof insertTransaction === 'object' &&
-        'id' in insertTransaction
-          ? insertTransaction.id
-          : null,
-      ...(fixture.recordManualPayment &&
-      typeof fixture.recordManualPayment === 'object'
-        ? fixture.recordManualPayment
-        : {}),
-    };
-    const rpc = vi.fn((name: string) => {
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      Boolean(value && typeof value === 'object' && !Array.isArray(value));
+    const orderRecord = isRecord(fixture.order) ? fixture.order : {};
+    const updateOrderRecord = isRecord(updateOrder) ? updateOrder : {};
+    const completedTransactions = (fixture.transactions ?? []).filter(
+      (txn): txn is Record<string, unknown> =>
+        isRecord(txn) && txn.status === 'completed'
+    );
+    const completedAmount = completedTransactions.reduce(
+      (sum, txn) => sum + (Number(txn.amount) || 0),
+      0
+    );
+    const walletAmount = Number(orderRecord.wallet_amount_used) || 0;
+    const orderTotal = Number(orderRecord.total) || 0;
+    const defaultTransactionId =
+      isRecord(insertTransaction) && typeof insertTransaction.id === 'string'
+        ? insertTransaction.id
+        : null;
+    const manualPaymentOverride = isRecord(fixture.recordManualPayment)
+      ? fixture.recordManualPayment
+      : {};
+    const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
       if (name === 'get_record_payment_order_transactions') {
         return Promise.resolve({
           data: fixture.transactions ?? [],
@@ -319,8 +325,43 @@ describe('POST /api/orders/[id]/record-payment', () => {
         });
       }
       if (name === 'record_manual_order_payment') {
+        const amount = Number(params?.p_amount) || 0;
+        const computedNewPaid = completedAmount + walletAmount + amount;
+        const computedRemainingBalance = Math.max(
+          0,
+          orderTotal - computedNewPaid
+        );
+        const computedPaymentStatus =
+          computedNewPaid >= orderTotal ? 'paid' : 'partially_paid';
+        const originalShippingStatus =
+          typeof orderRecord.shipping_status === 'string'
+            ? orderRecord.shipping_status
+            : 'pending';
+        const computedShippingStatus =
+          originalShippingStatus === 'pending'
+            ? 'processing'
+            : originalShippingStatus;
         return Promise.resolve({
-          data: defaultManualPayment,
+          data: {
+            current_paid: completedAmount,
+            error_code: fixture.recordManualPaymentErrorCode ?? null,
+            new_paid: computedNewPaid,
+            payment_status: computedPaymentStatus,
+            remaining_balance: computedRemainingBalance,
+            shipping_status:
+              hasExplicitUpdateOrder &&
+              typeof updateOrderRecord.shipping_status === 'string'
+                ? updateOrderRecord.shipping_status
+                : computedShippingStatus,
+            cancelled_at:
+              hasExplicitUpdateOrder &&
+              typeof updateOrderRecord.cancelled_at === 'string'
+                ? updateOrderRecord.cancelled_at
+                : null,
+            total_paid_before: completedAmount + walletAmount,
+            transaction_id: defaultTransactionId,
+            ...manualPaymentOverride,
+          },
           error: fixture.insertError ?? null,
         });
       }
@@ -337,7 +378,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     transactions: unknown[],
     error: unknown = null
   ) => {
-    const rpc = vi.fn((name: string) => {
+    const rpc = vi.fn((name: string, params?: Record<string, unknown>) => {
       if (name === 'get_record_payment_order_transactions') {
         return Promise.resolve({ data: transactions, error });
       }
@@ -345,8 +386,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return Promise.resolve({
           data: {
             error_code: null,
-            new_paid: null,
-            remaining_balance: null,
+            new_paid: Number(params?.p_amount) || null,
+            payment_status: 'paid',
+            remaining_balance: 0,
+            shipping_status: 'processing',
             transaction_id: 'txn-123',
           },
           error: null,
@@ -842,7 +885,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
     mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
 
-    setupRecordPaymentSupabase({
+    const { orderQuery } = setupRecordPaymentSupabase({
       merchant: mockMerchant,
       order: mockOrder,
     });
@@ -871,6 +914,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         shipping_status: 'processing',
       },
     });
+    expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
   it('rolls back status, deletes the manual transaction, and returns 409 when paid-order inventory confirmation fails', async () => {
@@ -1902,7 +1946,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(response.status).toBe(200);
   });
 
-  it('suppresses paid side effects when the order status update fails after transaction insert', async () => {
+  it('suppresses paid side effects when the manual-payment RPC omits updated order status', async () => {
     const mockMerchant = {
       id: mockMerchantId,
       business_name: 'Test Store',
@@ -1933,8 +1977,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
       insertTransaction: { id: 'txn-new' },
       merchant: mockMerchant,
       order: mockOrder,
-      updateError: { message: 'update failed' },
-      updateOrder: null,
+      recordManualPayment: {
+        payment_status: null,
+        shipping_status: null,
+      },
     });
 
     const request = createRequest({

@@ -47,10 +47,13 @@ interface RecordPaymentTransactionRow {
 }
 
 interface RecordManualPaymentResult {
+  cancelled_at?: string | null;
   current_paid?: number | string | null;
   error_code?: string | null;
   new_paid?: number | string | null;
+  payment_status?: PaymentStatus | null;
   remaining_balance?: number | string | null;
+  shipping_status?: ShippingStatus | null;
   total_paid_before?: number | string | null;
   transaction_id?: string | null;
 }
@@ -559,87 +562,70 @@ export async function POST(
       manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
     );
 
-    // 5. Update Order Status
+    // 5. Consume the authoritative order status written by the RPC.
+    // Keeping status mutation inside the same DB transaction as the manual
+    // payment insert prevents a slower partial-payment request from overwriting
+    // a faster concurrent full-payment request after both RPCs return.
+    const isFullyPaid = newPaid >= orderTotal;
+    const rpcPaymentStatus = manualPaymentResult.payment_status ?? null;
+    const rpcShippingStatus = manualPaymentResult.shipping_status ?? null;
+
+    if (!rpcPaymentStatus || !rpcShippingStatus) {
+      logger.error({
+        message:
+          'CRITICAL: RecordPayment RPC inserted a transaction without returning updated order status',
+        manualPaymentResult,
+        orderId,
+        inconsistentState: true,
+      });
+      return NextResponse.json({
+        success: true,
+        amount_paid: parsedAmount,
+        new_balance: remainingBalance,
+        updated_status: {},
+        status_update_failed: true,
+      });
+    }
+
     const updates: {
       payment_status?: PaymentStatus;
       shipping_status?: ShippingStatus;
-    } = {};
+    } = { payment_status: rpcPaymentStatus };
 
-    const isFullyPaid = newPaid >= orderTotal;
-
-    // Payment Status Logic — compute the intended status update first so we can
-    // apply it (and detect a prevent_cancelled_order_reopen clamp) BEFORE firing
-    // any paid-order side effects.
-    if (isFullyPaid) {
-      updates.payment_status = 'paid';
-    } else {
-      updates.payment_status = 'partially_paid';
-    }
-    // Auto-advance shipping status if pending (indicates activity).
-    if (order.shipping_status === 'pending') {
-      updates.shipping_status = 'processing';
+    if (rpcShippingStatus !== order.shipping_status) {
+      updates.shipping_status = rpcShippingStatus;
     }
 
-    // Apply updates and read back the row so we can detect whether the
-    // prevent_cancelled_order_reopen trigger clamped this payment (order was
-    // cancelled by the customer before the merchant recorded the payment).
+    const updatedOrder = {
+      cancelled_at: manualPaymentResult.cancelled_at ?? null,
+      id: orderId,
+      shipping_status: rpcShippingStatus,
+    };
+
     let orderCancelledByClamp = false;
-    if (Object.keys(updates).length > 0) {
-      logger.info({
-        message: 'RecordPayment applying status updates',
-        updates,
-        orderId,
+    if (isOrderClampedAsCancelled(updatedOrder)) {
+      orderCancelledByClamp = true;
+      // Link the reconciliation row to the transaction just recorded (matched
+      // by reference) so ops can trace the captured money. Falls back to null
+      // for a referenceless manual/cash payment.
+      let recordedTransactionId: string | null = createdTransaction?.id ?? null;
+      if (!recordedTransactionId && reference) {
+        const { data: recordedTransaction } = await supabase
+          .from('transactions')
+          .select('id')
+          .eq('order_id', orderId)
+          .eq('merchant_id', merchantId)
+          .eq('gateway_reference', reference)
+          .maybeSingle();
+        recordedTransactionId = recordedTransaction?.id ?? null;
+      }
+      await handlePaymentForCancelledOrder({
+        gatewayReference: reference ?? null,
+        order: updatedOrder,
+        reason:
+          'Manual payment recorded for an order cancelled by the customer before finalization',
+        transactionId: recordedTransactionId,
       });
-      const { data: updatedOrder, error: updateError } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', orderId)
-        .eq('merchant_id', merchantId)
-        .select('id, shipping_status, cancelled_at')
-        .maybeSingle();
-
-      if (updateError || !updatedOrder) {
-        logger.error({
-          message:
-            'CRITICAL: RecordPayment failed to update order status after transaction created',
-          error: updateError ?? 'updated_order_missing',
-          orderId,
-          inconsistentState: true,
-        });
-        return NextResponse.json({
-          success: true,
-          amount_paid: parsedAmount,
-          new_balance: remainingBalance,
-          updated_status: {},
-          status_update_failed: true,
-        });
-      }
-
-      if (isOrderClampedAsCancelled(updatedOrder)) {
-        orderCancelledByClamp = true;
-        // Link the reconciliation row to the transaction just recorded (matched
-        // by reference) so ops can trace the captured money. Falls back to null
-        // for a referenceless manual/cash payment.
-        let recordedTransactionId: string | null =
-          createdTransaction?.id ?? null;
-        if (!recordedTransactionId && reference) {
-          const { data: recordedTransaction } = await supabase
-            .from('transactions')
-            .select('id')
-            .eq('order_id', orderId)
-            .eq('merchant_id', merchantId)
-            .eq('gateway_reference', reference)
-            .maybeSingle();
-          recordedTransactionId = recordedTransaction?.id ?? null;
-        }
-        await handlePaymentForCancelledOrder({
-          gatewayReference: reference ?? null,
-          order: updatedOrder ?? { id: orderId },
-          reason:
-            'Manual payment recorded for an order cancelled by the customer before finalization',
-          transactionId: recordedTransactionId,
-        });
-      }
     }
 
     // Suppress all paid-order side effects (confirmation / receipt emails,

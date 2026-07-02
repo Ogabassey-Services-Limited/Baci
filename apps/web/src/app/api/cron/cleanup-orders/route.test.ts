@@ -200,6 +200,7 @@ describe('create_payment_transaction migration contract', () => {
     expect(sql).toMatch(/public\.staff_members\b/i);
     expect(sql).toMatch(/RAISE\s+EXCEPTION\s+'reference_in_use'/i);
     expect(sql).toMatch(/pg_advisory_xact_lock/i);
+    expect(sql).toMatch(/baci_order_payment:/i);
     expect(sql).toMatch(/hashtextextended\(v_reference,\s*0\)/i);
     expect(sql).toMatch(/COALESCE\(p_metadata,\s*'\{\}'::jsonb\)/i);
     expect(sql).toMatch(/payment_status\s*=\s*v_order_payment_status/i);

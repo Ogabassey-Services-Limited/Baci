@@ -28,6 +28,9 @@ declare
   v_new_paid numeric := 0;
   v_remaining_balance numeric := 0;
   v_transaction_id uuid;
+  v_payment_status text;
+  v_shipping_status text;
+  v_cancelled_at timestamptz;
 begin
   if p_amount is null or p_amount <= 0 or p_amount = 'NaN'::numeric then
     return jsonb_build_object('error_code', 'INVALID_AMOUNT');
@@ -37,10 +40,20 @@ begin
     return jsonb_build_object('error_code', 'INVALID_AMOUNT');
   end if;
 
+  -- Serialize every order-scoped payment writer before either pending-processor
+  -- or completed-manual rows can be inserted. Row locks alone do not protect
+  -- against concurrent transaction inserts that have not yet touched orders.
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('baci_order_payment:' || p_order_id::text, 0)
+  );
+
   select
     o.id,
     o.merchant_id,
     o.currency,
+    o.payment_status,
+    o.shipping_status,
+    o.cancelled_at,
     coalesce(o.total, 0)::numeric as total,
     coalesce(o.wallet_amount_used, 0)::numeric as wallet_amount_used
   into v_order
@@ -155,12 +168,34 @@ begin
   v_new_paid := v_total_paid_before + p_amount;
   v_remaining_balance := greatest(0, v_order_total - v_new_paid);
 
+  update public.orders as o
+  set
+    payment_status = case
+      when v_new_paid >= v_order_total then 'paid'
+      else 'partially_paid'
+    end,
+    shipping_status = case
+      when o.shipping_status = 'pending' then 'processing'
+      else o.shipping_status
+    end,
+    updated_at = now()
+  where o.id = p_order_id
+    and o.merchant_id = p_merchant_id
+  returning
+    o.payment_status::text,
+    o.shipping_status::text,
+    o.cancelled_at
+  into v_payment_status, v_shipping_status, v_cancelled_at;
+
   return jsonb_build_object(
     'transaction_id', v_transaction_id,
     'current_paid', v_current_paid,
     'total_paid_before', v_total_paid_before,
     'new_paid', v_new_paid,
     'remaining_balance', v_remaining_balance,
+    'payment_status', v_payment_status,
+    'shipping_status', v_shipping_status,
+    'cancelled_at', v_cancelled_at,
     'error_code', null
   );
 exception
@@ -173,4 +208,4 @@ revoke all on function public.record_manual_order_payment(uuid, uuid, numeric, t
 grant execute on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) to authenticated;
 
 comment on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) is
-  'Atomically records a manual order payment by locking the merchant-owned order row, rejecting invalid amounts, pending processor payments, drifted order transactions, stale overpayments, and duplicate references before inserting the transaction in one database transaction.';
+  'Atomically records a manual order payment by taking a transaction-level per-order advisory lock, locking the merchant-owned order row, rejecting invalid amounts, pending processor payments, drifted order transactions, stale overpayments, and duplicate references, then inserting the transaction and updating order status in one database transaction.';
