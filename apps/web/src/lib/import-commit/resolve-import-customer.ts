@@ -2,12 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NormalizedImportedOrder } from '@/lib/imports/bumpa/bumpa-types';
 import { sanitizeEmail, sanitizePhone } from '@/lib/sanitize-core';
 
+const LIKE_PATTERN_ESCAPE_REGEX = /[%_\\]/g;
+
 interface ExistingCustomerRecord {
   id: string;
   email: string | null;
   phone: string | null;
   user_id: string | null;
+  deleted_at?: string | null;
 }
+
+type CustomerMaps = ReturnType<typeof buildCustomerMaps>;
 
 export interface ImportCustomerResolver {
   resolveCustomerId: (
@@ -24,6 +29,10 @@ function toEmailKey(value: string | null) {
 function toPhoneKey(value: string | null) {
   if (!value) return null;
   return sanitizePhone(value).replace(/[\s()-]+/g, '');
+}
+
+function escapeLikePattern(value: string) {
+  return value.replace(LIKE_PATTERN_ESCAPE_REGEX, '\\$&');
 }
 
 function buildCustomerMaps(customers: ExistingCustomerRecord[]) {
@@ -47,6 +56,103 @@ function buildCustomerMaps(customers: ExistingCustomerRecord[]) {
   }
 
   return { customersByEmail, customersByPhone };
+}
+
+function rememberCustomer(
+  customerMaps: CustomerMaps,
+  customer: ExistingCustomerRecord
+) {
+  const emailKey = toEmailKey(customer.email);
+  if (emailKey) {
+    customerMaps.customersByEmail.set(emailKey, customer);
+  }
+
+  const phoneKey = toPhoneKey(customer.phone);
+  if (!phoneKey) {
+    return;
+  }
+
+  const phoneCustomers = customerMaps.customersByPhone.get(phoneKey) || [];
+  if (!phoneCustomers.some((entry) => entry.id === customer.id)) {
+    phoneCustomers.push(customer);
+  }
+  customerMaps.customersByPhone.set(phoneKey, phoneCustomers);
+}
+
+async function findCustomerEmailCandidates(
+  supabase: SupabaseClient,
+  merchantId: string,
+  emailKey: string,
+  includeDeleted: boolean
+) {
+  let query = supabase
+    .from('customers')
+    .select('id, email, phone, user_id, deleted_at')
+    .eq('merchant_id', merchantId)
+    .ilike('email', escapeLikePattern(emailKey));
+
+  if (!includeDeleted) {
+    query = query.is('deleted_at', null);
+  }
+
+  const { data, error } = await query.limit(20);
+
+  if (error) {
+    throw new Error(
+      `Failed to resolve conflicting customer by email: ${error.message}`
+    );
+  }
+
+  return ((data || []) as ExistingCustomerRecord[]).filter(
+    (customer) => toEmailKey(customer.email) === emailKey
+  );
+}
+
+async function findExistingCustomerByEmail(
+  supabase: SupabaseClient,
+  merchantId: string,
+  emailKey: string
+) {
+  const [activeCustomer] = await findCustomerEmailCandidates(
+    supabase,
+    merchantId,
+    emailKey,
+    false
+  );
+  if (activeCustomer) {
+    return activeCustomer;
+  }
+
+  const candidates = await findCustomerEmailCandidates(
+    supabase,
+    merchantId,
+    emailKey,
+    true
+  );
+  const deletedCustomer = candidates.find((customer) => customer.deleted_at);
+  if (deletedCustomer) {
+    throw new Error(
+      'Email is already used by a deleted customer record. Restore or permanently remove that customer before importing orders for this email.'
+    );
+  }
+
+  const [existingCustomer] = candidates;
+  if (existingCustomer) {
+    return existingCustomer;
+  }
+
+  throw new Error('Failed to resolve conflicting customer by email: not found');
+}
+
+function isCustomerEmailConstraintError(
+  error: { code?: string; message?: string } | null | undefined
+) {
+  return (
+    error?.code === '23505' &&
+    (error.message?.includes('customers_merchant_id_email_key') ||
+      error.message?.includes('customers_merchant_email_unique') ||
+      error.message?.includes('idx_customers_merchant_email'))
+  );
 }
 
 export async function createImportCustomerResolver(
@@ -92,9 +198,6 @@ export async function createImportCustomerResolver(
           return { customerId: safePhoneMatches[0].id, createdCustomer: false };
         }
 
-        // No safe match, but the phone is taken by a customer who has email/user_id.
-        // There can be at most one such customer (DB enforces uniqueness).
-        // Link to them rather than inserting a duplicate phone.
         const allPhoneMatches =
           customerMaps.customersByPhone.get(phoneKey) || [];
         if (allPhoneMatches.length === 1) {
@@ -102,8 +205,6 @@ export async function createImportCustomerResolver(
         }
       }
 
-      // For email-identified orders where the phone is already in use, omit phone
-      // from the INSERT to avoid customers_merchant_phone_unique.
       const phoneAlreadyTaken =
         emailKey != null &&
         phoneKey != null &&
@@ -115,8 +216,6 @@ export async function createImportCustomerResolver(
           .insert({
             merchant_id: merchantId,
             email: order.customer.email,
-            // Omit phone when it is already taken by a different customer, to avoid
-            // customers_merchant_phone_unique. The existing phone holder is unchanged.
             phone: phoneAlreadyTaken ? null : order.customer.phone,
             full_name: order.customer.fullName,
             first_name: order.customer.firstName,
@@ -126,15 +225,21 @@ export async function createImportCustomerResolver(
           .single();
 
       if (insertError || !insertedCustomer) {
-        // Safety net for concurrent collisions not covered by the in-memory cache.
-        // On a phone constraint error, retry without phone rather than merging identities.
+        if (emailKey && isCustomerEmailConstraintError(insertError)) {
+          const existingCustomer = await findExistingCustomerByEmail(
+            resolverSupabase,
+            merchantId,
+            emailKey
+          );
+          rememberCustomer(customerMaps, existingCustomer);
+          return { customerId: existingCustomer.id, createdCustomer: false };
+        }
+
         if (
           insertError?.code === '23505' &&
           insertError.message.includes('customers_merchant_phone_unique') &&
           phoneKey
         ) {
-          // Phone-only orders: look up the existing phone holder instead of
-          // inserting a null-phone row that would lose the phone identifier.
           if (!emailKey) {
             const { data: existing, error: lookupError } =
               await resolverSupabase
@@ -151,13 +256,10 @@ export async function createImportCustomerResolver(
             }
 
             const existingCustomer = existing as ExistingCustomerRecord;
-            const phoneCust = customerMaps.customersByPhone.get(phoneKey) || [];
-            phoneCust.push(existingCustomer);
-            customerMaps.customersByPhone.set(phoneKey, phoneCust);
+            rememberCustomer(customerMaps, existingCustomer);
             return { customerId: existingCustomer.id, createdCustomer: false };
           }
 
-          // Email-identified orders: retry insert without phone.
           const { data: retried, error: retryError } = await resolverSupabase
             .from('customers')
             .insert({
@@ -178,9 +280,7 @@ export async function createImportCustomerResolver(
           }
 
           const retriedCustomer = retried as ExistingCustomerRecord;
-          if (emailKey) {
-            customerMaps.customersByEmail.set(emailKey, retriedCustomer);
-          }
+          rememberCustomer(customerMaps, retriedCustomer);
           return { customerId: retriedCustomer.id, createdCustomer: true };
         }
 
@@ -190,17 +290,7 @@ export async function createImportCustomerResolver(
       }
 
       const createdCustomer = insertedCustomer as ExistingCustomerRecord;
-      if (emailKey) {
-        customerMaps.customersByEmail.set(emailKey, createdCustomer);
-      }
-
-      const insertedPhoneKey = toPhoneKey(createdCustomer.phone);
-      if (insertedPhoneKey) {
-        const phoneCustomers =
-          customerMaps.customersByPhone.get(insertedPhoneKey) || [];
-        phoneCustomers.push(createdCustomer);
-        customerMaps.customersByPhone.set(insertedPhoneKey, phoneCustomers);
-      }
+      rememberCustomer(customerMaps, createdCustomer);
 
       return { customerId: createdCustomer.id, createdCustomer: true };
     },
