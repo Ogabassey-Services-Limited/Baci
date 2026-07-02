@@ -1,22 +1,10 @@
 import type { Metadata } from 'next';
-import { cacheLife, cacheTag } from 'next/cache';
-import { draftMode } from 'next/headers';
-import { notFound, permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
-import { getBlogCacheTag } from '@/lib/blog-cache-tags';
-import { getBlogPostRedirect } from '@/lib/blog-post-redirects';
-import {
-  getCachedBlogPost,
-  getCachedFeatureSettings,
-  getMerchantStrict,
-} from '@/lib/cached-data';
-import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
-import { asRoute } from '@/lib/routes';
+import { getCachedBlogPost } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
-import { createPublicClient } from '@/lib/supabase/anon';
 import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
@@ -34,135 +22,39 @@ const SOCIAL_IMAGE_METADATA = {
   type: 'image/png',
 } as const;
 
-async function hasPublicBlogPost(
-  identifier: string,
-  postSlug: string
-): Promise<boolean> {
-  'use cache';
-  const normalizedPostSlug = postSlug.trim().toLowerCase();
-  if (!normalizedPostSlug) {
-    return false;
-  }
-
-  cacheLife('blog');
-  cacheTag('blog-posts', getBlogCacheTag(identifier, normalizedPostSlug));
-
-  const merchant = await getMerchantStrict(identifier.toLowerCase());
-  if (!merchant) {
-    return false;
-  }
-
-  let features: Awaited<ReturnType<typeof getCachedFeatureSettings>>;
-  try {
-    features = await getCachedFeatureSettings(merchant.id);
-  } catch (error) {
-    console.error('Error checking blog feature flag at page boundary', {
-      slug: identifier,
-      postSlug,
-      error,
-    });
-    return true;
-  }
-  if (!features?.blog_enabled) {
-    return false;
-  }
-
-  const supabase = createPublicClient({
-    clientInfo: 'baci-web-blog-post-existence',
-    timeoutMs: 5000,
-  });
-
-  let query = supabase
-    .from('blog_posts')
-    .select('id, title, slug')
-    .eq('merchant_id', merchant.id)
-    .eq('slug', normalizedPostSlug)
-    .eq('status', 'published')
-    .not('published_at', 'is', null)
-    .not('title', 'is', null)
-    .not('slug', 'is', null)
-    .neq('title', '')
-    .neq('slug', '');
-
-  query = applyPublicBlogSqlFilters(query);
-
-  const { data, error } = await query.maybeSingle();
-  if (error) {
-    console.error('Error checking public blog post at page boundary', {
-      slug: identifier,
-      postSlug,
-      error,
-    });
-    return true;
-  }
-
-  return Boolean(data);
-}
+// Missing, retired, and draft-only posts share one cacheable noindex stub.
+// The real HTTP 404/308 for those slugs is owned by the proxy blog-post
+// preflight, which decides status BEFORE this route streams — metadata must
+// stay free of request APIs (connection()/draftMode()) or the whole route
+// loses its static shell (NEXT_STATIC_GEN_BAILOUT on every request).
+const BLOG_POST_NOINDEX_METADATA: Metadata = {
+  title: 'Blog Post',
+  robots: { index: false, follow: false },
+};
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
 
-  // This must run before any cached/blog lookup. On Vercel with Cache
-  // Components, even a cached lookup can suspend and let the parent shell
-  // commit a 200 response before notFound()/permanentRedirect() runs.
-  await connection();
-  let data: Awaited<ReturnType<typeof getCachedBlogPost>>;
-  let metadataLookupFailed = false;
+  // Cached-only lookup keeps generateMetadata prerenderable. Metadata resolves
+  // outside every Suspense boundary, and with htmlLimitedBots configured a
+  // dynamic API here forces the whole document to request time — the exact
+  // static-shell bailout this route shipped with connection() at the top.
+  let data: Awaited<ReturnType<typeof getCachedBlogPost>> = null;
   try {
-    // Public metadata must remain cacheable; draft previews are rendered by
-    // the request-time content subtree and deliberately receive noindex data.
     data = await getCachedBlogPost(slug, postSlug, false);
   } catch (error) {
+    unstable_rethrow(error);
     console.error('Error fetching cached public blog metadata', {
       slug,
       postSlug,
       error,
     });
-    data = null;
-    metadataLookupFailed = true;
   }
 
   if (!data) {
-    if (!metadataLookupFailed) {
-      const { isEnabled: isDraftPreview } = await draftMode();
-      if (!isDraftPreview) {
-        let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> =
-          null;
-        try {
-          redirectedPost = await getBlogPostRedirect(slug, postSlug);
-        } catch (error) {
-          console.error('Blog redirect lookup failed in metadata', {
-            slug,
-            postSlug,
-            error,
-          });
-          return {
-            title: 'Blog Post',
-            robots: { index: false, follow: false },
-          };
-        }
-
-        if (redirectedPost) {
-          permanentRedirect(
-            asRoute(
-              buildCanonicalBlogPostUrl(
-                redirectedPost.merchant,
-                redirectedPost.targetSlug
-              )
-            )
-          );
-        }
-
-        notFound();
-      }
-    }
-
-    return {
-      title: 'Blog Post',
-      robots: { index: false, follow: false },
-    };
+    return BLOG_POST_NOINDEX_METADATA;
   }
 
   const { merchant, post } = data;
@@ -236,92 +128,19 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogPostPage({ params }: PageProps) {
-  const resolvedParams = await params;
-
-  // Blog post existence controls HTTP status. Under Cache Components, this
-  // boundary must run before any cached/blog lookup. Live Vercel verification
-  // showed conditional boundaries after lookups still return 200 not-found
-  // shells because the parent PPR shell can stream before the decision.
-  await connection();
-  let redirectedPost: Awaited<ReturnType<typeof getBlogPostRedirect>> = null;
-  let redirectLookupError: unknown = null;
-  try {
-    redirectedPost = await getBlogPostRedirect(
-      resolvedParams.slug,
-      resolvedParams.postSlug
-    );
-  } catch (error) {
-    redirectLookupError = error;
-    console.error('Blog redirect lookup failed at page boundary', {
-      slug: resolvedParams.slug,
-      postSlug: resolvedParams.postSlug,
-      error,
-    });
-  }
-
-  if (redirectedPost) {
-    permanentRedirect(
-      asRoute(
-        buildCanonicalBlogPostUrl(
-          redirectedPost.merchant,
-          redirectedPost.targetSlug
-        )
-      )
-    );
-  }
-
-  const { isEnabled: isDraftMode } = await draftMode();
-  if (!isDraftMode) {
-    let hasPublicPost = false;
-    try {
-      hasPublicPost = await hasPublicBlogPost(
-        resolvedParams.slug,
-        resolvedParams.postSlug
-      );
-    } catch (error) {
-      console.error('Error checking public blog post at page boundary', {
-        slug: resolvedParams.slug,
-        postSlug: resolvedParams.postSlug,
-        error,
-      });
-      throw error;
-    }
-    if (!hasPublicPost) {
-      if (redirectLookupError) {
-        try {
-          redirectedPost = await getBlogPostRedirect(
-            resolvedParams.slug,
-            resolvedParams.postSlug
-          );
-        } catch (error) {
-          console.error('Blog redirect retry failed before notFound', {
-            slug: resolvedParams.slug,
-            postSlug: resolvedParams.postSlug,
-            error,
-          });
-          throw error;
-        }
-
-        if (redirectedPost) {
-          permanentRedirect(
-            asRoute(
-              buildCanonicalBlogPostUrl(
-                redirectedPost.merchant,
-                redirectedPost.targetSlug
-              )
-            )
-          );
-        }
-      }
-
-      notFound();
-    }
-  }
-
+export default function BlogPostPage({ params }: PageProps) {
+  // The page root must stay free of request APIs and lookups so this Suspense
+  // fallback prerenders as the route's static shell. Status/draft/redirect
+  // behavior lives elsewhere by design:
+  // - hard 404/308 for missing/retired slugs → proxy blog-post preflight,
+  //   which sets the status before the App Router streams;
+  // - draft previews, the soft not-found body, and the client-side canonical
+  //   redirect fallback → BlogPostPageContent, inside the boundary below.
+  // Re-adding connection()/draftMode()/lookups here reverts the route to a
+  // per-request NEXT_STATIC_GEN_BAILOUT (see PR #2882).
   return (
     <Suspense fallback={<BlogPostPageFallback />}>
-      <BlogPostPageContent params={Promise.resolve(resolvedParams)} />
+      <BlogPostPageContent params={params} />
     </Suspense>
   );
 }

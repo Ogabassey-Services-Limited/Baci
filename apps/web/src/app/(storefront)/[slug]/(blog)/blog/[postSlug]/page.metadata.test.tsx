@@ -28,7 +28,7 @@ describe('storefront blog post metadata', () => {
     resetBlogPostPageMocks();
   });
 
-  it('resolves public metadata without consulting draft request state', async () => {
+  it('resolves public metadata from the cached lookup without request APIs', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: true });
     mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
 
@@ -36,7 +36,6 @@ describe('storefront blog post metadata', () => {
       'apple-studio-display-review'
     );
 
-    expect(mockDraftMode).not.toHaveBeenCalled();
     expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
       'ogabassey.com',
       'apple-studio-display-review',
@@ -48,28 +47,11 @@ describe('storefront blog post metadata', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/apple-studio-display-review'
     );
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockConnection.mock.invocationCallOrder[0]).toBeLessThan(
-      mockGetCachedBlogPost.mock.invocationCallOrder[0]
-    );
-  });
-
-  it('uses the cached blog query when metadata is already available', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
-
-    const metadata = await generateBlogPostMetadata(
-      'apple-studio-display-review'
-    );
-
-    expect(mockGetCachedBlogPost).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'apple-studio-display-review',
-      false
-    );
-    expect(metadata.title).toEqual({
-      absolute: 'The Great 5K Stall | Ogabassey',
-    });
+    // Request APIs in generateMetadata force the whole document dynamic under
+    // cacheComponents + htmlLimitedBots — the exact NEXT_STATIC_GEN_BAILOUT
+    // this route shipped with connection() first (PR #2882 regression guard).
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockDraftMode).not.toHaveBeenCalled();
   });
 
   it('bounds long blog post title and description metadata', async () => {
@@ -181,19 +163,31 @@ describe('storefront blog post metadata', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('returns noindex fallback metadata when only draft content may exist', async () => {
+  it('rethrows framework control-flow errors from the cached lookup unswallowed', async () => {
+    // Swallowed prerender-interrupt errors are how the route previously logged
+    // 'unable to determine a reason' — unstable_rethrow must let them escape.
+    mockGetCachedBlogPost.mockRejectedValue(new Error('NEXT_NOT_FOUND'));
+
+    await expect(generateBlogPostMetadata('interrupted-post')).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    );
+  });
+
+  it('returns noindex fallback metadata for draft-only slugs without draft gating', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: true });
     mockGetCachedBlogPost.mockResolvedValue(null);
 
     const metadata = await generateBlogPostMetadata('draft-only-post');
 
-    expect(mockDraftMode).toHaveBeenCalledOnce();
+    expect(mockDraftMode).not.toHaveBeenCalled();
     expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
   });
 
-  it('permanently redirects retired slugs from metadata before streaming starts', async () => {
+  it('returns cacheable noindex metadata for retired slugs instead of redirecting', async () => {
+    // The hard 308 for retired slugs is owned by the proxy blog-post
+    // preflight; metadata must stay cacheable and side-effect free.
     mockGetCachedBlogPost.mockResolvedValue(null);
     mockGetBlogPostRedirect.mockResolvedValue({
       merchant: {
@@ -205,60 +199,28 @@ describe('storefront blog post metadata', () => {
       targetSlug: 'canonical-post',
     });
 
-    await expect(generateBlogPostMetadata('retired-post')).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/canonical-post'
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockDraftMode).toHaveBeenCalledOnce();
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      'https://ogabassey.com/blog/canonical-post'
-    );
-    expect(mockNotFound).not.toHaveBeenCalled();
-  });
-
-  it('hard-404s missing public slugs from metadata before the parent shell streams', async () => {
-    mockGetCachedBlogPost.mockResolvedValue(null);
-    mockGetBlogPostRedirect.mockResolvedValue(null);
-
-    await expect(generateBlogPostMetadata('missing-post')).rejects.toThrow(
-      'NEXT_NOT_FOUND'
-    );
-
-    expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockDraftMode).toHaveBeenCalledOnce();
-    expect(mockGetBlogPostRedirect).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'missing-post'
-    );
-    expect(mockNotFound).toHaveBeenCalledOnce();
-  });
-
-  it('keeps noindex fallback metadata when redirect lookup fails', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const redirectError = new Error('Redirect lookup failed');
-    mockGetCachedBlogPost.mockResolvedValue(null);
-    mockGetBlogPostRedirect.mockRejectedValue(redirectError);
-
     const metadata = await generateBlogPostMetadata('retired-post');
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockGetBlogPostRedirect).not.toHaveBeenCalled();
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockConnection).not.toHaveBeenCalled();
+  });
+
+  it('returns cacheable noindex metadata for missing slugs instead of notFound', async () => {
+    // The hard 404 for missing slugs is owned by the proxy blog-post
+    // preflight; a notFound() here would force the route dynamic again.
+    mockGetCachedBlogPost.mockResolvedValue(null);
+    mockGetBlogPostRedirect.mockResolvedValue(null);
+
+    const metadata = await generateBlogPostMetadata('missing-post');
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockNotFound).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Blog redirect lookup failed in metadata',
-      expect.objectContaining({
-        slug: 'ogabassey.com',
-        postSlug: 'retired-post',
-        error: redirectError,
-      })
-    );
-    consoleErrorSpy.mockRestore();
+    expect(mockConnection).not.toHaveBeenCalled();
   });
 
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockGetCachedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       merchant: {
@@ -277,7 +239,6 @@ describe('storefront blog post metadata', () => {
   });
 
   it('uses the explicit social image route for OpenGraph and Twitter metadata', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
     mockGetCachedBlogPost.mockResolvedValue({
       ...liveBlogPost,
