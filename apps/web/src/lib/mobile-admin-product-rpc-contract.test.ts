@@ -62,8 +62,8 @@ const anchorPointerClearIndex = migrationSql.indexOf(
 const anchorTransferIndex = migrationSql.indexOf(
   'UPDATE public.variant_inventory'
 );
-const hiddenAnchorDeleteIndex = migrationSql.indexOf(
-  'DELETE FROM public.product_variants\n    WHERE id = v_existing_anchor_id'
+const hiddenAnchorDeleteIndex = migrationSql.search(
+  /DELETE\s+FROM\s+public\.product_variants\s+WHERE\s+id\s*=\s*v_existing_anchor_id/i
 );
 
 describe('mobile admin product RPC migration contract', () => {
