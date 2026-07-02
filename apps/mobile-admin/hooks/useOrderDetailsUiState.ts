@@ -3,6 +3,7 @@ import type { OrderItemSnapshot } from '@/components/orders/OrderItemDetailModal
 import type {
   ShipmentCompletionMode,
   ShipmentFlowStep,
+  ShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
 
 export interface OrderDetailsSuccessModalState {
@@ -23,10 +24,13 @@ export function useOrderDetailsUiState() {
     useState<ShipmentFlowStep>('details');
   const [isShipmentSubmitting, setIsShipmentSubmitting] = useState(false);
   const [creditNotes, setCreditNotes] = useState('');
-  const [fulfillmentDetails, setFulfillmentDetails] = useState({
-    imei: '',
-    serialNumber: '',
-  });
+  const [fulfillmentDetails, setFulfillmentDetails] =
+    useState<ShipmentFulfillmentDetails>({
+      imei: '',
+      items: [],
+      serialNumber: '',
+    });
+  const [fulfillmentItemIndex, setFulfillmentItemIndex] = useState(0);
   const [riderPhone, setRiderPhone] = useState('');
   const [savedRiders, setSavedRiders] = useState<string[]>([]);
   const [showPaymentOptionModal, setShowPaymentOptionModal] = useState(false);
@@ -55,6 +59,7 @@ export function useOrderDetailsUiState() {
   return {
     creditNotes,
     fulfillmentDetails,
+    fulfillmentItemIndex,
     isGeneratingReceipt,
     isShipmentSubmitting,
     paymentAmount,
@@ -67,6 +72,7 @@ export function useOrderDetailsUiState() {
     selectedOrderItem,
     setCreditNotes,
     setFulfillmentDetails,
+    setFulfillmentItemIndex,
     setIsGeneratingReceipt,
     setIsShipmentSubmitting,
     setPaymentAmount,

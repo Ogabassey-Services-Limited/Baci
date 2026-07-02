@@ -10,7 +10,10 @@ export type OrdersListRow =
 
 export type OrdersCountSnapshot = Partial<Record<ShippingStatus, number>> & {
   all?: number;
+  paid?: number;
 };
+
+export type OrdersFilterKey = 'all' | 'paid' | ShippingStatus;
 
 export type ThemeColors = ReturnType<typeof useTheme>['colors'];
 export type ThemeShadows = ReturnType<typeof useTheme>['shadows'];

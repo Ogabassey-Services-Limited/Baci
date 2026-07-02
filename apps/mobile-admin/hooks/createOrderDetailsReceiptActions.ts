@@ -1,7 +1,14 @@
-import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import type {
+  ReceiptFulfillmentDetails,
+  ReceiptMerchant,
+  ReceiptOrder,
+} from '@baci/shared';
 import { generateReceiptHtml, sanitizeSvg } from '@baci/shared';
 import { Alert } from 'react-native';
-import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import type {
+  OrderDetailsItem,
+  OrderDetailsRecord,
+} from '@/components/orders/order-details.types';
 import { supabase } from '@/lib/supabase';
 import { resolveOrderReceiptVirtualAccount } from './resolveOrderReceiptVirtualAccount';
 
@@ -55,7 +62,12 @@ interface CreateOrderDetailsReceiptActionsParams {
   setIsGeneratingReceipt: (value: boolean) => void;
   setReceiptHtml: (value: string) => void;
   setShowReceiptPreview: (value: boolean) => void;
+  storeUrl?: string;
 }
+
+type FulfillmentItemEntry = NonNullable<
+  NonNullable<OrderDetailsRecord['fulfillment_details']>['items']
+>[number];
 
 function resolveMerchantPages(
   pages: Record<string, unknown> | null | undefined
@@ -80,6 +92,103 @@ function isSvgLogoUrl(logoUrl: string) {
   }
 }
 
+function getFirstNonBlankString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return '';
+}
+
+function getUniqueJoinedIdentifiers(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean))
+  ).join(', ');
+}
+
+function fulfillmentEntryMatchesOrderItem(
+  entry: FulfillmentItemEntry,
+  item: OrderDetailsItem
+) {
+  const entryId = getFirstNonBlankString(entry.id);
+  if (entryId === item.id || entryId.startsWith(`${item.id}:`)) {
+    return true;
+  }
+
+  const orderItemId = getFirstNonBlankString(
+    entry.orderItemId,
+    entry.order_item_id
+  );
+  if (orderItemId === item.id) {
+    return true;
+  }
+
+  const entryProductName = getFirstNonBlankString(
+    entry.productName,
+    entry.product_name
+  ).toLowerCase();
+  const itemProductName = getFirstNonBlankString(
+    item.product_name,
+    item.name
+  ).toLowerCase();
+  if (!entryProductName || entryProductName !== itemProductName) {
+    return false;
+  }
+
+  const entryVariantName = getFirstNonBlankString(
+    entry.variantName,
+    entry.variant_name
+  ).toLowerCase();
+  const itemVariantName = getFirstNonBlankString(
+    item.variant_name
+  ).toLowerCase();
+  return !entryVariantName || entryVariantName === itemVariantName;
+}
+
+function resolveReceiptItemFulfillmentDetails(
+  details: OrderDetailsRecord['fulfillment_details'],
+  item: OrderDetailsItem
+): ReceiptFulfillmentDetails | null {
+  const matchingItems = (details?.items ?? []).filter((entry) =>
+    fulfillmentEntryMatchesOrderItem(entry, item)
+  );
+  if (matchingItems.length === 0) {
+    return null;
+  }
+
+  const imei = getUniqueJoinedIdentifiers(
+    matchingItems.map((entry) => getFirstNonBlankString(entry.imei))
+  );
+  const serialNumber = getUniqueJoinedIdentifiers(
+    matchingItems.map((entry) =>
+      getFirstNonBlankString(entry.serialNumber, entry.serial_number)
+    )
+  );
+
+  if (!imei && !serialNumber) {
+    return null;
+  }
+
+  return {
+    imei: imei || null,
+    serialNumber: serialNumber || null,
+  };
+}
+
+function getOrderReceiptDate(order: OrderDetailsRecord | undefined) {
+  const orderDate = order?.created_at ? new Date(order.created_at) : null;
+  return orderDate && Number.isFinite(orderDate.getTime())
+    ? orderDate
+    : new Date();
+}
+
 export function createOrderDetailsReceiptActions({
   isGeneratingReceipt,
   merchant,
@@ -88,6 +197,7 @@ export function createOrderDetailsReceiptActions({
   setIsGeneratingReceipt,
   setReceiptHtml,
   setShowReceiptPreview,
+  storeUrl,
 }: CreateOrderDetailsReceiptActionsParams) {
   const handleSendReceipt = async () => {
     if (!order || !merchant || isGeneratingReceipt) {
@@ -113,6 +223,11 @@ export function createOrderDetailsReceiptActions({
         fulfillment_details: order.fulfillment_details ?? null,
         is_credit_order: order.is_credit_order ?? false,
         items: (order.items ?? []).map((item) => ({
+          description: item.details ?? null,
+          fulfillment_details: resolveReceiptItemFulfillmentDetails(
+            order.fulfillment_details,
+            item
+          ),
           price: Number(item.price) || 0,
           product_name: item.product_name || item.name || 'Product',
           quantity: item.quantity,
@@ -201,7 +316,10 @@ export function createOrderDetailsReceiptActions({
       };
 
       setReceiptHtml(
-        generateReceiptHtml(receiptOrder, receiptMerchant, { svgXml })
+        generateReceiptHtml(receiptOrder, receiptMerchant, {
+          storeUrl,
+          svgXml,
+        })
       );
       setShowReceiptPreview(true);
     } catch {
@@ -237,7 +355,7 @@ export function createOrderDetailsReceiptActions({
         .replace(/[^a-zA-Z0-9 ]/g, '')
         .trim()
         .replace(/\s+/g, '-');
-      const dateString = new Date()
+      const dateString = getOrderReceiptDate(order)
         .toLocaleDateString('en-GB', {
           day: '2-digit',
           month: 'short',

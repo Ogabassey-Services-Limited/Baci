@@ -18,7 +18,12 @@ export function CreateOrderFab({
     <Pressable
       style={({ pressed }) => [
         styles.fab,
-        { backgroundColor: colors.gold },
+        {
+          backgroundColor: colors.gold,
+          position: 'absolute',
+          bottom: 125,
+          zIndex: 300,
+        },
         shadows.lg,
         pressed && { opacity: 0.9, transform: [{ scale: 0.95 }] },
       ]}
@@ -34,8 +39,6 @@ export function CreateOrderFab({
 
 const styles = StyleSheet.create({
   fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
     right: SPACING.lg,
     width: 56,
     height: 56,

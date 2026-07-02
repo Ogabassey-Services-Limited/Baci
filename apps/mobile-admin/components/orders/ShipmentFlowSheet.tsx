@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { useTheme } from '@/hooks/useTheme';
 import type {
   ShipmentCompletionMode,
   ShipmentFlowStep,
+  ShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
 import { ShipmentFlowFooter } from './ShipmentFlowFooter';
 import { ShipmentFlowHeader } from './ShipmentFlowHeader';
@@ -15,13 +18,18 @@ import {
   ShipmentFlowMethodStep,
   ShipmentFlowRiderStep,
 } from './ShipmentFlowSheetSections';
+import { ShipmentIdentifierScanner } from './ShipmentIdentifierScanner';
+
+// With behavior="padding", a larger keyboardVerticalOffset lifts the sheet
+// HIGHER above the keyboard. Keep iOS at 0 so the sheet rests directly on top
+// of the keyboard (breathing room comes from the content's bottom padding).
+const IOS_SHIPMENT_KEYBOARD_VERTICAL_OFFSET = 0;
+const DEFAULT_SHIPMENT_KEYBOARD_VERTICAL_OFFSET = 24;
 
 interface ShipmentFlowSheetProps {
   canUseProvider: boolean;
-  fulfillmentDetails: {
-    imei: string;
-    serialNumber: string;
-  };
+  fulfillmentDetails: ShipmentFulfillmentDetails;
+  fulfillmentItemIndex: number;
   hasExistingFulfillment: boolean;
   isSubmitting: boolean;
   onClose: () => void;
@@ -49,6 +57,7 @@ interface ShipmentFlowSheetProps {
 export function ShipmentFlowSheet({
   canUseProvider,
   fulfillmentDetails,
+  fulfillmentItemIndex,
   hasExistingFulfillment,
   isSubmitting,
   onClose,
@@ -71,21 +80,35 @@ export function ShipmentFlowSheet({
 }: ShipmentFlowSheetProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const steps = requiresFulfillment
-    ? [
-        { id: 'details' as const, label: 'Details' },
-        { id: 'method' as const, label: 'Shipping' },
-        { id: 'rider' as const, label: 'Dispatch' },
-      ]
-    : [
-        { id: 'method' as const, label: 'Shipping' },
-        { id: 'rider' as const, label: 'Dispatch' },
-      ];
-  const currentStepIndex = steps.findIndex((item) => item.id === step);
+  const [activeScanField, setActiveScanField] = useState<
+    'imei' | 'serialNumber' | null
+  >(null);
+  const keyboardVerticalOffset = isRuntimePlatform('ios')
+    ? IOS_SHIPMENT_KEYBOARD_VERTICAL_OFFSET
+    : DEFAULT_SHIPMENT_KEYBOARD_VERTICAL_OFFSET;
+  const detailStepCount = requiresFulfillment
+    ? Math.max(fulfillmentDetails.items.length, 1)
+    : 0;
+  const detailSteps = Array.from({ length: detailStepCount }, (_, index) => ({
+    id: `details-${index}`,
+    label: detailStepCount > 1 ? `Item ${index + 1}` : 'Details',
+  }));
+  const steps = [
+    ...detailSteps,
+    { id: 'method', label: 'Shipping' },
+    { id: 'rider', label: 'Dispatch' },
+  ];
+  const currentStepIndex =
+    step === 'details'
+      ? Math.min(fulfillmentItemIndex, Math.max(detailStepCount - 1, 0))
+      : detailStepCount +
+        steps.slice(detailStepCount).findIndex((item) => item.id === step);
   const showBack = currentStepIndex > 0;
   const primaryActionLabel =
     step === 'details'
-      ? 'Continue'
+      ? fulfillmentItemIndex < detailStepCount - 1
+        ? 'Next Item'
+        : 'Continue'
       : step === 'method'
         ? selectedMode === 'self_fulfillment'
           ? 'Continue to Rider'
@@ -123,15 +146,20 @@ export function ShipmentFlowSheet({
       visible={visible}
     >
       <View style={styles.overlay}>
-        <Pressable
-          disabled={isSubmitting}
-          style={styles.backdrop}
-          onPress={handleRequestClose}
-        />
+        <View style={styles.backdrop} />
         <KeyboardAwareModalContainer
           align="end"
           contentContainerStyle={styles.keyboardContent}
+          keyboardVerticalOffset={keyboardVerticalOffset}
         >
+          <Pressable
+            accessibilityLabel="Cancel shipment flow"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isSubmitting }}
+            disabled={isSubmitting}
+            onPress={handleRequestClose}
+            style={styles.dismissRegion}
+          />
           <View
             style={[
               styles.sheet,
@@ -164,8 +192,10 @@ export function ShipmentFlowSheet({
               {step === 'details' ? (
                 <ShipmentFlowDetailsStep
                   fulfillmentDetails={fulfillmentDetails}
+                  fulfillmentItemIndex={fulfillmentItemIndex}
                   hasExistingFulfillment={hasExistingFulfillment}
                   onFulfillmentDetailsChange={onFulfillmentDetailsChange}
+                  onScanIdentifier={setActiveScanField}
                 />
               ) : null}
 
@@ -200,6 +230,18 @@ export function ShipmentFlowSheet({
             />
           </View>
         </KeyboardAwareModalContainer>
+        <ShipmentIdentifierScanner
+          colors={colors}
+          field={activeScanField ?? 'imei'}
+          onClose={() => setActiveScanField(null)}
+          onScanned={(value) => {
+            if (activeScanField) {
+              onFulfillmentDetailsChange(activeScanField, value);
+            }
+            setActiveScanField(null);
+          }}
+          visible={activeScanField !== null}
+        />
       </View>
     </Modal>
   );

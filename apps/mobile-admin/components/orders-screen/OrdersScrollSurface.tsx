@@ -1,38 +1,34 @@
-import type { ShippingStatus } from '@baci/shared';
-import {
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import { SPACING } from '@/constants/theme';
+import { useRef } from 'react';
 import type { OrdersViewState } from '@/lib/orders-view-state';
 import { OrdersDateChip } from './OrdersDateChip';
 import { OrdersList } from './OrdersList';
 import { OrdersSearchHeader } from './OrdersSearchHeader';
 import type {
   OrdersCountSnapshot,
+  OrdersFilterKey,
+  OrdersListOnScroll,
   OrdersListRenderItem,
   OrdersListRow,
   ThemeColors,
 } from './types';
 
+const INSIGHT_DISMISS_SCROLL_Y = 56;
+
 interface OrdersScrollSurfaceProps {
   colors: ThemeColors;
   searchQuery: string;
-  statusFilter: ShippingStatus | undefined;
+  selectedFilter: OrdersFilterKey;
   counts: OrdersCountSnapshot | null | undefined;
   dateChipLabel: string | null;
   data: OrdersListRow[];
-  stickyHeaderIndices: number[];
   isRefreshing: boolean;
   isFetchingNextPage: boolean;
   listViewState: OrdersViewState;
   renderItem: OrdersListRenderItem;
   onSearchChange: (value: string) => void;
-  onStatusSelect: (status: ShippingStatus | undefined) => void;
+  onFilterSelect: (filter: OrdersFilterKey) => void;
   onClearDate: () => void;
+  onDismissInsight: () => void;
   onRefresh: () => void;
   onEndReached: () => void;
 }
@@ -40,69 +36,42 @@ interface OrdersScrollSurfaceProps {
 export function OrdersScrollSurface({
   colors,
   searchQuery,
-  statusFilter,
+  selectedFilter,
   counts,
   dateChipLabel,
   data,
-  stickyHeaderIndices,
   isRefreshing,
   isFetchingNextPage,
   listViewState,
   renderItem,
   onSearchChange,
-  onStatusSelect,
+  onFilterSelect,
   onClearDate,
+  onDismissInsight,
   onRefresh,
   onEndReached,
 }: OrdersScrollSurfaceProps) {
-  const headerVisibility = useSharedValue(1);
-  const isSearchVisible = useSharedValue(true);
-  const lastScrollY = useSharedValue(0);
+  const hasDismissedInsight = useRef(false);
 
-  const handleScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      'worklet';
-      const currentScrollY = event.contentOffset.y;
-      const diff = currentScrollY - lastScrollY.get();
+  const handleListScroll: OrdersListOnScroll = (event) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    if (scrollY < INSIGHT_DISMISS_SCROLL_Y || hasDismissedInsight.current) {
+      return;
+    }
 
-      if (Math.abs(diff) > 10) {
-        if (diff > 0 && isSearchVisible.get() && currentScrollY > 50) {
-          isSearchVisible.set(false);
-          headerVisibility.set(withTiming(0, { duration: 200 }));
-        } else if (diff < 0 && !isSearchVisible.get()) {
-          isSearchVisible.set(true);
-          headerVisibility.set(withTiming(1, { duration: 200 }));
-        }
-      }
-
-      lastScrollY.set(currentScrollY);
-    },
-  });
-
-  const searchHeaderStyle = useAnimatedStyle(() => {
-    const collapsed = !isSearchVisible.get();
-
-    return {
-      height: collapsed ? 0 : undefined,
-      marginBottom: collapsed ? 0 : SPACING.md,
-      opacity: headerVisibility.get(),
-      overflow: collapsed ? 'hidden' : 'visible',
-      transform: [
-        { translateY: interpolate(headerVisibility.get(), [0, 1], [-24, 0]) },
-      ],
-    };
-  });
+    hasDismissedInsight.current = true;
+    onDismissInsight();
+  };
 
   return (
     <>
       <OrdersSearchHeader
         colors={colors}
         searchQuery={searchQuery}
-        searchHeaderStyle={searchHeaderStyle}
-        statusFilter={statusFilter}
+        selectedFilter={selectedFilter}
         counts={counts}
         onSearchChange={onSearchChange}
-        onStatusSelect={onStatusSelect}
+        onFilterSelect={onFilterSelect}
       />
       <OrdersDateChip
         label={dateChipLabel}
@@ -112,12 +81,11 @@ export function OrdersScrollSurface({
       <OrdersList
         colors={colors}
         data={data}
-        stickyHeaderIndices={stickyHeaderIndices}
         isRefreshing={isRefreshing}
         isFetchingNextPage={isFetchingNextPage}
         listViewState={listViewState}
         renderItem={renderItem}
-        onScroll={handleScroll}
+        onScroll={handleListScroll}
         onRefresh={onRefresh}
         onEndReached={onEndReached}
       />

@@ -5,24 +5,34 @@ import { describe, expect, it, vi } from 'vitest';
 import { OrderStatusSheet } from './OrderStatusSheet';
 
 vi.mock('@/components/ui/AppSheetModal', () => ({
-  AppSheetModal: ({
-    accessibilityLabel,
+  AppSheetModal: () => {
+    throw new Error('OrderStatusSheet should use OrderStatusDrawerFrame');
+  },
+}));
+
+vi.mock('./OrderStatusDrawerFrame', () => ({
+  OrderStatusDrawerFrame: ({
     children,
+    closeLabel,
+    contentRowCount,
     onClose,
+    title,
     visible,
   }: {
-    accessibilityLabel: string;
     children?: React.ReactNode;
+    closeLabel: string;
+    contentRowCount?: number;
     onClose: () => void;
+    title: string;
     visible: boolean;
   }) =>
     visible ? (
-      <section aria-label={accessibilityLabel}>
-        <button
-          aria-label="Close status sheet"
-          onClick={onClose}
-          type="button"
-        />
+      <section
+        aria-label="Order status sheet"
+        data-row-count={contentRowCount}
+        data-title={title}
+      >
+        <button aria-label={closeLabel} onClick={onClose} type="button" />
         {children}
       </section>
     ) : null,
@@ -73,6 +83,7 @@ vi.mock('react-native', async () => {
 
 describe('OrderStatusSheet', () => {
   const colors = {
+    background: '#050713',
     border: '#e2e8f0',
     cancelled: '#dc2626',
     card: '#ffffff',
@@ -103,6 +114,23 @@ describe('OrderStatusSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Order' }));
 
     expect(onSelectStatus).toHaveBeenCalledWith('processing');
+  });
+
+  it('sizes the drawer from the configured status row count', () => {
+    render(
+      <OrderStatusSheet
+        colors={colors}
+        onClose={vi.fn()}
+        onSelectStatus={vi.fn()}
+        shippingStatus="pending"
+        visible={true}
+      />
+    );
+
+    expect(screen.getByLabelText('Order status sheet')).toHaveAttribute(
+      'data-row-count',
+      '6'
+    );
   });
 
   it('renders shipment actions for processing orders', () => {

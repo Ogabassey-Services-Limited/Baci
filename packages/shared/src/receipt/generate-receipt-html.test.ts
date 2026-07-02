@@ -38,11 +38,12 @@ describe('generateReceiptHtml', () => {
       createReceiptMerchant()
     );
 
-    expect(html).toContain('Fulfillment Details');
+    expect(html).not.toContain('Fulfillment Details');
     expect(html).toContain('IMEI');
     expect(html).toContain('353456789012345');
     expect(html).toContain('S/N');
     expect(html).toContain('SN-123');
+    expect(html).toContain('cell-fulfillment-grid');
   });
 
   it('falls back to legacy serial_number when serialNumber is blank', () => {
@@ -59,7 +60,45 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('S/N');
     expect(html).toContain('SN-LEGACY-123');
     expect(html).toMatch(/cell-item[\s\S]*S\/N: SN-LEGACY-123/);
-    expect(html).toMatch(/Fulfillment Details[\s\S]*SN-LEGACY-123/);
+    expect(html).not.toContain('Fulfillment Details');
+  });
+
+  it('renders fulfillment identifiers as item chips under the matching line item', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        items: [
+          {
+            product_name: 'Samsung Galaxy Buds4 Pro',
+            quantity: 1,
+            price: 150000,
+            fulfillment_details: {
+              serialNumber: '5CG3274K21',
+            },
+          },
+          {
+            product_name: 'Hp pen',
+            quantity: 1,
+            price: 40000,
+          },
+        ],
+      }),
+      createReceiptMerchant()
+    );
+
+    const budsRow =
+      (html.match(/<tr[\s\S]*?<\/tr>/g) ?? []).find((row) =>
+        row.includes('Samsung Galaxy Buds4 Pro')
+      ) ?? '';
+    const penRow =
+      (html.match(/<tr[\s\S]*?<\/tr>/g) ?? []).find((row) =>
+        row.includes('Hp pen')
+      ) ?? '';
+
+    expect(budsRow).toContain('cell-fulfillment-grid');
+    expect(budsRow).toContain('fulfillment-key">S/N');
+    expect(budsRow).toContain('fulfillment-val">5CG3274K21');
+    expect(penRow).not.toContain('5CG3274K21');
+    expect(html).not.toContain('Fulfillment Details');
   });
 
   it('attaches order-level fulfillment details to the first device item', () => {
@@ -195,21 +234,41 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('mailto:support@shop.example');
   });
 
-  it.each(['imported', 'bank_transfer'])(
-    'labels %s paid receipt payment methods as bank transfer',
-    (paymentMethod) => {
-      const html = generateReceiptHtml(
-        createReceiptOrder({ payment_method: paymentMethod }),
-        createReceiptMerchant()
-      );
+  it.each([
+    'imported',
+    'bank_transfer',
+  ])('labels %s paid receipt payment methods as bank transfer', (paymentMethod) => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({ payment_method: paymentMethod }),
+      createReceiptMerchant()
+    );
 
-      expect(html).toContain('Bank transfer');
-      expect(html).not.toContain(
-        `<div class="info-name">${paymentMethod}</div>`
-      );
-      expect(html).not.toContain('Verified imported payment');
-    }
-  );
+    expect(html).toContain('Bank Transfer');
+    expect(html).not.toContain(`<div class="info-name">${paymentMethod}</div>`);
+    expect(html).not.toContain('Verified imported payment');
+  });
+
+  it('labels transfer paid receipt payment methods as Bank Transfer', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({ payment_method: 'transfer' }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('<div class="info-name">Bank Transfer</div>');
+    expect(html).not.toContain('<div class="info-name">Transfer</div>');
+  });
+
+  it('renders tax identification only once in the footer', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        tax_identification_number: '2522599781276',
+      })
+    );
+
+    expect(html.match(/TIN: 2522599781276/g) ?? []).toHaveLength(1);
+    expect(html).not.toMatch(/merchant-info[\s\S]*TIN: 2522599781276/);
+  });
 
   it('labels unpaid receipt payment methods as pending', () => {
     const html = generateReceiptHtml(

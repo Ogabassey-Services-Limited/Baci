@@ -62,8 +62,8 @@ export function getReceiptStyles({
   .logo-img { max-height: 48px; max-width: 140px; object-fit: contain; display: block; }
   .logo-svg svg { max-height: 48px; max-width: 140px; width: auto; height: auto; display: block; }
   .logo-fallback { font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
-  .merchant-info { margin-top: 6px; font-size: 12px; color: #6b7280; line-height: 1.5; }
-  .merchant-info strong { color: #374151; font-weight: 600; }
+  .merchant-contact { margin-top: 6px; font-size: 12px; color: #6b7280; line-height: 1.5; }
+  .merchant-contact strong { color: #374151; font-weight: 600; }
   .doc-meta { text-align: right; }
   .doc-title { font-family: Georgia, 'Times New Roman', serif; font-size: 24px; font-weight: 800; color: #111827; text-transform: uppercase; letter-spacing: 1px; }
   .doc-number { font-size: 13px; font-weight: 600; color: #6b7280; margin-top: 3px; }
@@ -129,6 +129,7 @@ export function getReceiptStyles({
 
   .section-block { margin-bottom: 16px; }
   .section-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #1a1a2e; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+  .cell-fulfillment-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
   .fulfillment-grid { display: flex; flex-wrap: wrap; gap: 10px; }
   .fulfillment-item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 7px 10px; }
   .fulfillment-key { font-size: 9px; font-weight: 800; color: ${brandPrimary}; text-transform: uppercase; letter-spacing: 0.6px; }

@@ -9,6 +9,7 @@ const COUNTRY_FLAG_SIZE = 20;
 const CONTENT_GAP = SPACING.xs;
 const COMPACT_GAP = SPACING.sm;
 const SAVED_RIDERS_GAP = 10;
+const SCANNER_FRAME_SIZE = 240;
 
 export const styles = StyleSheet.create({
   overlay: {
@@ -19,9 +20,17 @@ export const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: SHEET_BACKDROP_COLOR,
   },
+  dismissRegion: {
+    flex: 1,
+    width: '100%',
+  },
   keyboardContent: {
     flexGrow: 1,
     justifyContent: 'flex-end',
+    // Override the keyboard container's default bottom padding so the sheet
+    // sits flush on top of the keyboard; the sheet's own paddingBottom still
+    // protects the safe area when no keyboard is shown.
+    paddingBottom: 0,
   },
   sheet: {
     borderTopLeftRadius: RADIUS.xl,
@@ -127,6 +136,96 @@ export const styles = StyleSheet.create({
   },
   input: {
     fontSize: TYPOGRAPHY.size.md,
+  },
+  fulfillmentItemBanner: {
+    borderRadius: RADIUS.lg,
+    gap: CONTENT_GAP,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+  },
+  fulfillmentItemLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: '700',
+  },
+  fulfillmentItemCount: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: '600',
+  },
+  identifierInputRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: INPUT_HEIGHT,
+  },
+  identifierInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.md,
+    minHeight: INPUT_HEIGHT,
+    minWidth: 0,
+    paddingHorizontal: SPACING.md,
+  },
+  identifierScanButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    gap: 1,
+    height: 44,
+    justifyContent: 'center',
+    marginRight: 8,
+    width: 44,
+  },
+  identifierScanButtonText: {
+    fontSize: 9,
+    fontWeight: '700',
+    lineHeight: 10,
+  },
+  identifierScannerOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 30,
+  },
+  identifierScannerCamera: {
+    flex: 1,
+  },
+  identifierScannerShade: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  identifierScannerFrame: {
+    borderColor: COLORS.primary,
+    borderRadius: RADIUS.xl,
+    borderWidth: 3,
+    height: SCANNER_FRAME_SIZE,
+    width: SCANNER_FRAME_SIZE,
+  },
+  identifierScannerText: {
+    color: COLORS.textOnPrimary,
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: '700',
+    marginTop: SPACING.lg,
+  },
+  identifierScannerFallback: {
+    alignItems: 'center',
+    flex: 1,
+    gap: SPACING.md,
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  identifierScannerMessage: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  identifierScannerClose: {
+    alignItems: 'center',
+    borderRadius: RADIUS.full,
+    height: 48,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: SPACING.lg,
+    top: SPACING.xl,
+    width: 48,
   },
   riderPhoneRow: {
     alignItems: 'center',

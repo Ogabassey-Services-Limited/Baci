@@ -157,9 +157,13 @@ export function OrderDetailsScreenContent({
       <ShipmentFlowSheet
         canUseProvider={controller.providerBookingAvailable}
         fulfillmentDetails={controller.fulfillmentDetails}
+        fulfillmentItemIndex={controller.fulfillmentItemIndex}
         hasExistingFulfillment={Boolean(
           order.fulfillment_details?.imei ||
-            order.fulfillment_details?.serialNumber
+            order.fulfillment_details?.serialNumber ||
+            order.fulfillment_details?.items?.some(
+              (item) => item.imei || item.serialNumber || item.serial_number
+            )
         )}
         isSubmitting={controller.isShipmentSubmitting}
         onClose={controller.closeShipmentFlow}
@@ -170,12 +174,7 @@ export function OrderDetailsScreenContent({
         onConfirmSelfFulfillment={() => {
           void controller.handleSubmitSelfFulfillment();
         }}
-        onFulfillmentDetailsChange={(field, value) =>
-          controller.setFulfillmentDetails((previous) => ({
-            ...previous,
-            [field]: value,
-          }))
-        }
+        onFulfillmentDetailsChange={controller.updateFulfillmentDetails}
         onModeChange={controller.setPendingShipmentMode}
         onRiderPhoneChange={controller.setRiderPhone}
         onSelectSavedRider={controller.setRiderPhone}

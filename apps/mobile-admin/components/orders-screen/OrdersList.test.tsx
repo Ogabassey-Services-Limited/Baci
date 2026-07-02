@@ -2,7 +2,7 @@ import './orders-screen-test-utils';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { OrdersList } from './OrdersList';
-import { mockColors } from './orders-screen-test-utils';
+import { mockColors, mockOrder } from './orders-screen-test-utils';
 
 describe('OrdersList', () => {
   it('renders an error retry action when the list failed to load', () => {
@@ -21,9 +21,7 @@ describe('OrdersList', () => {
         }}
         onEndReached={vi.fn()}
         onRefresh={onRefresh}
-        onScroll={vi.fn()}
         renderItem={() => null}
-        stickyHeaderIndices={[]}
       />
     );
 
@@ -43,12 +41,39 @@ describe('OrdersList', () => {
         listViewState={{ status: 'ready' }}
         onEndReached={vi.fn()}
         onRefresh={vi.fn()}
-        onScroll={vi.fn()}
         renderItem={({ item }) => <span>{item.id}</span>}
-        stickyHeaderIndices={[0]}
       />
     );
 
     expect(screen.getByText('header-today')).toBeInTheDocument();
+  });
+
+  it('keeps the gap above date headers equal to the gap below them', () => {
+    render(
+      <OrdersList
+        colors={mockColors}
+        data={[
+          { type: 'header', id: 'header-today', title: 'Today' },
+          {
+            type: 'item',
+            id: 'order-1',
+            order: mockOrder,
+          },
+        ]}
+        isFetchingNextPage={false}
+        isRefreshing={false}
+        listViewState={{ status: 'ready' }}
+        onEndReached={vi.fn()}
+        onRefresh={vi.fn()}
+        renderItem={({ item }) => <span>{item.id}</span>}
+      />
+    );
+
+    expect(screen.getByTestId('orders-list-content').style.paddingTop).toBe(
+      '16px'
+    );
+    expect(screen.getByTestId('orders-list-separator').style.height).toBe(
+      '16px'
+    );
   });
 });

@@ -75,7 +75,7 @@ describe('OrderDetailsPaymentCard', () => {
         onRequestPayment={onRequestPayment}
         paymentColor="#ca8a04"
         paymentLabel="Awaiting Payment"
-        paymentMethod="bank_transfer"
+        paymentMethod="transfer"
         paymentStatus="pending"
         shippingFee={1000}
         subtotal={9000}
@@ -148,7 +148,7 @@ describe('OrderDetailsPaymentCard', () => {
     expect(screen.getByText('Free')).toBeInTheDocument();
     expect(screen.getByText('-₦500')).toBeInTheDocument();
     expect(screen.getAllByText('₦10000')).toHaveLength(2);
-    expect(screen.getByText('bank transfer')).toBeInTheDocument();
+    expect(screen.getByText('Bank Transfer')).toBeInTheDocument();
     expect(screen.getByText('₦3000')).toBeInTheDocument();
     expect(screen.getByText('₦7000')).toBeInTheDocument();
   });

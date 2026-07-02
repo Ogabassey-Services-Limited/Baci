@@ -38,6 +38,7 @@ const supabaseMock = vi.hoisted(() => {
       );
     chain.maybeSingle = () =>
       Promise.resolve(tableResults.get(table) ?? { data: null, error: null });
+    // biome-ignore lint/suspicious/noThenProperty: Mocking a Supabase query builder
     chain.then = (resolve) =>
       Promise.resolve(getTableResult(table)).then(resolve);
 
@@ -115,12 +116,8 @@ describe('fetchOrderById staff metadata', () => {
   });
 
   it('resolves staff-created order metadata when staff records exist', async () => {
-    supabaseMock.setTableResult('profiles', {
-      data: { display_name: 'Ada Merchant', full_name: null },
-      error: null,
-    });
     supabaseMock.setTableResult('staff_members', {
-      data: { id: 'staff-1' },
+      data: { id: 'staff-1', name: 'Ada Merchant' },
       error: null,
     });
     supabaseMock.setTableResult('virtual_terminals', {
@@ -142,6 +139,7 @@ describe('fetchOrderById staff metadata', () => {
         },
       })
     );
+    expect(supabaseMock.from).not.toHaveBeenCalledWith('profiles');
   });
 
   it('does not fail when optional staff metadata records are absent', async () => {
@@ -153,38 +151,10 @@ describe('fetchOrderById staff metadata', () => {
     );
   });
 
-  it('logs profile lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {
-        // Silence expected log-and-skip auxiliary lookup errors.
-      });
-
-    try {
-      supabaseMock.setTableResult('profiles', {
-        data: null,
-        error: { message: 'Profile lookup failed' },
-      });
-
-      await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
-        expect.objectContaining({ recorded_by_name: null })
-      );
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'useOrderDetails profiles lookup error:',
-        expect.objectContaining({ message: 'Profile lookup failed' })
-      );
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
-  });
-
-  it('logs staff member lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {
-        // Silence expected log-and-skip auxiliary lookup errors.
-      });
+  it('warns about staff member lookup errors but still resolves the order', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Silence expected log-and-skip auxiliary lookup errors.
+    });
 
     try {
       supabaseMock.setTableResult('staff_members', {
@@ -196,25 +166,23 @@ describe('fetchOrderById staff metadata', () => {
         expect.objectContaining({ staff_terminal: null })
       );
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         'useOrderDetails staff_members lookup error:',
         expect.objectContaining({ message: 'Staff lookup failed' })
       );
     } finally {
-      consoleErrorSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
     }
   });
 
-  it('logs terminal lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {
-        // Silence expected log-and-skip auxiliary lookup errors.
-      });
+  it('warns about terminal lookup errors but still resolves the order', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Silence expected log-and-skip auxiliary lookup errors.
+    });
 
     try {
       supabaseMock.setTableResult('staff_members', {
-        data: { id: 'staff-1' },
+        data: { id: 'staff-1', name: 'Ada Merchant' },
         error: null,
       });
       supabaseMock.setTableResult('virtual_terminals', {
@@ -226,12 +194,12 @@ describe('fetchOrderById staff metadata', () => {
         expect.objectContaining({ staff_terminal: null })
       );
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         'useOrderDetails virtual_terminals lookup error:',
         expect.objectContaining({ message: 'Terminal lookup failed' })
       );
     } finally {
-      consoleErrorSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
     }
   });
 });

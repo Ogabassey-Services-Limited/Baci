@@ -128,38 +128,27 @@ export async function fetchOrderById(
   } | null = null;
 
   if (order.recorded_by_user_id) {
-    const { data: recUser, error: recUserError } = await supabase
-      .from('profiles')
-      .select('display_name, full_name')
-      .eq('id', order.recorded_by_user_id)
-      .maybeSingle();
-
-    if (recUserError) {
-      // Auxiliary lookup; log and skip instead of failing the whole fetch.
-      console.error('useOrderDetails profiles lookup error:', recUserError);
-    }
-
-    const fullName = recUser?.display_name || recUser?.full_name;
-    if (fullName) {
-      recordedByName = fullName.split(' ')[0];
-    }
-
     const { data: staffMember, error: staffMemberError } = await supabase
       .from('staff_members')
-      .select('id')
+      .select('id, name')
       .eq('user_id', order.recorded_by_user_id)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .maybeSingle();
 
     if (staffMemberError) {
-      console.error(
+      console.warn(
         'useOrderDetails staff_members lookup error:',
         staffMemberError
       );
     }
 
     if (staffMember) {
+      const fullName = staffMember.name;
+      if (fullName) {
+        recordedByName = fullName.split(' ')[0];
+      }
+
       const { data: terminal, error: terminalError } = await supabase
         .from('virtual_terminals')
         .select('account_number, account_name, bank')
@@ -168,7 +157,7 @@ export async function fetchOrderById(
         .maybeSingle();
 
       if (terminalError) {
-        console.error(
+        console.warn(
           'useOrderDetails virtual_terminals lookup error:',
           terminalError
         );
@@ -184,12 +173,21 @@ export async function fetchOrderById(
     }
   }
 
+  const orderTotal = Number(order.total) || 0;
   const transactionTotal =
     transactions?.reduce((sum, transaction) => {
       return sum + (Number(transaction.amount) || 0);
     }, 0) || 0;
-  const amountPaid = transactionTotal + (Number(order.wallet_amount_used) || 0);
-  const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
+  const ledgerAmountPaid =
+    transactionTotal + (Number(order.wallet_amount_used) || 0);
+  const storedAmountPaid = Number(order.amount_paid) || 0;
+  const amountPaid = Math.max(
+    ledgerAmountPaid,
+    storedAmountPaid,
+    order.payment_status === 'paid' ? orderTotal : 0
+  );
+  const balance =
+    order.payment_status === 'paid' ? 0 : Math.max(0, orderTotal - amountPaid);
   const orderWithMeta = order as {
     fulfillment_details?: OrderFulfillmentDetails | null;
   };

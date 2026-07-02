@@ -19,6 +19,8 @@ import type {
   ThemeColors,
 } from './types';
 
+const SECTION_ROW_GAP = SPACING.lg;
+
 const AnimatedFlashList = Animated.createAnimatedComponent(
   FlashList as ComponentType<FlashListProps<OrdersListRow>>
 );
@@ -26,12 +28,11 @@ const AnimatedFlashList = Animated.createAnimatedComponent(
 interface OrdersListProps {
   colors: ThemeColors;
   data: OrdersListRow[];
-  stickyHeaderIndices: number[];
   isRefreshing: boolean;
   isFetchingNextPage: boolean;
   listViewState: OrdersViewState;
   renderItem: OrdersListRenderItem;
-  onScroll: OrdersListOnScroll;
+  onScroll?: OrdersListOnScroll;
   onRefresh: () => void;
   onEndReached: () => void;
 }
@@ -39,7 +40,6 @@ interface OrdersListProps {
 export function OrdersList({
   colors,
   data,
-  stickyHeaderIndices,
   isRefreshing,
   isFetchingNextPage,
   listViewState,
@@ -53,8 +53,9 @@ export function OrdersList({
       data={data}
       renderItem={renderItem}
       getItemType={(item) => item.type}
-      stickyHeaderIndices={stickyHeaderIndices}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ItemSeparatorComponent={() => (
+        <View testID="orders-list-separator" style={styles.separator} />
+      )}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.listContent}
       onScroll={onScroll}
@@ -146,10 +147,10 @@ function OrdersListEmpty({
 }
 
 const styles = StyleSheet.create({
-  separator: { height: SPACING.md },
+  separator: { height: SECTION_ROW_GAP },
   listContent: {
     padding: SPACING.lg,
-    paddingTop: SPACING.sm,
+    paddingTop: SECTION_ROW_GAP,
     paddingBottom: 80,
   },
   emptyContainer: {

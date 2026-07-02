@@ -119,7 +119,7 @@ describe('OrdersScreen list rendering and actions', () => {
     expect(
       harness.mocks.flashListProps[harness.mocks.flashListProps.length - 1]
         ?.stickyHeaderIndices
-    ).toEqual([0, 2]);
+    ).toBeUndefined();
   });
 
   it('renders pagination footer when isFetchingNextPage is true', () => {

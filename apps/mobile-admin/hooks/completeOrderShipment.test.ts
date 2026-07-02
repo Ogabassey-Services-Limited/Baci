@@ -33,7 +33,9 @@ describe('completeOrderShipment', () => {
       data: { session: { access_token: 'token' } },
     });
     mocks.update.mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
     });
     mocks.fetch.mockResolvedValue({
       json: async () => ({}),
@@ -48,7 +50,7 @@ describe('completeOrderShipment', () => {
   it('rejects provider shipment when the order has no provider booking', async () => {
     await expect(
       completeOrderShipment({
-        fulfillmentDetails: { imei: '', serialNumber: '' },
+        fulfillmentDetails: { imei: '', items: [], serialNumber: '' },
         handleSaveRider: vi.fn(),
         mode: 'provider',
         merchantId: 'merchant-1',
@@ -85,7 +87,7 @@ describe('completeOrderShipment', () => {
   it('validates provider availability before persisting fulfillment details', async () => {
     await expect(
       completeOrderShipment({
-        fulfillmentDetails: { imei: '123', serialNumber: '' },
+        fulfillmentDetails: { imei: '123', items: [], serialNumber: '' },
         handleSaveRider: vi.fn(),
         mode: 'provider',
         merchantId: 'merchant-1',
@@ -125,7 +127,7 @@ describe('completeOrderShipment', () => {
     const handleSaveRider = vi.fn();
 
     const result = await completeOrderShipment({
-      fulfillmentDetails: { imei: '', serialNumber: '' },
+      fulfillmentDetails: { imei: '', items: [], serialNumber: '' },
       handleSaveRider,
       mode: 'self_fulfillment',
       merchantId: 'merchant-1',
@@ -169,42 +171,51 @@ describe('completeOrderShipment', () => {
       queryKey: ['dashboard-stats'],
     });
     expect(result.title).toBe('Order Shipped');
+    // With a rider phone, the success modal offers the "Send to Rider" action.
+    expect(result.showAction).toBe(true);
+    expect(result.actionLabel).toBe('Send Order Details to Rider');
   });
 
-  it('validates the rider phone before persisting fulfillment details', async () => {
-    await expect(
-      completeOrderShipment({
-        fulfillmentDetails: { imei: '123', serialNumber: '' },
-        handleSaveRider: vi.fn(),
-        mode: 'self_fulfillment',
-        merchantId: 'merchant-1',
-        order: {
-          id: 'order-1',
-          amount_paid: 0,
-          balance: 0,
-          created_at: '',
-          customer_email: 'customer@example.com',
-          customer_name: 'Ada',
-          customer_phone: '08030000000',
-          discount_amount: 0,
-          order_number: 'ORD-1',
-          payment_status: 'pending',
-          shipping_address: null,
-          shipping_status: 'processing',
-          total: 10000,
-          updated_at: '',
-        },
-        providerBookingAvailable: true,
-        providerLabel: 'GIGL',
-        queryClient: {
-          invalidateQueries: mocks.invalidateQueries,
-        } as unknown as QueryClient,
-        riderPhone: '   ',
-        saveDetails: true,
-        updateStatus: vi.fn(),
-      })
-    ).rejects.toThrow('Please enter a rider phone number');
+  it('self-fulfills without a rider phone (rider number is optional)', async () => {
+    const handleSaveRider = vi.fn();
 
-    expect(mocks.update).not.toHaveBeenCalled();
+    const result = await completeOrderShipment({
+      fulfillmentDetails: { imei: '123', items: [], serialNumber: '' },
+      handleSaveRider,
+      mode: 'self_fulfillment',
+      merchantId: 'merchant-1',
+      order: {
+        id: 'order-1',
+        amount_paid: 0,
+        balance: 0,
+        created_at: '',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: '08030000000',
+        discount_amount: 0,
+        order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_address: null,
+        shipping_status: 'processing',
+        total: 10000,
+        updated_at: '',
+      },
+      providerBookingAvailable: true,
+      providerLabel: 'GIGL',
+      queryClient: {
+        invalidateQueries: mocks.invalidateQueries,
+      } as unknown as QueryClient,
+      riderPhone: '   ',
+      saveDetails: true,
+      updateStatus: vi.fn(),
+    });
+
+    // Empty rider phone does not block shipment; fulfillment details still save.
+    expect(result.title).toBe('Order Shipped');
+    expect(mocks.update).toHaveBeenCalled();
+    expect(handleSaveRider).toHaveBeenCalledWith('');
+    // Without a rider phone, the success modal hides the "Send to Rider" action.
+    expect(result.showAction).toBe(false);
+    expect(result.actionLabel).toBe('');
   });
 });

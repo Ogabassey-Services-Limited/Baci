@@ -20,4 +20,21 @@ describe('CreateOrderFab', () => {
 
     expect(onPress).toHaveBeenCalledOnce();
   });
+
+  it('applies correct position, bottom offset, and zIndex to render above the tab bar', () => {
+    const onPress = vi.fn();
+
+    render(
+      <CreateOrderFab
+        colors={mockColors}
+        shadows={mockShadows}
+        onPress={onPress}
+      />
+    );
+
+    const fabElement = screen.getByRole('button', { name: 'Create new order' });
+    expect(fabElement.style.position).toBe('absolute');
+    expect(fabElement.style.bottom).toBe('125px');
+    expect(fabElement.style.zIndex).toBe('300');
+  });
 });

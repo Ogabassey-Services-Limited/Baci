@@ -1,20 +1,23 @@
 import { SHIPPING_STATUS_ACTIONS, SHIPPING_STATUS_CONFIG } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import {
   RADIUS,
   SPACING,
   type ThemeColors,
   TYPOGRAPHY,
 } from '@/constants/theme';
+import { OrderStatusDrawerFrame } from './OrderStatusDrawerFrame';
 import { normalizeOrderDetailsShippingStatus } from './order-details.helpers';
+import { logOrderStatusDebug } from './order-status-debug';
 
 type ShippingStatusKey = keyof typeof SHIPPING_STATUS_CONFIG;
 
 interface OrderStatusSheetProps {
   colors: Pick<
     ThemeColors,
+    | 'background'
     | 'border'
     | 'cancelled'
     | 'card'
@@ -66,18 +69,28 @@ export function OrderStatusSheet({
       action,
     ])
   );
+  const statusEntries = Object.entries(SHIPPING_STATUS_CONFIG);
+
+  useEffect(() => {
+    logOrderStatusDebug('sheet-visibility-changed', {
+      availableActionCount: availableActions.size,
+      normalizedStatus,
+      shippingStatus,
+      visible,
+    });
+  }, [availableActions.size, normalizedStatus, shippingStatus, visible]);
 
   return (
-    <AppSheetModal
-      accessibilityLabel="Order status sheet"
+    <OrderStatusDrawerFrame
+      closeLabel="Close status sheet"
+      contentRowCount={statusEntries.length}
+      colors={colors}
       onClose={onClose}
+      title="Update Order Status"
       visible={visible}
     >
-      <Text style={[styles.title, { color: colors.text }]}>
-        Update Order Status
-      </Text>
       <View style={styles.options}>
-        {Object.entries(SHIPPING_STATUS_CONFIG).map(([statusKey, config]) => {
+        {statusEntries.map(([statusKey, config]) => {
           const action = availableActions.get(statusKey as ShippingStatusKey);
           const isCurrent = normalizedStatus === statusKey;
           const isAllowed = isCurrent || Boolean(action);
@@ -92,7 +105,17 @@ export function OrderStatusSheet({
               accessibilityLabel={label}
               accessibilityRole="button"
               disabled={!isAllowed}
-              onPress={() => onSelectStatus(statusKey as ShippingStatusKey)}
+              onPress={() => {
+                logOrderStatusDebug('status-option-pressed', {
+                  isAllowed,
+                  isCurrent,
+                  label,
+                  nextStatus: statusKey,
+                  normalizedStatus,
+                });
+
+                onSelectStatus(statusKey as ShippingStatusKey);
+              }}
               style={[
                 styles.option,
                 {
@@ -141,19 +164,14 @@ export function OrderStatusSheet({
           );
         })}
       </View>
-    </AppSheetModal>
+    </OrderStatusDrawerFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size['2xl'],
-    marginBottom: SPACING.lg,
-    textAlign: 'center',
-  },
   options: {
     gap: SPACING.sm,
+    padding: SPACING.lg,
   },
   option: {
     alignItems: 'center',
@@ -170,6 +188,6 @@ const styles = StyleSheet.create({
   },
   optionText: {
     flex: 1,
-    fontSize: TYPOGRAPHY.size.md,
+    fontSize: TYPOGRAPHY.size.lg,
   },
 });

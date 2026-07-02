@@ -2,18 +2,17 @@ import type { QueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import {
+  areFulfillmentDetailsComplete,
   getDispatchPhoneFromOrder,
+  getFirstIncompleteFulfillmentItemIndex,
   getInitialFulfillmentDetails,
   type ShipmentCompletionMode,
   type ShipmentFlowStep,
+  type ShipmentFulfillmentDetails,
+  type ShipmentFulfillmentItem,
   shouldPersistFulfillmentDetails,
 } from '@/lib/order-shipment';
 import { completeOrderShipment } from './completeOrderShipment';
-
-interface FulfillmentDetails {
-  imei: string;
-  serialNumber: string;
-}
 
 interface SuccessModalState {
   actionLabel: string;
@@ -26,7 +25,9 @@ interface SuccessModalState {
 }
 
 interface CreateOrderDetailsShipmentActionsParams {
-  fulfillmentDetails: FulfillmentDetails;
+  fulfillmentDetails: ShipmentFulfillmentDetails;
+  fulfillmentItemIndex: number;
+  fulfillmentItems: ShipmentFulfillmentItem[];
   handleSaveRider: (phone: string) => Promise<void>;
   merchantId: string | undefined;
   order: OrderDetailsRecord | undefined;
@@ -36,7 +37,8 @@ interface CreateOrderDetailsShipmentActionsParams {
   queryClient: QueryClient;
   requiresShipmentDetails: boolean;
   riderPhone: string;
-  setFulfillmentDetails: (value: FulfillmentDetails) => void;
+  setFulfillmentDetails: (value: ShipmentFulfillmentDetails) => void;
+  setFulfillmentItemIndex: (value: number) => void;
   setIsShipmentSubmitting: (value: boolean) => void;
   setPendingShipmentMode: (value: ShipmentCompletionMode) => void;
   setRiderPhone: (value: string) => void;
@@ -54,6 +56,8 @@ interface CreateOrderDetailsShipmentActionsParams {
 
 export function createOrderDetailsShipmentActions({
   fulfillmentDetails,
+  fulfillmentItemIndex,
+  fulfillmentItems,
   handleSaveRider,
   merchantId,
   order,
@@ -64,6 +68,7 @@ export function createOrderDetailsShipmentActions({
   requiresShipmentDetails,
   riderPhone,
   setFulfillmentDetails,
+  setFulfillmentItemIndex,
   setIsShipmentSubmitting,
   setPendingShipmentMode,
   setRiderPhone,
@@ -78,6 +83,7 @@ export function createOrderDetailsShipmentActions({
   const closeShipmentFlow = () => {
     setShowShipmentFlow(false);
     setShipmentFlowStep('details');
+    setFulfillmentItemIndex(0);
     setPendingShipmentMode(
       providerBookingAvailable ? 'provider' : 'self_fulfillment'
     );
@@ -94,6 +100,11 @@ export function createOrderDetailsShipmentActions({
     }
     if (shipmentFlowStep === 'method' && requiresShipmentDetails) {
       setShipmentFlowStep('details');
+      setFulfillmentItemIndex(Math.max(fulfillmentDetails.items.length - 1, 0));
+      return;
+    }
+    if (shipmentFlowStep === 'details' && fulfillmentItemIndex > 0) {
+      setFulfillmentItemIndex(fulfillmentItemIndex - 1);
       return;
     }
     closeShipmentFlow();
@@ -106,8 +117,9 @@ export function createOrderDetailsShipmentActions({
 
     setShowStatusModal(false);
     setFulfillmentDetails(
-      getInitialFulfillmentDetails(order.fulfillment_details)
+      getInitialFulfillmentDetails(order.fulfillment_details, fulfillmentItems)
     );
+    setFulfillmentItemIndex(0);
     setRiderPhone(getDispatchPhoneFromOrder(order) || '');
     setPendingShipmentMode(
       providerBookingAvailable ? 'provider' : 'self_fulfillment'
@@ -145,7 +157,7 @@ export function createOrderDetailsShipmentActions({
       });
 
       closeShipmentFlow();
-      setFulfillmentDetails({ imei: '', serialNumber: '' });
+      setFulfillmentDetails({ imei: '', items: [], serialNumber: '' });
       setSuccessModal({ ...modalState, visible: true });
     } finally {
       setIsShipmentSubmitting(false);
@@ -155,9 +167,36 @@ export function createOrderDetailsShipmentActions({
   const proceedFromFulfillmentDetails = () => {
     if (
       requiresShipmentDetails &&
-      !shouldPersistFulfillmentDetails(fulfillmentDetails)
+      !(
+        fulfillmentDetails.items[fulfillmentItemIndex]?.imei.trim() ||
+        fulfillmentDetails.items[fulfillmentItemIndex]?.serialNumber.trim() ||
+        (fulfillmentDetails.items.length === 0 &&
+          shouldPersistFulfillmentDetails(fulfillmentDetails))
+      )
     ) {
       Alert.alert('Required', 'Please enter the IMEI or serial number');
+      return;
+    }
+
+    if (
+      requiresShipmentDetails &&
+      fulfillmentItemIndex < fulfillmentDetails.items.length - 1
+    ) {
+      setFulfillmentItemIndex(fulfillmentItemIndex + 1);
+      return;
+    }
+
+    if (
+      requiresShipmentDetails &&
+      !areFulfillmentDetailsComplete(fulfillmentDetails)
+    ) {
+      const incompleteIndex =
+        getFirstIncompleteFulfillmentItemIndex(fulfillmentDetails);
+      setFulfillmentItemIndex(Math.max(incompleteIndex, 0));
+      Alert.alert(
+        'Required',
+        'Please enter every device IMEI or serial number'
+      );
       return;
     }
 

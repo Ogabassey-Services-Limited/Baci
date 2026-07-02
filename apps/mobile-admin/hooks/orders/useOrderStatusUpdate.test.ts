@@ -165,13 +165,13 @@ describe('useUpdateOrderStatus', () => {
         error: Error,
         vars: { orderId: string; status: string },
         context?: {
-          previousOrderQueries?: Array<[readonly unknown[], unknown]>;
-          previousOrders?: Array<[readonly unknown[], unknown]>;
+          previousOrderQueries?: [readonly unknown[], unknown][];
+          previousOrders?: [readonly unknown[], unknown][];
         }
       ) => void;
       onMutate: (vars: { orderId: string; status: string }) => Promise<{
-        previousOrderQueries: Array<[readonly unknown[], unknown]>;
-        previousOrders: Array<[readonly unknown[], unknown]>;
+        previousOrderQueries: [readonly unknown[], unknown][];
+        previousOrders: [readonly unknown[], unknown][];
       }>;
       onSettled: (
         data: unknown,

@@ -1,13 +1,12 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { BASE_URL } from '@/lib/api-client';
-import type { ShipmentCompletionMode } from '@/lib/order-shipment';
+import {
+  buildOrderFulfillmentDetailsForPersistence,
+  type ShipmentCompletionMode,
+  type ShipmentFulfillmentDetails,
+} from '@/lib/order-shipment';
 import { supabase } from '@/lib/supabase';
-
-interface FulfillmentDetails {
-  imei: string;
-  serialNumber: string;
-}
 
 interface ShipmentCompletionResult {
   actionLabel: string;
@@ -19,7 +18,7 @@ interface ShipmentCompletionResult {
 }
 
 interface CompleteOrderShipmentParams {
-  fulfillmentDetails: FulfillmentDetails;
+  fulfillmentDetails: ShipmentFulfillmentDetails;
   handleSaveRider: (phone: string) => Promise<void>;
   merchantId: string;
   mode: ShipmentCompletionMode;
@@ -48,13 +47,11 @@ export async function completeOrderShipment({
   saveDetails,
   updateStatus,
 }: CompleteOrderShipmentParams): Promise<ShipmentCompletionResult> {
+  // Rider phone is optional for self-fulfillment — the merchant can add it
+  // later via the post-shipment "Send to Rider" WhatsApp action.
   const dispatchPhone = riderPhone.trim();
 
-  if (mode === 'self_fulfillment') {
-    if (!dispatchPhone) {
-      throw new Error('Please enter a rider phone number');
-    }
-  } else if (!providerBookingAvailable) {
+  if (mode !== 'self_fulfillment' && !providerBookingAvailable) {
     throw new Error(
       'This order does not have a saved provider quote to book against.'
     );
@@ -64,7 +61,8 @@ export async function completeOrderShipment({
     const { error } = await supabase
       .from('orders')
       .update({
-        fulfillment_details: fulfillmentDetails,
+        fulfillment_details:
+          buildOrderFulfillmentDetailsForPersistence(fulfillmentDetails),
         updated_at: new Date().toISOString(),
       })
       .eq('id', order.id)
@@ -141,20 +139,25 @@ export async function completeOrderShipment({
   queryClient.invalidateQueries({ queryKey: ['order-counts'] });
   queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
 
+  // Only offer the "Send Order Details to Rider" WhatsApp action when a rider
+  // number was actually provided — otherwise the action would dead-end.
+  const canSendToRider =
+    mode === 'self_fulfillment' && dispatchPhone.length > 0;
+
   return {
-    actionLabel:
-      mode === 'self_fulfillment' ? 'Send Order Details to Rider' : '',
-    actionVariant: mode === 'self_fulfillment' ? 'whatsapp' : 'default',
+    actionLabel: canSendToRider ? 'Send Order Details to Rider' : '',
+    actionVariant: canSendToRider ? 'whatsapp' : 'default',
     message:
       mode === 'self_fulfillment'
         ? 'The order has been marked shipped. Customer notification has been triggered.'
         : providerLabel
           ? `The order has been booked with ${providerLabel} and marked shipped.`
           : 'The order has been marked shipped.',
-    showAction: mode === 'self_fulfillment',
-    subMessage:
-      mode === 'self_fulfillment'
-        ? 'You can now send the delivery details to your dispatch rider on WhatsApp.'
+    showAction: canSendToRider,
+    subMessage: canSendToRider
+      ? 'You can now send the delivery details to your dispatch rider on WhatsApp.'
+      : mode === 'self_fulfillment'
+        ? 'Add a rider number on the order anytime to send delivery details on WhatsApp.'
         : 'The customer has been notified of the shipment update.',
     title: mode === 'self_fulfillment' ? 'Order Shipped' : 'Shipment Booked',
   };

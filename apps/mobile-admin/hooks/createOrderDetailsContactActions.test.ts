@@ -77,6 +77,46 @@ describe('createOrderDetailsContactActions', () => {
     );
   });
 
+  it('includes the customer delivery address in the rider dispatch message', async () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder(),
+      riderPhone: '+2348034444444',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleSendOrderDetailsToRider();
+
+    const url = vi.mocked(Linking.openURL).mock.calls[0]?.[0] as string;
+    const message = decodeURIComponent(url.split('?text=')[1] ?? '');
+    expect(message).toContain('12 Allen Avenue');
+    expect(message).toContain('Ikeja Lagos');
+  });
+
+  it('prefixes the dispatch number with + in the customer message', () => {
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: { business_address: '21 Broad Street', business_name: 'Baci' },
+      order: buildOrder({
+        self_fulfillment_data: {
+          carrierName: 'Dispatch Rider',
+          dispatchPhone: '+2348034444444',
+        },
+      }),
+      riderPhone: '',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    actions.handleSendRiderToCustomer();
+
+    const url = vi.mocked(Linking.openURL).mock.calls[0]?.[0] as string;
+    const message = decodeURIComponent(url.split('?text=')[1] ?? '');
+    expect(message).toContain('Dispatch Rider: +2348034444444');
+  });
+
   it('alerts when the customer WhatsApp number is invalid', () => {
     const actions = createOrderDetailsContactActions({
       formatPrice: (amount) => `₦${amount}`,

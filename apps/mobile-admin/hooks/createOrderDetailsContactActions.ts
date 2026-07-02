@@ -152,7 +152,7 @@ ${amountToCollect}
 🚚 *Order Update*
 Your order #${order.order_number} is on the way!
 
-${carrierName}: ${dispatchPhone}
+${carrierName}: +${dispatchPhone}
 Please keep your phone available.
 
 Thank you for choosing ${merchant?.business_name || 'us'}!

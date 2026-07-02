@@ -1,4 +1,9 @@
-import type { Order, OrderItem, ShippingStatus } from '@baci/shared';
+import type {
+  Order,
+  OrderItem,
+  PaymentStatus,
+  ShippingStatus,
+} from '@baci/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { ORDER_COLUMNS } from '@/lib/orders';
@@ -68,6 +73,7 @@ export async function fetchOrders(
   cursor: number = 0,
   filters?: {
     dateFilter?: string | { end: Date; start: Date } | null;
+    paymentStatus?: PaymentStatus;
     search?: string;
     status?: ShippingStatus;
   },
@@ -88,6 +94,10 @@ export async function fetchOrders(
 
   if (filters?.status) {
     query = query.eq('shipping_status', filters.status);
+  }
+
+  if (filters?.paymentStatus) {
+    query = query.eq('payment_status', filters.paymentStatus);
   }
 
   if (filters?.search) {
@@ -165,7 +175,8 @@ export async function fetchOrders(
 export function useOrders(
   status: ShippingStatus | 'all' = 'all',
   searchQuery: string = '',
-  dateFilter: string | { end: Date; start: Date } | null = null
+  dateFilter: string | { end: Date; start: Date } | null = null,
+  paymentStatus: PaymentStatus | 'all' = 'all'
 ) {
   const { merchant } = useMerchant();
   const { scope } = useBranchScope();
@@ -174,6 +185,7 @@ export function useOrders(
 
   const filters = {
     dateFilter: dateFilter === null ? undefined : dateFilter,
+    paymentStatus: paymentStatus === 'all' ? undefined : paymentStatus,
     search: searchQuery === '' ? undefined : searchQuery,
     status: status === 'all' ? undefined : status,
   };

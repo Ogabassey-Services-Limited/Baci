@@ -143,6 +143,7 @@ describe('order-shipment', () => {
       })
     ).toEqual({
       imei: '353456789012345',
+      items: [],
       serialNumber: 'SN-123',
     });
 
@@ -154,6 +155,7 @@ describe('order-shipment', () => {
       })
     ).toEqual({
       imei: '',
+      items: [],
       serialNumber: 'LEGACY-SN',
     });
 
@@ -170,17 +172,19 @@ describe('order-shipment', () => {
 
   it('persists fulfillment details only when at least one field is present', () => {
     expect(
-      shouldPersistFulfillmentDetails({ imei: '', serialNumber: '' })
+      shouldPersistFulfillmentDetails({ imei: '', items: [], serialNumber: '' })
     ).toBe(false);
     expect(
       shouldPersistFulfillmentDetails({
         imei: '353456789012345',
+        items: [],
         serialNumber: 'SN-123',
       })
     ).toBe(true);
     expect(
       shouldPersistFulfillmentDetails({
         imei: '353456789012345',
+        items: [],
         serialNumber: '',
       })
     ).toBe(true);

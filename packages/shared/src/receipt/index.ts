@@ -4,6 +4,7 @@ export { generateReceiptHtml } from './generate-receipt-html';
 export {
   appendReceiptFulfillmentDescription,
   getReceiptFulfillmentRows,
+  getReceiptFulfillmentRowsFromDetails,
   getReceiptFulfillmentSummary,
   isDeviceReceiptItemName,
   normalizeReceiptFulfillmentDetails,

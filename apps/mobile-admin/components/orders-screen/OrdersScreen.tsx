@@ -1,4 +1,4 @@
-import type { ShippingStatus } from '@baci/shared';
+import type { PaymentStatus, ShippingStatus } from '@baci/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -20,7 +20,6 @@ import { dedupeOrdersById } from './dedupe-orders-by-id';
 import { formatDateChipLabel } from './format-date-chip-label';
 import { formatDateRangeLabel } from './format-date-range-label';
 import { getStatusActions } from './get-status-actions';
-import { getStickyHeaderIndices } from './get-sticky-header-indices';
 import { OrderItem } from './OrderItem';
 import { OrdersHeader } from './OrdersHeader';
 import { OrdersInsightCard } from './OrdersInsightCard';
@@ -32,7 +31,11 @@ import {
   requiresPaymentPrompt,
   showPaymentRequiredPrompt,
 } from './payment-required-alert';
-import type { OrdersListRow, StatusPressLayout } from './types';
+import type {
+  OrdersFilterKey,
+  OrdersListRow,
+  StatusPressLayout,
+} from './types';
 
 const MODAL_TRANSITION_DELAY_MS = 300;
 
@@ -40,7 +43,7 @@ export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, isLoading: isMerchantLoading, error } = useMerchant();
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<ShippingStatus>();
+  const [orderFilter, setOrderFilter] = useState<OrdersFilterKey>('all');
   const [showInsight, setShowInsight] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -61,11 +64,16 @@ export default function OrdersScreen() {
     refetch,
   } = useAiInsights();
   const updateStatus = useUpdateOrderStatus();
+  const statusFilter: ShippingStatus | undefined =
+    orderFilter === 'all' || orderFilter === 'paid' ? undefined : orderFilter;
+  const paymentStatusFilter: PaymentStatus | 'all' =
+    orderFilter === 'paid' ? 'paid' : 'all';
 
   const ordersQuery = useOrders(
     statusFilter || 'all',
     debouncedSearch,
-    dateRange
+    dateRange,
+    paymentStatusFilter
   );
   const allOrders = dedupeOrdersById(
     ordersQuery.data?.pages.flatMap((page) => page.orders) ?? []
@@ -81,7 +89,6 @@ export default function OrdersScreen() {
   const { data: counts } = useOrderCounts();
   const pendingCount = counts?.pending ?? 0;
   const flatListData = buildOrdersListData(allOrders);
-  const stickyHeaderIndices = getStickyHeaderIndices(flatListData);
 
   const shippingConfig = createShippingStatusConfigGetter(colors);
   const paymentConfig = createPaymentStatusConfigGetter(colors);
@@ -165,7 +172,7 @@ export default function OrdersScreen() {
   };
 
   const viewPendingOrders = () => {
-    setStatusFilter('pending');
+    setOrderFilter('pending');
     setShowInsight(false);
   };
 
@@ -218,18 +225,18 @@ export default function OrdersScreen() {
       <OrdersScrollSurface
         colors={colors}
         searchQuery={searchQuery}
-        statusFilter={statusFilter}
+        selectedFilter={orderFilter}
         counts={counts}
         dateChipLabel={dateChipLabel}
         data={flatListData}
-        stickyHeaderIndices={stickyHeaderIndices}
         isRefreshing={isMerchantLoading || ordersQuery.isFetching}
         isFetchingNextPage={ordersQuery.isFetchingNextPage}
         listViewState={listViewState}
         renderItem={renderOrderRow}
         onSearchChange={setSearchQuery}
-        onStatusSelect={setStatusFilter}
+        onFilterSelect={setOrderFilter}
         onClearDate={() => setDateRange(null)}
+        onDismissInsight={() => setShowInsight(false)}
         onRefresh={handleRetry}
         onEndReached={handleLoadMore}
       />

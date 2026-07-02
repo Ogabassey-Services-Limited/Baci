@@ -6,7 +6,7 @@ interface ShipmentFlowProgressProps {
   colors: ThemeColors;
   currentStepIndex: number;
   steps: Array<{
-    id: 'details' | 'method' | 'rider';
+    id: string;
     label: string;
   }>;
 }

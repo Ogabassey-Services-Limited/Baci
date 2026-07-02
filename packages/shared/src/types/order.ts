@@ -68,6 +68,22 @@ export interface OrderItem {
 
 export interface OrderFulfillmentDetails {
   imei?: string | null;
+  items?: Array<{
+    id?: string | null;
+    imei?: string | null;
+    orderItemId?: string | null;
+    order_item_id?: string | null;
+    productName?: string | null;
+    product_name?: string | null;
+    serialNumber?: string | null;
+    serial_number?: string | null;
+    unitCount?: number | null;
+    unitIndex?: number | null;
+    unit_count?: number | null;
+    unit_index?: number | null;
+    variantName?: string | null;
+    variant_name?: string | null;
+  }>;
   serialNumber?: string | null;
   serial_number?: string | null;
 }

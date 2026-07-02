@@ -1,7 +1,7 @@
 import './orders-screen-test-utils';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import OrdersScreen from './OrdersScreen';
 import { mockColors, mockOrder, mockShadows } from './orders-screen-test-utils';
 
@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   refetch: vi.fn(),
   updateStatus: vi.fn(),
+  useOrdersCalls: [] as unknown[][],
 }));
 
 vi.mock('@tanstack/react-query', () => ({
@@ -64,19 +65,22 @@ vi.mock('@/hooks/useDebounce', () => ({
 }));
 
 vi.mock('@/hooks/useOrderCounts', () => ({
-  useOrderCounts: () => ({ data: { all: 1, pending: 1 } }),
+  useOrderCounts: () => ({ data: { all: 2, paid: 1, pending: 1 } }),
 }));
 
 vi.mock('@/hooks/useOrders', () => ({
-  useOrders: () => ({
-    data: { pages: [{ orders: [mockOrder], nextCursor: null }] },
-    isLoading: false,
-    isFetching: false,
-    isFetchingNextPage: false,
-    hasNextPage: false,
-    fetchNextPage: vi.fn(),
-    error: null,
-  }),
+  useOrders: (...args: unknown[]) => {
+    mocks.useOrdersCalls.push(args);
+    return {
+      data: { pages: [{ orders: [mockOrder], nextCursor: null }] },
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      error: null,
+    };
+  },
   useUpdateOrderStatus: () => ({
     isPending: false,
     mutateAsync: mocks.updateStatus,
@@ -98,17 +102,38 @@ vi.mock('./OrdersStatusDropdown', () => ({
 
 vi.mock('./OrdersScrollSurface', () => ({
   OrdersScrollSurface: ({
+    onDismissInsight,
+    onFilterSelect,
     renderItem,
   }: {
+    onDismissInsight?: () => void;
+    onFilterSelect: (filter: 'all' | 'paid' | 'pending' | 'processing') => void;
     renderItem: ({ item }: { item: unknown }) => ReactNode;
   }) => (
     <div>
+      <button onClick={onDismissInsight} type="button">
+        Mock list scroll
+      </button>
+      <button onClick={() => onFilterSelect('paid')} type="button">
+        Paid
+      </button>
+      <button onClick={() => onFilterSelect('pending')} type="button">
+        Pending
+      </button>
+      <button onClick={() => onFilterSelect('processing')} type="button">
+        Processing
+      </button>
       {renderItem({ item: { type: 'item', id: 'order-1', order: mockOrder } })}
     </div>
   ),
 }));
 
 describe('OrdersScreen', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.useOrdersCalls.length = 0;
+  });
+
   it('renders orders and opens create-order navigation', () => {
     render(<OrdersScreen />);
 
@@ -118,5 +143,44 @@ describe('OrdersScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create new order' }));
 
     expect(mocks.push).toHaveBeenCalledWith('/order/new');
+  });
+
+  it('hides AI insights when the order list reports a scroll dismissal', () => {
+    render(<OrdersScreen />);
+
+    expect(screen.getByText('AI INSIGHTS')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mock list scroll' }));
+
+    expect(screen.queryByText('AI INSIGHTS')).not.toBeInTheDocument();
+  });
+
+  it('maps the paid filter tab to payment-status filtering', () => {
+    render(<OrdersScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paid' }));
+
+    expect(mocks.useOrdersCalls.at(-1)).toEqual(['all', '', null, 'paid']);
+  });
+
+  it('keeps the pending filter mapped to fulfillment status', () => {
+    render(<OrdersScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pending' }));
+
+    expect(mocks.useOrdersCalls.at(-1)).toEqual(['pending', '', null, 'all']);
+  });
+
+  it('keeps the existing processing filter mapped to fulfillment status', () => {
+    render(<OrdersScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Processing' }));
+
+    expect(mocks.useOrdersCalls.at(-1)).toEqual([
+      'processing',
+      '',
+      null,
+      'all',
+    ]);
   });
 });

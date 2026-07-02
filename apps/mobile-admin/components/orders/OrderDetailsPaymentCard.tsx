@@ -21,6 +21,29 @@ interface OrderDetailsPaymentCardProps {
   total: number;
 }
 
+function formatPaymentMethodLabel(paymentMethod: string | null | undefined) {
+  const normalized = paymentMethod?.trim();
+  if (!normalized) {
+    return 'N/A';
+  }
+
+  const key = normalized.toLowerCase();
+  if (
+    key === 'transfer' ||
+    key === 'bank_transfer' ||
+    key === 'bank-transfer'
+  ) {
+    return 'Bank Transfer';
+  }
+
+  if (key === 'pos') {
+    return 'POS';
+  }
+
+  const label = normalized.replace(/[_-]+/g, ' ').toLowerCase();
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function OrderDetailsPaymentCard({
   amountPaid,
   balance,
@@ -141,13 +164,8 @@ export function OrderDetailsPaymentCard({
         <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
           Payment Method
         </Text>
-        <Text
-          style={[
-            styles.summaryValue,
-            { color: colors.text, textTransform: 'capitalize' },
-          ]}
-        >
-          {paymentMethod?.replace(/_/g, ' ') || 'N/A'}
+        <Text style={[styles.summaryValue, { color: colors.text }]}>
+          {formatPaymentMethodLabel(paymentMethod)}
         </Text>
       </View>
       <View style={styles.summaryRow}>

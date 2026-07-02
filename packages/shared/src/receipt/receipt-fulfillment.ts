@@ -100,7 +100,12 @@ export function appendReceiptFulfillmentDescription({
 export function getReceiptFulfillmentRows(
   order: ReceiptOrder
 ): ReceiptFulfillmentRow[] {
-  const details = order.fulfillment_details;
+  return getReceiptFulfillmentRowsFromDetails(order.fulfillment_details);
+}
+
+export function getReceiptFulfillmentRowsFromDetails(
+  details: ReceiptFulfillmentDetails | null | undefined
+): ReceiptFulfillmentRow[] {
   const imei = getFirstNonBlankString(details?.imei);
   const serialNumber = getFirstNonBlankString(
     details?.serialNumber,

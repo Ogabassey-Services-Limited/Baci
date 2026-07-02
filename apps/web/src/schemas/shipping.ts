@@ -61,10 +61,13 @@ export const SelfFulfillmentSchema = z
     orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
     // Tracking number (optional but recommended)
     trackingNumber: z.string().min(1).optional(),
-    // Dispatch phone number (required for self-fulfillment)
+    // Dispatch phone number (optional; if provided, must be a full number)
     dispatchPhone: z
-      .string()
-      .min(10, 'Phone number must be at least 10 digits'),
+      .union([
+        z.literal(''),
+        z.string().min(10, 'Phone number must be at least 10 digits'),
+      ])
+      .optional(),
     // Carrier name (optional)
     carrierName: z.string().optional(),
     // Notes for dispatch/rider
@@ -78,8 +81,10 @@ export const SelfFulfillmentUpdateSchema = z
     carrierName: z.string().optional(),
     dispatchNotes: z.string().optional(),
     dispatchPhone: z
-      .string()
-      .min(10, 'Phone number must be at least 10 digits')
+      .union([
+        z.literal(''),
+        z.string().min(10, 'Phone number must be at least 10 digits'),
+      ])
       .optional(),
     trackingNumber: z.string().min(1).optional(),
   })
