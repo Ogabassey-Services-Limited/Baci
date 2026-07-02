@@ -187,6 +187,7 @@ DECLARE
   v_identifier_type text := NULLIF(btrim(COALESCE(p_identifier_type, '')), '');
   v_identifier_value text := NULLIF(btrim(COALESCE(p_identifier_value, '')), '');
   v_order_item_product_id uuid;
+  v_order_item_quantity integer;
   v_order_item_rows integer;
   v_order_item_variant_id uuid;
   v_order_rows integer;
@@ -257,10 +258,19 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  -- For a per-unit edit (p_unit_index set) only the unit row below changes; do
+  -- NOT overwrite the parent line's cost/supplier. This UPDATE still runs to
+  -- validate the line exists for this merchant and to return its product/variant.
   UPDATE public.order_items AS oi
   SET
-    cost_price = p_cost_price,
-    supplier_name = NULLIF(v_supplier_name, '')
+    cost_price = CASE
+      WHEN p_unit_index IS NULL THEN p_cost_price
+      ELSE oi.cost_price
+    END,
+    supplier_name = CASE
+      WHEN p_unit_index IS NULL THEN NULLIF(v_supplier_name, '')
+      ELSE oi.supplier_name
+    END
   FROM public.orders AS o
   WHERE oi.id = p_order_item_id
     AND oi.order_id = o.id
@@ -274,14 +284,21 @@ BEGIN
       p_variant_id IS NULL
       OR oi.variant_id = p_variant_id
     )
-  RETURNING oi.product_id, oi.variant_id
-  INTO v_order_item_product_id, v_order_item_variant_id;
+  RETURNING oi.product_id, oi.variant_id, oi.quantity
+  INTO v_order_item_product_id, v_order_item_variant_id, v_order_item_quantity;
 
   GET DIAGNOSTICS v_order_item_rows = ROW_COUNT;
 
   IF v_order_item_rows = 0 THEN
     RAISE EXCEPTION 'Transaction line item not found for this merchant'
       USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Reject unit indexes outside the sold quantity (units are 0-based).
+  IF p_unit_index IS NOT NULL
+     AND p_unit_index >= COALESCE(v_order_item_quantity, 0) THEN
+    RAISE EXCEPTION 'Unit index is out of range for this line item'
+      USING ERRCODE = '22023';
   END IF;
 
   IF p_unit_index IS NOT NULL THEN

@@ -29,8 +29,16 @@ BEGIN
     RAISE EXCEPTION 'merchant_id_required' USING ERRCODE = '22023';
   END IF;
 
+  -- Supplier costs are sensitive analytics data: require analytics:view, not
+  -- just merchant membership. check_staff_permission returns true for the owner
+  -- and for staff explicitly granted analytics:view.
   IF COALESCE(current_setting('request.jwt.claim.role', true), '') <> 'service_role'
-    AND NOT public.has_merchant_access(p_merchant_id) THEN
+    AND NOT public.check_staff_permission(
+      (SELECT auth.uid()),
+      p_merchant_id,
+      'analytics',
+      'view'
+    ) THEN
     RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
   END IF;
 
