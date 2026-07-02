@@ -33,9 +33,10 @@ const productInsertSql =
 
 const returningUpdatedProductId =
   'RETURNING products.id INTO v_updated_product_id';
-const productPersistUpdateIndex = migrationSql.indexOf(
-  'UPDATE public.products\n    SET\n      name = CASE'
+const productPersistUpdateMatch = migrationSql.match(
+  /UPDATE\s+public\.products\s+SET\s+name\s*=\s*CASE/i
 );
+const productPersistUpdateIndex = productPersistUpdateMatch?.index ?? -1;
 const productPersistUpdateEndIndex =
   productPersistUpdateIndex === -1
     ? -1
