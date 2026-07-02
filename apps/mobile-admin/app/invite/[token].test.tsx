@@ -3,27 +3,33 @@ import { render, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  auth: {
-    isAuthenticated: false,
-    isLoading: false,
-    signOut: vi.fn(),
-    user: null as null | { email?: string | null; id?: string },
-  },
-  clearPendingStaffInviteToken: vi.fn(),
-  invalidateQueries: vi.fn(),
-  replace: vi.fn(),
-  router: null as null | { replace: ReturnType<typeof vi.fn> },
-  rpc: vi.fn(),
-  savePendingStaffInviteToken: vi.fn(),
-  token: 'token-123' as string | undefined,
-  unregisterPush: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const invalidateQueries = vi.fn();
+  return {
+    auth: {
+      isAuthenticated: false,
+      isLoading: false,
+      signOut: vi.fn(),
+      user: null as null | { email?: string | null; id?: string },
+    },
+    clearPendingStaffInviteToken: vi.fn(),
+    invalidateQueries,
+    // A STABLE client object. The screen's accept effect lists `queryClient`
+    // in its dependency array, so returning a new object on every render would
+    // re-run the effect each render → setState → re-render → infinite loop that
+    // OOMs the worker. The real useQueryClient returns a stable client too.
+    queryClient: { invalidateQueries },
+    replace: vi.fn(),
+    router: null as null | { replace: ReturnType<typeof vi.fn> },
+    rpc: vi.fn(),
+    savePendingStaffInviteToken: vi.fn(),
+    token: 'token-123' as string | undefined,
+    unregisterPush: vi.fn(),
+  };
+});
 
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({
-    invalidateQueries: (...args: unknown[]) => mocks.invalidateQueries(...args),
-  }),
+  useQueryClient: () => mocks.queryClient,
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
