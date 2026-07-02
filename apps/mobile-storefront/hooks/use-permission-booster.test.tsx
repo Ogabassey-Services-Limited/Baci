@@ -124,10 +124,11 @@ describe('usePermissionBooster native module loading', () => {
     const { getNotificationPermissionStatus } = await import(
       './use-permission-booster'
     );
+    const getPermissionsAsync = () => Promise.reject(permissionError);
 
     await expect(
       getNotificationPermissionStatus({
-        getPermissionsAsync: jest.fn().mockRejectedValue(permissionError),
+        getPermissionsAsync,
       })
     ).resolves.toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(
@@ -159,10 +160,11 @@ describe('usePermissionBooster native module loading', () => {
     const { requestNotificationPermissionStatus } = await import(
       './use-permission-booster'
     );
+    const requestPermissionsAsync = () => Promise.reject(permissionError);
 
     await expect(
       requestNotificationPermissionStatus({
-        requestPermissionsAsync: jest.fn().mockRejectedValue(permissionError),
+        requestPermissionsAsync,
       })
     ).resolves.toBe(false);
     expect(warnSpy).toHaveBeenCalledWith(
