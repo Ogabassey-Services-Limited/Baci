@@ -1,6 +1,5 @@
 import {
   buildCartSnapshot,
-  buildNegotiationSingleItemInfo,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
   normalizePhoneToE164,
   summarizeCartForItemInfo,
@@ -22,6 +21,7 @@ import {
   getNegotiationImagePickerModule,
 } from './negotiation-native-modules';
 import {
+  buildNegotiationRequestItemInfo,
   computeCounterOffer,
   toNegotiationCartLine,
 } from './negotiation-offer-helpers';
@@ -196,20 +196,11 @@ export function useNegotiationModalController({
         session_id: createNegotiationSessionId(),
         customer_id: user?.id ?? null,
         type,
-        item_info:
-          type === 'single' && itemInfo
-            ? buildNegotiationSingleItemInfo({
-                itemId: itemInfo.id,
-                productName: itemInfo.name,
-                productBrand: itemInfo.brand,
-                currentPrice: itemInfo.currentPrice,
-                productSlug: itemInfo.productSlug,
-                variantId: itemInfo.variantId,
-                variantName: itemInfo.variantName,
-                variantAttributes: itemInfo.variantAttributes,
-                condition: itemInfo.condition,
-              })
-            : totalItemInfo,
+        item_info: buildNegotiationRequestItemInfo({
+          itemInfo,
+          totalItemInfo,
+          type,
+        }),
         cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,

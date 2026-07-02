@@ -1,9 +1,46 @@
 import {
+  buildNegotiationSingleItemInfo,
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   type NegotiationCartLine,
+  summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import type { CartItem } from '@/stores/cart-store';
 import { negotiationModalViewStyles as styles } from './NegotiationModalView.styles';
+import type { NegotiationItemInfo } from './useNegotiationModalController.types';
+
+type NegotiationRequestItemInfo =
+  | ReturnType<typeof buildNegotiationSingleItemInfo>
+  | ReturnType<typeof summarizeCartForItemInfo>;
+
+/**
+ * Build the `item_info` payload for a negotiation request: single offers keep
+ * their per-product info; whole-cart ("total") offers use the summarized cart.
+ */
+export function buildNegotiationRequestItemInfo({
+  itemInfo,
+  totalItemInfo,
+  type,
+}: {
+  itemInfo: NegotiationItemInfo | null;
+  totalItemInfo: ReturnType<typeof summarizeCartForItemInfo> | null;
+  type: 'single' | 'total';
+}): NegotiationRequestItemInfo | null {
+  if (type === 'single' && itemInfo) {
+    return buildNegotiationSingleItemInfo({
+      itemId: itemInfo.id,
+      productName: itemInfo.name,
+      productBrand: itemInfo.brand,
+      currentPrice: itemInfo.currentPrice,
+      productSlug: itemInfo.productSlug,
+      variantId: itemInfo.variantId,
+      variantName: itemInfo.variantName,
+      variantAttributes: itemInfo.variantAttributes,
+      condition: itemInfo.condition,
+    });
+  }
+
+  return totalItemInfo;
+}
 
 /** Map a mobile cart line into the platform-neutral negotiation snapshot shape. */
 export function toNegotiationCartLine(
