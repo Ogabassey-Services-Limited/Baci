@@ -717,6 +717,7 @@ describe('NegotiationModal', () => {
     });
 
     expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockStorageUpload).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
       'Enter a valid Phone / WhatsApp number.'
     );

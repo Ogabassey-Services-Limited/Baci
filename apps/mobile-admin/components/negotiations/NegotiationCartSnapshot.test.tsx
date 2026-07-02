@@ -162,6 +162,44 @@ describe('NegotiationCartSnapshot', () => {
     expect(screen.getByText('Condition: open box')).toBeInTheDocument();
   });
 
+  it('keeps option-only cart lines keyed distinctly', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      render(
+        <NegotiationCartSnapshot
+          cartSnapshot={[
+            {
+              product_id: 'product-1',
+              name: 'Galaxy S24',
+              price: 900_000,
+              quantity: 1,
+              variant_name: 'Red',
+            },
+            {
+              product_id: 'product-1',
+              name: 'Galaxy S24',
+              price: 900_000,
+              quantity: 1,
+              variant_name: 'Blue',
+            },
+          ]}
+          colors={colors}
+          expanded={true}
+          negotiationId="negotiation-1"
+          onToggleCart={vi.fn()}
+        />
+      );
+
+      const duplicateKeyWarnings = errorSpy.mock.calls.filter(([message]) =>
+        String(message).includes('Encountered two children with the same key')
+      );
+      expect(duplicateKeyWarnings).toHaveLength(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('handles an empty snapshot without rendering line items', () => {
     render(
       <NegotiationCartSnapshot

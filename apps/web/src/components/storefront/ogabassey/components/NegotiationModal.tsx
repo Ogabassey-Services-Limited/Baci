@@ -269,6 +269,24 @@ function normalizeOptionalEmail(email?: string | null): string | null {
     : null;
 }
 
+function getContactValidationError({
+  email,
+  phone,
+}: {
+  email: string;
+  phone: string;
+}): string | null {
+  if (email.trim() && !normalizeOptionalEmail(email)) {
+    return 'Enter a valid email address.';
+  }
+
+  if (phone.trim() && !normalizePhoneToE164(phone)) {
+    return 'Enter a valid Phone / WhatsApp number.';
+  }
+
+  return null;
+}
+
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
   onClose,
@@ -624,8 +642,9 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() && !normalizeOptionalEmail(email)) {
-      alert('Enter a valid email address.');
+    const contactValidationError = getContactValidationError({ email, phone });
+    if (contactValidationError) {
+      alert(contactValidationError);
       return;
     }
 

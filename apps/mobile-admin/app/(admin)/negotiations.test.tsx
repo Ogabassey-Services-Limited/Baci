@@ -252,6 +252,7 @@ vi.mock('react-native', () => {
 });
 
 import { Alert } from 'react-native';
+import { apiClient } from '@/lib/api-client';
 import NegotiationsScreen from './negotiations';
 
 describe('NegotiationsScreen', () => {
@@ -288,6 +289,42 @@ describe('NegotiationsScreen', () => {
       method: 'eq',
       args: ['merchant_id', 'merchant-1'],
     });
+  });
+
+  it('notifies the backend after resolving a guest negotiation', async () => {
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Accept Offer'));
+
+    await waitFor(() => {
+      expect(apiClient).toHaveBeenCalledWith('/api/negotiations/notify', {
+        method: 'POST',
+        body: JSON.stringify({ negotiationId: 'negotiation-1' }),
+      });
+    });
+  });
+
+  it('keeps the guest negotiation decision successful when notification fails', async () => {
+    const notifyError = new Error('notify unavailable');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(apiClient).mockRejectedValueOnce(notifyError);
+
+    try {
+      render(<NegotiationsScreen />);
+
+      fireEvent.click(await screen.findByText('Accept Offer'));
+
+      await waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Customer notification failed:',
+          notifyError
+        );
+      });
+      expect(mocks.notificationAsync).toHaveBeenCalledWith('success');
+      expect(Alert.alert).not.toHaveBeenCalledWith('Error', expect.any(String));
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('subscribes to all merchant negotiation row changes', async () => {

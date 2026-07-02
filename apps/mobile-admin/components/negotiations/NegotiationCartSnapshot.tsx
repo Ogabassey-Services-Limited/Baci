@@ -72,13 +72,13 @@ export function NegotiationCartSnapshot({
 
       {expanded ? (
         <View style={[styles.cartItems, { borderTopColor: colors.border }]}>
-          {cartSnapshot.map((line) => {
+          {cartSnapshot.map((line, index) => {
             const lineMeta = formatCartLineMeta(line);
+            const lineVariantKey =
+              line.variant_id ?? line.variant_name ?? 'base';
+            const lineKey = `${line.product_id}-${lineVariantKey}-${line.name}-${line.quantity}-${line.price}-${line.condition ?? 'any'}-${index}`;
             return (
-              <View
-                key={`${line.product_id}-${line.variant_id ?? 'base'}-${line.name}-${line.quantity}-${line.price}-${line.condition ?? 'any'}`}
-                style={styles.cartLine}
-              >
+              <View key={lineKey} style={styles.cartLine}>
                 <Text
                   style={[styles.cartLineQty, { color: colors.textSecondary }]}
                 >

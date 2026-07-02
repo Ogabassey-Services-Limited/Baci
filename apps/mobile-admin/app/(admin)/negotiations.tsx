@@ -110,28 +110,22 @@ export default function NegotiationsScreen() {
     mutationFn: async ({
       id,
       status,
-      customerId,
     }: {
       id: string;
       status: 'accepted' | 'rejected';
-      customerId: string | null;
     }) => {
       if (!merchant?.id) throw new Error('Merchant not found');
       await updateNegotiationStatus(id, status, merchant.id);
 
-      // Notify customer if they're authenticated. customerId is captured in the
-      // mutation variables at call time (see handleAction) rather than read from
-      // the `requests` closure here, which could be stale by the time this async
-      // mutation runs.
-      if (customerId) {
-        try {
-          await apiClient('/api/negotiations/notify', {
-            method: 'POST',
-            body: JSON.stringify({ negotiationId: id, status }),
-          });
-        } catch (notifyErr) {
-          console.warn('Customer notification failed:', notifyErr);
-        }
+      // Let the server resolve authenticated-customer, guest-email, and
+      // no-contact cases from the freshly updated negotiation row.
+      try {
+        await apiClient('/api/negotiations/notify', {
+          method: 'POST',
+          body: JSON.stringify({ negotiationId: id }),
+        });
+      } catch (notifyErr) {
+        console.warn('Customer notification failed:', notifyErr);
       }
     },
     onSuccess: () => {
@@ -163,8 +157,7 @@ export default function NegotiationsScreen() {
 
   const handleAction = (id: string, status: 'accepted' | 'rejected') => {
     if (updateStatusMutation.isPending) return; // Prevent double-submit
-    const customerId = requests.find((r) => r.id === id)?.customer_id ?? null;
-    updateStatusMutation.mutate({ id, status, customerId });
+    updateStatusMutation.mutate({ id, status });
   };
 
   const onRefresh = async () => {
