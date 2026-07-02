@@ -154,6 +154,10 @@ describe('internalBlogListingStatusQuerySchema', () => {
         page: '0',
       }).success
     ).toBe(false);
+    // author requires authorSlug (page has a default).
+    expect(
+      internalBlogListingStatusQuerySchema.safeParse({ kind: 'author' }).success
+    ).toBe(false);
   });
 
   it('rejects page values above the route cap (10_000)', () => {

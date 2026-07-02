@@ -1467,6 +1467,49 @@ describe('Middleware Proxy', () => {
       );
     });
 
+    it('307-redirects an out-of-range clean-category page to the clamped page', async () => {
+      blogListingMock.mockResolvedValueOnce({
+        kind: 'redirect',
+        redirectPath: '/blog?category=Smartphones&page=3',
+        status: 307,
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog/category/smartphones?page=99'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(307);
+      expect(blogListingMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: {
+            kind: 'category-page',
+            categorySlug: 'smartphones',
+            page: 99,
+          },
+        })
+      );
+    });
+
+    it('preserves repeated non-filter params on the preflight redirect', async () => {
+      blogListingMock.mockResolvedValueOnce({
+        kind: 'redirect',
+        redirectPath: '/blog/category/smartphones',
+        status: 308,
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/blog?category=Smartphones&tag=a&tag=b'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(308);
+      const location = new URL(res.headers.get('location') ?? '');
+      expect(location.searchParams.getAll('tag')).toEqual(['a', 'b']);
+    });
+
     it('clamps ?page= above the route cap to 10000 in the intent', async () => {
       const req = new NextRequest('https://ogabassey.com/blog?page=100000');
       req.headers.set('host', 'ogabassey.com');

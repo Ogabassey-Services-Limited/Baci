@@ -1756,6 +1756,37 @@ async function resolveStorefrontPdpCanonicalRedirect(
   };
 }
 
+// Shared eligibility gate for the hard-status preflights (blog post + blog
+// listing): only real GET/HEAD document navigations to storefront routes are
+// preflighted — never RSC/prefetch/subresource requests or draft-mode.
+function isEligibleForHardStatusPreflight(
+  request: NextRequest,
+  pathname: string
+): boolean {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return false;
+  }
+  if (
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-state-tree')
+  ) {
+    return false;
+  }
+  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
+  if (fetchDest && fetchDest !== 'document') {
+    return false;
+  }
+  if (
+    DRAFT_MODE_COOKIE_NAMES.some((cookieName) =>
+      request.cookies.has(cookieName)
+    )
+  ) {
+    return false;
+  }
+  return getRouteType(pathname) === 'storefront';
+}
+
 async function resolveStorefrontBlogPostHardStatus(
   request: NextRequest,
   pathname: string,
@@ -1764,33 +1795,11 @@ async function resolveStorefrontBlogPostHardStatus(
   identifier: string,
   publicPathPrefix = ''
 ): Promise<NextResponse | null> {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return null;
-  }
-  if (
-    request.headers.get('rsc') === '1' ||
-    request.headers.has('next-router-prefetch') ||
-    request.headers.has('next-router-state-tree')
-  ) {
-    return null;
-  }
-  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
-  if (fetchDest && fetchDest !== 'document') {
-    return null;
-  }
-  if (
-    DRAFT_MODE_COOKIE_NAMES.some((cookieName) =>
-      request.cookies.has(cookieName)
-    )
-  ) {
+  if (!isEligibleForHardStatusPreflight(request, pathname)) {
     return null;
   }
 
   const routeType = getRouteType(pathname);
-  if (routeType !== 'storefront') {
-    return null;
-  }
-
   const contentSegments = getStorefrontContentSegments(
     pathname,
     hostname,
@@ -1908,33 +1917,11 @@ async function resolveStorefrontBlogListingHardStatus(
   identifier: string,
   publicPathPrefix = ''
 ): Promise<NextResponse | null> {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return null;
-  }
-  if (
-    request.headers.get('rsc') === '1' ||
-    request.headers.has('next-router-prefetch') ||
-    request.headers.has('next-router-state-tree')
-  ) {
-    return null;
-  }
-  const fetchDest = request.headers.get('sec-fetch-dest')?.toLowerCase();
-  if (fetchDest && fetchDest !== 'document') {
-    return null;
-  }
-  if (
-    DRAFT_MODE_COOKIE_NAMES.some((cookieName) =>
-      request.cookies.has(cookieName)
-    )
-  ) {
+  if (!isEligibleForHardStatusPreflight(request, pathname)) {
     return null;
   }
 
   const routeType = getRouteType(pathname);
-  if (routeType !== 'storefront') {
-    return null;
-  }
-
   const contentSegments = getStorefrontContentSegments(
     pathname,
     hostname,
@@ -1962,14 +1949,16 @@ async function resolveStorefrontBlogListingHardStatus(
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `${publicPathPrefix}${target.pathname}`;
     redirectUrl.search = target.search;
-    // Preserve non-filter params (utm_*, ref, etc.) that the resolver target
-    // drops — matching the in-route redirect's param-preservation rule.
+    // Preserve non-filter params (utm_*, ref, tag=a&tag=b, ...) that the
+    // resolver target drops — matching the in-route param-preservation rule,
+    // including repeated (array) values. Only the target's own keys are kept.
+    const targetKeys = new Set(redirectUrl.searchParams.keys());
     for (const [key, value] of request.nextUrl.searchParams) {
       if (
         key !== 'category' &&
         key !== 'page' &&
         key !== 'search' &&
-        !redirectUrl.searchParams.has(key)
+        !targetKeys.has(key)
       ) {
         redirectUrl.searchParams.append(key, value);
       }

@@ -3,8 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedStorefrontBlogListingStatus } from '@/lib/cached-storefront-blog-listing-status';
 import { GET } from './route';
 
+const { mockGetInternalApiSecret } = vi.hoisted(() => ({
+  mockGetInternalApiSecret: vi.fn(() => 'test-internal-secret'),
+}));
+
 vi.mock('@/env', () => ({
-  getInternalApiSecret: () => 'test-internal-secret',
+  getInternalApiSecret: () => mockGetInternalApiSecret(),
 }));
 
 vi.mock('@/lib/cached-storefront-blog-listing-status', () => ({
@@ -33,7 +37,20 @@ const NOOP = {
 describe('GET /api/internal/blog-listing-status/[identifier]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetInternalApiSecret.mockReturnValue('test-internal-secret');
     vi.mocked(getCachedStorefrontBlogListingStatus).mockResolvedValue(NOOP);
+  });
+
+  it('returns 500 when the internal secret is not configured', async () => {
+    mockGetInternalApiSecret.mockReturnValue('');
+
+    const response = await GET(
+      buildRequest('kind=category-query&category=Smartphones'),
+      context()
+    );
+
+    expect(response.status).toBe(500);
+    expect(getCachedStorefrontBlogListingStatus).not.toHaveBeenCalled();
   });
 
   it('rejects unauthenticated requests before resolving status', async () => {

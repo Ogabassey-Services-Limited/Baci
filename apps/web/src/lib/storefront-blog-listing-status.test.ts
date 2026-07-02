@@ -112,6 +112,24 @@ describe('resolveStorefrontBlogListingStatus', () => {
     expect(result).toEqual({ kind: 'notFound' });
   });
 
+  it('fails open to noop when redirectPath is unsafe (external URL)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        hasError: false,
+        redirectPath: 'https://evil.example/x',
+        notFound: false,
+      })
+    );
+
+    const result = await resolveStorefrontBlogListingStatus({
+      ...BASE_OPTS,
+      intent: { kind: 'listing-page', page: 99 },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ kind: 'noop' });
+  });
+
   it('is a no-op when the secret is absent (never calls the endpoint)', async () => {
     const fetchImpl = vi.fn();
     const result = await resolveStorefrontBlogListingStatus({

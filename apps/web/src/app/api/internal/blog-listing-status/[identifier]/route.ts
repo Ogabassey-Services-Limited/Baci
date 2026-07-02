@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
-import { getCachedStorefrontBlogListingStatus } from '@/lib/cached-storefront-blog-listing-status';
+import {
+  type BlogListingStatusBody,
+  getCachedStorefrontBlogListingStatus,
+} from '@/lib/cached-storefront-blog-listing-status';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   internalBlogListingStatusQuerySchema,
@@ -8,7 +11,8 @@ import {
 } from '@/schemas/internal-slug-set-route';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
-const FAIL_OPEN = {
+// Typed against the shared contract so a shape change fails at compile time.
+const FAIL_OPEN: BlogListingStatusBody = {
   hasError: true,
   redirectPath: null,
   permanent: false,
