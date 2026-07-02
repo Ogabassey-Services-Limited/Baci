@@ -9,8 +9,21 @@ import {
   notifyCustomer,
   notifyMerchant,
 } from '@/lib/expo-push';
-import { escapeHtmlText } from '@/lib/sanitize';
 import { sendEmail } from '@/lib/zeptomail';
+
+const HTML_TEXT_ESCAPE_REGEX = /[&<>]/g;
+const HTML_TEXT_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+};
+
+function escapeHtmlText(value: string): string {
+  return value.replace(
+    HTML_TEXT_ESCAPE_REGEX,
+    (match) => HTML_TEXT_ESCAPE_MAP[match]
+  );
+}
 
 /**
  * Notify merchant of a new price negotiation request.
