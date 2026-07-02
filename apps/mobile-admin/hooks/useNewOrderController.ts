@@ -167,8 +167,8 @@ export function useNewOrderController({
     setShowCustomerModal: uiState.setShowCustomerModal,
   });
 
-  const handleSubmit = async () => {
-    await submitNewOrder({
+  const handleSubmit = () =>
+    submitNewOrder({
       customer,
       deliveryInfo,
       discount,
@@ -194,7 +194,6 @@ export function useNewOrderController({
       total,
       userId: user?.id,
     });
-  };
 
   const resetOrderDraft = () => {
     setDate(new Date());

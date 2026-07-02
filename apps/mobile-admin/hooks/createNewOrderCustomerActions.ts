@@ -40,6 +40,12 @@ interface CreateNewOrderCustomerActionsParams {
   setShowCustomerModal: Dispatch<SetStateAction<boolean>>;
 }
 
+// Escape LIKE/ILIKE wildcards so an email/value with `_` or `%` (both valid in
+// email local parts) is matched literally instead of as a pattern.
+function escapeIlikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
 function normalizeNewCustomerDraft(newCustomer: NewCustomerDraft) {
   return {
     address: newCustomer.address ? sanitizeAddress(newCustomer.address) : '',
@@ -140,7 +146,7 @@ export function createNewOrderCustomerActions({
 
         query =
           match === 'ilike'
-            ? query.ilike(column, value)
+            ? query.ilike(column, escapeIlikePattern(value))
             : query.eq(column, value);
 
         const { data: existingCustomer, error: searchError } =

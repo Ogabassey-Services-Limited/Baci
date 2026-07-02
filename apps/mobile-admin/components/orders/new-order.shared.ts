@@ -75,7 +75,12 @@ export function getCustomerDisplayContact(
 export function getCustomerDisplayInitial(
   customer: CustomerDisplayFields
 ): string {
+  const companyInitial =
+    customer.customer_type === 'company'
+      ? getTrimmedValue(customer.company_name)?.[0]
+      : undefined;
   return (
+    companyInitial ||
     getTrimmedValue(customer.first_name)?.[0] ||
     getTrimmedValue(customer.full_name)?.[0] ||
     getTrimmedValue(customer.email)?.[0] ||

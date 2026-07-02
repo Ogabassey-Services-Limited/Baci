@@ -129,6 +129,16 @@ describe('new-order.shared', () => {
           phone: null,
         })
       ).toBe('?');
+
+      expect(
+        getCustomerDisplayInitial({
+          company_name: 'Acme Ltd',
+          customer_type: 'company',
+          email: null,
+          first_name: null,
+          phone: null,
+        })
+      ).toBe('A');
     });
   });
 
