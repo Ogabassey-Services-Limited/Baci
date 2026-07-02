@@ -1878,7 +1878,7 @@ describe('Middleware Proxy', () => {
   it.each([
     '/wc-api/klp_wc_payment_webhook',
     '/wc-api/klp_wc_payment_webhook/',
-  ])('rewrites legacy Klump WooCommerce webhook path %s to the Klump API handler', async (path) => {
+  ])('returns 410 for retired legacy Klump WooCommerce webhook path %s', async (path) => {
     const req = new NextRequest(`https://ogabassey.com${path}?source=klump`, {
       body: '{}',
       headers: { 'Content-Type': 'application/json' },
@@ -1888,17 +1888,17 @@ describe('Middleware Proxy', () => {
 
     const res = await proxy(req);
 
-    expect(res.status).not.toBe(301);
-    expect(res.status).not.toBe(308);
+    expect(res.status).toBe(410);
     expect(checkRateLimit).toHaveBeenCalledTimes(1);
     expect(getSlugForCustomDomain).not.toHaveBeenCalled();
-    expect(res.headers.get('x-middleware-rewrite')).toBe(
-      'https://ogabassey.com/api/payments/klump/webhook?source=klump'
-    );
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
     expect(res.headers.get('x-pathname')).toBe('/api/payments/klump/webhook');
+    await expect(res.json()).resolves.toEqual({
+      error: 'Legacy Klump WooCommerce webhook endpoint retired',
+    });
   });
 
-  it('does not block legacy Klump payment webhooks with an external Origin header', async () => {
+  it('retires legacy Klump payment webhooks before Origin checks block external providers', async () => {
     const getSlugForCustomDomainMock = vi.mocked(getSlugForCustomDomain);
     getSlugForCustomDomainMock.mockResolvedValue(null);
     const req = new NextRequest(
@@ -1917,11 +1917,9 @@ describe('Middleware Proxy', () => {
     try {
       const res = await proxy(req);
 
-      expect(res.status).not.toBe(403);
+      expect(res.status).toBe(410);
       expect(getSlugForCustomDomain).not.toHaveBeenCalled();
-      expect(res.headers.get('x-middleware-rewrite')).toBe(
-        'https://ogabassey.com/api/payments/klump/webhook'
-      );
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
     } finally {
       getSlugForCustomDomainMock.mockResolvedValue('ogabassey');
     }
