@@ -92,6 +92,7 @@ describe('useBoundaryErrorReport', () => {
 
   it('returns true, attempts recovery, and captures with recovery_action "reload-scheduled" for a pending chunk error', () => {
     mockIsChunkLoadRecoveryPending.mockReturnValue(true);
+    mockAttemptChunkLoadRecoveryFromBoundary.mockReturnValue(true);
     const error = new Error('Loading chunk 4 failed');
 
     const { result } = renderHook(() =>
@@ -111,6 +112,25 @@ describe('useBoundaryErrorReport', () => {
         recovery_action: 'reload-scheduled',
         route_surface: 'checkout',
       })
+    );
+  });
+
+  it('captures with recovery_action "none" when the recovery attempt is declined', () => {
+    mockIsChunkLoadRecoveryPending.mockReturnValue(true);
+    mockAttemptChunkLoadRecoveryFromBoundary.mockReturnValue(false);
+    const error = new Error('Loading chunk 5 failed');
+
+    const { result } = renderHook(() =>
+      useBoundaryErrorReport(error, {
+        logLabel: 'Checkout error',
+        routeSurface: 'checkout',
+      })
+    );
+
+    expect(result.current).toBe(false);
+    expect(mockCaptureClientException).toHaveBeenCalledWith(
+      error,
+      expect.objectContaining({ recovery_action: 'none' })
     );
   });
 

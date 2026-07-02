@@ -163,8 +163,11 @@ jobs:
       # make this safe: identical filename implies identical content, and
       # merge-static-union.sh never overwrites a file this build produced.
       # See docs/incidents/2026-07-02-chunk-load-recovery-problem-statement.md
+      # The union is an optimization: a deploy without it is strictly better
+      # than no deploy, so none of its three steps may fail the job.
       - name: Restore static chunk union cache
         id: static-union-cache
+        continue-on-error: true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .vercel-static-union
@@ -181,6 +184,7 @@ jobs:
           fi
           UNION_DIR="$GITHUB_WORKSPACE/.vercel-static-union" OUTPUT_STATIC_DIR="$OUTPUT_STATIC_DIR" .github/scripts/merge-static-union.sh
       - name: Save static chunk union cache
+        continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .vercel-static-union

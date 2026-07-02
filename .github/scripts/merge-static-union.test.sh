@@ -14,11 +14,22 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 run_merge() {
   # Usage: run_merge <union-dir> <output-dir> [RETENTION_SECONDS] [MAX_UNION_MEGABYTES]
+  # Captures combined output so an unexpected failure surfaces the script's
+  # diagnostics on stderr instead of set -e aborting silently.
   local union_dir="$1" output_dir="$2"
   local retention="${3:-172800}" max_mb="${4:-512}"
-  RETENTION_SECONDS="$retention" MAX_UNION_MEGABYTES="$max_mb" \
+  local status=0 merge_output=""
+  set +e
+  merge_output=$(RETENTION_SECONDS="$retention" MAX_UNION_MEGABYTES="$max_mb" \
     UNION_DIR="$union_dir" OUTPUT_STATIC_DIR="$output_dir" \
-    bash "$SCRIPT"
+    bash "$SCRIPT" 2>&1)
+  status=$?
+  set -e
+  if [ "$status" -ne 0 ]; then
+    printf 'merge-static-union.sh exited %s:\n%s\n' "$status" "$merge_output" >&2
+    return "$status"
+  fi
+  printf '%s' "$merge_output"
 }
 
 # --- Test 1: fresh run with empty union ingests all, restores none. ---------
@@ -45,7 +56,7 @@ test2_out="$TMPDIR/t2/out/_next/static/chunks"
 mkdir -p "$test2_out"
 printf 'content-a\n' > "$test2_out/a-111.js"
 printf 'content-b\n' > "$test2_out/b-222.js"
-run_merge "$TMPDIR/t2/union" "$TMPDIR/t2/out/_next/static" >/dev/null 2>&1
+run_merge "$TMPDIR/t2/union" "$TMPDIR/t2/out/_next/static" >/dev/null
 
 rm -f "$test2_out/a-111.js"
 printf 'content-b-NEW\n' > "$test2_out/b-222.js"
@@ -147,7 +158,7 @@ mkdir -p "$test5b_out" "$test5b_union/files/chunks"
 printf 'orphan-content-2\n' > "$test5b_union/files/chunks/orphan-777.js"
 printf 'content-a\n' > "$test5b_out/a-111.js"
 
-run_merge "$TMPDIR/t5b/union" "$TMPDIR/t5b/out/_next/static" >/dev/null 2>&1
+run_merge "$TMPDIR/t5b/union" "$TMPDIR/t5b/out/_next/static" >/dev/null
 [ -f "$test5b_out/orphan-777.js" ] || fail "missing manifest should self-heal and restore known union files"
 [ -f "$test5b_union/manifest.tsv" ] || fail "missing manifest should be (re)written after a run"
 

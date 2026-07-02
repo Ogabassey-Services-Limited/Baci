@@ -151,6 +151,23 @@ describe('sendChunkRecoveryTelemetry', () => {
     expect(sendBeacon).not.toHaveBeenCalled();
   });
 
+  it('does nothing outside a browser context', () => {
+    const sendBeacon = vi.fn();
+    Object.defineProperty(window.navigator, 'sendBeacon', {
+      configurable: true,
+      value: sendBeacon,
+    });
+    vi.stubGlobal('window', undefined);
+
+    try {
+      expect(() => sendChunkRecoveryTelemetry(baseTelemetry)).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(sendBeacon).not.toHaveBeenCalled();
+  });
+
   it('never throws when the transport fails', () => {
     Object.defineProperty(window.navigator, 'sendBeacon', {
       configurable: true,

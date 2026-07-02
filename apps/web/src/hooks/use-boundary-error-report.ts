@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useChunkLoadRecoveryBoundary } from '@/hooks/use-chunk-load-recovery-boundary';
+import {
+  getChunkLoadRecoveryOutcome,
+  useChunkLoadRecoveryBoundary,
+} from '@/hooks/use-chunk-load-recovery-boundary';
 import { captureClientException } from '@/lib/posthog/client-exceptions';
 
 interface BoundaryErrorReportOptions {
@@ -33,11 +36,16 @@ export function useBoundaryErrorReport(
     }
     reportedErrorRef.current = error;
 
+    // The recovery hook's effect registered first, so by the time this runs
+    // the actual commit outcome is recorded; fall back to the render-time
+    // peek only when no outcome exists (non-object throws).
+    const reloadScheduled = getChunkLoadRecoveryOutcome(error) ?? recovering;
+
     captureClientException(error, {
       ...options.properties,
       // Reserved reporting fields always win over caller-supplied properties.
       digest: error.digest,
-      recovery_action: recovering ? 'reload-scheduled' : 'none',
+      recovery_action: reloadScheduled ? 'reload-scheduled' : 'none',
       route_surface: options.routeSurface,
     });
     console.error(`${options.logLabel}:`, error);
