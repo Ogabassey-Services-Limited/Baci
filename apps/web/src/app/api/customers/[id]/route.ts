@@ -1,4 +1,7 @@
-import { buildCustomerNameFields, CUSTOMER_ADMIN_COLUMNS } from '@baci/shared';
+import {
+  buildCustomerRecordNameFields,
+  CUSTOMER_ADMIN_COLUMNS,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
@@ -152,11 +155,18 @@ export async function PATCH(
       body.first_name !== undefined ||
       body.last_name !== undefined ||
       body.full_name !== undefined ||
-      body.email !== undefined
+      body.email !== undefined ||
+      body.company_name !== undefined ||
+      body.customer_type !== undefined
     ) {
+      // Company-aware: recompute company_name/customer_type/full_name together so
+      // editing a company customer updates its name (and the record stays a
+      // company unless the update explicitly changes customer_type).
       Object.assign(
         updates,
-        buildCustomerNameFields({
+        buildCustomerRecordNameFields({
+          customer_type: body.customer_type ?? existingCustomer.customer_type,
+          company_name: body.company_name ?? existingCustomer.company_name,
           first_name: body.first_name ?? existingCustomer.first_name,
           last_name: body.last_name ?? existingCustomer.last_name,
           full_name: body.full_name ?? existingCustomer.full_name,

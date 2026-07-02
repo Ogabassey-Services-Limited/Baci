@@ -61,6 +61,8 @@ interface CustomerDetailClientPageProps {
 type EditableCustomerData = Pick<
   Customer,
   | 'address'
+  | 'company_name'
+  | 'customer_type'
   | 'email'
   | 'first_name'
   | 'full_name'
@@ -73,6 +75,8 @@ function toEditableCustomerData(customer: Customer): EditableCustomerData {
   const initialNameFields = splitCustomerFullName(customer.full_name);
 
   return {
+    customer_type: customer.customer_type,
+    company_name: customer.company_name,
     first_name: customer.first_name ?? initialNameFields.first_name,
     last_name: customer.last_name ?? initialNameFields.last_name,
     full_name: customer.full_name,
@@ -221,26 +225,50 @@ export default function CustomerDetailClientPage({
                 <DialogTitle>Edit Profile</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="first_name">First Name</Label>
-                  <Input
-                    id="first_name"
-                    value={editData.first_name || ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, first_name: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="last_name">Last Name</Label>
-                  <Input
-                    id="last_name"
-                    value={editData.last_name || ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, last_name: e.target.value })
-                    }
-                  />
-                </div>
+                {editData.customer_type === 'company' ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor="company_name">Company Name</Label>
+                    <Input
+                      id="company_name"
+                      value={editData.company_name || ''}
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          company_name: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="first_name">First Name</Label>
+                      <Input
+                        id="first_name"
+                        value={editData.first_name || ''}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            first_name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="last_name">Last Name</Label>
+                      <Input
+                        id="last_name"
+                        value={editData.last_name || ''}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            last_name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
