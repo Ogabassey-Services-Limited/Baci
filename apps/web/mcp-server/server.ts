@@ -1293,17 +1293,20 @@ function createOgabasseyServer() {
             .eq('merchant_id', merchantId);
 
           if (variantsError) {
-            throw variantsError;
+            console.error(
+              'Failed to fetch product variants for search:',
+              variantsError
+            );
+          } else {
+            (variants as McpProductVariantRow[] | null)?.forEach((variant) => {
+              const current = variantsMap.get(variant.product_id);
+              if (current) {
+                current.push(variant);
+              } else {
+                variantsMap.set(variant.product_id, [variant]);
+              }
+            });
           }
-
-          (variants as McpProductVariantRow[] | null)?.forEach((variant) => {
-            const current = variantsMap.get(variant.product_id);
-            if (current) {
-              current.push(variant);
-            } else {
-              variantsMap.set(variant.product_id, [variant]);
-            }
-          });
         }
 
         // 3. Buyer Intelligence & Formatting

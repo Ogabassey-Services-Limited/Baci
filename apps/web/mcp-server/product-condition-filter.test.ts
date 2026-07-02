@@ -85,6 +85,28 @@ describe('resolveMcpSearchProductCondition', () => {
     ).toBe('used');
   });
 
+
+
+  it('canonicalizes legacy row conditions on the fallback path', () => {
+    expect(
+      resolveMcpSearchProductCondition(
+        {
+          condition: 'refurbished',
+        },
+        undefined
+      )
+    ).toBe('open_box');
+
+    expect(
+      resolveMcpSearchProductCondition(
+        {
+          condition: 'uk_used',
+        },
+        'new'
+      )
+    ).toBe('used');
+  });
+
   it('uses new as the last-resort condition fallback', () => {
     expect(
       resolveMcpSearchProductCondition(

@@ -1,10 +1,13 @@
-import { matchesRowConditionFamily } from './search-products-query-helpers';
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+import {
+  type McpSearchProductRow,
+  matchesRowConditionFamily,
+} from './search-products-query-helpers';
 
-interface ProductConditionSource {
-  available_conditions?: unknown;
-  condition?: string | null;
-  has_condition_offers?: boolean | null;
-}
+type ProductConditionSource = Pick<
+  McpSearchProductRow,
+  'available_conditions' | 'condition' | 'has_condition_offers'
+>;
 
 export function resolveMcpSearchProductCondition(
   source: ProductConditionSource,
@@ -17,5 +20,5 @@ export function resolveMcpSearchProductCondition(
     return requestedCondition;
   }
 
-  return source.condition || 'new';
+  return normalizeCanonicalProductCondition(source.condition) || 'new';
 }
