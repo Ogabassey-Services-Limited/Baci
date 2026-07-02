@@ -1,4 +1,4 @@
-import { matchesConditionFamily } from './search-products-query-helpers';
+import { matchesRowConditionFamily } from './search-products-query-helpers';
 
 interface ProductConditionSource {
   available_conditions?: unknown;
@@ -10,7 +10,10 @@ export function resolveMcpSearchProductCondition(
   source: ProductConditionSource,
   requestedCondition: string | undefined
 ) {
-  if (requestedCondition && matchesConditionFamily(source, requestedCondition)) {
+  if (
+    requestedCondition &&
+    matchesRowConditionFamily(source, requestedCondition)
+  ) {
     return requestedCondition;
   }
 

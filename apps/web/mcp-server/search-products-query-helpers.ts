@@ -26,20 +26,68 @@ export type RankedSearchProductRow = {
   total_count?: unknown;
 };
 
-export function getConditionPrefilterClauses(condition: string) {
+function getConditionRawAliases(condition: string) {
   const normalized = normalizeCanonicalProductCondition(condition);
 
   if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized === 'open_box') {
+    return { normalized, rawConditions: ['open_box', 'refurbished'] };
+  }
+
+  if (normalized === 'used') {
+    return { normalized, rawConditions: ['used', 'uk_used'] };
+  }
+
+  return { normalized, rawConditions: ['new'] };
+}
+
+export function getConditionPrefilterClauses(condition: string) {
+  const aliases = getConditionRawAliases(condition);
+
+  if (!aliases) {
     return [];
   }
 
-  const rawConditions =
-    normalized === 'open_box'
-      ? ['open_box', 'refurbished']
-      : normalized === 'used'
-        ? ['used', 'uk_used']
-        : ['new'];
-  return rawConditions.map((rawCondition) => `condition.eq.${rawCondition}`);
+  const clauses = new Set<string>();
+  for (const rawCondition of aliases.rawConditions) {
+    clauses.add(`condition.eq.${rawCondition}`);
+    clauses.add(`available_conditions.cs.{${rawCondition}}`);
+  }
+
+  if (aliases.normalized === 'new' || aliases.normalized === 'used') {
+    clauses.add('has_condition_offers.eq.true');
+  }
+
+  return Array.from(clauses);
+}
+
+function toConditionSource(product: Record<string, unknown>) {
+  return {
+    available_conditions: product.available_conditions,
+    condition:
+      typeof product.condition === 'string' ? product.condition : null,
+    has_condition_offers:
+      typeof product.has_condition_offers === 'boolean'
+        ? product.has_condition_offers
+        : null,
+  };
+}
+
+export function matchesRowConditionFamily(
+  product: Record<string, unknown>,
+  condition: string | undefined
+) {
+  if (!condition) {
+    return true;
+  }
+
+  return storefrontProductFilters.matchesStorefrontConditionFilter(
+    { condition: toConditionSource(product).condition },
+    condition
+  );
 }
 
 export function matchesConditionFamily(
@@ -51,10 +99,7 @@ export function matchesConditionFamily(
   }
 
   return storefrontProductFilters.matchesStorefrontConditionFilter(
-    {
-      condition:
-        typeof product.condition === 'string' ? product.condition : null,
-    },
+    toConditionSource(product),
     condition
   );
 }
