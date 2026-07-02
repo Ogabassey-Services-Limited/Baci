@@ -5,7 +5,10 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { notifyNegotiationResponse } from '@/lib/negotiation-notifications';
+import {
+  notifyGuestNegotiationResponseByEmail,
+  notifyNegotiationResponse,
+} from '@/lib/negotiation-notifications';
 
 const bodySchema = z.object({
   negotiationId: z.uuid(),
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
   const { data: negotiation, error: fetchError } = await supabase
     .from('negotiation_requests')
     .select(
-      'id, merchant_id, customer_id, type, item_info, offered_price, status'
+      'id, merchant_id, customer_id, customer_email, type, item_info, offered_price, status'
     )
     .eq('id', negotiationId)
     .eq('merchant_id', access.merchantId)
@@ -76,11 +79,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Guest negotiations can't receive push (no customer_id)
-  if (!negotiation.customer_id) {
-    return NextResponse.json({ notified: false, reason: 'no_customer_id' });
-  }
-
   const negotiationType = negotiation.type;
   if (negotiationType !== 'single' && negotiationType !== 'total') {
     return NextResponse.json(
@@ -97,6 +95,27 @@ export async function POST(request: NextRequest) {
   const productSlug = negotiation.item_info?.product_slug ?? null;
 
   try {
+    if (!negotiation.customer_id) {
+      if (!negotiation.customer_email) {
+        return NextResponse.json({
+          notified: false,
+          reason: 'no_customer_email',
+        });
+      }
+
+      await notifyGuestNegotiationResponseByEmail({
+        acceptedPrice,
+        email: negotiation.customer_email,
+        itemName,
+        merchantId: access.merchantId,
+        negotiationId,
+        negotiationType,
+        productSlug,
+        status: negotiationStatus,
+      });
+      return NextResponse.json({ notified: true, channel: 'email' });
+    }
+
     await notifyNegotiationResponse(
       negotiation.customer_id,
       negotiationType,

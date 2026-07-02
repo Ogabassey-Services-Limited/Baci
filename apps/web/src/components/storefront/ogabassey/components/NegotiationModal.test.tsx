@@ -17,11 +17,16 @@ vi.mock('@/env', () => ({
 
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
 const mockGetUser = vi.fn();
+const mockStorageUpload = vi
+  .fn()
+  .mockResolvedValue({ data: { path: 'stored' }, error: null });
+const mockStorageFrom = vi.fn(() => ({ upload: mockStorageUpload }));
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => ({ insert: mockInsert }),
     auth: { getUser: mockGetUser },
+    storage: { from: mockStorageFrom },
   }),
 }));
 
@@ -64,13 +69,20 @@ describe('NegotiationModal', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    vi.spyOn(Math, 'random').mockReturnValue(0.123456);
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-abc' } },
+    });
+    mockStorageUpload.mockResolvedValue({
+      data: { path: 'stored' },
+      error: null,
     });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('returns null when not open', () => {
@@ -487,6 +499,199 @@ describe('NegotiationModal', () => {
 
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0][0].customer_phone).toBe('2348031234567');
+  });
+
+  it('uploads selected proof image and stores the private evidence path', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('negotiation-evidence');
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
+    const uploadedPath = mockStorageUpload.mock.calls[0][0];
+    expect(uploadedPath).toMatch(
+      /^merchant-test-id\/\d+-[a-z0-9]+-screenshot\.png$/
+    );
+    expect(mockStorageUpload.mock.calls[0][2]).toMatchObject({
+      contentType: 'image/png',
+      upsert: false,
+    });
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].evidence_url).toBe(uploadedPath);
+  });
+
+  it('submits a link-only evidence request without uploading a file', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    expect(fileInput).not.toBeRequired();
+    fireEvent.change(screen.getByLabelText('Link (Optional)'), {
+      target: { value: ' https://competitor.example/product ' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].evidence_url).toBe(
+      'https://competitor.example/product'
+    );
+  });
+
+  it('requires either a proof upload or a link when both are provided', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Link (Optional)'), {
+      target: { value: 'https://competitor.example/product' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Use either a proof upload or a link, not both.'
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('persists a normalized customer_email when one is entered', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: '  Buyer@Example.COM  ' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].customer_email).toBe(
+      'buyer@example.com'
+    );
+  });
+
+  it('rejects an invalid customer_email before uploading evidence', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: 'not an email' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
+    expect(
+      screen.getByRole('button', { name: /send for review/i })
+    ).toBeInTheDocument();
+    alertSpy.mockRestore();
+  });
+
+  it('rejects a customer_email with multiple at signs before uploading evidence', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: 'a@b@c.com' },
+    });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid email address.');
+    alertSpy.mockRestore();
+  });
+
+  it('returns to the upload form when evidence storage upload fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockStorageUpload.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'RLS denied upload' },
+    });
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('RLS denied upload');
+    expect(
+      screen.getByRole('button', { name: /send for review/i })
+    ).toBeInTheDocument();
+    alertSpy.mockRestore();
   });
 
   it('rejects an invalid customer_phone instead of silently storing null', async () => {

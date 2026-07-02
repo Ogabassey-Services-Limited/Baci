@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotifyMerchant = vi
@@ -6,6 +8,10 @@ const mockNotifyMerchant = vi
 const mockNotifyCustomer = vi
   .fn()
   .mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+const mockSendEmail = vi.fn().mockResolvedValue({
+  success: true,
+  messageId: 'email-1',
+});
 
 vi.mock('@/lib/expo-push', () => ({
   formatCurrency: (amount: number, currency = 'NGN') =>
@@ -18,9 +24,15 @@ vi.mock('@/lib/expo-push', () => ({
   notifyCustomer: (...args: unknown[]) => mockNotifyCustomer(...args),
 }));
 
-const { notifyNegotiationRequest, notifyNegotiationResponse } = await import(
-  './negotiation-notifications'
-);
+vi.mock('@/lib/zeptomail', () => ({
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
+}));
+
+const {
+  notifyGuestNegotiationResponseByEmail,
+  notifyNegotiationRequest,
+  notifyNegotiationResponse,
+} = await import('./negotiation-notifications');
 
 describe('notifyNegotiationRequest', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -132,5 +144,97 @@ describe('notifyNegotiationResponse', () => {
     expect(body).toContain('Shirt');
     expect(body).toContain('accepted');
     expect(body).not.toContain('₦');
+  });
+});
+
+describe('notifyGuestNegotiationResponseByEmail', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('sends accepted guest email with item and accepted price details', async () => {
+    await notifyGuestNegotiationResponseByEmail({
+      acceptedPrice: 820_000,
+      email: 'guest@example.com',
+      itemName: 'iPhone <script>alert(1)</script>',
+      merchantId: 'merchant-123',
+      negotiationId: 'negotiation-123',
+      negotiationType: 'single',
+      productSlug: 'iphone-14-pro-max',
+      status: 'accepted',
+    });
+
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+    expect(mockSendEmail.mock.calls[0][0]).toMatchObject({
+      auditContext: {
+        merchantId: 'merchant-123',
+        metadata: {
+          negotiationId: 'negotiation-123',
+          status: 'accepted',
+        },
+      },
+      emailType: 'orders',
+      merchantId: 'merchant-123',
+      subject: 'Your offer has been accepted',
+      to: 'guest@example.com',
+    });
+    expect(mockSendEmail.mock.calls[0][0].textContent).toContain(
+      'iPhone <script>alert(1)</script>'
+    );
+    expect(mockSendEmail.mock.calls[0][0].textContent).toContain('₦820,000');
+    expect(mockSendEmail.mock.calls[0][0].htmlContent).toContain(
+      'iPhone &lt;script&gt;alert(1)&lt;/script&gt;'
+    );
+    expect(mockSendEmail.mock.calls[0][0].htmlContent).not.toContain(
+      '<script>alert(1)</script>'
+    );
+  });
+
+  it('sends accepted guest email without price details when acceptedPrice is null', async () => {
+    await notifyGuestNegotiationResponseByEmail({
+      acceptedPrice: null,
+      email: 'guest@example.com',
+      itemName: 'iPhone 14',
+      merchantId: 'merchant-123',
+      negotiationId: 'negotiation-123',
+      negotiationType: 'single',
+      productSlug: 'iphone-14',
+      status: 'accepted',
+    });
+
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+    expect(mockSendEmail.mock.calls[0][0]).toMatchObject({
+      auditContext: {
+        merchantId: 'merchant-123',
+        metadata: {
+          negotiationId: 'negotiation-123',
+          status: 'accepted',
+        },
+      },
+      subject: 'Your offer has been accepted',
+      to: 'guest@example.com',
+    });
+    expect(mockSendEmail.mock.calls[0][0].textContent).toContain(
+      'Your offer for iPhone 14 has been accepted.'
+    );
+    expect(mockSendEmail.mock.calls[0][0].textContent).not.toContain('₦');
+  });
+
+  it('throws when the email provider rejects the notification', async () => {
+    mockSendEmail.mockResolvedValueOnce({
+      success: false,
+      error: 'provider unavailable',
+    });
+
+    await expect(
+      notifyGuestNegotiationResponseByEmail({
+        acceptedPrice: null,
+        email: 'guest@example.com',
+        itemName: null,
+        merchantId: 'merchant-123',
+        negotiationId: 'negotiation-123',
+        negotiationType: 'total',
+        productSlug: null,
+        status: 'rejected',
+      })
+    ).rejects.toThrow('provider unavailable');
   });
 });

@@ -9,6 +9,8 @@ import {
   notifyCustomer,
   notifyMerchant,
 } from '@/lib/expo-push';
+import { escapeHtmlText } from '@/lib/sanitize';
+import { sendEmail } from '@/lib/zeptomail';
 
 /**
  * Notify merchant of a new price negotiation request.
@@ -92,4 +94,69 @@ export async function notifyNegotiationResponse(
     },
     'orders'
   );
+}
+
+interface NotifyGuestNegotiationResponseEmailParams {
+  acceptedPrice?: number | null;
+  email: string;
+  itemName?: string | null;
+  merchantId: string;
+  negotiationId: string;
+  negotiationType: 'single' | 'total';
+  productSlug?: string | null;
+  status: 'accepted' | 'rejected';
+}
+
+export async function notifyGuestNegotiationResponseByEmail({
+  acceptedPrice,
+  email,
+  itemName,
+  merchantId,
+  negotiationId,
+  negotiationType,
+  productSlug,
+  status,
+}: NotifyGuestNegotiationResponseEmailParams): Promise<void> {
+  const isAccepted = status === 'accepted';
+  const formattedPrice =
+    acceptedPrice != null ? formatCurrency(acceptedPrice) : null;
+  const subject = isAccepted
+    ? 'Your offer has been accepted'
+    : 'Your offer was declined';
+  const itemLabel =
+    negotiationType === 'total' || !itemName ? 'your cart offer' : itemName;
+  const decisionText = isAccepted
+    ? `Your offer${formattedPrice ? ` of ${formattedPrice}` : ''} for ${itemLabel} has been accepted.`
+    : `Your offer for ${itemLabel} was declined. You can return to the store to make another offer or buy at the listed price.`;
+  const actionText = isAccepted
+    ? 'Return to the store to complete your purchase.'
+    : 'Return to the store to continue shopping.';
+  const escapedDecisionText = escapeHtmlText(decisionText);
+  const escapedActionText = escapeHtmlText(actionText);
+
+  const result = await sendEmail({
+    auditContext: {
+      merchantId,
+      metadata: {
+        negotiationId,
+        productSlug: productSlug ?? null,
+        status,
+      },
+    },
+    emailType: 'orders',
+    htmlContent: `
+      <p>${escapedDecisionText}</p>
+      <p>${escapedActionText}</p>
+    `,
+    merchantId,
+    subject,
+    textContent: `${decisionText}\n\n${actionText}`,
+    to: email,
+  });
+
+  if (!result.success) {
+    throw new Error(
+      result.error || 'Failed to send negotiation response email'
+    );
+  }
 }

@@ -20,6 +20,7 @@ import {
   isQuizVoucherCartItem,
 } from '@/lib/checkout/cart-entitlement-sanitizer';
 import { createClient } from '@/lib/supabase/client';
+import { uploadNegotiationEvidenceFile } from './negotiation-evidence';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -190,6 +191,7 @@ interface NegotiationRequestInput {
   currentPrice: number;
   offeredPrice: number;
   evidenceUrl?: string;
+  customerEmail?: string | null;
   customerPhone?: string | null;
   variantId?: string;
   variantName?: string;
@@ -214,6 +216,10 @@ async function insertNegotiationRequest(
   const normalizedPhone = normalizePhoneToE164(request.customerPhone);
   if ((request.customerPhone ?? '').trim() && !normalizedPhone) {
     throw new Error('Enter a valid Phone / WhatsApp number.');
+  }
+  const normalizedEmail = normalizeOptionalEmail(request.customerEmail);
+  if ((request.customerEmail ?? '').trim() && !normalizedEmail) {
+    throw new Error('Enter a valid email address.');
   }
 
   // Whole-cart offers snapshot the cart so the merchant can see what's being
@@ -242,6 +248,7 @@ async function insertNegotiationRequest(
     cart_snapshot: cartSnapshot.length > 0 ? cartSnapshot : null,
     offered_price: request.offeredPrice,
     evidence_url: request.evidenceUrl || null,
+    customer_email: normalizedEmail,
     // Optional follow-up number (null when blank/invalid) so the merchant can
     // reach guests who'd otherwise get no decision notification.
     customer_phone: normalizedPhone,
@@ -249,6 +256,17 @@ async function insertNegotiationRequest(
   });
 
   if (error) throw error;
+}
+
+function normalizeOptionalEmail(email?: string | null): string | null {
+  const trimmedEmail = email?.trim().toLowerCase();
+  if (!trimmedEmail) {
+    return null;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
+    ? trimmedEmail
+    : null;
 }
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
@@ -272,6 +290,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const offerInputId = useId();
   const uploadFileInputId = useId();
   const uploadLinkInputId = useId();
+  const emailInputId = useId();
   const phoneInputId = useId();
   const isNegotiableProduct = isProductNegotiable({
     brand: productBrand,
@@ -288,6 +307,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   // Upload Evidence State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
+  const [email, setEmail] = useState('');
   // Optional follow-up contact captured alongside the merchant-approval evidence.
   const [phone, setPhone] = useState('');
   const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -339,6 +359,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
+      setEmail('');
       setPhone('');
     }
   }
@@ -560,6 +581,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         currentPrice,
         offeredPrice: offerAmount,
         evidenceUrl,
+        customerEmail: email,
         customerPhone: phone,
         variantId,
         variantName,
@@ -583,6 +605,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       alert(
         error instanceof Error &&
           (error.message.includes('Phone / WhatsApp') ||
+            error.message.includes('email address') ||
             error.message.includes('Whole-cart'))
           ? error.message
           : 'Failed to submit request. Please try again.'
@@ -601,7 +624,48 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    submitMerchantRequest(uploadLink || 'uploaded_evidence_placeholder');
+    if (email.trim() && !normalizeOptionalEmail(email)) {
+      alert('Enter a valid email address.');
+      return;
+    }
+
+    const trimmedLink = uploadLink.trim();
+    if (trimmedLink && uploadFile) {
+      alert('Use either a proof upload or a link, not both.');
+      return;
+    }
+
+    if (trimmedLink) {
+      await submitMerchantRequest(trimmedLink);
+      return;
+    }
+
+    if (!uploadFile) {
+      alert('Upload proof or paste a link before sending your request.');
+      return;
+    }
+
+    setStatus('processing');
+    try {
+      const evidencePath = await uploadNegotiationEvidenceFile({
+        file: uploadFile,
+        merchantId,
+        supabase,
+      });
+      await submitMerchantRequest(evidencePath);
+    } catch (error) {
+      console.error('Failed to upload evidence:', error);
+      if (!canApplyAsyncResult()) {
+        return;
+      }
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to upload evidence image. Please try again.'
+      );
+      setStatus('upload');
+    }
   };
 
   return (
@@ -818,7 +882,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   htmlFor={uploadFileInputId}
                   className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
                 >
-                  Upload Proof (Required)
+                  Upload Proof
                 </label>
                 <div className="relative">
                   <input
@@ -828,7 +892,6 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                     aria-label="Upload proof"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                     className="w-full px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[hsl(var(--muted))] file:text-[hsl(var(--card-foreground))] hover:file:bg-[var(--store-primary)]/10"
-                    required
                   />
                 </div>
                 {uploadFile && (
@@ -855,6 +918,28 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   placeholder="https://example.com/product"
                   className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
                 />
+              </div>
+
+              {/* Email (Optional) */}
+              <div>
+                <label
+                  htmlFor={emailInputId}
+                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
+                >
+                  Email Address (Optional)
+                </label>
+                <input
+                  id={emailInputId}
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
+                />
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                  We can email you when the merchant accepts or rejects the offer.
+                </p>
               </div>
 
               {/* Phone / WhatsApp (Optional) */}

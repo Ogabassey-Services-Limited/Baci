@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
@@ -7,8 +9,13 @@ import { POST } from './route';
 // =============================================================================
 
 const mockNotifyNegotiationResponse = vi.fn().mockResolvedValue(undefined);
+const mockNotifyGuestNegotiationResponseByEmail = vi
+  .fn()
+  .mockResolvedValue(undefined);
 
 vi.mock('@/lib/negotiation-notifications', () => ({
+  notifyGuestNegotiationResponseByEmail: (...args: unknown[]) =>
+    mockNotifyGuestNegotiationResponseByEmail(...args),
   notifyNegotiationResponse: (...args: unknown[]) =>
     mockNotifyNegotiationResponse(...args),
 }));
@@ -185,7 +192,7 @@ describe('POST /api/negotiations/notify', () => {
     expect(data.error).toBe('Negotiation has not been resolved yet');
   });
 
-  it('returns notified: false for guest negotiations (no customer_id)', async () => {
+  it('sends email for guest negotiations when customer_email is present', async () => {
     await setupAuth({
       authenticated: true,
       hasAccess: true,
@@ -196,6 +203,7 @@ describe('POST /api/negotiations/notify', () => {
       id: validBody.negotiationId,
       merchant_id: 'merchant-123',
       customer_id: null,
+      customer_email: 'guest@example.com',
       type: 'single',
       item_info: { name: 'Product' },
       offered_price: 5000,
@@ -207,8 +215,79 @@ describe('POST /api/negotiations/notify', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({ notified: false, reason: 'no_customer_id' });
+    expect(data).toEqual({ notified: true, channel: 'email' });
     expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+    expect(mockNotifyGuestNegotiationResponseByEmail).toHaveBeenCalledWith({
+      acceptedPrice: 5000,
+      email: 'guest@example.com',
+      itemName: 'Product',
+      merchantId: 'merchant-123',
+      negotiationId: validBody.negotiationId,
+      negotiationType: 'single',
+      productSlug: null,
+      status: 'accepted',
+    });
+  });
+
+  it('returns 500 when guest email notification fails', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+    mockNotifyGuestNegotiationResponseByEmail.mockRejectedValueOnce(
+      new Error('provider unavailable')
+    );
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: null,
+      customer_email: 'guest@example.com',
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'accepted',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      notified: false,
+      reason: 'notification_failed',
+    });
+    expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+  });
+
+  it('returns notified false for guest negotiations without customer_email', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: null,
+      customer_email: null,
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'accepted',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({ notified: false, reason: 'no_customer_email' });
+    expect(mockNotifyNegotiationResponse).not.toHaveBeenCalled();
+    expect(mockNotifyGuestNegotiationResponseByEmail).not.toHaveBeenCalled();
   });
 
   it('sends push notification for authenticated customer negotiation', async () => {
