@@ -231,6 +231,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     order?: unknown;
     orderError?: unknown;
     recordedTransaction?: unknown;
+    recordedTransactionError?: unknown;
     transactions?: unknown[];
     transactionsError?: unknown;
     updateError?: unknown;
@@ -281,7 +282,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
       insert: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
         data: fixture.recordedTransaction ?? null,
-        error: null,
+        error: fixture.recordedTransactionError ?? null,
       }),
       select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({
@@ -2192,6 +2193,59 @@ describe('POST /api/orders/[id]/record-payment', () => {
         order_id: mockOrderId,
         // N5: the reconciliation row is linked to the recorded transaction.
         txn_id: 'txn-new',
+      })
+    );
+  });
+
+  it('logs cancelled-order transaction lookup failures before filing reconciliation without a transaction link', async () => {
+    const recordedTransactionError = {
+      code: 'PGRST500',
+      message: 'transaction lookup failed',
+    };
+
+    setupRecordPaymentSupabase({
+      insertTransaction: null,
+      merchant: createRecordPaymentMerchant(),
+      order: createRecordPaymentOrder(),
+      recordedTransactionError,
+      updateOrder: {
+        id: mockOrderId,
+        shipping_status: 'cancelled',
+        cancelled_at: '2026-06-15T00:00:00Z',
+      },
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+      reference: 'manual-ref-lookup-failed',
+    });
+
+    const { logger } = await import('@/lib/logger');
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ order_cancelled: true, updated_status: {} });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'RecordPayment failed to fetch recorded transaction for cancelled-order reconciliation',
+        error: recordedTransactionError,
+        orderId: mockOrderId,
+        merchantId: mockMerchantId,
+        gatewayReference: 'manual-ref-lookup-failed',
+      })
+    );
+    expect(mockReconciliationInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'payment_received_after_cancellation',
+        order_id: mockOrderId,
+        paystack_ref: 'manual-ref-lookup-failed',
+        txn_id: null,
       })
     );
   });

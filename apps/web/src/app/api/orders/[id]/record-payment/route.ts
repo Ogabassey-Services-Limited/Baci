@@ -546,10 +546,7 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    if (
-      manualPaymentResult?.error_code ||
-      !manualPaymentResult?.transaction_id
-    ) {
+    if (manualPaymentResult?.error_code || !manualPaymentResult) {
       logger.error({
         message: 'RecordPayment atomic insert returned an unexpected result',
         manualPaymentResult,
@@ -561,7 +558,9 @@ export async function POST(
       );
     }
 
-    const createdTransaction = { id: manualPaymentResult.transaction_id };
+    const createdTransaction = manualPaymentResult.transaction_id
+      ? { id: manualPaymentResult.transaction_id }
+      : null;
     const newPaid = Number(manualPaymentResult.new_paid ?? estimatedNewPaid);
     const remainingBalance = Number(
       manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
@@ -614,6 +613,18 @@ export async function POST(
     };
 
     let orderCancelledByClamp = false;
+    if (!createdTransaction?.id && !isOrderClampedAsCancelled(updatedOrder)) {
+      logger.error({
+        message: 'RecordPayment atomic insert omitted transaction id',
+        manualPaymentResult,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
+    }
+
     if (isOrderClampedAsCancelled(updatedOrder)) {
       orderCancelledByClamp = true;
       // Link the reconciliation row to the transaction just recorded (matched
@@ -621,14 +632,27 @@ export async function POST(
       // for a referenceless manual/cash payment.
       let recordedTransactionId: string | null = createdTransaction?.id ?? null;
       if (!recordedTransactionId && reference) {
-        const { data: recordedTransaction } = await supabase
-          .from('transactions')
-          .select('id')
-          .eq('order_id', orderId)
-          .eq('merchant_id', merchantId)
-          .eq('gateway_reference', reference)
-          .maybeSingle();
-        recordedTransactionId = recordedTransaction?.id ?? null;
+        const { data: recordedTransaction, error: recordedTransactionError } =
+          await supabase
+            .from('transactions')
+            .select('id')
+            .eq('order_id', orderId)
+            .eq('merchant_id', merchantId)
+            .eq('gateway_reference', reference)
+            .maybeSingle();
+
+        if (recordedTransactionError) {
+          logger.error({
+            message:
+              'RecordPayment failed to fetch recorded transaction for cancelled-order reconciliation',
+            error: recordedTransactionError,
+            orderId,
+            merchantId,
+            gatewayReference: reference,
+          });
+        } else {
+          recordedTransactionId = recordedTransaction?.id ?? null;
+        }
       }
       await handlePaymentForCancelledOrder({
         gatewayReference: reference ?? null,

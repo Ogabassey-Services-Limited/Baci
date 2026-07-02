@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import categoryPlaceholderImage from '@/assets/images/icon.png';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -141,11 +142,9 @@ export default function CategoriesScreen() {
       accessibilityRole="button"
     >
       <Image
-        source={{
-          uri:
-            item.image_url ||
-            'https://placehold.co/400x400/transparent/94a3b8/png?text=No+Image',
-        }}
+        source={
+          item.image_url ? { uri: item.image_url } : categoryPlaceholderImage
+        }
         style={[styles.categoryImage, { backgroundColor: colors.muted }]}
         contentFit="cover"
         transition={300}

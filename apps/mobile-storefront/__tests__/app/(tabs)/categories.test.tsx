@@ -12,6 +12,7 @@ const mockPush = jest.fn();
 const mockRefetch = jest.fn();
 const mockUseCategories = jest.fn();
 const mockUseNetworkState = jest.fn();
+const mockImage = jest.fn((_props: unknown) => null);
 const mockStorefrontScreenShell = jest.fn(
   ({ children }: MockStorefrontScreenShellProps) => (
     <View testID="storefront-screen-shell">{children}</View>
@@ -35,7 +36,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@react-native-vector-icons/ionicons', () => () => null);
 
 jest.mock('expo-image', () => ({
-  Image: () => null,
+  Image: (props: unknown) => mockImage(props),
 }));
 
 jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
@@ -97,6 +98,43 @@ describe('CategoriesScreen', () => {
 
     expect(screen.getByText('Phones')).toBeOnTheScreen();
     expectTabShell();
+  });
+
+  it('uses a bundled category fallback image when image_url is missing', () => {
+    render(<CategoriesScreen />);
+
+    expect(mockImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: expect.not.objectContaining({
+          uri: expect.stringContaining('placehold.co'),
+        }),
+      })
+    );
+  });
+
+  it('uses the remote category image when image_url is present', () => {
+    mockUseCategories.mockReturnValue({
+      data: [
+        {
+          id: 'category-1',
+          slug: 'phones',
+          name: 'Phones',
+          image_url: 'https://cdn.example.com/categories/phones.png',
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: mockRefetch,
+      isRefetching: false,
+    });
+
+    render(<CategoriesScreen />);
+
+    expect(mockImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: { uri: 'https://cdn.example.com/categories/phones.png' },
+      })
+    );
   });
 
   it('uses the tab shell while categories are loading', () => {
