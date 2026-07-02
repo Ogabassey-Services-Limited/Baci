@@ -144,9 +144,5 @@ export default async function BlogCategoryPage({
     />
   );
 
-  if (isOgabasseyBlogStaticTenant(slug)) {
-    return content;
-  }
-
   return <Suspense fallback={<BlogListingFallback />}>{content}</Suspense>;
 }
