@@ -25,10 +25,6 @@ import {
   validatePassword,
 } from '@/lib/password-utils';
 import { getEmailError } from '@/lib/sanitize';
-import {
-  buildStaffInviteRoute,
-  getPendingStaffInviteToken,
-} from '@/lib/staff-invite-pending';
 
 export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
@@ -198,17 +194,12 @@ export default function RegisterScreen() {
       },
       {
         onSuccess: () => {
-          // A user who signed up from a staff invite link must land back on the
-          // invite acceptance route, not the merchant dashboard. Otherwise the
-          // saved invite is never accepted.
-          const pendingStaffInviteToken = getPendingStaffInviteToken();
-          if (pendingStaffInviteToken) {
-            router.replace(buildStaffInviteRoute(pendingStaffInviteToken));
-            return;
-          }
-
           // Navigate directly to dashboard — email confirmation is disabled,
           // so signup returns a session immediately and the merchant is ready.
+          // Staff invitees do NOT come through here: merchant registration
+          // creates an owner store and the merchant-context RPC prefers owner
+          // over staff, which would pin the invitee to their own empty store.
+          // Invitees use the account-only /(auth)/staff-signup flow instead.
           router.replace('/(admin)/(tabs)');
         },
         onError: (error: Error) => {

@@ -60,7 +60,13 @@ export const MOBILE_APPS = {
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.baci',
     appStoreUrl: 'https://apps.apple.com/app/id6757810806',
-    deepLinkPaths: ['/dashboard/*', '/admin/*', '/store/*', '/orders/*'],
+    deepLinkPaths: [
+      '/dashboard/*',
+      '/admin/*',
+      '/store/*',
+      '/orders/*',
+      '/invite/*',
+    ],
   },
   storefront: {
     name: 'Ogabassey - Easybuy Gadgets',

@@ -119,7 +119,7 @@ describe('StaffInviteScreen', () => {
     mocks.token = 'token-123';
   });
 
-  it('stores the invite token and sends unauthenticated users to login', async () => {
+  it('stores the invite token and sends unauthenticated users to staff signup', async () => {
     render(<StaffInviteScreen />);
 
     await waitFor(() => {
@@ -128,7 +128,9 @@ describe('StaffInviteScreen', () => {
       );
     });
 
-    expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
+    // Account-only staff signup, NOT merchant registration (which would create
+    // an owner store and pin the invitee away from the invited store).
+    expect(mocks.replace).toHaveBeenCalledWith('/(auth)/staff-signup');
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
@@ -211,6 +213,35 @@ describe('StaffInviteScreen', () => {
     });
 
     expect(mocks.replace).not.toHaveBeenCalledWith('/(admin)/(tabs)');
+  });
+
+  it('sends an already-authenticated user to the dashboard after a terminal error', async () => {
+    mocks.auth.isAuthenticated = true;
+    mocks.auth.user = { email: 'staff@example.com', id: 'user-1' };
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: [
+          {
+            email: 'staff@example.com',
+            merchant_business_name: 'Ogabassey',
+            role: 'sales_rep',
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: { message: 'invite_used' } });
+
+    const { findByRole } = render(<StaffInviteScreen />);
+
+    // Signed-in users get a dashboard affordance, not a misleading "Sign In".
+    const dashboardButton = await findByRole('button', {
+      name: 'Go to Dashboard',
+    });
+    dashboardButton.click();
+
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
+    });
   });
 
   it('preserves the pending invite token when the preview RPC fails transiently', async () => {

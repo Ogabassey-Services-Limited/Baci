@@ -2,105 +2,23 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  getAcceptErrorMessage,
+  getFirstPreviewRow,
+  type InviteErrorAction,
+  type InviteState,
+  TERMINAL_ACCEPT_ERRORS,
+} from '@/lib/staff-invite';
 import {
   clearPendingStaffInviteToken,
   normalizeStaffInviteToken,
   savePendingStaffInviteToken,
 } from '@/lib/staff-invite-pending';
+import { staffInviteStyles as styles } from '@/lib/staff-invite-styles';
 import { supabase } from '@/lib/supabase';
-
-interface InvitePreview {
-  email: string;
-  merchant_business_name: string | null;
-  merchant_slug?: string | null;
-  role: string;
-}
-
-// What the error screen's primary button should do.
-//  - 'retry': transient failure (network/unknown). Keep the pending token and
-//    let the user re-run the flow.
-//  - 'switch_account': signed in as the wrong account. Preserve the token, sign
-//    out, and send them to login so re-authenticating resumes the invite.
-//  - 'dismiss': terminal failure (invalid/used/expired). Token already cleared.
-type InviteErrorAction = 'retry' | 'switch_account' | 'dismiss';
-
-type InviteState =
-  | { status: 'loading'; message: string }
-  | {
-      status: 'error';
-      message: string;
-      title: string;
-      action: InviteErrorAction;
-    }
-  | { status: 'success'; message: string; title: string };
-
-// Terminal acceptance errors raised by accept_staff_invite. Anything else
-// (network blips, unexpected server errors) is treated as retryable so a valid
-// invite is never discarded on a transient failure.
-const TERMINAL_ACCEPT_ERRORS = new Set([
-  'invite_expired',
-  'invite_used',
-  'email_mismatch',
-  'already_owner',
-  'already_staff',
-]);
-
-function getFirstPreviewRow(rows: unknown): InvitePreview | null {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return null;
-  }
-
-  const row = rows[0] as Partial<InvitePreview>;
-
-  if (typeof row.email !== 'string' || typeof row.role !== 'string') {
-    return null;
-  }
-
-  return {
-    email: row.email,
-    merchant_business_name:
-      typeof row.merchant_business_name === 'string'
-        ? row.merchant_business_name
-        : null,
-    merchant_slug:
-      typeof row.merchant_slug === 'string' ? row.merchant_slug : null,
-    role: row.role,
-  };
-}
-
-function getAcceptErrorMessage(message: string): string {
-  if (message === 'invite_expired') {
-    return 'This invitation has expired. Ask the store owner to send a new one.';
-  }
-
-  if (message === 'invite_used') {
-    return 'This invitation has already been accepted.';
-  }
-
-  if (message === 'email_mismatch') {
-    return 'This invitation belongs to a different email address.';
-  }
-
-  if (message === 'already_owner') {
-    return 'You already own this store.';
-  }
-
-  if (message === 'already_staff') {
-    return 'You are already a staff member of this store.';
-  }
-
-  return 'We could not accept this invitation. Please try again.';
-}
 
 export default function StaffInviteScreen() {
   const { token: tokenParam } = useLocalSearchParams<{ token?: string }>();
@@ -135,8 +53,13 @@ export default function StaffInviteScreen() {
       }
 
       if (!isAuthenticated) {
+        // Send unauthenticated invitees to the account-only staff signup (which
+        // offers a "Sign in" link for existing accounts). Merchant registration
+        // must NOT be the invite on-ramp: it creates an owner store, and the
+        // merchant-context RPC prefers owner over staff, so the invitee would
+        // be pinned to their own empty store instead of the invited one.
         savePendingStaffInviteToken(token);
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/staff-signup');
         return;
       }
 
@@ -292,8 +215,11 @@ export default function StaffInviteScreen() {
       return;
     }
 
+    // Terminal dismiss: the token is already cleared. Send an already
+    // signed-in user back to the dashboard (the auth layout would otherwise
+    // just bounce them there from /login); send a signed-out user to login.
     clearPendingStaffInviteToken();
-    router.replace('/(auth)/login');
+    router.replace(isAuthenticated ? '/(admin)/(tabs)' : '/(auth)/login');
   }
 
   const isError = inviteState.status === 'error';
@@ -310,18 +236,22 @@ export default function StaffInviteScreen() {
       : colors.primary;
 
   const errorAction = isError ? inviteState.action : null;
+  const dismissLabel = isAuthenticated ? 'Go to Dashboard' : 'Sign In';
+  const dismissAccessibilityLabel = isAuthenticated
+    ? 'Go to dashboard'
+    : 'Go to sign in';
   const errorButtonLabel =
     errorAction === 'retry'
       ? 'Try Again'
       : errorAction === 'switch_account'
         ? 'Sign in with a different account'
-        : 'Sign In';
+        : dismissLabel;
   const errorButtonAccessibilityLabel =
     errorAction === 'retry'
       ? 'Try again'
       : errorAction === 'switch_account'
         ? 'Sign out and sign in with a different account'
-        : 'Go to sign in';
+        : dismissAccessibilityLabel;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -356,43 +286,3 @@ export default function StaffInviteScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    borderRadius: 14,
-    minHeight: 52,
-    justifyContent: 'center',
-    marginTop: SPACING.lg,
-  },
-  buttonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  card: {
-    alignItems: 'center',
-    borderRadius: 20,
-    gap: SPACING.md,
-    maxWidth: 420,
-    padding: SPACING['2xl'],
-    width: '100%',
-  },
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    padding: SPACING.xl,
-  },
-  message: {
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.md,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  title: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size['2xl'],
-    textAlign: 'center',
-  },
-});

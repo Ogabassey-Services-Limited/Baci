@@ -9,6 +9,10 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import {
+  type PasswordSignUpResult,
+  runPasswordSignUp,
+} from '@/lib/auth/sign-up-with-password';
+import {
   runSocialSignIn,
   type SocialAuthProvider,
 } from '@/lib/auth/social-auth-helper';
@@ -36,6 +40,11 @@ interface AuthActions {
     email: string,
     password: string
   ) => Promise<{ cancelled?: boolean; error: string | null }>;
+  signUp: (params: {
+    email: string;
+    password: string;
+    fullName?: string;
+  }) => Promise<PasswordSignUpResult>;
   signInWithApple: () => Promise<{ cancelled?: boolean; error: string | null }>;
   signInWithGoogle: () => Promise<{
     cancelled?: boolean;
@@ -235,6 +244,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         set({ activeAuthProvider: null, isAuthenticating: false });
       }
     },
+
+    signUp: async (params) =>
+      runPasswordSignUp({
+        ...params,
+        getCurrentUserId: () => get().user?.id,
+        onResetUserStores: () => resetUserStores(),
+        setState: (state) => set(state),
+      }),
 
     signInWithGoogle: async () => {
       return runSocialSignIn('google', {
