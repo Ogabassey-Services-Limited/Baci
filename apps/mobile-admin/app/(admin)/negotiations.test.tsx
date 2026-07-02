@@ -270,61 +270,58 @@ describe('NegotiationsScreen', () => {
     mocks.updateResult = { data: [{ id: 'negotiation-1' }], error: null };
   });
 
-  it('scopes negotiation status updates to the active merchant', async () => {
+  it('resolves negotiation status through the server endpoint', async () => {
     render(<NegotiationsScreen />);
 
     fireEvent.click(await screen.findByText('Accept Offer'));
 
     await waitFor(() => {
-      expect(mocks.queryCalls).toContainEqual({
-        method: 'update',
-        args: [{ status: 'accepted' }],
-      });
-    });
-    expect(mocks.queryCalls).toContainEqual({
-      method: 'eq',
-      args: ['id', 'negotiation-1'],
-    });
-    expect(mocks.queryCalls).toContainEqual({
-      method: 'eq',
-      args: ['merchant_id', 'merchant-1'],
-    });
-  });
-
-  it('notifies the backend after resolving a guest negotiation', async () => {
-    render(<NegotiationsScreen />);
-
-    fireEvent.click(await screen.findByText('Accept Offer'));
-
-    await waitFor(() => {
-      expect(apiClient).toHaveBeenCalledWith('/api/negotiations/notify', {
+      expect(apiClient).toHaveBeenCalledWith('/api/negotiations/resolve', {
         method: 'POST',
-        body: JSON.stringify({ negotiationId: 'negotiation-1' }),
+        body: JSON.stringify({
+          negotiationId: 'negotiation-1',
+          status: 'accepted',
+        }),
+      });
+    });
+    expect(mocks.queryCalls.some(({ method }) => method === 'update')).toBe(
+      false
+    );
+  });
+
+  it('sends rejected decisions to the same server endpoint', async () => {
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Reject'));
+
+    await waitFor(() => {
+      expect(apiClient).toHaveBeenCalledWith('/api/negotiations/resolve', {
+        method: 'POST',
+        body: JSON.stringify({
+          negotiationId: 'negotiation-1',
+          status: 'rejected',
+        }),
       });
     });
   });
 
-  it('keeps the guest negotiation decision successful when notification fails', async () => {
-    const notifyError = new Error('notify unavailable');
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.mocked(apiClient).mockRejectedValueOnce(notifyError);
+  it('surfaces resolve failures instead of treating notification failure as success', async () => {
+    vi.mocked(apiClient).mockRejectedValueOnce(
+      new Error('Failed to notify the customer. Please try again.')
+    );
 
-    try {
-      render(<NegotiationsScreen />);
+    render(<NegotiationsScreen />);
 
-      fireEvent.click(await screen.findByText('Accept Offer'));
+    fireEvent.click(await screen.findByText('Accept Offer'));
 
-      await waitFor(() => {
-        expect(warnSpy).toHaveBeenCalledWith(
-          'Customer notification failed:',
-          notifyError
-        );
-      });
-      expect(mocks.notificationAsync).toHaveBeenCalledWith('success');
-      expect(Alert.alert).not.toHaveBeenCalledWith('Error', expect.any(String));
-    } finally {
-      warnSpy.mockRestore();
-    }
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to notify the customer. Please try again.'
+      );
+    });
+    expect(mocks.notificationAsync).toHaveBeenCalledWith('error');
+    expect(mocks.notificationAsync).not.toHaveBeenCalledWith('success');
   });
 
   it('subscribes to all merchant negotiation row changes', async () => {
@@ -621,8 +618,8 @@ describe('NegotiationsScreen', () => {
     expect(mocks.openURL).not.toHaveBeenCalled();
   });
 
-  it('shows an error when the scoped Supabase update fails', async () => {
-    mocks.updateResult = { data: null, error: new Error('permission denied') };
+  it('shows an error when the resolve API fails', async () => {
+    vi.mocked(apiClient).mockRejectedValueOnce(new Error('permission denied'));
 
     render(<NegotiationsScreen />);
 
@@ -635,12 +632,18 @@ describe('NegotiationsScreen', () => {
   });
 
   it('shows a stale-state error and refreshes when the request was already handled', async () => {
-    // The status='pending' filter matched zero rows (another admin acted first).
-    mocks.updateResult = { data: [], error: null };
+    vi.mocked(apiClient).mockRejectedValueOnce(
+      new Error('This request was already handled. Pull to refresh.')
+    );
 
     render(<NegotiationsScreen />);
 
-    fireEvent.click(await screen.findByText('Accept Offer'));
+    const acceptButton = await screen.findByText('Accept Offer');
+    const selectCountBeforeAction = mocks.queryCalls.filter(
+      ({ method }) => method === 'select'
+    ).length;
+
+    fireEvent.click(acceptButton);
 
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith(
@@ -654,7 +657,7 @@ describe('NegotiationsScreen', () => {
     await waitFor(() => {
       expect(
         mocks.queryCalls.filter(({ method }) => method === 'select').length
-      ).toBeGreaterThanOrEqual(2);
+      ).toBeGreaterThan(selectCountBeforeAction);
     });
   });
 

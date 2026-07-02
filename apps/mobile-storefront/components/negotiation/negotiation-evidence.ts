@@ -1,4 +1,5 @@
 import { EXPO_PUBLIC_API_URL } from '@/env';
+import { supabase } from '@/lib/supabase';
 
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 export const MAX_NEGOTIATION_EVIDENCE_BYTES = 10 * 1024 * 1024;
@@ -42,7 +43,7 @@ export const extractNegotiationFileExtension = (
 
 const resolveEvidenceContentType = (uri: string, blobType: string) => {
   const normalizedBlobType = blobType.split(';')[0]?.trim().toLowerCase();
-  if (normalizedBlobType) {
+  if (normalizedBlobType && normalizedBlobType !== 'application/octet-stream') {
     return normalizedBlobType;
   }
 
@@ -53,21 +54,37 @@ const resolveEvidenceContentType = (uri: string, blobType: string) => {
 const resolveEvidenceUploadUrl = () =>
   `${EXPO_PUBLIC_API_URL.replace(/\/+$/, '')}/api/storefront/negotiation-evidence`;
 
+function getResponseContentLength(response: Response) {
+  const rawContentLength = response.headers?.get('content-length');
+  if (!rawContentLength) {
+    return null;
+  }
+
+  const contentLength = Number.parseInt(rawContentLength, 10);
+  return Number.isFinite(contentLength) ? contentLength : null;
+}
+
 async function readEvidenceUploadResponse(response: Response) {
   const body = (await response.json().catch(() => null)) as {
+    contentType?: string;
     error?: string;
     evidencePath?: string;
+    uploadToken?: string;
   } | null;
 
   if (!response.ok) {
     throw new Error(body?.error || 'Failed to upload evidence image');
   }
 
-  if (!body?.evidencePath) {
+  if (!body?.evidencePath || !body.uploadToken) {
     throw new Error('Failed to upload evidence image');
   }
 
-  return body.evidencePath;
+  return {
+    contentType: body.contentType,
+    evidencePath: body.evidencePath,
+    uploadToken: body.uploadToken,
+  };
 }
 
 export async function uploadNegotiationEvidence(
@@ -87,29 +104,49 @@ export async function uploadNegotiationEvidence(
     throw new Error(`Failed to read evidence file: ${response.status}`);
   }
 
-  const blob = await response.blob();
-  const contentType = resolveEvidenceContentType(fileUri, blob.type);
+  const responseContentType = response.headers?.get('content-type') ?? '';
+  const contentType = resolveEvidenceContentType(fileUri, responseContentType);
   if (!ALLOWED_NEGOTIATION_EVIDENCE_TYPES.has(contentType)) {
     throw new Error('Only image evidence is supported');
   }
 
-  if (blob.size <= 0 || blob.size > MAX_NEGOTIATION_EVIDENCE_BYTES) {
+  const contentLength = getResponseContentLength(response);
+  if (
+    contentLength !== null &&
+    (contentLength <= 0 || contentLength > MAX_NEGOTIATION_EVIDENCE_BYTES)
+  ) {
+    throw new Error('Evidence image is too large');
+  }
+
+  const evidenceBytes = await response.arrayBuffer();
+  const evidenceSize = evidenceBytes.byteLength;
+  if (evidenceSize <= 0 || evidenceSize > MAX_NEGOTIATION_EVIDENCE_BYTES) {
     throw new Error('Evidence image is too large');
   }
 
   const extension = extractNegotiationFileExtension(fileUri, contentType);
-  const formData = new FormData();
-  formData.append('merchantId', merchantId);
-  formData.append('file', {
-    name: `negotiation-evidence.${extension}`,
-    type: contentType,
-    uri: fileUri,
-  } as unknown as Blob);
-
   const uploadResponse = await fetch(resolveEvidenceUploadUrl(), {
-    body: formData,
+    body: JSON.stringify({
+      contentType,
+      fileName: `negotiation-evidence.${extension}`,
+      fileSize: evidenceSize,
+      merchantId,
+    }),
+    headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });
 
-  return readEvidenceUploadResponse(uploadResponse);
+  const upload = await readEvidenceUploadResponse(uploadResponse);
+  const { error } = await supabase.storage
+    .from(NEGOTIATION_EVIDENCE_BUCKET)
+    .uploadToSignedUrl(upload.evidencePath, upload.uploadToken, evidenceBytes, {
+      contentType: upload.contentType || contentType,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to upload evidence image');
+  }
+
+  return upload.evidencePath;
 }

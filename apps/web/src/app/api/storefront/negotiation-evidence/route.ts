@@ -1,7 +1,9 @@
+import { SignJWT } from 'jose';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getSupabaseJwtSecret } from '@/env';
+import { createScopedClient } from '@/lib/supabase/scoped';
+import { createClient } from '@/lib/supabase/server';
 
 export const NEGOTIATION_EVIDENCE_BUCKET = 'negotiation-evidence';
 
@@ -26,6 +28,8 @@ const evidenceRequestSchema = z.object({
   fileSize: z.number().int().positive().max(MAX_NEGOTIATION_EVIDENCE_BYTES),
   contentType: z.string().trim().toLowerCase().max(120),
 });
+
+const NEGOTIATION_EVIDENCE_UPLOAD_CLAIM = 'negotiation_evidence_upload';
 
 function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
@@ -87,34 +91,31 @@ function getStorageContentType(contentType: string, extension: string) {
   return extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
 }
 
-export async function POST(request: NextRequest) {
-  const rateLimit = await checkRateLimit(request);
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(
-      rateLimit.limit,
-      rateLimit.remaining,
-      rateLimit.resetTime
-    );
-  }
+async function createNegotiationEvidenceUploadToken(merchantId: string) {
+  const secret = new TextEncoder().encode(getSupabaseJwtSecret());
 
-  let formData: FormData;
+  return await new SignJWT({
+    [NEGOTIATION_EVIDENCE_UPLOAD_CLAIM]: true,
+    merchant_id: merchantId,
+    role: 'anon',
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(secret);
+}
+
+export async function POST(request: NextRequest) {
+  // Rate limiting is enforced in proxy.ts for this exact API prefix before
+  // the route executes; doing it again here would spend two tokens per upload.
+  let body: unknown;
   try {
-    formData = await request.formData();
+    body = await request.json();
   } catch {
     return jsonError('Invalid evidence upload request.', 400);
   }
 
-  const file = formData.get('file');
-  if (!(file instanceof File)) {
-    return jsonError('Upload a screenshot or photo.', 400);
-  }
-
-  const parsed = evidenceRequestSchema.safeParse({
-    contentType: file.type,
-    fileName: file.name,
-    fileSize: file.size,
-    merchantId: formData.get('merchantId'),
-  });
+  const parsed = evidenceRequestSchema.safeParse(body);
 
   if (!parsed.success) {
     return jsonError('Upload a proof image under 10 MB.', 400);
@@ -128,8 +129,8 @@ export async function POST(request: NextRequest) {
     return jsonError('Upload a screenshot or photo.', 400);
   }
 
-  const admin = createAdminClient();
-  const { data: merchant, error: merchantError } = await admin
+  const supabase = await createClient();
+  const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('id')
     .eq('id', parsed.data.merchantId)
@@ -149,19 +150,27 @@ export async function POST(request: NextRequest) {
     merchantId: parsed.data.merchantId,
   });
 
-  const { error: uploadError } = await admin.storage
-    .from(NEGOTIATION_EVIDENCE_BUCKET)
-    .upload(evidencePath, await file.arrayBuffer(), {
-      contentType: getStorageContentType(parsed.data.contentType, extension),
-      upsert: false,
-    });
+  const scopedJwt = await createNegotiationEvidenceUploadToken(
+    parsed.data.merchantId
+  );
+  const uploadClient = createScopedClient(scopedJwt);
+  const { data: signedUpload, error: signedUploadError } =
+    await uploadClient.storage
+      .from(NEGOTIATION_EVIDENCE_BUCKET)
+      .createSignedUploadUrl(evidencePath, {
+        upsert: false,
+      });
 
-  if (uploadError) {
+  if (signedUploadError || !signedUpload) {
     return jsonError(
-      uploadError.message || 'Failed to upload evidence image.',
+      signedUploadError?.message || 'Failed to initialize evidence upload.',
       500
     );
   }
 
-  return NextResponse.json({ evidencePath });
+  return NextResponse.json({
+    contentType: getStorageContentType(parsed.data.contentType, extension),
+    evidencePath,
+    uploadToken: signedUpload.token,
+  });
 }

@@ -18,11 +18,17 @@ vi.mock('@/env', () => ({
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
 const mockGetUser = vi.fn();
 const mockEvidenceFetch = vi.fn();
+const mockUploadToSignedUrl = vi.fn();
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => ({ insert: mockInsert }),
     auth: { getUser: mockGetUser },
+    storage: {
+      from: () => ({
+        uploadToSignedUrl: mockUploadToSignedUrl,
+      }),
+    },
   }),
 }));
 
@@ -71,8 +77,15 @@ describe('NegotiationModal', () => {
       data: { user: { id: 'user-abc' } },
     });
     mockEvidenceFetch.mockResolvedValue({
-      json: async () => ({ evidencePath: 'merchant-test-id/evidence.png' }),
+      json: async () => ({
+        evidencePath: 'merchant-test-id/evidence.png',
+        uploadToken: 'upload-token',
+      }),
       ok: true,
+    });
+    mockUploadToSignedUrl.mockResolvedValue({
+      data: { path: 'merchant-test-id/evidence.png' },
+      error: null,
     });
     vi.stubGlobal('fetch', mockEvidenceFetch);
   });
@@ -517,7 +530,23 @@ describe('NegotiationModal', () => {
 
     expect(mockEvidenceFetch).toHaveBeenCalledWith(
       '/api/storefront/negotiation-evidence',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    const [, requestInit] = mockEvidenceFetch.mock.calls[0];
+    expect(JSON.parse(requestInit?.body as string)).toEqual({
+      contentType: 'image/png',
+      fileName: 'screenshot.png',
+      fileSize: file.size,
+      merchantId: 'merchant-test-id',
+    });
+    expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
+      'merchant-test-id/evidence.png',
+      'upload-token',
+      file,
+      { contentType: 'image/png', upsert: false }
     );
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0][0].evidence_url).toBe(
@@ -709,6 +738,7 @@ describe('NegotiationModal', () => {
       '/api/storefront/negotiation-evidence',
       expect.objectContaining({ method: 'POST' })
     );
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith('Evidence upload denied');
     expect(

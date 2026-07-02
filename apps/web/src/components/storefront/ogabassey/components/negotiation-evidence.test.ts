@@ -1,22 +1,37 @@
 // @vitest-environment node
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  uploadNegotiationEvidenceFile,
-} from './negotiation-evidence';
+import { uploadNegotiationEvidenceFile } from './negotiation-evidence';
 
 const mockFetch = vi.fn();
+const mockUploadToSignedUrl = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    storage: {
+      from: () => ({
+        uploadToSignedUrl: mockUploadToSignedUrl,
+      }),
+    },
+  }),
+}));
 
 describe('uploadNegotiationEvidenceFile', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.stubGlobal('fetch', mockFetch);
     mockFetch.mockReset();
+    mockUploadToSignedUrl.mockReset();
     mockFetch.mockResolvedValue({
       json: async () => ({
         evidencePath: 'merchant-123/server-uploaded-proof.png',
+        uploadToken: 'upload-token',
       }),
       ok: true,
+    });
+    mockUploadToSignedUrl.mockResolvedValue({
+      data: { path: 'stored' },
+      error: null,
     });
   });
 
@@ -24,7 +39,7 @@ describe('uploadNegotiationEvidenceFile', () => {
     vi.unstubAllGlobals();
   });
 
-  it('posts an accepted proof image to the evidence upload API', async () => {
+  it('initializes and uploads an accepted proof image with a signed upload token', async () => {
     const file = new File(['proof'], 'Promo Screenshot.PNG', {
       type: 'image/png',
     });
@@ -36,11 +51,23 @@ describe('uploadNegotiationEvidenceFile', () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/storefront/negotiation-evidence',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        body: JSON.stringify({
+          contentType: 'image/png',
+          fileName: 'Promo Screenshot.PNG',
+          fileSize: file.size,
+          merchantId: 'merchant-123',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
     );
-    const body = mockFetch.mock.calls[0][1]?.body as FormData;
-    expect(body.get('merchantId')).toBe('merchant-123');
-    expect(body.get('file')).toBe(file);
+    expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
+      'merchant-123/server-uploaded-proof.png',
+      'upload-token',
+      file,
+      { contentType: 'image/png', upsert: false }
+    );
     expect(evidencePath).toBe('merchant-123/server-uploaded-proof.png');
   });
 
@@ -105,9 +132,38 @@ describe('uploadNegotiationEvidenceFile', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it('uses filename extension fallback for octet-stream images', async () => {
+    const file = new File(['proof'], 'iphone-proof.HEIC', {
+      type: 'application/octet-stream',
+    });
+
+    await uploadNegotiationEvidenceFile({
+      file,
+      merchantId: 'merchant-123',
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/storefront/negotiation-evidence',
+      expect.objectContaining({
+        body: JSON.stringify({
+          contentType: 'image/heic',
+          fileName: 'iphone-proof.HEIC',
+          fileSize: file.size,
+          merchantId: 'merchant-123',
+        }),
+      })
+    );
+    expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
+      'merchant-123/server-uploaded-proof.png',
+      'upload-token',
+      file,
+      { contentType: 'image/heic', upsert: false }
+    );
+  });
+
   it('surfaces API upload failures', async () => {
     mockFetch.mockResolvedValueOnce({
-      json: async () => ({ error: 'Upload denied' }),
+      json: async () => ({ error: 'Upload init denied' }),
       ok: false,
     });
 
@@ -116,7 +172,8 @@ describe('uploadNegotiationEvidenceFile', () => {
         file: new File(['proof'], 'screenshot.jpg', { type: 'image/jpeg' }),
         merchantId: 'merchant-123',
       })
-    ).rejects.toThrow('Upload denied');
+    ).rejects.toThrow('Upload init denied');
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
   });
 
   it('uses the default failure message when the API returns no message', async () => {
@@ -131,6 +188,7 @@ describe('uploadNegotiationEvidenceFile', () => {
         merchantId: 'merchant-123',
       })
     ).rejects.toThrow('Failed to upload evidence image.');
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
   });
 
   it('uses the default failure message when the API response omits the path', async () => {
@@ -145,5 +203,20 @@ describe('uploadNegotiationEvidenceFile', () => {
         merchantId: 'merchant-123',
       })
     ).rejects.toThrow('Failed to upload evidence image.');
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('surfaces signed upload failures', async () => {
+    mockUploadToSignedUrl.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Signed upload failed' },
+    });
+
+    await expect(
+      uploadNegotiationEvidenceFile({
+        file: new File(['proof'], 'screenshot.jpg', { type: 'image/jpeg' }),
+        merchantId: 'merchant-123',
+      })
+    ).rejects.toThrow('Signed upload failed');
   });
 });

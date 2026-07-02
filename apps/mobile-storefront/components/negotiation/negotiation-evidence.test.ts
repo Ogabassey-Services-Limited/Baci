@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import type { Mock } from 'jest-mock';
 import {
   extractNegotiationFileExtension,
   isRemoteEvidenceUrl,
@@ -10,18 +11,72 @@ jest.mock('@/env', () => ({
   EXPO_PUBLIC_API_URL: 'https://usebaci.com',
 }));
 
-const createBlobLike = ({
+type UploadToSignedUrlResult = {
+  data: { path: string } | null;
+  error: { message: string } | null;
+};
+
+const mockUploadToSignedUrl = jest.fn() as Mock<
+  (...args: unknown[]) => Promise<UploadToSignedUrlResult>
+>;
+
+jest.mock('@/lib/supabase', () => ({
+  supabase: {
+    storage: {
+      from: () => ({
+        uploadToSignedUrl: mockUploadToSignedUrl,
+      }),
+    },
+  },
+}));
+
+const createFileResponse = ({
   bytes = new Uint8Array([1, 2, 3]),
-  size = bytes.byteLength,
-  type = 'image/png',
+  contentLength = bytes.byteLength,
+  contentType = 'image/png',
+  ok = true,
+  status = 200,
 }: {
   bytes?: Uint8Array;
-  size?: number;
-  type?: string;
+  contentLength?: number | null;
+  contentType?: string;
+  ok?: boolean;
+  status?: number;
+} = {}) => {
+  const arrayBuffer = jest.fn(async () =>
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  );
+  return {
+    arrayBuffer,
+    headers: {
+      get: jest.fn((name: string) => {
+        const normalizedName = name.toLowerCase();
+        if (normalizedName === 'content-type') {
+          return contentType;
+        }
+        if (normalizedName === 'content-length' && contentLength !== null) {
+          return String(contentLength);
+        }
+        return null;
+      }),
+    },
+    ok,
+    status,
+  };
+};
+
+const createApiResponse = ({
+  body = {
+    evidencePath: 'merchant-1/server-proof.png',
+    uploadToken: 'upload-token',
+  },
+  ok = true,
+}: {
+  body?: unknown;
+  ok?: boolean;
 } = {}) => ({
-  arrayBuffer: jest.fn(async () => bytes.buffer.slice(0)),
-  size,
-  type,
+  json: async () => body,
+  ok,
 });
 
 describe('negotiation evidence helpers', () => {
@@ -53,18 +108,16 @@ describe('negotiation evidence helpers', () => {
 describe('uploadNegotiationEvidence', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUploadToSignedUrl.mockResolvedValue({
+      data: { path: 'merchant-1/server-proof.png' },
+      error: null,
+    });
     globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
-        return {
-          ok: true,
-          blob: async () => createBlobLike(),
-        };
+        return createFileResponse();
       }
 
-      return {
-        json: async () => ({ evidencePath: 'merchant-1/server-proof.png' }),
-        ok: true,
-      };
+      return createApiResponse();
     }) as unknown as typeof fetch;
   });
 
@@ -93,23 +146,37 @@ describe('uploadNegotiationEvidence', () => {
     expect(fetch).toHaveBeenNthCalledWith(
       2,
       'https://usebaci.com/api/storefront/negotiation-evidence',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        body: JSON.stringify({
+          contentType: 'image/png',
+          fileName: 'negotiation-evidence.png',
+          fileSize: 3,
+          merchantId: 'merchant-1',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+    );
+    expect(mockUploadToSignedUrl).toHaveBeenCalledWith(
+      'merchant-1/server-proof.png',
+      'upload-token',
+      expect.any(ArrayBuffer),
+      { contentType: 'image/png', upsert: false }
     );
   });
 
   it('infers image content type from the local file extension when blob type is empty', async () => {
     globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
-        return {
-          ok: true,
-          blob: async () => createBlobLike({ type: '' }),
-        };
+        return createFileResponse({ contentType: '' });
       }
 
-      return {
-        json: async () => ({ evidencePath: 'merchant-1/server-proof.webp' }),
-        ok: true,
-      };
+      return createApiResponse({
+        body: {
+          evidencePath: 'merchant-1/server-proof.webp',
+          uploadToken: 'upload-token',
+        },
+      });
     }) as unknown as typeof fetch;
 
     await uploadNegotiationEvidence('file:///tmp/proof.webp', 'merchant-1');
@@ -117,16 +184,48 @@ describe('uploadNegotiationEvidence', () => {
     expect(fetch).toHaveBeenNthCalledWith(
       2,
       'https://usebaci.com/api/storefront/negotiation-evidence',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        body: JSON.stringify({
+          contentType: 'image/webp',
+          fileName: 'negotiation-evidence.webp',
+          fileSize: 3,
+          merchantId: 'merchant-1',
+        }),
+        method: 'POST',
+      })
+    );
+  });
+
+  it('infers image content type from the local file extension when the response is octet-stream', async () => {
+    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith('file://')) {
+        return createFileResponse({ contentType: 'application/octet-stream' });
+      }
+
+      return createApiResponse();
+    }) as unknown as typeof fetch;
+
+    await uploadNegotiationEvidence('file:///tmp/proof.heic', 'merchant-1');
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://usebaci.com/api/storefront/negotiation-evidence',
+      expect.objectContaining({
+        body: JSON.stringify({
+          contentType: 'image/heic',
+          fileName: 'negotiation-evidence.heic',
+          fileSize: 3,
+          merchantId: 'merchant-1',
+        }),
+        method: 'POST',
+      })
     );
   });
 
   it('throws when the local file cannot be read', async () => {
-    globalThis.fetch = jest.fn(async () => ({
-      ok: false,
-      status: 404,
-      blob: async () => createBlobLike(),
-    })) as unknown as typeof fetch;
+    globalThis.fetch = jest.fn(async () =>
+      createFileResponse({ ok: false, status: 404 })
+    ) as unknown as typeof fetch;
 
     await expect(
       uploadNegotiationEvidence('file:///tmp/missing.png', 'merchant-1')
@@ -136,51 +235,60 @@ describe('uploadNegotiationEvidence', () => {
   });
 
   it('rejects non-image evidence before reading bytes', async () => {
-    const blob = createBlobLike({ type: 'application/pdf' });
+    const fileResponse = createFileResponse({ contentType: 'application/pdf' });
     globalThis.fetch = jest.fn(async () => ({
-      ok: true,
-      blob: async () => blob,
+      ...fileResponse,
     })) as unknown as typeof fetch;
 
     await expect(
       uploadNegotiationEvidence('file:///tmp/proof.pdf', 'merchant-1')
     ).rejects.toThrow('Only image evidence is supported');
 
-    expect(blob.arrayBuffer).not.toHaveBeenCalled();
+    expect(fileResponse.arrayBuffer).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects oversized evidence before reading bytes', async () => {
-    const blob = createBlobLike({ size: MAX_NEGOTIATION_EVIDENCE_BYTES + 1 });
+  it('rejects oversized evidence before initializing upload', async () => {
+    const fileResponse = createFileResponse({
+      contentLength: MAX_NEGOTIATION_EVIDENCE_BYTES + 1,
+    });
     globalThis.fetch = jest.fn(async () => ({
-      ok: true,
-      blob: async () => blob,
+      ...fileResponse,
     })) as unknown as typeof fetch;
 
     await expect(
       uploadNegotiationEvidence('file:///tmp/huge.png', 'merchant-1')
     ).rejects.toThrow('Evidence image is too large');
 
-    expect(blob.arrayBuffer).not.toHaveBeenCalled();
+    expect(fileResponse.arrayBuffer).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('throws when evidence API upload fails', async () => {
     globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
       if (String(input).startsWith('file://')) {
-        return {
-          ok: true,
-          blob: async () => createBlobLike(),
-        };
+        return createFileResponse();
       }
 
-      return {
-        json: async () => ({ error: 'upload failed' }),
+      return createApiResponse({
+        body: { error: 'upload failed' },
         ok: false,
-      };
+      });
     }) as unknown as typeof fetch;
     await expect(
       uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
     ).rejects.toThrow('upload failed');
+    expect(mockUploadToSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('throws when signed storage upload fails', async () => {
+    mockUploadToSignedUrl.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'signed upload failed' },
+    });
+
+    await expect(
+      uploadNegotiationEvidence('file:///tmp/proof.png', 'merchant-1')
+    ).rejects.toThrow('signed upload failed');
   });
 });

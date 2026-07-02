@@ -56,29 +56,6 @@ async function loadNegotiationRequests(
   })) as NegotiationRequest[];
 }
 
-async function updateNegotiationStatus(
-  id: string,
-  status: 'accepted' | 'rejected',
-  merchantId: string
-): Promise<void> {
-  // Scope to still-pending rows so we don't clobber a decision another admin
-  // already made. `.select()` returns the affected rows: zero means the request
-  // was no longer pending, which must surface as an error rather than a silent
-  // "success" (which would fire success haptics + notify the customer).
-  const { data, error } = await supabase
-    .from('negotiation_requests')
-    .update({ status })
-    .eq('id', id)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'pending')
-    .select('id');
-
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error('This request was already handled. Pull to refresh.');
-  }
-}
-
 export default function NegotiationsScreen() {
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
   const { colors } = useTheme();
@@ -115,18 +92,10 @@ export default function NegotiationsScreen() {
       status: 'accepted' | 'rejected';
     }) => {
       if (!merchant?.id) throw new Error('Merchant not found');
-      await updateNegotiationStatus(id, status, merchant.id);
-
-      // Let the server resolve authenticated-customer, guest-email, and
-      // no-contact cases from the freshly updated negotiation row.
-      try {
-        await apiClient('/api/negotiations/notify', {
-          method: 'POST',
-          body: JSON.stringify({ negotiationId: id }),
-        });
-      } catch (notifyErr) {
-        console.warn('Customer notification failed:', notifyErr);
-      }
+      await apiClient('/api/negotiations/resolve', {
+        method: 'POST',
+        body: JSON.stringify({ negotiationId: id, status }),
+      });
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
