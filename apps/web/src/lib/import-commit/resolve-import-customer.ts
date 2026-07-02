@@ -8,6 +8,7 @@ import {
   isCustomerEmailConstraintError,
   rememberCustomer,
   reuseEmailCustomer,
+  reusePhoneCustomer,
   toEmailKey,
   toPhoneKey,
 } from './resolve-import-customer-helpers';
@@ -36,6 +37,7 @@ export async function createImportCustomerResolver(
   const customerMaps = buildCustomerMaps(
     (data || []) as ExistingCustomerRecord[]
   );
+  const enrichedCustomerIdByPhoneKey = new Map<string, string>();
 
   return {
     async resolveCustomerId(
@@ -51,6 +53,13 @@ export async function createImportCustomerResolver(
       }
 
       const phoneKey = toPhoneKey(order.customer.phone);
+      const enrichedCustomerId = phoneKey
+        ? enrichedCustomerIdByPhoneKey.get(phoneKey)
+        : null;
+      if (emailKey && enrichedCustomerId) {
+        return { customerId: enrichedCustomerId, createdCustomer: false };
+      }
+
       const phoneCustomers = phoneKey
         ? customerMaps.customersByPhone.get(phoneKey) || []
         : [];
@@ -58,14 +67,20 @@ export async function createImportCustomerResolver(
       if (emailKey && phoneCustomers.length === 1) {
         const [phoneCustomer] = phoneCustomers;
         if (phoneCustomer && !phoneCustomer.user_id) {
-          const enrichedCustomer = await enrichPhoneCustomerEmail(
-            resolverSupabase,
-            merchantId,
-            phoneCustomer,
-            order
-          );
-          rememberCustomer(customerMaps, enrichedCustomer);
-          return { customerId: enrichedCustomer.id, createdCustomer: false };
+          const phoneCustomerEmailKey = toEmailKey(phoneCustomer.email);
+          if (!phoneCustomerEmailKey) {
+            const enrichedCustomer = await enrichPhoneCustomerEmail(
+              resolverSupabase,
+              merchantId,
+              phoneCustomer,
+              order
+            );
+            rememberCustomer(customerMaps, enrichedCustomer);
+            if (phoneKey) {
+              enrichedCustomerIdByPhoneKey.set(phoneKey, enrichedCustomer.id);
+            }
+            return { customerId: enrichedCustomer.id, createdCustomer: false };
+          }
         }
       }
 
@@ -105,23 +120,13 @@ export async function createImportCustomerResolver(
           phoneKey
         ) {
           if (!emailKey) {
-            const { data: existing, error: lookupError } =
-              await resolverSupabase
-                .from('customers')
-                .select('id, email, phone, user_id')
-                .eq('merchant_id', merchantId)
-                .eq('phone', order.customer.phone)
-                .single();
-
-            if (lookupError || !existing) {
-              throw new Error(
-                `Failed to resolve conflicting customer by phone: ${lookupError?.message ?? insertError.message}`
-              );
-            }
-
-            const existingCustomer = existing as ExistingCustomerRecord;
-            rememberCustomer(customerMaps, existingCustomer);
-            return { customerId: existingCustomer.id, createdCustomer: false };
+            return reusePhoneCustomer(
+              resolverSupabase,
+              merchantId,
+              order.customer.phone ?? phoneKey,
+              insertError.message,
+              customerMaps
+            );
           }
 
           const { data: retried, error: retryError } = await resolverSupabase

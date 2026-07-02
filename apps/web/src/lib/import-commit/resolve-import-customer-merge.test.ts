@@ -21,44 +21,60 @@ function createOrder() {
   } as unknown as ImportResolverOrder;
 }
 
+function createLoadQuery(data: unknown[]) {
+  const query = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    is: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.is.mockResolvedValue({ data, error: null });
+  return query;
+}
+
+function createUpdateQuery(data: unknown, error: unknown = null) {
+  const query = {
+    update: vi.fn(),
+    eq: vi.fn(),
+    is: vi.fn(),
+    select: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  query.update.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.is.mockReturnValue(query);
+  query.select.mockReturnValue(query);
+  query.maybeSingle.mockResolvedValue({ data, error });
+  return query;
+}
+
+function createInsertQuery() {
+  const query = {
+    insert: vi.fn(),
+    select: vi.fn(),
+    single: vi.fn(),
+  };
+  query.insert.mockReturnValue(query);
+  query.select.mockReturnValue(query);
+  return query;
+}
+
 describe('createImportCustomerResolver merge behavior', () => {
   it('enriches a phone-only customer with an imported email', async () => {
-    const loadQuery = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      is: vi.fn(),
-    };
-    loadQuery.select.mockReturnValue(loadQuery);
-    loadQuery.eq.mockReturnValue(loadQuery);
-    loadQuery.is.mockResolvedValue({
-      data: [
-        {
-          id: 'customer-phone-only',
-          email: null,
-          phone: '+2347000000000',
-          user_id: null,
-        },
-      ],
-      error: null,
-    });
-
-    const updateQuery = {
-      update: vi.fn(),
-      eq: vi.fn(),
-      select: vi.fn(),
-      single: vi.fn(),
-    };
-    updateQuery.update.mockReturnValue(updateQuery);
-    updateQuery.eq.mockReturnValue(updateQuery);
-    updateQuery.select.mockReturnValue(updateQuery);
-    updateQuery.single.mockResolvedValue({
-      data: {
+    const loadQuery = createLoadQuery([
+      {
         id: 'customer-phone-only',
-        email: 'ada@example.com',
+        email: null,
         phone: '+2347000000000',
         user_id: null,
       },
-      error: null,
+    ]);
+    const updateQuery = createUpdateQuery({
+      id: 'customer-phone-only',
+      email: 'ada@example.com',
+      phone: '+2347000000000',
+      user_id: null,
     });
 
     const supabase = {
@@ -78,59 +94,102 @@ describe('createImportCustomerResolver merge behavior', () => {
     expect(updateQuery.update).toHaveBeenCalledWith({
       email: 'ada@example.com',
     });
+    expect(updateQuery.is).toHaveBeenCalledWith('email', null);
   });
 
-  it('reuses an unclaimed phone customer without overwriting a different email', async () => {
-    const loadQuery = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      is: vi.fn(),
-    };
-    loadQuery.select.mockReturnValue(loadQuery);
-    loadQuery.eq.mockReturnValue(loadQuery);
-    loadQuery.is.mockResolvedValue({
-      data: [
-        {
-          id: 'customer-phone-holder',
-          email: 'previous@example.com',
-          phone: '+2347000000000',
-          user_id: null,
-        },
-      ],
+  it('reuses a customer enriched earlier in the same import without another update', async () => {
+    const loadQuery = createLoadQuery([
+      {
+        id: 'customer-phone-only',
+        email: null,
+        phone: '+2347000000000',
+        user_id: null,
+      },
+    ]);
+    const updateQuery = createUpdateQuery({
+      id: 'customer-phone-only',
+      email: 'ada@example.com',
+      phone: '+2347000000000',
+      user_id: null,
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(updateQuery),
+    } as unknown as SupabaseClient;
+
+    const resolver = await createImportCustomerResolver(supabase, 'merchant-1');
+    const firstResult = await resolver.resolveCustomerId(
+      supabase,
+      createOrder()
+    );
+    const secondOrder = {
+      ...createOrder(),
+      customer: {
+        ...createOrder().customer,
+        email: 'bob@example.com',
+      },
+    } as ImportResolverOrder;
+    const secondResult = await resolver.resolveCustomerId(
+      supabase,
+      secondOrder
+    );
+
+    expect(firstResult).toEqual({
+      customerId: 'customer-phone-only',
+      createdCustomer: false,
+    });
+    expect(secondResult).toEqual({
+      customerId: 'customer-phone-only',
+      createdCustomer: false,
+    });
+    expect(updateQuery.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reuse a pre-existing phone customer with a different email', async () => {
+    const loadQuery = createLoadQuery([
+      {
+        id: 'customer-phone-holder',
+        email: 'previous@example.com',
+        phone: '+2347000000000',
+        user_id: null,
+      },
+    ]);
+    const insertQuery = createInsertQuery();
+    insertQuery.single.mockResolvedValue({
+      data: {
+        id: 'customer-new',
+        email: 'ada@example.com',
+        phone: null,
+        user_id: null,
+      },
       error: null,
     });
 
     const supabase = {
-      from: vi.fn().mockReturnValueOnce(loadQuery),
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery),
     } as unknown as SupabaseClient;
 
     const resolver = await createImportCustomerResolver(supabase, 'merchant-1');
     const result = await resolver.resolveCustomerId(supabase, createOrder());
 
     expect(result).toEqual({
-      customerId: 'customer-phone-holder',
-      createdCustomer: false,
+      customerId: 'customer-new',
+      createdCustomer: true,
     });
-    expect(supabase.from).toHaveBeenCalledTimes(1);
+    expect(insertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'ada@example.com', phone: null })
+    );
   });
 
   it('reuses an existing email customer when the phone retry hits the email constraint', async () => {
-    const loadQuery = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      is: vi.fn(),
-    };
-    loadQuery.select.mockReturnValue(loadQuery);
-    loadQuery.eq.mockReturnValue(loadQuery);
-    loadQuery.is.mockResolvedValue({ data: [], error: null });
-
-    const insertQuery = {
-      insert: vi.fn(),
-      select: vi.fn(),
-      single: vi.fn(),
-    };
-    insertQuery.insert.mockReturnValue(insertQuery);
-    insertQuery.select.mockReturnValue(insertQuery);
+    const loadQuery = createLoadQuery([]);
+    const insertQuery = createInsertQuery();
     insertQuery.single
       .mockResolvedValueOnce({
         data: null,

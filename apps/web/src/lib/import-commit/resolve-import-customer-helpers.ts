@@ -54,7 +54,12 @@ export function rememberCustomer(
   if (!phoneKey) return;
 
   const phoneCustomers = customerMaps.customersByPhone.get(phoneKey) || [];
-  if (!phoneCustomers.some((entry) => entry.id === customer.id)) {
+  const existingIndex = phoneCustomers.findIndex(
+    (entry) => entry.id === customer.id
+  );
+  if (existingIndex >= 0) {
+    phoneCustomers[existingIndex] = customer;
+  } else {
     phoneCustomers.push(customer);
   }
   customerMaps.customersByPhone.set(phoneKey, phoneCustomers);
@@ -145,29 +150,85 @@ export async function reuseEmailCustomer(
   return { customerId: customer.id, createdCustomer: false };
 }
 
+async function findCustomerById(
+  supabase: SupabaseClient,
+  merchantId: string,
+  customerId: string
+) {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, email, phone, user_id')
+    .eq('merchant_id', merchantId)
+    .eq('id', customerId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(
+      `Failed to reload imported customer by phone: ${error?.message ?? 'not found'}`
+    );
+  }
+
+  return data as ExistingCustomerRecord;
+}
+
 export async function enrichPhoneCustomerEmail(
   supabase: SupabaseClient,
   merchantId: string,
   customer: ExistingCustomerRecord,
   order: NormalizedImportedOrder
 ) {
-  if (toEmailKey(customer.email)) return customer;
+  const emailKey = toEmailKey(order.customer.email);
+  if (toEmailKey(customer.email) || !emailKey) return customer;
 
   const { data, error } = await supabase
     .from('customers')
     .update({ email: order.customer.email })
     .eq('merchant_id', merchantId)
     .eq('id', customer.id)
+    .is('email', null)
     .select('id, email, phone, user_id')
+    .maybeSingle();
+
+  if (error) {
+    if (isCustomerEmailConstraintError(error)) {
+      return findExistingCustomerByEmail(supabase, merchantId, emailKey);
+    }
+
+    throw new Error(
+      `Failed to enrich imported customer by phone: ${error.message}`
+    );
+  }
+
+  return data
+    ? (data as ExistingCustomerRecord)
+    : findCustomerById(supabase, merchantId, customer.id);
+}
+
+export async function reusePhoneCustomer(
+  supabase: SupabaseClient,
+  merchantId: string,
+  phone: string,
+  conflictMessage: string,
+  customerMaps: CustomerMaps
+) {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, email, phone, user_id')
+    .eq('merchant_id', merchantId)
+    .eq('phone', phone)
+    .is('deleted_at', null)
     .single();
 
   if (error || !data) {
     throw new Error(
-      `Failed to enrich imported customer by phone: ${error?.message ?? 'no customer returned'}`
+      `Failed to resolve conflicting customer by phone: ${error?.message ?? conflictMessage}`
     );
   }
 
-  return data as ExistingCustomerRecord;
+  const existingCustomer = data as ExistingCustomerRecord;
+  rememberCustomer(customerMaps, existingCustomer);
+  return { customerId: existingCustomer.id, createdCustomer: false };
 }
 
 export function buildCustomerInsert(
