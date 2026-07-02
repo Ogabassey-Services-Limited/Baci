@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 import { V2SavedProvider, useV2Saved } from './v2-saved-context';
@@ -35,6 +36,19 @@ function SavedConsumer() {
 }
 
 describe('V2SavedProvider', () => {
+
+  it('returns an inert server fallback when a saved provider is absent during SSR', () => {
+    vi.stubGlobal('window', undefined);
+
+    function ServerRenderedConsumer() {
+      const saved = useV2Saved();
+      return <div>{saved.isSaved('product-1') ? 'saved' : 'not saved'}</div>;
+    }
+
+    expect(() => renderToString(<ServerRenderedConsumer />)).not.toThrow();
+    expect(renderToString(<ServerRenderedConsumer />)).toContain('not saved');
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
@@ -44,6 +58,7 @@ describe('V2SavedProvider', () => {
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('defers localStorage hydration until idle timeout', () => {

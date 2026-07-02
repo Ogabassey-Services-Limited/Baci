@@ -26,6 +26,10 @@ export const GIGL_STATIONS_TIMEOUT_MS =
   positiveIntegerEnv(process.env.GIGL_STATIONS_TIMEOUT_MS) || 5000;
 export const GIGL_STATIONS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+export function isGiglRuntimeConfigured(): boolean {
+  return Boolean(GIGL_BASE_URL && GIGL_EMAIL && GIGL_PASSWORD);
+}
+
 export interface GiglToken {
   token: string;
   userChannelCode: string;

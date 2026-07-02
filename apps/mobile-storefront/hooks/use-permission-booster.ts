@@ -8,6 +8,12 @@ import {
 } from '@/lib/tracking-transparency';
 
 type PermissionType = 'notifications' | 'tracking';
+type NotificationsPermissionModule = Partial<
+  Pick<
+    typeof import('expo-notifications'),
+    'getPermissionsAsync' | 'requestPermissionsAsync'
+  >
+>;
 
 interface PermissionState {
   // Track last request time for cool-down logic
@@ -27,13 +33,69 @@ let notificationsModulePromise: Promise<
   typeof import('expo-notifications')
 > | null = null;
 
+function hasNotificationStatusApi(
+  notifications: NotificationsPermissionModule
+): notifications is NotificationsPermissionModule & {
+  getPermissionsAsync: NonNullable<
+    NotificationsPermissionModule['getPermissionsAsync']
+  >;
+} {
+  return typeof notifications.getPermissionsAsync === 'function';
+}
+
+function hasNotificationRequestApi(
+  notifications: NotificationsPermissionModule
+): notifications is NotificationsPermissionModule & {
+  requestPermissionsAsync: NonNullable<
+    NotificationsPermissionModule['requestPermissionsAsync']
+  >;
+} {
+  return typeof notifications.requestPermissionsAsync === 'function';
+}
+
+function warnNotificationsPermissionApiUnavailable(method: string) {
+  console.warn(`Notification permission API unavailable: ${method}`);
+}
+
+export async function getNotificationPermissionStatus(
+  notifications: NotificationsPermissionModule
+): Promise<string | null> {
+  if (!hasNotificationStatusApi(notifications)) {
+    warnNotificationsPermissionApiUnavailable('getPermissionsAsync');
+    return null;
+  }
+
+  const settings = await notifications.getPermissionsAsync();
+  return settings.status;
+}
+
+export async function requestNotificationPermissionStatus(
+  notifications: NotificationsPermissionModule
+): Promise<boolean> {
+  if (!hasNotificationRequestApi(notifications)) {
+    warnNotificationsPermissionApiUnavailable('requestPermissionsAsync');
+    return false;
+  }
+
+  const { status } = await notifications.requestPermissionsAsync();
+  return status === 'granted';
+}
+
 function loadNotifications() {
-  notificationsModulePromise ??= import('expo-notifications').catch(
-    (error: unknown) => {
+  notificationsModulePromise ??= import('expo-notifications')
+    .then((notifications) => {
+      if (
+        !hasNotificationStatusApi(notifications) &&
+        !hasNotificationRequestApi(notifications)
+      ) {
+        notificationsModulePromise = null;
+      }
+      return notifications;
+    })
+    .catch((error: unknown) => {
       notificationsModulePromise = null;
       throw error;
-    }
-  );
+    });
   return notificationsModulePromise;
 }
 
@@ -111,11 +173,13 @@ export const usePermissionBooster = () => {
     type: PermissionType
   ): Promise<'granted' | 'denied' | 'soft-ask-needed'> => {
     // 1. Check current system status
-    let status;
+    let status: string | null;
     if (type === 'notifications') {
       const notifications = await loadNotifications();
-      const settings = await notifications.getPermissionsAsync();
-      status = settings.status;
+      status = await getNotificationPermissionStatus(notifications);
+      if (!status) {
+        return 'denied';
+      }
     } else {
       if (!canRequestTrackingTransparency()) {
         return 'granted';
@@ -146,8 +210,7 @@ export const usePermissionBooster = () => {
 
     if (type === 'notifications') {
       const notifications = await loadNotifications();
-      const { status } = await notifications.requestPermissionsAsync();
-      return status === 'granted';
+      return await requestNotificationPermissionStatus(notifications);
     } else {
       const { status } = await requestTrackingPermissionStatus();
       return status === 'granted';
