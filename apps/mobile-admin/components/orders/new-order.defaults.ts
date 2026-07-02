@@ -35,6 +35,8 @@ export function createEmptyDeliveryInfo(): DeliveryInfo {
 export function createEmptyNewCustomerDraft(): NewCustomerDraft {
   return {
     address: '',
+    companyName: '',
+    customerType: 'individual',
     email: '',
     firstName: '',
     lastName: '',

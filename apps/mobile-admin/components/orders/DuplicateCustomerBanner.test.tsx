@@ -37,8 +37,11 @@ describe('DuplicateCustomerBanner', () => {
   it('reuses the duplicate customer and resets the create flow', () => {
     const duplicateCustomer: SelectableCustomer = {
       address: '12 Allen Avenue',
+      company_name: null,
+      customer_type: 'individual',
       email: 'ada@example.com',
       first_name: 'Ada',
+      full_name: 'Ada Lovelace',
       id: 'customer-1',
       last_name: 'Lovelace',
       phone: '08012345678',

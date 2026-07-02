@@ -1,0 +1,115 @@
+import '@testing-library/jest-dom/vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import { ProductVariantSelectableGroup } from './ProductVariantSelectableGroup';
+
+vi.mock('react-native', async () => {
+  const React = await import('react');
+  const flattenStyle = (
+    style: Record<string, unknown> | Record<string, unknown>[] | undefined
+  ) =>
+    Array.isArray(style)
+      ? Object.assign({}, ...style.filter(Boolean))
+      : (style ?? {});
+
+  return {
+    Pressable: ({
+      accessibilityLabel,
+      accessibilityState,
+      children,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      accessibilityState?: { selected?: boolean };
+      children?: ReactNode;
+      onPress?: () => void;
+    }) =>
+      React.createElement(
+        'button',
+        {
+          'aria-label': accessibilityLabel,
+          'aria-pressed': accessibilityState?.selected,
+          onClick: () => onPress?.(),
+          type: 'button',
+        },
+        children
+      ),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: ({ children }: { children?: ReactNode }) =>
+      React.createElement('span', null, children),
+    View: ({
+      children,
+      style,
+      testID,
+    }: {
+      children?: ReactNode;
+      style?: Record<string, unknown> | Record<string, unknown>[];
+      testID?: string;
+    }) => {
+      const flattenedStyle = flattenStyle(style);
+
+      return React.createElement(
+        'div',
+        { 'data-flex-wrap': flattenedStyle.flexWrap, 'data-testid': testID },
+        children
+      );
+    },
+  };
+});
+
+const colors = {
+  border: '#2f3148',
+  card: '#171829',
+  primary: '#4f9be8',
+  text: '#ffffff',
+  textOnPrimary: '#ffffff',
+  textSecondary: '#a6adbb',
+};
+
+describe('ProductVariantSelectableGroup', () => {
+  it('renders selectable variant values in a wrapping row', () => {
+    const onSelect = vi.fn();
+
+    render(
+      <ProductVariantSelectableGroup
+        colors={colors}
+        group={{
+          key: 'storage',
+          label: 'Storage',
+          values: [],
+        }}
+        onSelect={onSelect}
+        visibleValues={[
+          {
+            available: true,
+            label: '256GB SSD',
+            selected: false,
+            value: '256GB SSD',
+          },
+          {
+            available: true,
+            label: '512GB SSD',
+            selected: true,
+            value: '512GB SSD',
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Storage 256GB SSD' })
+    );
+
+    expect(onSelect).toHaveBeenCalledWith('storage', '256GB SSD', true);
+    expect(
+      screen.getByRole('button', { name: 'Select Storage 512GB SSD' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('variant-options-storage')).toHaveAttribute(
+      'data-flex-wrap',
+      'wrap'
+    );
+  });
+});

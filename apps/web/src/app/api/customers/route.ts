@@ -1,6 +1,6 @@
 import {
   buildCustomerAddressLine,
-  buildCustomerNameFields,
+  buildCustomerRecordNameFields,
   buildCustomerSearchFilter,
   CUSTOMER_ADMIN_COLUMNS,
 } from '@baci/shared';
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     const body = parseResult.data;
 
-    const nameFields = buildCustomerNameFields(body);
+    const nameFields = buildCustomerRecordNameFields(body);
     const address = buildCustomerAddressLine(
       body.address,
       body.city,

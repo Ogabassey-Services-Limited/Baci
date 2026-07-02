@@ -16,8 +16,11 @@ export const MODAL_FLATLIST_PROPS = {
 export const DEFAULT_COUNTRY_CODE: CountryCode = 'NG';
 
 interface CustomerDisplayFields {
+  company_name?: string | null;
+  customer_type?: string | null;
   email?: string | null;
   first_name?: string | null;
+  full_name?: string | null;
   last_name?: string | null;
   phone?: string | null;
 }
@@ -30,6 +33,13 @@ function getTrimmedValue(value?: string | null) {
 export function getCustomerDisplayName(
   customer: CustomerDisplayFields
 ): string {
+  if (customer.customer_type === 'company') {
+    const companyName = getTrimmedValue(customer.company_name);
+    if (companyName) {
+      return companyName;
+    }
+  }
+
   const fullName = [customer.first_name, customer.last_name]
     .map((value) => getTrimmedValue(value))
     .filter((value): value is string => Boolean(value))
@@ -37,6 +47,11 @@ export function getCustomerDisplayName(
 
   if (fullName) {
     return fullName;
+  }
+
+  const storedFullName = getTrimmedValue(customer.full_name);
+  if (storedFullName) {
+    return storedFullName;
   }
 
   const email = getTrimmedValue(customer.email);
@@ -62,6 +77,7 @@ export function getCustomerDisplayInitial(
 ): string {
   return (
     getTrimmedValue(customer.first_name)?.[0] ||
+    getTrimmedValue(customer.full_name)?.[0] ||
     getTrimmedValue(customer.email)?.[0] ||
     getTrimmedValue(customer.phone)?.[0] ||
     '?'

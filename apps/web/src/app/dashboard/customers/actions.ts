@@ -1,7 +1,7 @@
 'use server';
 
 import {
-  buildCustomerNameFields,
+  buildCustomerRecordNameFields,
   buildCustomerSearchFilter,
   CUSTOMER_ADMIN_COLUMNS,
   extractOrderDeliveryAddress,
@@ -20,6 +20,8 @@ import { createClient } from '@/lib/supabase/server';
 export interface Customer {
   id: string;
   merchant_id: string;
+  customer_type: 'individual' | 'company';
+  company_name: string | null;
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -37,6 +39,8 @@ export interface Customer {
 }
 
 export interface CreateCustomerData {
+  customer_type?: 'individual' | 'company';
+  company_name?: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -114,16 +118,27 @@ export async function createCustomer(formData: CreateCustomerData) {
     throw new Error('Unauthorized');
   }
 
+  const isCompany = formData.customer_type === 'company';
   const firstName = formData.first_name
     ? sanitizeText(formData.first_name, 100)
     : null;
   const lastName = formData.last_name
     ? sanitizeText(formData.last_name, 100)
     : null;
+  const companyName = formData.company_name
+    ? sanitizeText(formData.company_name, 200)
+    : null;
   const email = formData.email ? sanitizeEmail(formData.email) : null;
   const phone = formData.phone ? sanitizePhone(formData.phone) : null;
   const address = formData.address ? sanitizeText(formData.address, 500) : null;
-  const nameFields = buildCustomerNameFields({
+
+  if (isCompany && !companyName) {
+    throw new Error('Company name is required');
+  }
+
+  const nameFields = buildCustomerRecordNameFields({
+    company_name: companyName,
+    customer_type: formData.customer_type,
     first_name: firstName,
     last_name: lastName,
     email,

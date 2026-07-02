@@ -21,6 +21,79 @@ export interface VariantOptionGroup {
 
 export type VariantOptionSelection = Record<string, string>;
 
+const CAPACITY_OPTION_AXIS_KEYS = new Set([
+  'capacity',
+  'memory',
+  'ram',
+  'rom',
+  'storage',
+]);
+
+const CAPACITY_UNIT_FACTORS_IN_GB: Record<string, number> = {
+  gb: 1,
+  kb: 1 / (1024 * 1024),
+  mb: 1 / 1024,
+  tb: 1024,
+};
+
+function shouldSortByCapacity(key: string): boolean {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .split(/[._\s-]+/)
+    .some((segment) => CAPACITY_OPTION_AXIS_KEYS.has(segment));
+}
+
+function parseCapacityValue(value: string): number | null {
+  const match = /^\s*(\d+(?:\.\d+)?)\s*([kmgt]b)\s*$/i.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number.parseFloat(match[1] ?? '');
+  const unitFactor = CAPACITY_UNIT_FACTORS_IN_GB[match[2]?.toLowerCase() ?? ''];
+  if (!Number.isFinite(amount) || unitFactor === undefined) {
+    return null;
+  }
+
+  return amount * unitFactor;
+}
+
+function compareCapacityValues(left: string, right: string): number {
+  const leftCapacity = parseCapacityValue(left);
+  const rightCapacity = parseCapacityValue(right);
+
+  if (leftCapacity !== null && rightCapacity !== null) {
+    return leftCapacity === rightCapacity
+      ? left.localeCompare(right, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      : leftCapacity - rightCapacity;
+  }
+
+  if (leftCapacity !== null) {
+    return -1;
+  }
+
+  if (rightCapacity !== null) {
+    return 1;
+  }
+
+  return left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
+function getSortedOptionValues(key: string, values: string[]): string[] {
+  if (!shouldSortByCapacity(key)) {
+    return values;
+  }
+
+  return [...values].sort(compareCapacityValues);
+}
+
 function variantMatchesSelection(
   variant: AdminProductVariant,
   selection: VariantOptionSelection,
@@ -64,18 +137,20 @@ export function buildVariantOptionGroups(
   return getOrderedGroupKeys([...valuesByKey.keys()]).map((key) => ({
     key,
     label: labelsByKey.get(key) ?? formatAttributeLabel(key),
-    values: (valuesByKey.get(key) ?? []).map((value) => ({
-      available: variants.some((variant) => {
-        const attributeMap = getVariantAttributeMap(variant);
-        return (
-          attributeMap[key] === value &&
-          variantMatchesSelection(variant, selection, key, knownKeys)
-        );
-      }),
-      label: value,
-      selected: selection[key] === value,
-      value,
-    })),
+    values: getSortedOptionValues(key, valuesByKey.get(key) ?? []).map(
+      (value) => ({
+        available: variants.some((variant) => {
+          const attributeMap = getVariantAttributeMap(variant);
+          return (
+            attributeMap[key] === value &&
+            variantMatchesSelection(variant, selection, key, knownKeys)
+          );
+        }),
+        label: value,
+        selected: selection[key] === value,
+        value,
+      })
+    ),
   }));
 }
 
@@ -89,7 +164,9 @@ export function completeSingleValueSelection(
 
   for (let pass = 0; pass < maxPasses; pass += 1) {
     const groups =
-      pass === 0 ? initialGroups : buildVariantOptionGroups(variants, nextSelection);
+      pass === 0
+        ? initialGroups
+        : buildVariantOptionGroups(variants, nextSelection);
     let changed = false;
 
     for (const group of groups) {

@@ -44,6 +44,16 @@ describe('new-order.shared', () => {
     it('falls back from email to phone to unknown when names are unavailable', () => {
       expect(
         getCustomerDisplayName({
+          email: 'old-row@example.com',
+          first_name: null,
+          full_name: ' Stored Customer ',
+          last_name: null,
+          phone: null,
+        })
+      ).toBe('Stored Customer');
+
+      expect(
+        getCustomerDisplayName({
           email: 'merchant-owner@example.com',
           first_name: null,
           last_name: null,
@@ -97,6 +107,14 @@ describe('new-order.shared', () => {
           phone: '08012345678',
         })
       ).toBe('A');
+      expect(
+        getCustomerDisplayInitial({
+          email: null,
+          first_name: '',
+          full_name: 'Stored Customer',
+          phone: null,
+        })
+      ).toBe('S');
       expect(
         getCustomerDisplayInitial({
           email: null,

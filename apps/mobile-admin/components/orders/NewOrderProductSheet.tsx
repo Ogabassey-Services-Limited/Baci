@@ -1,56 +1,59 @@
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { AppPageSheet } from '@/components/ui/AppPageSheet';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import type { TextInput as BottomSheetTextInputRef } from 'react-native-gesture-handler';
+import type { NewOrderController } from '@/hooks/useNewOrderController';
 import {
   getProductPickerRowSubtitle,
   getProductPickerRowTitle,
 } from '@/lib/order-product-picker';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 import { buildVariantOptionGroups } from '@/lib/product-variant-option-selector';
-import {
-  NewOrderProductSheetEmptyState,
-  type NewOrderProductSheetEmptyStateController,
-} from './NewOrderProductSheetEmptyState';
+import { NewOrderCreateProductRow } from './NewOrderCreateProductRow';
+import { NewOrderProductPickerSheetFrame } from './NewOrderProductPickerSheetFrame';
+import { NewOrderProductSearchFooter } from './NewOrderProductSearchFooter';
+import { NewOrderProductSheetEmptyState } from './NewOrderProductSheetEmptyState';
 import { MODAL_FLATLIST_PROPS } from './new-order.shared';
 import { styles } from './new-order.styles';
 import { ProductVariantOptionSelector } from './ProductVariantOptionSelector';
 
-export type NewOrderProductSheetController =
-  NewOrderProductSheetEmptyStateController &
-    Pick<
-      ReturnType<typeof useNewOrderController>,
-      | 'closeProductModal'
-      | 'fetchMoreProducts'
-      | 'formatPrice'
-      | 'handleAddProduct'
-      | 'handleSelectProduct'
-      | 'hasMoreProducts'
-      | 'isFetchingMoreProducts'
-      | 'isPickingVariant'
-      | 'productSearch'
-      | 'resetProductPickerState'
-      | 'selectableProductRows'
-      | 'selectedParentProduct'
-      | 'setProductSearch'
-      | 'showProductModal'
-    >;
+const PRODUCT_PICKER_FOOTER_BOTTOM_INSET = 18;
+const PRODUCT_PICKER_LIST_BOTTOM_PADDING = 128;
 
-interface NewOrderProductSheetProps {
-  controller: NewOrderProductSheetController;
-}
+export type NewOrderProductSheetController = Pick<
+  NewOrderController,
+  | 'closeProductModal'
+  | 'colors'
+  | 'fetchMoreProducts'
+  | 'formatPrice'
+  | 'handleAddProduct'
+  | 'handleSelectProduct'
+  | 'hasMoreProducts'
+  | 'isFetchingMoreProducts'
+  | 'isLoadingSelectedParentProduct'
+  | 'isPickingVariant'
+  | 'isProductsLoading'
+  | 'productSearch'
+  | 'productsError'
+  | 'refetchProducts'
+  | 'refetchSelectedParentProduct'
+  | 'resetProductPickerState'
+  | 'selectableProductRows'
+  | 'selectedParentProduct'
+  | 'selectedParentProductError'
+  | 'setProductSearch'
+  | 'showProductModal'
+>;
 
 export function NewOrderProductSheet({
   controller,
-}: NewOrderProductSheetProps) {
+}: {
+  controller: NewOrderProductSheetController;
+}) {
+  const inputRef = useRef<BottomSheetTextInputRef | null | undefined>(null);
+
   const {
     closeProductModal,
     colors,
@@ -68,6 +71,15 @@ export function NewOrderProductSheet({
     setProductSearch,
     showProductModal,
   } = controller;
+  const productSearchFooter = !isPickingVariant ? (
+    <NewOrderProductSearchFooter
+      colors={colors}
+      inputRef={inputRef}
+      autoFocus={showProductModal && !isPickingVariant}
+      productSearch={productSearch}
+      setProductSearch={setProductSearch}
+    />
+  ) : null;
   const structuredVariantRows: AdminProductVariant[] =
     isPickingVariant && selectedParentProduct
       ? selectableProductRows.map(
@@ -93,28 +105,62 @@ export function NewOrderProductSheet({
       variantOptionGroups.some((group) => group.values.length > 1)
   );
 
+  useEffect(() => {
+    if (showProductModal && !isPickingVariant) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 250);
+
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+  }, [showProductModal, isPickingVariant]);
+
   return (
-    <AppPageSheet
+    <NewOrderProductPickerSheetFrame
       closeLabel="Close product sheet"
-      contentContainerStyle={{ flex: 1, paddingHorizontal: 0, paddingTop: 0 }}
-      onClose={closeProductModal}
-      scrollEnabled={false}
-      title={isPickingVariant ? 'Choose Variant' : 'Select Item'}
-      trailingAccessory={
+      colors={colors}
+      footer={productSearchFooter}
+      footerBottomInset={PRODUCT_PICKER_FOOTER_BOTTOM_INSET}
+      leadingAccessory={
         isPickingVariant ? (
           <Pressable
             accessibilityLabel="Back to product list"
             accessibilityRole="button"
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
             onPress={resetProductPickerState}
           >
-            <Ionicons color={colors.text} name="chevron-back" size={22} />
+            <Ionicons color={colors.text} name="chevron-back" size={24} />
+          </Pressable>
+        ) : null
+      }
+      onClose={closeProductModal}
+      title={isPickingVariant ? 'Choose Variant' : 'Select Item'}
+      trailingAccessory={
+        isPickingVariant ? (
+          <Pressable
+            accessibilityLabel="Close product sheet"
+            accessibilityRole="button"
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+            onPress={closeProductModal}
+            style={{
+              alignItems: 'center',
+              backgroundColor: `${colors.text}10`,
+              borderRadius: 999,
+              height: 36,
+              justifyContent: 'center',
+              width: 36,
+            }}
+          >
+            <Ionicons color={colors.text} name="close" size={22} />
           </Pressable>
         ) : null
       }
       visible={showProductModal}
     >
       <View style={{ flex: 1 }}>
-        {selectedParentProduct ? (
+        {selectedParentProduct && !showProductFirstVariantSelector ? (
           <Text
             numberOfLines={1}
             style={{
@@ -129,62 +175,13 @@ export function NewOrderProductSheet({
         ) : null}
 
         {!isPickingVariant ? (
-          <>
-            <View
-              style={[styles.searchBox, { backgroundColor: colors.cardHover }]}
-            >
-              <Ionicons color={colors.textMuted} name="search" size={20} />
-              <TextInput
-                accessibilityHint="Type to filter the product list"
-                accessibilityLabel="Search products"
-                onChangeText={setProductSearch}
-                placeholder="Search products..."
-                placeholderTextColor={colors.textMuted}
-                style={{ color: colors.text, flex: 1, marginLeft: 8 }}
-                value={productSearch}
-              />
-            </View>
-
-            <Pressable
-              accessibilityLabel="Create new product"
-              accessibilityRole="button"
-              onPress={() => {
-                closeProductModal();
-                router.push('/product/new');
-              }}
-              style={{
-                alignItems: 'center',
-                backgroundColor: colors.card,
-                borderBottomColor: colors.border,
-                borderBottomWidth: 1,
-                flexDirection: 'row',
-                padding: 16,
-              }}
-            >
-              <View
-                style={[
-                  styles.iconBox,
-                  { backgroundColor: `${colors.primary}20` },
-                ]}
-              >
-                <Ionicons color={colors.primary} name="add" size={20} />
-              </View>
-              <View style={{ marginLeft: 12 }}>
-                <Text
-                  style={{
-                    color: colors.primary,
-                    fontSize: 16,
-                    fontWeight: '600',
-                  }}
-                >
-                  Create New Product
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                  Add a new item to inventory
-                </Text>
-              </View>
-            </Pressable>
-          </>
+          <NewOrderCreateProductRow
+            colors={colors}
+            onPress={() => {
+              closeProductModal();
+              router.push('/product/new');
+            }}
+          />
         ) : null}
 
         {showProductFirstVariantSelector && selectedParentProduct ? (
@@ -197,98 +194,102 @@ export function NewOrderProductSheet({
             variants={structuredVariantRows}
           />
         ) : (
-          <FlatList
-            {...MODAL_FLATLIST_PROPS}
-            // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
-            getItemLayout={(_data, index) => ({
-              length: 72,
-              offset: 72 * index,
-              index,
-            })}
-            data={selectableProductRows}
-            keyExtractor={(item) => item.id}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <NewOrderProductSheetEmptyState controller={controller} />
-            }
-            ListFooterComponent={
-              !isPickingVariant && isFetchingMoreProducts ? (
-                <ActivityIndicator
-                  color={colors.primary}
-                  size="small"
-                  style={{ paddingVertical: 16 }}
-                />
-              ) : null
-            }
-            onEndReached={() => {
-              if (
-                !isPickingVariant &&
-                hasMoreProducts &&
-                !isFetchingMoreProducts
-              ) {
-                void fetchMoreProducts();
+          <View style={{ flex: 1 }}>
+            <BottomSheetFlatList
+              getItemLayout={(_data, index) => ({
+                index,
+                length: 72,
+                offset: 72 * index,
+              })}
+              {...MODAL_FLATLIST_PROPS}
+              contentContainerStyle={{
+                paddingBottom: PRODUCT_PICKER_LIST_BOTTOM_PADDING,
+              }}
+              data={selectableProductRows}
+              keyExtractor={(item) => item.id}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <NewOrderProductSheetEmptyState controller={controller} />
               }
-            }}
-            onEndReachedThreshold={0.4}
-            renderItem={({ item }) => {
-              const pickerTitle = getProductPickerRowTitle(
-                item,
-                selectedParentProduct?.name
-              );
-              const pickerSubtitle = getProductPickerRowSubtitle(item);
+              ListFooterComponent={
+                !isPickingVariant && isFetchingMoreProducts ? (
+                  <ActivityIndicator
+                    color={colors.primary}
+                    size="small"
+                    style={{ paddingVertical: 16 }}
+                  />
+                ) : null
+              }
+              onEndReached={() => {
+                if (
+                  !isPickingVariant &&
+                  hasMoreProducts &&
+                  !isFetchingMoreProducts
+                ) {
+                  void fetchMoreProducts();
+                }
+              }}
+              onEndReachedThreshold={0.4}
+              renderItem={({ item }) => {
+                const pickerTitle = getProductPickerRowTitle(
+                  item,
+                  selectedParentProduct?.name
+                );
+                const pickerSubtitle = getProductPickerRowSubtitle(item);
 
-              return (
-                <Pressable
-                  accessibilityLabel={
-                    isPickingVariant
-                      ? `Add ${pickerTitle}`
-                      : `Select ${pickerTitle}`
-                  }
-                  accessibilityRole="button"
-                  onPress={() =>
-                    isPickingVariant
-                      ? handleAddProduct({
-                          ...item,
-                          images:
-                            item.images?.length > 0
-                              ? item.images
-                              : (selectedParentProduct?.images ?? []),
-                          parent_product_id:
-                            item.parent_product_id ??
-                            selectedParentProduct?.id ??
-                            null,
-                        })
-                      : handleSelectProduct(item)
-                  }
-                  style={[
-                    styles.productItem,
-                    { borderBottomColor: colors.border, height: 72 },
-                  ]}
-                >
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text
-                      numberOfLines={1}
-                      style={{ color: colors.text, fontSize: 16 }}
-                    >
-                      {pickerTitle}
+                return (
+                  <Pressable
+                    accessibilityLabel={
+                      isPickingVariant
+                        ? `Add ${pickerTitle}`
+                        : `Select ${pickerTitle}`
+                    }
+                    accessibilityRole="button"
+                    onPress={() =>
+                      isPickingVariant
+                        ? handleAddProduct({
+                            ...item,
+                            images:
+                              item.images?.length > 0
+                                ? item.images
+                                : (selectedParentProduct?.images ?? []),
+                            parent_product_id:
+                              item.parent_product_id ??
+                              selectedParentProduct?.id ??
+                              null,
+                          })
+                        : handleSelectProduct(item)
+                    }
+                    style={[
+                      styles.productItem,
+                      { borderBottomColor: colors.border, height: 72 },
+                    ]}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: colors.text, fontSize: 16 }}
+                      >
+                        {pickerTitle}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: colors.textSecondary, fontSize: 12 }}
+                      >
+                        {pickerSubtitle}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.text, fontWeight: '500' }}>
+                      {formatPrice(item.price)}
                     </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={{ color: colors.textSecondary, fontSize: 12 }}
-                    >
-                      {pickerSubtitle}
-                    </Text>
-                  </View>
-                  <Text style={{ color: colors.text, fontWeight: '500' }}>
-                    {formatPrice(item.price)}
-                  </Text>
-                </Pressable>
-              );
-            }}
-          />
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
         )}
       </View>
-    </AppPageSheet>
+    </NewOrderProductPickerSheetFrame>
   );
 }

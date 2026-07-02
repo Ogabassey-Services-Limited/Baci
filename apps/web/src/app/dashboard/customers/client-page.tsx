@@ -93,12 +93,15 @@ export default function CustomersClientPage({
 
   // Form state
   const [newCustomer, setNewCustomer] = useState<CreateCustomerData>({
+    customer_type: 'individual',
+    company_name: '',
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
     address: '',
   });
+  const isCompanyCustomer = newCustomer.customer_type === 'company';
 
   useEffect(() => {
     // Skip initial fetch if we have hydration data and no search term
@@ -161,6 +164,8 @@ export default function CustomersClientPage({
       });
       setIsAddOpen(false);
       setNewCustomer({
+        customer_type: 'individual',
+        company_name: '',
         first_name: '',
         last_name: '',
         email: '',
@@ -237,32 +242,78 @@ export default function CustomersClientPage({
                 <DialogTitle>Add New Customer</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="first_name">First Name</Label>
-                  <Input
-                    id="first_name"
-                    value={newCustomer.first_name}
-                    onChange={(e) =>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={isCompanyCustomer ? 'outline' : 'default'}
+                    aria-pressed={!isCompanyCustomer}
+                    onClick={() =>
                       setNewCustomer({
                         ...newCustomer,
-                        first_name: e.target.value,
+                        customer_type: 'individual',
                       })
                     }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="last_name">Last Name</Label>
-                  <Input
-                    id="last_name"
-                    value={newCustomer.last_name}
-                    onChange={(e) =>
+                  >
+                    Person
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isCompanyCustomer ? 'default' : 'outline'}
+                    aria-pressed={isCompanyCustomer}
+                    onClick={() =>
                       setNewCustomer({
                         ...newCustomer,
-                        last_name: e.target.value,
+                        customer_type: 'company',
                       })
                     }
-                  />
+                  >
+                    Company
+                  </Button>
                 </div>
+                {isCompanyCustomer ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor="company_name">Company Name</Label>
+                    <Input
+                      id="company_name"
+                      value={newCustomer.company_name ?? ''}
+                      onChange={(e) =>
+                        setNewCustomer({
+                          ...newCustomer,
+                          company_name: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="first_name">First Name</Label>
+                      <Input
+                        id="first_name"
+                        value={newCustomer.first_name}
+                        onChange={(e) =>
+                          setNewCustomer({
+                            ...newCustomer,
+                            first_name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="last_name">Last Name</Label>
+                      <Input
+                        id="last_name"
+                        value={newCustomer.last_name}
+                        onChange={(e) =>
+                          setNewCustomer({
+                            ...newCustomer,
+                            last_name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
                   <Input

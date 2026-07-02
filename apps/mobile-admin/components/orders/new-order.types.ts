@@ -45,6 +45,8 @@ export interface DeliveryInfo {
 }
 
 export interface NewCustomerDraft {
+  customerType: 'individual' | 'company';
+  companyName: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -64,7 +66,15 @@ export interface FinancialModalState {
 
 export type SelectableCustomer = Pick<
   Customer,
-  'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
+  | 'id'
+  | 'customer_type'
+  | 'company_name'
+  | 'full_name'
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'phone'
+  | 'address'
 >;
 
 export type SelectableOrderProduct = SelectableManualOrderProduct;

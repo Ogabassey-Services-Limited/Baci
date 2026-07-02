@@ -47,6 +47,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   channelText: { fontSize: 13, fontWeight: '600' },
+  customerSearchBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  customerList: {
+    flex: 1,
+    minHeight: 0,
+  },
   rowBetween: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -125,18 +133,22 @@ export const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   footer: {
-    bottom: 0,
     elevation: 10,
     gap: 16,
-    left: 0,
     padding: 16,
-    paddingBottom: 32,
-    position: 'absolute',
-    right: 0,
+    paddingBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 5,
+  },
+  paymentStatusField: {
+    gap: 8,
+  },
+  footerFieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   paymentToggle: {
     borderRadius: RADIUS.lg,
@@ -146,7 +158,10 @@ export const styles = StyleSheet.create({
   toggleOption: {
     alignItems: 'center',
     borderRadius: RADIUS.md,
+    flexDirection: 'row',
     flex: 1,
+    gap: 6,
+    justifyContent: 'center',
     paddingVertical: 8,
   },
   toggleText: { fontSize: 12, fontWeight: '700' },
@@ -178,6 +193,7 @@ export const styles = StyleSheet.create({
   searchBox: {
     alignItems: 'center',
     borderRadius: 8,
+    borderWidth: 1,
     flexDirection: 'row',
     margin: 16,
     padding: 12,

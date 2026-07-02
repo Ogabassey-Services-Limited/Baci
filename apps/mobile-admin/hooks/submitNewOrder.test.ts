@@ -195,7 +195,7 @@ describe('submitNewOrder', () => {
       product_match_status: 'linked',
       quantity: 1,
       order_id: 'order-1',
-      variant_attributes: null,
+      variant_attributes: {},
       variant_name: null,
     });
 
@@ -281,7 +281,10 @@ describe('submitNewOrder', () => {
     };
     const [customItem, variantItem] = payload.buildItems('order-1');
 
-    expect(customItem).toMatchObject({ product_match_status: 'unreviewed' });
+    expect(customItem).toMatchObject({
+      product_match_status: 'unreviewed',
+      variant_attributes: {},
+    });
     expect(variantItem?.variant_attributes).toEqual({
       color: 'Blue',
       storage: '512GB',

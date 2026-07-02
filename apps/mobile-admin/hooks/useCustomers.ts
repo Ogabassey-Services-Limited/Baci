@@ -6,6 +6,7 @@
 import {
   buildCustomerAddressLine,
   buildCustomerNameFields,
+  buildCustomerRecordNameFields,
   CUSTOMER_ADMIN_COLUMNS,
 } from '@baci/shared';
 import {
@@ -21,6 +22,7 @@ import { useMerchant } from './useMerchant';
 export type { Customer } from './customers-data';
 
 export function useCustomers(filters?: {
+  customerType?: 'individual' | 'company';
   search?: string;
   sortBy?: 'recent' | 'orders' | 'spent' | 'alpha';
 }) {
@@ -86,7 +88,7 @@ export function useCustomerStats() {
 
   return useQuery({
     queryKey: ['customer-stats', merchant?.id],
-    queryFn: async () => {
+    queryFn: () => {
       if (!merchant?.id) throw new Error('No merchant selected');
       return fetchCustomerStats(merchant.id);
     },
@@ -102,6 +104,8 @@ export function useCreateCustomer() {
   return useMutation({
     mutationKey: ['createCustomer'],
     mutationFn: async (newCustomer: {
+      company_name?: string;
+      customer_type?: 'individual' | 'company';
       first_name: string;
       last_name: string;
       email?: string;
@@ -133,7 +137,9 @@ export function useCreateCustomer() {
         }
       }
 
-      const nameFields = buildCustomerNameFields({
+      const nameFields = buildCustomerRecordNameFields({
+        company_name: newCustomer.company_name,
+        customer_type: newCustomer.customer_type,
         first_name: newCustomer.first_name,
         last_name: newCustomer.last_name,
         email: newCustomer.email,

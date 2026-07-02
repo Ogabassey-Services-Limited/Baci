@@ -1,5 +1,5 @@
-import type { PostgrestError } from '@supabase/supabase-js';
 import type { VariantAttributes } from '@baci/shared';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 interface CreateOrderResult {
   id: string;
@@ -89,11 +89,21 @@ function stripOrderItemInsertColumns(
   });
 }
 
+function normalizeOrderItemInsertRows(
+  rows: OrderItemInsertRow[]
+): OrderItemInsertRow[] {
+  return rows.map((row) => ({
+    ...row,
+    variant_attributes: row.variant_attributes ?? {},
+  }));
+}
+
 async function insertOrderItemsWithMissingColumnFallback(
   insertOrderItems: InsertOrderItems,
   rows: OrderItemInsertRow[]
 ): Promise<void> {
-  const { error } = await insertOrderItems(rows);
+  const normalizedRows = normalizeOrderItemInsertRows(rows);
+  const { error } = await insertOrderItems(normalizedRows);
 
   if (!error) {
     return;
@@ -112,7 +122,7 @@ async function insertOrderItemsWithMissingColumnFallback(
   );
 
   const { error: retryError } = await insertOrderItems(
-    stripOrderItemInsertColumns(rows, missingColumns)
+    stripOrderItemInsertColumns(normalizedRows, missingColumns)
   );
 
   if (retryError) {

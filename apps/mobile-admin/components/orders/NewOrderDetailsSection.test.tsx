@@ -7,12 +7,19 @@ const platformState = vi.hoisted(() => ({
   OS: 'web' as 'android' | 'ios' | 'web',
 }));
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
+vi.mock('@react-native-vector-icons/ionicons', () => {
+  const MockIonicons = ({ color, name }: { color?: string; name?: string }) => (
+    <span data-color={color} data-icon={name}>
+      {name}
+    </span>
+  );
 
-  default: () => null,
-  __esModule: true,
-}));
+  return {
+    Ionicons: MockIonicons,
+    default: MockIonicons,
+    __esModule: true,
+  };
+});
 
 vi.mock('@/components/ui/AppDatePickerField', () => ({
   AppDatePickerField: ({
@@ -235,10 +242,14 @@ describe('NewOrderDetailsSection', () => {
     expect(controller.setSameAsCustomer).toHaveBeenCalledWith(true);
     expect(screen.getByText('Recipient Name')).toBeInTheDocument();
     expect(screen.getByText('Recipient Phone')).toBeInTheDocument();
+    expect(screen.getByText('location-outline')).toHaveAttribute(
+      'data-color',
+      '#EA4335'
+    );
   });
 
-  it('hides the date picker controls when the date field is disabled', () => {
-    const controller = makeController({ showDatePicker: true });
+  it('hides the order date controls when date editing is disabled', () => {
+    const controller = makeController();
 
     render(
       <NewOrderDetailsSection controller={controller} showDateField={false} />

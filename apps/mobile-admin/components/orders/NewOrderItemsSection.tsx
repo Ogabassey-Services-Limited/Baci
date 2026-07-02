@@ -10,6 +10,8 @@ interface NewOrderItemsSectionProps {
   controller: ReturnType<typeof useNewOrderController>;
 }
 
+const QUICK_ADD_LIGHTNING_COLOR = '#F4B400';
+
 export function NewOrderItemsSection({
   controller,
 }: NewOrderItemsSectionProps) {
@@ -47,19 +49,23 @@ export function NewOrderItemsSection({
             styles.actionBtn,
             {
               backgroundColor: getTranslucentColor(
-                colors.primary,
+                QUICK_ADD_LIGHTNING_COLOR,
                 colors.backgroundLight,
                 0.06
               ),
               borderColor: getTranslucentColor(
-                colors.primary,
+                QUICK_ADD_LIGHTNING_COLOR,
                 colors.border,
                 0.14
               ),
             },
           ]}
         >
-          <Ionicons color={colors.primary} name="flash-outline" size={18} />
+          <Ionicons
+            color={QUICK_ADD_LIGHTNING_COLOR}
+            name="flash-outline"
+            size={18}
+          />
           <Text style={[styles.actionBtnText, { color: colors.primary }]}>
             Quick Add
           </Text>
@@ -82,8 +88,8 @@ export function NewOrderItemsSection({
             },
           ]}
         >
-          <Ionicons color={colors.textSecondary} name="search" size={16} />
-          <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>
+          <Ionicons color={colors.primary} name="search" size={16} />
+          <Text style={[styles.actionBtnText, { color: colors.primary }]}>
             Search Catalog
           </Text>
         </Pressable>

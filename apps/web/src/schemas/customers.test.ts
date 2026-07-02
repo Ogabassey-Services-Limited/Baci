@@ -81,6 +81,42 @@ describe('customer schemas', () => {
         }).success
       ).toBe(false);
     });
+
+    it('accepts a company customer with a company name', () => {
+      const result = createCustomerSchema.safeParse({
+        customer_type: 'company',
+        company_name: '  Acme Ltd  ',
+        phone: '+2348012345678',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.customer_type).toBe('company');
+        expect(result.data.company_name).toBe('Acme Ltd');
+      }
+    });
+
+    it('rejects a company customer without a company name', () => {
+      const result = createCustomerSchema.safeParse({
+        customer_type: 'company',
+        company_name: '   ',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some((issue) =>
+            issue.path.includes('company_name')
+          )
+        ).toBe(true);
+      }
+    });
+
+    it('rejects an unknown customer type', () => {
+      expect(
+        createCustomerSchema.safeParse({ customer_type: 'vendor' }).success
+      ).toBe(false);
+    });
   });
 
   describe('updateCustomerSchema', () => {

@@ -45,12 +45,19 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('@react-native-vector-icons/ionicons', () => ({
-  Ionicons: () => null,
+vi.mock('@react-native-vector-icons/ionicons', () => {
+  const MockIonicons = ({ color, name }: { color?: string; name?: string }) => (
+    <span data-color={color} data-icon={name}>
+      {name}
+    </span>
+  );
 
-  default: () => null,
-  __esModule: true,
-}));
+  return {
+    Ionicons: MockIonicons,
+    default: MockIonicons,
+    __esModule: true,
+  };
+});
 
 vi.mock('./new-order.styles', () => ({ styles: {} }));
 
@@ -126,6 +133,29 @@ describe('NewOrderChannelSection', () => {
       name: 'Physical sales channel',
     });
     expect(physicalButton).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('uses each channel brand color for inactive icons', () => {
+    const controller = makeController({ selectedChannel: 'physical' });
+
+    render(
+      <NewOrderChannelSection
+        controller={
+          controller as unknown as React.ComponentProps<
+            typeof NewOrderChannelSection
+          >['controller']
+        }
+      />
+    );
+
+    expect(screen.getByText('logo-instagram')).toHaveAttribute(
+      'data-color',
+      '#E4405F'
+    );
+    expect(screen.getByText('logo-whatsapp')).toHaveAttribute(
+      'data-color',
+      '#25D366'
+    );
   });
 
   it('calls setSelectedChannel with the channel id when pressed', () => {

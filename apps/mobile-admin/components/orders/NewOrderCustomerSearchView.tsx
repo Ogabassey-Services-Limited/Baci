@@ -1,5 +1,7 @@
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import {
   getCustomerDisplayContact,
@@ -11,11 +13,36 @@ import { styles } from './new-order.styles';
 
 interface NewOrderCustomerSearchViewProps {
   controller: ReturnType<typeof useNewOrderController>;
+  listBottomPadding?: number;
+  showInlineSearch?: boolean;
+}
+
+type CustomerSearchRow = NonNullable<
+  ReturnType<typeof useNewOrderController>['customersData']
+>['pages'][number]['customers'][number];
+
+const CUSTOMER_LIST_MIN_VIEWPORT_HEIGHT = 260;
+const CUSTOMER_LIST_CHROME_OFFSET = 84;
+
+function compareCustomerRowsByName(
+  firstCustomer: CustomerSearchRow,
+  secondCustomer: CustomerSearchRow
+) {
+  const nameComparison = getCustomerDisplayName(firstCustomer).localeCompare(
+    getCustomerDisplayName(secondCustomer),
+    undefined,
+    { numeric: true, sensitivity: 'base' }
+  );
+
+  return nameComparison || firstCustomer.id.localeCompare(secondCustomer.id);
 }
 
 export function NewOrderCustomerSearchView({
   controller,
+  listBottomPadding = 40,
+  showInlineSearch = true,
 }: NewOrderCustomerSearchViewProps) {
+  const [bodyHeight, setBodyHeight] = useState(0);
   const {
     colors,
     customerSearch,
@@ -26,7 +53,13 @@ export function NewOrderCustomerSearchView({
     setIsCreatingCustomer,
   } = controller;
   const customerRows =
-    customersData?.pages.flatMap((page) => page.customers) || [];
+    customersData?.pages
+      .flatMap((page) => page.customers)
+      .sort(compareCustomerRowsByName) || [];
+  const listViewportHeight = Math.max(
+    CUSTOMER_LIST_MIN_VIEWPORT_HEIGHT,
+    Math.round(bodyHeight) - CUSTOMER_LIST_CHROME_OFFSET
+  );
   const emptyMessage = customersQuery.isLoading
     ? 'Loading customers...'
     : customersQuery.isError
@@ -34,19 +67,38 @@ export function NewOrderCustomerSearchView({
         ? customersQuery.error.message
         : 'Failed to load customers'
       : 'No customers found';
+  const canFetchMoreCustomers =
+    customersQuery.hasNextPage &&
+    !customersQuery.isFetchingNextPage &&
+    !customersQuery.isLoading;
 
   return (
-    <>
-      <View style={[styles.searchBox, { backgroundColor: colors.cardHover }]}>
-        <Ionicons color={colors.textMuted} name="search" size={20} />
-        <TextInput
-          onChangeText={setCustomerSearch}
-          placeholder="Search name, email, or phone..."
-          placeholderTextColor={colors.textMuted}
-          style={{ color: colors.text, flex: 1, marginLeft: 8 }}
-          value={customerSearch}
-        />
-      </View>
+    <View
+      onLayout={(event) => {
+        setBodyHeight(event.nativeEvent.layout.height);
+      }}
+      style={styles.customerSearchBody}
+    >
+      {showInlineSearch ? (
+        <View
+          style={[
+            styles.searchBox,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Ionicons color={colors.textMuted} name="search" size={20} />
+          <TextInput
+            onChangeText={setCustomerSearch}
+            placeholder="Search name, email, or phone..."
+            placeholderTextColor={colors.textMuted}
+            style={{ color: colors.text, flex: 1, marginLeft: 8 }}
+            value={customerSearch}
+          />
+        </View>
+      ) : null}
 
       <Pressable
         accessibilityLabel="Create new customer"
@@ -69,117 +121,109 @@ export function NewOrderCustomerSearchView({
         </Text>
       </Pressable>
 
-      <FlatList
-        // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
-        getItemLayout={(data, index) => ({
-          length: 72,
-          offset: 72 * index,
-          index,
-        })}
-        {...MODAL_FLATLIST_PROPS}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        data={customerRows}
-        keyExtractor={(item) => item.id}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', padding: 32 }}>
-            <Text style={{ color: colors.textMuted }}>{emptyMessage}</Text>
-          </View>
-        }
-        ListFooterComponent={
-          customersQuery.hasNextPage ? (
-            <View style={{ padding: 16 }}>
-              {customersQuery.isFetchingNextPage ? (
+      {/*
+        Dedicated height-bounded wrapper with NO flex on the list itself. The
+        bound must be shorter than the full content so Gorhom keeps a real
+        scrollable viewport, but tall enough to fill the drawer above the
+        floating search footer.
+      */}
+      <View
+        style={{ flexShrink: 1, height: listViewportHeight }}
+        testID="customer-list-viewport"
+      >
+        <BottomSheetFlatList
+          // Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread.
+          getItemLayout={(_data, index) => ({
+            length: 72,
+            offset: 72 * index,
+            index,
+          })}
+          {...MODAL_FLATLIST_PROPS}
+          contentContainerStyle={{ paddingBottom: listBottomPadding }}
+          data={customerRows}
+          keyExtractor={(item) => item.id}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', padding: 32 }}>
+              <Text style={{ color: colors.textMuted }}>{emptyMessage}</Text>
+            </View>
+          }
+          ListFooterComponent={
+            customersQuery.isFetchingNextPage ? (
+              <View style={{ padding: 16 }}>
                 <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
                   Loading more customers…
                 </Text>
-              ) : (
-                <Pressable
-                  accessibilityLabel="Load more customers"
-                  accessibilityRole="button"
-                  onPress={() => {
-                    void customersQuery.fetchNextPage();
-                  }}
-                  style={[
-                    styles.actionBtn,
-                    {
-                      alignSelf: 'center',
-                      backgroundColor: colors.backgroundLight,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.actionBtnText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Load more
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <Pressable
-            accessibilityLabel={`Select customer ${getCustomerDisplayName(item)}`}
-            accessibilityRole="button"
-            onPress={() => handleSelectCustomer(item)}
-            style={[
-              styles.listRow,
-              {
-                borderBottomColor: colors.border,
-                borderBottomWidth: 1,
-                paddingVertical: 12,
-                height: 72,
-              },
-            ]}
-          >
-            <View
-              style={[styles.iconBox, { backgroundColor: colors.cardHover }]}
+              </View>
+            ) : null
+          }
+          onEndReached={() => {
+            if (!canFetchMoreCustomers) {
+              return;
+            }
+
+            void customersQuery.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.5}
+          renderItem={({ item }) => (
+            <Pressable
+              accessibilityLabel={`Select customer ${getCustomerDisplayName(item)}`}
+              accessibilityRole="button"
+              onPress={() => handleSelectCustomer(item)}
+              style={[
+                styles.listRow,
+                {
+                  borderBottomColor: colors.border,
+                  borderBottomWidth: 1,
+                  paddingVertical: 12,
+                  height: 72,
+                },
+              ]}
             >
-              <Text
-                style={{
-                  color: colors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                }}
-              >
-                {getCustomerDisplayInitial(item)}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                numberOfLines={1}
-                style={[styles.itemTitle, { color: colors.text }]}
-              >
-                {getCustomerDisplayName(item)}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{ color: colors.textSecondary, fontSize: 13 }}
-              >
-                {getCustomerDisplayContact(item)}
-              </Text>
-            </View>
-            {item.total_orders > 0 ? (
               <View
-                style={[
-                  styles.qtyBadge,
-                  { backgroundColor: `${colors.success}20` },
-                ]}
+                style={[styles.iconBox, { backgroundColor: colors.cardHover }]}
               >
-                <Text style={{ color: colors.success, fontSize: 12 }}>
-                  {item.total_orders} orders
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {getCustomerDisplayInitial(item)}
                 </Text>
               </View>
-            ) : null}
-          </Pressable>
-        )}
-      />
-    </>
+              <View style={{ flex: 1 }}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.itemTitle, { color: colors.text }]}
+                >
+                  {getCustomerDisplayName(item)}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{ color: colors.textSecondary, fontSize: 13 }}
+                >
+                  {getCustomerDisplayContact(item)}
+                </Text>
+              </View>
+              {item.total_orders > 0 ? (
+                <View
+                  style={[
+                    styles.qtyBadge,
+                    { backgroundColor: `${colors.success}20` },
+                  ]}
+                >
+                  <Text style={{ color: colors.success, fontSize: 12 }}>
+                    {item.total_orders} orders
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          )}
+        />
+      </View>
+    </View>
   );
 }

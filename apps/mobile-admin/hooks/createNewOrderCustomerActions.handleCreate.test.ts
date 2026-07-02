@@ -10,6 +10,7 @@ interface DuplicateLookupResponse {
 
 const mocks = vi.hoisted(() => {
   const eqCalls: [string, unknown][] = [];
+  const ilikeCalls: [string, string][] = [];
   const isCalls: [string, unknown][] = [];
   const limitCalls: number[] = [];
   const responses: DuplicateLookupResponse[] = [];
@@ -18,13 +19,17 @@ const mocks = vi.hoisted(() => {
       eqCalls.push([column, value]);
       return builder;
     }),
+    ilike: vi.fn((column: string, value: string) => {
+      ilikeCalls.push([column, value]);
+      return builder;
+    }),
     is: vi.fn((column: string, value: unknown) => {
       isCalls.push([column, value]);
       return builder;
     }),
-    limit: vi.fn(async (value: number) => {
+    limit: vi.fn((value: number) => {
       limitCalls.push(value);
-      return responses.shift() ?? { data: [], error: null };
+      return Promise.resolve(responses.shift() ?? { data: [], error: null });
     }),
     or: vi.fn(),
     select: vi.fn(() => builder),
@@ -33,6 +38,7 @@ const mocks = vi.hoisted(() => {
   return {
     builder,
     eqCalls,
+    ilikeCalls,
     isCalls,
     limitCalls,
     or: builder.or,
@@ -41,10 +47,12 @@ const mocks = vi.hoisted(() => {
     },
     reset() {
       eqCalls.length = 0;
+      ilikeCalls.length = 0;
       isCalls.length = 0;
       limitCalls.length = 0;
       responses.length = 0;
       builder.eq.mockClear();
+      builder.ilike.mockClear();
       builder.is.mockClear();
       builder.limit.mockClear();
       builder.or.mockClear();
@@ -68,17 +76,21 @@ type CustomerActionsParams = Parameters<
   typeof createNewOrderCustomerActions
 >[0];
 
+const baseNewCustomer = {
+  address: '',
+  companyName: '',
+  customerType: 'individual' as const,
+  email: '',
+  firstName: 'Ada',
+  lastName: '',
+  phone: '08012345678',
+};
+
 function makeActions(overrides: Partial<CustomerActionsParams> = {}) {
   return createNewOrderCustomerActions({
     createCustomer: vi.fn(),
     merchantId: 'merchant-1',
-    newCustomer: {
-      address: '',
-      email: '',
-      firstName: 'Ada',
-      lastName: '',
-      phone: '08012345678',
-    },
+    newCustomer: baseNewCustomer,
     setCustomer: vi.fn(),
     setCustomerSearch: vi.fn(),
     setDuplicateCustomer: vi.fn(),
@@ -103,8 +115,11 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
       data: [
         {
           address: '12 Allen Avenue',
+          company_name: null,
+          customer_type: 'individual',
           email: 'ada@example.com',
           first_name: 'Ada',
+          full_name: 'Ada Lovelace',
           id: 'customer-1',
           last_name: 'Lovelace',
           phone: '08012345678',
@@ -116,7 +131,10 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     await makeActions({
       createCustomer,
       newCustomer: {
+        ...baseNewCustomer,
         address: '',
+        companyName: '',
+        customerType: 'individual',
         email: 'ada@example.com',
         firstName: 'Ada',
         lastName: 'Lovelace',
@@ -134,8 +152,11 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     expect(mocks.limitCalls).toEqual([1]);
     expect(setDuplicateCustomer).toHaveBeenCalledWith({
       address: '12 Allen Avenue',
+      company_name: null,
+      customer_type: 'individual',
       email: 'ada@example.com',
       first_name: 'Ada',
+      full_name: 'Ada Lovelace',
       id: 'customer-1',
       last_name: 'Lovelace',
       phone: '08012345678',
@@ -143,15 +164,18 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     expect(createCustomer).not.toHaveBeenCalled();
   });
 
-  it('falls back to the email duplicate lookup when the phone lookup misses', async () => {
+  it('falls back to a normalized case-insensitive email duplicate lookup when the phone lookup misses', async () => {
     const setDuplicateCustomer = vi.fn();
     mocks.queueResponse({ data: [], error: null });
     mocks.queueResponse({
       data: [
         {
           address: '12 Allen Avenue',
+          company_name: null,
+          customer_type: 'individual',
           email: 'ada@example.com',
           first_name: null,
+          full_name: null,
           id: 'customer-1',
           last_name: null,
           phone: null,
@@ -162,8 +186,11 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
 
     await makeActions({
       newCustomer: {
+        ...baseNewCustomer,
         address: '',
-        email: 'ada@example.com',
+        companyName: '',
+        customerType: 'individual',
+        email: ' ADA@EXAMPLE.COM ',
         firstName: 'Ada',
         lastName: '',
         phone: '08012345678',
@@ -175,20 +202,23 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
       ['merchant_id', 'merchant-1'],
       ['phone', '08012345678'],
       ['merchant_id', 'merchant-1'],
-      ['email', 'ada@example.com'],
     ]);
+    expect(mocks.ilikeCalls).toEqual([['email', 'ada@example.com']]);
     expect(mocks.limitCalls).toEqual([1, 1]);
     expect(setDuplicateCustomer).toHaveBeenCalledWith({
       address: '12 Allen Avenue',
+      company_name: null,
+      customer_type: 'individual',
       email: 'ada@example.com',
       first_name: null,
+      full_name: null,
       id: 'customer-1',
       last_name: null,
       phone: null,
     });
   });
 
-  it('creates and selects a customer when duplicate checks pass', async () => {
+  it('creates and selects a customer with normalized contact fields when duplicate checks pass', async () => {
     const createCustomer = vi.fn().mockResolvedValue({
       address: '12 Allen Avenue',
       email: 'ada@example.com',
@@ -209,11 +239,14 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     await makeActions({
       createCustomer,
       newCustomer: {
-        address: '12 Allen Avenue',
-        email: 'ada@example.com',
-        firstName: 'Ada',
-        lastName: 'Lovelace',
-        phone: '08012345678',
+        ...baseNewCustomer,
+        address: ' 12 Allen Avenue ',
+        companyName: '',
+        customerType: 'individual',
+        email: ' ADA@EXAMPLE.COM ',
+        firstName: ' Ada ',
+        lastName: ' Lovelace ',
+        phone: ' 08012345678 ',
       },
       setCustomer,
       setCustomerSearch,
@@ -224,6 +257,8 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
 
     expect(createCustomer).toHaveBeenCalledWith({
       address: '12 Allen Avenue',
+      company_name: undefined,
+      customer_type: 'individual',
       email: 'ada@example.com',
       first_name: 'Ada',
       last_name: 'Lovelace',
@@ -242,6 +277,76 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     expect(setNewCustomer).toHaveBeenCalled();
   });
 
+  it('creates a company customer with the company name and empty person names', async () => {
+    const createCustomer = vi.fn().mockResolvedValue({
+      company_name: 'Acme Ltd',
+      customer_type: 'company',
+      email: 'ops@acme.com',
+      first_name: null,
+      id: 'customer-77',
+      last_name: null,
+      phone: '08012345678',
+    });
+    const setCustomer = vi.fn();
+
+    mocks.queueResponse({ data: [], error: null });
+    mocks.queueResponse({ data: [], error: null });
+
+    await makeActions({
+      createCustomer,
+      newCustomer: {
+        address: '',
+        companyName: '  Acme Ltd ',
+        customerType: 'company',
+        email: 'ops@acme.com',
+        firstName: '',
+        lastName: '',
+        phone: '08012345678',
+      },
+      setCustomer,
+    }).handleCreateCustomer();
+
+    expect(createCustomer).toHaveBeenCalledWith({
+      address: undefined,
+      company_name: 'Acme Ltd',
+      customer_type: 'company',
+      email: 'ops@acme.com',
+      first_name: '',
+      last_name: '',
+      phone: '08012345678',
+    });
+    expect(setCustomer).toHaveBeenCalledWith({
+      address: '',
+      email: 'ops@acme.com',
+      id: 'customer-77',
+      name: 'Acme Ltd',
+      phone: '08012345678',
+    });
+  });
+
+  it('requires a company name when creating a company customer', async () => {
+    const createCustomer = vi.fn();
+
+    await makeActions({
+      createCustomer,
+      newCustomer: {
+        address: '',
+        companyName: '   ',
+        customerType: 'company',
+        email: '',
+        firstName: '',
+        lastName: '',
+        phone: '08012345678',
+      },
+    }).handleCreateCustomer();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Required',
+      'Company Name and Phone are required'
+    );
+    expect(createCustomer).not.toHaveBeenCalled();
+  });
+
   it('aborts customer creation when duplicate lookup fails', async () => {
     const createCustomer = vi.fn();
     mocks.queueResponse({
@@ -252,7 +357,10 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     await makeActions({
       createCustomer,
       newCustomer: {
+        ...baseNewCustomer,
         address: '',
+        companyName: '',
+        customerType: 'individual',
         email: '',
         firstName: 'Ada',
         lastName: '',
@@ -273,7 +381,10 @@ describe('createNewOrderCustomerActions.handleCreateCustomer', () => {
     await makeActions({
       createCustomer: vi.fn().mockRejectedValue('boom'),
       newCustomer: {
+        ...baseNewCustomer,
         address: '',
+        companyName: '',
+        customerType: 'individual',
         email: '',
         firstName: 'Ada',
         lastName: '',

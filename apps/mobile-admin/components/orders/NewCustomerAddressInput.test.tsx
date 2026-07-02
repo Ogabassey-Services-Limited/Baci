@@ -1,43 +1,18 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import { NewCustomerAddressInput } from './NewCustomerAddressInput';
 
-type GooglePlacesProps = {
-  onPress?: (data: { description: string }) => void;
-  placeholder?: string;
-  query?: { components?: string; key?: string; language?: string };
-  textInputProps?: { onChangeText?: (text: string) => void; value?: string };
-};
-
-const googlePlacesState = vi.hoisted(() => ({
-  lastProps: null as GooglePlacesProps | null,
+const keyboardState = vi.hoisted(() => ({
+  dismiss: vi.fn(),
 }));
 
-vi.mock('react-native-google-places-autocomplete', () => ({
-  GooglePlacesAutocomplete: (props: GooglePlacesProps) => {
-    googlePlacesState.lastProps = props;
-    return (
-      <div>
-        <input
-          aria-label={props.placeholder ?? 'Search Address'}
-          onChange={(event) =>
-            props.textInputProps?.onChangeText?.(event.target.value)
-          }
-          value={props.textInputProps?.value ?? ''}
-        />
-        <button
-          aria-label="Choose suggested address"
-          onClick={() =>
-            props.onPress?.({ description: '12 Allen Avenue, Ikeja, Lagos' })
-          }
-          type="button"
-        />
-      </div>
-    );
-  },
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  Ionicons: () => null,
+  default: () => null,
+  __esModule: true,
 }));
 
 vi.mock('react-native', async () => {
@@ -45,24 +20,51 @@ vi.mock('react-native', async () => {
 
   return {
     StatusBar: () => null,
-    Alert: { alert: vi.fn() },
+    Keyboard: { dismiss: keyboardState.dismiss },
+    Pressable: ({
+      accessibilityLabel,
+      accessibilityRole,
+      children,
+      onPress,
+    }: {
+      accessibilityLabel?: string;
+      accessibilityRole?: string;
+      children?: React.ReactNode;
+      onPress?: () => void;
+    }) =>
+      React.createElement(
+        'button',
+        {
+          'aria-label': accessibilityLabel,
+          role: accessibilityRole === 'button' ? 'button' : undefined,
+          onClick: () => onPress?.(),
+          type: 'button',
+        },
+        children
+      ),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      onBlur,
       onChangeText,
+      onFocus,
       placeholder,
       value,
     }: {
+      onBlur?: () => void;
       onChangeText?: (value: string) => void;
+      onFocus?: () => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
+        onBlur,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
+        onFocus,
         placeholder,
         value: value ?? '',
       }),
@@ -71,15 +73,38 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('./new-order.styles', () => ({ styles: { sheetInput: {} } }));
-
 describe('NewCustomerAddressInput', () => {
-  it('keeps the Google address field controlled and forwards selected addresses', () => {
-    const setNewCustomer = vi.fn();
+  beforeEach(() => {
+    keyboardState.dismiss.mockReset();
+  });
 
-    render(
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches address suggestions without nesting a virtualized autocomplete list', async () => {
+    const setNewCustomer = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        predictions: [
+          {
+            description: '12 Allen Avenue, Ikeja, Lagos',
+            place_id: 'place-1',
+            structured_formatting: {
+              main_text: '12 Allen Avenue',
+              secondary_text: 'Ikeja, Lagos',
+            },
+          },
+        ],
+      }),
+      status: 200,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const view = render(
       <NewCustomerAddressInput
-        address="12 Allen"
+        address=""
         colors={LIGHT_COLORS}
         googleMapsApiKey="maps-test-key"
         selectedCountryCode="GH"
@@ -87,19 +112,36 @@ describe('NewCustomerAddressInput', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Search Address'), {
+    fireEvent.focus(screen.getByPlaceholderText('Search Address'));
+    fireEvent.change(screen.getByPlaceholderText('Search Address'), {
       target: { value: '12 Allen Avenue' },
     });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Choose suggested address' })
+
+    view.rerender(
+      <NewCustomerAddressInput
+        address="12 Allen Avenue"
+        colors={LIGHT_COLORS}
+        googleMapsApiKey="maps-test-key"
+        selectedCountryCode="GH"
+        setNewCustomer={setNewCustomer}
+      />
     );
 
-    expect(googlePlacesState.lastProps?.query).toMatchObject({
-      components: 'country:gh',
-      key: 'maps-test-key',
-      language: 'en',
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=12+Allen+Avenue&key=maps-test-key&language=en&components=country%3Agh'
+      );
     });
+
+    expect(screen.getByText('12 Allen Avenue')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Use address 12 Allen Avenue, Ikeja, Lagos',
+      })
+    );
+
     expect(setNewCustomer).toHaveBeenCalledTimes(2);
+    expect(keyboardState.dismiss).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to a plain text input when Google Maps is unavailable', () => {

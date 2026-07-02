@@ -172,8 +172,8 @@ export async function submitNewOrder({
             variant_id: item.is_custom ? null : (item.variant_id ?? null),
             variant_attributes:
               item.is_custom || !item.variant_id
-                ? null
-                : (item.variant_attributes ?? null),
+                ? {}
+                : (item.variant_attributes ?? {}),
             variant_name:
               item.is_custom || !item.variant_id
                 ? null

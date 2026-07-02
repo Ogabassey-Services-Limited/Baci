@@ -12,8 +12,18 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 12, left: 0 }),
+}));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
+  const flattenStyle = (
+    style: Record<string, unknown> | Record<string, unknown>[] | undefined
+  ) =>
+    Array.isArray(style)
+      ? Object.assign({}, ...style.filter(Boolean))
+      : (style ?? {});
 
   return {
     ActivityIndicator: () =>
@@ -25,6 +35,7 @@ vi.mock('react-native', async () => {
     StatusBar: () => null,
     Pressable: ({
       accessibilityLabel,
+      accessibilityRole,
       accessibilityState,
       children,
       disabled,
@@ -37,6 +48,7 @@ vi.mock('react-native', async () => {
         checked?: boolean;
         disabled?: boolean;
       };
+      accessibilityRole?: string;
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
@@ -64,6 +76,7 @@ vi.mock('react-native', async () => {
           'data-shadow-color': resolvedStyle.shadowColor,
           disabled: disabled || accessibilityState?.disabled,
           onClick: () => onPress?.(),
+          role: accessibilityRole,
           type: 'button',
         },
         children
@@ -91,8 +104,26 @@ vi.mock('react-native', async () => {
           onChangeText?.(event.target.value),
         value: value ?? '',
       }),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({
+      children,
+      style,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      style?: Record<string, unknown> | Record<string, unknown>[];
+      testID?: string;
+    }) => {
+      const flattenedStyle = flattenStyle(style);
+
+      return React.createElement(
+        'div',
+        {
+          'data-padding-bottom': String(flattenedStyle.paddingBottom ?? ''),
+          'data-testid': testID,
+        },
+        children
+      );
+    },
   };
 });
 
@@ -164,6 +195,34 @@ function makeController(
 }
 
 describe('NewOrderFooterBar', () => {
+  it('extends the card background through the bottom safe area', () => {
+    const controller = makeController();
+
+    render(<NewOrderFooterBar controller={controller} />);
+
+    expect(screen.getByTestId('new-order-footer-bar')).toHaveAttribute(
+      'data-padding-bottom',
+      '32'
+    );
+  });
+
+  it('shows payment status choices with paid first and clear radio affordance', () => {
+    const controller = makeController();
+
+    render(<NewOrderFooterBar controller={controller} />);
+
+    expect(screen.getByText('Payment Status')).toBeInTheDocument();
+
+    const statusOptions = screen.getAllByRole('radio');
+    expect(statusOptions).toHaveLength(3);
+    expect(statusOptions.map((option) => option.textContent)).toEqual([
+      'UNPAID',
+      'PAID',
+      'Partial',
+    ]);
+    expect(statusOptions[0]).toHaveAttribute('aria-checked', 'true');
+  });
+
   it('disables save when there are no order items and shows the formatted total', () => {
     const controller = makeController({ orderItems: [] });
 
@@ -186,7 +245,7 @@ describe('NewOrderFooterBar', () => {
     render(<NewOrderFooterBar controller={controller} />);
 
     expect(
-      screen.getByRole('button', { name: 'Payment status: paid' })
+      screen.getByRole('radio', { name: 'Payment status: PAID' })
     ).toHaveAttribute('data-shadow-color', '#123456');
   });
 
@@ -199,7 +258,7 @@ describe('NewOrderFooterBar', () => {
     render(<NewOrderFooterBar controller={controller} />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Payment method: Cash' })
+      screen.getByRole('radio', { name: 'Payment method: Cash' })
     );
     fireEvent.change(screen.getByRole('textbox', { name: 'Enter amount...' }), {
       target: { value: '4250' },
@@ -218,7 +277,7 @@ describe('NewOrderFooterBar', () => {
     render(<NewOrderFooterBar controller={controller} />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Payment status: unpaid' })
+      screen.getByRole('radio', { name: 'Payment status: UNPAID' })
     );
     fireEvent.click(screen.getByRole('button', { name: 'Save Order' }));
 
@@ -241,10 +300,10 @@ describe('NewOrderFooterBar', () => {
     expect(screen.getByText('Saving...')).toBeInTheDocument();
     expect(screen.getByText('Loading...')).toBeInTheDocument(); // matches ActivityIndicator mock
     expect(
-      screen.getByRole('button', { name: 'Payment status: paid' })
+      screen.getByRole('radio', { name: 'Payment status: PAID' })
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Payment method: Cash' })
+      screen.getByRole('radio', { name: 'Payment method: Cash' })
     ).toBeDisabled();
     expect(
       screen.getByRole('textbox', { name: 'Enter amount...' })
