@@ -82,20 +82,12 @@ export async function requestNotificationPermissionStatus(
 }
 
 function loadNotifications() {
-  notificationsModulePromise ??= import('expo-notifications')
-    .then((notifications) => {
-      if (
-        !hasNotificationStatusApi(notifications) &&
-        !hasNotificationRequestApi(notifications)
-      ) {
-        notificationsModulePromise = null;
-      }
-      return notifications;
-    })
-    .catch((error: unknown) => {
+  notificationsModulePromise ??= import('expo-notifications').catch(
+    (error: unknown) => {
       notificationsModulePromise = null;
       throw error;
-    });
+    }
+  );
   return notificationsModulePromise;
 }
 

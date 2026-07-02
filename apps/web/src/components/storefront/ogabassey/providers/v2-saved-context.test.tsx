@@ -49,6 +49,23 @@ describe('V2SavedProvider', () => {
     expect(renderToString(<ServerRenderedConsumer />)).toContain('not saved');
   });
 
+  it('returns the same inert fallback on the client when a saved provider is absent', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    expect(() => render(<SavedConsumer />)).not.toThrow();
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle saved' }));
+    }).not.toThrow();
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'V2SavedProvider is missing; using inert saved-items fallback'
+    );
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
