@@ -137,7 +137,7 @@ function buildOgaBasseyCwvTargets({
       url: targetUrl(homeUrl, DEFAULT_OGABASSEY_CWV_TARGETS.home),
     },
     {
-      label: 'pdp-dell',
+      label: 'pdp',
       url: targetUrl(pdpUrl, DEFAULT_OGABASSEY_CWV_TARGETS.pdp),
     },
     {
@@ -155,7 +155,8 @@ function buildOgaBasseyCwvTargets({
 
 function normalizeTargetLabel(value) {
   const normalized = `${value ?? ''}`.trim().toLowerCase();
-  if (normalized === 'pdp' || normalized === 'pdp-lcp') return 'pdp-dell';
+  if (normalized === 'pdp' || normalized === 'pdp-lcp') return 'pdp';
+  if (normalized === 'pdp-dell') return 'pdp';
   if (normalized === 'blog') return 'blog-index';
   if (normalized === 'latest-blog-post') return 'blog-post-latest';
   return normalized;
@@ -182,7 +183,7 @@ function applyPdpCanonicalResolution({
 
   if (pdpResolution.failure) {
     targetResolutionFailures.push(pdpResolution.failure);
-    return targets.filter((target) => target !== pdpTarget);
+    return targets;
   }
 
   pdpTarget.url = pdpResolution.url;
@@ -273,7 +274,7 @@ function buildOgaBasseyCwvConfigurationFailures({
     failures.push({
       label: 'targets',
       message:
-        'No CWV targets matched OGABASSEY_CWV_TARGET_LABELS. Use home, pdp-dell, blog-index, or blog-post-latest.',
+        'No CWV targets matched OGABASSEY_CWV_TARGET_LABELS. Use home, pdp, blog-index, or blog-post-latest.',
       source: 'configuration',
     });
   }

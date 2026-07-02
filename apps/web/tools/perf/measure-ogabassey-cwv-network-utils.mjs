@@ -185,7 +185,7 @@ async function resolveCanonicalUrl(url) {
 
 async function resolveCanonicalUrlOrFailure(
   url,
-  { label = 'pdp-dell', resolveCanonicalUrlImpl = resolveCanonicalUrl } = {}
+  { label = 'pdp', resolveCanonicalUrlImpl = resolveCanonicalUrl } = {}
 ) {
   try {
     return { url: await resolveCanonicalUrlImpl(url) };

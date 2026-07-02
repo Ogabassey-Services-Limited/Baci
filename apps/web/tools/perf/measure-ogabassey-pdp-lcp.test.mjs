@@ -44,7 +44,7 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
       await readFile(join(outputDir, 'summary.json'), 'utf8')
     );
     expect(result.stdout).not.toContain('┌');
-    expect(summary.targets.map((target) => target.label)).toEqual(['pdp-dell']);
+    expect(summary.targets.map((target) => target.label)).toEqual(['pdp']);
     expect(summary.failures).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -77,7 +77,7 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
     );
     expect(summary.targets).toEqual([
       {
-        label: 'pdp-dell',
+        label: 'pdp',
         url: 'https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090',
       },
     ]);
@@ -114,7 +114,7 @@ describe('measure-ogabassey-pdp-lcp CLI', () => {
       await readFile(join(outputDir, 'summary.json'), 'utf8')
     );
     expect(summary.targets).toEqual([
-      { label: 'pdp-dell', url: 'https://ogabassey.com/custom-pdp' },
+      { label: 'pdp', url: 'https://ogabassey.com/custom-pdp' },
     ]);
   });
 

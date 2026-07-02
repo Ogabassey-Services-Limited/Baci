@@ -43,7 +43,7 @@ describe('measure-ogabassey-critical-path CLI', () => {
     );
     expect(summary.targets.map((target) => target.label)).toEqual([
       'home',
-      'pdp-dell',
+      'pdp',
     ]);
   });
 
@@ -71,7 +71,7 @@ describe('measure-ogabassey-critical-path CLI', () => {
     );
     expect(summary.targets).toEqual([
       { label: 'home', url: 'https://ogabassey.com/' },
-      { label: 'pdp-dell', url: 'https://ogabassey.com/right-pdp' },
+      { label: 'pdp', url: 'https://ogabassey.com/right-pdp' },
     ]);
   });
 });

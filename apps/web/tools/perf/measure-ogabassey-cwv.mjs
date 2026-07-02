@@ -106,7 +106,7 @@ export async function runOgaBasseyCwv() {
     }),
     targetLabelFilter
   );
-  const pdpTarget = targets.find((target) => target.label === 'pdp-dell');
+  const pdpTarget = targets.find((target) => target.label === 'pdp');
   if (pdpTarget && shouldRunExternalProbes && shouldResolvePdpCanonical) {
     const pdpResolution = await resolveCanonicalUrlOrFailure(requestedPdpUrl, {
       label: pdpTarget.label,
@@ -238,7 +238,7 @@ export async function runOgaBasseyCwv() {
 
   if (shouldPrintLegacyPdpJson) {
     const summary =
-      summaries.find((row) => row.label === 'pdp-dell') ?? summaries[0];
+      summaries.find((row) => row.label === 'pdp') ?? summaries[0];
     if (summary) {
       console.log(JSON.stringify(buildLegacyPdpLcpJson(summary)));
     }

@@ -22,15 +22,15 @@ describe('buildDebugBearHeaders', () => {
 });
 
 describe('applyPdpCanonicalResolution', () => {
-  it('removes the PDP target after canonical validation fails', () => {
-    const pdpTarget = { label: 'pdp-dell', url: 'https://ogabassey.com/pdp' };
+  it('keeps the PDP target after canonical validation fails', () => {
+    const pdpTarget = { label: 'pdp', url: 'https://ogabassey.com/pdp' };
     const homeTarget = { label: 'home', url: 'https://ogabassey.com/' };
     const failures = [];
 
     const targets = applyPdpCanonicalResolution({
       pdpResolution: {
         failure: {
-          label: 'pdp-dell',
+          label: 'pdp',
           message: 'canonical lookup failed',
           source: 'target-resolution',
         },
@@ -41,10 +41,10 @@ describe('applyPdpCanonicalResolution', () => {
       targets: [homeTarget, pdpTarget],
     });
 
-    expect(targets).toEqual([homeTarget]);
+    expect(targets).toEqual([homeTarget, pdpTarget]);
     expect(failures).toEqual([
       {
-        label: 'pdp-dell',
+        label: 'pdp',
         message: 'canonical lookup failed',
         source: 'target-resolution',
       },
@@ -170,7 +170,7 @@ describe('buildOgaBasseyCwvTargets', () => {
     ).toEqual([
       { label: 'home', url: 'https://ogabassey.com/' },
       {
-        label: 'pdp-dell',
+        label: 'pdp',
         url: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
       },
       { label: 'blog-index', url: 'https://ogabassey.com/blog' },
@@ -188,7 +188,7 @@ describe('buildOgaBasseyCwvTargets', () => {
     ).toEqual([
       { label: 'home', url: 'https://ogabassey.com/' },
       {
-        label: 'pdp-dell',
+        label: 'pdp',
         url: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
       },
       { label: 'blog-index', url: 'https://ogabassey.com/blog' },
@@ -208,7 +208,7 @@ describe('filterOgaBasseyCwvTargets', () => {
   it('keeps the documented PDP LCP alias focused on the PDP target', () => {
     expect(filterOgaBasseyCwvTargets(targets, 'pdp-lcp')).toEqual([
       {
-        label: 'pdp-dell',
+        label: 'pdp',
         url: 'https://ogabassey.com/gaming-laptops/dell-alienware-m18-r3-rtx-5080',
       },
     ]);

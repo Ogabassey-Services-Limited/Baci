@@ -52,7 +52,7 @@ describe('measure-ogabassey-cwv CLI', () => {
     );
     expect(summary.targets.map((target) => target.label)).toEqual([
       'home',
-      'pdp-dell',
+      'pdp',
       'blog-index',
     ]);
   });
