@@ -100,6 +100,10 @@ export default function NegotiationsScreen() {
     },
     enabled: !!merchant?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    // The realtime channel only replays inserts while this screen is mounted, so
+    // always refetch on (re)mount to surface negotiations submitted while the
+    // queue was backgrounded/unmounted — cached rows still render instantly.
+    refetchOnMount: 'always',
   });
 
   const updateStatusMutation = useMutation({
@@ -128,7 +132,10 @@ export default function NegotiationsScreen() {
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({
+      // Return the invalidation promise so the mutation stays pending (and the
+      // accept/reject actions stay disabled) until the refetched status lands,
+      // preventing a stale-status flash before the queue reconciles.
+      return queryClient.invalidateQueries({
         queryKey: ['negotiation_requests', merchant?.id],
       });
     },

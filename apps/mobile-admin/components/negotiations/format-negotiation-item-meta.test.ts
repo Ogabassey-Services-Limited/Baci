@@ -31,6 +31,20 @@ describe('formatNegotiationItemMeta', () => {
     ).toBe('16GB / 512GB SSD · Condition: used');
   });
 
+  it('keeps attributes the variant label does not already convey', () => {
+    expect(
+      formatNegotiationItemMeta({
+        name: 'iPhone 15 Pro',
+        variant_name: 'Silver',
+        variant_attributes: {
+          color: 'Silver',
+          storage: '256GB',
+          ram: '16GB',
+        },
+      })
+    ).toBe('Silver · RAM: 16GB · Storage: 256GB');
+  });
+
   it('shows condition alone when no variant name or attributes exist', () => {
     expect(
       formatNegotiationItemMeta({ name: 'Widget', condition: 'refurbished' })

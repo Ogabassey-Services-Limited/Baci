@@ -85,17 +85,24 @@ function compareAttributeKeys(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
-function formatVariantAttributes(attributes: unknown): string | null {
-  if (!isRecord(attributes)) return null;
+interface VariantAttributeEntry {
+  /** Merchant-facing "Label: Value" text, e.g. "Storage: 256GB". */
+  display: string;
+  /** The bare value used for de-duplication against the variant label. */
+  value: string;
+}
 
-  const parts = Object.entries(attributes)
+function variantAttributeEntries(attributes: unknown): VariantAttributeEntry[] {
+  if (!isRecord(attributes)) return [];
+
+  return Object.entries(attributes)
     .filter(([key, value]) => shouldShowAttribute(key, value))
     .sort(([left], [right]) => compareAttributeKeys(left, right))
-    .map(
-      ([key, value]) => `${formatAttributeLabel(key)}: ${cleanString(value)}`
-    );
-
-  return parts.length > 0 ? parts.join(' · ') : null;
+    .map(([key, value]) => {
+      // shouldShowAttribute already guarantees a non-empty string value.
+      const cleaned = cleanString(value) as string;
+      return { display: `${formatAttributeLabel(key)}: ${cleaned}`, value: cleaned };
+    });
 }
 
 function appendUnique(parts: string[], value: string | null): void {
@@ -119,6 +126,29 @@ function appendUnique(parts: string[], value: string | null): void {
     return;
   }
   parts.push(value);
+}
+
+// Append a "Label: Value" attribute unless its bare value is already conveyed by
+// an earlier part (e.g. the variant label). Unlike appendUnique, the duplicate
+// check compares the attribute's value — not the whole "Label: Value" string —
+// so "Storage: 256GB" is dropped when the label already says "256GB", while
+// unrelated attributes such as "RAM: 16GB" are still appended.
+function appendUniqueAttribute(
+  parts: string[],
+  display: string,
+  comparableValue: string
+): void {
+  const normalizedValue = normalizeComparableText(comparableValue);
+  if (!normalizedValue) return;
+  const isDuplicate = parts.some((part) => {
+    const normalizedPart = normalizeComparableText(part);
+    if (normalizedPart === normalizedValue) return true;
+    return tokenizeComparableText(normalizedPart).some(
+      (token) => normalizeConditionValue(token) === normalizedValue
+    );
+  });
+  if (isDuplicate) return;
+  parts.push(display);
 }
 
 function normalizeComparableText(value: string): string {
@@ -149,10 +179,11 @@ export function formatNegotiationItemMeta(
   const parts: string[] = [];
   const variantName = cleanString(itemInfo.variant_name);
   appendUnique(parts, variantName);
-  appendUnique(
-    parts,
-    variantName ? null : formatVariantAttributes(itemInfo.variant_attributes)
-  );
+  // Append every attribute the variant label doesn't already convey, so partial
+  // labels (e.g. "Silver") still expose the storage/RAM that identify the SKU.
+  for (const entry of variantAttributeEntries(itemInfo.variant_attributes)) {
+    appendUniqueAttribute(parts, entry.display, entry.value);
+  }
   appendUnique(parts, formatCondition(itemInfo.condition));
 
   return parts.length > 0 ? parts.join(' · ') : null;
