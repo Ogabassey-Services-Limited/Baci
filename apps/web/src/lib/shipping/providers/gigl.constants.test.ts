@@ -13,6 +13,38 @@ describe('GIGL provider constants', () => {
     });
   });
 
+  it.each([
+    'false',
+    'FALSE',
+    ' False ',
+    '0',
+    ' 0 ',
+    'off',
+    'OFF',
+    ' Off ',
+  ])('treats %s as an explicit GIGL disable value', async (value) => {
+    vi.resetModules();
+    const { isExplicitlyDisabledEnv } = await import('./gigl.constants');
+
+    expect(isExplicitlyDisabledEnv(value)).toBe(true);
+  });
+
+  it.each([
+    undefined,
+    '',
+    ' ',
+    'true',
+    '1',
+    'on',
+    'disabled',
+    'no',
+  ])('does not treat %s as an explicit GIGL disable value', async (value) => {
+    vi.resetModules();
+    const { isExplicitlyDisabledEnv } = await import('./gigl.constants');
+
+    expect(isExplicitlyDisabledEnv(value)).toBe(false);
+  });
+
   it('requires an explicit base URL in production', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('GIGL_BASE_URL', '   ');

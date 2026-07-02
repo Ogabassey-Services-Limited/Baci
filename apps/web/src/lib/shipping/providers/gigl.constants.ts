@@ -8,7 +8,7 @@ function positiveIntegerEnv(value: string | undefined): number | undefined {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function isExplicitlyDisabledEnv(value: string | undefined): boolean {
+export function isExplicitlyDisabledEnv(value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase();
   return normalized === 'false' || normalized === '0' || normalized === 'off';
 }
