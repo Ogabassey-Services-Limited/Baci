@@ -160,6 +160,26 @@ describe('StaffSignupScreen', () => {
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
+  it('offers retry (not a terminal error) when the preview fails transiently', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Network request failed' },
+    });
+    render(<StaffSignupScreen />);
+
+    // A transient network failure must not be shown as "invalid/expired".
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.getByText(/couldn't verify this invitation/i)).toBeInTheDocument();
+    expect(mocks.signUp).not.toHaveBeenCalled();
+
+    // Retrying re-runs the preview RPC.
+    mocks.rpc.mockClear();
+    retry.click();
+    await waitFor(() => {
+      expect(mocks.rpc).toHaveBeenCalled();
+    });
+  });
+
   it('creates an account-only signup and routes to accept the invite on success', async () => {
     mocks.signUp.mockResolvedValue({ error: null });
     render(<StaffSignupScreen />);

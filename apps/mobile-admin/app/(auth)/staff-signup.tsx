@@ -25,16 +25,13 @@ import {
 } from '@/lib/staff-invite-pending';
 import { supabase } from '@/lib/supabase';
 
-type InviteStatus = 'loading' | 'valid' | 'invalid';
+// 'error' is a transient preview failure (network/RPC) that can be retried;
+// 'invalid' is a terminal verdict (no such/expired/used invite).
+type InviteStatus = 'loading' | 'valid' | 'invalid' | 'error';
 
-/**
- * Account-only signup for staff invitees. Creates just an auth user (no
- * merchant) so get_user_merchant_context's staff fallback resolves the invited
- * store instead of pinning the user to a store of their own. Reached from the
- * invite screen when the visitor is not signed in. Signup is gated on a
- * verified invite preview so a bogus/expired token can't create orphan
- * accounts, and the email is locked to the invited address.
- */
+// Account-only signup for staff invitees: creates just an auth user (no
+// merchant) so get_user_merchant_context resolves the invited store rather than
+// pinning the user to one of their own. Gated on a verified invite preview.
 export default function StaffSignupScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
@@ -44,6 +41,7 @@ export default function StaffSignupScreen() {
   const [inviteStatus, setInviteStatus] = useState<InviteStatus>(
     token ? 'loading' : 'invalid'
   );
+  const [retryNonce, setRetryNonce] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -61,14 +59,21 @@ export default function StaffSignupScreen() {
       setInviteStatus('invalid');
       return;
     }
+    setInviteStatus('loading');
     supabase
       .rpc('get_staff_invite_preview', { p_token: token })
       .then(({ data, error: previewError }) => {
         if (cancelled) {
           return;
         }
+        // A network/RPC error is transient — let the user retry. A successful
+        // response with no row means the token is terminally invalid/expired.
+        if (previewError) {
+          setInviteStatus('error');
+          return;
+        }
         const invitation = getFirstPreviewRow(data);
-        if (previewError || !invitation?.email) {
+        if (!invitation?.email) {
           setInviteStatus('invalid');
           return;
         }
@@ -78,15 +83,19 @@ export default function StaffSignupScreen() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, retryNonce]);
 
   const isLoading = isAuthenticating;
   const canSubmit = inviteStatus === 'valid' && !isLoading;
+  const isRetry = inviteStatus === 'error';
+  const submitDisabled = isRetry ? isLoading : !canSubmit;
   const bannerError =
     error ??
     (inviteStatus === 'invalid'
       ? 'This invitation is invalid or has expired. Ask the store owner to send a new one.'
-      : null);
+      : inviteStatus === 'error'
+        ? "We couldn't verify this invitation. Check your connection and try again."
+        : null);
 
   const handleSubmit = async () => {
     setError(null);
@@ -242,14 +251,18 @@ export default function StaffSignupScreen() {
           />
 
           <Pressable
-            accessibilityLabel="Create account and accept invitation"
+            accessibilityLabel={
+              isRetry ? 'Try again' : 'Create account and accept invitation'
+            }
             accessibilityRole="button"
-            disabled={!canSubmit}
-            onPress={handleSubmit}
+            disabled={submitDisabled}
+            onPress={
+              isRetry ? () => setRetryNonce((value) => value + 1) : handleSubmit
+            }
             style={[
               styles.loginButton,
               { backgroundColor: colors.primary },
-              !canSubmit && styles.loginButtonDisabled,
+              submitDisabled && styles.loginButtonDisabled,
             ]}
           >
             {isLoading ? (
@@ -258,7 +271,7 @@ export default function StaffSignupScreen() {
               <Text
                 style={[styles.loginButtonText, { color: colors.textOnPrimary }]}
               >
-                Create account & join
+                {isRetry ? 'Try Again' : 'Create account & join'}
               </Text>
             )}
           </Pressable>
