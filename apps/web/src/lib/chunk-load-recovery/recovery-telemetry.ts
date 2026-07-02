@@ -53,7 +53,6 @@ export function sendChunkRecoveryTelemetry(
     const payload = JSON.stringify({
       api_key: projectToken,
       event: 'chunk_load_recovery',
-      distinct_id: identity.distinctId ?? generateAnonymousDistinctId(),
       timestamp: new Date().toISOString(),
       properties: {
         $current_url: window.location.href,
@@ -68,6 +67,7 @@ export function sendChunkRecoveryTelemetry(
         failed_asset_url: telemetry.failedAssetUrl,
         page_deployment_id: telemetry.pageDeploymentId,
         pathname: telemetry.pathname,
+        distinct_id: identity.distinctId ?? generateAnonymousDistinctId(),
         recovery_action: telemetry.action,
         runtime: 'browser',
         trigger_source: telemetry.triggerSource,
@@ -81,14 +81,14 @@ export function sendChunkRecoveryTelemetry(
     if (typeof navigator.sendBeacon === 'function') {
       navigator.sendBeacon(
         endpoint,
-        new Blob([payload], { type: 'application/json' })
+        new Blob([payload], { type: 'text/plain' })
       );
       return;
     }
 
     fetch(endpoint, {
       body: payload,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       keepalive: true,
       method: 'POST',
     }).catch(() => {

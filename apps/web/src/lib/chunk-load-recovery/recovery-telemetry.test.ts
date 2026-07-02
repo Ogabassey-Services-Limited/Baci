@@ -42,9 +42,13 @@ describe('sendChunkRecoveryTelemetry', () => {
     sendChunkRecoveryTelemetry(baseTelemetry);
 
     expect(sendBeacon).toHaveBeenCalledWith('/baci-relay/e/', expect.any(Blob));
+    const beaconBlob = sendBeacon.mock.calls[0][1] as Blob;
+    expect(beaconBlob.type).toBe('text/plain');
     const payload = await readBeaconPayload(sendBeacon);
     expect(payload.api_key).toBe(TOKEN);
     expect(payload.event).toBe('chunk_load_recovery');
+    expect(payload.distinct_id).toBeUndefined();
+    expect(payload.properties.distinct_id).toMatch(/^chunk-recovery-/);
     expect(payload.properties).toMatchObject({
       deployment_id_match: false,
       failed_asset_deployment_id: 'deploy-old',
@@ -73,7 +77,8 @@ describe('sendChunkRecoveryTelemetry', () => {
     sendChunkRecoveryTelemetry(baseTelemetry);
 
     const payload = await readBeaconPayload(sendBeacon);
-    expect(payload.distinct_id).toBe('known-user');
+    expect(payload.distinct_id).toBeUndefined();
+    expect(payload.properties.distinct_id).toBe('known-user');
     expect(payload.properties.$session_id).toBe('session-abc');
   });
 
@@ -125,7 +130,11 @@ describe('sendChunkRecoveryTelemetry', () => {
 
     expect(fetchSpy).toHaveBeenCalledWith(
       '/baci-relay/e/',
-      expect.objectContaining({ keepalive: true, method: 'POST' })
+      expect.objectContaining({
+        headers: { 'Content-Type': 'text/plain' },
+        keepalive: true,
+        method: 'POST',
+      })
     );
   });
 
