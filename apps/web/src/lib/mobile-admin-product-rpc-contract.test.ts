@@ -1,15 +1,31 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const migrationSql = readFileSync(
-  resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260629084756_restore_mobile_admin_product_rpc_contract.sql'
-  ),
-  'utf8'
+const migrationFileName =
+  '20260629084756_restore_mobile_admin_product_rpc_contract.sql';
+const migrationsDir = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../../supabase/migrations'
 );
+const publicRpcDefinitionPattern =
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.save_mobile_admin_product_with_variants\s*\(/i;
+const publicRpcDropPattern =
+  /DROP\s+FUNCTION(?:\s+IF\s+EXISTS)?\s+public\.save_mobile_admin_product_with_variants\s*\(/i;
+const rpcMigrationEntries = readdirSync(migrationsDir)
+  .filter((fileName) => fileName.endsWith('.sql'))
+  .sort()
+  .map((fileName) => {
+    const sql = readFileSync(resolve(migrationsDir, fileName), 'utf8');
+    return { fileName, sql };
+  })
+  .filter(
+    ({ sql }) =>
+      publicRpcDefinitionPattern.test(sql) || publicRpcDropPattern.test(sql)
+  );
+const latestRpcMigration = rpcMigrationEntries.at(-1);
+const migrationSql = latestRpcMigration?.sql ?? '';
 
 const productInsertSql =
   migrationSql.match(
@@ -51,6 +67,14 @@ const hiddenAnchorDeleteIndex = migrationSql.indexOf(
 );
 
 describe('mobile admin product RPC migration contract', () => {
+  it('asserts against the latest migration that changes the public RPC', () => {
+    expect(latestRpcMigration?.fileName).toBe(migrationFileName);
+    expect(latestRpcMigration?.sql).toMatch(publicRpcDefinitionPattern);
+    expect(
+      rpcMigrationEntries.filter(({ fileName }) => fileName > migrationFileName)
+    ).toEqual([]);
+  });
+
   it('restores the public argument names used by the mobile app', () => {
     expect(migrationSql).toMatch(
       /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.save_mobile_admin_product_with_variants\([\s\S]*p_variants\s+jsonb\s+DEFAULT\s+'\[\]'::jsonb[\s\S]*p_variant_model\s+text\s+DEFAULT\s+NULL/i
