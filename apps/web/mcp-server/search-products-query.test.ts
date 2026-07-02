@@ -37,6 +37,7 @@ function createRankedSearchSupabase() {
 
   return {
     rpc,
+    select,
     supabase: {
       from: vi.fn(() => ({ select })),
       rpc,
@@ -65,6 +66,7 @@ function createCatalogSearchSupabase() {
 
   return {
     range,
+    select,
     supabase: {
       from: vi.fn(() => ({ select })),
     } as unknown as SupabaseClient,
@@ -73,7 +75,7 @@ function createCatalogSearchSupabase() {
 
 describe('loadMcpSearchProducts', () => {
   it('caps ranked post-filter pagination when hydrated rows keep failing filters', async () => {
-    const { rpc, supabase } = createRankedSearchSupabase();
+    const { rpc, select, supabase } = createRankedSearchSupabase();
 
     const result = await loadMcpSearchProducts({
       args: { brand: 'Apple', limit: 20, query: 'phone' },
@@ -83,6 +85,7 @@ describe('loadMcpSearchProducts', () => {
     });
 
     expect(result.products).toEqual([]);
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('manage_stock'));
     expect(rpc).toHaveBeenCalledTimes(MAX_POST_FILTER_RESULT_PAGES);
     expect(rpc.mock.calls.map(([, args]) => args.result_offset)).toEqual(
       Array.from(
@@ -93,7 +96,7 @@ describe('loadMcpSearchProducts', () => {
   });
 
   it('caps catalog condition-family pagination when pages keep failing hydration filters', async () => {
-    const { range, supabase } = createCatalogSearchSupabase();
+    const { range, select, supabase } = createCatalogSearchSupabase();
 
     const result = await loadMcpSearchProducts({
       args: { condition: 'used', limit: 20 },
@@ -103,6 +106,7 @@ describe('loadMcpSearchProducts', () => {
     });
 
     expect(result.products).toEqual([]);
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('manage_stock'));
     expect(range).toHaveBeenCalledTimes(MAX_POST_FILTER_RESULT_PAGES);
     expect(range.mock.calls).toEqual(
       Array.from({ length: MAX_POST_FILTER_RESULT_PAGES }, (_, index) => {

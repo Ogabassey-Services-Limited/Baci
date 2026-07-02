@@ -42,7 +42,7 @@ export type LoadMcpSearchProductsResult = {
 };
 
 const productSelect =
-  'id, name, slug, price, compare_at_price, images, condition, condition_detail, available_conditions, has_condition_offers, brand, category, stock_quantity, has_variants, updated_at, created_at';
+  'id, name, slug, price, compare_at_price, images, condition, condition_detail, available_conditions, has_condition_offers, brand, category, manage_stock, stock_quantity, has_variants, updated_at, created_at';
 
 async function loadRankedMcpProducts({
   args,
