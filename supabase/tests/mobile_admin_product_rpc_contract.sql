@@ -73,6 +73,20 @@ BEGIN
     RAISE EXCEPTION 'mobile admin product RPC must remain SECURITY DEFINER';
   END IF;
 
+  IF EXISTS (
+    SELECT 1
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'save_mobile_admin_product_with_variants'
+      AND pg_catalog.oidvectortypes(p.proargtypes) IN (
+        'uuid, uuid, jsonb',
+        'uuid, uuid, jsonb, jsonb'
+      )
+  ) THEN
+    RAISE EXCEPTION 'legacy mobile admin product RPC overload still exists';
+  END IF;
+
   IF has_function_privilege('anon', v_proc, 'EXECUTE') THEN
     RAISE EXCEPTION 'anon unexpectedly has EXECUTE on mobile admin product RPC';
   END IF;

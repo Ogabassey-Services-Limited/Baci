@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const migrationFileName =
-  '20260629084756_restore_mobile_admin_product_rpc_contract.sql';
+  '20260702063638_restore_mobile_admin_product_rpc_contract.sql';
 const migrationsDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../../supabase/migrations'
@@ -42,14 +42,48 @@ const productPersistUpdateSql = productUpdateSqlBlocks[0] ?? '';
 const compatibilityUpdateSql = productUpdateSqlBlocks.at(-1) ?? '';
 const productPersistenceSql = `${productInsertSql}\n${productPersistUpdateSql}`;
 
-const variantSyncMatch = migrationSql.match(
-  /IF\s+p_product_id\s+IS\s+NULL\s+OR\s+v_product_payload\s+\?\s+'has_variants'\s+THEN[\s\S]*?END\s+IF;/i
+const createVariantModelIndex = migrationSql.indexOf(
+  'v_variant_model := COALESCE('
 );
-const variantSyncSql = variantSyncMatch?.[0] ?? '';
+const updateVariantModelIndex = migrationSql.indexOf(
+  'v_variant_model := COALESCE(',
+  createVariantModelIndex + 1
+);
+const createVariantModelEndIndex =
+  createVariantModelIndex === -1
+    ? -1
+    : migrationSql.indexOf('v_has_variants :=', createVariantModelIndex);
+const updateVariantModelEndIndex =
+  updateVariantModelIndex === -1
+    ? -1
+    : migrationSql.indexOf(
+        'IF NOT (v_product_payload',
+        updateVariantModelIndex
+      );
+const createVariantModelSql =
+  createVariantModelIndex === -1 || createVariantModelEndIndex === -1
+    ? ''
+    : migrationSql.slice(createVariantModelIndex, createVariantModelEndIndex);
+const updateVariantModelSql =
+  updateVariantModelIndex === -1 || updateVariantModelEndIndex === -1
+    ? ''
+    : migrationSql.slice(updateVariantModelIndex, updateVariantModelEndIndex);
 
 const variantSyncIndex = migrationSql.indexOf(
   'v_synced_variant_count := public.sync_product_variants_for_product'
 );
+const variantSyncStartIndex = migrationSql.lastIndexOf(
+  'IF p_product_id IS NULL',
+  variantSyncIndex
+);
+const variantSyncEndIndex = migrationSql.indexOf('END IF;', variantSyncIndex);
+const variantSyncSql =
+  variantSyncStartIndex === -1 || variantSyncEndIndex === -1
+    ? ''
+    : migrationSql.slice(
+        variantSyncStartIndex,
+        variantSyncEndIndex + 'END IF;'.length
+      );
 const createVariantIdStripIndex = migrationSql.indexOf(
   "jsonb_agg(element.raw - 'id' ORDER BY element.ordinal)"
 );
@@ -83,10 +117,50 @@ describe('mobile admin product RPC migration contract', () => {
     expect(migrationSql).not.toMatch(/p_actor_role/i);
   });
 
-  it('normalizes the mobile variant model into the product payload contract', () => {
+  it('removes legacy overloads before recreating the canonical RPC', () => {
     expect(migrationSql).toMatch(
-      /jsonb_set\([\s\S]*COALESCE\(p_product_payload,\s+'\{\}'::jsonb\)[\s\S]*'\{variant_model\}'[\s\S]*to_jsonb\(v_variant_model\)/i
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.save_mobile_admin_product_with_variants\(\s*uuid,\s*uuid,\s*jsonb\s*\)/i
     );
+    expect(migrationSql).toMatch(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.save_mobile_admin_product_with_variants\(\s*uuid,\s*uuid,\s*jsonb,\s*jsonb\s*\)/i
+    );
+    expect(migrationSql).toMatch(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.save_mobile_admin_product_with_variants\(\s*uuid,\s*uuid,\s*jsonb,\s*jsonb,\s*text\s*\)/i
+    );
+  });
+
+  it('normalizes the mobile variant model into the product payload contract', () => {
+    expect(createVariantModelIndex).toBeGreaterThan(-1);
+    expect(createVariantModelEndIndex).toBeGreaterThan(createVariantModelIndex);
+    expect(migrationSql).toMatch(
+      /v_product_payload\s+jsonb\s*:=\s*COALESCE\(p_product_payload,\s+'\{\}'::jsonb\)/i
+    );
+    expect(createVariantModelSql).toContain("NULLIF(p_variant_model, '')");
+    expect(createVariantModelSql).toContain(
+      "NULLIF(v_product_payload->>'variant_model', '')"
+    );
+    expect(createVariantModelSql).toContain("'legacy'");
+    expect(createVariantModelSql).toContain('v_product_payload := jsonb_set(');
+    expect(createVariantModelSql).toContain("'{variant_model}'");
+    expect(createVariantModelSql).toContain('to_jsonb(v_variant_model)');
+  });
+
+  it('preserves the existing variant model for partial update saves', () => {
+    expect(updateVariantModelIndex).toBeGreaterThan(-1);
+    expect(updateVariantModelEndIndex).toBeGreaterThan(updateVariantModelIndex);
+    expect(migrationSql).toMatch(/v_existing_variant_model\s+text/i);
+    expect(migrationSql).toMatch(
+      /SELECT\s+p\.has_variants,\s*p\.inventory_tracking_policy,\s*p\.inventory_anchor_variant_id,\s*p\.variant_model\s+INTO\s+v_existing_has_variants,\s*v_existing_inventory_tracking_policy,\s*v_existing_anchor_id,\s*v_existing_variant_model/i
+    );
+    expect(updateVariantModelSql).toContain("NULLIF(p_variant_model, '')");
+    expect(updateVariantModelSql).toContain(
+      "NULLIF(v_product_payload->>'variant_model', '')"
+    );
+    expect(updateVariantModelSql).toContain('v_existing_variant_model');
+    expect(updateVariantModelSql).toContain("'legacy'");
+    expect(updateVariantModelSql).toContain('v_product_payload := jsonb_set(');
+    expect(updateVariantModelSql).toContain("'{variant_model}'");
+    expect(updateVariantModelSql).toContain('to_jsonb(v_variant_model)');
   });
 
   it('keeps create and response semantics compatible with the mobile hook', () => {
@@ -172,6 +246,29 @@ describe('mobile admin product RPC migration contract', () => {
     );
   });
 
+  it('syncs supplied variants on existing variant-product updates', () => {
+    expect(variantSyncSql).toContain('IF p_product_id IS NULL');
+    expect(variantSyncSql).toContain("OR v_product_payload ? 'has_variants'");
+    expect(variantSyncSql).toContain(
+      'OR (v_has_variants IS TRUE AND jsonb_array_length(v_variants_for_sync) > 0)'
+    );
+  });
+
+  it('keeps migration status aligned with the stored variant model', () => {
+    for (const productUpdateSql of [
+      productPersistUpdateSql,
+      compatibilityUpdateSql,
+    ]) {
+      expect(productUpdateSql).toMatch(/migration_status\s*=\s*CASE/i);
+      expect(productUpdateSql).toMatch(
+        /WHEN\s+v_variant_model\s*=\s*'sku_matrix'\s+THEN\s+'migrated'/i
+      );
+      expect(productUpdateSql).toMatch(
+        /WHEN\s+v_variant_model\s*=\s*'legacy'\s+AND\s+products\.migration_status\s*=\s*'migrated'\s+THEN\s+'pending'/i
+      );
+    }
+  });
+
   it('prepares conversion targets before variant sync and transfers hidden anchors after', () => {
     expect(anchorTargetPreparationIndex).toBeGreaterThan(-1);
     expect(anchorPointerClearIndex).toBeGreaterThan(-1);
@@ -198,11 +295,34 @@ describe('mobile admin product RPC migration contract', () => {
     expect(anchorPreparationSql).toContain('v_reassign_anchor_to_variant_id');
     expect(anchorPreparationSql).toContain('v_reassign_anchor_variant');
     expect(anchorPreparationSql).toContain('is_inventory_anchor');
-    expect(
-      migrationSql.slice(variantSyncIndex, hiddenAnchorDeleteIndex)
-    ).toMatch(
-      /SELECT\s+pv\.id[\s\S]*INTO\s+v_reassign_anchor_to_variant_id[\s\S]*ORDER\s+BY\s+pv\.created_at\s+NULLS\s+LAST,\s*pv\.id[\s\S]*serialized_inventory_reassignment_required[\s\S]*PERFORM\s+1[\s\S]*FROM\s+public\.variant_inventory[\s\S]*FOR\s+UPDATE[\s\S]*serialized_inventory_reserved_units_exist[\s\S]*FOR\s+v_moved_inventory_unit_id\s+IN[\s\S]*UPDATE\s+public\.variant_inventory[\s\S]*RETURNING\s+id[\s\S]*private\.record_variant_inventory_event\(\s*v_moved_inventory_unit_id/i
+    const anchorTransferSql = migrationSql.slice(
+      variantSyncIndex,
+      hiddenAnchorDeleteIndex
     );
+    expect(anchorTransferSql).toContain('count(*) OVER () AS candidate_count');
+    expect(anchorTransferSql).toContain('WHERE candidate.candidate_count = 1');
+    expect(anchorTransferSql).toContain('SELECT candidate.id');
+    expect(anchorTransferSql).toContain('INTO v_reassign_anchor_to_variant_id');
+    expect(anchorTransferSql).toContain(
+      'ORDER BY candidate.created_at NULLS LAST, candidate.id'
+    );
+    expect(anchorTransferSql).toContain(
+      "RAISE EXCEPTION 'serialized_inventory_reassignment_required'"
+    );
+    expect(anchorTransferSql).toContain('PERFORM 1');
+    expect(anchorTransferSql).toContain('FROM public.variant_inventory');
+    expect(anchorTransferSql).toContain('FOR UPDATE');
+    expect(anchorTransferSql).toContain("AND status = 'reserved'");
+    expect(anchorTransferSql).toContain(
+      "RAISE EXCEPTION 'serialized_inventory_reserved_units_exist'"
+    );
+    expect(anchorTransferSql).toContain('FOR v_moved_inventory_unit_id IN');
+    expect(anchorTransferSql).toContain('UPDATE public.variant_inventory');
+    expect(anchorTransferSql).toContain('RETURNING id');
+    expect(anchorTransferSql).toContain(
+      'private.record_variant_inventory_event('
+    );
+    expect(anchorTransferSql).toContain('v_moved_inventory_unit_id');
     expect(
       migrationSql.slice(anchorTransferIndex, hiddenAnchorDeleteIndex)
     ).not.toMatch(

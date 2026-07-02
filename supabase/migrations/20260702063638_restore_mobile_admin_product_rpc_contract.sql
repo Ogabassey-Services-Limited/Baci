@@ -1,6 +1,19 @@
 DROP FUNCTION IF EXISTS public.save_mobile_admin_product_with_variants(
   uuid,
   uuid,
+  jsonb
+);
+
+DROP FUNCTION IF EXISTS public.save_mobile_admin_product_with_variants(
+  uuid,
+  uuid,
+  jsonb,
+  jsonb
+);
+
+DROP FUNCTION IF EXISTS public.save_mobile_admin_product_with_variants(
+  uuid,
+  uuid,
   jsonb,
   jsonb,
   text
@@ -19,20 +32,12 @@ SET search_path = ''
 AS $$
 DECLARE
   v_product_id uuid := COALESCE(p_product_id, gen_random_uuid());
-  v_variant_model text := COALESCE(
-    NULLIF(p_variant_model, ''),
-    p_product_payload->>'variant_model',
-    'legacy'
-  );
-  v_product_payload jsonb := jsonb_set(
-    COALESCE(p_product_payload, '{}'::jsonb),
-    '{variant_model}',
-    to_jsonb(v_variant_model),
-    true
-  );
+  v_variant_model text;
+  v_product_payload jsonb := COALESCE(p_product_payload, '{}'::jsonb);
   v_has_variants boolean;
   v_existing_has_variants boolean;
   v_existing_inventory_tracking_policy text;
+  v_existing_variant_model text;
   v_existing_anchor_id uuid;
   v_inventory_tracking_policy text;
   v_reassign_anchor_to_variant_id uuid;
@@ -60,11 +65,19 @@ BEGIN
     RAISE EXCEPTION 'variants_array_required' USING ERRCODE = '22023';
   END IF;
 
-  IF v_variant_model NOT IN ('legacy', 'sku_matrix') THEN
-    RAISE EXCEPTION 'invalid_variant_model' USING ERRCODE = '22023';
-  END IF;
-
   IF p_product_id IS NULL THEN
+    v_variant_model := COALESCE(
+      NULLIF(p_variant_model, ''),
+      NULLIF(v_product_payload->>'variant_model', ''),
+      'legacy'
+    );
+    v_product_payload := jsonb_set(
+      v_product_payload,
+      '{variant_model}',
+      to_jsonb(v_variant_model),
+      true
+    );
+
     v_has_variants := COALESCE(NULLIF(v_product_payload->>'has_variants', '')::boolean, false);
 
     PERFORM private.enforce_mobile_admin_product_limit(p_merchant_id, v_product_id);
@@ -73,8 +86,8 @@ BEGIN
       'off'
     );
   ELSE
-    SELECT p.has_variants, p.inventory_tracking_policy, p.inventory_anchor_variant_id
-    INTO v_existing_has_variants, v_existing_inventory_tracking_policy, v_existing_anchor_id
+    SELECT p.has_variants, p.inventory_tracking_policy, p.inventory_anchor_variant_id, p.variant_model
+    INTO v_existing_has_variants, v_existing_inventory_tracking_policy, v_existing_anchor_id, v_existing_variant_model
     FROM public.products AS p
     WHERE p.id = p_product_id
       AND p.merchant_id = p_merchant_id
@@ -83,6 +96,19 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION 'product_not_found' USING ERRCODE = 'P0002';
     END IF;
+
+    v_variant_model := COALESCE(
+      NULLIF(p_variant_model, ''),
+      NULLIF(v_product_payload->>'variant_model', ''),
+      v_existing_variant_model,
+      'legacy'
+    );
+    v_product_payload := jsonb_set(
+      v_product_payload,
+      '{variant_model}',
+      to_jsonb(v_variant_model),
+      true
+    );
 
     IF NOT (v_product_payload ? 'inventory_tracking_policy') THEN
       v_product_payload := jsonb_set(
@@ -103,6 +129,10 @@ BEGIN
       v_existing_inventory_tracking_policy,
       'off'
     );
+  END IF;
+
+  IF v_variant_model NOT IN ('legacy', 'sku_matrix') THEN
+    RAISE EXCEPTION 'invalid_variant_model' USING ERRCODE = '22023';
   END IF;
 
   IF v_inventory_tracking_policy NOT IN ('off', 'serialized_strict', 'serialized_then_unlimited') THEN
@@ -379,6 +409,7 @@ BEGIN
       variant_model = v_variant_model,
       migration_status = CASE
         WHEN v_variant_model = 'sku_matrix' THEN 'migrated'
+        WHEN v_variant_model = 'legacy' AND products.migration_status = 'migrated' THEN 'pending'
         ELSE products.migration_status
       END,
       inventory_tracking_policy = v_inventory_tracking_policy,
@@ -388,7 +419,9 @@ BEGIN
     RETURNING products.id INTO v_updated_product_id;
   END IF;
 
-  IF p_product_id IS NULL OR v_product_payload ? 'has_variants' THEN
+  IF p_product_id IS NULL
+     OR v_product_payload ? 'has_variants'
+     OR (v_has_variants IS TRUE AND jsonb_array_length(v_variants_for_sync) > 0) THEN
     v_synced_variant_count := public.sync_product_variants_for_product(
       v_product_id,
       p_merchant_id,
@@ -412,13 +445,20 @@ BEGIN
       END IF;
 
       IF v_reassign_anchor_to_variant_id IS NULL THEN
-        SELECT pv.id
+        SELECT candidate.id
         INTO v_reassign_anchor_to_variant_id
-        FROM public.product_variants AS pv
-        WHERE pv.product_id = v_product_id
-          AND pv.merchant_id = p_merchant_id
-          AND pv.is_inventory_anchor = false
-        ORDER BY pv.created_at NULLS LAST, pv.id
+        FROM (
+          SELECT
+            pv.id,
+            pv.created_at,
+            count(*) OVER () AS candidate_count
+          FROM public.product_variants AS pv
+          WHERE pv.product_id = v_product_id
+            AND pv.merchant_id = p_merchant_id
+            AND pv.is_inventory_anchor = false
+        ) AS candidate
+        WHERE candidate.candidate_count = 1
+        ORDER BY candidate.created_at NULLS LAST, candidate.id
         LIMIT 1;
       END IF;
 
@@ -510,6 +550,7 @@ BEGIN
     END,
     migration_status = CASE
       WHEN v_variant_model = 'sku_matrix' THEN 'migrated'
+      WHEN v_variant_model = 'legacy' AND products.migration_status = 'migrated' THEN 'pending'
       ELSE products.migration_status
     END,
     updated_at = now()
