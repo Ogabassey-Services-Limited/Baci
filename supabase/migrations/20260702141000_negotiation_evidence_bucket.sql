@@ -20,8 +20,19 @@ values (
   'negotiation-evidence',
   'negotiation-evidence',
   false,
-  5242880, -- 5 MB
-  array['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif']
+  -- Match the client's validation (MAX_NEGOTIATION_EVIDENCE_BYTES /
+  -- ALLOWED_NEGOTIATION_EVIDENCE_TYPES in mobile-storefront
+  -- negotiation-evidence.ts) so client-accepted evidence never silently fails at
+  -- the storage layer. image/jpg is a real content-type some Android pickers report.
+  10485760, -- 10 MB
+  array[
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'image/heic',
+    'image/heif'
+  ]
 )
 on conflict (id) do update set
   public = excluded.public,
