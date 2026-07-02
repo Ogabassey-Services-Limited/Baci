@@ -1,7 +1,7 @@
 # Baci AI E-commerce Builder - AI Context
 
 **Last Updated:** 2025-10-31
-**Project Type:** Next.js 15 Web Application
+**Project Type:** Next.js 16 Web Application
 **Primary Purpose:** Merchant dashboard for AI-powered e-commerce store builder
 
 ---
@@ -9,9 +9,9 @@
 ## Quick Reference
 
 ### Tech Stack
-- **Framework:** Next.js 15.0.0 (App Router)
-- **Language:** TypeScript 5.5.4 (strict mode)
-- **Styling:** Tailwind CSS 3.4.7 + shadcn/ui
+- **Framework:** Next.js 16.2.9 (App Router)
+- **Language:** TypeScript 5.9.3 (strict mode)
+- **Styling:** Tailwind CSS 4.3.0 + shadcn/ui
 - **AI Engine:** Google Genkit 1.20.0 with Gemini 2.5 Flash models
 - **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
 - **Database:** Supabase (PostgreSQL)
@@ -303,7 +303,7 @@ Step 3: Account Creation
 5. Test with very long product names (edge case)
 
 ### Testing AI Flows
-Use Genkit Dev UI: `npm run genkit:dev`
+Use Genkit Dev UI: `pnpm run genkit:dev`
 1. Navigate to http://localhost:4000
 2. Test each flow individually with sample inputs
 3. Verify output schemas match TypeScript types
@@ -409,7 +409,7 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - **Schema Docs:** `/src/schemas/README.md`
 
 ### External Docs
-- **Next.js 15:** https://nextjs.org/docs
+- **Next.js 16:** https://nextjs.org/docs
 - **Genkit:** https://firebase.google.com/docs/genkit
 - **Tailwind CSS:** https://tailwindcss.com/docs
 - **Radix UI:** https://www.radix-ui.com/primitives/docs/overview/introduction
@@ -418,12 +418,12 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Commands
 ```bash
-npm run dev              # Start Next.js dev server on port 9002
-npm run genkit:dev       # Start Genkit Dev UI on port 4000
-npm run genkit:watch     # Genkit with hot reload
-npm run build            # Production build
-npm run typecheck        # TypeScript type checking
-npm run lint             # ESLint
+pnpm turbo dev           # Start Next.js dev server on port 9002
+pnpm run genkit:dev      # Start Genkit Dev UI on port 4000
+pnpm run genkit:watch    # Genkit with hot reload
+pnpm turbo build         # Production build
+pnpm turbo typecheck     # TypeScript type checking
+pnpm turbo lint          # Biome linting
 ```
 
 ---
