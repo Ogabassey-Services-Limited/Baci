@@ -14,6 +14,7 @@ BEGIN;
 DO $$
 DECLARE
   missing_column text;
+  supplier_analytics_function text;
 BEGIN
   SELECT expected.column_name INTO missing_column
   FROM (
@@ -72,6 +73,19 @@ BEGIN
       AND conrelid = 'public.order_item_unit_costs'::regclass
   ) THEN
     RAISE EXCEPTION 'order item unit cost non-negative constraint missing';
+  END IF;
+
+  SELECT pg_get_functiondef(
+    'public.get_supplier_purchase_analytics(uuid,timestamptz,timestamptz,uuid)'::regprocedure
+  )
+  INTO supplier_analytics_function;
+
+  IF supplier_analytics_function NOT ILIKE '%p.merchant_id = p_merchant_id%' THEN
+    RAISE EXCEPTION 'supplier analytics product join is not merchant-scoped';
+  END IF;
+
+  IF supplier_analytics_function NOT ILIKE '%pv.merchant_id = p_merchant_id%' THEN
+    RAISE EXCEPTION 'supplier analytics variant join is not merchant-scoped';
   END IF;
 END;
 $$ LANGUAGE plpgsql;

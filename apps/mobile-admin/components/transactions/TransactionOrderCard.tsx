@@ -289,6 +289,7 @@ export function TransactionOrderCard({
             estimatedProfit={order.estimatedProfit}
             formatCurrency={formatCurrency}
             itemCount={itemCount}
+            missingCostCount={order.missingCostCount}
           />
         </View>
       ) : null}

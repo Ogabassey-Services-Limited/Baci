@@ -190,13 +190,17 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
             ? fulfillmentImeiValues
             : unitCostImeiValues.length > 0
               ? unitCostImeiValues
-              : imeiValues;
+              : unitIndex == null
+                ? imeiValues
+                : [];
         const rowSerialValues =
           fulfillmentSerialValues.length > 0
             ? fulfillmentSerialValues
             : unitCostSerialValues.length > 0
               ? unitCostSerialValues
-              : serialValues;
+              : unitIndex == null
+                ? serialValues
+                : [];
         const identifierType =
           rowImeiValues[0] != null
             ? 'imei'

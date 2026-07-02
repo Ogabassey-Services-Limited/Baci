@@ -3,11 +3,14 @@ import {
   buildFulfillmentUnitIndex,
   buildSearchText,
   collectDetailValues,
+  getSafeLegacyOrderDetails,
   getSupplierNameFromMetadata,
+  getUnitCostByIndex,
   IMEI_KEYS,
   SERIAL_KEYS,
   toFiniteNumberOrNull,
 } from './transaction-review-row-helpers';
+import type { TransactionReviewUnitCostRow } from './transaction-review-types';
 
 describe('transaction-review-row-helpers', () => {
   it('normalizes searchable values and numeric inputs', () => {
@@ -45,8 +48,16 @@ describe('transaction-review-row-helpers', () => {
       { items: [] },
       {
         inventoryUnits: [
-          { inventoryUnitId: 'u1', identifierType: 'imei', identifierValue: '111' },
-          { inventoryUnitId: 'u2', identifierType: 'serial', identifierValue: 'SN-2' },
+          {
+            inventoryUnitId: 'u1',
+            identifierType: 'imei',
+            identifierValue: '111',
+          },
+          {
+            inventoryUnitId: 'u2',
+            identifierType: 'serial',
+            identifierValue: 'SN-2',
+          },
         ],
       },
       'item-1'
@@ -60,18 +71,83 @@ describe('transaction-review-row-helpers', () => {
   it('lets order-level fulfillment units win over item inventory units', () => {
     const byIndex = buildFulfillmentUnitIndex(
       {
-        items: [
-          { orderItemId: 'item-1', unitIndex: 0, imei: '999' },
-        ],
+        items: [{ orderItemId: 'item-1', unitIndex: 0, imei: '999' }],
       },
       {
         inventoryUnits: [
-          { inventoryUnitId: 'u1', identifierType: 'imei', identifierValue: '111' },
+          {
+            inventoryUnitId: 'u1',
+            identifierType: 'imei',
+            identifierValue: '111',
+          },
         ],
       },
       'item-1'
     );
 
     expect(byIndex.get(0)?.imeiValues).toEqual(['999']);
+  });
+
+  it('uses legacy order details only for a single one-unit order item', () => {
+    const fulfillmentDetails = { serialNumber: 'LEGACY-SN' };
+
+    expect(getSafeLegacyOrderDetails(fulfillmentDetails, 1, 1)).toBe(
+      fulfillmentDetails
+    );
+    expect(getSafeLegacyOrderDetails(fulfillmentDetails, 2, 1)).toBeNull();
+    expect(getSafeLegacyOrderDetails(fulfillmentDetails, 1, 2)).toBeNull();
+  });
+
+  it('indexes unit costs by valid unit index and keeps the first duplicate', () => {
+    const unitCosts: TransactionReviewUnitCostRow[] = [
+      {
+        cost_price: 100,
+        identifier_type: 'serial',
+        identifier_value: 'SN-1',
+        supplier_name: 'First Supplier',
+        unit_index: 0,
+      },
+      {
+        cost_price: 200,
+        identifier_type: 'serial',
+        identifier_value: 'SN-1-DUPE',
+        supplier_name: 'Duplicate Supplier',
+        unit_index: 0,
+      },
+      {
+        cost_price: 300,
+        identifier_type: 'serial',
+        identifier_value: 'SN-NEGATIVE',
+        supplier_name: 'Invalid Supplier',
+        unit_index: -1,
+      },
+      {
+        cost_price: 400,
+        identifier_type: 'serial',
+        identifier_value: 'SN-FRACTION',
+        supplier_name: 'Invalid Supplier',
+        unit_index: 1.5,
+      },
+      {
+        cost_price: 500,
+        identifier_type: 'serial',
+        identifier_value: 'SN-NULL',
+        supplier_name: 'Invalid Supplier',
+        unit_index: null,
+      },
+      {
+        cost_price: 600,
+        identifier_type: 'imei',
+        identifier_value: '353456789012345',
+        supplier_name: 'Second Supplier',
+        unit_index: 2,
+      },
+    ];
+
+    const byIndex = getUnitCostByIndex(unitCosts);
+
+    expect([...byIndex.keys()]).toEqual([0, 2]);
+    expect(byIndex.get(0)?.supplier_name).toBe('First Supplier');
+    expect(byIndex.get(2)?.supplier_name).toBe('Second Supplier');
   });
 });

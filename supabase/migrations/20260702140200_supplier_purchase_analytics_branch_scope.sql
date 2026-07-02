@@ -78,8 +78,16 @@ BEGIN
       pv.cost_price AS variant_cost_price
     FROM public.orders AS o
     JOIN public.order_items AS oi ON oi.order_id = o.id
-    LEFT JOIN public.products AS p ON p.id = oi.product_id
-    LEFT JOIN public.product_variants AS pv ON pv.id = oi.variant_id
+    LEFT JOIN public.products AS p
+      ON p.id = oi.product_id
+      AND p.merchant_id = p_merchant_id
+    LEFT JOIN public.product_variants AS pv
+      ON pv.id = oi.variant_id
+      AND pv.merchant_id = p_merchant_id
+      AND (
+        oi.product_id IS NULL
+        OR pv.product_id = oi.product_id
+      )
     WHERE o.merchant_id = p_merchant_id
       AND o.payment_status = 'paid'
       AND (p_branch_id IS NULL OR o.branch_id = p_branch_id)

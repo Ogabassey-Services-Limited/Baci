@@ -49,7 +49,7 @@ import { useUpdateTransactionCostPrice } from './useUpdateTransactionCostPrice';
 
 type UpdateTransactionReviewDetailsInput = {
   costPrice: number;
-  identifierType?: string | null;
+  identifierType?: 'imei' | 'serial' | null;
   identifierValue?: string | null;
   orderId: string;
   orderItemId: string;
@@ -276,6 +276,36 @@ describe('useUpdateTransactionCostPrice', () => {
         p_unit_index: 0,
       })
     );
+  });
+
+  it('rejects unsupported identifier types before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(
+        makeInput({
+          identifierType: 'barcode' as unknown as 'imei',
+          identifierValue: 'ABC123',
+          unitIndex: 0,
+        })
+      )
+    ).rejects.toThrow('Identifier type must be imei or serial.');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid unit indexes before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(makeInput({ unitIndex: -1 }))
+    ).rejects.toThrow('Unit index must be a non-negative integer.');
+
+    await expect(
+      mutation.mutationFn(makeInput({ unitIndex: 1.5 }))
+    ).rejects.toThrow('Unit index must be a non-negative integer.');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
   it('defaults unit-level fields to null for order-item-level cost edits', async () => {

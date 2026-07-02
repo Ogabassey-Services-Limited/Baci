@@ -9,6 +9,18 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 describe('isTransactionReviewSchemaCacheError', () => {
+  it('keeps existing cost and supplier fields in the legacy fallback select', async () => {
+    const { TRANSACTION_REVIEW_LEGACY_SELECT } = await import(
+      './useTransactionReview'
+    );
+
+    expect(TRANSACTION_REVIEW_LEGACY_SELECT).toContain('cost_price');
+    expect(TRANSACTION_REVIEW_LEGACY_SELECT).toContain('supplier_name');
+    expect(TRANSACTION_REVIEW_LEGACY_SELECT).not.toContain(
+      'order_item_unit_costs'
+    );
+  });
+
   it('returns true for missing transaction-review columns in PostgREST schema cache', async () => {
     const { isTransactionReviewSchemaCacheError } = await import(
       './useTransactionReview'

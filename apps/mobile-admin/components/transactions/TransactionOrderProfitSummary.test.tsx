@@ -47,6 +47,7 @@ describe('TransactionOrderProfitSummary', () => {
         estimatedProfit={1200}
         formatCurrency={(amount) => `NGN ${amount}`}
         itemCount={1}
+        missingCostCount={0}
       />
     );
 
@@ -60,6 +61,7 @@ describe('TransactionOrderProfitSummary', () => {
         estimatedProfit={4800}
         formatCurrency={(amount) => `NGN ${amount}`}
         itemCount={2}
+        missingCostCount={0}
       />
     );
 
@@ -76,6 +78,7 @@ describe('TransactionOrderProfitSummary', () => {
         estimatedProfit={-500}
         formatCurrency={(amount) => `NGN ${amount}`}
         itemCount={3}
+        missingCostCount={0}
       />
     );
 
@@ -83,5 +86,37 @@ describe('TransactionOrderProfitSummary', () => {
     expect(screen.getByText('Loss NGN 500')).toHaveStyle({
       color: LIGHT_COLORS.error,
     });
+  });
+
+  it('renders neutral multi-item profit totals with muted text', () => {
+    render(
+      <TransactionOrderProfitSummary
+        colors={LIGHT_COLORS}
+        estimatedProfit={0}
+        formatCurrency={(amount) => `NGN ${amount}`}
+        itemCount={2}
+        missingCostCount={0}
+      />
+    );
+
+    expect(screen.getByText('Total profit')).toBeInTheDocument();
+    expect(screen.getByText('NGN 0')).toHaveStyle({
+      color: LIGHT_COLORS.textMuted,
+    });
+  });
+
+  it('labels incomplete multi-item totals as estimates', () => {
+    render(
+      <TransactionOrderProfitSummary
+        colors={LIGHT_COLORS}
+        estimatedProfit={2500}
+        formatCurrency={(amount) => `NGN ${amount}`}
+        itemCount={3}
+        missingCostCount={1}
+      />
+    );
+
+    expect(screen.getByText('Estimated profit')).toBeInTheDocument();
+    expect(screen.queryByText('Total profit')).not.toBeInTheDocument();
   });
 });

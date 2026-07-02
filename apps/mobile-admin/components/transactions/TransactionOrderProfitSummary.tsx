@@ -11,6 +11,7 @@ interface TransactionOrderProfitSummaryProps {
   estimatedProfit: number;
   formatCurrency: (amount: number) => string;
   itemCount: number;
+  missingCostCount: number;
 }
 
 export function TransactionOrderProfitSummary({
@@ -18,6 +19,7 @@ export function TransactionOrderProfitSummary({
   estimatedProfit,
   formatCurrency,
   itemCount,
+  missingCostCount,
 }: TransactionOrderProfitSummaryProps) {
   if (itemCount <= 1) {
     return null;
@@ -25,7 +27,9 @@ export function TransactionOrderProfitSummary({
 
   const isLoss = estimatedProfit < 0;
   const isNeutral = estimatedProfit === 0;
-  const label = isLoss ? 'Total loss' : 'Total profit';
+  const isIncomplete = missingCostCount > 0;
+  const labelPrefix = isIncomplete ? 'Estimated' : 'Total';
+  const label = `${labelPrefix} ${isLoss ? 'loss' : 'profit'}`;
   const amountLabel = isLoss
     ? `Loss ${formatCurrency(Math.abs(estimatedProfit))}`
     : formatCurrency(estimatedProfit);

@@ -2,9 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 
+type TransactionIdentifierType = 'imei' | 'serial';
+
 interface UpdateTransactionReviewDetailsInput {
   costPrice: number;
-  identifierType?: string | null;
+  identifierType?: TransactionIdentifierType | null;
   identifierValue?: string | null;
   orderId: string;
   orderItemId: string;
@@ -74,6 +76,19 @@ export function useUpdateTransactionCostPrice() {
       }
       if (!transactionDateIso.trim()) {
         throw new Error('Enter a valid transaction date.');
+      }
+      if (
+        identifierType != null &&
+        identifierType !== 'imei' &&
+        identifierType !== 'serial'
+      ) {
+        throw new Error('Identifier type must be imei or serial.');
+      }
+      if (
+        unitIndex != null &&
+        (!Number.isInteger(unitIndex) || unitIndex < 0)
+      ) {
+        throw new Error('Unit index must be a non-negative integer.');
       }
 
       const parsedTransactionDate = new Date(transactionDateIso);

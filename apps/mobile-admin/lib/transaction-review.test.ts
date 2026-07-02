@@ -315,6 +315,67 @@ describe('transaction review helpers', () => {
     expect(order.estimatedProfit).toBe(150_000);
   });
 
+  it('does not copy item-level identifiers into synthesized unit rows', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Split Units',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 850_000,
+            fulfillment_data: {
+              imei: 'ITEM-LEVEL-IMEI',
+              serialNumber: 'ITEM-LEVEL-SERIAL',
+            },
+            id: 'item-laptop',
+            name: 'HP EliteBook',
+            order_item_unit_costs: [
+              {
+                cost_price: 800_000,
+                identifier_type: 'serial',
+                identifier_value: 'LAPTOP-SN-1',
+                supplier_name: 'Supplier A',
+                unit_index: 0,
+              },
+            ],
+            price: 900_000,
+            product_id: 'product-laptop',
+            product_variants: null,
+            products: null,
+            quantity: 2,
+            supplier_name: 'Fallback Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-010726-SPLIT',
+        payment_method: 'transfer',
+        total: 1_800_000,
+      },
+    ]);
+
+    expect(order.items).toMatchObject([
+      {
+        identifierType: 'serial',
+        identifierValue: 'LAPTOP-SN-1',
+        imeiValues: [],
+        serialValues: ['LAPTOP-SN-1'],
+        unitIndex: 0,
+      },
+      {
+        identifierType: null,
+        identifierValue: null,
+        imeiValues: [],
+        serialValues: [],
+        unitIndex: 1,
+      },
+    ]);
+  });
+
   it('uses order item cost and supplier before product defaults', () => {
     // Arrange
     const rows = [

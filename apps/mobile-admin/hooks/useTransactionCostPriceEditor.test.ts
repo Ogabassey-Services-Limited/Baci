@@ -173,4 +173,25 @@ describe('useTransactionCostPriceEditor', () => {
     );
     expect(updateCostPriceMock.mutateAsync).not.toHaveBeenCalled();
   });
+
+  it('keeps the editor open and surfaces save errors when the mutation fails', async () => {
+    updateCostPriceMock.mutateAsync.mockRejectedValueOnce(
+      new Error('Transaction not found')
+    );
+    const { result } = renderEditor();
+
+    act(() => {
+      result.current.handleOpenEditor(order, item);
+      result.current.handleChangeCostPrice('60000');
+    });
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(updateCostPriceMock.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(result.current.saveError).toBe('Transaction not found');
+    expect(result.current.selectedItem?.id).toBe('unit-row-1');
+    expect(result.current.costPriceInput).toBe('₦60,000');
+  });
 });

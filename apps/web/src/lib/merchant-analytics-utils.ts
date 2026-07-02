@@ -114,12 +114,14 @@ export function resolveOrderItemAnalyticsLineCost(
       index == null ||
       index < 0 ||
       index >= quantity ||
-      countedIndexes.has(index)
+      countedIndexes.has(index) ||
+      unit.cost_price == null ||
+      !Number.isFinite(unit.cost_price)
     ) {
       continue;
     }
     countedIndexes.add(index);
-    recordedTotal += asNumber(unit.cost_price);
+    recordedTotal += unit.cost_price;
   }
 
   const remainingUnits = quantity - countedIndexes.size;

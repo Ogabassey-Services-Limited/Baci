@@ -106,6 +106,26 @@ describe('getMerchantAnalyticsOverview', () => {
     ).rejects.toThrow('query failed');
   });
 
+  it('propagates supplier analytics result failures', async () => {
+    mocks.fetchMerchantAnalyticsData.mockResolvedValueOnce({
+      ...createAnalyticsData(),
+      supplierAnalyticsResult: {
+        count: null,
+        data: null,
+        error: { message: 'supplier analytics failed' },
+      },
+    });
+
+    await expect(
+      getMerchantAnalyticsOverview(
+        {} as unknown as SupabaseClient,
+        'merchant-1',
+        new Date('2026-05-01T00:00:00.000Z'),
+        new Date('2026-05-07T00:00:00.000Z')
+      )
+    ).rejects.toThrow('supplier analytics failed');
+  });
+
   it('maps supplier purchase analytics into the overview response', async () => {
     mocks.fetchMerchantAnalyticsData.mockResolvedValueOnce({
       ...createAnalyticsData(),
