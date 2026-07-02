@@ -45,6 +45,15 @@ interface RecordPaymentTransactionRow {
   status: string | null;
 }
 
+interface RecordManualPaymentResult {
+  current_paid?: number | string | null;
+  error_code?: string | null;
+  new_paid?: number | string | null;
+  remaining_balance?: number | string | null;
+  total_paid_before?: number | string | null;
+  transaction_id?: string | null;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -342,66 +351,49 @@ export async function POST(
       );
     }
 
-    const newPaid = totalPaidBefore + parsedAmount;
-    const remainingBalance = Math.max(0, orderTotal - newPaid);
+    const estimatedNewPaid = totalPaidBefore + parsedAmount;
+    const estimatedRemainingBalance = Math.max(
+      0,
+      orderTotal - estimatedNewPaid
+    );
 
     logger.info({
       message: 'RecordPayment totals calculated',
       orderId,
       currentPaid,
-      newPaid,
+      newPaid: estimatedNewPaid,
       orderTotal,
-      remainingBalance,
+      remainingBalance: estimatedRemainingBalance,
     });
 
     // 4. Create Transaction
-    // The pre-insert duplicate guard above catches known duplicates.
-    // The partial unique index (migration 20260504120000) enforces uniqueness
-    // at the DB level for concurrent inserts with the same reference.
-    const { data: createdTransaction, error: transactionError } = await supabase
-      .from('transactions')
-      .insert({
-        merchant_id: merchant.id,
-        order_id: orderId,
-        transaction_type: 'payment',
-        amount: parsedAmount,
-        currency: order.currency || 'NGN',
-        status: 'completed', // Valid values: pending, processing, completed, failed, cancelled
-        gateway: 'manual',
-        gateway_reference: reference,
-        description:
-          notes ||
-          (payment_method
-            ? `Manual payment (${payment_method})`
-            : 'Manual payment'),
-        metadata: {
+    // The pre-insert checks above provide fast feedback, but concurrent manual
+    // requests can still read the same balance. The RPC is authoritative: it
+    // locks the verified order row, recomputes completed payments, rejects stale
+    // overpayments/duplicates, and inserts the manual transaction atomically.
+    const paymentDescription =
+      notes ||
+      (payment_method
+        ? `Manual payment (${payment_method})`
+        : 'Manual payment');
+    const { data: manualPaymentResult, error: transactionError } =
+      (await supabase.rpc('record_manual_order_payment', {
+        p_amount: parsedAmount,
+        p_currency: order.currency || 'NGN',
+        p_description: paymentDescription,
+        p_gateway_reference: reference ?? null,
+        p_merchant_id: merchant.id,
+        p_metadata: {
           payment_method: payment_method || 'manual',
           recorded_by: user.email,
         },
-      })
-      .select('id')
-      .single();
+        p_order_id: orderId,
+      })) as {
+        data: RecordManualPaymentResult | null;
+        error: PostgrestError | null;
+      };
 
     if (transactionError) {
-      // Detect duplicate reference conflict (unique constraint violation = code 23505)
-      const isDuplicate =
-        transactionError.code === '23505' ||
-        transactionError.message?.toLowerCase().includes('duplicate') ||
-        transactionError.message?.toLowerCase().includes('unique');
-
-      if (isDuplicate) {
-        logger.warn({
-          message: 'RecordPayment duplicate reference rejected at DB level',
-          orderId,
-          merchantId: merchant.id,
-          reference,
-        });
-        return NextResponse.json(
-          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
-          { status: 409 }
-        );
-      }
-
       logger.error({
         message: 'RecordPayment transaction insert error',
         error: transactionError,
@@ -412,6 +404,78 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    if (manualPaymentResult?.error_code === 'DUPLICATE_REFERENCE') {
+      logger.warn({
+        message: 'RecordPayment duplicate reference rejected at DB level',
+        orderId,
+        merchantId: merchant.id,
+        reference,
+      });
+      return NextResponse.json(
+        { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
+        { status: 409 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'ORDER_ALREADY_PAID') {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: order already fully paid',
+        orderId,
+        merchantId: merchant.id,
+      });
+      return NextResponse.json(
+        { error: 'Order is already fully paid' },
+        { status: 409 }
+      );
+    }
+
+    if (
+      manualPaymentResult?.error_code === 'AMOUNT_EXCEEDS_REMAINING_BALANCE'
+    ) {
+      logger.warn({
+        message:
+          'RecordPayment rejected by atomic insert: amount exceeds remaining balance',
+        orderId,
+        amount: parsedAmount,
+        merchantId: merchant.id,
+      });
+      return NextResponse.json(
+        { error: 'Amount exceeds remaining balance' },
+        { status: 409 }
+      );
+    }
+
+    if (manualPaymentResult?.error_code === 'ORDER_NOT_FOUND') {
+      logger.warn({
+        message: 'RecordPayment atomic insert lost order ownership check',
+        orderId,
+        merchantId: merchant.id,
+      });
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    if (
+      manualPaymentResult?.error_code ||
+      !manualPaymentResult?.transaction_id
+    ) {
+      logger.error({
+        message: 'RecordPayment atomic insert returned an unexpected result',
+        manualPaymentResult,
+        orderId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      );
+    }
+
+    const createdTransaction = { id: manualPaymentResult.transaction_id };
+    const newPaid = Number(manualPaymentResult.new_paid ?? estimatedNewPaid);
+    const remainingBalance = Number(
+      manualPaymentResult.remaining_balance ?? estimatedRemainingBalance
+    );
 
     // 5. Update Order Status
     const updates: {
@@ -481,6 +545,7 @@ export async function POST(
             .from('transactions')
             .select('id')
             .eq('order_id', orderId)
+            .eq('merchant_id', merchantId)
             .eq('gateway_reference', reference)
             .maybeSingle();
           recordedTransactionId = recordedTransaction?.id ?? null;

@@ -1,0 +1,136 @@
+-- Serialize manual payment recording per order.
+--
+-- The API route can perform cheap prechecks for better UX, but the balance
+-- check and transaction insert must be atomic. This function locks the verified
+-- merchant-owned order row, recomputes completed payments inside that lock, and
+-- inserts the manual transaction only if the order still has enough balance.
+create or replace function public.record_manual_order_payment(
+  p_merchant_id uuid,
+  p_order_id uuid,
+  p_amount numeric,
+  p_currency text,
+  p_gateway_reference text,
+  p_description text,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_order record;
+  v_current_paid numeric := 0;
+  v_wallet_used numeric := 0;
+  v_total_paid_before numeric := 0;
+  v_order_total numeric := 0;
+  v_remaining_before numeric := 0;
+  v_new_paid numeric := 0;
+  v_remaining_balance numeric := 0;
+  v_transaction_id uuid;
+begin
+  select
+    o.id,
+    o.merchant_id,
+    coalesce(o.total, 0)::numeric as total,
+    coalesce(o.wallet_amount_used, 0)::numeric as wallet_amount_used
+  into v_order
+  from public.orders as o
+  where o.id = p_order_id
+    and o.merchant_id = p_merchant_id
+    and public.has_merchant_access(o.merchant_id)
+  for update;
+
+  if not found then
+    return jsonb_build_object('error_code', 'ORDER_NOT_FOUND');
+  end if;
+
+  select coalesce(sum(coalesce(t.amount, 0)), 0)::numeric
+  into v_current_paid
+  from public.transactions as t
+  where t.order_id = p_order_id
+    and t.merchant_id = p_merchant_id
+    and t.status = 'completed';
+
+  v_wallet_used := coalesce(v_order.wallet_amount_used, 0);
+  v_order_total := coalesce(v_order.total, 0);
+  v_total_paid_before := v_current_paid + v_wallet_used;
+  v_remaining_before := v_order_total - v_total_paid_before;
+
+  if v_remaining_before <= 0 then
+    return jsonb_build_object(
+      'error_code', 'ORDER_ALREADY_PAID',
+      'current_paid', v_current_paid,
+      'total_paid_before', v_total_paid_before,
+      'remaining_balance', greatest(0, v_remaining_before)
+    );
+  end if;
+
+  if p_amount > v_remaining_before then
+    return jsonb_build_object(
+      'error_code', 'AMOUNT_EXCEEDS_REMAINING_BALANCE',
+      'current_paid', v_current_paid,
+      'total_paid_before', v_total_paid_before,
+      'remaining_balance', greatest(0, v_remaining_before)
+    );
+  end if;
+
+  if p_gateway_reference is not null and exists (
+    select 1
+    from public.transactions as t
+    where t.order_id = p_order_id
+      and t.merchant_id = p_merchant_id
+      and t.gateway_reference = p_gateway_reference
+      and t.status = 'completed'
+  ) then
+    return jsonb_build_object('error_code', 'DUPLICATE_REFERENCE');
+  end if;
+
+  insert into public.transactions (
+    merchant_id,
+    order_id,
+    transaction_type,
+    amount,
+    currency,
+    status,
+    gateway,
+    gateway_reference,
+    description,
+    metadata
+  )
+  values (
+    p_merchant_id,
+    p_order_id,
+    'payment',
+    p_amount,
+    coalesce(nullif(trim(p_currency), ''), 'NGN'),
+    'completed',
+    'manual',
+    p_gateway_reference,
+    p_description,
+    coalesce(p_metadata, '{}'::jsonb)
+  )
+  returning id into v_transaction_id;
+
+  v_new_paid := v_total_paid_before + p_amount;
+  v_remaining_balance := greatest(0, v_order_total - v_new_paid);
+
+  return jsonb_build_object(
+    'transaction_id', v_transaction_id,
+    'current_paid', v_current_paid,
+    'total_paid_before', v_total_paid_before,
+    'new_paid', v_new_paid,
+    'remaining_balance', v_remaining_balance,
+    'error_code', null
+  );
+exception
+  when unique_violation then
+    return jsonb_build_object('error_code', 'DUPLICATE_REFERENCE');
+end;
+$$;
+
+revoke all on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) from public;
+grant execute on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) to authenticated;
+
+comment on function public.record_manual_order_payment(uuid, uuid, numeric, text, text, text, jsonb) is
+  'Atomically records a manual order payment by locking the merchant-owned order row, recomputing paid totals, rejecting stale overpayments or duplicate references, and inserting the transaction in one database transaction.';

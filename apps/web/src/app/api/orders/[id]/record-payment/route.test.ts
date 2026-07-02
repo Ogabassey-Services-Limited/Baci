@@ -193,6 +193,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
     deleteError?: unknown;
     insertError?: unknown;
     insertTransaction?: unknown;
+    recordManualPayment?: unknown;
+    recordManualPaymentErrorCode?: string | null;
     merchant?: unknown;
     merchantError?: unknown;
     order?: unknown;
@@ -261,9 +263,37 @@ describe('POST /api/orders/[id]/record-payment', () => {
       if (table === 'transactions') return transactionQuery;
       throw new Error(`Unexpected table ${table}`);
     });
-    const rpc = vi.fn().mockResolvedValue({
-      data: fixture.transactions ?? [],
-      error: fixture.transactionsError ?? null,
+    const defaultManualPayment = {
+      current_paid: null,
+      error_code: fixture.recordManualPaymentErrorCode ?? null,
+      new_paid: null,
+      remaining_balance: null,
+      total_paid_before: null,
+      transaction_id:
+        insertTransaction &&
+        typeof insertTransaction === 'object' &&
+        'id' in insertTransaction
+          ? insertTransaction.id
+          : null,
+      ...(fixture.recordManualPayment &&
+      typeof fixture.recordManualPayment === 'object'
+        ? fixture.recordManualPayment
+        : {}),
+    };
+    const rpc = vi.fn((name: string) => {
+      if (name === 'get_record_payment_order_transactions') {
+        return Promise.resolve({
+          data: fixture.transactions ?? [],
+          error: fixture.transactionsError ?? null,
+        });
+      }
+      if (name === 'record_manual_order_payment') {
+        return Promise.resolve({
+          data: defaultManualPayment,
+          error: fixture.insertError ?? null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
     });
 
     mockSupabaseClient.from = from;
@@ -276,7 +306,23 @@ describe('POST /api/orders/[id]/record-payment', () => {
     transactions: unknown[],
     error: unknown = null
   ) => {
-    const rpc = vi.fn().mockResolvedValue({ data: transactions, error });
+    const rpc = vi.fn((name: string) => {
+      if (name === 'get_record_payment_order_transactions') {
+        return Promise.resolve({ data: transactions, error });
+      }
+      if (name === 'record_manual_order_payment') {
+        return Promise.resolve({
+          data: {
+            error_code: null,
+            new_paid: null,
+            remaining_balance: null,
+            transaction_id: 'txn-123',
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
     mockSupabaseClient.rpc = rpc;
     return rpc;
   };
@@ -1372,6 +1418,70 @@ describe('POST /api/orders/[id]/record-payment', () => {
       error: 'Duplicate payment reference',
       code: 'DUPLICATE_REFERENCE',
     });
+  });
+
+  it('returns 409 when the atomic insert detects a stale overpayment', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      customer_name: 'John Doe',
+      customer_email: 'john@example.com',
+      customer_phone: '+1234567890',
+      total: 10000,
+      subtotal: 9000,
+      shipping_fee: 1000,
+      currency: 'NGN',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      wallet_amount_used: 0,
+      order_items: [{ name: 'Product 1', quantity: 2, price: 4500 }],
+      shipping_address: {
+        address: '123 Main St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    };
+
+    const { orderQuery, rpc } = setupRecordPaymentSupabase({
+      merchant: mockMerchant,
+      order: mockOrder,
+      recordManualPaymentErrorCode: 'AMOUNT_EXCEEDS_REMAINING_BALANCE',
+      transactions: [],
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-STALE-BALANCE',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: mockOrderId }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({ error: 'Amount exceeds remaining balance' });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_manual_order_payment',
+      expect.objectContaining({
+        p_amount: 5000,
+        p_gateway_reference: 'REF-STALE-BALANCE',
+        p_merchant_id: mockMerchantId,
+        p_order_id: mockOrderId,
+      })
+    );
+    expect(orderQuery.update).not.toHaveBeenCalled();
   });
 
   it('returns 409 when payment amount exceeds remaining balance', async () => {
