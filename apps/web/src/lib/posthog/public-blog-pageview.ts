@@ -1,11 +1,14 @@
 import { resolvePostHogWebTenantContext } from '@/lib/posthog/client-config';
 import { getPostHogProxyPath, type PostHogEnv } from '@/lib/posthog/config';
+import {
+  getPostHogPersistenceKey,
+  readPostHogPersistedIdentity,
+  readPostHogPersistenceRecord,
+} from '@/lib/posthog/persisted-identity';
 
 const DEFAULT_PUBLIC_BLOG_URL_BASE = 'https://usebaci.com';
 const LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY = 'baci_public_blog_distinct_id';
 const POSTHOG_CAPTURE_ENDPOINT = '/i/v0/e/';
-const POSTHOG_SDK_PERSISTENCE_KEY_PREFIX = 'ph_';
-const POSTHOG_SDK_PERSISTENCE_KEY_SUFFIX = '_posthog';
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 const LIKELY_BOT_USER_AGENT_PATTERN =
   /(?:bot|crawler|spider|chrome-lighthouse|pagespeed|headlesschrome|google-inspectiontool|googleother|siteauditbot|semrushbot|ahrefsbot|gptbot|oai-searchbot|chatgpt-user|perplexitybot|vercelbot|facebookexternal|twitterbot|linkedinbot|slackbot)/i;
@@ -19,18 +22,6 @@ const DEFAULT_PUBLIC_BLOG_POSTHOG_ENV: PostHogEnv = {
 
 let lastCapturedPublicBlogPageviewUrl: string | undefined;
 const inMemoryPublicBlogDistinctIds = new Map<string, string>();
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getStringProperty(
-  value: Record<string, unknown>,
-  key: string
-): string | undefined {
-  const property = value[key];
-  return typeof property === 'string' && property.trim() ? property : undefined;
-}
 
 function redactUrlQuery(value: string): string {
   const markerIndex = value.search(QUERY_OR_HASH_PATTERN);
@@ -61,10 +52,6 @@ function buildSanitizedUrl(currentUrl: string): URL {
   );
 }
 
-function getPostHogSdkPersistenceKey(projectToken: string): string {
-  return `${POSTHOG_SDK_PERSISTENCE_KEY_PREFIX}${projectToken}${POSTHOG_SDK_PERSISTENCE_KEY_SUFFIX}`;
-}
-
 function readStorageValue(key: string): string | undefined {
   try {
     return globalThis.localStorage?.getItem(key) ?? undefined;
@@ -86,34 +73,6 @@ function writeStorageValue(key: string, value: string): boolean {
   }
 }
 
-function parsePostHogPersistenceValue(
-  value: string | undefined
-): Record<string, unknown> | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const candidates = [value];
-  try {
-    candidates.push(decodeURIComponent(value));
-  } catch {
-    // Some storage adapters persist raw JSON. Ignore invalid URI encodings.
-  }
-
-  for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (isRecord(parsed)) {
-        return parsed;
-      }
-    } catch {
-      // Try the next supported PostHog persistence encoding.
-    }
-  }
-
-  return undefined;
-}
-
 function generatePublicBlogDistinctId(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
@@ -124,23 +83,15 @@ function generatePublicBlogDistinctId(): string {
 }
 
 function getExistingSdkDistinctId(projectToken: string): string | undefined {
-  const sdkPersistence = parsePostHogPersistenceValue(
-    readStorageValue(getPostHogSdkPersistenceKey(projectToken))
-  );
+  const { distinctId, deviceId } = readPostHogPersistedIdentity(projectToken);
 
-  const sdkDistinctId = sdkPersistence
-    ? getStringProperty(sdkPersistence, 'distinct_id')
-    : undefined;
-  if (sdkDistinctId) {
-    return sdkDistinctId;
+  if (distinctId) {
+    return distinctId;
   }
 
-  const sdkDeviceId = sdkPersistence
-    ? getStringProperty(sdkPersistence, '$device_id')
-    : undefined;
-  if (sdkDeviceId) {
-    seedSdkDistinctId(projectToken, sdkDeviceId);
-    return sdkDeviceId;
+  if (deviceId) {
+    seedSdkDistinctId(projectToken, deviceId);
+    return deviceId;
   }
 
   const legacyDistinctId = readStorageValue(LEGACY_PUBLIC_BLOG_DISTINCT_ID_KEY);
@@ -153,10 +104,9 @@ function getExistingSdkDistinctId(projectToken: string): string | undefined {
 }
 
 function seedSdkDistinctId(projectToken: string, distinctId: string): boolean {
-  const storageKey = getPostHogSdkPersistenceKey(projectToken);
-  const existingPersistence =
-    parsePostHogPersistenceValue(readStorageValue(storageKey)) ?? {};
-  const deviceId = getStringProperty(existingPersistence, '$device_id');
+  const storageKey = getPostHogPersistenceKey(projectToken);
+  const existingPersistence = readPostHogPersistenceRecord(projectToken) ?? {};
+  const { deviceId } = readPostHogPersistedIdentity(projectToken);
   const nextPersistence = {
     ...existingPersistence,
     $device_id: deviceId ?? distinctId,

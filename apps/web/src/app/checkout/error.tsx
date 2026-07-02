@@ -2,9 +2,9 @@
 
 import { AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { ChunkRecoveryNotice } from '@/components/system/chunk-recovery-notice';
 import { Button } from '@/components/ui/button';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
+import { useBoundaryErrorReport } from '@/hooks/use-boundary-error-report';
 
 export default function CheckoutError({
   error,
@@ -13,13 +13,14 @@ export default function CheckoutError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'checkout',
-      digest: error.digest,
-    });
-    console.error('Checkout error:', error);
-  }, [error]);
+  const recovering = useBoundaryErrorReport(error, {
+    routeSurface: 'checkout',
+    logLabel: 'Checkout error',
+  });
+
+  if (recovering) {
+    return <ChunkRecoveryNotice />;
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 import { V2SavedProvider, useV2Saved } from './v2-saved-context';
@@ -35,6 +36,36 @@ function SavedConsumer() {
 }
 
 describe('V2SavedProvider', () => {
+
+  it('returns an inert server fallback when a saved provider is absent during SSR', () => {
+    vi.stubGlobal('window', undefined);
+
+    function ServerRenderedConsumer() {
+      const saved = useV2Saved();
+      return <div>{saved.isSaved('product-1') ? 'saved' : 'not saved'}</div>;
+    }
+
+    expect(() => renderToString(<ServerRenderedConsumer />)).not.toThrow();
+    expect(renderToString(<ServerRenderedConsumer />)).toContain('not saved');
+  });
+
+  it('returns the same inert fallback on the client when a saved provider is absent', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    expect(() => render(<SavedConsumer />)).not.toThrow();
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle saved' }));
+    }).not.toThrow();
+    expect(screen.getByTestId('saved-count')).toHaveTextContent('0');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'V2SavedProvider is missing; using inert saved-items fallback'
+    );
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
@@ -44,6 +75,7 @@ describe('V2SavedProvider', () => {
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('defers localStorage hydration until idle timeout', () => {

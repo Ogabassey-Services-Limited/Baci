@@ -21,9 +21,31 @@ interface V2SavedContextType {
 const V2SavedContext = createContext<V2SavedContextType | undefined>(undefined);
 const SAVED_STORAGE_KEY = 'ogabassey_v2_saved';
 const STORAGE_HYDRATION_TIMEOUT_MS = 1200;
+let hasWarnedMissingSavedProvider = false;
+
+const SERVER_SAVED_CONTEXT_FALLBACK: V2SavedContextType = {
+  savedItems: [],
+  toggleSaved: () => undefined,
+  isSaved: () => false,
+  toastState: {
+    show: false,
+    message: '',
+    type: 'add',
+  },
+  dismissToast: () => undefined,
+};
 
 function warnSavedStorageUnavailable(error: unknown) {
   console.warn('Saved items storage is unavailable', error);
+}
+
+function warnMissingSavedProvider() {
+  if (hasWarnedMissingSavedProvider) {
+    return;
+  }
+
+  hasWarnedMissingSavedProvider = true;
+  console.warn('V2SavedProvider is missing; using inert saved-items fallback');
 }
 
 function hasRequiredStoredString(
@@ -103,7 +125,10 @@ function writeSavedItemsToStorage(savedItems: Product[]) {
 export const useV2Saved = () => {
   const context = use(V2SavedContext);
   if (!context) {
-    throw new Error('useV2Saved must be used within a V2SavedProvider');
+    if (typeof window !== 'undefined') {
+      warnMissingSavedProvider();
+    }
+    return SERVER_SAVED_CONTEXT_FALLBACK;
   }
   return context;
 };

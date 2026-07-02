@@ -50,6 +50,8 @@ jobs:
               - '.github/scripts/blog-smoke-check.mjs'
               - '.github/scripts/cloudflare-purge-cache.mjs'
               - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/merge-static-union.sh'
+              - '.github/scripts/merge-static-union.test.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
@@ -151,6 +153,42 @@ jobs:
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
       - name: Build for Vercel
         run: .github/scripts/run-pinned-vercel.sh build --yes --prod
+      # Every production deploy replaces content-hashed _next/static chunk
+      # filenames. Clients that already loaded HTML from a previous
+      # deployment then request the OLD chunk filenames, which no longer
+      # exist in the new build, and Vercel skew protection does not rescue
+      # every case (verified). These three steps merge the previous ~48h of
+      # _next/static files ("union") into this build's output so stale
+      # clients keep finding their chunks by filename. Content-hashed names
+      # make this safe: identical filename implies identical content, and
+      # merge-static-union.sh never overwrites a file this build produced.
+      # See docs/incidents/2026-07-02-chunk-load-recovery-problem-statement.md
+      # The union is an optimization: a deploy without it is strictly better
+      # than no deploy, so none of its three steps may fail the job.
+      - name: Restore static chunk union cache
+        id: static-union-cache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .vercel-static-union
+          key: prebuilt-static-union-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            prebuilt-static-union-
+      - name: Merge static chunk union
+        continue-on-error: true
+        run: |
+          OUTPUT_STATIC_DIR="$GITHUB_WORKSPACE/.vercel/output/static/_next/static"
+          if [ ! -d "$OUTPUT_STATIC_DIR" ]; then
+            echo "::warning::Skipping static chunk union merge — $OUTPUT_STATIC_DIR not found (Vercel build output layout may have changed)."
+            exit 0
+          fi
+          UNION_DIR="$GITHUB_WORKSPACE/.vercel-static-union" OUTPUT_STATIC_DIR="$OUTPUT_STATIC_DIR" .github/scripts/merge-static-union.sh
+      - name: Save static chunk union cache
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .vercel-static-union
+          key: prebuilt-static-union-${{ github.run_id }}-${{ github.run_attempt }}
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)

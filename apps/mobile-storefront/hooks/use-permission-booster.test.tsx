@@ -1,18 +1,26 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 
 const mockNotificationsModuleLoad = jest.fn();
 const mockGetPermissionsAsync = jest
-  .fn()
+  .fn<() => Promise<{ status: string }>>()
   .mockResolvedValue({ status: 'granted' });
 const mockRequestPermissionsAsync = jest
-  .fn()
+  .fn<() => Promise<{ status: string }>>()
   .mockResolvedValue({ status: 'granted' });
 const mockGetTrackingPermissionsAsync = jest
-  .fn()
+  .fn<() => Promise<{ status: string }>>()
   .mockResolvedValue({ status: 'undetermined' });
 const mockRequestTrackingPermissionsAsync = jest
-  .fn()
+  .fn<() => Promise<{ status: string }>>()
   .mockResolvedValue({ status: 'granted' });
 let mockRejectNextNotificationsModuleLoad = false;
 const originalPlatformOS = Platform.OS;
@@ -92,6 +100,78 @@ describe('usePermissionBooster native module loading', () => {
     expect(mockNotificationsModuleLoad).toHaveBeenCalledTimes(2);
     expect(mockGetPermissionsAsync).toHaveBeenCalledTimes(1);
   });
+
+  it('returns null instead of throwing when notification permission APIs are unavailable', async () => {
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { getNotificationPermissionStatus } = await import(
+      './use-permission-booster'
+    );
+
+    await expect(getNotificationPermissionStatus({})).resolves.toBeNull();
+    expect(mockGetPermissionsAsync).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API unavailable: getPermissionsAsync'
+    );
+  });
+
+  it('returns null instead of throwing when notification permission status calls fail', async () => {
+    const permissionError = new TypeError('undefined is not a function');
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { getNotificationPermissionStatus } = await import(
+      './use-permission-booster'
+    );
+    const getPermissionsAsync = () => Promise.reject(permissionError);
+
+    await expect(
+      getNotificationPermissionStatus({
+        getPermissionsAsync,
+      })
+    ).resolves.toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API failed: getPermissionsAsync',
+      permissionError
+    );
+  });
+
+  it('returns false instead of throwing when notification request APIs are unavailable', async () => {
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { requestNotificationPermissionStatus } = await import(
+      './use-permission-booster'
+    );
+
+    await expect(requestNotificationPermissionStatus({})).resolves.toBe(false);
+    expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API unavailable: requestPermissionsAsync'
+    );
+  });
+
+  it('returns false instead of throwing when notification permission request calls fail', async () => {
+    const permissionError = new TypeError('undefined is not a function');
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { requestNotificationPermissionStatus } = await import(
+      './use-permission-booster'
+    );
+    const requestPermissionsAsync = () => Promise.reject(permissionError);
+
+    await expect(
+      requestNotificationPermissionStatus({
+        requestPermissionsAsync,
+      })
+    ).resolves.toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API failed: requestPermissionsAsync',
+      permissionError
+    );
+  });
 });
 
 describe('usePermissionBooster tracking permissions', () => {
@@ -136,7 +216,7 @@ describe('usePermissionBooster tracking permissions', () => {
     const { usePermissionBooster } = await import('./use-permission-booster');
     const { result } = renderHook(() => usePermissionBooster());
 
-    await act(async () => {
+    act(() => {
       result.current.reset();
       result.current.markDenied('tracking');
     });
@@ -162,7 +242,7 @@ describe('usePermissionBooster tracking permissions', () => {
       await import('./use-permission-booster');
     const { result } = renderHook(() => usePermissionBooster());
 
-    await act(async () => {
+    act(() => {
       result.current.reset();
       result.current.markDenied('tracking');
     });
@@ -219,7 +299,7 @@ describe('usePermissionBooster tracking permissions', () => {
     const { usePermissionBooster } = await import('./use-permission-booster');
     const { result } = renderHook(() => usePermissionBooster());
 
-    await act(async () => {
+    act(() => {
       result.current.reset();
     });
 

@@ -7,6 +7,7 @@
 import { QuoteAggregator } from './aggregator';
 import { ShippingProviderRegistry } from './providers/base';
 import { GiglProvider } from './providers/gigl';
+import { isGiglRuntimeConfigured } from './providers/gigl.constants';
 import { TopshipProvider } from './providers/topship';
 import type {
   BookingRequest,
@@ -27,7 +28,9 @@ import type {
 const registry = new ShippingProviderRegistry();
 
 // Register providers
-registry.register(new GiglProvider());
+if (isGiglRuntimeConfigured()) {
+  registry.register(new GiglProvider());
+}
 registry.register(new TopshipProvider());
 
 // Create aggregator

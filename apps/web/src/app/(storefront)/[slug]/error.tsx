@@ -2,10 +2,10 @@
 
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { ChunkRecoveryNotice } from '@/components/system/chunk-recovery-notice';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
-import { captureClientException } from '@/lib/posthog/client-exceptions';
+import { useBoundaryErrorReport } from '@/hooks/use-boundary-error-report';
 import { asRoute } from '@/lib/routes';
 
 interface ErrorProps {
@@ -17,14 +17,15 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
 
-  useEffect(() => {
-    captureClientException(error, {
-      route_surface: 'storefront',
-      storefront_base_path: basePath,
-      digest: error.digest,
-    });
-    console.error('Storefront error:', error);
-  }, [basePath, error]);
+  const recovering = useBoundaryErrorReport(error, {
+    routeSurface: 'storefront',
+    logLabel: 'Storefront error',
+    properties: { storefront_base_path: basePath },
+  });
+
+  if (recovering) {
+    return <ChunkRecoveryNotice />;
+  }
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-8">
