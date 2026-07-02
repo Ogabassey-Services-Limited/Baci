@@ -116,6 +116,26 @@ describe('usePermissionBooster native module loading', () => {
     );
   });
 
+  it('returns null instead of throwing when notification permission status calls fail', async () => {
+    const permissionError = new TypeError('undefined is not a function');
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { getNotificationPermissionStatus } = await import(
+      './use-permission-booster'
+    );
+
+    await expect(
+      getNotificationPermissionStatus({
+        getPermissionsAsync: jest.fn().mockRejectedValue(permissionError),
+      })
+    ).resolves.toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API failed: getPermissionsAsync',
+      permissionError
+    );
+  });
+
   it('returns false instead of throwing when notification request APIs are unavailable', async () => {
     const warnSpy = jest
       .spyOn(console, 'warn')
@@ -128,6 +148,26 @@ describe('usePermissionBooster native module loading', () => {
     expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       'Notification permission API unavailable: requestPermissionsAsync'
+    );
+  });
+
+  it('returns false instead of throwing when notification permission request calls fail', async () => {
+    const permissionError = new TypeError('undefined is not a function');
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { requestNotificationPermissionStatus } = await import(
+      './use-permission-booster'
+    );
+
+    await expect(
+      requestNotificationPermissionStatus({
+        requestPermissionsAsync: jest.fn().mockRejectedValue(permissionError),
+      })
+    ).resolves.toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API failed: requestPermissionsAsync',
+      permissionError
     );
   });
 });

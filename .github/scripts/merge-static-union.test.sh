@@ -104,6 +104,28 @@ printf '%s' "$output" | grep -q 'pruned=1' || fail "size-cap prune should remove
 [ -f "$test4_union/files/chunks/f2-old.js" ] || fail "newer file f2 should survive size-cap pruning"
 [ -f "$test4_union/files/chunks/f3-old.js" ] || fail "newest file f3 should survive size-cap pruning"
 
+# --- Test 4b: size-cap pruning also runs after ingesting the new build. ---
+test4b_union="$TMPDIR/t4b/union"
+test4b_out="$TMPDIR/t4b/out/_next/static/chunks"
+mkdir -p "$test4b_out" "$test4b_union/files/chunks"
+old_ts=$(( $(date +%s) - 3600 ))
+head -c 4000000 /dev/zero > "$test4b_union/files/chunks/old-seed.js"
+printf 'chunks/old-seed.js\t%s\n' "$old_ts" > "$test4b_union/manifest.tsv"
+head -c 4000000 /dev/zero > "$test4b_out/new-a.js"
+head -c 4000000 /dev/zero > "$test4b_out/new-b.js"
+
+output=$(run_merge "$TMPDIR/t4b/union" "$TMPDIR/t4b/out/_next/static" 172800 10 2>&1)
+printf '%s' "$output" | grep -q 'pruned=1' \
+  || fail "post-ingest size-cap prune should remove the oldest cached file: $output"
+[ ! -f "$test4b_union/files/chunks/old-seed.js" ] \
+  || fail "post-ingest size-cap prune should remove the oldest pre-existing union file"
+[ -f "$test4b_union/files/chunks/new-a.js" ] \
+  || fail "post-ingest size-cap prune should keep the current build's first new chunk"
+[ -f "$test4b_union/files/chunks/new-b.js" ] \
+  || fail "post-ingest size-cap prune should keep the current build's second new chunk"
+grep -q 'old-seed.js' "$test4b_union/manifest.tsv" \
+  && fail "post-ingest pruned file must be removed from the manifest"
+
 # --- Test 5: corrupted/missing manifest self-heals instead of failing. ------
 test5_union="$TMPDIR/t5/union"
 test5_out="$TMPDIR/t5/out/_next/static/chunks"

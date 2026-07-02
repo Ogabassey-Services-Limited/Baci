@@ -50,6 +50,8 @@ jobs:
               - '.github/scripts/blog-smoke-check.mjs'
               - '.github/scripts/cloudflare-purge-cache.mjs'
               - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/merge-static-union.sh'
+              - '.github/scripts/merge-static-union.test.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
@@ -166,7 +168,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .vercel-static-union
-          key: prebuilt-static-union-${{ github.run_id }}
+          key: prebuilt-static-union-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             prebuilt-static-union-
       - name: Merge static chunk union
@@ -182,7 +184,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .vercel-static-union
-          key: prebuilt-static-union-${{ github.run_id }}
+          key: prebuilt-static-union-${{ github.run_id }}-${{ github.run_attempt }}
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)

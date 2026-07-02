@@ -34,6 +34,14 @@ fail() {
   exit 1
 }
 
+file_mtime_epoch() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || date +%s
+}
+
+file_size_bytes() {
+  stat -c %s "$1" 2>/dev/null || stat -f %z "$1" 2>/dev/null || echo 0
+}
+
 UNION_DIR="${UNION_DIR:?UNION_DIR env var is required}"
 OUTPUT_STATIC_DIR="${OUTPUT_STATIC_DIR:?OUTPUT_STATIC_DIR env var is required}"
 RETENTION_SECONDS="${RETENTION_SECONDS:-172800}"
@@ -83,7 +91,7 @@ fi
 while IFS= read -r -d '' file; do
   relpath="${file#"$UNION_FILES_DIR"/}"
   if [ -z "${MANIFEST_TS[$relpath]+x}" ]; then
-    ts=$(stat -c %Y "$file" 2>/dev/null || date +%s)
+    ts=$(file_mtime_epoch "$file")
     MANIFEST_TS["$relpath"]="$ts"
   fi
 done < <(find "$UNION_FILES_DIR" -type f -print0 2>/dev/null)
@@ -91,34 +99,30 @@ done < <(find "$UNION_FILES_DIR" -type f -print0 2>/dev/null)
 now=$(date +%s)
 pruned_count=0
 pruned_bytes=0
-
-# --- Step 3a: retention prune — drop anything older than RETENTION_SECONDS.
-for relpath in "${!MANIFEST_TS[@]}"; do
-  firstseen="${MANIFEST_TS[$relpath]}"
-  age=$(( now - firstseen ))
-  if [ "$age" -gt "$RETENTION_SECONDS" ]; then
-    file="$UNION_FILES_DIR/$relpath"
-    if [ -f "$file" ]; then
-      size=$(stat -c %s "$file" 2>/dev/null || echo 0)
-      pruned_bytes=$(( pruned_bytes + size ))
-      rm -f "$file"
-    fi
-    unset -v "MANIFEST_TS[$relpath]"
-    pruned_count=$(( pruned_count + 1 ))
-  fi
-done
-
-# --- Step 3b: size-cap prune — if still over budget, delete oldest-first.
 max_bytes=$(( MAX_UNION_MEGABYTES * 1024 * 1024 ))
-total_bytes=$(find "$UNION_FILES_DIR" -type f -printf '%s\n' 2>/dev/null | awk '{sum+=$1} END {print sum+0}')
 
-if [ "$total_bytes" -gt "$max_bytes" ]; then
+union_total_bytes() {
+  local file size total=0
+  while IFS= read -r -d '' file; do
+    size=$(file_size_bytes "$file")
+    total=$(( total + size ))
+  done < <(find "$UNION_FILES_DIR" -type f -print0 2>/dev/null)
+  printf '%s\n' "$total"
+}
+
+prune_to_size_cap() {
+  local total_bytes file size relpath _ts
+  total_bytes=$(union_total_bytes)
+  if [ "$total_bytes" -le "$max_bytes" ]; then
+    return
+  fi
+
   while IFS=$'\t' read -r _ts relpath; do
     [ "$total_bytes" -le "$max_bytes" ] && break
     [ -n "$relpath" ] || continue
     file="$UNION_FILES_DIR/$relpath"
     if [ -f "$file" ]; then
-      size=$(stat -c %s "$file" 2>/dev/null || echo 0)
+      size=$(file_size_bytes "$file")
       rm -f "$file"
       total_bytes=$(( total_bytes - size ))
       pruned_bytes=$(( pruned_bytes + size ))
@@ -130,7 +134,26 @@ if [ "$total_bytes" -gt "$max_bytes" ]; then
       printf '%s\t%s\n' "${MANIFEST_TS[$relpath]}" "$relpath"
     done | sort -n -k1,1
   )
-fi
+}
+
+# --- Step 3a: retention prune — drop anything older than RETENTION_SECONDS.
+for relpath in "${!MANIFEST_TS[@]}"; do
+  firstseen="${MANIFEST_TS[$relpath]}"
+  age=$(( now - firstseen ))
+  if [ "$age" -gt "$RETENTION_SECONDS" ]; then
+    file="$UNION_FILES_DIR/$relpath"
+    if [ -f "$file" ]; then
+      size=$(file_size_bytes "$file")
+      pruned_bytes=$(( pruned_bytes + size ))
+      rm -f "$file"
+    fi
+    unset -v "MANIFEST_TS[$relpath]"
+    pruned_count=$(( pruned_count + 1 ))
+  fi
+done
+
+# --- Step 3b: size-cap prune — if still over budget, delete oldest-first.
+prune_to_size_cap
 
 find "$UNION_FILES_DIR" -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
@@ -150,6 +173,11 @@ while IFS= read -r -d '' file; do
     ingested_count=$(( ingested_count + 1 ))
   fi
 done < <(find "$OUTPUT_STATIC_DIR" -type f -print0)
+
+# Enforce the persisted cache budget again after ingesting the current build's
+# new content-hashed chunks; this is the directory uploaded by actions/cache.
+prune_to_size_cap
+find "$UNION_FILES_DIR" -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
 # --- Step 5: restore union files the current build did not produce. Never
 # overwrite a file the current build already wrote.

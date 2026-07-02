@@ -57,6 +57,10 @@ function warnNotificationsPermissionApiUnavailable(method: string) {
   console.warn(`Notification permission API unavailable: ${method}`);
 }
 
+function warnNotificationsPermissionApiFailed(method: string, error: unknown) {
+  console.warn(`Notification permission API failed: ${method}`, error);
+}
+
 export async function getNotificationPermissionStatus(
   notifications: NotificationsPermissionModule
 ): Promise<string | null> {
@@ -65,8 +69,13 @@ export async function getNotificationPermissionStatus(
     return null;
   }
 
-  const settings = await notifications.getPermissionsAsync();
-  return settings.status;
+  try {
+    const settings = await notifications.getPermissionsAsync();
+    return settings.status;
+  } catch (error) {
+    warnNotificationsPermissionApiFailed('getPermissionsAsync', error);
+    return null;
+  }
 }
 
 export async function requestNotificationPermissionStatus(
@@ -77,8 +86,13 @@ export async function requestNotificationPermissionStatus(
     return false;
   }
 
-  const { status } = await notifications.requestPermissionsAsync();
-  return status === 'granted';
+  try {
+    const { status } = await notifications.requestPermissionsAsync();
+    return status === 'granted';
+  } catch (error) {
+    warnNotificationsPermissionApiFailed('requestPermissionsAsync', error);
+    return false;
+  }
 }
 
 function loadNotifications() {
