@@ -14,17 +14,6 @@ function dedupeProductsById<T extends { id: string }>(products: T[]): T[] {
   });
 }
 
-function sortProductsByName<T extends { name?: string | null }>(
-  products: T[]
-): T[] {
-  return [...products].sort((left, right) =>
-    (left.name ?? '').localeCompare(right.name ?? '', undefined, {
-      numeric: true,
-      sensitivity: 'base',
-    })
-  );
-}
-
 export function useProductPicker(searchQuery: string) {
   const debouncedSearchQuery = useDebounce(searchQuery, 150);
   const trimmedSearchQuery = debouncedSearchQuery.trim();
@@ -32,15 +21,13 @@ export function useProductPicker(searchQuery: string) {
     search: trimmedSearchQuery || undefined,
   });
   const products = query.data?.pages.flatMap((page) => page.products) ?? [];
-  const dedupedProducts = dedupeProductsById(products);
 
   return {
     ...query,
-    // While searching, `search_products_v2` already returns rows ranked by
-    // relevance — preserve that order so the best match stays on top. Only fall
-    // back to an alphabetical sort when browsing the unfiltered catalog.
-    products: trimmedSearchQuery
-      ? dedupedProducts
-      : sortProductsByName(dedupedProducts),
+    // Preserve the server's ordering: relevance from `search_products_v2` while
+    // searching, and `created_at` desc while browsing. A client-side sort here
+    // would only reorder the already-loaded pages, so the ranking would shuffle
+    // as more pages load (`fetchProducts` pages before `.range(...)`).
+    products: dedupeProductsById(products),
   };
 }

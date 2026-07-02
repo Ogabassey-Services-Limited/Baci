@@ -57,10 +57,12 @@ describe('useProductPicker', () => {
 
     const { result } = renderHook(() => useProductPicker(''));
 
-    expect(result.current.products).toEqual([laptop, firstPhone, tablet]);
+    expect(result.current.products).toEqual([firstPhone, laptop, tablet]);
   });
 
-  it('sorts picker products alphabetically by product name', () => {
+  it('preserves the server page order while browsing (no client re-sort)', () => {
+    // fetchProducts pages by created_at desc before .range(...), so a client-side
+    // sort would only reorder loaded pages and shuffle as more pages arrive.
     const zed = { id: 'zed-phone', name: 'Zed Phone' };
     const alpha = { id: 'alpha-phone', name: 'Alpha Phone' };
     const beta = { id: 'beta-phone', name: 'beta Phone' };
@@ -73,7 +75,7 @@ describe('useProductPicker', () => {
 
     const { result } = renderHook(() => useProductPicker(''));
 
-    expect(result.current.products).toEqual([alpha, beta, zed]);
+    expect(result.current.products).toEqual([zed, alpha, beta]);
   });
 
   it('preserves relevance order (no alpha sort) while a search query is active', () => {
