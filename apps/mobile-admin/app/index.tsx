@@ -89,7 +89,7 @@ export default function Index() {
           paddingHorizontal: 24,
         }}
       >
-        <Text style={{ color: '#DC2626', textAlign: 'center' }}>
+        <Text style={{ color: DARK_COLORS.error, textAlign: 'center' }}>
           Unable to load your merchant profile right now.
         </Text>
       </View>
